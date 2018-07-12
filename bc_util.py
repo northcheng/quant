@@ -41,10 +41,10 @@ def num_days_between(start_date, end_date, date_format='%Y-%m-%d'):
     return diff.days
 
 # 画多条折线图
-def plot_data(selected_data):
+def plot_data(selected_data, figsize=(15, 5)):
     
     # plot data
-    plt.figure(figsize=(15,4))
+    plt.figure(figsize=figsize)
     plt.rcParams['axes.facecolor'] = 'whitesmoke'
     
     # 颜色设置
