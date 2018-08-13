@@ -61,27 +61,3 @@ def plot_data(selected_data, figsize=(15, 5)):
            ncol=5, mode="expand", borderaxespad=0.)
     plt.grid(True)
     plt.xticks(rotation=90)   
-
-# # # 聚宽专用
-# # 计算股票在指定期间内的涨跌幅
-# def cal_price_change(stock_list, start_date, end_date):
-#     stock_price = get_price(security=stock_list, start_date=start_date, end_date=end_date, fields='close').fillna(method='bfill')
-#     stock_price_change = ((stock_price['close'].tail(1).values - stock_price['close'].head(1).values) / stock_price['close'].head(1).values) * 100
-#     stock_price_change = pd.DataFrame(stock_price_change, columns=stock_price['close'].columns).T
-#     stock_price_change.columns = ['price_change_pct']
-    
-#     return stock_price_change
-
-# # 保存数据
-# def df_2_csv(df, filename):
-    
-#     # 把 DataFrame 表保存到文件
-#     write_file('%s.csv' % filename, df.to_csv(), append=False) #写到文件中
-    
-# # 获取指数成分股信息
-# def get_index_stocks_info(index, all_sec_info):
-    
-#     index_stocks = get_index_stocks(index)
-#     index_stocks_info = all_sec_info.loc[index_stocks]
-    
-#     return index_stocks_info
