@@ -61,3 +61,7 @@ def plot_data(selected_data, figsize=(15, 5)):
            ncol=5, mode="expand", borderaxespad=0.)
     plt.grid(True)
     plt.xticks(rotation=90)   
+
+# 逆转minmax_scale
+def minmax_reverter(scaled_value, original_data, col):
+  return scaled_value * (original_data[col].max() - original_data[col].min()) + original_data[col].min()
