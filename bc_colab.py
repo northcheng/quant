@@ -44,7 +44,8 @@ def get_train_test_data(sec_code, prediction_date, drive_path='drive/My Drive', 
 
     # 如果是分类问题则将输出转化为 0/1 即 跌/涨
     if is_classification:
-      data['next_%s'%(n+1)] = (data['next_%s'%(n+1)] > data[prediction_field]).astype('int32')
+      for n in range(output_dim):
+        data['next_%s'%(n+1)] = (data['next_%s'%(n+1)] > data[prediction_field]).astype('int32')
       k = 2
     else:
       k = 0
@@ -53,16 +54,17 @@ def get_train_test_data(sec_code, prediction_date, drive_path='drive/My Drive', 
   scaler = MinMaxScaler()
   scaled_data = pd.DataFrame(scaler.fit_transform(data.values),columns=data.columns, index=data.index)
   
+  if is_classification:
+    for n in range(output_dim):
+      scaled_data['next_%s'%(n+1)] = scaled_data['next_%s'%(n+1)].astype('int32')
+
   # 分为训练集与测试集
   train_data = scaled_data[start_date:end_date]
   prediction_data = scaled_data.loc[prediction_date]
   
   # 分开输入与输出
   x = train_data.values[:, :input_dim]
-  if is_classification:
-    y = scaled_data.values[:, -output_dim:].astype('int32')
-  else:
-    y = train_data.values[:, -output_dim:]
+  y = train_data.values[:, -output_dim:]
 
   if is_shuffle:
     x, y = shuffle(x, y, random_state=0)
