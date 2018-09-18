@@ -16,7 +16,7 @@ def get_train_test_data(sec_code, prediction_date, drive_path='drive/My Drive', 
     # 获取时间列
     time_col = dims[d]
     # 读取数据, 转化为时间序列数据
-    raw_data[d] = util.df_2_timeseries(filename, time_col=time_col)
+    raw_data[d] = util.df_2_timeseries(pd.read_csv(filename), time_col=time_col)
     # 删除冗余列
     for col in raw_data[d].columns:
       if col in drop_col:
