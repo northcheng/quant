@@ -3,7 +3,7 @@ import pandas as pd
 from sklearn.utils import shuffle
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
-import bc_util as util
+from quant import bc_util as util
 
 # 读取googole drive上的数据文件, 创建训练与测试数据
 def get_train_test_data(sec_code, prediction_date, drive_path='drive/My Drive', prediction_field='close', dims={'stock_data': 'index', 'stock_money_flow': 'date'}, drop_col=['sec_code'],  start_date=None, end_date=None, is_shuffle=True):
