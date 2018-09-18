@@ -20,7 +20,7 @@ def get_train_test_data(sec_code, prediction_date, drive_path='drive/My Drive', 
     # 删除冗余列
     for col in raw_data[d].columns:
       if col in drop_col:
-        raw_data[d].drop(col, axis=1, inplace=1)
+        raw_data[d].drop(col, axis=1, inplace=True)
     # 打印结果
     print('读取', filename, ':', len(raw_data[d]))
   
