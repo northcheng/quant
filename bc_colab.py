@@ -78,7 +78,7 @@ def get_train_test_data(sec_code, prediction_date, drive_path='drive/My Drive', 
   print('预测数据: ', prediction_x.shape)
   
   return {
-      'sec_code': sec_code,
+      'sec_code': sec_code, 'k': k,
       'input_dim': input_dim, 'output_dim': output_dim,
       'data': data, 'scaled_data': scaled_data, 
       'train_x': train_x, 'train_y': train_y, 
