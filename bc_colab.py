@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split
 from quant import bc_util as util
 
 # 读取googole drive上的数据文件, 创建训练与测试数据
-def get_train_test_data(sec_code, prediction_date, drive_path='drive/My Drive', prediction_field='close', dims={'stock_data': 'index', 'stock_money_flow': 'date'}, drop_col=['sec_code'],  start_date=None, end_date=None, is_shuffle=True):
+def get_train_test_data(sec_code, prediction_date, drive_path='drive/My Drive', prediction_field='close', dims={'stock_data': 'index', 'stock_money_flow': 'date'}, drop_col=['sec_code'],  start_date=None, end_date=None, is_shuffle=True, is_classification=False):
   
   # 读取原始数据文件
   raw_data = {}
@@ -42,6 +42,13 @@ def get_train_test_data(sec_code, prediction_date, drive_path='drive/My Drive', 
     data['next_%s'%(n+1)] = data[prediction_field].shift(-(n+1))
   data.fillna(method='ffill', inplace=True)
     
+  # 如果是分类问题则将输出转化为 0/1 即 跌/涨
+  if is_classification:
+    data['next_1_close'] = (data['next_1_close'] > data['close']).astype('int32')
+    k = 2
+  else:
+    k = 0
+
   # 标准化
   scaler = MinMaxScaler()
   scaled_data = pd.DataFrame(scaler.fit_transform(data.values),columns=data.columns, index=data.index)
@@ -52,7 +59,11 @@ def get_train_test_data(sec_code, prediction_date, drive_path='drive/My Drive', 
   
   # 分开输入与输出
   x = train_data.values[:, :input_dim]
-  y = train_data.values[:, -output_dim:]
+  if is_classification:
+    y = scaled_data.values[:, -output_dim:].astype('int32')
+  else:
+    y = train_data.values[:, -output_dim:]
+
   if is_shuffle:
     x, y = shuffle(x, y, random_state=0)
   
