@@ -40,15 +40,14 @@ def get_train_test_data(sec_code, prediction_date, drive_path='drive/My Drive', 
   # 为数据添加未来 n 日的收盘价格数据
   for n in range(output_dim):
     data['next_%s'%(n+1)] = data[prediction_field].shift(-(n+1))
-    
+    data.fillna(method='ffill', inplace=True)
+
     # 如果是分类问题则将输出转化为 0/1 即 跌/涨
     if is_classification:
       data['next_%s'%(n+1)] = (data['next_%s'%(n+1)] > data[prediction_field]).astype('int32')
       k = 2
     else:
       k = 0
-
-  data.fillna(method='ffill', inplace=True)
 
   # 标准化
   scaler = MinMaxScaler()
