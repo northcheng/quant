@@ -69,7 +69,7 @@ def get_train_test_data(data, predict_dim, predict_date, start_date=None, end_da
   
   if is_classification:
     for n in range(output_dim):
-      sclaed_data['next_%s'%(n+1)] = scaled_data['next_%s'%(n+1)].astype('int32')
+      scaled_data['next_%s'%(n+1)] = scaled_data['next_%s'%(n+1)].astype('int32')
       
   # 分为训练集与预测集
   train_data = scaled_data[start_date:end_date]
