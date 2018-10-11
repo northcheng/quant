@@ -73,6 +73,7 @@ def minmax_reverter(scaled_value, original_data, col):
 # 画蜡烛图函数
 def plot_candlestick(df, num_days=50, figsize=(15,5)):
   
+  # 取关键字段
   ohlc_timeseries_df = df[['Open', 'High', 'Low', 'Close']]
 
   # 转化数据
@@ -107,5 +108,4 @@ def plot_candlestick(df, num_days=50, figsize=(15,5)):
     colorup='red', colordown='black'
   )
   plt.grid(True)
-  
   plt.show()
