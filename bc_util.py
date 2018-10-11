@@ -5,7 +5,7 @@ import datetime
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import matplotlib.cm as cmx
-from matplotlib import finance as mpl
+from matplotlib import finance as mpf
 from matplotlib.pylab import date2num
 
 # 普通dataframe转时间序列数据
