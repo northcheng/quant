@@ -126,7 +126,6 @@ def cal_change_rate(original_df, dim, period=1, is_add_acc_rate=True):
   # 计算涨跌率
   df[previous_dim] = df[dim].shift(period)
   df[dim_rate] = (df[dim] -  df[previous_dim]) /df[previous_dim] * 100
-  df.dropna(inplace=True)
   
   # 添加累计维度列
   if is_add_acc_rate:
@@ -146,5 +145,8 @@ def cal_change_rate(original_df, dim, period=1, is_add_acc_rate=True):
         df.loc[current_idx, dim_acc_rate] = current + previous
       else:
         df.loc[current_idx, dim_acc_rate] = current
-        
-    return df.drop(previous_dim, axis=1)
+    
+    df.dropna(inplace=True)	
+    df.drop(previous_dim, axis=1, inplace=True)
+    
+    return df
