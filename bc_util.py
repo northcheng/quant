@@ -227,7 +227,7 @@ def cal_signal(sec_list, times_std, stock_data_path, signal_data_path, end_date=
   # 计算每只股票的信号
   counter = 0
   for sec_code in sec_list:
-  
+  	print(sec_code)
     # 计数， 每200条打印一次
     counter += 1
     if counter % 200 == 0:
@@ -243,7 +243,7 @@ def cal_signal(sec_list, times_std, stock_data_path, signal_data_path, end_date=
                                             drop_na=False)
 
       # 计算涨跌率, 均值-方差范围
-      sec_data = util.cal_change_rate(original_df=sec_data, dim='Close')
+      sec_data = cal_change_rate(original_df=sec_data, dim='Close')
       tmp_result = cal_mean_std(df=sec_data, dim='acc_rate', times_std=times_std, end_date=end_date, window_size=window_size).tail(1)
       
       # 计算是否触发信号
