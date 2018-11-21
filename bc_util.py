@@ -227,7 +227,7 @@ def cal_signal(sec_list, times_std, stock_data_path, signal_data_path, end_date=
   # 计算每只股票的信号
   counter = 0
   for sec_code in sec_list:
-  	print(sec_code)
+    print(sec_code)
     # 计数， 每200条打印一次
     counter += 1
     if counter % 200 == 0:
