@@ -152,9 +152,6 @@ def cal_change_rate(original_df, dim, period=1, is_add_acc_rate=True):
     return df
 
 
-################################################################################
-
-
 # 计算特定列均值和上下N个标准差的范围
 def cal_mean_std(df, dim, times_std, end_date=None, window_size=None):
  
@@ -179,9 +176,6 @@ def cal_mean_std(df, dim, times_std, end_date=None, window_size=None):
   df['lower'] = lower
 
   return df
-
-
-################################################################################
 
 
 # 画出均值和上下N个标准差的范围
@@ -222,8 +216,76 @@ def plot_mean_std(df, dim, date, plot_info={'name': 'Untitled', 'data_length': 5
     plt.savefig(plot_name)
 
     
-################################################################################ 
+# 计算股票信号列表
+def cal_signal(sec_list, times_std, stock_data_path, signal_data_path, end_date=None, window_size=None, is_cal_all=False, is_return=False, is_save=True):
 
+  # 保存结果
+  signals = pd.DataFrame()  # 信号数据
+  signal_list = []          # 信号列表
+  signal_type = []          # 信号类型
 
+  # 计算每只股票的信号
+  counter = 0
+  for sec_code in sec_list:
+  
+    # 计数， 每200条打印一次
+    counter += 1
+    if counter % 200 == 0:
+      print(counter)
+  
+    try:
+      # 获取数据
+      sec_data = colab_util.read_stock_data(sec_code, 
+                                            file_path=stock_data_path, 
+                                            file_format='.csv', 
+                                            time_col='Date', 
+                                            drop_cols=[],
+                                            drop_na=False)
 
+      # 计算涨跌率, 均值-方差范围
+      sec_data = util.cal_change_rate(original_df=sec_data, dim='Close')
+      tmp_result = cal_mean_std(df=sec_data, dim='acc_rate', times_std=times_std, end_date=end_date, window_size=window_size).tail(1)
+      
+      # 计算是否触发信号
+      # 底部信号 = -1
+      if (tmp_result.acc_rate < tmp_result['lower']).values[0]:
+        print('[%s]'%counter, sec_code, 'triggered lower')
+        signal_list.append(sec_code)
+        signal_type.append(-1)
+        signals = signals.append(tmp_result)
+      # 顶部信号 = 1
+      elif (tmp_result.acc_rate > tmp_result['upper']).values[0]:
+        print('[%s]'%counter, sec_code, 'triggered upper')
+        signal_list.append(sec_code)
+        signal_type.append(1)
+        signals = signals.append(tmp_result)
+      # 未触发信号 = 0
+      else:
+        if is_cal_all:
+          signal_list.append(sec_code)
+          signal_type.append(0)
+          signals = signals.append(tmp_result)
+    
+    except Exception as e:
+	  # print(sec_code, e)
+      continue
+  
+  # 保存数据到google drive
+  if is_save:
+    if end_date is not None:
+      file_date = end_date
+    else:
+      file_date = util.time_2_string(datetime.datetime.today().date())
+      
+    signals['code'] = signal_list
+    signals['signal'] = signal_type
+    
+    if is_cal_all:
+      signals.to_csv(signal_data_path + 'complete_data/' + '%s.csv' % file_date)
+    
+    signals.query('signal != 0').to_csv(signal_data_path+'%s.csv' % file_date)
+  
+  # 返回信号列表
+  if is_return:
+    return signals
 #----------------------------- 概率模型 -----------------------------------#
