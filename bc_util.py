@@ -66,9 +66,8 @@ def plot_data(selected_data, figsize=(15, 5)):
 
 # 逆转minmax_scale
 def minmax_reverter(scaled_value, original_data, col):
+
   return scaled_value * (original_data[col].max() - original_data[col].min()) + original_data[col].min()
-
-
 
 # 画蜡烛图函数
 def plot_candlestick(df, num_days=50, figsize=(15,5), title=''):
@@ -90,7 +89,7 @@ def plot_candlestick(df, num_days=50, figsize=(15,5), title=''):
   fig, ax = plt.subplots(figsize=figsize)
   fig.subplots_adjust(bottom=0.2)
   fig.figsize = figsize
-#   ax.set_facecolor('white')
+	#   ax.set_facecolor('white')
   
   # 设置x轴刻度为日期
   ax.xaxis_date()
@@ -110,3 +109,42 @@ def plot_candlestick(df, num_days=50, figsize=(15,5), title=''):
   )
   plt.grid(True)
   plt.show()
+
+# 计算涨跌幅/累计涨跌幅
+# original_df: pandas.DataFrame, 原数据框
+# dim: string, 要计算涨跌幅的列
+def cal_change_rate(original_df, dim, period=1, is_add_acc_rate=True):
+  
+  # 复制 dataframe
+  df = original_df.copy()
+  
+  # 设置列名
+  previous_dim = '%(dim)s-%(period)s' % dict(dim=dim, period=period)
+  dim_rate = 'rate'
+  dim_acc_rate = 'acc_rate'
+  
+  # 计算涨跌率
+  df[previous_dim] = df[dim].shift(period)
+  df[dim_rate] = (df[dim] -  df[previous_dim]) /df[previous_dim] * 100
+  df.fillna(0, inplace=True)
+  
+  # 添加累计维度列
+  if is_add_acc_rate:
+    
+    df[dim_acc_rate] = 0
+  
+    # 计算累计值
+    idx = df.index.tolist()
+    for i in range(1, len(df)):
+      current_idx = idx[i]
+      previous_idx = idx[i-1]
+      current = df.loc[current_idx, dim_rate]
+      previous = df.loc[previous_idx, dim_acc_rate]
+
+      # 如果符号相同则累加, 否则重置
+      if previous * current > 0:
+        df.loc[current_idx, dim_acc_rate] = current + previous
+      else:
+        df.loc[current_idx, dim_acc_rate] = current
+        
+    return df.drop(previous_dim, axis=1)
