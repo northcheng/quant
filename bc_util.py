@@ -113,8 +113,6 @@ def plot_candlestick(df, num_days=50, figsize=(15,5), title=''):
 #----------------------------- 概率模型 -----------------------------------#
 
 # 计算涨跌幅/累计涨跌幅
-# original_df: pandas.DataFrame, 原数据框
-# dim: string, 要计算涨跌幅的列
 def cal_change_rate(original_df, dim, period=1, is_add_acc_rate=True):
   
   # 复制 dataframe
@@ -158,11 +156,6 @@ def cal_change_rate(original_df, dim, period=1, is_add_acc_rate=True):
 
 
 # 计算特定列均值和上下N个标准差的范围
-# df: pandas.DataFrame, 要计算均值和标准差的数据框
-# dim: string, 要计算的列
-# times_std: numeric, 标准差的倍数
-# end_data: string, 'yyyy-mm-dd', 截取到该日期为止的数据
-# window_size: int, 截取数据的最后window_size条
 def cal_mean_std(df, dim, times_std, end_date=None, window_size=None):
  
   # 筛选数据
@@ -192,15 +185,6 @@ def cal_mean_std(df, dim, times_std, end_date=None, window_size=None):
 
 
 # 画出均值和上下N个标准差的范围
-# df: pandas.DataFrame, 用于画图的数据, 应包含['mean', 'upper', 'lower']及其原始列
-# dim: string, 均值和标准差的原始列
-# date: string 'yyyy-mm-dd', 信号发出的日期
-# sec_code: string, 股票代码
-# plot_period: int, 画出数据最后plot_period条的走势
-# result_period: int, 画出信号之后几天的走势
-# is_save: boolean, 是否保存
-# file_path: 图片保存的地址
-# file_format: 图片保存的格式
 def plot_mean_std(df, dim, date, plot_info={'name': 'Untitled', 'data_length': 50, 'result_length':2}, is_save=False, img_info={'path': 'drive/My Drive/probabilistic_model/images/', 'format': '.png'}):
   
   # 需要绘出的维度
@@ -233,7 +217,7 @@ def plot_mean_std(df, dim, date, plot_info={'name': 'Untitled', 'data_length': 5
   plt.legend(loc='best')
   
   # 保存图像
-  if plot_info:
+  if is_save:
     plot_name = img_info['path'] + plot_info['name'] + '_' + date + '_' + '%s' % plot_info['result_length'] + img_info['format']
     plt.savefig(plot_name)
 
