@@ -267,8 +267,12 @@ def cal_signal(sec_list, times_std, stock_data_path, signal_data_path, end_date=
           signals = signals.append(tmp_result)
     
     except Exception as e:
-	  # print(sec_code, e)
+      # print(sec_code, e)
       continue
+  
+  # 添加结果列
+  signals['code'] = signal_list
+  signals['signal'] = signal_type
   
   # 保存数据到google drive
   if is_save:
@@ -277,9 +281,6 @@ def cal_signal(sec_list, times_std, stock_data_path, signal_data_path, end_date=
     else:
       file_date = util.time_2_string(datetime.datetime.today().date())
       
-    signals['code'] = signal_list
-    signals['signal'] = signal_type
-    
     if is_cal_all:
       signals.to_csv(signal_data_path + 'complete_data/' + '%s.csv' % file_date)
     
