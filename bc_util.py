@@ -267,7 +267,7 @@ def cal_signal(sec_list, times_std, stock_data_path, signal_data_path, end_date=
           signals = signals.append(tmp_result)
     
     except Exception as e:
-      # print(sec_code, e)
+      print(sec_code, e)
       continue
   
   # 添加结果列
