@@ -110,6 +110,8 @@ def plot_candlestick(df, num_days=50, figsize=(15,5), title=''):
   plt.grid(True)
   plt.show()
 
+#----------------------------- 概率模型 -----------------------------------#
+
 # 计算涨跌幅/累计涨跌幅
 # original_df: pandas.DataFrame, 原数据框
 # dim: string, 要计算涨跌幅的列
@@ -148,5 +150,96 @@ def cal_change_rate(original_df, dim, period=1, is_add_acc_rate=True):
     
     df.dropna(inplace=True)	
     df.drop(previous_dim, axis=1, inplace=True)
-    
+
     return df
+
+
+################################################################################
+
+
+# 计算特定列均值和上下N个标准差的范围
+# df: pandas.DataFrame, 要计算均值和标准差的数据框
+# dim: string, 要计算的列
+# times_std: numeric, 标准差的倍数
+# end_data: string, 'yyyy-mm-dd', 截取到该日期为止的数据
+# window_size: int, 截取数据的最后window_size条
+def cal_mean_std(df, dim, times_std, end_date=None, window_size=None):
+ 
+  # 筛选数据
+  if end_date is not None:
+    df = df[:end_date]
+  if window_size is not None:
+    df = df[-window_size:]
+    
+  # 复制 dataframe
+  df = df.copy()
+  
+  # 计算均值, 上下N倍标准差
+  dim_mean = df[dim].mean()
+  dim_std = df[dim].std()
+  upper = dim_mean + times_std * dim_std
+  lower = dim_mean - times_std * dim_std
+  
+  # 添加相应列
+  df['mean'] = dim_mean
+  df['upper'] = upper
+  df['lower'] = lower
+
+  return df
+
+
+################################################################################
+
+
+# 画出均值和上下N个标准差的范围
+# df: pandas.DataFrame, 用于画图的数据, 应包含['mean', 'upper', 'lower']及其原始列
+# dim: string, 均值和标准差的原始列
+# date: string 'yyyy-mm-dd', 信号发出的日期
+# sec_code: string, 股票代码
+# plot_period: int, 画出数据最后plot_period条的走势
+# result_period: int, 画出信号之后几天的走势
+# is_save: boolean, 是否保存
+# file_path: 图片保存的地址
+# file_format: 图片保存的格式
+def plot_mean_std(df, dim, date, plot_info={'name': 'Untitled', 'data_length': 50, 'result_length':2}, is_save=False, img_info={'path': 'drive/My Drive/probabilistic_model/images/', 'format': '.png'}):
+  
+  # 需要绘出的维度
+  plot_dims = ['upper', 'mean', 'lower', dim]
+  
+  # 构造图片名称
+  title = '%(title)s [%(dim)s: %(dim_value).3f%%]\n[%(high).3f%%, %(avg).3f%%, %(low).3f%%]' % dict(
+      title=plot_info['name'], 
+      dim=dim,
+      dim_value=df.loc[date, dim],
+      avg=df.loc[date, 'mean'],
+      high=df.loc[date, 'upper'],
+      low=df.loc[date, 'lower']
+  )
+    
+  # 创建图片
+  plt.figure()
+  plot_data = df[plot_dims].tail(plot_info['data_length'])
+  
+  # 画出信号
+  signal_data = plot_data[:date]
+  signal_data.plot(figsize=(20, 5), title=title)
+  
+  # 画出结果
+  if plot_info['result_length'] > 0:
+    result_idx = signal_data.index.tolist()[-1]
+    result_data = plot_data[dim][result_idx:].head(plot_info['result_length']+1)
+    plt.plot(result_data, '--oc', label='result', )
+  
+  plt.legend(loc='best')
+  
+  # 保存图像
+  if plot_info:
+    plot_name = img_info['path'] + plot_info['name'] + '_' + date + '_' + '%s' % plot_info['result_length'] + img_info['format']
+    plt.savefig(plot_name)
+
+    
+################################################################################ 
+
+
+
+#----------------------------- 概率模型 -----------------------------------#
