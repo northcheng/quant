@@ -7,7 +7,7 @@ from quant import bc_util as util
 
 
 # 读取股票数据
-def read_stock_data(sec_code, file_path, file_format, time_col, drop_cols=[], drop_none_digit=True, drop_na=True, sort_index=True):
+def read_stock_data(sec_code, file_path, file_format, time_col, drop_cols=[], drop_none_digit=False, drop_na=False, sort_index=True):
   
   # 构建文件名
   filename = file_path + sec_code + file_format
