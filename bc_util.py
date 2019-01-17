@@ -5,7 +5,7 @@ import datetime
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import matplotlib.cm as cmx
-from matplotlib import finance as mpf
+# from matplotlib import finance as mpf
 from matplotlib.pylab import date2num
 
 # 将时间字符串转化为时间对象
@@ -64,46 +64,46 @@ def plot_data(selected_data, figsize=(15, 5)):
     plt.grid(True)
     plt.xticks(rotation=90)   
 
-# 画蜡烛图函数
-def plot_candlestick(df, num_days=50, figsize=(15,5), title=''):
+# # 画蜡烛图函数
+# def plot_candlestick(df, num_days=50, figsize=(15,5), title=''):
   
-  # 取关键字段
-  ohlc_timeseries_df = df[['Open', 'High', 'Low', 'Close']]
+#   # 取关键字段
+#   ohlc_timeseries_df = df[['Open', 'High', 'Low', 'Close']]
 
-  # 转化数据
-  data_list = []
-  for dates,row in ohlc_timeseries_df.tail(num_days).iterrows():
+#   # 转化数据
+#   data_list = []
+#   for dates,row in ohlc_timeseries_df.tail(num_days).iterrows():
    
-    # 时间转化为float
-    t = date2num(dates)
-    open,high,low,close = row[:4]
-    datas = (t,open,high,low,close)
-    data_list.append(datas)
+#     # 时间转化为float
+#     t = date2num(dates)
+#     open,high,low,close = row[:4]
+#     datas = (t,open,high,low,close)
+#     data_list.append(datas)
 
-  # 创建子图
-  fig, ax = plt.subplots(figsize=figsize)
-  fig.subplots_adjust(bottom=0.2)
-  fig.figsize = figsize
-	#   ax.set_facecolor('white')
+#   # 创建子图
+#   fig, ax = plt.subplots(figsize=figsize)
+#   fig.subplots_adjust(bottom=0.2)
+#   fig.figsize = figsize
+# 	#   ax.set_facecolor('white')
   
-  # 设置x轴刻度为日期
-  ax.xaxis_date()
+#   # 设置x轴刻度为日期
+#   ax.xaxis_date()
 
-  # x轴刻度文字倾斜45度
-  plt.xticks(rotation=45)
-  plt.xlabel('time')
-  plt.ylabel('price')
-  plt.title(title)
+#   # x轴刻度文字倾斜45度
+#   plt.xticks(rotation=45)
+#   plt.xlabel('time')
+#   plt.ylabel('price')
+#   plt.title(title)
 
-  # 绘制蜡烛图
-  mpf.candlestick_ohlc(
-    ax,
-    data_list,
-    width=0.8,
-    colorup='red', colordown='black'
-  )
-  plt.grid(True)
-  plt.show()
+#   # 绘制蜡烛图
+#   mpf.candlestick_ohlc(
+#     ax,
+#     data_list,
+#     width=0.8,
+#     colorup='red', colordown='black'
+#   )
+#   plt.grid(True)
+#   plt.show()
 
 # 逆转minmax_scale
 def minmax_reverter(scaled_value, original_data, col):
