@@ -13,28 +13,33 @@ from matplotlib.pylab import date2num
 # 为数据添加蜡烛图维度
 def add_candle_dims_for_data(original_df):
   
-  data = cal_change_rate(original_df, 'Close', period=1)
+  data = original_df.copy()
   
   # 影线范围
   data['shadow'] = (data['High'] - data['Low'])    
   
   # 实体范围
-  data['entity'] = data['Close'] - data['Open']
+  data['entity'] = abs(data['Close'] - data['Open'])
   
   # 筛选涨跌
-  up_idx = data.rate > 0
-  down_idx = data.rate <= 0
-  
-  # 上影线
-  data['upper_shadow'] = 0
-  data.loc[up_idx, 'upper_shadow'] = (data.loc[up_idx, 'High'] - data.loc[up_idx, 'Close']) * 1
-  data.loc[down_idx, 'upper_shadow'] = (data.loc[down_idx, 'High'] - data.loc[down_idx, 'Open']) * -1
-  
-  # 下影线
-  data['lower_shadow'] = 0
-  data.loc[up_idx, 'lower_shadow'] = (data.loc[up_idx, 'Open'] - data.loc[up_idx, 'Low']) * 1
-  data.loc[down_idx, 'lower_shadow'] = (data.loc[down_idx, 'Close'] - data.loc[down_idx, 'Low']) * -1
+  up_idx = data.Open < data.Close
+  down_idx = data.Open >= data.Close
 
+  # 上影线/下影线
+  data['upper_shadow'] = 0
+  data['lower_shadow'] = 0
+  data['candle_color'] = 0
+  
+  # 涨
+  data.loc[up_idx, 'candle_color'] = 1
+  data.loc[up_idx, 'upper_shadow'] = (data.loc[up_idx, 'High'] - data.loc[up_idx, 'Close'])
+  data.loc[up_idx, 'lower_shadow'] = (data.loc[up_idx, 'Open'] - data.loc[up_idx, 'Low'])
+  
+  # 跌
+  data.loc[down_idx, 'candle_color'] = -1
+  data.loc[down_idx, 'upper_shadow'] = (data.loc[down_idx, 'High'] - data.loc[down_idx, 'Open'])
+  data.loc[down_idx, 'lower_shadow'] = (data.loc[down_idx, 'Close'] - data.loc[down_idx, 'Low'])
+  
   return data
 
 
