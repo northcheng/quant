@@ -1,6 +1,6 @@
 # 从github克隆共享代码
-!rm -rf quant
-!git clone https://github.com/northcheng/quant.git   
+# !rm -rf quant
+# !git clone https://github.com/northcheng/quant.git   
   
 !pip install pandas_datareader
 !pip install https://github.com/matplotlib/mpl_finance/archive/master.zip
