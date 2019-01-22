@@ -78,7 +78,7 @@ def plot_candlestick(df, num_days=50, figsize=(15,5), title=''):
   )
   plt.grid(True)
   plt.show()
-  
+   
 
 #----------------------------- 均值回归模型 -----------------------------------#
 
