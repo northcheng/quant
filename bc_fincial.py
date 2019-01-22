@@ -8,7 +8,77 @@ import matplotlib.cm as cmx
 import mpl_finance as mpf
 from matplotlib.pylab import date2num
 
+#----------------------------- 蜡烛图 -----------------------------------#
 
+# 为数据添加蜡烛图维度
+def add_candle_dims_for_data(original_df):
+  
+  data = cal_change_rate(original_df, 'Close', period=1)
+  
+  # 影线范围
+  data['shadow'] = (data['High'] - data['Low'])    
+  
+  # 实体范围
+  data['entity'] = data['Close'] - data['Open']
+  
+  # 筛选涨跌
+  up_idx = data.rate > 0
+  down_idx = data.rate <= 0
+  
+  # 上影线
+  data['upper_shadow'] = 0
+  data.loc[up_idx, 'upper_shadow'] = (data.loc[up_idx, 'High'] - data.loc[up_idx, 'Close']) * 1
+  data.loc[down_idx, 'upper_shadow'] = (data.loc[down_idx, 'High'] - data.loc[down_idx, 'Open']) * -1
+  
+  # 下影线
+  data['lower_shadow'] = 0
+  data.loc[up_idx, 'lower_shadow'] = (data.loc[up_idx, 'Open'] - data.loc[up_idx, 'Low']) * 1
+  data.loc[down_idx, 'lower_shadow'] = (data.loc[down_idx, 'Close'] - data.loc[down_idx, 'Low']) * -1
+
+  return data
+
+
+# 画蜡烛图函数
+def plot_candlestick(df, num_days=50, figsize=(15,5), title=''):
+  
+  # 取关键字段
+  ohlc_timeseries_df = df[['Open', 'High', 'Low', 'Close']]
+
+  # 转化数据
+  data_list = []
+  for dates,row in ohlc_timeseries_df.tail(num_days).iterrows():
+   
+    # 时间转化为float
+    t = date2num(dates)
+    open,high,low,close = row[:4]
+    datas = (t,open,high,low,close)
+    data_list.append(datas)
+
+  # 创建子图
+  fig, ax = plt.subplots(figsize=figsize)
+  fig.subplots_adjust(bottom=0.2)
+  fig.figsize = figsize
+  #   ax.set_facecolor('white')
+  
+  # 设置x轴刻度为日期
+  ax.xaxis_date()
+
+  # x轴刻度文字倾斜45度
+  plt.xticks(rotation=45)
+  plt.xlabel('time')
+  plt.ylabel('price')
+  plt.title(title)
+
+  # 绘制蜡烛图
+  mpf.candlestick_ohlc(
+    ax,
+    data_list,
+    width=0.8,
+    colorup='red', colordown='black'
+  )
+  plt.grid(True)
+  plt.show()
+   
 
 #----------------------------- 均值回归模型 -----------------------------------#
 
@@ -116,44 +186,5 @@ def plot_mean_std(df, dim, date, plot_info={'name': 'Untitled', 'data_length': 5
     plt.savefig(plot_name)
 
 
-# 画蜡烛图函数
-def plot_candlestick(df, num_days=50, figsize=(15,5), title=''):
-  
-  # 取关键字段
-  ohlc_timeseries_df = df[['Open', 'High', 'Low', 'Close']]
 
-  # 转化数据
-  data_list = []
-  for dates,row in ohlc_timeseries_df.tail(num_days).iterrows():
-   
-    # 时间转化为float
-    t = date2num(dates)
-    open,high,low,close = row[:4]
-    datas = (t,open,high,low,close)
-    data_list.append(datas)
-
-  # 创建子图
-  fig, ax = plt.subplots(figsize=figsize)
-  fig.subplots_adjust(bottom=0.2)
-  fig.figsize = figsize
-	#   ax.set_facecolor('white')
-  
-  # 设置x轴刻度为日期
-  ax.xaxis_date()
-
-  # x轴刻度文字倾斜45度
-  plt.xticks(rotation=45)
-  plt.xlabel('time')
-  plt.ylabel('price')
-  plt.title(title)
-
-  # 绘制蜡烛图
-  mpf.candlestick_ohlc(
-    ax,
-    data_list,
-    width=0.8,
-    colorup='red', colordown='black'
-  )
-  plt.grid(True)
-  plt.show()
 
