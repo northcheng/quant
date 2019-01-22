@@ -5,7 +5,7 @@ import datetime
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import matplotlib.cm as cmx
-from matplotlib import finance as mpf
+import mpl_finance as mpf
 from matplotlib.pylab import date2num
 
 # 将时间字符串转化为时间对象
