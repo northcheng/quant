@@ -55,7 +55,7 @@ def get_train_test_data(scaled_data, input_dim, output_dim, test_size=0.1, is_sh
     # 训练数据(删除预测数据)
     train_data = scaled_data[start:end].copy()
     for idx in predict_idx:
-    train_data.drop(idx, inplace=True) 
+      train_data.drop(idx, inplace=True) 
 
     # 分为输入与输出
     x = train_data[input_dim].values
