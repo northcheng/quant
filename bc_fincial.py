@@ -44,7 +44,7 @@ def add_candle_dims_for_data(original_df):
 
 
 # 画蜡烛图函数
-def plot_candlestick(df, num_days=50, figsize=(15,5), title=''):
+def plot_candlestick(df, num_days=50, figsize=(15,5), title='', colors=('red', 'black')):
   
   # 取关键字段
   ohlc_timeseries_df = df[['Open', 'High', 'Low', 'Close']]
@@ -79,7 +79,7 @@ def plot_candlestick(df, num_days=50, figsize=(15,5), title=''):
     ax,
     data_list,
     width=0.8,
-    colorup='red', colordown='black'
+    colorup=colors[0], colordown=colors[1]
   )
   plt.grid(True)
   plt.show()
