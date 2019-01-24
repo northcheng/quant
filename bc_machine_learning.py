@@ -16,7 +16,7 @@ def get_scaler(scale_method='StandardScaler', optional_args={}):
   elif scale_method == 'MinMaxScaler':
     scaler = preprocessing.MinMaxScaler()
 
-  elif scale_method == 'MaxAbsScaler'
+  elif scale_method == 'MaxAbsScaler':
     scaler = preprocessing.MaxAbsScaler()
 
   elif scale_method == 'RobustScaler':
