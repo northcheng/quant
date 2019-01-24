@@ -64,7 +64,7 @@ def get_train_test_data(scaled_data, input_dim, output_dim, test_size=0.1, is_sh
     # 分为训练集与测试集
     train_x, test_x, train_y, test_y = train_test_split(x, y, test_size=test_size, random_state=0, shuffle=is_shuffle)
     predict_x = predict_data[input_dim].values.reshape(-1, len(input_dim))
-    predict_y = predict_data[output_dim].values.reshape(-1, len(ouput_dim))
+    predict_y = predict_data[output_dim].values.reshape(-1, len(output_dim))
 
     print('训练数据: ', train_x.shape, train_y.shape)
     print('测试数据: ', test_x.shape, test_y.shape)
