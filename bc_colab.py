@@ -18,28 +18,32 @@ def read_stock_data(sec_code, file_path, file_format, time_col, drop_cols=[], dr
   elif file_format == '.xlsx':
     data = pd.read_excel(filename)
     
-  # 转化为时间序列
-  data = util.df_2_timeseries(df=data, time_col=time_col)
-  
-  # [可选]删除非数值列
-  if drop_none_digit:
-    none_digit_cols = []
-    for col in data.columns:
-      none_digit_cols.append(not isinstance(data[col].values[0], (float, int)))
-    none_digit_cols = data.columns[none_digit_cols].tolist()
-    drop_cols += none_digit_cols
-  
-  # [可选]删除NA列
-  if drop_na:
-    data.dropna(axis=1, inplace=True)
-  
-  # [可选]删除指定列
-  data.drop(drop_cols, axis=1, inplace=True)
-  
-  # [可选]重新排序index
-  if sort_index:
-    data.sort_index(inplace=True)
-  
+  try:
+    # 转化为时间序列
+    data = util.df_2_timeseries(df=data, time_col=time_col)
+    
+    # [可选]删除非数值列
+    if drop_none_digit:
+      none_digit_cols = []
+      for col in data.columns:
+        none_digit_cols.append(not isinstance(data[col].values[0], (float, int)))
+      none_digit_cols = data.columns[none_digit_cols].tolist()
+      drop_cols += none_digit_cols
+    
+    # [可选]删除NA列
+    if drop_na:
+      data.dropna(axis=1, inplace=True)
+    
+    # [可选]删除指定列
+    data.drop(drop_cols, axis=1, inplace=True)
+    
+    # [可选]重新排序index
+    if sort_index:
+      data.sort_index(inplace=True)
+  except Exception as e:
+    print(sec_code, e)
+    data = None
+    
   return data
 
 
