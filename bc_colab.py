@@ -8,6 +8,7 @@ from google.colab import drive
 
 # 挂载Google drive
 def mount_google_drive(destination_path='content/drive'):
+
   drive.mount('/content/drive')
 
 
