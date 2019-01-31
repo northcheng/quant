@@ -43,7 +43,7 @@ def df_2_timeseries(df, time_col='date'):
     return df
 
 # 画多条折线图
-def plot_data(selected_data, figsize=(15, 5)):
+def plot_data(selected_data, figsize=(15, 5), colormap='jet'):
     
     # plot data
     plt.figure(figsize=figsize)
@@ -51,8 +51,8 @@ def plot_data(selected_data, figsize=(15, 5)):
     
     # 颜色设置
     cNorm = colors.Normalize(vmin=0, vmax=len(selected_data.columns))
-    jet = cm = plt.get_cmap('jet')
-    scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=jet)
+    cm = plt.get_cmap(colormap)
+    scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=cm)
     
     for i in range(len(selected_data.columns)):
         col = selected_data.columns[i]
