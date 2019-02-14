@@ -7,9 +7,9 @@ from quant import bc_util as util
 from google.colab import drive
 
 # 挂载Google drive
-def mount_google_drive(destination_path='content/drive'):
+def mount_google_drive(destination_path='content/drive', force_remount=False):
 
-  drive.mount('/content/drive')
+  drive.mount('/content/drive', force_remount=force_remount)
 
 
 # 读取股票数据
