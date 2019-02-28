@@ -147,6 +147,7 @@ def cal_mean_std(df, dim, times_std, end_date=None, window_size=None):
   
   # 添加相应列
   df['mean'] = dim_mean
+  df['std'] = dim_std
   df['upper'] = upper
   df['lower'] = lower
 
