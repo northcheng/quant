@@ -24,11 +24,6 @@ def download_stock_data(sec_code, source, time_col='Date', start_date=None, end_
   # 查看是否已存在下载好的文件, 若有则读取, 若没有则初始化
   try:
     data = read_stock_data(sec_code, file_path=file_path, file_format=file_format, time_col=time_col)
-    # if os.path.exists(filename):
-    #     data = util.df_2_timeseries(pd.read_csv(filename), time_col=time_col)
-    #     start_date = util.time_2_string(data.index.max(), date_format='%Y%m%d')
-    # else:
-    #     data = pd.DataFrame()
   
     # 记录原始数据记录数
     init_len = len(data)
@@ -98,3 +93,68 @@ def read_stock_data(sec_code, file_path, file_format, time_col, drop_cols=[], dr
     data = pd.DataFrame()
     
   return data
+
+# # 下载列表中所有股票的数据
+# def download_stock_list_data(sec_code_list, source, time_col='Date', start_date=None, end_date=None, file_path='drive/My Drive/stock_data_us/', file_format='.csv', is_print=True):
+  
+#   # 下载列表中的股票的数据
+#   stock_data = web.DataReader(name=sec_code_list, data_source=source, start=start_date, end=end_date)
+#   #   # 去重
+#   #   stock_data = stock_data[stock_data.index.duplicated(keep='last')]
+  
+#   # 获取属性列表与代码列表
+#   stock_attributes = stock_data.columns.levels[stock_data.columns.names.index('Attributes')].tolist()
+#   stock_symbols = stock_data.columns.levels[stock_data.columns.names.index('Symbols')].tolist()
+  
+#   # 遍历每只股票:
+#   for sec_code in stock_symbols:
+    
+#     # 处理最新数据
+#     tmp_data = stock_data.loc[:, (tmp_attributes, sec_code)]
+#     tmp_data.columns = tmp_attributes
+  
+#     # 查看是否已存在下载好的文件, 若有则读取, 若没有则初始化
+#     filename = file_path + sec_code + file_format
+#     try:
+#       if os.path.exists(filename):
+#           data = util.df_2_timeseries(pd.read_csv(filename), time_col=time_col)
+#           start_date = util.time_2_string(data.index.max(), date_format='%Y%m%d')
+#       else:
+#           data = pd.DataFrame()
+          
+#       # 记录原始数据记录数
+#       init_len = len(data)
+
+#       # 添加新数据
+#       data = data.append(tmp_data)
+
+#       # 去重, 保存数据
+#       data = data.reset_index().drop_duplicates(subset=time_col, keep='last')
+#       data.to_csv(filename, index=False)
+
+#       # 对比记录数量变化
+#       if is_print:
+#         final_len = len(data)
+#         diff_len = final_len - init_len
+#         print('%(sec_code)s: 最新日期%(latest_date)s, 新增记录 %(diff_len)s/%(final_len)s, ' % dict(
+#             diff_len=diff_len, final_len=final_len, latest_date=data[time_col].max().date(), sec_code=sec_code))
+#     except Exception as e:
+#         print(sec_code, e)
+  
+# #@title 变量设置
+# # 下载起始日期, 结束日期
+# start_date = '2019-02-19' #@param {type:"date"}
+# end_date = '2019-02-19' #@param {type:"date"}
+
+# # 数据源
+# download_source = 'yahoo'
+
+# # 分批次下载
+# download_len = len(download_list)
+# batch_size = 500
+# loops = round(download_len / batch_size)
+
+# for i in range(loops):
+#   print(i+1, '/', loops)
+#   sec_code_list = download_list[batch_size*i : batch_size*(i+1)]
+#   download_stock_list_data(sec_code_list=sec_code_list, source=download_source, start_date=start_date, end_date=end_date)  
