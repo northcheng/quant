@@ -38,24 +38,21 @@ def download_stock_data(sec_code, source, time_col='Date', start_date=None, end_
     # 下载最新数据
     tmp_data = web.DataReader(sec_code, source, start=start_date, end=end_date)
     data = data.append(tmp_data)
-    print(data.head())
 
     # 保存数据
-    date = data.reset_index().drop_duplicates(subset=time_col, keep='last')
-    data.to_csv(filename, index=False) 
-    print(data.tail())
+    data.reset_index().drop_duplicates(subset=time_col, keep='last').to_csv(filename, index=False) 
 
     # 对比记录数量变化
     if is_print:
       final_len = len(data)
       diff_len = final_len - init_len
       print('%(sec_code)s: 最新日期%(latest_date)s, 新增记录 %(diff_len)s/%(final_len)s, ' % dict(
-          diff_len=diff_len, final_len=final_len, latest_date=data[time_col].max().date(), sec_code=sec_code))
+          diff_len=diff_len, final_len=final_len, latest_date=data.index.max().date(), sec_code=sec_code))
   except Exception as e:
       print(sec_code, e)
 
   if is_return:
-      return util.df_2_timeseries(data, time_col=time_col)
+      return data
 
 
 # 读取股票数据
