@@ -37,6 +37,7 @@ def download_stock_data(sec_code, source, time_col='Date', start_date=None, end_
 
     # 下载最新数据
     tmp_data = web.DataReader(sec_code, source, start=start_date, end=end_date)
+    print(tmp_data)
     data = data.append(tmp_data)
 
     # 保存数据
@@ -69,7 +70,7 @@ def read_stock_data(sec_code, file_path, file_format, time_col, drop_cols=[], dr
       data = pd.read_csv(filename)
     elif file_format == '.xlsx':
       data = pd.read_excel(filename)
-    
+
     # 转化为时间序列
     data = util.df_2_timeseries(df=data, time_col=time_col)
     
@@ -91,6 +92,7 @@ def read_stock_data(sec_code, file_path, file_format, time_col, drop_cols=[], dr
     # [可选]重新排序index
     if sort_index:
       data.sort_index(inplace=True)
+
   except Exception as e:
     print(sec_code, e)
     data = pd.DataFrame()
