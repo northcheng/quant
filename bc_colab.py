@@ -61,14 +61,15 @@ def read_stock_data(sec_code, file_path, file_format, time_col, drop_cols=[], dr
   
   # 构建文件名
   filename = file_path + sec_code + file_format
-  
-  # 读取文件
-  if file_format == '.csv':
-    data = pd.read_csv(filename)
-  elif file_format == '.xlsx':
-    data = pd.read_excel(filename)
     
   try:
+
+    # 读取文件
+    if file_format == '.csv':
+      data = pd.read_csv(filename)
+    elif file_format == '.xlsx':
+      data = pd.read_excel(filename)
+    
     # 转化为时间序列
     data = util.df_2_timeseries(df=data, time_col=time_col)
     
