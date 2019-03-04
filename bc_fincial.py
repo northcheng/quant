@@ -192,5 +192,76 @@ def plot_mean_std(df, dim, date, plot_info={'name': 'Untitled', 'data_length': 5
     plt.savefig(plot_name)
 
 
+#----------------------------- 资本资产定价模型 -----------------------------------#
+# 风险溢价是超额收益的期望值(rate_premium = mean(excess_return)),
+# 超额收益的标准差是其风险的测度(risk = std(excess_return))
+# 计算持有期收益率(Holding Period Rate)
+def cal_HPR(data, start, end, dim='Close', dividends=0):
+  data = data[start:end][dim].tolist()
+  HPR = (data[-1] - data[0]) / data[0]
+  
+  return HPR
 
+
+# 计算一段期间为多少年
+def num_year_between(start, end):
+  start=datetime.datetime.strptime(start,"%Y-%m-%d")
+  end=datetime.datetime.strptime(end,"%Y-%m-%d")
+  
+  return (end-start).days / 365
+  
+  
+# 计算有效年收益率(Effective Annual Rate)
+def cal_EAR(data, start, end, dim='Close', dividends=0):
+  # 计算期间内的收益率
+  HPR = cal_HPR(data, start, end, dim) + 1
+  # 计算期间的长度(年)
+  period_in_year = num_year_between(start, end)
+  # 计算有效年利率
+  EAR = pow(HPR, 1/period_in_year) - 1
+  
+  return EAR
+
+
+# 计算年华百分比利率(Annual Percentile Rate)
+def cal_APR(data, start, end, dim='Close', dividends=0):
+  # 计算期间内的收益率
+  HPR = cal_HPR(data, start, end, dim)
+  # 计算期间的长度(年)
+  period_in_year = num_year_between(start, end)
+  # 计算有效年利率
+  APR = HPR / period_in_year
+  
+  return APR
+
+# 计算连续复利利率(Continuous Compounding Rate)
+def cal_CCR(data, start, end, dim='Close', dividends=0):
+  EAR = cal_EAR(data, start, end, dim)
+  CCR = math.log((1+EAR), math.e)
+  
+  return CCR
+
+# 计算期望收益率(Expected Return)
+def cal_expected_rate(data, dim, start=None, end=None):
+  ER = data[start : end][dim].mean()
+    
+  return ER
+
+# 计算风险(方差)
+def cal_standard_deviation(data, dim, start=None, end=None):
+  STD = data[start : end][dim].std()
+  
+  return STD
+
+# 计算风险溢价(Risk Premium)
+def cal_rate_premium(expected_rate, risk_free_rate):
+  RP = expected_rate - risl_free_rate
+  
+  return RP
+
+# 计算超额收益(Excess Return)
+def cal_excess_raturn(expected_rate, real_rate):
+  ER = real_rate - expected_rate
+  
+  return ER
 
