@@ -2,9 +2,6 @@ import numpy as np
 import pandas as pd
 import os
 import pandas_datareader.data as web 
-from sklearn.utils import shuffle
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.model_selection import train_test_split
 from quant import bc_util as util
 from google.colab import drive
 
