@@ -37,12 +37,13 @@ def download_stock_data(sec_code, source, time_col='Date', start_date=None, end_
 
     # 下载最新数据
     tmp_data = web.DataReader(sec_code, source, start=start_date, end=end_date)
-    print(tmp_data)
     data = data.append(tmp_data)
+    print(data.head())
 
     # 保存数据
     date = data.reset_index().drop_duplicates(subset=time_col, keep='last')
     data.to_csv(filename, index=False) 
+    print(data.tail())
 
     # 对比记录数量变化
     if is_print:
@@ -54,7 +55,7 @@ def download_stock_data(sec_code, source, time_col='Date', start_date=None, end_
       print(sec_code, e)
 
   if is_return:
-      return util.df_2_timeseries(data, time_col='Date') 
+      return util.df_2_timeseries(data, time_col=time_col)
 
 
 # 读取股票数据
