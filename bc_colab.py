@@ -43,8 +43,7 @@ def download_stock_data(sec_code, source, time_col='Date', start_date=None, end_
     data = data.append(tmp_data)
 
     # 保存数据
-    data = data.reset_index().drop_duplicates(subset=time_col, keep='last')
-    data.to_csv(filename, index=False)  
+    data.reset_index().drop_duplicates(subset=time_col, keep='last').to_csv(filename, index=False) 
 
     # 对比记录数量变化
     if is_print:
