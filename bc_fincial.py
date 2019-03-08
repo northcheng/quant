@@ -97,27 +97,31 @@ def cal_change_rate(original_df, dim, period=1, is_add_acc_rate=True):
   previous_dim = '%(dim)s-%(period)s' % dict(dim=dim, period=period)
   dim_rate = 'rate'
   dim_acc_rate = 'acc_rate'
+  dim_acc_days = 'acc_days'
   
   # 计算涨跌率
   df[previous_dim] = df[dim].shift(period)
-  df[dim_rate] = (df[dim] -  df[previous_dim]) /df[previous_dim] * 100
+  df[dim_rate] = (df[dim] -  df[previous_dim]) / df[previous_dim] * 100
   
   # 添加累计维度列
   if is_add_acc_rate:
     
     df[dim_acc_rate] = 0
+    df[dim_acc_days] = 1
   
     # 计算累计值
     idx = df.index.tolist()
     for i in range(1, len(df)):
       current_idx = idx[i]
       previous_idx = idx[i-1]
-      current = df.loc[current_idx, dim_rate]
-      previous = df.loc[previous_idx, dim_acc_rate]
+      current_rate = df.loc[current_idx, dim_rate]
+      previous_acc_rate = df.loc[previous_idx, dim_acc_rate]
+      previous_acc_days = df.loc[previous_idx, dim_acc_days]
 
       # 如果符号相同则累加, 否则重置
       if previous * current > 0:
-        df.loc[current_idx, dim_acc_rate] = current + previous
+        df.loc[current_idx, dim_acc_rate] = current_rate + previous_acc_rate
+        df.loc[current_idx, dim_acc_days] += previous_acc_days
       else:
         df.loc[current_idx, dim_acc_rate] = current
     
