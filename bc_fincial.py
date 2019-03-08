@@ -119,11 +119,11 @@ def cal_change_rate(original_df, dim, period=1, is_add_acc_rate=True):
       previous_acc_days = df.loc[previous_idx, dim_acc_days]
 
       # 如果符号相同则累加, 否则重置
-      if previous * current > 0:
+      if previous_acc_rate * current_rate > 0:
         df.loc[current_idx, dim_acc_rate] = current_rate + previous_acc_rate
         df.loc[current_idx, dim_acc_days] += previous_acc_days
       else:
-        df.loc[current_idx, dim_acc_rate] = current
+        df.loc[current_idx, dim_acc_rate] = current_rate
     
     df.dropna(inplace=True) 
     df.drop(previous_dim, axis=1, inplace=True)
