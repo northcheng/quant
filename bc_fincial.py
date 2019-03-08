@@ -124,9 +124,6 @@ def cal_change_rate(original_df, dim, period=1, is_add_acc_rate=True):
         df.loc[current_idx, dim_acc_days] += previous_acc_days
       else:
         df.loc[current_idx, dim_acc_rate] = current_rate
-    
-    # 为acc_days添加符号
-    df.loc[df[dim_acc_rate]<0, 'acc_days'] *= -1
 
     df.dropna(inplace=True) 
     df.drop(previous_dim, axis=1, inplace=True)
