@@ -135,7 +135,7 @@ def cal_change_rate(original_df, dim, period=1, is_add_acc_rate=True):
 def cal_mean_reversion(df, dim, times_std, window_size=100, start_date=None, end_date=None):
   
   # 日收益率计算
-  data = fincial_util.cal_change_rate(original_df=df,dim=dim)[start_date:end_date]
+  data = cal_change_rate(original_df=df,dim=dim)[start_date:end_date]
   
   # 计算变化率, 累计变化率, 累计天数的偏离均值距离
   for d in ['rate', 'acc_rate', 'acc_days']:
