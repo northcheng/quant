@@ -151,7 +151,7 @@ def cal_mean_reversion(df, dim, window_size=100, start_date=None, end_date=None)
 
 
 # 画出均值回归偏差图
-def plot_mean_reversion(df, times_std, window_size, end_date, is_save=False, img_info={'path': 'drive/My Drive/probabilistic_model/images/', 'name': 'untitled', 'format': '.png'}):
+def plot_mean_reversion(df, times_stds, window_size, end_date, is_save=False, img_info={'path': 'drive/My Drive/probabilistic_model/images/', 'name': 'untitled', 'format': '.png'}):
   
   # 需要绘出的维度
   plot_dims = ['rate_bias', 'acc_rate_bias', 'acc_days_bias']
