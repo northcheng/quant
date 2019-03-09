@@ -249,19 +249,11 @@ def cal_HPR(data, start, end, dim='Close', dividends=0):
   
   return HPR
 
-
-# 计算一段期间为多少年
-def num_year_between(start, end):
-  start=datetime.datetime.strptime(start,"%Y-%m-%d")
-  end=datetime.datetime.strptime(end,"%Y-%m-%d")
-  
-  return (end-start).days / 365
-  
   
 # 计算有效年收益率(Effective Annual Rate)
 def cal_EAR(data, start, end, dim='Close', dividends=0):
   # 计算期间内的收益率
-  HPR = cal_HPR(data, start, end, dim) + 1
+  HPR = cal_HPR(data, start, end, dim, dividends) + 1
   # 计算期间的长度(年)
   period_in_year = num_year_between(start, end)
   # 计算有效年利率
@@ -270,10 +262,18 @@ def cal_EAR(data, start, end, dim='Close', dividends=0):
   return EAR
 
 
+# 计算一段期间为多少年
+def num_year_between(start, end):
+  start=datetime.datetime.strptime(start,"%Y-%m-%d")
+  end=datetime.datetime.strptime(end,"%Y-%m-%d")
+  
+  return (end-start).days / 365
+
+
 # 计算年华百分比利率(Annual Percentile Rate)
 def cal_APR(data, start, end, dim='Close', dividends=0):
   # 计算期间内的收益率
-  HPR = cal_HPR(data, start, end, dim)
+  HPR = cal_HPR(data, start, end, dim, dividends)
   # 计算期间的长度(年)
   period_in_year = num_year_between(start, end)
   # 计算有效年利率
@@ -283,7 +283,7 @@ def cal_APR(data, start, end, dim='Close', dividends=0):
 
 # 计算连续复利利率(Continuous Compounding Rate)
 def cal_CCR(data, start, end, dim='Close', dividends=0):
-  EAR = cal_EAR(data, start, end, dim)
+  EAR = cal_EAR(data, start, end, dim, dividends)
   CCR = math.log((1+EAR), math.e)
   
   return CCR

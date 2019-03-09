@@ -35,7 +35,7 @@ def num_days_between(start_date, end_date, date_format='%Y-%m-%d'):
     end_date = string_2_time(end_date, date_format)
     diff = end_date - start_date
     return diff.days
-
+  
 # 普通dataframe转时间序列数据
 def df_2_timeseries(df, time_col='date'):
     df = df.set_index(time_col)
