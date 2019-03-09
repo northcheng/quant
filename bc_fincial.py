@@ -131,7 +131,7 @@ def cal_change_rate(original_df, dim, period=1, is_add_acc_rate=True):
     return df
 
 
-# 计算均值回归偏差
+# 计算当前值与移动均值的差距离移动标准差的倍数
 def cal_mean_reversion(df, dim, times_std, window_size=100, start_date=None, end_date=None):
   
   # 日收益率计算
@@ -145,9 +145,9 @@ def cal_mean_reversion(df, dim, times_std, window_size=100, start_date=None, end
     tmp_std = data[d].rolling(window_size).std()
     
     # 计算信号
-    data[d+'_ma'] = tmp_mean
-    data[d+'_mstd'] = tmp_std
-    data[d+'_bias'] = (data[d] - tmp_mean) / (times_std * tmp_std)
+    #data[d+'_ma'] = tmp_mean
+    #data[d+'_mstd'] = tmp_std
+    data[d+'_bias'] = (data[d] - tmp_mean) / (tmp_std)
   
   return data
 
