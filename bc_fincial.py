@@ -312,3 +312,19 @@ def cal_excess_raturn(expected_rate, real_rate):
   
   return ER
 
+
+#----------------------------- 均线模型 -----------------------------------#
+# 计算移动平均信号
+def cal_ma(df, dim, ma_windows, start_date=None, end_date=None):
+
+  # 截取数据  
+  df = df[start_date:end_date]
+
+  # 计算移动平均
+  for mw in ma_windows:
+    df[dim+'_ma_%s'% mw] = df[dim].rolling(mw).mean()
+    
+  return df
+
+
+
