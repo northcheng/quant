@@ -315,10 +315,10 @@ def cal_excess_raturn(expected_rate, real_rate):
 
 #----------------------------- 均线模型 -----------------------------------#
 # 计算移动平均信号
-def cal_ma(df, dim, ma_windows, start_date=None, end_date=None):
+def cal_moving_average(df, dim, ma_windows=[3, 10], start_date=None, end_date=None):
 
   # 截取数据  
-  df = df[start_date:end_date]
+  df = df[start_date:end_date].copy()
 
   # 计算移动平均
   for mw in ma_windows:
