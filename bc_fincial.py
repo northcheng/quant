@@ -132,7 +132,7 @@ def cal_change_rate(original_df, dim, period=1, is_add_acc_rate=True):
 
 
 # 计算当前值与移动均值的差距离移动标准差的倍数
-def cal_mean_reversion(df, dim, times_std, window_size=100, start_date=None, end_date=None):
+def cal_mean_reversion(df, dim, window_size=100, start_date=None, end_date=None):
   
   # 日收益率计算
   data = cal_change_rate(original_df=df,dim=dim)[start_date:end_date]
@@ -144,51 +144,32 @@ def cal_mean_reversion(df, dim, times_std, window_size=100, start_date=None, end
     tmp_mean = data[d].rolling(window_size).mean()
     tmp_std = data[d].rolling(window_size).std()
     
-    # 计算信号
-    #data[d+'_ma'] = tmp_mean
-    #data[d+'_mstd'] = tmp_std
+    # 计算偏差
     data[d+'_bias'] = (data[d] - tmp_mean) / (tmp_std)
   
   return data
 
 
 # 画出均值回归偏差图
-def plot_mean_reversion(df, dim, date, plot_info={'name': 'Untitled', 'data_length': 50, 'result_length':2}, is_save=False, img_info={'path': 'drive/My Drive/probabilistic_model/images/', 'format': '.png'}):
+def plot_mean_reversion(df, times_std, window_size, end_date, is_save=False, img_info={'path': 'drive/My Drive/probabilistic_model/images/', 'name': 'untitled', 'format': '.png'}):
   
   # 需要绘出的维度
-  plot_dims = ['upper', 'mean', 'lower', dim]
-  
-  # 构造图片名称
-  title = '%(title)s [%(dim)s: %(dim_value).3f%%]\n[%(high).3f%%, %(avg).3f%%, %(low).3f%%]' % dict(
-      title=plot_info['name'], 
-      dim=dim,
-      dim_value=df.loc[date, dim],
-      avg=df.loc[date, 'mean'],
-      high=df.loc[date, 'upper'],
-      low=df.loc[date, 'lower']
-  )
+  plot_dims = ['rate_bias', 'acc_rate_bias', 'acc_days_bias']
     
   # 创建图片
   plt.figure()
-  plot_data = df[plot_dims].tail(plot_info['data_length'])
+  plot_data = df[plot_dims][:end_date].tail(window_size)
+  plot_data['upper'] = times_std
+  plot_data['lower'] = -times_std
   
   # 画出信号
-  signal_data = plot_data[:date]
-  signal_data.plot(figsize=(20, 5), title=title)
-  
-  # 画出结果
-  if plot_info['result_length'] > 0:
-    result_idx = signal_data.index.tolist()[-1]
-    result_data = plot_data[dim][result_idx:].head(plot_info['result_length']+1)
-    plt.plot(result_data, '--oc', label='result', )
-  
+  plot_data.plot(figsize=(20, 5))
   plt.legend(loc='best')
   
   # 保存图像
   if is_save:
-    plot_name = img_info['path'] + plot_info['name'] + '_' + date + '_' + '%s' % plot_info['result_length'] + img_info['format']
+    plot_name = img_info['path'] + img_info['name'] + '_' + end_date + '%s' %  img_info['format']
     plt.savefig(plot_name)
-
 
 
 #----------------------------- 概率模型 -----------------------------------#
