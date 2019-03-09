@@ -131,6 +131,27 @@ def cal_change_rate(original_df, dim, period=1, is_add_acc_rate=True):
     return df
 
 
+# 计算信号
+def cal_mean_reversion(df, dim, times_std, window_size=100, start_date=None, end_date=None):
+  
+  # 日收益率计算
+  data = fincial_util.cal_change_rate(original_df=df,dim=dim)[start_date:end_date]
+  
+  # 计算变化率, 累计变化率, 累计天数的偏离均值距离
+  for d in ['rate', 'acc_rate', 'acc_days']:
+    
+    # 计算累计变化率的移动平均及移动标准差
+    tmp_mean = data[d].rolling(window_size).mean()
+    tmp_std = data[d].rolling(window_size).std()
+    
+    # 计算信号
+    data[d+'_bias'] = (data[d] - tmp_mean) / (times_std * tmp_std)
+  
+  return data
+
+
+#----------------------------- 概率模型 -----------------------------------#
+
 # 计算特定列均值和上下N个标准差的范围
 def cal_mean_std(df, dim, times_std, end_date=None, window_size=None):
  
