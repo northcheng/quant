@@ -250,10 +250,11 @@ def back_test(signal, cash=0, stock=0, start_date=None, end_date=None, trading_f
       
       # 买入（开盘价）
       if stock == 0 and cash > 0:
+        buying_date = tmp_data.index.min()
         buying_price = tmp_data.loc[buying_date, 'Open']
         stock = math.floor((cash-trading_fee) / buying_price)
+        
         if stock > 0:
-          buying_date = tmp_data.index.min()
           cash = cash - stock * buying_price - trading_fee
           total = (cash + stock * buying_price)
           
