@@ -172,70 +172,45 @@ def plot_mean_reversion(df, times_std, window_size, start_date=None, end_date=No
     plt.savefig(plot_name)
 
 
-#----------------------------- 概率模型 -----------------------------------#
+#----------------------------- 均线模型 -----------------------------------#
+# 计算移动平均信号
+def cal_moving_average(df, dim, ma_windows=[3, 10], start_date=None, end_date=None):
 
-# 计算特定列均值和上下N个标准差的范围
-def cal_mean_std(df, dim, times_std, end_date=None, window_size=None):
- 
-  # 筛选数据
-  if end_date is not None:
-    df = df[:end_date]
-  if window_size is not None:
-    df = df[-window_size:]
+  # 截取数据  
+  df = df[start_date:end_date].copy()
+
+  # 计算移动平均
+  for mw in ma_windows:
+    df[dim+'_ma_%s'% mw] = df[dim].rolling(mw).mean()
     
-  # 复制 dataframe
-  df = df.copy()
-  
-  # 计算均值, 上下N倍标准差
-  dim_mean = df[dim].mean()
-  dim_std = df[dim].std()
-  upper = dim_mean + times_std * dim_std
-  lower = dim_mean - times_std * dim_std
-  
-  # 添加相应列
-  df['mean'] = dim_mean
-  df['std'] = dim_std
-  df['upper'] = upper
-  df['lower'] = lower
-
   return df
 
 
-# 画出均值和上下N个标准差的范围
-def plot_mean_std(df, dim, date, plot_info={'name': 'Untitled', 'data_length': 50, 'result_length':2}, is_save=False, img_info={'path': 'drive/My Drive/probabilistic_model/images/', 'format': '.png'}):
+# 画出移动平均图
+def plot_moving_average(df, dim, short_ma_window, long_ma_window, window_size, start_date=None, end_date=None, is_save=False, img_info={'path': 'drive/My Drive/probabilistic_model/images/', 'name': 'untitled', 'format': '.png'}):
   
-  # 需要绘出的维度
-  plot_dims = ['upper', 'mean', 'lower', dim]
+  long_ma = dim + '_ma_%s' % long_ma_window
+  short_ma = dim + '_ma_%s' % short_ma_window
   
-  # 构造图片名称
-  title = '%(title)s [%(dim)s: %(dim_value).3f%%]\n[%(high).3f%%, %(avg).3f%%, %(low).3f%%]' % dict(
-      title=plot_info['name'], 
-      dim=dim,
-      dim_value=df.loc[date, dim],
-      avg=df.loc[date, 'mean'],
-      high=df.loc[date, 'upper'],
-      low=df.loc[date, 'lower']
-  )
+  plot_dims = ['Close']
+  
+  if long_ma not in df.columns or short_ma not in df.columns:
+    print("%(short)s or %(long)s MA on %(dim)s not found" % dict(short=short_ma_window, long=long_ma_window, dim=dim))
     
+  else:
+    plot_dims += [long_ma, short_ma]
+  
   # 创建图片
   plt.figure()
-  plot_data = df[plot_dims].tail(plot_info['data_length'])
+  plot_data = df[plot_dims][start_date:end_date].tail(window_size)
   
   # 画出信号
-  signal_data = plot_data[:date]
-  signal_data.plot(figsize=(20, 5), title=title)
-  
-  # 画出结果
-  if plot_info['result_length'] > 0:
-    result_idx = signal_data.index.tolist()[-1]
-    result_data = plot_data[dim][result_idx:].head(plot_info['result_length']+1)
-    plt.plot(result_data, '--oc', label='result', )
-  
+  plot_data.plot(figsize=(20, 3))
   plt.legend(loc='best')
   
   # 保存图像
   if is_save:
-    plot_name = img_info['path'] + plot_info['name'] + '_' + date + '_' + '%s' % plot_info['result_length'] + img_info['format']
+    plot_name = img_info['path'] + img_info['name'] + '_' + end_date + '%s' %  img_info['format']
     plt.savefig(plot_name)
 
 
@@ -313,43 +288,68 @@ def cal_excess_raturn(expected_rate, real_rate):
   return ER
 
 
-#----------------------------- 均线模型 -----------------------------------#
-# 计算移动平均信号
-def cal_moving_average(df, dim, ma_windows=[3, 10], start_date=None, end_date=None):
+#----------------------------- 概率模型 -----------------------------------#
 
-  # 截取数据  
-  df = df[start_date:end_date].copy()
-
-  # 计算移动平均
-  for mw in ma_windows:
-    df[dim+'_ma_%s'% mw] = df[dim].rolling(mw).mean()
+# 计算特定列均值和上下N个标准差的范围
+def cal_mean_std(df, dim, times_std, end_date=None, window_size=None):
+ 
+  # 筛选数据
+  if end_date is not None:
+    df = df[:end_date]
+  if window_size is not None:
+    df = df[-window_size:]
     
+  # 复制 dataframe
+  df = df.copy()
+  
+  # 计算均值, 上下N倍标准差
+  dim_mean = df[dim].mean()
+  dim_std = df[dim].std()
+  upper = dim_mean + times_std * dim_std
+  lower = dim_mean - times_std * dim_std
+  
+  # 添加相应列
+  df['mean'] = dim_mean
+  df['std'] = dim_std
+  df['upper'] = upper
+  df['lower'] = lower
+
   return df
 
 
-# 画出移动平均图
-def plot_moving_average(df, short_ma_window, long_ma_window, window_size, start_date=None, end_date=None, is_save=False, img_info={'path': 'drive/My Drive/probabilistic_model/images/', 'name': 'untitled', 'format': '.png'}):
+# 画出均值和上下N个标准差的范围
+def plot_mean_std(df, dim, date, plot_info={'name': 'Untitled', 'data_length': 50, 'result_length':2}, is_save=False, img_info={'path': 'drive/My Drive/probabilistic_model/images/', 'format': '.png'}):
   
-  long_ma = dim + '_ma_%s' % long_ma_window
-  short_ma = dim + '_ma_%s' % short_ma_window
+  # 需要绘出的维度
+  plot_dims = ['upper', 'mean', 'lower', dim]
   
-  plot_dims = ['Close']
-  
-  if long_ma not in df.columns or short_ma not in df.columns:
-    print("%(short)s or %(long)s MA on %(dim)s not found" % dict(short=short_ma_window, long=long_ma_window, dim=dim))
+  # 构造图片名称
+  title = '%(title)s [%(dim)s: %(dim_value).3f%%]\n[%(high).3f%%, %(avg).3f%%, %(low).3f%%]' % dict(
+      title=plot_info['name'], 
+      dim=dim,
+      dim_value=df.loc[date, dim],
+      avg=df.loc[date, 'mean'],
+      high=df.loc[date, 'upper'],
+      low=df.loc[date, 'lower']
+  )
     
-  else:
-    plot_dims += [long_ma, short_ma]
-  
   # 创建图片
   plt.figure()
-  plot_data = df[plot_dims][start_date:end_date].tail(window_size)
+  plot_data = df[plot_dims].tail(plot_info['data_length'])
   
   # 画出信号
-  plot_data.plot(figsize=(20, 3))
+  signal_data = plot_data[:date]
+  signal_data.plot(figsize=(20, 5), title=title)
+  
+  # 画出结果
+  if plot_info['result_length'] > 0:
+    result_idx = signal_data.index.tolist()[-1]
+    result_data = plot_data[dim][result_idx:].head(plot_info['result_length']+1)
+    plt.plot(result_data, '--oc', label='result', )
+  
   plt.legend(loc='best')
   
   # 保存图像
   if is_save:
-    plot_name = img_info['path'] + img_info['name'] + '_' + end_date + '%s' %  img_info['format']
+    plot_name = img_info['path'] + plot_info['name'] + '_' + date + '_' + '%s' % plot_info['result_length'] + img_info['format']
     plt.savefig(plot_name)
