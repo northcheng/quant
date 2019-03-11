@@ -361,20 +361,20 @@ def back_test(signal, cash=0, stock=0, start_date=None, end_date=None, trading_f
       # 以收盘价卖出
       elif tmp_signal == 's':
         if stock > 0:
-        selling_price = signal.loc[trading_date, 'Close']
-        cash = cash + selling_price * stock - trading_fee
-        stock = 0
-        total = cash + stock * selling_price
-        if print_trading:
-          print(trading_date.date(), '卖出, 价格%(price)s, 流动资金%(cash)s, 总值%(total)s' % dict(price=selling_price, cash=cash, total=total))
+          selling_price = signal.loc[trading_date, 'Close']
+          cash = cash + selling_price * stock - trading_fee
+          stock = 0
+          total = cash + stock * selling_price
+          if print_trading:
+            print(trading_date.date(), '卖出, 价格%(price)s, 流动资金%(cash)s, 总值%(total)s' % dict(price=selling_price, cash=cash, total=total))
 
-        # 记录交易信息
-        record['date'].append(trading_date.date())
-        record['action'].append('s')
-        record['holding'].append(stock)
-        record['price'].append(selling_price)
-        record['cash'].append(cash)
-        record['total'].append(total)
+          # 记录交易信息
+          record['date'].append(trading_date.date())
+          record['action'].append('s')
+          record['holding'].append(stock)
+          record['price'].append(selling_price)
+          record['cash'].append(cash)
+          record['total'].append(total)
             
       else:
         print('invalid signal %s' % tmp_signal)
