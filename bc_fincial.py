@@ -151,7 +151,7 @@ def cal_mean_reversion(df, dim, window_size=100, start_date=None, end_date=None)
 
 
 # 画出均值回归偏差图
-def plot_mean_reversion(df, times_std, window_size, end_date, is_save=False, img_info={'path': 'drive/My Drive/probabilistic_model/images/', 'name': 'untitled', 'format': '.png'}):
+def plot_mean_reversion(df, times_std, window_size, start_date=None, end_date=None, is_save=False, img_info={'path': 'drive/My Drive/probabilistic_model/images/', 'name': 'untitled', 'format': '.png'}):
   
   # 需要绘出的维度
   plot_dims = ['rate_bias', 'acc_rate_bias', 'acc_days_bias']
@@ -327,4 +327,29 @@ def cal_moving_average(df, dim, ma_windows=[3, 10], start_date=None, end_date=No
   return df
 
 
-
+# 画出移动平均图
+def plot_moving_average(df, short_ma_window, long_ma_window, window_size, start_date=None, end_date=None, is_save=False, img_info={'path': 'drive/My Drive/probabilistic_model/images/', 'name': 'untitled', 'format': '.png'}):
+  
+  long_ma = dim + '_ma_%s' % long_ma_window
+  short_ma = dim + '_ma_%s' % short_ma_window
+  
+  plot_dims = ['Close']
+  
+  if long_ma not in df.columns or short_ma not in df.columns:
+    print("%(short)s or %(long)s MA on %(dim)s not found" % dict(short=short_ma_window, long=long_ma_window, dim=dim))
+    
+  else:
+    plot_dims += [long_ma, short_ma]
+  
+  # 创建图片
+  plt.figure()
+  plot_data = df[plot_dims][start_date:end_date].tail(window_size)
+  
+  # 画出信号
+  plot_data.plot(figsize=(20, 3))
+  plt.legend(loc='best')
+  
+  # 保存图像
+  if is_save:
+    plot_name = img_info['path'] + img_info['name'] + '_' + end_date + '%s' %  img_info['format']
+    plt.savefig(plot_name)
