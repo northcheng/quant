@@ -163,7 +163,7 @@ def plot_mean_reversion(df, times_std, window_size, start_date=None, end_date=No
   plot_data['lower'] = -times_std
   
   # 画出信号
-  plot_data.plot(figsize=(20, 5))
+  plot_data.plot(figsize=(20, 3))
   plt.legend(loc='best')
   
   # 保存图像
