@@ -47,6 +47,7 @@ def download_stock_data(sec_code, source, time_col='Date', start_date=None, end_
           diff_len=diff_len, final_len=final_len, latest_date=data.index.max().date(), sec_code=sec_code))
   except Exception as e:
       print(sec_code, e)
+      os.remove(file_path + sec_code + '.csv')
 
   if is_return:
       return data
@@ -62,7 +63,7 @@ def read_stock_data(sec_code, file_path, file_format, time_col, drop_cols=[], dr
 
     # 读取文件
     if file_format == '.csv':
-      data = pd.read_csv(filename)
+      data = pd.read_csv(filename, encoding='utf8', engine='python')
     elif file_format == '.xlsx':
       data = pd.read_excel(filename)
 
