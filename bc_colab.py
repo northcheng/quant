@@ -54,46 +54,53 @@ def download_stock_data(sec_code, source, time_col='Date', start_date=None, end_
 
 
 # 读取股票数据
-def read_stock_data(sec_code, file_path, file_format, time_col, drop_cols=[], drop_none_digit=False, drop_na=False, sort_index=True):
+def read_stock_data(sec_code, file_path, file_format, time_col, source='google_drive', start_date=None, end_date=None, drop_cols=[], drop_none_digit=False, drop_na=False, sort_index=True):
   
-  # 构建文件名
-  filename = file_path + sec_code + file_format
-    
-  try:
+  if source == 'google_drive':
+    # 构建文件名
+    filename = file_path + sec_code + file_format
+      
+    try:
 
-    # 读取文件
-    if file_format == '.csv':
-      data = pd.read_csv(filename, encoding='utf8', engine='python')
-    elif file_format == '.xlsx':
-      data = pd.read_excel(filename)
+      # 读取文件
+      if file_format == '.csv':
+        data = pd.read_csv(filename, encoding='utf8', engine='python')
+      elif file_format == '.xlsx':
+        data = pd.read_excel(filename)
 
-    # 转化为时间序列
-    data = util.df_2_timeseries(df=data, time_col=time_col)
-    
-    # [可选]删除非数值列
-    if drop_none_digit:
-      none_digit_cols = []
-      for col in data.columns:
-        none_digit_cols.append(not isinstance(data[col].values[0], (float, int)))
-      none_digit_cols = data.columns[none_digit_cols].tolist()
-      drop_cols += none_digit_cols
-    
-    # [可选]删除NA列
-    if drop_na:
-      data.dropna(axis=1, inplace=True)
-    
-    # [可选]删除指定列
-    data.drop(drop_cols, axis=1, inplace=True)
-    
-    # [可选]重新排序index
-    if sort_index:
-      data.sort_index(inplace=True)
+      # 转化为时间序列
+      data = util.df_2_timeseries(df=data, time_col=time_col)
+      
+      # [可选]删除非数值列
+      if drop_none_digit:
+        none_digit_cols = []
+        for col in data.columns:
+          none_digit_cols.append(not isinstance(data[col].values[0], (float, int)))
+        none_digit_cols = data.columns[none_digit_cols].tolist()
+        drop_cols += none_digit_cols
+      
+      # [可选]删除NA列
+      if drop_na:
+        data.dropna(axis=1, inplace=True)
+      
+      # [可选]删除指定列
+      data.drop(drop_cols, axis=1, inplace=True)
+      
+      # [可选]重新排序index
+      if sort_index:
+        data.sort_index(inplace=True)
 
-  except Exception as e:
-    print(sec_code, e)
+    except Exception as e:
+      print(sec_code, e)
+      data = pd.DataFrame()
+
+  elif source == 'web':
+    data = web.DataReader(sec_code, 'yahoo', start=start_date, end=end_date)
+  else:
+    print('source %s not found' % source)
     data = pd.DataFrame()
     
-  return data
+  return data[start_date:end_date]
 
 # # 下载列表中所有股票的数据
 # def download_stock_list_data(sec_code_list, source, time_col='Date', start_date=None, end_date=None, file_path='drive/My Drive/stock_data_us/', file_format='.csv', is_print=True):
