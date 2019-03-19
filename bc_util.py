@@ -21,7 +21,6 @@ def time_2_string(time_object, diff_days=0, date_format='%Y-%m-%d'):
  
 # 直接在字符串上加减日期
 def string_plus_day(string, diff_days, date_format='%Y-%m-%d'):
- 
     # 字符串转日期, 加减天数
     time_object = string_2_time(string, date_format=date_format)
     time_string = time_2_string(time_object, diff_days, date_format=date_format)
@@ -29,7 +28,6 @@ def string_plus_day(string, diff_days, date_format='%Y-%m-%d'):
 
 # 计算两个日期字符串之间的天数
 def num_days_between(start_date, end_date, date_format='%Y-%m-%d'):
- 
     # 将起止日期转为日期格式
     start_date = string_2_time(start_date, date_format)
     end_date = string_2_time(end_date, date_format)

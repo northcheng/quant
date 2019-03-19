@@ -3,12 +3,49 @@ import pandas as pd
 import numpy as np
 import datetime
 import math
+# import sympy
+from pandas_datareader.nasdaq_trader import get_nasdaq_symbols
 from quant import bc_util as util
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import matplotlib.cm as cmx
 import mpl_finance as mpf
 from matplotlib.pylab import date2num
+
+#----------------------------- 股票池 -----------------------------------#
+def get_symbols(remove_invalid=True, remove_not_fetched=True, not_fetched_list='drive/My Drive/probabilistic_model/yahoo_not_fetched_sec_code.csv'):
+
+  try:
+    symbols = get_nasdaq_symbols()
+    symbols = symbols.loc[symbols['Test Issue'] == False,]
+  except Exception as e:
+    symbols = pd.read_table('ftp://ftp.nasdaqtrader.com/symboldirectory/nasdaqtraded.txt', sep='|', index_col='Symbol').drop(np.NaN)
+    symbols.loc[symbols['Test Issue'] == 'N',]
+
+  sec_list = symbols.index.tolist()
+
+  # 删除无效代码
+  if remove_invalid:
+    original_len = len(sec_list)
+    sec_list = [x for x in sec_list if '$' not in x]
+    sec_list = [x for x in sec_list if '.' not in x]
+    current_len = len(sec_list)
+    print('移除无效股票代码: ', original_len-current_len)
+
+  # 删除yahoo无法匹配的代码
+  if remove_not_fetched:
+    original_len = len(sec_list)
+    yahoo_not_fetched_list = []
+    try: 
+      yahoo_not_fetched_list = pd.read_csv(not_fetched_list).sec_code.tolist()
+    except Exception as e:
+      print(e)
+    sec_list = [x for x in sec_list if x not in yahoo_not_fetched_list]
+    current_len = len(sec_list)
+    print('移除无匹配股票代码: ', original_len-current_len)
+
+  return symbols.loc[sec_list, ]
+
 
 
 #----------------------------- 蜡烛图 -----------------------------------#
@@ -216,6 +253,17 @@ def plot_moving_average(df, dim, short_ma_window, long_ma_window, window_size, s
     plot_name = img_info['path'] + img_info['name'] + '_' + end_date + '%s' %  img_info['format']
     plt.savefig(plot_name)
 
+
+# # 计算触发信号所需的累积涨跌
+# def cal_expected_acc_rate(mean_reversion_df, window_size, times_std):
+  
+#   x = sympy.Symbol('x')
+#   acc_rate = np.hstack((mean_reversion_df.tail(window_size-1).acc_rate.values, x))
+#   ma = acc_rate.mean()
+#   std = sympy.sqrt(sum((acc_rate - ma)**2)/window_size)
+#   result = sympy.solve((x - ma)**2 - (n*std)**2, x)
+  
+#   return result
 
 #----------------------------- 回测工具 -----------------------------------#
 
