@@ -20,7 +20,7 @@ def get_symbols(remove_invalid=True, remove_not_fetched=True, not_fetched_list='
     symbols = symbols.loc[symbols['Test Issue'] == False,]
   except Exception as e:
     symbols = pd.read_table('ftp://ftp.nasdaqtrader.com/symboldirectory/nasdaqtraded.txt', sep='|', index_col='Symbol').drop(np.NaN)
-    symbols.loc[symbols['Test Issue'] == 'N',]
+    symbols = symbols.loc[symbols['Test Issue'] == 'N',]
 
   sec_list = symbols.index.tolist()
 
@@ -44,7 +44,6 @@ def get_symbols(remove_invalid=True, remove_not_fetched=True, not_fetched_list='
     current_len = len(sec_list)
     print('移除无匹配股票代码: ', original_len-current_len, '剩余长度: ', current_len)
 
-  print(len(sec_list))
   return symbols.loc[sec_list, ]
 
 
