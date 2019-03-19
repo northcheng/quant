@@ -30,7 +30,7 @@ def get_symbols(remove_invalid=True, remove_not_fetched=True, not_fetched_list='
     sec_list = [x for x in sec_list if '$' not in x]
     sec_list = [x for x in sec_list if '.' not in x]
     current_len = len(sec_list)
-    print('移除无效股票代码: ', original_len-current_len)
+    print('移除无效股票代码: ', original_len-current_len, '剩余长度: ', current_len)
 
   # 删除yahoo无法匹配的代码
   if remove_not_fetched:
@@ -42,8 +42,9 @@ def get_symbols(remove_invalid=True, remove_not_fetched=True, not_fetched_list='
       print(e)
     sec_list = [x for x in sec_list if x not in yahoo_not_fetched_list]
     current_len = len(sec_list)
-    print('移除无匹配股票代码: ', original_len-current_len)
+    print('移除无匹配股票代码: ', original_len-current_len, '剩余长度: ', current_len)
 
+  print(len(sec_list))
   return symbols.loc[sec_list, ]
 
 
