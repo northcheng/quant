@@ -12,7 +12,10 @@ import matplotlib.cm as cmx
 import mpl_finance as mpf
 from matplotlib.pylab import date2num
 
+
+
 #----------------------------- 股票池 -----------------------------------#
+
 def get_symbols(remove_invalid=True, remove_not_fetched=True, not_fetched_list='drive/My Drive/probabilistic_model/yahoo_not_fetched_sec_code.csv'):
 
   try:
