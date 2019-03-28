@@ -453,9 +453,9 @@ def back_test(signal, cash=0, stock=0, start_date=None, end_date=None, trading_f
 
 
 #----------------------------- 验证信号 -----------------------------------#
-def exam_signal(){
-  print('not implemented yet')
-}
+# def exam_signal(){
+#   print('not implemented yet')
+# }
 
 #----------------------------- 资本资产定价模型 -----------------------------------#
 # 风险溢价是超额收益的期望值(rate_premium = mean(excess_return)),
