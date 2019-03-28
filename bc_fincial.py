@@ -230,15 +230,12 @@ def cal_moving_average(df, dim, ma_windows=[3, 10], start_date=None, end_date=No
 
 
 # 画出移动平均图
-def plot_moving_average(df, dim, short_ma_window, long_ma_window, window_size, start_date=None, end_date=None, is_save=False, img_info={'path': 'drive/My Drive/probabilistic_model/images/', 'name': 'untitled', 'format': '.png'}):
-  
-  long_ma = dim + '_ma_%s' % long_ma_window
-  short_ma = dim + '_ma_%s' % short_ma_window
+def plot_moving_average(df, dim, short_ma, long_ma, window_size, start_date=None, end_date=None, is_save=False, img_info={'path': 'drive/My Drive/probabilistic_model/images/', 'name': 'untitled', 'format': '.png'}):
   
   plot_dims = ['Close']
   
   if long_ma not in df.columns or short_ma not in df.columns:
-    print("%(short)s or %(long)s MA on %(dim)s not found" % dict(short=short_ma_window, long=long_ma_window, dim=dim))
+    print("%(short)s or %(long)s on %(dim)s not found" % dict(short=short_ma, long=long_ma, dim=dim))
     
   else:
     plot_dims += [long_ma, short_ma]
@@ -454,6 +451,11 @@ def back_test(signal, cash=0, stock=0, start_date=None, end_date=None, trading_f
   record = util.df_2_timeseries(pd.DataFrame(record), time_col='date')
   return record      
 
+
+#----------------------------- 验证信号 -----------------------------------#
+def exam_signal(){
+  print('not implemented yet')
+}
 
 #----------------------------- 资本资产定价模型 -----------------------------------#
 # 风险溢价是超额收益的期望值(rate_premium = mean(excess_return)),

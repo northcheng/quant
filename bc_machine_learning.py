@@ -43,6 +43,15 @@ def get_scaler(scale_method='StandardScaler', optional_args={}):
   return scaler
 
 
+# 标准化数据
+def get_scaled_data(df, scaler):
+  
+  scaled_data = scaler.fit_transform(df)
+  scaled_data = pd.DataFrame(scaled_data, index=df.index, columns=df.columns)
+  
+  return scaled_data
+  
+
 # 将已经标准化后的数据转化为训练/测试/预测集
 def get_train_test_data(scaled_data, input_dim, output_dim, test_size=0.1, is_shuffle=True, start=None, end=None, predict_idx=[]):
     
