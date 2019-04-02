@@ -25,7 +25,7 @@ def download_stock_data(sec_code, source='yahoo', time_col='Date', start_date=No
     # 查看是否已存在下载好的文件, 若有则读取, 若没有则初始化
     stage = 'loading_existed_data'
     data = pd.DataFrame()
-    if os.path.exists(filename)
+    if os.path.exists(filename):
       data = read_stock_data(sec_code, file_path=file_path, file_format=file_format, time_col=time_col)
     
     # 记录原始数据记录数
@@ -59,7 +59,7 @@ def download_stock_data(sec_code, source='yahoo', time_col='Date', start_date=No
 
 
 # 读取股票数据
-def read_stock_data(sec_code, time_col, file_path='drive/My Drive/stock_data_us/', file_format='.csv', source='google_drive', start_date=None, end_date=None, drop_cols=[], drop_none_digit=False, drop_na=False, sort_index=True):
+def read_stock_data(sec_code, time_col, file_path='drive/My Drive/stock_data_us/', file_format='.csv', source='google_drive', start_date=None, end_date=None, drop_cols=[], drop_na=False, sort_index=True):
   
   try:
     # 从 Google drive中读取股票数据
@@ -67,35 +67,32 @@ def read_stock_data(sec_code, time_col, file_path='drive/My Drive/stock_data_us/
     
       # 构建文件名
       filename = file_path + sec_code + file_format
-    
-      # 读取数据
-      stage = 'reading_from_google_drive'
-      if file_format == '.csv':
-        data = pd.read_csv(filename, encoding='utf8', engine='python')
-      elif file_format == '.xlsx':
-        data = pd.read_excel(filename)
+      if not os.path.exists(filename):
+        print(filename, ' not exists')
+        data = pd.DataFrame()
 
-      # 转化为时间序列
-      stage = 'transforming_to_timeseries'
-      data = util.df_2_timeseries(df=data, time_col=time_col)
-      
-      # [可选]处理异常数据
-      stage = 'handling_invalid_data'
-      # 删除非数值列
-      if drop_none_digit:
-        none_digit_cols = []
-        for col in data.columns:
-          none_digit_cols.append(not isinstance(data[col].values[0], (float, int)))
-        none_digit_cols = data.columns[none_digit_cols].tolist()
-        drop_cols += none_digit_cols
-      # 删除指定列
-      data.drop(drop_cols, axis=1, inplace=True)
-      # 删除NA列
-      if drop_na:
-        data.dropna(axis=1, inplace=True)
-      # 重新排序index
-      if sort_index:
-        data.sort_index(inplace=True)
+      else:
+        # 读取数据
+        stage = 'reading_from_google_drive'
+        if file_format == '.csv':
+          data = pd.read_csv(filename, encoding='utf8', engine='python')
+        elif file_format == '.xlsx':
+          data = pd.read_excel(filename)
+
+        # 转化为时间序列
+        stage = 'transforming_to_timeseries'
+        data = util.df_2_timeseries(df=data, time_col=time_col)
+        
+        # 处理异常数据
+        stage = 'handling_invalid_data'
+        # 删除指定列
+        data.drop(drop_cols, axis=1, inplace=True)
+        # 删除NA列
+        if drop_na:
+          data.dropna(axis=1, inplace=True)
+        # 重新排序index
+        if sort_index:
+          data.sort_index(inplace=True)
 
     # 从网络上下载股票数据
     elif source == 'web':
