@@ -596,3 +596,66 @@ def plot_mean_std(df, dim, date, plot_info={'name': 'Untitled', 'data_length': 5
   if is_save:
     plot_name = img_info['path'] + plot_info['name'] + '_' + date + '_' + '%s' % plot_info['result_length'] + img_info['format']
     plt.savefig(plot_name)
+
+
+#----------------------------- 技术分析 -----------------------------------#
+# 画出以benchmark为界的柱状图, 上升为绿, 下降为红
+def plot_indicator_around_benchmark(data, target_col, benchmark=0, title=None, start_date=None, end_date=None, color_mode='up_down', plot_close=True, figsize=(20, 5)):
+  
+  plot_data = data[start_date:end_date].copy()
+  
+  if color_mode == 'up_down':  
+    plot_data['color'] = 'red'
+    previous_target_col = 'previous_'+target_col
+    plot_data[previous_target_col] = plot_data[target_col].shift(1)
+    plot_data.loc[plot_data[target_col] > plot_data[previous_target_col], 'color'] = 'green'
+  
+  elif color_mode == 'zero':
+    plot_data['color'] = 'red'
+    plot_data.loc[plot_data[target_col] > benchmark, 'color'] = 'green'
+    
+  else:
+    print('Unknown Color Mode')
+    return None
+
+  fig = plt.figure(figsize=figsize)
+  ax1 = fig.add_subplot(111)
+  ax1.bar(plot_data.index, height=plot_data[target_col], color=plot_data.color, alpha=0.5)
+  ax1.set_title(title)
+
+  if plot_close:
+    ax2=ax1.twinx()
+    ax2.plot(plot_data.Close, color='blue' )
+
+    
+    
+# 画出指标与价格
+def plot_indicator(data, target_col, title=None, start_date=None, end_date=None, plot_close=True, figsize=(20, 5)):
+  
+  plot_data = data[start_date:end_date].copy()
+
+  fig = plt.figure(figsize=figsize)
+  ax1 = fig.add_subplot(111)
+  ax1.plot(plot_data[target_col], color='red', alpha=0.5)
+  ax1.set_title(title)
+  
+  if plot_close:
+    ax2=ax1.twinx()
+    ax2.plot(plot_data.Close, color='blue' ) 
+
+# def plot_momentum_ao(df, target_col, start_date=None, end_date=None, plot_close=True, figsize=(20, 5)):
+  
+#   plot_data = df[start_date:end_date].copy()
+  
+#   plot_data['color'] = 'red'
+#   previous_target_col = 'previous_'+target_col
+#   plot_data[previous_target_col] = plot_data[target_col].shift(1)
+#   plot_data.loc[plot_data[target_col] > plot_data[previous_target_col], 'color'] = 'green'
+
+#   fig = plt.figure(figsize=figsize)
+#   ax1 = fig.add_subplot(111)
+#   ax1.bar(plot_data.index, height=plot_data[target_col], color=plot_data.color, alpha=0.5)
+  
+#   if plot_close:
+#     ax2=ax1.twinx()
+#     ax2.plot(plot_data.Close, color='blue' )
