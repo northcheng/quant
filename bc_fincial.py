@@ -611,31 +611,27 @@ def cal_period_rate(sec_data, by='month'):
 # 计算风险与收益
 def cal_risk_and_rate(rate_df, risk_free_rate, window_size=10, A=0.5):
   
+  result = rate_df.copy()
+
   # 算数平均利率
-  mean_rate = rate_df.rate.rolling(window=window_size).mean().values[-1]
+  result['mean_rate'] = rate_df.rate.rolling(window=window_size).mean()
 
   # 风险
-  risk = rate_df.rate.rolling(window=window_size).std().values[-1]
+  result['risk'] = rate_df.rate.rolling(window=window_size).std()
 
   # 风险溢价
-  risk_premium = mean_rate - risk_free_rate
+  result['risk_premium'] = result.mean_rate - result.risk_free_rate
 
   # 夏普比率
-  sharp_ratio = risk_premium / risk
+  result['sharp_ratio'] = result.risk_premium / result.risk
 
   # 风险厌恶系数
   A = 0.5
 
   # 效用
-  U = mean_rate - 0.5 * A * risk **2
+  result['U'] = result.mean_rate - 0.5 * A * result.risk **2
   
-  return {
-      'mean_rate': mean_rate,
-      'risk': risk,
-      'risk_premium': risk_premium,
-      'sharp_ratio': sharp_ratio,
-      'U': U
-  }
+  return result
 
 
 
