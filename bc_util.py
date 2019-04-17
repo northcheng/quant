@@ -61,8 +61,3 @@ def plot_data(selected_data, figsize=(15, 5), colormap='jet'):
            ncol=5, mode="expand", borderaxespad=0.)
     plt.grid(True)
     plt.xticks(rotation=90)   
-
-
-#     def parse(x):
-#     return datetime.strptime(x, '%Y %m %d %H')
-# dataset = read_csv('raw.csv',  parse_dates = [['year', 'month', 'day', 'hour']], index_col=0, date_parser=parse)

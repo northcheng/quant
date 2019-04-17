@@ -15,7 +15,6 @@ from matplotlib.pylab import date2num
 
 
 #----------------------------- 股票池 -----------------------------------#
-
 def get_symbols(remove_invalid=True, remove_not_fetched=True, not_fetched_list='drive/My Drive/probabilistic_model/yahoo_not_fetched_sec_code.csv'):
 
   try:
@@ -52,7 +51,6 @@ def get_symbols(remove_invalid=True, remove_not_fetched=True, not_fetched_list='
 
 
 #----------------------------- 蜡烛图 -----------------------------------#
-
 # 为数据添加蜡烛图维度
 def add_candle_dims_for_data(original_df):
   
@@ -84,7 +82,6 @@ def add_candle_dims_for_data(original_df):
   data.loc[down_idx, 'lower_shadow'] = (data.loc[down_idx, 'Close'] - data.loc[down_idx, 'Low'])
   
   return data
-
 
 # 画蜡烛图函数
 def plot_candlestick(df, num_days=50, figsize=(15,5), title='', colors=('red', 'black')):
@@ -128,8 +125,8 @@ def plot_candlestick(df, num_days=50, figsize=(15,5), title='', colors=('red', '
   plt.show()
    
 
-#----------------------------- 均值回归模型 -----------------------------------#
 
+#----------------------------- 均值回归模型 -----------------------------------#
 # 计算涨跌幅/累计涨跌幅
 def cal_change_rate(original_df, dim, period=1, is_add_acc_rate=True):
   
@@ -173,7 +170,6 @@ def cal_change_rate(original_df, dim, period=1, is_add_acc_rate=True):
 
     return df
 
-
 # 计算当前值与移动均值的差距离移动标准差的倍数
 def cal_mean_reversion(df, dim, window_size=100, start_date=None, end_date=None):
   
@@ -191,7 +187,6 @@ def cal_mean_reversion(df, dim, window_size=100, start_date=None, end_date=None)
     data[d+'_bias'] = (data[d] - tmp_mean) / (tmp_std)
   
   return data
-
 
 # 画出均值回归偏差图
 def plot_mean_reversion(df, times_std, window_size, start_date=None, end_date=None, is_save=False, img_info={'path': 'drive/My Drive/probabilistic_model/images/', 'name': 'untitled', 'format': '.png'}):
@@ -214,6 +209,18 @@ def plot_mean_reversion(df, times_std, window_size, start_date=None, end_date=No
     plot_name = img_info['path'] + img_info['name'] + '_' + end_date + '%s' %  img_info['format']
     plt.savefig(plot_name)
 
+# # 计算触发信号所需的累积涨跌
+# def cal_expected_acc_rate(mean_reversion_df, window_size, times_std):
+  
+#   x = sympy.Symbol('x')
+#   acc_rate = np.hstack((mean_reversion_df.tail(window_size-1).acc_rate.values, x))
+#   ma = acc_rate.mean()
+#   std = sympy.sqrt(sum((acc_rate - ma)**2)/window_size)
+#   result = sympy.solve((x - ma)**2 - (n*std)**2, x)
+  
+#   return result
+
+
 
 #----------------------------- 均线模型 -----------------------------------#
 # 计算移动平均信号
@@ -227,32 +234,6 @@ def cal_moving_average(df, dim, ma_windows=[3, 10], start_date=None, end_date=No
     df[dim+'_ma_%s'% mw] = df[dim].rolling(mw).mean()
     
   return df
-
-
-# 画出移动平均图
-def plot_moving_average(df, dim, short_ma, long_ma, window_size, start_date=None, end_date=None, is_save=False, img_info={'path': 'drive/My Drive/probabilistic_model/images/', 'name': 'untitled', 'format': '.png'}):
-  
-  plot_dims = ['Close']
-  
-  if long_ma not in df.columns or short_ma not in df.columns:
-    print("%(short)s or %(long)s on %(dim)s not found" % dict(short=short_ma, long=long_ma, dim=dim))
-    
-  else:
-    plot_dims += [long_ma, short_ma]
-  
-  # 创建图片
-  plt.figure()
-  plot_data = df[plot_dims][start_date:end_date].tail(window_size)
-  
-  # 画出信号
-  plot_data.plot(figsize=(20, 3))
-  plt.legend(loc='best')
-  
-  # 保存图像
-  if is_save:
-    plot_name = img_info['path'] + img_info['name'] + '_' + end_date + '%s' %  img_info['format']
-    plt.savefig(plot_name)
-
 
 # 计算移动平均信号
 def cal_moving_average_signal(ma_df, dim, short_ma, long_ma, start_date=None, end_date=None):
@@ -290,19 +271,34 @@ def cal_moving_average_signal(ma_df, dim, short_ma, long_ma, start_date=None, en
     
   return ma_df
 
-# # 计算触发信号所需的累积涨跌
-# def cal_expected_acc_rate(mean_reversion_df, window_size, times_std):
+# 画出移动平均图
+def plot_moving_average(df, dim, short_ma, long_ma, window_size, start_date=None, end_date=None, is_save=False, img_info={'path': 'drive/My Drive/probabilistic_model/images/', 'name': 'untitled', 'format': '.png'}):
   
-#   x = sympy.Symbol('x')
-#   acc_rate = np.hstack((mean_reversion_df.tail(window_size-1).acc_rate.values, x))
-#   ma = acc_rate.mean()
-#   std = sympy.sqrt(sum((acc_rate - ma)**2)/window_size)
-#   result = sympy.solve((x - ma)**2 - (n*std)**2, x)
+  plot_dims = ['Close']
   
-#   return result
+  if long_ma not in df.columns or short_ma not in df.columns:
+    print("%(short)s or %(long)s on %(dim)s not found" % dict(short=short_ma, long=long_ma, dim=dim))
+    
+  else:
+    plot_dims += [long_ma, short_ma]
+  
+  # 创建图片
+  plt.figure()
+  plot_data = df[plot_dims][start_date:end_date].tail(window_size)
+  
+  # 画出信号
+  plot_data.plot(figsize=(20, 3))
+  plt.legend(loc='best')
+  
+  # 保存图像
+  if is_save:
+    plot_name = img_info['path'] + img_info['name'] + '_' + end_date + '%s' %  img_info['format']
+    plt.savefig(plot_name)
+
+
+
 
 #----------------------------- 回测工具 -----------------------------------#
-
 # 回测
 def back_test(signal, cash=0, stock=0, start_date=None, end_date=None, trading_fee=3, stop_profit=0.1, stop_loss=0.6, mode='earning', print_trading=True):
   
@@ -488,10 +484,6 @@ def back_test(signal, cash=0, stock=0, start_date=None, end_date=None, trading_f
   return record      
 
 
-#----------------------------- 验证信号 -----------------------------------#
-# def exam_signal(){
-#   print('not implemented yet')
-# }
 
 #----------------------------- 均值/方差模型 -----------------------------------#
 # 风险溢价是超额收益的期望值(rate_premium = mean(excess_return)),
@@ -503,7 +495,6 @@ def cal_HPR(data, start, end, dim='Close', dividends=0):
   
   return HPR
 
-  
 # 计算有效年收益率(Effective Annual Rate)
 def cal_EAR(data, start, end, dim='Close', dividends=0):
   # 计算期间内的收益率
@@ -515,14 +506,12 @@ def cal_EAR(data, start, end, dim='Close', dividends=0):
   
   return EAR
 
-
 # 计算一段期间为多少年
 def num_year_between(start, end):
   start=datetime.datetime.strptime(start,"%Y-%m-%d")
   end=datetime.datetime.strptime(end,"%Y-%m-%d")
   
   return (end-start).days / 365
-
 
 # 计算年华百分比利率(Annual Percentile Rate)
 def cal_APR(data, start, end, dim='Close', dividends=0):
@@ -670,8 +659,6 @@ def plot_indicator_around_benchmark(data, target_col, benchmark=0, title=None, s
     ax2=ax1.twinx()
     ax2.plot(plot_data.Close, color='blue' )
 
-    
-    
 # 画出指标与价格
 def plot_indicator(data, target_col, title=None, start_date=None, end_date=None, plot_close=True, figsize=(20, 5)):
   
@@ -685,20 +672,3 @@ def plot_indicator(data, target_col, title=None, start_date=None, end_date=None,
   if plot_close:
     ax2=ax1.twinx()
     ax2.plot(plot_data.Close, color='blue' ) 
-
-# def plot_momentum_ao(df, target_col, start_date=None, end_date=None, plot_close=True, figsize=(20, 5)):
-  
-#   plot_data = df[start_date:end_date].copy()
-  
-#   plot_data['color'] = 'red'
-#   previous_target_col = 'previous_'+target_col
-#   plot_data[previous_target_col] = plot_data[target_col].shift(1)
-#   plot_data.loc[plot_data[target_col] > plot_data[previous_target_col], 'color'] = 'green'
-
-#   fig = plt.figure(figsize=figsize)
-#   ax1 = fig.add_subplot(111)
-#   ax1.bar(plot_data.index, height=plot_data[target_col], color=plot_data.color, alpha=0.5)
-  
-#   if plot_close:
-#     ax2=ax1.twinx()
-#     ax2.plot(plot_data.Close, color='blue' )
