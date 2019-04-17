@@ -254,6 +254,42 @@ def plot_moving_average(df, dim, short_ma, long_ma, window_size, start_date=None
     plt.savefig(plot_name)
 
 
+# 计算移动平均信号
+def cal_moving_average_signal(ma_df, dim, short_ma, long_ma, start_date=None, end_date=None):
+  
+  ma_df = ma_df.copy()
+  
+  if long_ma not in ma_df.columns or short_ma not in ma_df.columns:
+    print("%(short)s or %(long)s on %(dim)s not found" % dict(short=short_ma, long=long_ma, dim=dim))
+    return pd.DataFrame()
+  
+  # 计算长短均线之差
+  ma_df['ma_diff'] = ma_df[short_ma] - ma_df[long_ma]
+  
+  # 计算信号
+  ma_df['signal'] = 'n'
+  last_value = None
+  for index, row in ma_df[start_date : end_date].iterrows():
+    
+    # 当前与之前的长短期均线差值
+    current_value = row['ma_diff']
+    
+    if last_value is None:
+      last_value = current_value
+      continue
+    
+    # 短线从下方穿过长线, 买入
+    if last_value < 0 and current_value > 0:
+      ma_df.loc[index, 'signal'] = 'b'
+
+    # 短线从上方穿过长线, 卖出
+    elif last_value > 0 and current_value < 0:
+      ma_df.loc[index, 'signal'] = 's'
+      
+    last_value = current_value
+    
+  return ma_df
+
 # # 计算触发信号所需的累积涨跌
 # def cal_expected_acc_rate(mean_reversion_df, window_size, times_std):
   
@@ -457,7 +493,7 @@ def back_test(signal, cash=0, stock=0, start_date=None, end_date=None, trading_f
 #   print('not implemented yet')
 # }
 
-#----------------------------- 资本资产定价模型 -----------------------------------#
+#----------------------------- 均值/方差模型 -----------------------------------#
 # 风险溢价是超额收益的期望值(rate_premium = mean(excess_return)),
 # 超额收益的标准差是其风险的测度(risk = std(excess_return))
 # 计算持有期收益率(Holding Period Rate)
@@ -530,72 +566,79 @@ def cal_excess_raturn(expected_rate, real_rate):
   
   return ER
 
+# 计算周期收益率(年/月)
+def cal_period_rate(sec_data, by='month'):
+  
+  # 计算周期收益率
+  start_date = sec_data.index.min().date()
+  end_date = sec_data.index.max().date()
+  
+  # 构造周期列表
+  periods = []
 
-#----------------------------- 概率模型 -----------------------------------#
+  # 年周期
+  if by == 'year':
+    for year in range(start_date.year, end_date.year+1):
+      periods.append('%(year)s' % dict(year=year))
+      
+  # 月周期      
+  elif by == 'month':
+    for year in range(start_date.year, end_date.year+1):
+      for month in range(1, 13):
+        if year >= end_date.year and month > end_date.month:
+          break
+        p = '%(year)s-%(month)02d' % dict(year=year, month=month)
+        periods.append(p)
+  else:
+    print('Invalid period')
+  
+  # 计算周期收益率
+  period_rate = {
+      'period': [],
+      'rate': []
+  } 
+  for p in periods:
+    tmp_data = sec_data[p:p]
+    if len(tmp_data) == 0:
+      continue
+    else:
+      period_rate['period'].append(p)
+      period_rate['rate'].append(cal_HPR(data=tmp_data, start=None, end=None, dim='Close'))
+  
+  period_rate = pd.DataFrame(period_rate)
+  period_rate = util.df_2_timeseries(df=period_rate, time_col='period')
+  
+  return period_rate
 
-# 计算特定列均值和上下N个标准差的范围
-def cal_mean_std(df, dim, times_std, end_date=None, window_size=None):
- 
-  # 筛选数据
-  if end_date is not None:
-    df = df[:end_date]
-  if window_size is not None:
-    df = df[-window_size:]
-    
-  # 复制 dataframe
-  df = df.copy()
+# 计算风险与收益
+def cal_risk_and_rate(rate_df, risk_free_rate, A=0.5):
   
-  # 计算均值, 上下N倍标准差
-  dim_mean = df[dim].mean()
-  dim_std = df[dim].std()
-  upper = dim_mean + times_std * dim_std
-  lower = dim_mean - times_std * dim_std
-  
-  # 添加相应列
-  df['mean'] = dim_mean
-  df['std'] = dim_std
-  df['upper'] = upper
-  df['lower'] = lower
+  # 算数平均利率
+  mean_rate = rate_df.rate.mean()
 
-  return df
+  # 风险
+  risk = rate_df.rate.std()
 
+  # 风险溢价
+  risk_premium = mean_rate - risk_free_rate
 
-# 画出均值和上下N个标准差的范围
-def plot_mean_std(df, dim, date, plot_info={'name': 'Untitled', 'data_length': 50, 'result_length':2}, is_save=False, img_info={'path': 'drive/My Drive/probabilistic_model/images/', 'format': '.png'}):
+  # 夏普比率
+  sharp_ratio = risk_premium / risk
+
+  # 风险厌恶系数
+  A = 0.5
+
+  # 效用
+  U = mean_rate - 0.5 * A * risk **2
   
-  # 需要绘出的维度
-  plot_dims = ['upper', 'mean', 'lower', dim]
-  
-  # 构造图片名称
-  title = '%(title)s [%(dim)s: %(dim_value).3f%%]\n[%(high).3f%%, %(avg).3f%%, %(low).3f%%]' % dict(
-      title=plot_info['name'], 
-      dim=dim,
-      dim_value=df.loc[date, dim],
-      avg=df.loc[date, 'mean'],
-      high=df.loc[date, 'upper'],
-      low=df.loc[date, 'lower']
-  )
-    
-  # 创建图片
-  plt.figure()
-  plot_data = df[plot_dims].tail(plot_info['data_length'])
-  
-  # 画出信号
-  signal_data = plot_data[:date]
-  signal_data.plot(figsize=(20, 5), title=title)
-  
-  # 画出结果
-  if plot_info['result_length'] > 0:
-    result_idx = signal_data.index.tolist()[-1]
-    result_data = plot_data[dim][result_idx:].head(plot_info['result_length']+1)
-    plt.plot(result_data, '--oc', label='result', )
-  
-  plt.legend(loc='best')
-  
-  # 保存图像
-  if is_save:
-    plot_name = img_info['path'] + plot_info['name'] + '_' + date + '_' + '%s' % plot_info['result_length'] + img_info['format']
-    plt.savefig(plot_name)
+  return {
+      'mean_rate': mean_rate * 100,
+      'risk': risk * 100,
+      'risk_premium': risk_premium * 100,
+      'sharp_ratio': sharp_ratio * 100,
+      'U': U * 100
+  }
+
 
 
 #----------------------------- 技术分析 -----------------------------------#
