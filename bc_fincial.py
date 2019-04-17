@@ -630,11 +630,11 @@ def cal_risk_and_rate(rate_df, risk_free_rate, A=0.5):
   U = mean_rate - 0.5 * A * risk **2
   
   return {
-      'mean_rate': mean_rate * 100,
-      'risk': risk * 100,
-      'risk_premium': risk_premium * 100,
-      'sharp_ratio': sharp_ratio * 100,
-      'U': U * 100
+      'mean_rate': mean_rate,
+      'risk': risk,
+      'risk_premium': risk_premium,
+      'sharp_ratio': sharp_ratio,
+      'U': U
   }
 
 
