@@ -620,7 +620,7 @@ def cal_risk_and_rate(rate_df, risk_free_rate, window_size=10, A=0.5):
   result['risk'] = rate_df.rate.rolling(window=window_size).std()
 
   # 风险溢价
-  result['risk_premium'] = result.mean_rate - result.risk_free_rate
+  result['risk_premium'] = result.mean_rate - risk_free_rate
 
   # 夏普比率
   result['sharp_ratio'] = result.risk_premium / result.risk
