@@ -612,10 +612,10 @@ def cal_period_rate(sec_data, by='month'):
 def cal_risk_and_rate(rate_df, risk_free_rate, window_size=10, A=0.5):
   
   # 算数平均利率
-  mean_rate = rate_df.rate.rolling(window_size=window_size).mean().values[-1]
+  mean_rate = rate_df.rate.rolling(window=window_size).mean().values[-1]
 
   # 风险
-  risk = rate_df.rate.rolling(window_size=window_size).std().values[-1]
+  risk = rate_df.rate.rolling(window=window_size).std().values[-1]
 
   # 风险溢价
   risk_premium = mean_rate - risk_free_rate
