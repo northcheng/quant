@@ -568,7 +568,8 @@ def cal_period_rate(sec_data, by='month'):
   # 年周期
   if by == 'year':
     for year in range(start_date.year, end_date.year+1):
-      periods.append('%(year)s' % dict(year=year))
+      p = '%(year)s' % dict(year=year)
+      periods.append((p, p))
       
   # 月周期      
   elif by == 'month':
@@ -577,7 +578,15 @@ def cal_period_rate(sec_data, by='month'):
         if year >= end_date.year and month > end_date.month:
           break
         p = '%(year)s-%(month)02d' % dict(year=year, month=month)
-        periods.append(p)
+        periods.append((p, p))
+
+  # 周周期
+  elif by == 'week':
+    week_start = start_date
+    while week_start < end_date:
+      week_end = week_start + datetime.timedelta(days=(6 - week_start.weekday()))
+      periods.append((week_start, week_end))
+      week_start = week_end + datetime.timedelta(days=1)
   else:
     print('Invalid period')
   
@@ -586,12 +595,12 @@ def cal_period_rate(sec_data, by='month'):
       'period': [],
       'rate': []
   } 
-  for p in periods:
-    tmp_data = sec_data[p:p]
+  for p_pair in periods:
+    tmp_data = sec_data[p_pair[0]:p_pair[1]]
     if len(tmp_data) == 0:
       continue
     else:
-      period_rate['period'].append(p)
+      period_rate['period'].append(p_pair[0])
       period_rate['rate'].append(cal_HPR(data=tmp_data, start=None, end=None, dim='Close'))
   
   period_rate = pd.DataFrame(period_rate)
