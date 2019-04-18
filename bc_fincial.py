@@ -538,14 +538,14 @@ def cal_expected_rate(data, dim, start=None, end=None):
   return ER
 
 # 计算风险(方差)
-def cal_standard_deviation(data, dim, start=None, end=None):
+def cal_risk(data, dim, start=None, end=None):
   STD = data[start : end][dim].std()
   
   return STD
 
 # 计算风险溢价(Risk Premium)
-def cal_rate_premium(expected_rate, risk_free_rate):
-  RP = expected_rate - risl_free_rate
+def cal_risk_premium(expected_rate, risk_free_rate):
+  RP = expected_rate - risk_free_rate
   
   return RP
 
