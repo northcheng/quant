@@ -29,11 +29,11 @@ def timestamp_2_time(timestamp, unit='ms', timezone='CN'):
         tz = pytz.utc
 
     if unit == 'ms':
-        timestamp /= 1000
+        timestamp = int(timestamp/1000)
     if unit == 'us':
-        timestamp /= 1000000
+        timestamp = int(timestamp/1000000)
 
-    time_object = datetime.datetime.fromtimestamp(int(str(timestamp)), tz)
+    time_object = datetime.datetime.fromtimestamp(int(timestamp), tz)
     return time_object
  
 # 直接在字符串上加减日期
