@@ -89,9 +89,8 @@ def download_stock_data_from_tiger(sec_code, quote_client, start_date=None, end_
       tmp_len = len(tmp_data)
       data = tmp_data.append(data)
       end_date = int(tmp_data.time.min())
-      end_date = util.timestamp_2_time(end_date)
       if is_print:
-        print(start_date, end_date)
+        print(start_date, util.timestamp_2_time(end_date))
     
     # 处理下载的数据
     data.drop('symbol', axis=1, inplace=True)
