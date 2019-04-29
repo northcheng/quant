@@ -13,8 +13,8 @@ def get_user_info(info_path='drive/My Drive/tiger_quant/'):
 
 
 # 获取用户配置
-def get_client_config(account='global_account', is_sandbox=False):
-  user_info = get_user_info()
+def get_client_config(account='global_account', info_path='drive/My Drive/tiger_quant/', is_sandbox=False):
+  user_info = get_user_info(info_path=info_path)
 
   client_config = TigerOpenClientConfig(sandbox_debug=is_sandbox)
   client_config.private_key = read_private_key(info_path + user_info['private_key_name'])
