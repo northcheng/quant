@@ -28,7 +28,7 @@ def timestamp_2_time(timestamp, timezone='CN'):
     else:
         tz = pytz.utc
     time_object = datetime.datetime.fromtimestamp(int(str(timestamp)[:10]), tz)
-    return time_obect
+    return time_object
  
 # 直接在字符串上加减日期
 def string_plus_day(string, diff_days, date_format='%Y-%m-%d'):
