@@ -21,13 +21,19 @@ def time_2_string(time_object, diff_days=0, date_format='%Y-%m-%d'):
     return time_string
 
 # 将时间戳转化为时间对象
-def timestamp_2_time(timestamp, timezone='CN'):
+def timestamp_2_time(timestamp, unit='ms', timezone='CN'):
 
     if timezone == 'CN':
         tz = pytz.timezone('Asia/Chongqing')
     else:
         tz = pytz.utc
-    time_object = datetime.datetime.fromtimestamp(int(str(timestamp)[:10]), tz)
+
+    if unit == 'ms':
+        timestamp /= 1000
+    if unit == 'us':
+        timestamp /= 1000000
+
+    time_object = datetime.datetime.fromtimestamp(int(str(timestamp)), tz)
     return time_object
  
 # 直接在字符串上加减日期
