@@ -42,8 +42,9 @@ def get_trade_client(account='global_account'):
 
 
 # 获取账户信息
-def get_account_info(account='glboal_account'):
+def get_account_info(account='global_account', info_path='drive/My Drive/tiger_quant/'):
 
+  user_info = get_user_info(info_path=info_path)
   trade_client = get_trade_client(account=account)
   managed_account = trade_client.get_managed_accounts()  
   position = trade_client.get_positions(account=user_info[account])
