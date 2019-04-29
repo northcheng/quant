@@ -2,6 +2,7 @@
 import pandas as pd
 import numpy as np
 import datetime
+import pytz
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import matplotlib.cm as cmx
@@ -18,6 +19,16 @@ def time_2_string(time_object, diff_days=0, date_format='%Y-%m-%d'):
     time_object = time_object + datetime.timedelta(days=diff_days)
     time_string = datetime.datetime.strftime(time_object, date_format)
     return time_string
+
+# 将时间戳转化为时间对象
+def timestamp_2_time(timestamp, timezone='CN'):
+
+    if timezone == 'CN':
+        tz = pytz.timezone('Asia/Chongqing')
+    else:
+        tz = pytz.utc
+    time_object = datetime.datetime.fromtimestamp(int(str(timestamp)[:10]), tz)
+    return time_obect
  
 # 直接在字符串上加减日期
 def string_plus_day(string, diff_days, date_format='%Y-%m-%d'):
