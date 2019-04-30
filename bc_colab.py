@@ -98,17 +98,18 @@ def download_stock_data_from_tiger(sec_code, quote_client, start_date=None, end_
     if len(new_data) > 0:
       print(new_data)
       new_data.drop('symbol', axis=1, inplace=True)
-      new_data.time = new_data.time.apply(lambda x: util.timestamp_2_time(x).date())
-      new_data = util.df_2_timeseries(df=new_data, time_col=time_col)
+      new_data[time_col] = new_data[time_col].apply(lambda x: util.timestamp_2_time(x).date())
       new_data.rename(columns={'open': 'Open', 'high': 'High', 'low': 'Low', 'close': 'Close', 'volume': 'Volume', 'time': 'Date'}, inplace=True)
       new_data['Adj Close'] = new_data['Close']
       time_col = 'Date'
+      new_data = util.df_2_timeseries(df=new_data, time_col=time_col)
+
       print(new_data)
     
       # 附上已有数据
       data = data.append(new_data)
       print(data.tail())
-      
+
       # 去重，保存数据
       stage = 'saving_data'
       data = data.reset_index().drop_duplicates(subset=time_col, keep='last')
