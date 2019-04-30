@@ -96,32 +96,27 @@ def download_stock_data_from_tiger(sec_code, quote_client, start_date=None, end_
     # 处理下载的数据
     stage = 'processing_new_data'
     if len(new_data) > 0:
-      print(new_data)
       new_data.drop('symbol', axis=1, inplace=True)
       new_data[time_col] = new_data[time_col].apply(lambda x: util.timestamp_2_time(x).date())
       new_data.rename(columns={'open': 'Open', 'high': 'High', 'low': 'Low', 'close': 'Close', 'volume': 'Volume', 'time': 'Date'}, inplace=True)
       new_data['Adj Close'] = new_data['Close']
       time_col = 'Date'
       new_data = util.df_2_timeseries(df=new_data, time_col=time_col)
-
-      print(new_data)
     
       # 附上已有数据
-      data = data.append(new_data)
-      print(data.tail())
+      data = data.append(new_data, sort=False)
 
       # 去重，保存数据
       stage = 'saving_data'
       data = data.reset_index().drop_duplicates(subset=time_col, keep='last')
-      data.sort_values(by=time_col)
+      data.sort_values(by=time_col,  )
       data.to_csv(filename, index=False) 
       
-    
     # 对比记录数量变化
     if is_print:
       final_len = len(data)
       diff_len = final_len - init_len
-      print('%(sec_code)s: 最新日期%(latest_date)s, 新增记录 %(diff_len)s/%(final_len)s, ' % dict(
+      print('[From Tiger]%(sec_code)s: 最新日期%(latest_date)s, 新增记录 %(diff_len)s/%(final_len)s, ' % dict(
         diff_len=diff_len, final_len=final_len, latest_date=data[time_col].max().date(), sec_code=sec_code))
       
   except Exception as e:
