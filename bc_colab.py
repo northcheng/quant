@@ -74,7 +74,7 @@ def download_stock_data_from_tiger(sec_code, quote_client, start_date=None, end_
     stage = 'loading_existed_data'
     data = pd.DataFrame()
     if os.path.exists(filename):  
-      data = read_stock_data(sec_code, file_path=file_path, file_format=file_format, time_col=time_col)
+      data = read_stock_data(sec_code, file_path=file_path, file_format=file_format, time_col='Date')
       
     # 记录原始数据记录数, 更新下载起始日期
     init_len = len(data)  
@@ -98,7 +98,7 @@ def download_stock_data_from_tiger(sec_code, quote_client, start_date=None, end_
     if len(new_data) > 0:
       new_data.drop('symbol', axis=1, inplace=True)
       new_data.time = new_data.time.apply(lambda x: util.timestamp_2_time(x).date())
-      new_data = util.df_2_timeseries(df=new_data, time_col='time')
+      new_data = util.df_2_timeseries(df=new_data, time_col=time_col)
       new_data.rename(columns={'open': 'Open', 'high': 'High', 'low': 'Low', 'close': 'Close', 'volume': 'Volume', 'time': 'Date'})
       new_data['Adj Close'] = new_data['Close']
       time_col = 'Date'
