@@ -100,7 +100,7 @@ def download_stock_data_from_tiger(sec_code, quote_client, start_date=None, end_
       new_data = tmp_data.append(new_data)
       end_time = int(tmp_data.time.min())
       if is_print:
-        print(begin_time, util.timestamp_2_time(end_time))
+        print(util.timestamp_2_time(begin_time).date(), util.timestamp_2_time(end_time).date())
     
     # 处理下载的数据
     stage = 'processing_new_data'
