@@ -12,6 +12,7 @@ def mount_google_drive(destination_path='content/drive', force_remount=False):
   drive.mount('/content/drive', force_remount=force_remount)
 
 
+
 # 下载股票数据
 def download_stock_data(sec_code, source='yahoo', time_col='Date', start_date=None, end_date=None, file_path='drive/My Drive/stock_data_us/', file_format='.csv', is_return=False, is_print=True):
   
@@ -21,41 +22,42 @@ def download_stock_data(sec_code, source='yahoo', time_col='Date', start_date=No
   # 下载开始
   stage = 'downloading_started'
   try:
-
     # 查看是否已存在下载好的文件, 若有则读取, 若没有则初始化
     stage = 'loading_existed_data'
     data = pd.DataFrame()
     if os.path.exists(filename):
       data = read_stock_data(sec_code, file_path=file_path, file_format=file_format, time_col=time_col)
     
-    # 记录原始数据记录数
+    # 记录原始数据记录数, 更新下载的起始日期
     init_len = len(data)
     if init_len > 0:
       start_date = util.time_2_string(data.index.max(), date_format='%Y-%m-%d')
 
-    # 下载数据
+    # 下载更新新下载的数据并保存
     stage = 'appending_new_data'
     tmp_data = web.DataReader(sec_code, source, start=start_date, end=end_date)
-    data = data.append(tmp_data)
+    if len(tmp_data) > 0:
+      data = data.append(tmp_data)
 
-    # 保存数据
-    stage = 'saving_data'
-    data = data.reset_index().drop_duplicates(subset=time_col, keep='last')
-    data.to_csv(filename, index=False) 
-    data = util.df_2_timeseries(data, time_col=time_col)
+      # 保存数据
+      stage = 'saving_data'
+      data = data.reset_index().drop_duplicates(subset=time_col, keep='last')
+      data.to_csv(filename, index=False) 
+      
 
     # 对比记录数量变化
     if is_print:
       final_len = len(data)
       diff_len = final_len - init_len
       print('%(sec_code)s: 最新日期%(latest_date)s, 新增记录 %(diff_len)s/%(final_len)s, ' % dict(
-          diff_len=diff_len, final_len=final_len, latest_date=data.index.max().date(), sec_code=sec_code))
+        diff_len=diff_len, final_len=final_len, latest_date=data[time_col].max().date(), sec_code=sec_code))
   except Exception as e:
       print(sec_code, stage, e)
 
   # 返回数据
   if is_return:
-      return data
+    data = util.df_2_timeseries(data, time_col=time_col)
+    return data 
 
 
 
@@ -68,59 +70,63 @@ def download_stock_data_from_tiger(sec_code, quote_client, start_date=None, end_
   # 下载开始
   stage = 'downloading_started'
   try:
-
     # 查看是否已存在下载好的文件, 若有则读取, 若没有则初始化
     stage = 'loading_existed_data'
     data = pd.DataFrame()
-    init_len = len(data)
     if os.path.exists(filename):  
-      old_data = read_stock_data(sec_code, file_path=file_path, file_format=file_format, time_col=time_col)
-      init_len = len(old_data)  
-    
-    # 记录原始数据记录数
-    if init_len > 0:
-      start_date = util.time_2_string(old_data.index.max(), date_format='%Y-%m-%d')
+      data = read_stock_data(sec_code, file_path=file_path, file_format=file_format, time_col=time_col)
       
-    # 下载数据
+    # 记录原始数据记录数, 更新下载起始日期
+    init_len = len(data)  
+    if init_len > 0:
+      start_date = util.time_2_string(data.index.max(), date_format='%Y-%m-%d')
+      
+    # 从老虎API下载数据
     stage = 'appending_new_data'
     tmp_len = download_limit
+    new_data = pd.DataFrame()
     while tmp_len >= download_limit:  
       tmp_data = quote_client.get_bars([sec_code], begin_time=start_date, end_time=end_date, limit=download_limit)
       tmp_len = len(tmp_data)
-      data = tmp_data.append(data)
+      new_data = tmp_data.append(new_data)
       end_date = int(tmp_data.time.min())
-      # if is_print:
-      #   print(start_date, util.timestamp_2_time(end_date))
+      if is_print:
+        print(start_date, util.timestamp_2_time(end_date))
     
     # 处理下载的数据
-    data.drop('symbol', axis=1, inplace=True)
-    data.time = data.time.apply(lambda x: util.timestamp_2_time(x).date())
-    data = util.df_2_timeseries(df=data, time_col='time')
+    stage = 'processing_new_data'
+    if len(new_data) > 0:
+      new_data.drop('symbol', axis=1, inplace=True)
+      new_data.time = new_data.time.apply(lambda x: util.timestamp_2_time(x).date())
+      new_data = util.df_2_timeseries(df=new_data, time_col='time')
+      new_data.rename(columns={'open': 'Open', 'high': 'High', 'low': 'Low', 'close': 'Close', 'volume': 'Volume', 'time': 'Date'})
+      new_data['Adj Close'] = new_data['Close']
+      time_col = 'Date'
     
-    # 附上已有数据
-    if init_len > 0:
-      data = old_data.append(data)
+      # 附上已有数据
+      data = data.append(new_data)
     
-    # 去重，保存数据
-    stage = 'saving_data'
-    data = data.reset_index().drop_duplicates(subset=time_col, keep='last')
-    data.sort_values(by=time_col)
-    data.to_csv(filename, index=False) 
-    data = util.df_2_timeseries(data, time_col=time_col)
+      # 去重，保存数据
+      stage = 'saving_data'
+      data = data.reset_index().drop_duplicates(subset=time_col, keep='last')
+      data.sort_values(by=time_col)
+      data.to_csv(filename, index=False) 
+      
     
     # 对比记录数量变化
     if is_print:
       final_len = len(data)
       diff_len = final_len - init_len
       print('%(sec_code)s: 最新日期%(latest_date)s, 新增记录 %(diff_len)s/%(final_len)s, ' % dict(
-          diff_len=diff_len, final_len=final_len, latest_date=data.index.max().date(), sec_code=sec_code))
+        diff_len=diff_len, final_len=final_len, latest_date=data[time_col].max().date(), sec_code=sec_code))
       
   except Exception as e:
     print(sec_code, stage, e)   
     
   # 返回数据
   if is_return:
-      return data
+    data = util.df_2_timeseries(data, time_col=time_col)
+    return data
 
 
 
