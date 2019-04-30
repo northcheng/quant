@@ -68,7 +68,9 @@ def cal_change_rate(df, dim, period=1, add_accumulation=True):
   if add_accumulation:
     
     df[acc_rate_dim] = 0
-    df[acc_day_dim] = 1
+    # df[acc_day_dim] = 1
+    df.loc[df['rate']>0, acc_day_dim] = 1
+    df.loc[df['rate']<0, acc_day_dim] = -1
   
     # 计算累计值
     idx = df.index.tolist()
