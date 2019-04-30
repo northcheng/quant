@@ -1,4 +1,4 @@
-import panads as pd
+import pandas as pd
 import tushare as ts
 
 # 获取用户信息
