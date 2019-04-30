@@ -103,10 +103,12 @@ def download_stock_data_from_tiger(sec_code, quote_client, start_date=None, end_
       new_data.rename(columns={'open': 'Open', 'high': 'High', 'low': 'Low', 'close': 'Close', 'volume': 'Volume', 'time': 'Date'}, inplace=True)
       new_data['Adj Close'] = new_data['Close']
       time_col = 'Date'
+      print(new_data)
     
       # 附上已有数据
       data = data.append(new_data)
-    
+      print(data.tail())
+      
       # 去重，保存数据
       stage = 'saving_data'
       data = data.reset_index().drop_duplicates(subset=time_col, keep='last')
