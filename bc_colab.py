@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import pandas as pd
+import time
 import pandas_datareader.data as web 
 from quant import bc_util as util
 from google.colab import drive
@@ -85,14 +86,21 @@ def download_stock_data_from_tiger(sec_code, quote_client, start_date=None, end_
     stage = 'appending_new_data'
     tmp_len = download_limit
     new_data = pd.DataFrame()
-    print(start_date, end_date)
+    if start_date is not None:
+      begin_time = round(time.mktime(util.string_2_time(start_date).timetuple()) * 1000)
+    else:
+      begin_time = 0
+    if end_date is not None:
+      end_time = round(time.mktime(util.string_2_time(end_date).timetuple()) * 1000)
+    else:
+      end_time = round(time.time() * 1000)
     while tmp_len >= download_limit:  
-      tmp_data = quote_client.get_bars([sec_code], begin_time=start_date, end_time=end_date, limit=download_limit)
+      tmp_data = quote_client.get_bars([sec_code], begin_time=begin_time, end_time=end_time, limit=download_limit)
       tmp_len = len(tmp_data)
       new_data = tmp_data.append(new_data)
-      end_date = int(tmp_data.time.min())
+      end_time = int(tmp_data.time.min())
       if is_print:
-        print(start_date, util.timestamp_2_time(end_date))
+        print(begin_time, util.timestamp_2_time(end_time))
     
     # 处理下载的数据
     stage = 'processing_new_data'
