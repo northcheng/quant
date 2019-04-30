@@ -96,6 +96,7 @@ def download_stock_data_from_tiger(sec_code, quote_client, start_date=None, end_
     # 处理下载的数据
     stage = 'processing_new_data'
     if len(new_data) > 0:
+      print(new_data)
       new_data.drop('symbol', axis=1, inplace=True)
       new_data.time = new_data.time.apply(lambda x: util.timestamp_2_time(x).date())
       new_data = util.df_2_timeseries(df=new_data, time_col=time_col)
