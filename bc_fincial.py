@@ -32,7 +32,7 @@ def get_symbols(remove_invalid=True, remove_not_fetched=True, not_fetched_list='
     sec_list = [x for x in sec_list if '$' not in x]
     sec_list = [x for x in sec_list if '.' not in x]
     current_len = len(sec_list)
-    print('移除无效股票代码: ', original_len-current_len, '剩余长度: ', current_len)
+    # print('移除无效股票代码: ', original_len-current_len, '剩余长度: ', current_len)
 
   # 删除yahoo无法匹配的代码
   if remove_not_fetched:
@@ -44,7 +44,7 @@ def get_symbols(remove_invalid=True, remove_not_fetched=True, not_fetched_list='
       print(e)
     sec_list = [x for x in sec_list if x not in yahoo_not_fetched_list]
     current_len = len(sec_list)
-    print('移除无匹配股票代码: ', original_len-current_len, '剩余长度: ', current_len)
+    # print('移除无匹配股票代码: ', original_len-current_len, '剩余长度: ', current_len)
 
   return symbols.loc[sec_list, ]
 
@@ -84,45 +84,45 @@ def add_candle_dims_for_data(original_df):
   return data
 
 # 画蜡烛图函数
-def plot_candlestick(df, num_days=50, figsize=(15,5), title='', colors=('red', 'black')):
+# def plot_candlestick(df, num_days=50, figsize=(15,5), title='', colors=('red', 'black')):
   
-  # 取关键字段
-  ohlc_timeseries_df = df[['Open', 'High', 'Low', 'Close']]
+#   # 取关键字段
+#   ohlc_timeseries_df = df[['Open', 'High', 'Low', 'Close']]
 
-  # 转化数据
-  data_list = []
-  for dates,row in ohlc_timeseries_df.tail(num_days).iterrows():
+#   # 转化数据
+#   data_list = []
+#   for dates,row in ohlc_timeseries_df.tail(num_days).iterrows():
    
-    # 时间转化为float
-    t = date2num(dates)
-    open,high,low,close = row[:4]
-    datas = (t,open,high,low,close)
-    data_list.append(datas)
+#     # 时间转化为float
+#     t = date2num(dates)
+#     open,high,low,close = row[:4]
+#     datas = (t,open,high,low,close)
+#     data_list.append(datas)
 
-  # 创建子图
-  fig, ax = plt.subplots(figsize=figsize)
-  fig.subplots_adjust(bottom=0.2)
-  fig.figsize = figsize
-  #   ax.set_facecolor('white')
+#   # 创建子图
+#   fig, ax = plt.subplots(figsize=figsize)
+#   fig.subplots_adjust(bottom=0.2)
+#   fig.figsize = figsize
+#   #   ax.set_facecolor('white')
   
-  # 设置x轴刻度为日期
-  ax.xaxis_date()
+#   # 设置x轴刻度为日期
+#   ax.xaxis_date()
 
-  # x轴刻度文字倾斜45度
-  plt.xticks(rotation=45)
-  plt.xlabel('time')
-  plt.ylabel('price')
-  plt.title(title)
+#   # x轴刻度文字倾斜45度
+#   plt.xticks(rotation=45)
+#   plt.xlabel('time')
+#   plt.ylabel('price')
+#   plt.title(title)
 
-  # 绘制蜡烛图
-  mpf.candlestick_ohlc(
-    ax,
-    data_list,
-    width=0.8,
-    colorup=colors[0], colordown=colors[1]
-  )
-  plt.grid(True)
-  plt.show()
+#   # 绘制蜡烛图
+#   mpf.candlestick_ohlc(
+#     ax,
+#     data_list,
+#     width=0.8,
+#     colorup=colors[0], colordown=colors[1]
+#   )
+#   plt.grid(True)
+#   plt.show()
    
 
 
