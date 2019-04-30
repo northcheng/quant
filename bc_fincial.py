@@ -13,16 +13,18 @@ from matplotlib.pylab import date2num
 
 
 
-#----------------------------- 股票池 -----------------------------------#
+#----------------------------- 获取股票池 -------------------------------------#
 def get_symbols(remove_invalid=True, remove_not_fetched=True, not_fetched_list='drive/My Drive/probabilistic_model/yahoo_not_fetched_sec_code.csv'):
 
+  # 使用pandas_datareader下载股票列表
   try:
     symbols = get_nasdaq_symbols()
     symbols = symbols.loc[symbols['Test Issue'] == False,]
+  
+  # 直接从纳斯达克网站下载股票列表
   except Exception as e:
     symbols = pd.read_table('ftp://ftp.nasdaqtrader.com/symboldirectory/nasdaqtraded.txt', sep='|', index_col='Symbol').drop(np.NaN)
     symbols = symbols.loc[symbols['Test Issue'] == 'N',]
-
   sec_list = symbols.index.tolist()
 
   # 删除无效代码
@@ -30,8 +32,6 @@ def get_symbols(remove_invalid=True, remove_not_fetched=True, not_fetched_list='
     original_len = len(sec_list)
     sec_list = [x for x in sec_list if '$' not in x]
     sec_list = [x for x in sec_list if '.' not in x]
-    current_len = len(sec_list)
-    # print('移除无效股票代码: ', original_len-current_len, '剩余长度: ', current_len)
 
   # 删除yahoo无法匹配的代码
   if remove_not_fetched:
@@ -42,86 +42,49 @@ def get_symbols(remove_invalid=True, remove_not_fetched=True, not_fetched_list='
     except Exception as e:
       print(e)
     sec_list = [x for x in sec_list if x not in yahoo_not_fetched_list]
-    current_len = len(sec_list)
-    # print('移除无匹配股票代码: ', original_len-current_len, '剩余长度: ', current_len)
-
+  
   return symbols.loc[sec_list, ]
-
-
-
-#----------------------------- 蜡烛图 -----------------------------------#
-# 为数据添加蜡烛图维度
-def add_candle_dims_for_data(original_df):
-  
-  data = original_df.copy()
-  
-  # 影线范围
-  data['shadow'] = (data['High'] - data['Low'])    
-  
-  # 实体范围
-  data['entity'] = abs(data['Close'] - data['Open'])
-  
-  # 筛选涨跌
-  up_idx = data.Open < data.Close
-  down_idx = data.Open >= data.Close
-
-  # 上影线/下影线
-  data['upper_shadow'] = 0
-  data['lower_shadow'] = 0
-  data['candle_color'] = 0
-  
-  # 涨
-  data.loc[up_idx, 'candle_color'] = 1
-  data.loc[up_idx, 'upper_shadow'] = (data.loc[up_idx, 'High'] - data.loc[up_idx, 'Close'])
-  data.loc[up_idx, 'lower_shadow'] = (data.loc[up_idx, 'Open'] - data.loc[up_idx, 'Low'])
-  
-  # 跌
-  data.loc[down_idx, 'candle_color'] = -1
-  data.loc[down_idx, 'upper_shadow'] = (data.loc[down_idx, 'High'] - data.loc[down_idx, 'Open'])
-  data.loc[down_idx, 'lower_shadow'] = (data.loc[down_idx, 'Close'] - data.loc[down_idx, 'Low'])
-  
-  return data
 
 
 
 #----------------------------- 均值回归模型 -----------------------------------#
 # 计算涨跌幅/累计涨跌幅
-def cal_change_rate(original_df, dim, period=1, is_add_acc_rate=True):
+def cal_change_rate(df, dim, period=1, add_accumulation=True):
   
   # 复制 dataframe
-  df = original_df.copy()
+  df = df.copy()
   
   # 设置列名
   previous_dim = '%(dim)s-%(period)s' % dict(dim=dim, period=period)
-  dim_rate = 'rate'
-  dim_acc_rate = 'acc_rate'
-  dim_acc_days = 'acc_days'
+  rate_dim = 'rate'
+  acc_rate_dim = 'acc_rate'
+  acc_day_dim = 'acc_day'
   
   # 计算涨跌率
   df[previous_dim] = df[dim].shift(period)
-  df[dim_rate] = (df[dim] -  df[previous_dim]) / df[previous_dim] * 100
+  df[rate_dim] = (df[dim] -  df[previous_dim]) / df[previous_dim] * 100
   
-  # 添加累计维度列
-  if is_add_acc_rate:
+  # 计算累计维度列
+  if add_accumulation:
     
-    df[dim_acc_rate] = 0
-    df[dim_acc_days] = 1
+    df[acc_rate_dim] = 0
+    df[acc_day_dim] = 1
   
     # 计算累计值
     idx = df.index.tolist()
     for i in range(1, len(df)):
       current_idx = idx[i]
       previous_idx = idx[i-1]
-      current_rate = df.loc[current_idx, dim_rate]
-      previous_acc_rate = df.loc[previous_idx, dim_acc_rate]
-      previous_acc_days = df.loc[previous_idx, dim_acc_days]
+      current_rate = df.loc[current_idx, rate_dim]
+      previous_acc_rate = df.loc[previous_idx, acc_rate_dim]
+      previous_acc_days = df.loc[previous_idx, acc_day_dim]
 
       # 如果符号相同则累加, 否则重置
       if previous_acc_rate * current_rate > 0:
-        df.loc[current_idx, dim_acc_rate] = current_rate + previous_acc_rate
-        df.loc[current_idx, dim_acc_days] += previous_acc_days
+        df.loc[current_idx, acc_rate_dim] = current_rate + previous_acc_rate
+        df.loc[current_idx, acc_day_dim] += previous_acc_days
       else:
-        df.loc[current_idx, dim_acc_rate] = current_rate
+        df.loc[current_idx, acc_rate_dim] = current_rate
 
     df.dropna(inplace=True) 
     df.drop(previous_dim, axis=1, inplace=True)
@@ -132,10 +95,12 @@ def cal_change_rate(original_df, dim, period=1, is_add_acc_rate=True):
 def cal_mean_reversion(df, dim, window_size=100, start_date=None, end_date=None):
   
   # 日收益率计算
-  data = cal_change_rate(original_df=df,dim=dim)[start_date:end_date]
+  original_columns = df.columns
+  data = cal_change_rate(df=df, dim=dim, period=1, add_accumulation=True)[start_date:end_date]
   
   # 计算变化率, 累计变化率, 累计天数的偏离均值距离
-  for d in ['rate', 'acc_rate', 'acc_days']:
+  new_columns = [x for x in data.columns if x not in original_columns]
+  for d in new_columns:
     
     # 计算累计变化率的移动平均及移动标准差
     tmp_mean = data[d].rolling(window_size).mean()
@@ -593,7 +558,7 @@ def cal_risk_and_rate(rate_df, risk_free_rate, window_size=10, A=0.5):
 
 
 
-#----------------------------- 技术分析 -----------------------------------#
+#----------------------------- 画图 -----------------------------------#
 # 画出以benchmark为界的柱状图, 上升为绿, 下降为红
 def plot_indicator_around_benchmark(data, target_col, benchmark=0, title=None, start_date=None, end_date=None, color_mode='up_down', plot_close=True, figsize=(20, 5)):
   
@@ -637,43 +602,37 @@ def plot_indicator(data, target_col, title=None, start_date=None, end_date=None,
     ax2.plot(plot_data.Close, color='blue' ) 
 
 
-# 画蜡烛图函数
-# def plot_candlestick(df, num_days=50, figsize=(15,5), title='', colors=('red', 'black')):
+
+
+#----------------------------- 蜡烛图维度 -----------------------------------#
+# 为数据添加蜡烛图维度
+def add_candle_dims_for_data(original_df):
   
-#   # 取关键字段
-#   ohlc_timeseries_df = df[['Open', 'High', 'Low', 'Close']]
-
-#   # 转化数据
-#   data_list = []
-#   for dates,row in ohlc_timeseries_df.tail(num_days).iterrows():
-   
-#     # 时间转化为float
-#     t = date2num(dates)
-#     open,high,low,close = row[:4]
-#     datas = (t,open,high,low,close)
-#     data_list.append(datas)
-
-#   # 创建子图
-#   fig, ax = plt.subplots(figsize=figsize)
-#   fig.subplots_adjust(bottom=0.2)
-#   fig.figsize = figsize
-#   #   ax.set_facecolor('white')
+  data = original_df.copy()
   
-#   # 设置x轴刻度为日期
-#   ax.xaxis_date()
+  # 影线范围
+  data['shadow'] = (data['High'] - data['Low'])    
+  
+  # 实体范围
+  data['entity'] = abs(data['Close'] - data['Open'])
+  
+  # 筛选涨跌
+  up_idx = data.Open < data.Close
+  down_idx = data.Open >= data.Close
 
-#   # x轴刻度文字倾斜45度
-#   plt.xticks(rotation=45)
-#   plt.xlabel('time')
-#   plt.ylabel('price')
-#   plt.title(title)
-
-#   # 绘制蜡烛图
-#   mpf.candlestick_ohlc(
-#     ax,
-#     data_list,
-#     width=0.8,
-#     colorup=colors[0], colordown=colors[1]
-#   )
-#   plt.grid(True)
-#   plt.show()
+  # 上影线/下影线
+  data['upper_shadow'] = 0
+  data['lower_shadow'] = 0
+  data['candle_color'] = 0
+  
+  # 涨
+  data.loc[up_idx, 'candle_color'] = 1
+  data.loc[up_idx, 'upper_shadow'] = (data.loc[up_idx, 'High'] - data.loc[up_idx, 'Close'])
+  data.loc[up_idx, 'lower_shadow'] = (data.loc[up_idx, 'Open'] - data.loc[up_idx, 'Low'])
+  
+  # 跌
+  data.loc[down_idx, 'candle_color'] = -1
+  data.loc[down_idx, 'upper_shadow'] = (data.loc[down_idx, 'High'] - data.loc[down_idx, 'Open'])
+  data.loc[down_idx, 'lower_shadow'] = (data.loc[down_idx, 'Close'] - data.loc[down_idx, 'Low'])
+  
+  return data
