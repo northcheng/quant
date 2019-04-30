@@ -38,20 +38,19 @@ def download_stock_data(sec_code, source='yahoo', time_col='Date', start_date=No
     stage = 'appending_new_data'
     tmp_data = web.DataReader(sec_code, source, start=start_date, end=end_date)
     if len(tmp_data) > 0:
-      data = data.append(tmp_data)
+      data = data.append(tmp_data, sort=False)
 
       # 保存数据
       stage = 'saving_data'
       data = data.reset_index().drop_duplicates(subset=time_col, keep='last')
       data.to_csv(filename, index=False) 
       
-
     # 对比记录数量变化
     if is_print:
       final_len = len(data)
       diff_len = final_len - init_len
-      print('%(sec_code)s: 最新日期%(latest_date)s, 新增记录 %(diff_len)s/%(final_len)s, ' % dict(
-        diff_len=diff_len, final_len=final_len, latest_date=data[time_col].max().date(), sec_code=sec_code))
+      print('%(sec_code)s: %(first_date)s - %(latest_date)s, 新增记录 %(diff_len)s/%(final_len)s, ' % dict(
+        diff_len=diff_len, final_len=final_len, first_date=data[time_col].min().date(), latest_date=data[time_col].max().date(), sec_code=sec_code))
   except Exception as e:
       print(sec_code, stage, e)
 
@@ -83,9 +82,9 @@ def download_stock_data_from_tiger(sec_code, quote_client, start_date=None, end_
       start_date = util.time_2_string(data.index.max(), date_format='%Y-%m-%d')
       
     # 从老虎API下载数据
-    stage = 'appending_new_data'
-    tmp_len = download_limit
-    new_data = pd.DataFrame()
+    stage = 'downloading_new_data'
+
+    # 将开始结束时间转化为时间戳
     if start_date is not None:
       begin_time = round(time.mktime(util.string_2_time(start_date).timetuple()) * 1000)
     else:
@@ -94,13 +93,15 @@ def download_stock_data_from_tiger(sec_code, quote_client, start_date=None, end_
       end_time = round(time.mktime(util.string_2_time(end_date).timetuple()) * 1000)
     else:
       end_time = round(time.time() * 1000)
+
+    # 开始下载数据
+    tmp_len = download_limit
+    new_data = pd.DataFrame()
     while tmp_len >= download_limit:  
       tmp_data = quote_client.get_bars([sec_code], begin_time=begin_time, end_time=end_time, limit=download_limit)
       tmp_len = len(tmp_data)
       new_data = tmp_data.append(new_data)
       end_time = int(tmp_data.time.min())
-      if is_print:
-        print(util.timestamp_2_time(begin_time).date(), util.timestamp_2_time(end_time).date())
     
     # 处理下载的数据
     stage = 'processing_new_data'
@@ -125,8 +126,8 @@ def download_stock_data_from_tiger(sec_code, quote_client, start_date=None, end_
     if is_print:
       final_len = len(data)
       diff_len = final_len - init_len
-      print('[From Tiger]%(sec_code)s: 最新日期%(latest_date)s, 新增记录 %(diff_len)s/%(final_len)s, ' % dict(
-        diff_len=diff_len, final_len=final_len, latest_date=data[time_col].max().date(), sec_code=sec_code))
+      print('[From Tiger]%(sec_code)s: %(first_date)s - %(latest_date)s, 新增记录 %(diff_len)s/%(final_len)s, ' % dict(
+        diff_len=diff_len, final_len=final_len, first_date=data[time_col].min().date(), latest_date=data[time_col].max().date(), sec_code=sec_code))
       
   except Exception as e:
     print(sec_code, stage, e)   
