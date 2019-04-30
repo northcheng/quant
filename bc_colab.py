@@ -139,6 +139,11 @@ def download_stock_data_from_tiger(sec_code, quote_client, start_date=None, end_
 
 
 
+# 从Tushare Pro API下载股票数据
+def download_stock_data_from_tushare(sec_code, ts_client, start_date=None, end_date=None, time_col='Date', file_path='drive/My Drive/stock_data_cn/', file_format='.csv', is_return=False, is_print=True)
+
+
+
 # 读取股票数据
 def read_stock_data(sec_code, time_col, file_path='drive/My Drive/stock_data_us/', file_format='.csv', source='google_drive', start_date=None, end_date=None, drop_cols=[], drop_na=False, sort_index=True):
   
