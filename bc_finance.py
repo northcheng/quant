@@ -113,6 +113,41 @@ def cal_mean_reversion(df, dim, window_size=100, start_date=None, end_date=None)
   
   return data
 
+# 计算均值回归信号
+def cal_mean_reversion_signal(mr_df, time_std=2, triger=2, start_date=None, end_date=None):
+  
+  # 复制 dataframe
+  mr_df = mr_df.copy()
+
+  # 选择包含 'bias' 的列
+  target_dims = [x for x in mr_df.columns if 'bias' in x]
+  
+  # 初始化信号
+  mr_df['signal'] = 0
+
+  # 计算每种 bias 的信号
+  for dim in target_dims:
+    signal_dim = dim.replace('bias', 'signal')
+    mr_df[signal_dim] = 0
+    
+    # 超买信号
+    mr_df.loc[mr_df[dim] > time_std, signal_dim] = 1
+    
+    # 超卖信号
+    mr_df.loc[mr_df[dim] < -time_std, signal_dim] = -1
+
+    # 综合信号
+    mr_df['signal'] = mr_df['signal'] + mr_df[signal_dim]
+  
+  # 将信号从数字转化为字符  
+  sell_signals = mr_df.loc[mr_df['signal'] >= triger, ].index
+  buy_signals = mr_df.loc[mr_df['signal'] <= -triger, ].index
+  mr_df['signal'] = 'n'
+  mr_df.loc[sell_signals, 'signal'] = 's'
+  mr_df.loc[buy_signals, 'signal'] = 'b'
+  
+  return mr_df
+
 # 画出均值回归偏差图
 def plot_mean_reversion(df, times_std, window_size, start_date=None, end_date=None):
   
@@ -221,7 +256,7 @@ def plot_moving_average(df, dim, short_ma, long_ma, window_size, start_date=None
 
 #----------------------------- 回测工具 -----------------------------------#
 # 回测
-def back_test(signal, cash=0, stock=0, start_date=None, end_date=None, trading_fee=3, stop_profit=0.1, stop_loss=0.6, mode='earning', print_trading=True):
+def back_test(signal, cash=0, stock=0, start_date=None, end_date=None, trading_fee=3, stop_profit=0.1, stop_loss=0.6, mode='earning', print_trading=True, plot_trading=True):
   
   # 获取指定期间的信号
   signal = signal[start_date:end_date]
@@ -402,6 +437,23 @@ def back_test(signal, cash=0, stock=0, start_date=None, end_date=None, trading_f
   
   # 将记录转化为时序数据
   record = util.df_2_timeseries(pd.DataFrame(record), time_col='date')
+
+  # 画出回测图
+  if plot_trading:
+    buying_points = record.query('action == "b"')
+    selling_points = record.query('action == "s"')
+  
+    f, ax = plt.subplots(figsize = (20, 3))
+    plt.plot(signal[['Close']])
+    plt.scatter(buying_points.index,buying_points.price, c='green')
+    plt.scatter(selling_points.index,selling_points.price, c='red')
+  
+    total_value_data = pd.merge(signal[['Close']], record[['cash', 'holding', 'action']], how='left', left_index=True, right_index=True)
+    total_value_data.fillna(method='ffill', inplace=True)
+    total_value_data['original'] = cash
+    total_value_data['total'] = total_value_data['Close'] * total_value_data['holding'] + total_value_data['cash']
+    total_value_data[['total', 'original']].plot(figsize=(20, 3))
+  
   return record      
 
 
