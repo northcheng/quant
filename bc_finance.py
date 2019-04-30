@@ -260,6 +260,7 @@ def back_test(signal, cash=0, stock=0, start_date=None, end_date=None, trading_f
   
   # 获取指定期间的信号
   signal = signal[start_date:end_date]
+  original_cash = cash
   
   # 记录交易                           
   record = {
@@ -450,7 +451,7 @@ def back_test(signal, cash=0, stock=0, start_date=None, end_date=None, trading_f
   
     total_value_data = pd.merge(signal[['Close']], record[['cash', 'holding', 'action']], how='left', left_index=True, right_index=True)
     total_value_data.fillna(method='ffill', inplace=True)
-    total_value_data['original'] = cash
+    total_value_data['original'] = original_cash
     total_value_data['total'] = total_value_data['Close'] * total_value_data['holding'] + total_value_data['cash']
     total_value_data[['total', 'original']].plot(figsize=(20, 3))
   
