@@ -85,6 +85,7 @@ def download_stock_data_from_tiger(sec_code, quote_client, start_date=None, end_
     stage = 'appending_new_data'
     tmp_len = download_limit
     new_data = pd.DataFrame()
+    print(start_date, end_date)
     while tmp_len >= download_limit:  
       tmp_data = quote_client.get_bars([sec_code], begin_time=start_date, end_time=end_date, limit=download_limit)
       tmp_len = len(tmp_data)
