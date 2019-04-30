@@ -1,7 +1,7 @@
-import os
-import numpy as np
 import pandas as pd
+import numpy as np
 import time
+import os
 import pandas_datareader.data as web 
 from quant import bc_util as util
 from google.colab import drive
@@ -139,8 +139,8 @@ def download_stock_data_from_tiger(sec_code, quote_client, start_date=None, end_
 
 
 
-# 从Tushare Pro API下载股票数据
-def download_stock_data_from_tushare(sec_code, ts_client, start_date=None, end_date=None, time_col='Date', file_path='drive/My Drive/stock_data_cn/', file_format='.csv', is_return=False, is_print=True)
+# # 从Tushare Pro API下载股票数据
+# def download_stock_data_from_tushare(sec_code, ts_client, start_date=None, end_date=None, time_col='Date', file_path='drive/My Drive/stock_data_cn/', file_format='.csv', is_return=False, is_print=True)
 
 
 

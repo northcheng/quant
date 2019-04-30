@@ -6,8 +6,6 @@ import pytz
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import matplotlib.cm as cmx
-import mpl_finance as mpf
-from matplotlib.pylab import date2num
 
 # 将时间字符串转化为时间对象
 def string_2_time(string, date_format='%Y-%m-%d'):
