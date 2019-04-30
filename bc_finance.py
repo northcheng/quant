@@ -112,10 +112,10 @@ def cal_mean_reversion(df, dim, window_size=100, start_date=None, end_date=None)
   return data
 
 # 画出均值回归偏差图
-def plot_mean_reversion(df, times_std, window_size, start_date=None, end_date=None, is_save=False, img_info={'path': 'drive/My Drive/probabilistic_model/images/', 'name': 'untitled', 'format': '.png'}):
+def plot_mean_reversion(df, times_std, window_size, start_date=None, end_date=None):
   
   # 需要绘出的维度
-  plot_dims = ['rate_bias', 'acc_rate_bias', 'acc_days_bias']
+  plot_dims = [x for x in df.columns if '_bias' in x]
     
   # 创建图片
   plt.figure()
@@ -127,10 +127,6 @@ def plot_mean_reversion(df, times_std, window_size, start_date=None, end_date=No
   plot_data.plot(figsize=(20, 3))
   plt.legend(loc='best')
   
-  # 保存图像
-  if is_save:
-    plot_name = img_info['path'] + img_info['name'] + '_' + end_date + '%s' %  img_info['format']
-    plt.savefig(plot_name)
 
 # # 计算触发信号所需的累积涨跌
 # def cal_expected_acc_rate(mean_reversion_df, window_size, times_std):
