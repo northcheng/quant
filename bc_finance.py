@@ -126,6 +126,8 @@ def cal_mean_reversion_signal(mr_df, time_std=2, triger_dim=['acc_rate_bias'], s
       print(t, 'not found in columns!')
       triger_dim = [x for x in triger_dim if x != t]
   
+  triger_threshold = len(triger_dim)
+
   # 初始化信号
   mr_df['signal'] = 0
 
@@ -144,8 +146,8 @@ def cal_mean_reversion_signal(mr_df, time_std=2, triger_dim=['acc_rate_bias'], s
     mr_df['signal'] = mr_df['signal'] + mr_df[signal_dim]
   
   # 将信号从数字转化为字符  
-  sell_signals = mr_df.loc[mr_df['signal'] > 0, ].index
-  buy_signals = mr_df.loc[mr_df['signal'] < 0, ].index
+  sell_signals = mr_df.loc[mr_df['signal'] >= triger_threshold, ].index
+  buy_signals = mr_df.loc[mr_df['signal'] < -triger_threshold, ].index
   mr_df['signal'] = 'n'
   mr_df.loc[sell_signals, 'signal'] = 's'
   mr_df.loc[buy_signals, 'signal'] = 'b'
