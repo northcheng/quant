@@ -166,13 +166,14 @@ def plot_mean_reversion(df, times_std, window_size, start_date=None, end_date=No
   
 
 # # 计算触发信号所需的累积涨跌
-# def cal_expected_acc_rate(mean_reversion_df, window_size, times_std):
+# def cal_expected_rate(df, rate_dim, window_size, time_std):
   
 #   x = sympy.Symbol('x')
-#   acc_rate = np.hstack((mean_reversion_df.tail(window_size-1).acc_rate.values, x))
-#   ma = acc_rate.mean()
-#   std = sympy.sqrt(sum((acc_rate - ma)**2)/window_size)
-#   result = sympy.solve((x - ma)**2 - (n*std)**2, x)
+  
+#   rate_data = np.hstack((df.tail(window_size-1)[rate_dim].values, x))
+#   ma = rate_data.mean()
+#   std = sympy.sqrt(sum((rate_data - ma)**2)/(window_size-1))
+#   result = sympy.solve(((x - ma)**2) - ((time_std*std)**2), x)
   
 #   return result
 
