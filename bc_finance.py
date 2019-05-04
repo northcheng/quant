@@ -114,19 +114,23 @@ def cal_mean_reversion(df, dim, window_size=100, start_date=None, end_date=None)
   return data
 
 # 计算均值回归信号
-def cal_mean_reversion_signal(mr_df, time_std=2, triger=2, start_date=None, end_date=None):
+def cal_mean_reversion_signal(mr_df, time_std=2, triger_dim=['acc_rate_bias'], start_date=None, end_date=None):
   
   # 复制 dataframe
   mr_df = mr_df.copy()
 
   # 选择包含 'bias' 的列
-  target_dims = [x for x in mr_df.columns if 'bias' in x]
+  target_dim = [x for x in mr_df.columns if 'bias' in x]
+  for t in triger_dim:
+    if t not in target_dim:
+      print(t, 'not found in columns!')
+      triger_dim = [x for x in triger_dim if x != t]
   
   # 初始化信号
   mr_df['signal'] = 0
 
   # 计算每种 bias 的信号
-  for dim in target_dims:
+  for dim in triger_dim:
     signal_dim = dim.replace('bias', 'signal')
     mr_df[signal_dim] = 0
     
@@ -140,8 +144,8 @@ def cal_mean_reversion_signal(mr_df, time_std=2, triger=2, start_date=None, end_
     mr_df['signal'] = mr_df['signal'] + mr_df[signal_dim]
   
   # 将信号从数字转化为字符  
-  sell_signals = mr_df.loc[mr_df['signal'] >= triger, ].index
-  buy_signals = mr_df.loc[mr_df['signal'] <= -triger, ].index
+  sell_signals = mr_df.loc[mr_df['signal'] > 0, ].index
+  buy_signals = mr_df.loc[mr_df['signal'] < 0, ].index
   mr_df['signal'] = 'n'
   mr_df.loc[sell_signals, 'signal'] = 's'
   mr_df.loc[buy_signals, 'signal'] = 'b'
