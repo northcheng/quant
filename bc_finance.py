@@ -114,10 +114,10 @@ def cal_mean_reversion(df, dim, window_size=100, start_date=None, end_date=None)
   return data
 
 # 计算均值回归信号
-def cal_mean_reversion_signal(mr_df, time_std=2, triger_dim=['acc_rate_bias'], triger_threshold=2, start_date=None, end_date=None):
+def cal_mean_reversion_signal(df, time_std=2, triger_dim=['acc_rate_bias'], triger_threshold=2, start_date=None, end_date=None):
   
   # 复制 dataframe
-  mr_df = mr_df.copy()
+  mr_df = df.copy()
 
   # 选择包含 'bias' 的列
   target_dim = [x for x in mr_df.columns if 'bias' in x]
