@@ -8,7 +8,6 @@ from quant import bc_util as util
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import matplotlib.cm as cmx
-# import mpl_finance as mpf
 from matplotlib.pylab import date2num
 
 
