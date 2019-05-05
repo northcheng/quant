@@ -15,12 +15,12 @@ def mount_google_drive(destination_path='content/drive', force_remount=False):
 
 
 # 下载股票数据
-def download_stock_data(sec_code, source, time_col, quote_client=None, start_date=None, end_date=None, file_path='drive/My Drive/stock_data_us/', file_format='.csv', is_return=False, is_print=True):
+def download_stock_data(sec_code, source, time_col, quote_client=None, download_limit=1200, start_date=None, end_date=None, file_path='drive/My Drive/stock_data_us/', file_format='.csv', is_return=False, is_print=True):
   
   if source == 'yahoo':
     return download_stock_data_from_yahoo(sec_code=sec_code, time_col=time_col, start_date=start_date, end_date=end_date, file_path=file_path, file_format=file_format, is_return=is_return, is_print=is_print)
   elif source == 'tiger':
-    return download_stock_data_from_tiger(sec_code=sec_code, time_col=time_col, quote_client=quote_client, download_limit=1200,  start_date=start_date, end_date=end_date, file_path=file_path, file_format=file_format, is_return=is_return, is_print=is_print)
+    return download_stock_data_from_tiger(sec_code=sec_code, time_col=time_col, quote_client=quote_client, download_limit=download_limit,  start_date=start_date, end_date=end_date, file_path=file_path, file_format=file_format, is_return=is_return, is_print=is_print)
   # # 构建股票数据文件名
   # filename = file_path + sec_code + file_format
   
