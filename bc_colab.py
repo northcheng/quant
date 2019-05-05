@@ -126,7 +126,7 @@ def download_stock_data_from_yahoo(sec_code, time_col='Date', start_date=None, e
 
 
 # 从老虎API下载股票数据
-def download_stock_data_from_tiger(sec_code, time_col='time', quote_client, download_limit=1200, start_date=None, end_date=None, file_path='drive/My Drive/stock_data_us/', file_format='.csv', is_return=False, is_print=True):
+def download_stock_data_from_tiger(sec_code, time_col='time', quote_client=None, download_limit=1200, start_date=None, end_date=None, file_path='drive/My Drive/stock_data_us/', file_format='.csv', is_return=False, is_print=True):
   
   # 构建股票数据文件名
   filename = file_path + sec_code + file_format
