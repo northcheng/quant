@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import datetime
 import math
+import sympy
 from pandas_datareader.nasdaq_trader import get_nasdaq_symbols
 from quant import bc_util as util
 import matplotlib.pyplot as plt
@@ -153,6 +154,18 @@ def cal_mean_reversion_signal(df, time_std=2, triger_dim=['acc_rate_bias'], trig
   
   return mr_df
 
+# 计算触发信号所需的累积涨跌
+def cal_mean_reversion_expected_rate(df, rate_dim, window_size, time_std):
+  
+  x = sympy.Symbol('x')
+  
+  rate_data = np.hstack((df.tail(window_size-1)[rate_dim].values, x))
+  ma = rate_data.mean()
+  std = sympy.sqrt(sum((rate_data - ma)**2)/(window_size-1))
+  result = sympy.solve(((x - ma)**2) - ((time_std*std)**2), x)
+  
+  return result
+
 # 画出均值回归偏差图
 def plot_mean_reversion(df, times_std, window_size, start_date=None, end_date=None):
   
@@ -169,19 +182,6 @@ def plot_mean_reversion(df, times_std, window_size, start_date=None, end_date=No
   plot_data.plot(figsize=(20, 3))
   plt.legend(loc='best')
   
-
-# # 计算触发信号所需的累积涨跌
-# def cal_expected_rate(df, rate_dim, window_size, time_std):
-  
-#   x = sympy.Symbol('x')
-  
-#   rate_data = np.hstack((df.tail(window_size-1)[rate_dim].values, x))
-#   ma = rate_data.mean()
-#   std = sympy.sqrt(sum((rate_data - ma)**2)/(window_size-1))
-#   result = sympy.solve(((x - ma)**2) - ((time_std*std)**2), x)
-  
-#   return result
-
 
 
 #----------------------------- 均线模型 -----------------------------------#
@@ -256,7 +256,6 @@ def plot_moving_average(df, dim, short_ma, long_ma, window_size, start_date=None
   if is_save:
     plot_name = img_info['path'] + img_info['name'] + '_' + end_date + '%s' %  img_info['format']
     plt.savefig(plot_name)
-
 
 
 
@@ -657,7 +656,6 @@ def plot_indicator(data, target_col, title=None, start_date=None, end_date=None,
   if plot_close:
     ax2=ax1.twinx()
     ax2.plot(plot_data.Close, color='blue' ) 
-
 
 
 
