@@ -57,19 +57,66 @@ def get_account_info(account='global_account', info_path='drive/My Drive/tiger_q
   }  
 
 
-def display_asset_summary(assets):
-  print(
+def get_asset_summary(trade_client, account, is_print=True):
+
+  # 获取资产
+  assets = trade_client.get_assets(account=account)
+  
+  for asset in assets:
+
+    if is_print:
+      print(
       '''
       for account: %(account)s:
-      资金: %(cash)s
+      货币: %(currency)s
+ 
+      总杠杆: %(leverage)s
+      净杠杆: %(net_leverage)s
+
+      总金额: %(cash)s
+      购买力: %(buying_power)s
       可用资金: %(available_funds)s
       持仓市值: %(gross_position_value)s
       日内交易次数: %(day_trades_remaining)s
       ''' % dict(
-          account=assets.account,
-          cash=assets.summary.cash,
-          available_funds=assets.summary.available_funds,
-          gross_position_value=assets.summary.gross_position_value,
-          day_trades_remaining=assets.summary.day_trades_remaining,
+        account=asset.account,
+        currency=asset.summary.currency,
+        leverage=asset.summary.leverage,
+        net_leverage=asset.summary.net_leverage,
+        cash=asset.summary.cash,
+        buying_power=asset.summary.buying_power,
+        available_funds=asset.summary.available_funds,
+        gross_position_value=asset.summary.gross_position_value,
+        day_trades_remaining=asset.summary.day_trades_remaining,
+        )
       )
-  )
+
+  return assets
+
+
+def get_position_summary(trade_client, account, is_print=False):
+
+  # 获取持仓
+  positions = trade_client.get_positions(account=account)
+
+  # 计算持仓盈亏
+  result = {
+    'sec_code': [],
+    'quantity': [],
+    'average_cost': [],
+    'market_price': []
+  }
+  for pos in positions:
+  
+    # 计算持仓盈亏
+    result['sec_code'].append(pos.contract.symbol)
+    result['quantity'].append(pos.quantity)
+    result['average_cost'].append(pos.average_cost)
+    result['market_price'].append(pos.market_price)
+  
+  result = pd.DataFrame(result)
+  result['earning'] = (result['market_price'] - result['average_cost']) * result['quantity']
+  result['earning_rate'] = round(((result['market_price'] - result['average_cost']) / result['average_cost']) * 100, ndigits=2)
+  
+  return result   
+
