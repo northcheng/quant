@@ -55,3 +55,21 @@ def get_account_info(account='global_account', info_path='drive/My Drive/tiger_q
       'position': position,
       'assets': assets,
   }  
+
+
+def display_asset_summary(assets):
+  print(
+      '''
+      for account: %(account)s:
+      资金: %(cash)s
+      可用资金: %(available_funds)s
+      持仓市值: %(gross_position_value)s
+      日内交易次数: %(day_trades_remaining)s
+      ''' % dict(
+          account=assets.account,
+          cash=assets.summary.cash,
+          available_funds=assets.summary.available_funds,
+          gross_position_value=assets.summary.gross_position_value,
+          day_trades_remaining=assets.summary.day_trades_remaining,
+      )
+  )
