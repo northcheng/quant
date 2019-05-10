@@ -26,6 +26,9 @@ def get_client_config(account='global_account', info_path='drive/My Drive/tiger_
 
 
   # 获取查询器    
+
+
+# 获取查询器
 def get_quote_client(account='global_account'):
   client_config = get_client_config(account=account)
   quote_client = QuoteClient(client_config)
@@ -57,6 +60,7 @@ def get_account_info(account='global_account', info_path='drive/My Drive/tiger_q
   }  
 
 
+# 获取资产信息
 def get_asset_summary(trade_client, account, is_print=True):
 
   # 获取资产
@@ -94,7 +98,8 @@ def get_asset_summary(trade_client, account, is_print=True):
   return assets
 
 
-def get_position_summary(trade_client, account, is_print=False):
+# 获取持仓信息
+def get_position_summary(trade_client, account):
 
   # 获取持仓
   positions = trade_client.get_positions(account=account)
