@@ -49,7 +49,7 @@ def get_symbols(remove_invalid=True, remove_not_fetched=True, not_fetched_list='
 
 #----------------------------- 均值回归模型 -----------------------------------#
 # 计算涨跌幅/累计涨跌幅
-def cal_change_rate(df, dim, period=1, add_accumulation=True):
+def cal_change_rate(df, dim, period=1, add_accumulation=True, add_prefix=False):
   
   # 复制 dataframe
   df = df.copy()
@@ -59,6 +59,11 @@ def cal_change_rate(df, dim, period=1, add_accumulation=True):
   rate_dim = 'rate'
   acc_rate_dim = 'acc_rate'
   acc_day_dim = 'acc_day'
+
+  if add_prefix:
+    rate_dim = dim + '_' + rate_dim
+    acc_rate_dim = dim + '_' + acc_rate_dim
+    acc_day_dim = dim + '_' + acc_day_dim
   
   # 计算涨跌率
   df[previous_dim] = df[dim].shift(period)
