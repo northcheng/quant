@@ -266,7 +266,7 @@ def plot_moving_average(df, dim, short_ma, long_ma, window_size, start_date=None
 
 #----------------------------- 回测工具 -----------------------------------#
 # 回测
-def back_test(signal, cash=0, stock=0, start_date=None, end_date=None, trading_fee=3, stop_profit=0.1, stop_loss=0.6, mode='earning', print_trading=True, plot_trading=True):
+def back_test(signal, buy_price='Open', sell_price='Close', cash=0, stock=0, start_date=None, end_date=None, trading_fee=3, stop_profit=0.1, stop_loss=0.6, mode='earning', print_trading=True, plot_trading=True):
   
   # 获取指定期间的信号
   signal = signal[start_date:end_date]
@@ -300,7 +300,7 @@ def back_test(signal, cash=0, stock=0, start_date=None, end_date=None, trading_f
       # 买入（开盘价）
       if stock == 0 and cash > 0:
         buying_date = tmp_data.index.min()
-        buying_price = tmp_data.loc[buying_date, 'Open']
+        buying_price = tmp_data.loc[buying_date, buy_price]
         stock = math.floor((cash-trading_fee) / buying_price)
         
         if stock > 0:
@@ -325,7 +325,7 @@ def back_test(signal, cash=0, stock=0, start_date=None, end_date=None, trading_f
       if stock > 0:
         for index, row in tmp_data.iterrows():
           selling_date = index
-          selling_price = row['Close']
+          selling_price = row[sell_price]
           
           # 收益卖出(收盘价)
           if ((selling_price - buying_price)/ buying_price) > stop_profit:
@@ -390,7 +390,7 @@ def back_test(signal, cash=0, stock=0, start_date=None, end_date=None, trading_f
       
       # 以开盘价买入
       if tmp_signal == 'b':
-        buying_price = signal.loc[trading_date, 'Open']
+        buying_price = signal.loc[trading_date, buy_price]
         stock = math.floor((cash-trading_fee) / buying_price)
         if stock > 0:
           cash = cash - stock * buying_price - trading_fee
@@ -411,7 +411,7 @@ def back_test(signal, cash=0, stock=0, start_date=None, end_date=None, trading_f
       # 以收盘价卖出
       elif tmp_signal == 's':
         if stock > 0:
-          selling_price = signal.loc[trading_date, 'Close']
+          selling_price = signal.loc[trading_date, sell_price]
           cash = cash + selling_price * stock - trading_fee
           stock = 0
           total = cash + stock * selling_price
