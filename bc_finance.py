@@ -575,9 +575,8 @@ def cal_period_rate(sec_data, by='month'):
       'daily_rate_std': []
   } 
   for p_pair in periods:
-    print(p_pair)
     tmp_data = sec_data[p_pair[0]:p_pair[1]]
-    if len(tmp_data) == 0:
+    if len(tmp_data) <= 1:
       continue
     else:
       period_rate['period'].append(p_pair[0])
