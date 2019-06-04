@@ -13,45 +13,43 @@ def get_user_info(info_path='drive/My Drive/tiger_quant/'):
 
 
 # 获取用户配置
-def get_client_config(account='global_account', info_path='drive/My Drive/tiger_quant/', is_sandbox=False):
+def get_client_config(account_type='global_account', info_path='drive/My Drive/tiger_quant/', is_sandbox=False):
   user_info = get_user_info(info_path=info_path)
 
   client_config = TigerOpenClientConfig(sandbox_debug=is_sandbox)
   client_config.private_key = read_private_key(info_path + user_info['private_key_name'])
   client_config.tiger_id = str(user_info['tiger_id'])
-  client_config.account = str(user_info[account])
+  client_config.account = str(user_info[account_type])
   client_config.language = Language.en_US
 
   return client_config  
-
-
-  # 获取查询器    
+   
 
 
 # 获取查询器
-def get_quote_client(account='global_account'):
-  client_config = get_client_config(account=account)
+def get_quote_client(account_type='global_account'):
+  client_config = get_client_config(account_type=account_type)
   quote_client = QuoteClient(client_config)
 
   return quote_client
 
 
 # 获取交易器            
-def get_trade_client(account='global_account'):
-  client_config = get_client_config(account=account)
+def get_trade_client(account_type='global_account'):
+  client_config = get_client_config(account_type=account_type)
   trade_client = TradeClient(client_config)
 
   return trade_client
 
 
 # 获取账户信息
-def get_account_info(account='global_account', info_path='drive/My Drive/tiger_quant/'):
+def get_account_info(account_type='global_account', info_path='drive/My Drive/tiger_quant/'):
 
   user_info = get_user_info(info_path=info_path)
-  trade_client = get_trade_client(account=account)
+  trade_client = get_trade_client(account_type=account_type)
   managed_account = trade_client.get_managed_accounts()  
-  position = trade_client.get_positions(account=user_info[account])
-  assets = trade_client.get_assets(account=user_info[account])
+  position = trade_client.get_positions(account_type=user_info[account_type])
+  assets = trade_client.get_assets(account_type=user_info[account_type])
   
   return{
       'managed_account': managed_account,
