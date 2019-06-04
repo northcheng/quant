@@ -68,8 +68,7 @@ def cal_change_rate(df, dim, period=1, add_accumulation=True, add_prefix=False):
   # 计算涨跌率
   df[previous_dim] = df[dim].shift(period)
   df[rate_dim] = (df[dim] -  df[previous_dim]) / df[previous_dim]
-  print(df.head())
-  return df
+
   # 计算累计维度列
   if add_accumulation:
     
@@ -94,12 +93,10 @@ def cal_change_rate(df, dim, period=1, add_accumulation=True, add_prefix=False):
       else:
         df.loc[current_idx, acc_rate_dim] = current_rate
 
-    df.dropna(inplace=True) 
-    print(df.head())
-    df.drop(previous_dim, axis=1, inplace=True)
-    print(df.head())
+  df.dropna(inplace=True) 
+  df.drop(previous_dim, axis=1, inplace=True)
 
-    return df
+  return df
 
 # 计算当前值与移动均值的差距离移动标准差的倍数
 def cal_mean_reversion(df, dim, window_size=100, start_date=None, end_date=None):
