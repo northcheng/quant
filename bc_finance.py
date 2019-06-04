@@ -526,6 +526,8 @@ def cal_excess_raturn(expected_rate, real_rate):
 # 计算周期收益率(年/月)
 def cal_period_rate(sec_data, by='month'):
   
+  sec_data = cal_change_rate(df=sec_data, dim='Close', period=1, add_accumulation=False, add_prefix=False)
+
   # 计算周期收益率
   start_date = sec_data.index.min().date()
   end_date = sec_data.index.max().date()
@@ -561,7 +563,12 @@ def cal_period_rate(sec_data, by='month'):
   # 计算周期收益率
   period_rate = {
       'period': [],
-      'rate': []
+      'HPR': [],
+      'EAR': [],
+      'APR': [],
+      'CCR': [],
+      'daily_rate_mean': [],
+      'daily_rate_std': []
   } 
   for p_pair in periods:
     tmp_data = sec_data[p_pair[0]:p_pair[1]]
@@ -569,7 +576,12 @@ def cal_period_rate(sec_data, by='month'):
       continue
     else:
       period_rate['period'].append(p_pair[0])
-      period_rate['rate'].append(cal_HPR(data=tmp_data, start=None, end=None, dim='Close'))
+      period_rate['HPR'].append(cal_HPR(data=tmp_data, start=None, end=None, dim='Close'))
+      period_rate['EAR'].append(cal_EAR(data=tmp_data, start=None, end=None, dim='Close'))
+      period_rate['APR'].append(cal_APR(data=tmp_data, start=None, end=None, dim='Close'))
+      period_rate['CCR'].append(cal_CCR(data=tmp_data, start=None, end=None, dim='Close'))
+      period_rate['daily_rate_mean'].append(tmp_data.rate.mean())
+      period_rate['daily_rate_std'].append(tmp_data.rate.std())
   
   period_rate = pd.DataFrame(period_rate)
   period_rate = util.df_2_timeseries(df=period_rate, time_col='period')
