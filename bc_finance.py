@@ -69,7 +69,7 @@ def cal_change_rate(df, dim, period=1, add_accumulation=True, add_prefix=False):
   df[previous_dim] = df[dim].shift(period)
   df[rate_dim] = (df[dim] -  df[previous_dim]) / df[previous_dim]
   print(df.head())
-  
+  return df
   # 计算累计维度列
   if add_accumulation:
     
