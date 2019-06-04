@@ -507,14 +507,6 @@ def cal_CCR(data, start, end, dim='Close', dividends=0):
   
   return CCR
 
-# 按日计算期望收益率(Expected Return)与风险(Risk)
-def cal_rate_risk(data, dim, period, start=None, end=None):
-  rate_df = cal_change_rate(df=data, dim=dim, period=period, add_accumulation=False, add_prefix=False)
-  rate = rate_df[start : end]['rate'].mean()
-  risk = rate_df[start : end]['rate'].std()
-
-  return {'rate': rate, 'risk': risk}
-
 # 计算风险溢价(Risk Premium)
 def cal_risk_premium(expected_rate, risk_free_rate):
   RP = expected_rate - risk_free_rate
@@ -528,15 +520,14 @@ def cal_excess_raturn(expected_rate, real_rate):
   return ER
 
 # 计算周期收益率(年/月)
-def cal_period_rate(sec_data, by='month'):
+def cal_period_rate_risk(data, dim='Close', by='month'):
   
-  sec_data = cal_change_rate(df=sec_data, dim='Close', period=1, add_accumulation=False, add_prefix=False)
+  # 计算每日的变化率
+  data = cal_change_rate(df=data, dim=dim, period=1)
 
-  # 计算周期收益率
-  start_date = sec_data.index.min().date()
-  end_date = sec_data.index.max().date()
-  
-  # 构造周期列表
+  # 获取开始/结束日期, 构造周期列表
+  start_date = data.index.min().date()
+  end_date = data.index.max().date()
   periods = []
 
   # 年周期
@@ -567,6 +558,8 @@ def cal_period_rate(sec_data, by='month'):
   # 计算周期收益率
   period_rate = {
       'period': [],
+      'start': [],
+      'end': [],
       'HPR': [],
       'EAR': [],
       'APR': [],
@@ -575,11 +568,13 @@ def cal_period_rate(sec_data, by='month'):
       'daily_rate_std': []
   } 
   for p_pair in periods:
-    tmp_data = sec_data[p_pair[0]:p_pair[1]]
+    tmp_data = data[p_pair[0]:p_pair[1]]
     if len(tmp_data) <= 1:
       continue
     else:
       period_rate['period'].append(p_pair[0])
+      period_rate['start'].append(p_pair[0])
+      period_rate['end'].append(p_pair[1])
       period_rate['HPR'].append(cal_HPR(data=tmp_data, start=None, end=None, dim='Close'))
       period_rate['EAR'].append(cal_EAR(data=tmp_data, start=None, end=None, dim='Close'))
       period_rate['APR'].append(cal_APR(data=tmp_data, start=None, end=None, dim='Close'))
@@ -591,31 +586,6 @@ def cal_period_rate(sec_data, by='month'):
   period_rate = util.df_2_timeseries(df=period_rate, time_col='period')
   
   return period_rate
-
-# 计算风险与收益
-def cal_risk_and_rate(rate_df, risk_free_rate, window_size=10, A=0.5):
-  
-  result = rate_df.copy()
-
-  # 算数平均利率
-  result['mean_rate'] = rate_df.rate.rolling(window=window_size).mean()
-
-  # 风险
-  result['risk'] = rate_df.rate.rolling(window=window_size).std()
-
-  # 风险溢价
-  result['risk_premium'] = result.mean_rate - risk_free_rate
-
-  # 夏普比率
-  result['sharp_ratio'] = result.risk_premium / result.risk
-
-  # 风险厌恶系数
-  A = 0.5
-
-  # 效用
-  result['U'] = result.mean_rate - 0.5 * A * result.risk **2
-  
-  return result
 
 
 
