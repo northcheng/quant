@@ -479,7 +479,7 @@ def cal_EAR(data, start, end, dim='Close', dividends=0):
   # 计算期间内的收益率
   HPR = cal_HPR(data, start, end, dim, dividends) + 1
   # 计算期间的长度(年)
-  period_in_year = util.num_days_between(start_date, end_date) / 365
+  period_in_year = util.num_days_between(start, end) / 365
   # 计算有效年利率
   EAR = pow(HPR, 1/period_in_year) - 1
   
@@ -490,7 +490,7 @@ def cal_APR(data, start, end, dim='Close', dividends=0):
   # 计算期间内的收益率
   HPR = cal_HPR(data, start, end, dim, dividends)
   # 计算期间的长度(年)
-  period_in_year = util.num_days_between(start_date, end_date) / 365
+  period_in_year = util.num_days_between(start, end) / 365
   # 计算有效年利率
   APR = HPR / period_in_year
   
