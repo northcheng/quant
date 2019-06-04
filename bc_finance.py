@@ -579,6 +579,7 @@ def cal_period_rate(sec_data, by='month'):
     if len(tmp_data) == 0:
       continue
     else:
+      print(p_pair[0], p_pair[1])
       period_rate['period'].append(p_pair[0])
       period_rate['HPR'].append(cal_HPR(data=tmp_data, start=None, end=None, dim='Close'))
       period_rate['EAR'].append(cal_EAR(data=tmp_data, start=None, end=None, dim='Close'))
