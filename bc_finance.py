@@ -119,7 +119,7 @@ def cal_mean_reversion(df, dim, window_size=100, start_date=None, end_date=None)
   return data
 
 # 计算均值回归信号
-def cal_mean_reversion_signal(df, time_std=2, triger_dim=['acc_rate_bias'], triger_threshold=2, start_date=None, end_date=None):
+def cal_mean_reversion_signal(df, time_std=2, triger_dim=['rate_bias', 'acc_rate_bias', 'acc_day_bias'], triger_threshold=2, start_date=None, end_date=None):
   
   # 复制 dataframe
   mr_df = df.copy()
@@ -239,7 +239,7 @@ def cal_moving_average_signal(ma_df, dim, short_ma, long_ma, start_date=None, en
   return ma_df
 
 # 画出移动平均图
-def plot_moving_average(df, dim, short_ma, long_ma, window_size, start_date=None, end_date=None, is_save=False, img_info={'path': 'drive/My Drive/probabilistic_model/images/', 'name': 'untitled', 'format': '.png'}):
+def plot_moving_average(df, dim, short_ma, long_ma, window_size, start_date=None, end_date=None):
   
   plot_dims = ['Close']
   
@@ -256,11 +256,6 @@ def plot_moving_average(df, dim, short_ma, long_ma, window_size, start_date=None
   # 画出信号
   plot_data.plot(figsize=(20, 3))
   plt.legend(loc='best')
-  
-  # 保存图像
-  if is_save:
-    plot_name = img_info['path'] + img_info['name'] + '_' + end_date + '%s' %  img_info['format']
-    plt.savefig(plot_name)
 
 
 
@@ -484,25 +479,18 @@ def cal_EAR(data, start, end, dim='Close', dividends=0):
   # 计算期间内的收益率
   HPR = cal_HPR(data, start, end, dim, dividends) + 1
   # 计算期间的长度(年)
-  period_in_year = num_year_between(start, end)
+  period_in_year = num_days_between(start_date, end_date) / 365
   # 计算有效年利率
   EAR = pow(HPR, 1/period_in_year) - 1
   
   return EAR
 
-# 计算一段期间为多少年
-def num_year_between(start, end):
-  start=datetime.datetime.strptime(start,"%Y-%m-%d")
-  end=datetime.datetime.strptime(end,"%Y-%m-%d")
-  
-  return (end-start).days / 365
-
-# 计算年华百分比利率(Annual Percentile Rate)
+# 计算年化百分比利率(Annual Percentile Rate)
 def cal_APR(data, start, end, dim='Close', dividends=0):
   # 计算期间内的收益率
   HPR = cal_HPR(data, start, end, dim, dividends)
   # 计算期间的长度(年)
-  period_in_year = num_year_between(start, end)
+  period_in_year = num_days_between(start_date, end_date) / 365
   # 计算有效年利率
   APR = HPR / period_in_year
   
@@ -515,17 +503,13 @@ def cal_CCR(data, start, end, dim='Close', dividends=0):
   
   return CCR
 
-# 计算期望收益率(Expected Return)
-def cal_expected_rate(data, dim, start=None, end=None):
-  ER = data[start : end][dim].mean()
-    
-  return ER
+# 按日计算期望收益率(Expected Return)与风险(Risk)
+def cal_rate_risk(data, dim, period, start=None, end=None):
+  rate_df = cal_change_rate(data=data, dim=dim, period=period, add_accumulation=False, add_prefix=False)
+  rate = rate_df[start : end]['rate'].mean()
+  risk = rate_df[start : end]['rate'].std()
 
-# 计算风险(方差)
-def cal_risk(data, dim, start=None, end=None):
-  STD = data[start : end][dim].std()
-  
-  return STD
+  return {'rate': rate, 'risk': risk}
 
 # 计算风险溢价(Risk Premium)
 def cal_risk_premium(expected_rate, risk_free_rate):
