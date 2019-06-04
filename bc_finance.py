@@ -505,7 +505,7 @@ def cal_CCR(data, start, end, dim='Close', dividends=0):
 
 # 按日计算期望收益率(Expected Return)与风险(Risk)
 def cal_rate_risk(data, dim, period, start=None, end=None):
-  rate_df = cal_change_rate(data=data, dim=dim, period=period, add_accumulation=False, add_prefix=False)
+  rate_df = cal_change_rate(df=data, dim=dim, period=period, add_accumulation=False, add_prefix=False)
   rate = rate_df[start : end]['rate'].mean()
   risk = rate_df[start : end]['rate'].std()
 
