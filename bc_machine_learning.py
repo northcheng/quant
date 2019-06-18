@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split
 from quant import bc_util as util
 
 # 获取标准化器
-def get_scaler(scale_method='StandardScaler', optional_args={}):
+def get_scaler(scale_method='StandardScaler'):
 
   scaler = None
 
@@ -24,15 +24,6 @@ def get_scaler(scale_method='StandardScaler', optional_args={}):
 
   elif scale_method == 'QuantileTransformer':
     scaler = preprocessing.QuantileTransformer()
-
-  elif scale_method == 'PowerTransformer':
-    method = optional_args.get('method')
-    standardize = optional_args.get('standardize')
-    if method is None:
-      method = 'box-cox'
-    if standardize is None:
-      standardize = False
-    scaler = preprocessing.PowerTransformer(method=method, standardize=standardize)
 
   elif scale_method == 'Normalizer':
     scaler = preprocessing.Normalizer()
@@ -56,7 +47,6 @@ def get_scaled_data(df, scaler):
 def get_train_test_data(scaled_data, input_dim, output_dim, test_size=0.1, is_shuffle=True, start=None, end=None, predict_idx=[]):
     
   try:    
-    
     # 预测数据
     predict_idx = [util.string_2_time(x) for x in predict_idx]
     predict_data = scaled_data.loc[predict_idx, :].copy()
@@ -65,6 +55,7 @@ def get_train_test_data(scaled_data, input_dim, output_dim, test_size=0.1, is_sh
     train_data = scaled_data[start:end].copy()
     for idx in predict_idx:
       train_data.drop(idx, inplace=True) 
+    print('1')
 
     # 分为输入与输出
     x = train_data[input_dim].values
