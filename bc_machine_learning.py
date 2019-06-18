@@ -47,10 +47,11 @@ def get_scaled_data(df, scaler):
 def get_train_test_data(scaled_data, input_dim, output_dim, test_size=0.1, is_shuffle=True, start=None, end=None, predict_idx=[]):
     
   try:
-
+    print(1)
     # 训练数据
     train_data = scaled_data[start:end].copy()
 
+    print(2)
     # 预测数据
     if len(predict_idx) > 0: 
       predict_idx = [util.string_2_time(x) for x in predict_idx]
@@ -62,11 +63,13 @@ def get_train_test_data(scaled_data, input_dim, output_dim, test_size=0.1, is_sh
       for idx in predict_idx:
       train_data.drop(idx, inplace=True)
     
+    print(3)
     # 分为输入与输出, # 训练集与测试集
     x = train_data[input_dim].values
     y = train_data[output_dim].values
     train_x, test_x, train_y, test_y = train_test_split(x, y, test_size=test_size, random_state=0, shuffle=is_shuffle)
     
+    print(4)
     print('训练数据: ', train_x.shape, train_y.shape)
     print('测试数据: ', test_x.shape, test_y.shape)
     print('预测数据: ', predict_x.shape, predict_y.shape)
@@ -74,6 +77,7 @@ def get_train_test_data(scaled_data, input_dim, output_dim, test_size=0.1, is_sh
   except Exception as e:
     print(e)
   
+  print(5)
   return{
       'scaled_data': scaled_data, 'input_dim': input_dim, 'output_dim': output_dim,
       'train_x': train_x, 'train_y': train_y, 
