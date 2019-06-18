@@ -52,12 +52,13 @@ def get_train_test_data(scaled_data, input_dim, output_dim, test_size=0.1, is_sh
 
     # 预测数据
     predict_data = pd.DataFrame()
+    predict_x = pd.DataFrame()
+    predict_y = pd.DataFrame()
     if len(predict_idx) > 0:
       predict_idx = [util.string_2_time(x) for x in predict_idx]
       predict_data = scaled_data.loc[predict_idx, :].copy()
-    
-    predict_x = predict_data[input_dim].values.reshape(-1, len(input_dim))
-    predict_y = predict_data[output_dim].values.reshape(-1, len(output_dim))
+      predict_x = predict_data[input_dim].values.reshape(-1, len(input_dim))
+      predict_y = predict_data[output_dim].values.reshape(-1, len(output_dim))
 
     # 从训练数据中删除预测数据
     if len(predict_idx) > 0:
