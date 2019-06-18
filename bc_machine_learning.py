@@ -55,8 +55,12 @@ def get_train_test_data(scaled_data, input_dim, output_dim, test_size=0.1, is_sh
     # 预测数据
     if len(predict_idx) > 0:
       predict_idx = [util.string_2_time(x) for x in predict_idx]
+
+    print(2.2)  
     predict_data = scaled_data.loc[predict_idx, :].copy()
+    print(2.3) 
     predict_x = predict_data[input_dim].values.reshape(-1, len(input_dim))
+    print(2.4) 
     predict_y = predict_data[output_dim].values.reshape(-1, len(output_dim))
 
     print(2.5)
