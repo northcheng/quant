@@ -61,7 +61,7 @@ def get_train_test_data(scaled_data, input_dim, output_dim, test_size=0.1, is_sh
 
       # 从训练数据中删除预测数据
       for idx in predict_idx:
-      train_data.drop(idx, inplace=True)
+        train_data.drop(idx, inplace=True)
     
     print(3)
     # 分为输入与输出, # 训练集与测试集
