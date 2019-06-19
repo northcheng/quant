@@ -1,9 +1,13 @@
 # -*- coding: utf-8 -*-
+from quant import bc_util as util
+
+from tensorflow inport keras
+
 import pandas as pd
 from sklearn import preprocessing
 from sklearn.utils import shuffle
 from sklearn.model_selection import train_test_split
-from quant import bc_util as util
+
 
 # 获取标准化器
 def get_scaler(scale_method='StandardScaler'):
@@ -83,3 +87,31 @@ def get_train_test_data(scaled_data, input_dim, output_dim, test_size=0.1, is_sh
       'test_x': test_x, 'test_y': test_y, 
       'predict_x': predict_x, 'predict_y': predict_y
   }
+
+
+# 建立序列模型
+def build_dense_network(hidden_layers, neuron_units, input_shape, output_shape, hidden_act_func, output_act_func, loss_func, optimizer, result_metrics, dropout=False, dropout_rate=0.3):
+
+    # 建立模型
+    model = keras.models.Sequential()
+
+    # 输入层
+    model.add(keras.layers.Dense(units=neuron_units, input_shape=input_shape, activation=hidden_act_func))
+
+    # 隐藏层
+    for i in range(hidden_layers):
+      model.add(keras.layers.Dense(units=neuron_units, activation=hidden_act_func))
+
+      # Dropout 层
+      if dropout:
+        if i % 2 == 0:
+          model.add(keras.layers.Dropout(dropout_rate))
+
+    # 输出层
+    model.add(keras.layers.Dense(units=neuron_units, activation=output_act_func))
+
+    # 组合模型
+    model.compile(loss=loss_func, optimizer=optimizer, metrics=result_metrics) 
+
+    return model         
+
