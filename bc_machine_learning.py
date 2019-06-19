@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from quant import bc_util as util
 
-from tensorflow inport keras
+from tensorflow import keras
 
 import pandas as pd
 from sklearn import preprocessing
