@@ -108,7 +108,7 @@ def build_dense_network(hidden_layers, neuron_units, input_shape, output_shape, 
         model.add(keras.layers.Dropout(dropout_rate))
 
   # 输出层
-  model.add(keras.layers.Dense(units=neuron_units, activation=output_act_func))
+  model.add(keras.layers.Dense(units=output_shape, activation=output_act_func))
 
   # 组合模型
   model.compile(loss=loss_func, optimizer=optimizer, metrics=result_metrics) 
