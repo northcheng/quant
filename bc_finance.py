@@ -207,6 +207,9 @@ def cal_moving_average_signal(ma_df, dim, short_ma, long_ma, start_date=None, en
   
   ma_df = ma_df.copy()
   
+  short_ma = '%(dim)s_ma_%(window_size)s' %dict(dim=dim, window_size=short_ma)
+  long_ma = '%(dim)s_ma_%(window_size)s' %dict(dim=dim, window_size=long_ma)
+
   if long_ma not in ma_df.columns or short_ma not in ma_df.columns:
     print("%(short)s or %(long)s on %(dim)s not found" % dict(short=short_ma, long=long_ma, dim=dim))
     return pd.DataFrame()
