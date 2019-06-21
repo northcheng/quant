@@ -246,6 +246,8 @@ def plot_moving_average(df, dim, short_ma, long_ma, window_size, start_date=None
   
   plot_dims = ['Close']
   
+  short_ma = '%(dim)s_ma_%(window_size)s' %dict(dim=dim, window_size=short_ma)
+  long_ma = '%(dim)s_ma_%(window_size)s' %dict(dim=dim, window_size=long_ma)
   if long_ma not in df.columns or short_ma not in df.columns:
     print("%(short)s or %(long)s on %(dim)s not found" % dict(short=short_ma, long=long_ma, dim=dim))
     
