@@ -203,7 +203,7 @@ def cal_moving_average(df, dim, ma_windows=[50, 105], start_date=None, end_date=
 
     if cal_ma_diff:
       ma_diff_dim = '%(dim)s_ma_diff_%(window_size)s' % dict(dim=dim, window_size=mw)
-      df[ma_diff_dim] = df[ma_dim] - df[dim]
+      df[ma_diff_dim] = (df[dim] - df[ma_dim]) / df[ma_dim]
     
   return df
 
