@@ -208,12 +208,19 @@ def cal_moving_average(df, dim, ma_windows=[50, 105], start_date=None, end_date=
   return df
 
 # 计算移动平均信号
-def cal_moving_average_signal(ma_df, dim, short_ma, long_ma, start_date=None, end_date=None):
+def cal_moving_average_signal(ma_df, dim, short_ma, long_ma, short_ma_col=None, long_ma_col=None, start_date=None, end_date=None):
   
   ma_df = ma_df.copy()
   
-  short_ma = '%(dim)s_ma_%(window_size)s' %dict(dim=dim, window_size=short_ma)
-  long_ma = '%(dim)s_ma_%(window_size)s' %dict(dim=dim, window_size=long_ma)
+  if short_ma_col is None:
+    short_ma = '%(dim)s_ma_%(window_size)s' %dict(dim=dim, window_size=short_ma)
+  else:
+    short_ma = short_ma_col
+
+  if long_ma_col is None:
+    long_ma = '%(dim)s_ma_%(window_size)s' %dict(dim=dim, window_size=long_ma)
+  else:
+    long_ma = long_ma_col
 
   if long_ma not in ma_df.columns or short_ma not in ma_df.columns:
     print("%(short)s or %(long)s on %(dim)s not found" % dict(short=short_ma, long=long_ma, dim=dim))
