@@ -97,19 +97,26 @@ def cal_change_rate(df, dim, period=1, add_accumulation=True, add_prefix=False):
   return df
 
 # 计算当前值与移动均值的差距离移动标准差的倍数
-def cal_mean_reversion(df, dim, window_size=100, start_date=None, end_date=None):
+def cal_mean_reversion(df, dim, window_size=100, window_type='em', start_date=None, end_date=None):
   
   # 日收益率计算
   original_columns = df.columns
   data = cal_change_rate(df=df, dim=dim, period=1, add_accumulation=True)[start_date:end_date]
   
-  # 计算变化率, 累计变化率, 累计天数的偏离均值距离
+   # 选择移动窗口类型
+  if window_type == 'em':
+    mw_func = ta_util.em
+  else:
+    mw_func = ta_util.sm
+
+  # 计算变化率/累计变化率/累计天数: (偏离均值的距离)/方差
   new_columns = [x for x in data.columns if x not in original_columns]
   for d in new_columns:
     
     # 计算累计变化率的移动平均及移动标准差
-    tmp_mean = data[d].rolling(window_size).mean()
-    tmp_std = data[d].rolling(window_size).std()
+    mw = mw_func(series=data[d], periods=window_size)
+    tmp_mean = mw.mean()
+    tmp_std = mw.std()
     
     # 计算偏差
     data[d+'_bias'] = (data[d] - tmp_mean) / (tmp_std)
@@ -204,11 +211,6 @@ def cal_moving_average(df, dim, ma_windows=[50, 105], start_date=None, end_date=
   for mw in ma_windows:
     ma_dim = '%(dim)s_ma_%(window_size)s' % dict(dim=dim, window_size=mw)
     df[ma_dim] = mw_func(series=df[dim], periods=mw).mean()
-    # df[dim].rolling(mw).mean()
-
-    # if cal_ma_diff:
-    #   ma_diff_dim = '%(dim)s_ma_diff_%(window_size)s' % dict(dim=dim, window_size=mw)
-    #   df[ma_diff_dim] = (df[dim] - df[ma_dim]) / df[ma_dim]
     
   return df
 
