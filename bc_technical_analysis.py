@@ -40,20 +40,47 @@ def em(series, periods, fillna=False):
         return series.ewm(span=periods, min_periods=0)
     return series.ewm(span=periods, min_periods=periods)  
 
-# 计算SMA
-def sma(series, periods, fillna=False):
-    if fillna:
-        return series.rolling(window=periods, min_periods=0).mean()
-    return series.rolling(window=periods, min_periods=periods).mean()
+# # 计算SMA
+# def sma(series, periods, fillna=False):
+#     if fillna:
+#         return series.rolling(window=periods, min_periods=0).mean()
+#     return series.rolling(window=periods, min_periods=periods).mean()
 
-# 计算EMA
-def ema(series, periods, fillna=False):
-    if fillna:
-        return series.ewm(span=periods, min_periods=0).mean()
-    return series.ewm(span=periods, min_periods=periods).mean()
+# # 计算EMA
+# def ema(series, periods, fillna=False):
+#     if fillna:
+#         return series.ewm(span=periods, min_periods=0).mean()
+#     return series.ewm(span=periods, min_periods=periods).mean()
 
+def cal_joint_signal(data, positive_col, negative_col):
 
+    data = data.copy()
 
+    # 计算两条线之间的差
+    data['diff'] = data[positive_col] - data[negative_col]
+  
+    # 计算信号
+    data['signal'] = 'n'
+    last_value = None
+    for index, row in data.iterrows():
+    
+        # 判断前值是否存在
+        current_value = row['diff']
+        if last_value is None:
+            last_value = current_value
+            continue
+    
+        # 正线从下往上穿越负线, 买入
+        if last_value < 0 and current_value > 0:
+            data.loc[index, 'signal'] = 'b'
+
+        # 正线从上往下穿越负线, 卖出
+        elif last_value > 0 and current_value < 0:
+            data.loc[index, 'signal'] = 's'
+      
+        last_value = current_value
+    
+    return data
 
 
 

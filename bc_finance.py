@@ -97,7 +97,7 @@ def cal_change_rate(df, dim, period=1, add_accumulation=True, add_prefix=False):
   return df
 
 # 计算当前值与移动均值的差距离移动标准差的倍数
-def cal_mean_reversion(df, dim, window_size=100, window_type='em', start_date=None, end_date=None):
+def cal_mean_reversion(df, dim, window_size=100, window_type='sm', start_date=None, end_date=None):
   
   # 日收益率计算
   original_columns = df.columns
