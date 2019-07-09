@@ -55,19 +55,18 @@ def cal_change_rate(df, dim, period=1, add_accumulation=True, add_prefix=False):
   df = df.copy()
   
   # 设置列名
-  previous_dim = '%(dim)s-%(period)s' % dict(dim=dim, period=period)
-  rate_dim = 'rate'
-  acc_rate_dim = 'acc_rate'
-  acc_day_dim = 'acc_day'
-
+  prefix = ''
   if add_prefix:
-    rate_dim = dim + '_' + rate_dim
-    acc_rate_dim = dim + '_' + acc_rate_dim
-    acc_day_dim = dim + '_' + acc_day_dim
-  
+    prefix = dim + '_'
+  previous_dim = '%(dim)s-%(period)s' % dict(dim=dim, period=period)
+  rate_dim = prefix + 'rate'
+  acc_rate_dim = prefix + 'acc_rate'
+  acc_day_dim = prefix + 'acc_day'
+
   # 计算涨跌率
-  df[previous_dim] = df[dim].shift(period)
-  df[rate_dim] = (df[dim] -  df[previous_dim]) / df[previous_dim]
+  df[rate_dim] = df[dim].pct_change(periods=period)
+  # df[previous_dim] = df[dim].shift(period)
+  # df[rate_dim] = (df[dim] -  df[previous_dim]) / df[previous_dim]
 
   # 计算累计维度列
   if add_accumulation:
