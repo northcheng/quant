@@ -54,10 +54,12 @@ def cal_change_rate(df, dim, period=1, add_accumulation=True, add_prefix=False):
   # 复制 dataframe
   df = df.copy()
   
-  # 设置列名
+  # 设置列名前缀
   prefix = ''
   if add_prefix:
     prefix = dim + '_'
+
+  # 设置列名
   previous_dim = '%(dim)s-%(period)s' % dict(dim=dim, period=period)
   rate_dim = prefix + 'rate'
   acc_rate_dim = prefix + 'acc_rate'
@@ -65,14 +67,10 @@ def cal_change_rate(df, dim, period=1, add_accumulation=True, add_prefix=False):
 
   # 计算涨跌率
   df[rate_dim] = df[dim].pct_change(periods=period)
-  # df[previous_dim] = df[dim].shift(period)
-  # df[rate_dim] = (df[dim] -  df[previous_dim]) / df[previous_dim]
-
+  
   # 计算累计维度列
   if add_accumulation:
-    
     df[acc_rate_dim] = 0
-    # df[acc_day_dim] = 1
     df.loc[df[rate_dim]>0, acc_day_dim] = 1
     df.loc[df[rate_dim]<0, acc_day_dim] = -1
   
