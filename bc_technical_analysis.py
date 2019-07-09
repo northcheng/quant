@@ -28,6 +28,17 @@ def get_min_max(x1, x2, f='min'):
         return np.nan    
 
 
+# 
+def sm(series, periods, fillna=False):
+    if fillna:
+        return series.rolling(window=periods, min_periods=0)
+    return series.rolling(window=periods, min_periods=periods)
+
+def em(series, periods, fillna=False):
+    if fillna:
+        return series.ewm(span=periods, min_periods=0)
+    return series.ewm(span=periods, min_periods=periods)  
+
 # 计算SMA
 def sma(series, periods, fillna=False):
     if fillna:
@@ -39,6 +50,8 @@ def ema(series, periods, fillna=False):
     if fillna:
         return series.ewm(span=periods, min_periods=0).mean()
     return series.ewm(span=periods, min_periods=periods).mean()
+
+
 
 
 
