@@ -93,7 +93,7 @@ def cal_change_rate(df, dim, period=1, add_accumulation=True, add_prefix=False):
         df.loc[current_idx, acc_rate_dim] = current_rate
 
   df.dropna(inplace=True) 
-  df.drop(previous_dim, axis=1, inplace=True)
+  # df.drop(previous_dim, axis=1, inplace=True)
 
   return df
 
