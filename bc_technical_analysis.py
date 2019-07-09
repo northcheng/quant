@@ -28,12 +28,13 @@ def get_min_max(x1, x2, f='min'):
         return np.nan    
 
 
-# 
+# 简单移动窗口
 def sm(series, periods, fillna=False):
     if fillna:
         return series.rolling(window=periods, min_periods=0)
     return series.rolling(window=periods, min_periods=periods)
 
+# 指数移动窗口
 def em(series, periods, fillna=False):
     if fillna:
         return series.ewm(span=periods, min_periods=0)

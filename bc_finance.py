@@ -189,26 +189,26 @@ def plot_mean_reversion(df, times_std, window_size, start_date=None, end_date=No
 
 #----------------------------- 均线模型 -----------------------------------#
 # 计算移动平均信号
-def cal_moving_average(df, dim, ma_windows=[50, 105], start_date=None, end_date=None, ma_type='ema', cal_ma_diff=False):
+def cal_moving_average(df, dim, ma_windows=[50, 105], start_date=None, end_date=None, window_type='em'):
 
   # 截取数据  
   df = df[start_date:end_date].copy()
 
-  # 选择移动平均类型
-  if ma_type == 'ema':
-    ma_func = ta_util.ema
+  # 选择移动窗口类型
+  if window_type == 'em':
+    mw_func = ta_util.em
   else:
-    ma_func = ta_util.sma 
+    mw_func = ta_util.sm
 
   # 计算移动平均
   for mw in ma_windows:
     ma_dim = '%(dim)s_ma_%(window_size)s' % dict(dim=dim, window_size=mw)
-    df[ma_dim] = ma_func(series=df[dim], periods=mw)
+    df[ma_dim] = mw_func(series=df[dim], periods=mw).mean()
     # df[dim].rolling(mw).mean()
 
-    if cal_ma_diff:
-      ma_diff_dim = '%(dim)s_ma_diff_%(window_size)s' % dict(dim=dim, window_size=mw)
-      df[ma_diff_dim] = (df[dim] - df[ma_dim]) / df[ma_dim]
+    # if cal_ma_diff:
+    #   ma_diff_dim = '%(dim)s_ma_diff_%(window_size)s' % dict(dim=dim, window_size=mw)
+    #   df[ma_diff_dim] = (df[dim] - df[ma_dim]) / df[ma_dim]
     
   return df
 
