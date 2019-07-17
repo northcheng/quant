@@ -13,41 +13,6 @@ import matplotlib.cm as cmx
 from matplotlib.pylab import date2num
 
 
-
-#----------------------------- 获取股票池 -------------------------------------#
-def get_symbols(remove_invalid=True, remove_not_fetched=True, not_fetched_list='drive/My Drive/probabilistic_model/yahoo_not_fetched_sec_code.csv'):
-
-  # 使用pandas_datareader下载股票列表
-  try:
-    symbols = get_nasdaq_symbols()
-    symbols = symbols.loc[symbols['Test Issue'] == False,]
-  
-  # 直接从纳斯达克网站下载股票列表
-  except Exception as e:
-    symbols = pd.read_table('ftp://ftp.nasdaqtrader.com/symboldirectory/nasdaqtraded.txt', sep='|', index_col='Symbol').drop(np.NaN)
-    symbols = symbols.loc[symbols['Test Issue'] == 'N',]
-  sec_list = symbols.index.tolist()
-
-  # 删除无效代码
-  if remove_invalid:
-    original_len = len(sec_list)
-    sec_list = [x for x in sec_list if '$' not in x]
-    sec_list = [x for x in sec_list if '.' not in x]
-
-  # 删除yahoo无法匹配的代码
-  if remove_not_fetched:
-    original_len = len(sec_list)
-    yahoo_not_fetched_list = []
-    try: 
-      yahoo_not_fetched_list = pd.read_csv(not_fetched_list).sec_code.tolist()
-    except Exception as e:
-      print(e)
-    sec_list = [x for x in sec_list if x not in yahoo_not_fetched_list]
-  
-  return symbols.loc[sec_list, ]
-
-
-
 #----------------------------- 均值回归模型 -----------------------------------#
 # 计算涨跌幅/累计涨跌幅
 def cal_change_rate(df, dim, period=1, add_accumulation=True, add_prefix=False):
@@ -690,3 +655,36 @@ def add_candle_dims_for_data(original_df):
 #     total_value_data[['total', 'original']].plot(figsize=(20, 3))
   
 #   return record      
+
+
+# #----------------------------- 获取股票池 -------------------------------------#
+# def get_symbols(remove_invalid=True, remove_not_fetched=True, not_fetched_list='drive/My Drive/probabilistic_model/yahoo_not_fetched_sec_code.csv'):
+
+#   # 使用pandas_datareader下载股票列表
+#   try:
+#     symbols = get_nasdaq_symbols()
+#     symbols = symbols.loc[symbols['Test Issue'] == False,]
+  
+#   # 直接从纳斯达克网站下载股票列表
+#   except Exception as e:
+#     symbols = pd.read_table('ftp://ftp.nasdaqtrader.com/symboldirectory/nasdaqtraded.txt', sep='|', index_col='Symbol').drop(np.NaN)
+#     symbols = symbols.loc[symbols['Test Issue'] == 'N',]
+#   sec_list = symbols.index.tolist()
+
+#   # 删除无效代码
+#   if remove_invalid:
+#     original_len = len(sec_list)
+#     sec_list = [x for x in sec_list if '$' not in x]
+#     sec_list = [x for x in sec_list if '.' not in x]
+
+#   # 删除yahoo无法匹配的代码
+#   if remove_not_fetched:
+#     original_len = len(sec_list)
+#     yahoo_not_fetched_list = []
+#     try: 
+#       yahoo_not_fetched_list = pd.read_csv(not_fetched_list).sec_code.tolist()
+#     except Exception as e:
+#       print(e)
+#     sec_list = [x for x in sec_list if x not in yahoo_not_fetched_list]
+  
+#   return symbols.loc[sec_list, ]
