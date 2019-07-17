@@ -43,7 +43,7 @@ def remove_redundant_signal(signal):
   		
   		# 如果当前信号与上一信号一致, 则移除信号
   		if current_signal == last_signal:
-    		continue
+  			continue
   		else:
     		valid_signals.append(index)
 
