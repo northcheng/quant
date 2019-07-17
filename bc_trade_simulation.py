@@ -29,12 +29,10 @@ def buy(money, price, trading_fee):
 	else:
 		print('Not enough money to buy')
 
-	return {'money': money, 'stock': stock} 
+	return {'left_money': money, 'new_stock': stock} 
 
 # 卖出
 def sell(stock, price, trading_fee):
-	
-	money = 0
 
 	# 计算卖出可获得金额
 	if stock > 0:
@@ -43,7 +41,7 @@ def sell(stock, price, trading_fee):
 	else:
 		print('Not enough stock to sell')
 
-	return { 'money': money, 'stock': stock}
+	return { 'new_money': money, 'left_stock': stock}
 
 
 # 去除冗余信号
@@ -79,23 +77,14 @@ def remove_redundant_signal(signal):
 	return clear_signal
 
 # 回测
-def back_test(
-	signal, 
-	buy_price='Open', sell_price='Close', 
-	money=0, stock=0, trading_fee=3, 
-	start_date=None, end_date=None,  
-	stop_profit=0.1, stop_loss=0.6, 
-	mode='signal', force_stop_loss=1,
-	print_trading=True, plot_trading=True):	
+def back_test(signal, buy_price='Open', sell_price='Close', money=0, stock=0, trading_fee=3, start_date=None, end_date=None, stop_profit=0.1, stop_loss=0.6, mode='signal', force_stop_loss=1,print_trading=True, plot_trading=True):	
 	
 	# 获取指定期间的信号, 移除冗余信号
-	signal = remove_redundant_signal(signal)[start_date:end_date]
+	signal = remove_redundant_signal(signal[start_date:end_date])
 
 	# 初始化
 	original_money = money
-	last_total = total = money
-	# tmp_result = {'money': money, 'stock': stock}
-	
+	last_total = total = money	
 
 	# 交易记录
 	record = {
@@ -118,7 +107,9 @@ def back_test(
 			next_date = date_list[i+1]
 			
 			# 如果触发止损条件, 平仓之后不操作
-			if (last_total - total)/last_total >= force_stop_loss:
+			earning = (last_total - total)/last_total
+			if earning >= force_stop_loss:
+				print('stop loss at earning ', earning)
 				price = signal.loc[next_date, sell_price]
 				tmp_trading_result = sell(stock=stock, price=price, trading_fee=trading_fee)
 				continue
@@ -131,20 +122,22 @@ def back_test(
 			elif action == 'b': # 买入
 				price = signal.loc[next_date, buy_price]
 				tmp_trading_result = buy(money=money, price=price, trading_fee=trading_fee)
+				money = tmp_trading_result.get('left_money')
+				stock += tmp_trading_result.get('new_stock')
 			
 			elif action == 's': # 卖出
 				price = signal.loc[next_date, sell_price]
 				tmp_trading_result = sell(stock=stock, price=price, trading_fee=trading_fee)
-			
+				money += tmp_trading_result.get('new_money')
+				stock = tmp_trading_result.get('left_stock')
+
 			else: # 其他
 				print('Invalid signal: ', action)
 				tmp_result = None
 			
 			# 更新结果  			
-			money = tmp_result.get('money')
-			stock = tmp_result.get('stock')
 			last_total = total
-			total = moeny + stock*price
+			total = money + stock*price
 
 			# 记录结果
 			record['date'].append(next_date)
@@ -153,6 +146,15 @@ def back_test(
 			record['money'].append(money)
 			record['stock'].append(stock)
 			record['total'].append(total)
+
+		# 计算当前值
+		last_date = signal.index.max()
+		record['date'].append(last_date)
+		record['action'].append(signal.loc[last_date, 'signal'])
+		record['price'].append(signal.loc[last_date, 'Close'])
+		record['money'].append(money)
+		record['stock'].append(stock)
+		record['total'].append(money+stock*signal.loc[last_date, 'Close'])
 
 		# 将记录转化为时序数据
 		record = util.df_2_timeseries(pd.DataFrame(record), time_col='date')
