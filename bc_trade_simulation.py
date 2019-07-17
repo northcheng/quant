@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import pandas as pd
 import math
+import matplotlib.pyplot as plt
 from quant import bc_util as util
 
 # class TradeRecord:
@@ -20,13 +21,13 @@ from quant import bc_util as util
 
 # 买入
 def buy(money, price, trading_fee):
-	stock = 0
 
-	# 计算可买数量
+	# 计算可买数量, 剩余的现金
 	stock = math.floor((money-trading_fee) / price)
 	if stock > 0:
 		money = money - trading_fee - (price*stock) 
 	else:
+		stock = 0
 		print('Not enough money to buy')
 
 	return {'left_money': money, 'new_stock': stock} 
@@ -34,14 +35,15 @@ def buy(money, price, trading_fee):
 # 卖出
 def sell(stock, price, trading_fee):
 
-	# 计算卖出可获得金额
-	if stock > 0:
-		money = stock * price - trading_fee	
+	# 计算卖出可获得金额，股票归零
+	money = stock * price - trading_fee
+	if money > 0:
 		stock = 0
 	else:
+		money = 0
 		print('Not enough stock to sell')
 
-	return { 'new_money': money, 'left_stock': stock}
+	return {'new_money': money, 'left_stock': stock}
 
 
 # 去除冗余信号
