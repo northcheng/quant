@@ -4,48 +4,7 @@ import math
 import matplotlib.pyplot as plt
 from quant import bc_util as util
 
-# class TradeRecord:
-# 	'backtest record'
-
-# 	def __init__(self, date, action, money, stock, price, total):
-# 		self.date = date
-# 		self.action = action
-# 		self.money = money
-# 		self.stock = stock
-# 		self.price = price
-# 		self.total = total
-		
-# 	def print_record(self)
-# 		print(self.date(), '操作%(action)s, 价格%(price)s, 数量%(stock)s, 流动资金%(money)s, 总值%(total)s' % dict(action=self.action, price=self.price, money=self.money, total=self.total))
-
-
-# 买入
-def buy(money, price, trading_fee):
-
-	# 计算可买数量, 剩余的现金
-	stock = math.floor((money-trading_fee) / price)
-	if stock > 0:
-		money = money - trading_fee - (price*stock) 
-	else:
-		stock = 0
-		print('Not enough money to buy')
-
-	return {'left_money': money, 'new_stock': stock} 
-
-# 卖出
-def sell(stock, price, trading_fee):
-
-	# 计算卖出可获得金额，股票归零
-	money = stock * price - trading_fee
-	if money > 0:
-		stock = 0
-	else:
-		money = 0
-		print('Not enough stock to sell')
-
-	return {'new_money': money, 'left_stock': stock}
-
-
+#----------------------------- 信号处理 -------------------------------------#
 # 去除冗余信号
 def remove_redundant_signal(signal):
 
@@ -77,6 +36,36 @@ def remove_redundant_signal(signal):
 	clear_signal.loc[redundant_signals, 'signal'] = 'n'
 
 	return clear_signal
+
+
+#----------------------------- 买卖/回测 -------------------------------------#
+# 买入
+def buy(money, price, trading_fee):
+
+	# 计算可买数量, 剩余的现金
+	stock = math.floor((money-trading_fee) / price)
+	if stock > 0:
+		money = money - trading_fee - (price*stock) 
+	else:
+		stock = 0
+		print('Not enough money to buy')
+
+	return {'left_money': money, 'new_stock': stock} 
+
+
+# 卖出
+def sell(stock, price, trading_fee):
+
+	# 计算卖出可获得金额，股票归零
+	money = stock * price - trading_fee
+	if money > 0:
+		stock = 0
+	else:
+		money = 0
+		print('Not enough stock to sell')
+
+	return {'new_money': money, 'left_stock': stock}
+
 
 # 回测
 def back_test(signal, buy_price='Open', sell_price='Close', money=0, stock=0, trading_fee=3, start_date=None, end_date=None, stop_profit=0.1, stop_loss=0.6, mode='signal', force_stop_loss=1,print_trading=True, plot_trading=True):	

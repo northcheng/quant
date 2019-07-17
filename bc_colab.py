@@ -3,6 +3,7 @@ import numpy as np
 import time
 import os
 import pandas_datareader.data as web 
+from pandas_datareader.nasdaq_trader import get_nasdaq_symbols
 from quant import bc_util as util
 from google.colab import drive
 
@@ -12,6 +13,38 @@ def mount_google_drive(destination_path='content/drive', force_remount=False):
 
   drive.mount('/content/drive', force_remount=force_remount)
 
+
+# 获取股票池 
+def get_symbols(remove_invalid=True, remove_not_fetched=True, not_fetched_list='drive/My Drive/probabilistic_model/yahoo_not_fetched_sec_code.csv'):
+
+  # 使用pandas_datareader下载股票列表
+  try:
+    symbols = get_nasdaq_symbols()
+    symbols = symbols.loc[symbols['Test Issue'] == False,]
+  
+  # 直接从纳斯达克网站下载股票列表
+  except Exception as e:
+    symbols = pd.read_table('ftp://ftp.nasdaqtrader.com/symboldirectory/nasdaqtraded.txt', sep='|', index_col='Symbol').drop(np.NaN)
+    symbols = symbols.loc[symbols['Test Issue'] == 'N',]
+  sec_list = symbols.index.tolist()
+
+  # 删除无效代码
+  if remove_invalid:
+    original_len = len(sec_list)
+    sec_list = [x for x in sec_list if '$' not in x]
+    sec_list = [x for x in sec_list if '.' not in x]
+
+  # 删除yahoo无法匹配的代码
+  if remove_not_fetched:
+    original_len = len(sec_list)
+    yahoo_not_fetched_list = []
+    try: 
+      yahoo_not_fetched_list = pd.read_csv(not_fetched_list).sec_code.tolist()
+    except Exception as e:
+      print(e)
+    sec_list = [x for x in sec_list if x not in yahoo_not_fetched_list]
+  
+  return symbols.loc[sec_list, ]
 
 
 # 读取股票数据

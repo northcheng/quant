@@ -283,211 +283,6 @@ def plot_moving_average(df, dim, short_ma, long_ma, window_size, start_date=None
 
 
 
-#----------------------------- 回测工具 -----------------------------------#
-# 回测
-def back_test(signal, buy_price='Open', sell_price='Close', cash=0, stock=0, start_date=None, end_date=None, trading_fee=3, stop_profit=0.1, stop_loss=0.6, mode='earning', auto_stop_loss=True, print_trading=True, plot_trading=True):
-  
-  # 获取指定期间的信号
-  signal = signal[start_date:end_date]
-  original_cash = cash
-  
-  # 记录交易                           
-  record = {
-      'date': [],
-      'action': [],
-      'holding': [], 'price': [],
-      'cash': [], 'total': []
-  }
-  
-  # 以盈利模式进行回测
-  if mode == 'earning':
-    
-    # 获取买入信号
-    buy_signals = signal.query('signal == "b"').index.tolist()
-    selling_date = signal.index.min()
-  
-    # 从第一次买入信号开始交易
-    for date in buy_signals:
-      
-      # 信号的第二天开始操作
-      tmp_data = signal[date:][1:]
-      if (len(tmp_data) < 2) or  (date < selling_date):
-        continue
-      
-      # 买入（开盘价）
-      if stock == 0 and cash > 0:
-        # 买入日期, 价格, 可买股数
-        buying_date = tmp_data.index.min()
-        buying_price = tmp_data.loc[buying_date, buy_price]
-        stock = math.floor((cash-trading_fee) / buying_price)
-        
-        # 如果可买股数>0, 买入
-        if stock > 0:
-          cash = cash - stock * buying_price - trading_fee
-          total = (cash + stock * buying_price)
-          
-          # 记录交易信息
-          record['date'].append(buying_date.date())
-          record['action'].append('b')
-          record['holding'].append(stock)
-          record['price'].append(buying_price)
-          record['cash'].append(cash)
-          record['total'].append(total)
-          
-          # 打印交易记录
-          if print_trading:
-            print(buying_date.date(), '买入 %(stock)s, 价格%(price)s, 流动资金%(cash)s, 总值%(total)s' % dict(stock=stock, price=buying_price, cash=cash, total=total))
-        else: 
-          print(buying_date.date(), '买入 %(stock)s' % dict(stock=stock))
-      
-      # 卖出（如果有持仓）
-      if stock > 0:
-        for index, row in tmp_data.iterrows():
-          selling_date = index
-          selling_price = row[sell_price]
-          
-          # 收益卖出(收盘价)
-          if ((selling_price - buying_price)/ buying_price) > stop_profit:
-            cash = cash + selling_price * stock - trading_fee
-            stock = 0
-            total = cash
-            if print_trading:
-              print(selling_date.date(), '止盈, 价格%(price)s, 流动资金%(cash)s, 总值%(total)s' % dict(price=selling_price, cash=cash, total=total))
-
-            # 记录交易信息
-            record['date'].append(selling_date.date())
-            record['action'].append('s')
-            record['holding'].append(stock)
-            record['price'].append(selling_price)
-            record['cash'].append(cash)
-            record['total'].append(cash)
-            break;
-
-          # 止损卖出(收盘价)
-          elif ((selling_price - buying_price)/ buying_price) < -stop_loss:
-            cash = cash + selling_price * stock - trading_fee 
-            stock = 0
-            total = cash
-            if print_trading:
-              print(selling_date.date(), '止损, 价格%(price)s, 流动资金%(cash)s, 总值%(total)s' % dict(price=selling_price, cash=cash, total=total))
-
-            # 记录交易信息
-            record['date'].append(selling_date.date())
-            record['action'].append('s')
-            record['holding'].append(stock)
-            record['price'].append(selling_price)
-            record['cash'].append(cash)
-            record['total'].append(total)
-            break;
-
-  # 以信号模式进行回测          
-  elif mode == 'signal':
-    
-    # 去除冲突的信号
-    buy_sell_signals = signal.query('signal != "n"')
-    trading_signals = []
-    last_signal = 'n'
-    for index, row in buy_sell_signals.iterrows():
-      current_signal = row['signal']  
-      if current_signal == last_signal:
-        continue
-      else:
-        trading_signals.append(index)
-      last_signal = current_signal
-    
-    # 开始交易
-    for date in trading_signals:
-      
-      if date == signal.index.max():
-        print('信号于', date, '发出')
-        break
-      
-      # 信号的第二天交易
-      tmp_signal = signal.loc[date, 'signal']
-      tmp_data = signal[date:][1:]
-      trading_date = tmp_data.index.min()
-      
-      # 以开盘价买入
-      if tmp_signal == 'b':
-        buying_price = signal.loc[trading_date, buy_price]
-        stock = math.floor((cash-trading_fee) / buying_price)
-        if stock > 0:
-          cash = cash - stock * buying_price - trading_fee
-          total = (cash + stock * buying_price)
-          if print_trading:
-            print(trading_date.date(), '买入 %(stock)s, 价格%(price)s, 流动资金%(cash)s, 总值%(total)s' % dict(stock=stock, price=buying_price, cash=cash, total=total))
-
-          # 记录交易信息
-          record['date'].append(trading_date.date())
-          record['action'].append('b')
-          record['holding'].append(stock)
-          record['price'].append(buying_price)
-          record['cash'].append(cash)
-          record['total'].append(total)
-        else: 
-          print(trading_date.date(), '买入 %(stock)s' % dict(stock=stock))
-
-      # 以收盘价卖出
-      elif tmp_signal == 's':
-        if stock > 0:
-          selling_price = signal.loc[trading_date, sell_price]
-          cash = cash + selling_price * stock - trading_fee
-          stock = 0
-          total = cash + stock * selling_price
-          if print_trading:
-            print(trading_date.date(), '卖出, 价格%(price)s, 流动资金%(cash)s, 总值%(total)s' % dict(price=selling_price, cash=cash, total=total))
-
-          # 记录交易信息
-          record['date'].append(trading_date.date())
-          record['action'].append('s')
-          record['holding'].append(stock)
-          record['price'].append(selling_price)
-          record['cash'].append(cash)
-          record['total'].append(total)
-            
-      else:
-        print('invalid signal %s' % tmp_signal)
-    
-  # 未定义的模式
-  else:
-    print('mode [%s] not found' % mode)
-
-  # 记录最新数据
-  current_date = signal.index.max()
-  current_price = signal.loc[current_date, 'Close']
-  total = cash + stock * current_price
-  record['date'].append(current_date.date())
-  record['action'].append(signal.loc[current_date, 'signal'])
-  record['holding'].append(stock)
-  record['price'].append(current_price)
-  record['cash'].append(cash)
-  record['total'].append(total)
-  if print_trading:
-    print(current_date.date(), '当前, 价格%(price)s, 总值%(total)s' % dict(price=current_price, total=total))
-  
-  # 将记录转化为时序数据
-  record = util.df_2_timeseries(pd.DataFrame(record), time_col='date')
-
-  # 画出回测图
-  if plot_trading:
-    buying_points = record.query('action == "b"')
-    selling_points = record.query('action == "s"')
-  
-    f, ax = plt.subplots(figsize = (20, 3))
-    plt.plot(signal[['Close']])
-    plt.scatter(buying_points.index,buying_points.price, c='green')
-    plt.scatter(selling_points.index,selling_points.price, c='red')
-  
-    total_value_data = pd.merge(signal[['Close']], record[['cash', 'holding', 'action']], how='left', left_index=True, right_index=True)
-    total_value_data.fillna(method='ffill', inplace=True)
-    total_value_data['original'] = original_cash
-    total_value_data['total'] = total_value_data['Close'] * total_value_data['holding'] + total_value_data['cash']
-    total_value_data[['total', 'original']].plot(figsize=(20, 3))
-  
-  return record      
-
-
-
 #----------------------------- 均值/方差模型 -----------------------------------#
 # 风险溢价是超额收益的期望值(rate_premium = mean(excess_return)),
 # 超额收益的标准差是其风险的测度(risk = std(excess_return))
@@ -690,3 +485,208 @@ def add_candle_dims_for_data(original_df):
   data.loc[down_idx, 'lower_shadow'] = (data.loc[down_idx, 'Close'] - data.loc[down_idx, 'Low'])
   
   return data
+
+
+
+#----------------------------- 回测工具 -----------------------------------#
+# 回测
+# def back_test(signal, buy_price='Open', sell_price='Close', cash=0, stock=0, start_date=None, end_date=None, trading_fee=3, stop_profit=0.1, stop_loss=0.6, mode='earning', auto_stop_loss=True, print_trading=True, plot_trading=True):
+  
+#   # 获取指定期间的信号
+#   signal = signal[start_date:end_date]
+#   original_cash = cash
+  
+#   # 记录交易                           
+#   record = {
+#       'date': [],
+#       'action': [],
+#       'holding': [], 'price': [],
+#       'cash': [], 'total': []
+#   }
+  
+#   # 以盈利模式进行回测
+#   if mode == 'earning':
+    
+#     # 获取买入信号
+#     buy_signals = signal.query('signal == "b"').index.tolist()
+#     selling_date = signal.index.min()
+  
+#     # 从第一次买入信号开始交易
+#     for date in buy_signals:
+      
+#       # 信号的第二天开始操作
+#       tmp_data = signal[date:][1:]
+#       if (len(tmp_data) < 2) or  (date < selling_date):
+#         continue
+      
+#       # 买入（开盘价）
+#       if stock == 0 and cash > 0:
+#         # 买入日期, 价格, 可买股数
+#         buying_date = tmp_data.index.min()
+#         buying_price = tmp_data.loc[buying_date, buy_price]
+#         stock = math.floor((cash-trading_fee) / buying_price)
+        
+#         # 如果可买股数>0, 买入
+#         if stock > 0:
+#           cash = cash - stock * buying_price - trading_fee
+#           total = (cash + stock * buying_price)
+          
+#           # 记录交易信息
+#           record['date'].append(buying_date.date())
+#           record['action'].append('b')
+#           record['holding'].append(stock)
+#           record['price'].append(buying_price)
+#           record['cash'].append(cash)
+#           record['total'].append(total)
+          
+#           # 打印交易记录
+#           if print_trading:
+#             print(buying_date.date(), '买入 %(stock)s, 价格%(price)s, 流动资金%(cash)s, 总值%(total)s' % dict(stock=stock, price=buying_price, cash=cash, total=total))
+#         else: 
+#           print(buying_date.date(), '买入 %(stock)s' % dict(stock=stock))
+      
+#       # 卖出（如果有持仓）
+#       if stock > 0:
+#         for index, row in tmp_data.iterrows():
+#           selling_date = index
+#           selling_price = row[sell_price]
+          
+#           # 收益卖出(收盘价)
+#           if ((selling_price - buying_price)/ buying_price) > stop_profit:
+#             cash = cash + selling_price * stock - trading_fee
+#             stock = 0
+#             total = cash
+#             if print_trading:
+#               print(selling_date.date(), '止盈, 价格%(price)s, 流动资金%(cash)s, 总值%(total)s' % dict(price=selling_price, cash=cash, total=total))
+
+#             # 记录交易信息
+#             record['date'].append(selling_date.date())
+#             record['action'].append('s')
+#             record['holding'].append(stock)
+#             record['price'].append(selling_price)
+#             record['cash'].append(cash)
+#             record['total'].append(cash)
+#             break;
+
+#           # 止损卖出(收盘价)
+#           elif ((selling_price - buying_price)/ buying_price) < -stop_loss:
+#             cash = cash + selling_price * stock - trading_fee 
+#             stock = 0
+#             total = cash
+#             if print_trading:
+#               print(selling_date.date(), '止损, 价格%(price)s, 流动资金%(cash)s, 总值%(total)s' % dict(price=selling_price, cash=cash, total=total))
+
+#             # 记录交易信息
+#             record['date'].append(selling_date.date())
+#             record['action'].append('s')
+#             record['holding'].append(stock)
+#             record['price'].append(selling_price)
+#             record['cash'].append(cash)
+#             record['total'].append(total)
+#             break;
+
+#   # 以信号模式进行回测          
+#   elif mode == 'signal':
+    
+#     # 去除冲突的信号
+#     buy_sell_signals = signal.query('signal != "n"')
+#     trading_signals = []
+#     last_signal = 'n'
+#     for index, row in buy_sell_signals.iterrows():
+#       current_signal = row['signal']  
+#       if current_signal == last_signal:
+#         continue
+#       else:
+#         trading_signals.append(index)
+#       last_signal = current_signal
+    
+#     # 开始交易
+#     for date in trading_signals:
+      
+#       if date == signal.index.max():
+#         print('信号于', date, '发出')
+#         break
+      
+#       # 信号的第二天交易
+#       tmp_signal = signal.loc[date, 'signal']
+#       tmp_data = signal[date:][1:]
+#       trading_date = tmp_data.index.min()
+      
+#       # 以开盘价买入
+#       if tmp_signal == 'b':
+#         buying_price = signal.loc[trading_date, buy_price]
+#         stock = math.floor((cash-trading_fee) / buying_price)
+#         if stock > 0:
+#           cash = cash - stock * buying_price - trading_fee
+#           total = (cash + stock * buying_price)
+#           if print_trading:
+#             print(trading_date.date(), '买入 %(stock)s, 价格%(price)s, 流动资金%(cash)s, 总值%(total)s' % dict(stock=stock, price=buying_price, cash=cash, total=total))
+
+#           # 记录交易信息
+#           record['date'].append(trading_date.date())
+#           record['action'].append('b')
+#           record['holding'].append(stock)
+#           record['price'].append(buying_price)
+#           record['cash'].append(cash)
+#           record['total'].append(total)
+#         else: 
+#           print(trading_date.date(), '买入 %(stock)s' % dict(stock=stock))
+
+#       # 以收盘价卖出
+#       elif tmp_signal == 's':
+#         if stock > 0:
+#           selling_price = signal.loc[trading_date, sell_price]
+#           cash = cash + selling_price * stock - trading_fee
+#           stock = 0
+#           total = cash + stock * selling_price
+#           if print_trading:
+#             print(trading_date.date(), '卖出, 价格%(price)s, 流动资金%(cash)s, 总值%(total)s' % dict(price=selling_price, cash=cash, total=total))
+
+#           # 记录交易信息
+#           record['date'].append(trading_date.date())
+#           record['action'].append('s')
+#           record['holding'].append(stock)
+#           record['price'].append(selling_price)
+#           record['cash'].append(cash)
+#           record['total'].append(total)
+            
+#       else:
+#         print('invalid signal %s' % tmp_signal)
+    
+#   # 未定义的模式
+#   else:
+#     print('mode [%s] not found' % mode)
+
+#   # 记录最新数据
+#   current_date = signal.index.max()
+#   current_price = signal.loc[current_date, 'Close']
+#   total = cash + stock * current_price
+#   record['date'].append(current_date.date())
+#   record['action'].append(signal.loc[current_date, 'signal'])
+#   record['holding'].append(stock)
+#   record['price'].append(current_price)
+#   record['cash'].append(cash)
+#   record['total'].append(total)
+#   if print_trading:
+#     print(current_date.date(), '当前, 价格%(price)s, 总值%(total)s' % dict(price=current_price, total=total))
+  
+#   # 将记录转化为时序数据
+#   record = util.df_2_timeseries(pd.DataFrame(record), time_col='date')
+
+#   # 画出回测图
+#   if plot_trading:
+#     buying_points = record.query('action == "b"')
+#     selling_points = record.query('action == "s"')
+  
+#     f, ax = plt.subplots(figsize = (20, 3))
+#     plt.plot(signal[['Close']])
+#     plt.scatter(buying_points.index,buying_points.price, c='green')
+#     plt.scatter(selling_points.index,selling_points.price, c='red')
+  
+#     total_value_data = pd.merge(signal[['Close']], record[['cash', 'holding', 'action']], how='left', left_index=True, right_index=True)
+#     total_value_data.fillna(method='ffill', inplace=True)
+#     total_value_data['original'] = original_cash
+#     total_value_data['total'] = total_value_data['Close'] * total_value_data['holding'] + total_value_data['cash']
+#     total_value_data[['total', 'original']].plot(figsize=(20, 3))
+  
+#   return record      
