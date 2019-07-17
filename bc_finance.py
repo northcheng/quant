@@ -285,7 +285,7 @@ def plot_moving_average(df, dim, short_ma, long_ma, window_size, start_date=None
 
 #----------------------------- 回测工具 -----------------------------------#
 # 回测
-def back_test(signal, buy_price='Open', sell_price='Close', cash=0, stock=0, start_date=None, end_date=None, trading_fee=3, stop_profit=0.1, stop_loss=0.6, mode='earning', print_trading=True, plot_trading=True):
+def back_test(signal, buy_price='Open', sell_price='Close', cash=0, stock=0, start_date=None, end_date=None, trading_fee=3, stop_profit=0.1, stop_loss=0.6, mode='earning', auto_stop_loss=True, print_trading=True, plot_trading=True):
   
   # 获取指定期间的信号
   signal = signal[start_date:end_date]
@@ -295,10 +295,8 @@ def back_test(signal, buy_price='Open', sell_price='Close', cash=0, stock=0, sta
   record = {
       'date': [],
       'action': [],
-      'holding': [],
-      'price': [],
-      'cash': [],
-      'total': []
+      'holding': [], 'price': [],
+      'cash': [], 'total': []
   }
   
   # 以盈利模式进行回测
@@ -318,10 +316,12 @@ def back_test(signal, buy_price='Open', sell_price='Close', cash=0, stock=0, sta
       
       # 买入（开盘价）
       if stock == 0 and cash > 0:
+        # 买入日期, 价格, 可买股数
         buying_date = tmp_data.index.min()
         buying_price = tmp_data.loc[buying_date, buy_price]
         stock = math.floor((cash-trading_fee) / buying_price)
         
+        # 如果可买股数>0, 买入
         if stock > 0:
           cash = cash - stock * buying_price - trading_fee
           total = (cash + stock * buying_price)
