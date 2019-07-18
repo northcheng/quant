@@ -420,7 +420,7 @@ def plot_ichimoku(data, start=None, end=None, signal_dim=None, title=None, save_
 
     if save_path is not None:
         plt.savefig(save_path + title + '.png')
-        plt.show()
+    plt.show()
 
 
 #----------------------------- 技术指标可视化 -----------------------------------#
