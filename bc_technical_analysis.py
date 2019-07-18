@@ -186,12 +186,12 @@ def cal_mean_reversion_signal(df, time_std=2, triger_dim=['rate_bias', 'acc_rate
         # 综合信号
         mr_df['signal'] = mr_df['signal'].astype(int) + mr_df[signal_dim].astype(int)
 
-        # 将信号从数字转化为字符  
-        sell_signals = mr_df.loc[mr_df['signal'] >= triger_threshold, ].index
-        buy_signals = mr_df.loc[mr_df['signal'] <= -triger_threshold, ].index
-        mr_df['signal'] = 'n'
-        mr_df.loc[sell_signals, 'signal'] = 's'
-        mr_df.loc[buy_signals, 'signal'] = 'b'
+    # 将信号从数字转化为字符  
+    sell_signals = mr_df.loc[mr_df['signal'] >= triger_threshold, ].index
+    buy_signals = mr_df.loc[mr_df['signal'] <= -triger_threshold, ].index
+    mr_df['signal'] = 'n'
+    mr_df.loc[sell_signals, 'signal'] = 's'
+    mr_df.loc[buy_signals, 'signal'] = 'b'
 
     return mr_df
 
