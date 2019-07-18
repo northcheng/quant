@@ -209,6 +209,109 @@ def cal_mean_reversion_expected_rate(df, rate_dim, window_size, time_std):
     return result
 
 
+# 画出均值回归偏差图
+def plot_mean_reversion(df, times_std, window_size, start_date=None, end_date=None):
+  
+    # 需要绘出的维度
+    plot_dims = [x for x in df.columns if '_bias' in x]
+    
+    # 创建图片
+    plt.figure()
+    plot_data = df[plot_dims][:end_date].tail(window_size)
+    plot_data['upper'] = times_std
+    plot_data['lower'] = -times_std
+  
+    # 画出信号
+    plot_data.plot(figsize=(20, 3))
+    plt.legend(loc='best')
+
+
+#----------------------------- 均线模型 -----------------------------------#
+# 计算移动平均信号
+def cal_moving_average(df, dim, ma_windows=[50, 105], start_date=None, end_date=None, window_type='em'):
+
+    # 截取数据  
+    df = df[start_date:end_date].copy()
+
+    # 选择移动窗口类型
+    if window_type == 'em':
+        mw_func = em
+    else:
+        mw_func = sm
+
+    # 计算移动平均
+    for mw in ma_windows:
+        ma_dim = '%(dim)s_ma_%(window_size)s' % dict(dim=dim, window_size=mw)
+        df[ma_dim] = mw_func(series=df[dim], periods=mw).mean()
+    
+    return df
+
+# 计算移动平均信号
+def cal_moving_average_signal(ma_df, dim, short_ma, long_ma, short_ma_col=None, long_ma_col=None, start_date=None, end_date=None):
+  
+    ma_df = ma_df.copy()
+  
+    if short_ma_col is None:
+        short_ma = '%(dim)s_ma_%(window_size)s' %dict(dim=dim, window_size=short_ma)
+    else:
+        short_ma = short_ma_col
+
+    if long_ma_col is None:
+        long_ma = '%(dim)s_ma_%(window_size)s' %dict(dim=dim, window_size=long_ma)
+    else:
+        long_ma = long_ma_col
+
+    if long_ma not in ma_df.columns or short_ma not in ma_df.columns:
+        print("%(short)s or %(long)s on %(dim)s not found" % dict(short=short_ma, long=long_ma, dim=dim))
+        return pd.DataFrame()
+  
+    # 计算长短均线之差
+    ma_df['ma_diff'] = ma_df[short_ma] - ma_df[long_ma]
+  
+    # 计算信号
+    ma_df['signal'] = 'n'
+    last_value = None
+    for index, row in ma_df[start_date : end_date].iterrows():
+    
+        # 当前与之前的长短期均线差值
+        current_value = row['ma_diff']
+    
+        if last_value is None:
+            last_value = current_value
+            continue
+    
+        # 短线从下方穿过长线, 买入
+        if last_value < 0 and current_value > 0:
+            ma_df.loc[index, 'signal'] = 'b'
+
+        # 短线从上方穿过长线, 卖出
+        elif last_value > 0 and current_value < 0:
+            ma_df.loc[index, 'signal'] = 's'
+      
+            last_value = current_value
+    
+    return ma_df
+
+# 画出移动平均图
+def plot_moving_average(df, dim, short_ma, long_ma, window_size, start_date=None, end_date=None):
+  
+    plot_dims = ['Close']
+  
+    short_ma = '%(dim)s_ma_%(window_size)s' %dict(dim=dim, window_size=short_ma)
+    long_ma = '%(dim)s_ma_%(window_size)s' %dict(dim=dim, window_size=long_ma)
+    if long_ma not in df.columns or short_ma not in df.columns:
+        print("%(short)s or %(long)s on %(dim)s not found" % dict(short=short_ma, long=long_ma, dim=dim))
+    
+    else:
+        plot_dims += [long_ma, short_ma]
+  
+    # 创建图片
+    plt.figure()
+    plot_data = df[plot_dims][start_date:end_date].tail(window_size)
+  
+    # 画出信号
+    plot_data.plot(figsize=(20, 3))
+    plt.legend(loc='best')
 
 
 
