@@ -391,7 +391,7 @@ def cal_ichimoku_signal(df):
   
 
 # Plot Ichimoku
-def plot_ichimoku(data, start=None, end=None, signal_dim=None, title=None, save_path=None):
+def plot_ichimoku(data, start=None, end=None, signal_dim=None, title=None, save_path=None, show_image=False):
   
     plot_data = data[start:end]
   
@@ -420,7 +420,8 @@ def plot_ichimoku(data, start=None, end=None, signal_dim=None, title=None, save_
 
     if save_path is not None:
         plt.savefig(save_path + title + '.png')
-    plt.show()
+    if show_image:
+        plt.show()
 
 
 #----------------------------- 技术指标可视化 -----------------------------------#
