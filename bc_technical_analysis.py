@@ -251,7 +251,7 @@ def cal_moving_average_signal(ma_df, short_ma_col=None, long_ma_col=None, start_
 
     ma_df = ma_df[start_date:end_date].copy()
 
-    ma_df = cal_joint_signal(data=ma_df, positive_col=short_ma_col, negative_col=long_ma_col)
+    ma_df = cal_joint_signal(df=ma_df, positive_col=short_ma_col, negative_col=long_ma_col)
 
     return ma_df
 
@@ -282,7 +282,7 @@ def cal_macd_signal(df, n_fast=50, n_slow=105):
     data = df.copy()
     data['macd_diff']  = ta.macd_diff(close=data.Close, n_fast=n_fast, n_slow=n_slow)
     data['zero'] = 0
-    data = cal_joint_signal(data=data, positive_col='macd_diff', negative_col='zero')
+    data = cal_joint_signal(df=data, positive_col='macd_diff', negative_col='zero')
     data.rename(columns={'signal': 'macd_signal'}, inplace=True)
 
     return data[['macd_signal']]   
@@ -356,7 +356,7 @@ def cal_ichimoku(df, method='original'):
         data['senkou_b'] = (data.High.rolling(52, min_periods=0).max() + data.Low.rolling(52, min_periods=0).min()) / 2
         data['chikan'] = data.Close.shift(-26)
   
-    data = cal_joint_signal(data=data, positive_col='senkou_a', negative_col='senkou_b')
+    data = cal_joint_signal(df=data, positive_col='senkou_a', negative_col='senkou_b')
     return data
 
 
