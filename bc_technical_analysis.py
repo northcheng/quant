@@ -166,8 +166,8 @@ def cal_mean_reversion_signal(df, time_std=2, triger_dim=['rate_bias', 'acc_rate
     target_dim = [x for x in mr_df.columns if 'bias' in x]
     for t in triger_dim:
         if t not in target_dim:
-        print(t, 'not found in columns!')
-        triger_dim = [x for x in triger_dim if x != t]
+            print(t, 'not found in columns!')
+            triger_dim = [x for x in triger_dim if x != t]
 
     # 初始化信号
     mr_df['signal'] = 0
