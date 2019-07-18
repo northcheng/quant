@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import ta
 import matplotlib.pyplot as plt
-from quant import finance_util
+# from quant import finance_util
 
 # rank
 # cumsum
@@ -270,30 +270,30 @@ def cal_cci_signal(df, up=200, low=-200):
     return data[['cci_signal']]
 
 
-# Ichimoku
-def cal_ichimoku(df, method='original'):
+# # Ichimoku
+# def cal_ichimoku(df, method='original'):
   
-    data = df.copy()
+#     data = df.copy()
   
-    if method == 'original':
-        data = finance_util.cal_moving_average(df=data, dim='High', ma_windows=[9, 26, 52], window_type='sm')
-        data = finance_util.cal_moving_average(df=data, dim='Low', ma_windows=[9, 26, 52], window_type='sm')
+#     if method == 'original':
+#         data = finance_util.cal_moving_average(df=data, dim='High', ma_windows=[9, 26, 52], window_type='sm')
+#         data = finance_util.cal_moving_average(df=data, dim='Low', ma_windows=[9, 26, 52], window_type='sm')
 
-        data['tankan'] = (data['High_ma_9'] + data['Low_ma_9']) / 2
-        data['kijun'] = (data['High_ma_26'] + data['Low_ma_26']) / 2
-        data['senkou_a'] = (data['tankan'] + data['kijun']) / 2
-        data['senkou_b'] = (data['High_ma_52'] + data['Low_ma_52']) / 2
-        data['chikan'] = data.Close.shift(-26)
+#         data['tankan'] = (data['High_ma_9'] + data['Low_ma_9']) / 2
+#         data['kijun'] = (data['High_ma_26'] + data['Low_ma_26']) / 2
+#         data['senkou_a'] = (data['tankan'] + data['kijun']) / 2
+#         data['senkou_b'] = (data['High_ma_52'] + data['Low_ma_52']) / 2
+#         data['chikan'] = data.Close.shift(-26)
     
-    elif method == 'ta':
-        data['tankan'] = (data.High.rolling(9, min_periods=0).max() + data.Low.rolling(9, min_periods=0).min()) / 2
-        data['kijun'] = (data.High.rolling(26, min_periods=0).max() + data.Low.rolling(26, min_periods=0).min()) / 2
-        data['senkou_a'] = (data['tankan'] + data['kijun']) / 2
-        data['senkou_b'] = (data.High.rolling(52, min_periods=0).max() + data.Low.rolling(52, min_periods=0).min()) / 2
-        data['chikan'] = data.Close.shift(-26)
+#     elif method == 'ta':
+#         data['tankan'] = (data.High.rolling(9, min_periods=0).max() + data.Low.rolling(9, min_periods=0).min()) / 2
+#         data['kijun'] = (data.High.rolling(26, min_periods=0).max() + data.Low.rolling(26, min_periods=0).min()) / 2
+#         data['senkou_a'] = (data['tankan'] + data['kijun']) / 2
+#         data['senkou_b'] = (data.High.rolling(52, min_periods=0).max() + data.Low.rolling(52, min_periods=0).min()) / 2
+#         data['chikan'] = data.Close.shift(-26)
   
-    data = ta_util.cal_joint_signal(data=data, positive_col='senkou_a', negative_col='senkou_b')
-    return data
+#     data = ta_util.cal_joint_signal(data=data, positive_col='senkou_a', negative_col='senkou_b')
+#     return data
 
 
 # Ichimoku signal
