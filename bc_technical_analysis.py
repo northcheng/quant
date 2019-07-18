@@ -176,13 +176,14 @@ def cal_mean_reversion_signal(df, time_std=2, triger_dim=['rate_bias', 'acc_rate
     for dim in triger_dim:
         signal_dim = dim.replace('bias', 'signal')
         mr_df[signal_dim] = 0
+        print(signal_dim, mr_df)
     
         # 超买信号
         mr_df.loc[mr_df[dim] > time_std, signal_dim] = 1
     
         # 超卖信号
         mr_df.loc[mr_df[dim] < -time_std, signal_dim] = -1
-
+        print(signal_dim, mr_df)
         # 综合信号
         mr_df['signal'] = mr_df['signal'] + mr_df[signal_dim]
   
@@ -246,51 +247,16 @@ def cal_moving_average(df, dim, ma_windows=[50, 105], start_date=None, end_date=
     
     return df
 
+
 # 计算移动平均信号
-def cal_moving_average_signal(ma_df, dim, short_ma, long_ma, short_ma_col=None, long_ma_col=None, start_date=None, end_date=None):
-  
-    ma_df = ma_df.copy()
-  
-    if short_ma_col is None:
-        short_ma = '%(dim)s_ma_%(window_size)s' %dict(dim=dim, window_size=short_ma)
-    else:
-        short_ma = short_ma_col
+def cal_moving_average_signal(ma_df, short_ma_col=None, long_ma_col=None, start_date=None, end_date=None):
 
-    if long_ma_col is None:
-        long_ma = '%(dim)s_ma_%(window_size)s' %dict(dim=dim, window_size=long_ma)
-    else:
-        long_ma = long_ma_col
+    ma_df = ma_df[start_date:end_date].copy()
 
-    if long_ma not in ma_df.columns or short_ma not in ma_df.columns:
-        print("%(short)s or %(long)s on %(dim)s not found" % dict(short=short_ma, long=long_ma, dim=dim))
-        return pd.DataFrame()
-  
-    # 计算长短均线之差
-    ma_df['ma_diff'] = ma_df[short_ma] - ma_df[long_ma]
-  
-    # 计算信号
-    ma_df['signal'] = 'n'
-    last_value = None
-    for index, row in ma_df[start_date : end_date].iterrows():
-    
-        # 当前与之前的长短期均线差值
-        current_value = row['ma_diff']
-    
-        if last_value is None:
-            last_value = current_value
-            continue
-    
-        # 短线从下方穿过长线, 买入
-        if last_value < 0 and current_value > 0:
-            ma_df.loc[index, 'signal'] = 'b'
+    ma_df = cal_joint_signal(data=ma_df, positive_col=short_ma_col, negative_col=long_ma_col)
 
-        # 短线从上方穿过长线, 卖出
-        elif last_value > 0 and current_value < 0:
-            ma_df.loc[index, 'signal'] = 's'
-      
-            last_value = current_value
-    
     return ma_df
+
 
 # 画出移动平均图
 def plot_moving_average(df, dim, short_ma, long_ma, window_size, start_date=None, end_date=None):
