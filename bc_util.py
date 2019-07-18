@@ -56,7 +56,7 @@ def df_2_timeseries(df, time_col='date'):
     return df
 
 # 画多条折线图
-def plot_data(selected_data, figsize=(15, 5), colormap='jet'):
+def plot_data(selected_data, figsize=(15, 5), colormap='tab10'):
     
     # plot data
     plt.figure(figsize=figsize)
