@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import math
+import sympy
 import numpy as np
 import pandas as pd
 import ta
@@ -8,7 +9,7 @@ from quant import finance_util
 
 # rank
 # cumsum
-
+#----------------------------- 基础运算 -----------------------------------#
 # 除去NA值
 def dropna(df):
     """Drop rows with "Nans" values
@@ -32,6 +33,7 @@ def get_min_max(x1, x2, f='min'):
         return np.nan    
 
 
+#----------------------------- 移动窗口 -----------------------------------#
 # 简单移动窗口
 def sm(series, periods, fillna=False):
     if fillna:
@@ -46,6 +48,7 @@ def em(series, periods, fillna=False):
     return series.ewm(span=periods, min_periods=periods)  
 
 
+#----------------------------- 信号计算 -----------------------------------#
 # 计算交叉信号
 def cal_joint_signal(data, positive_col, negative_col):
 
@@ -78,6 +81,138 @@ def cal_joint_signal(data, positive_col, negative_col):
     return data
 
 
+#----------------------------- 均值回归模型 -----------------------------------#
+# 计算涨跌幅/累计涨跌幅
+def cal_change_rate(df, dim, period=1, add_accumulation=True, add_prefix=False):
+  
+    # 复制 dataframe
+    df = df.copy()
+  
+    # 设置列名前缀
+    prefix = ''
+    if add_prefix:
+        prefix = dim + '_'
+
+    # 设置列名
+    rate_dim = prefix + 'rate'
+    acc_rate_dim = prefix + 'acc_rate'
+    acc_day_dim = prefix + 'acc_day'
+
+    # 计算涨跌率
+    df[rate_dim] = df[dim].pct_change(periods=period)
+  
+    # 计算累计维度列
+    if add_accumulation:
+        df[acc_rate_dim] = 0
+        df.loc[df[rate_dim]>0, acc_day_dim] = 1
+        df.loc[df[rate_dim]<0, acc_day_dim] = -1
+  
+        # 计算累计值
+        idx = df.index.tolist()
+        for i in range(1, len(df)):
+            current_idx = idx[i]
+            previous_idx = idx[i-1]
+            current_rate = df.loc[current_idx, rate_dim]
+            previous_acc_rate = df.loc[previous_idx, acc_rate_dim]
+            previous_acc_days = df.loc[previous_idx, acc_day_dim]
+
+            # 如果符号相同则累加, 否则重置
+            if previous_acc_rate * current_rate > 0:
+                df.loc[current_idx, acc_rate_dim] = current_rate + previous_acc_rate
+                df.loc[current_idx, acc_day_dim] += previous_acc_days
+            else:
+                df.loc[current_idx, acc_rate_dim] = current_rate
+
+    df.dropna(inplace=True) 
+
+    return df
+
+
+# 计算当前值与移动均值的差距离移动标准差的倍数
+def cal_mean_reversion(df, dim, window_size=100, window_type='sm', start_date=None, end_date=None):
+  
+    # 日收益率计算
+    original_columns = df.columns
+    data = cal_change_rate(df=df, dim=dim, period=1, add_accumulation=True)[start_date:end_date]
+  
+    # 选择移动窗口类型
+    if window_type == 'em':
+        mw_func = em
+    else:
+        mw_func = sm
+
+    # 计算变化率/累计变化率/累计天数: (偏离均值的距离)/方差
+    new_columns = [x for x in data.columns if x not in original_columns]
+    for d in new_columns:
+    
+        # 计算累计变化率的移动平均及移动标准差
+        mw = mw_func(series=data[d], periods=window_size)
+        tmp_mean = mw.mean()
+        tmp_std = mw.std()
+    
+        # 计算偏差
+        data[d+'_bias'] = (data[d] - tmp_mean) / (tmp_std)
+  
+    return data
+
+
+# 计算均值回归信号
+def cal_mean_reversion_signal(df, time_std=2, triger_dim=['rate_bias', 'acc_rate_bias', 'acc_day_bias'], triger_threshold=2, start_date=None, end_date=None):
+  
+    # 复制 dataframe
+    mr_df = df.copy()
+
+    # 选择包含 'bias' 的列
+    target_dim = [x for x in mr_df.columns if 'bias' in x]
+    for t in triger_dim:
+        if t not in target_dim:
+        print(t, 'not found in columns!')
+        triger_dim = [x for x in triger_dim if x != t]
+
+    # 初始化信号
+    mr_df['signal'] = 0
+
+    # 计算每种 bias 的信号
+    for dim in triger_dim:
+        signal_dim = dim.replace('bias', 'signal')
+        mr_df[signal_dim] = 0
+    
+        # 超买信号
+        mr_df.loc[mr_df[dim] > time_std, signal_dim] = 1
+    
+        # 超卖信号
+        mr_df.loc[mr_df[dim] < -time_std, signal_dim] = -1
+
+        # 综合信号
+        mr_df['signal'] = mr_df['signal'] + mr_df[signal_dim]
+  
+        # 将信号从数字转化为字符  
+        sell_signals = mr_df.loc[mr_df['signal'] >= triger_threshold, ].index
+        buy_signals = mr_df.loc[mr_df['signal'] <= -triger_threshold, ].index
+        mr_df['signal'] = 'n'
+        mr_df.loc[sell_signals, 'signal'] = 's'
+        mr_df.loc[buy_signals, 'signal'] = 'b'
+  
+    return mr_df
+
+
+# 计算触发信号所需的累积涨跌
+def cal_mean_reversion_expected_rate(df, rate_dim, window_size, time_std):
+  
+    x = sympy.Symbol('x')
+  
+    rate_data = np.hstack((df.tail(window_size-1)[rate_dim].values, x))
+    ma = rate_data.mean()
+    std = sympy.sqrt(sum((rate_data - ma)**2)/(window_size-1))
+    result = sympy.solve(((x - ma)**2) - ((time_std*std)**2), x)
+  
+    return result
+
+
+
+
+
+#----------------------------- 技术指标 -----------------------------------#
 # MACD(Moving Average Convergence Divergence)信号
 def cal_macd_signal(df, n_fast=50, n_slow=105):
     data = df.copy()
