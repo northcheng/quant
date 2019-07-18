@@ -207,10 +207,10 @@ def plot_ichimoku(data, start=None, end=None, plot_signal=True, title=None):
   
     if plot_signal:
         if 'signal' in plot_data.columns.tolist():
-        buy_signal = plot_data.query('signal == "b"')
-        sell_signal = plot_data.query('signal == "s"')
-        ax.scatter(buy_signal.index, buy_signal.Close, marker='^', color='green', )
-        ax.scatter(sell_signal.index, sell_signal.Close, marker='v', color='red', )
+            buy_signal = plot_data.query('signal == "b"')
+            sell_signal = plot_data.query('signal == "s"')
+            ax.scatter(buy_signal.index, buy_signal.Close, marker='^', color='green', )
+            ax.scatter(sell_signal.index, sell_signal.Close, marker='v', color='red', )
   
     plt.legend()  
     plt.title(title)
