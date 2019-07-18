@@ -12,11 +12,13 @@ def string_2_time(string, date_format='%Y-%m-%d'):
     time_object = datetime.datetime.strptime(string, date_format)
     return time_object
  
+
 # 将时间对象转化为时间字符串
 def time_2_string(time_object, diff_days=0, date_format='%Y-%m-%d'):
     time_object = time_object + datetime.timedelta(days=diff_days)
     time_string = datetime.datetime.strftime(time_object, date_format)
     return time_string
+
 
 # 将时间戳转化为时间对象
 def timestamp_2_time(timestamp, unit='ms', timezone='CN'):
@@ -34,12 +36,14 @@ def timestamp_2_time(timestamp, unit='ms', timezone='CN'):
     time_object = datetime.datetime.fromtimestamp(int(timestamp), tz)
     return time_object
  
+
 # 直接在字符串上加减日期
 def string_plus_day(string, diff_days, date_format='%Y-%m-%d'):
     # 字符串转日期, 加减天数
     time_object = string_2_time(string, date_format=date_format)
     time_string = time_2_string(time_object, diff_days, date_format=date_format)
     return time_string    
+
 
 # 计算两个日期字符串之间的天数
 def num_days_between(start_date, end_date, date_format='%Y-%m-%d'):
@@ -49,11 +53,13 @@ def num_days_between(start_date, end_date, date_format='%Y-%m-%d'):
     diff = end_date - start_date
     return diff.days
   
+
 # 普通dataframe转时间序列数据
 def df_2_timeseries(df, time_col='date'):
     df = df.set_index(time_col)
     df.index = pd.DatetimeIndex(df.index)
     return df
+
 
 # 画多条折线图
 def plot_data(df, columns, start=None, end=None, figsize=(15, 5), colormap='tab10'):

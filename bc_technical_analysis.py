@@ -3,12 +3,11 @@ import math
 import sympy
 import numpy as np
 import pandas as pd
-import ta
 import matplotlib.pyplot as plt
-# from quant import finance_util
+import ta
 
-# rank
-# cumsum
+
+
 #----------------------------- 基础运算 -----------------------------------#
 # 除去NA值
 def dropna(df):
@@ -50,9 +49,8 @@ def em(series, periods, fillna=False):
 
 #----------------------------- 信号计算 -----------------------------------#
 # 计算交叉信号
-def cal_joint_signal(data, positive_col, negative_col):
-
-    data = data.copy()
+def cal_joint_signal(df, positive_col, negative_col):
+    data = df.copy()
 
     # 计算两条线之间的差
     data['diff'] = data[positive_col] - data[negative_col]
@@ -81,7 +79,7 @@ def cal_joint_signal(data, positive_col, negative_col):
     return data
 
 
-#----------------------------- 均值回归模型 -----------------------------------#
+#----------------------------- 均值回归 -----------------------------------#
 # 计算涨跌幅/累计涨跌幅
 def cal_change_rate(df, dim, period=1, add_accumulation=True, add_prefix=False):
   
@@ -226,7 +224,8 @@ def plot_mean_reversion(df, times_std, window_size, start_date=None, end_date=No
     plt.legend(loc='best')
 
 
-#----------------------------- 均线模型 -----------------------------------#
+
+#----------------------------- 移动平均 -----------------------------------#
 # 计算移动平均信号
 def cal_moving_average(df, dim, ma_windows=[50, 105], start_date=None, end_date=None, window_type='em'):
 
@@ -283,7 +282,7 @@ def cal_macd_signal(df, n_fast=50, n_slow=105):
     data = df.copy()
     data['macd_diff']  = ta.macd_diff(close=data.Close, n_fast=n_fast, n_slow=n_slow)
     data['zero'] = 0
-    data = ta_util.cal_joint_signal(data=data, positive_col='macd_diff', negative_col='zero')
+    data = cal_joint_signal(data=data, positive_col='macd_diff', negative_col='zero')
     data.rename(columns={'signal': 'macd_signal'}, inplace=True)
 
     return data[['macd_signal']]   
@@ -335,60 +334,64 @@ def cal_cci_signal(df, up=200, low=-200):
     return data[['cci_signal']]
 
 
-# # Ichimoku
-# def cal_ichimoku(df, method='original'):
+# Ichimoku
+def cal_ichimoku(df, method='original'):
   
-#     data = df.copy()
+    data = df.copy()
   
-#     if method == 'original':
-#         data = finance_util.cal_moving_average(df=data, dim='High', ma_windows=[9, 26, 52], window_type='sm')
-#         data = finance_util.cal_moving_average(df=data, dim='Low', ma_windows=[9, 26, 52], window_type='sm')
+    if method == 'original':
+        data = cal_moving_average(df=data, dim='High', ma_windows=[9, 26, 52], window_type='sm')
+        data = cal_moving_average(df=data, dim='Low', ma_windows=[9, 26, 52], window_type='sm')
 
-#         data['tankan'] = (data['High_ma_9'] + data['Low_ma_9']) / 2
-#         data['kijun'] = (data['High_ma_26'] + data['Low_ma_26']) / 2
-#         data['senkou_a'] = (data['tankan'] + data['kijun']) / 2
-#         data['senkou_b'] = (data['High_ma_52'] + data['Low_ma_52']) / 2
-#         data['chikan'] = data.Close.shift(-26)
+        data['tankan'] = (data['High_ma_9'] + data['Low_ma_9']) / 2
+        data['kijun'] = (data['High_ma_26'] + data['Low_ma_26']) / 2
+        data['senkou_a'] = (data['tankan'] + data['kijun']) / 2
+        data['senkou_b'] = (data['High_ma_52'] + data['Low_ma_52']) / 2
+        data['chikan'] = data.Close.shift(-26)
     
-#     elif method == 'ta':
-#         data['tankan'] = (data.High.rolling(9, min_periods=0).max() + data.Low.rolling(9, min_periods=0).min()) / 2
-#         data['kijun'] = (data.High.rolling(26, min_periods=0).max() + data.Low.rolling(26, min_periods=0).min()) / 2
-#         data['senkou_a'] = (data['tankan'] + data['kijun']) / 2
-#         data['senkou_b'] = (data.High.rolling(52, min_periods=0).max() + data.Low.rolling(52, min_periods=0).min()) / 2
-#         data['chikan'] = data.Close.shift(-26)
+    elif method == 'ta':
+        data['tankan'] = (data.High.rolling(9, min_periods=0).max() + data.Low.rolling(9, min_periods=0).min()) / 2
+        data['kijun'] = (data.High.rolling(26, min_periods=0).max() + data.Low.rolling(26, min_periods=0).min()) / 2
+        data['senkou_a'] = (data['tankan'] + data['kijun']) / 2
+        data['senkou_b'] = (data.High.rolling(52, min_periods=0).max() + data.Low.rolling(52, min_periods=0).min()) / 2
+        data['chikan'] = data.Close.shift(-26)
   
-#     data = ta_util.cal_joint_signal(data=data, positive_col='senkou_a', negative_col='senkou_b')
-#     return data
+    data = cal_joint_signal(data=data, positive_col='senkou_a', negative_col='senkou_b')
+    return data
 
 
 # Ichimoku signal
 def cal_ichimoku_signal(df):
     data = df.copy()
   
+    # 云信号
     data['signal_cloud'] = 0
     buy_idx = data.query('Close > senkou_a and senkou_a >= senkou_b').index
     sell_idx = data.query('Close < senkou_a').index
     data.loc[buy_idx, 'signal_cloud'] = 1
     data.loc[sell_idx, 'signal_cloud'] = -1
   
+    # 基准/转换信号
     data['signal_tankan_kijun'] = 0
     buy_idx = data.query('tankan > kijun').index
     sell_idx = data.query('tankan < kijun').index
     data.loc[buy_idx, 'signal_tankan_kijun'] = 1
     data.loc[sell_idx, 'signal_tankan_kijun'] = -1
   
+    # 合并信号
     data['signal_sum'] = data['signal_cloud'] + data['signal_tankan_kijun']
     buy_idx = data.query('signal_sum == 2').index
     sell_idx = data.query('signal_sum == -2').index
 
-    data['signal'] = 'n'
-    data.loc[buy_idx, 'signal'] = 'b'
-    data.loc[sell_idx, 'signal'] = 's'
-    return data
+    data['ichimoku_signal'] = 'n'
+    data.loc[buy_idx, 'ichimoku_signal'] = 'b'
+    data.loc[sell_idx, 'ichimoku_signal'] = 's'
+
+    return data[['ichimoku_signal']]
   
 
 # Plot Ichimoku
-def plot_ichimoku(data, start=None, end=None, plot_signal=True, title=None):
+def plot_ichimoku(data, start=None, end=None, signal_dim=None, title=None):
   
     plot_data = data[start:end]
   
@@ -405,12 +408,91 @@ def plot_ichimoku(data, start=None, end=None, plot_signal=True, title=None):
     ax.fill_between(plot_data.index, plot_data.senkou_a, plot_data.senkou_b, where=plot_data.senkou_a > plot_data.senkou_b, facecolor='green', interpolate=True, alpha=0.6)
     ax.fill_between(plot_data.index, plot_data.senkou_a, plot_data.senkou_b, where=plot_data.senkou_a <= plot_data.senkou_b, facecolor='red', interpolate=True, alpha=0.6)
   
-    if plot_signal:
-        if 'signal' in plot_data.columns.tolist():
-            buy_signal = plot_data.query('signal == "b"')
-            sell_signal = plot_data.query('signal == "s"')
+    if signal_dim is not None:
+        if signal_dim in plot_data.columns.tolist():
+            buy_signal = plot_data.query('%s == "b"' % signal_dim)
+            sell_signal = plot_data.query('%s == "s"' % signal_dim)
             ax.scatter(buy_signal.index, buy_signal.Close, marker='^', color='green', )
             ax.scatter(sell_signal.index, sell_signal.Close, marker='v', color='red', )
   
     plt.legend()  
     plt.title(title)
+
+
+#----------------------------- 技术指标可视化 -----------------------------------#
+# 画出以benchmark为界的柱状图, 上升为绿, 下降为红
+def plot_indicator_around_benchmark(data, target_col, benchmark=0, title=None, start_date=None, end_date=None, color_mode='up_down', plot_close=True, figsize=(20, 5)):
+
+    plot_data = data[start_date:end_date].copy()
+
+    if color_mode == 'up_down':  
+        plot_data['color'] = 'red'
+        previous_target_col = 'previous_'+target_col
+        plot_data[previous_target_col] = plot_data[target_col].shift(1)
+        plot_data.loc[plot_data[target_col] > plot_data[previous_target_col], 'color'] = 'green'
+  
+    elif color_mode == 'zero':
+        plot_data['color'] = 'red'
+        plot_data.loc[plot_data[target_col] > benchmark, 'color'] = 'green'
+    
+    else:
+        print('Unknown Color Mode')
+        return None
+
+    fig = plt.figure(figsize=figsize)
+    ax1 = fig.add_subplot(111)
+    ax1.bar(plot_data.index, height=plot_data[target_col], color=plot_data.color, alpha=0.5)
+    ax1.set_title(title)
+
+    if plot_close:
+        ax2=ax1.twinx()
+        ax2.plot(plot_data.Close, color='blue' )
+
+
+# 画出指标与价格
+def plot_indicator(data, target_col, title=None, start_date=None, end_date=None, plot_close=True, figsize=(20, 5)):
+  
+    plot_data = data[start_date:end_date].copy()
+
+    fig = plt.figure(figsize=figsize)
+    ax1 = fig.add_subplot(111)
+    ax1.plot(plot_data[target_col], color='red', alpha=0.5)
+    ax1.set_title(title)
+  
+    if plot_close:
+        ax2=ax1.twinx()
+        ax2.plot(plot_data.Close, color='blue' ) 
+
+
+#----------------------------- 蜡烛图维度 -----------------------------------#
+# 为数据添加蜡烛图维度
+def add_candle_dims_for_data(original_df):
+  
+  data = original_df.copy()
+  
+  # 影线范围
+  data['shadow'] = (data['High'] - data['Low'])    
+  
+  # 实体范围
+  data['entity'] = abs(data['Close'] - data['Open'])
+  
+  # 筛选涨跌
+  up_idx = data.Open < data.Close
+  down_idx = data.Open >= data.Close
+
+  # 上影线/下影线
+  data['upper_shadow'] = 0
+  data['lower_shadow'] = 0
+  data['candle_color'] = 0
+  
+  # 涨
+  data.loc[up_idx, 'candle_color'] = 1
+  data.loc[up_idx, 'upper_shadow'] = (data.loc[up_idx, 'High'] - data.loc[up_idx, 'Close'])
+  data.loc[up_idx, 'lower_shadow'] = (data.loc[up_idx, 'Open'] - data.loc[up_idx, 'Low'])
+  
+  # 跌
+  data.loc[down_idx, 'candle_color'] = -1
+  data.loc[down_idx, 'upper_shadow'] = (data.loc[down_idx, 'High'] - data.loc[down_idx, 'Open'])
+  data.loc[down_idx, 'lower_shadow'] = (data.loc[down_idx, 'Close'] - data.loc[down_idx, 'Low'])
+  
+  return data
