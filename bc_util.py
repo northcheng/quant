@@ -58,9 +58,10 @@ def df_2_timeseries(df, time_col='date'):
 # 画多条折线图
 def plot_data(df, columns, start=None, end=None, figsize=(15, 5), colormap='tab10'):
     
-    selected_data = selected_data[start:end][columns]
+    # 选择数据
+    selected_data = df[start:end][columns]
 
-    # plot data
+    # 创建图像
     plt.figure(figsize=figsize)
     plt.rcParams['axes.facecolor'] = 'whitesmoke'
     
