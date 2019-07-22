@@ -422,6 +422,17 @@ def plot_ichimoku(data, start=None, end=None, signal_dim=None, title=None, save_
         plt.savefig(save_path + title + '.png')
 
 
+# KST Oscillator
+def cal_kst_signal(df):
+    data = df.copy()
+    data['kst'] = ta.kst(close=data.Close)
+    data['kst_sig'] = ta.kst_sig(close=data.Close)
+    data['0'] = 0
+
+    data['kst_signal'] = cal_joint_signal(df=data, positive_col='kst', negative_col='kst_sig')
+    
+    return data[['kst_signal']]
+
 #----------------------------- 技术指标可视化 -----------------------------------#
 # 画出以benchmark为界的柱状图, 上升为绿, 下降为红
 def plot_indicator_around_benchmark(data, target_col, benchmark=0, title=None, start_date=None, end_date=None, color_mode='up_down', plot_close=True, figsize=(20, 5)):
