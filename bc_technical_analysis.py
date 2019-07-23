@@ -48,52 +48,6 @@ def em(series, periods, fillna=False):
 
 
 #----------------------------- 计算变化 -----------------------------------#
-# 计算涨跌幅/累计涨跌幅
-def cal_change_rate(df, dim, period=1, add_accumulation=True, add_prefix=False):
-  
-    # 复制 dataframe
-    df = df.copy()
-  
-    # 设置列名前缀
-    prefix = ''
-    if add_prefix:
-        prefix = dim + '_'
-
-    # 设置列名
-    rate_dim = prefix + 'rate'
-    acc_rate_dim = prefix + 'acc_rate'
-    acc_day_dim = prefix + 'acc_day'
-
-    # 计算涨跌率
-    df[rate_dim] = df[dim].pct_change(periods=period)
-  
-    # 计算累计维度列
-    if add_accumulation:
-        df[acc_rate_dim] = 0
-        df.loc[df[rate_dim]>0, acc_day_dim] = 1
-        df.loc[df[rate_dim]<0, acc_day_dim] = -1
-  
-        # 计算累计值
-        idx = df.index.tolist()
-        for i in range(1, len(df)):
-            current_idx = idx[i]
-            previous_idx = idx[i-1]
-            current_rate = df.loc[current_idx, rate_dim]
-            previous_acc_rate = df.loc[previous_idx, acc_rate_dim]
-            previous_acc_days = df.loc[previous_idx, acc_day_dim]
-
-            # 如果符号相同则累加, 否则重置
-            if previous_acc_rate * current_rate > 0:
-                df.loc[current_idx, acc_rate_dim] = current_rate + previous_acc_rate
-                df.loc[current_idx, acc_day_dim] += previous_acc_days
-            else:
-                df.loc[current_idx, acc_rate_dim] = current_rate
-
-    df.dropna(inplace=True) 
-
-    return df
-
-
 # 计算变化值/累计变化值
 def cal_change(df, dim, period=1, add_accumulation=True, add_prefix=False):
   
@@ -140,6 +94,52 @@ def cal_change(df, dim, period=1, add_accumulation=True, add_prefix=False):
     return df    
 
 
+# 计算涨跌幅/累计涨跌幅
+def cal_change_rate(df, dim, period=1, add_accumulation=True, add_prefix=False):
+  
+    # 复制 dataframe
+    df = df.copy()
+  
+    # 设置列名前缀
+    prefix = ''
+    if add_prefix:
+        prefix = dim + '_'
+
+    # 设置列名
+    rate_dim = prefix + 'rate'
+    acc_rate_dim = prefix + 'acc_rate'
+    acc_day_dim = prefix + 'acc_day'
+
+    # 计算涨跌率
+    df[rate_dim] = df[dim].pct_change(periods=period)
+  
+    # 计算累计维度列
+    if add_accumulation:
+        df[acc_rate_dim] = 0
+        df.loc[df[rate_dim]>0, acc_day_dim] = 1
+        df.loc[df[rate_dim]<0, acc_day_dim] = -1
+  
+        # 计算累计值
+        idx = df.index.tolist()
+        for i in range(1, len(df)):
+            current_idx = idx[i]
+            previous_idx = idx[i-1]
+            current_rate = df.loc[current_idx, rate_dim]
+            previous_acc_rate = df.loc[previous_idx, acc_rate_dim]
+            previous_acc_days = df.loc[previous_idx, acc_day_dim]
+
+            # 如果符号相同则累加, 否则重置
+            if previous_acc_rate * current_rate > 0:
+                df.loc[current_idx, acc_rate_dim] = current_rate + previous_acc_rate
+                df.loc[current_idx, acc_day_dim] += previous_acc_days
+            else:
+                df.loc[current_idx, acc_rate_dim] = current_rate
+
+    df.dropna(inplace=True) 
+
+    return df
+
+
 #----------------------------- 信号处理 -----------------------------------#
 # 计算交叉信号
 def cal_joint_signal(df, positive_col, negative_col):
@@ -173,7 +173,7 @@ def cal_joint_signal(df, positive_col, negative_col):
 
 
 # 计算趋势信号
-def cal_trend_signal(df, trend_dim, buy_window=3, sell_window=2, min_change_rate=0):
+def cal_trend_signal(df, trend_dim, buy_window=3, sell_window=2, threshold=0.7):
 
     # 计算连续变化天数
     data = cal_change(df=df, dim=trend_dim)
