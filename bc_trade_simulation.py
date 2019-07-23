@@ -3,39 +3,8 @@ import pandas as pd
 import math
 import matplotlib.pyplot as plt
 from quant import bc_util as util
+from quant import bc_technical_analysis as ta_util
 
-#----------------------------- 信号处理 -------------------------------------#
-# 去除冗余信号
-def remove_redundant_signal(signal):
-
-	# copy signal
-	clear_signal = signal.copy()
-
-	# 获取非空信号
-	buy_sell_signals = clear_signal.query('signal != "n"')
-	valid_signals = []
-	last_signal = 'n'
-
-	# 遍历信号数据 
-	for index, row in buy_sell_signals.iterrows():
-
-		# 获取当前信号
-		current_signal = row['signal']  
-
-		# 如果当前信号与上一信号一致, 则移除信号
-		if current_signal == last_signal:
-			continue
-		else:
-			valid_signals.append(index)
-
-		# 更新
-		last_signal = current_signal
-
-	# 移除冗余的信号
-	redundant_signals = [x for x in clear_signal.index.tolist() if x not in valid_signals]
-	clear_signal.loc[redundant_signals, 'signal'] = 'n'
-
-	return clear_signal
 
 
 #----------------------------- 买卖/回测 -------------------------------------#
@@ -71,7 +40,7 @@ def sell(stock, price, trading_fee):
 def back_test(signal, buy_price='Open', sell_price='Close', money=0, stock=0, trading_fee=3, start_date=None, end_date=None, stop_profit=0.1, stop_loss=0.6, mode='signal', force_stop_loss=1,print_trading=True, plot_trading=True):	
 	
 	# 获取指定期间的信号, 移除冗余信号
-	signal = remove_redundant_signal(signal[start_date:end_date])
+	signal = ta_util.remove_redundant_signal(signal[start_date:end_date])
 
 	# 初始化
 	original_money = money

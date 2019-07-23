@@ -47,7 +47,7 @@ def em(series, periods, fillna=False):
     return series.ewm(span=periods, min_periods=periods)  
 
 
-#----------------------------- 信号计算 -----------------------------------#
+#----------------------------- 信号处理 -----------------------------------#
 # 计算交叉信号
 def cal_joint_signal(df, positive_col, negative_col):
     data = df.copy()
@@ -77,6 +77,79 @@ def cal_joint_signal(df, positive_col, negative_col):
         last_value = current_value
     
     return data
+
+
+# 计算趋势信号
+def cal_trend_signal(df, trend_dim, min_window=4):
+
+    # 计算连续变化天数
+    data = df.copy()
+    data = cal_change_rate(df=data, dim=trend_dim)
+
+    # 上涨趋势和下降趋势
+    up_trend_idx = data.query('acc_day >= %s' % min_window)
+    down_trend_idx = data.query('acc_day <= %s' % -min_window)
+
+    # 设置信号
+    data['signal'] = 'n'
+    data.loc[up_trend_idx, 'signal'] = 'b'
+    data.loc[down_trend_idx, 'signal'] = 's'
+
+    # 移除冗余信号
+    data = remove_redundant_signal(signal=data)
+
+    return data
+
+
+# 去除冗余信号
+def remove_redundant_signal(signal):
+
+    # copy signal
+    clear_signal = signal.copy()
+
+    # 获取非空信号
+    buy_sell_signals = clear_signal.query('signal != "n"')
+    valid_signals = []
+    last_signal = 'n'
+
+    # 遍历信号数据 
+    for index, row in buy_sell_signals.iterrows():
+
+        # 获取当前信号
+        current_signal = row['signal']  
+
+        # 如果当前信号与上一信号一致, 则移除信号
+        if current_signal == last_signal:
+            continue
+        else:
+            valid_signals.append(index)
+
+        # 更新
+        last_signal = current_signal
+
+    # 移除冗余的信号
+    redundant_signals = [x for x in clear_signal.index.tolist() if x not in valid_signals]
+    clear_signal.loc[redundant_signals, 'signal'] = 'n'
+
+    return clear_signal
+
+
+# 画出信号位置
+def plot_signal(signal, signal_dim, price_dim='Close', figsize=(20, 5), start=None, end=None, title=None):
+
+    plot_data = signal[start:end]
+
+    fig = plt.figure(figsize=figsize)
+    ax = plt.gca()
+    ax.plot(plot_data.index, plot_data[price_dim], color='black')
+
+    buy_signal = plot_data.query('%s == "b"' % signal_dim)
+    sell_signal = plot_data.query('%s == "s"' % signal_dim)
+    ax.scatter(buy_signal.index, buy_signal[price_dim], marker='^', color='green', alpha=0.6)
+    ax.scatter(sell_signal.index, sell_signal[price_dim], marker='v', color='red', alpha=0.6)
+
+    plt.legend()  
+    plt.title(title)
 
 
 #----------------------------- 均值回归 -----------------------------------#
