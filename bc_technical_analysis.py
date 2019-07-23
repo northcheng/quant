@@ -87,8 +87,8 @@ def cal_trend_signal(df, trend_dim, min_window=4):
     data = cal_change_rate(df=data, dim=trend_dim)
 
     # 上涨趋势和下降趋势
-    up_trend_idx = data.query('acc_day >= %s' % min_window)
-    down_trend_idx = data.query('acc_day <= %s' % -min_window)
+    up_trend_idx = data.query('acc_day >= %s' % min_window).index
+    down_trend_idx = data.query('acc_day <= %s' % -min_window).index
 
     # 设置信号
     data['signal'] = 'n'
@@ -197,6 +197,52 @@ def cal_change_rate(df, dim, period=1, add_accumulation=True, add_prefix=False):
     df.dropna(inplace=True) 
 
     return df
+
+
+# 计算变化值/累计变化值
+def cal_change(df, dim, period=1, add_accumulation=True, add_prefix=False):
+  
+    # 复制 dataframe
+    df = df.copy()
+  
+    # 设置列名前缀
+    prefix = ''
+    if add_prefix:
+        prefix = dim + '_'
+
+    # 设置列名
+    change_dim = prefix + 'change'
+    acc_change_dim = prefix + 'acc_change'
+    acc_change_day_dim = prefix + 'acc_change_count'
+
+    # 计算涨跌率
+    df[change_dim] = df[dim] - df[dim].shift(1)
+  
+    # 计算累计维度列
+    if add_accumulation:
+        df[acc_change_dim] = 0
+        df.loc[df[change_dim]>0, acc_change_day_dim] = 1
+        df.loc[df[change_dim]<0, acc_change_day_dim] = -1
+  
+        # 计算累计值
+        idx = df.index.tolist()
+        for i in range(1, len(df)):
+            current_idx = idx[i]
+            previous_idx = idx[i-1]
+            current_change = df.loc[current_idx, change_dim]
+            previous_acc_change = df.loc[previous_idx, acc_change_dim]
+            previous_acc_change_days = df.loc[previous_idx, acc_change_day_dim]
+
+            # 如果符号相同则累加, 否则重置
+            if previous_acc_change * current_change > 0:
+                df.loc[current_idx, acc_change_dim] = current_change + previous_acc_change
+                df.loc[current_idx, acc_change_day_dim] += previous_acc_change_days
+            else:
+                df.loc[current_idx, acc_change_dim] = current_change
+
+    df.dropna(inplace=True) 
+
+    return df    
 
 
 # 计算当前值与移动均值的差距离移动标准差的倍数
