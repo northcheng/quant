@@ -437,27 +437,38 @@ def cal_kst_signal(df):
 # 画出以benchmark为界的柱状图, 上升为绿, 下降为红
 def plot_indicator_around_benchmark(data, target_col, benchmark=0, title=None, start_date=None, end_date=None, color_mode='up_down', plot_close=True, figsize=(20, 5)):
 
+    # 拷贝数据创建图片
     plot_data = data[start_date:end_date].copy()
+    fig = plt.figure(figsize=figsize)
+    
+    # 指标
+    ax1 = fig.add_subplot(111)
 
+    # 如果是上涨/下跌模式, 下跌为红, 上涨为绿
     if color_mode == 'up_down':  
         plot_data['color'] = 'red'
         previous_target_col = 'previous_'+target_col
         plot_data[previous_target_col] = plot_data[target_col].shift(1)
         plot_data.loc[plot_data[target_col] > plot_data[previous_target_col], 'color'] = 'green'
   
-    elif color_mode == 'zero':
+    # 如果是阈值模式, 阈值之下为红, 之上为绿
+    elif color_mode == 'benchmark':
         plot_data['color'] = 'red'
         plot_data.loc[plot_data[target_col] > benchmark, 'color'] = 'green'
-    
+
+        # 画出阈值
+        plot_data['benchmark'] = benchmark
+        ax1.plot(plot_data.index, plot_data['benchmark'], color='black')
+        
     else:
         print('Unknown Color Mode')
         return None
 
-    fig = plt.figure(figsize=figsize)
-    ax1 = fig.add_subplot(111)
+    # 画出指标数据
     ax1.bar(plot_data.index, height=plot_data[target_col], color=plot_data.color, alpha=0.5)
     ax1.set_title(title)
 
+    # 添加收盘价
     if plot_close:
         ax2=ax1.twinx()
         ax2.plot(plot_data.Close, color='blue' )
