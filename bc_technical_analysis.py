@@ -33,22 +33,19 @@ def get_min_max(x1, x2, f='min'):
 
 def cal_peak_trough(df, target_col, result_col='signal', peak_signal='p', trough_signal='t'):
   
-    # 复制dataframe
     df = df.copy()
-
-    # 前值>现值为下跌, 前值<现值为上涨
     previous_target_col = 'previous_' + target_col
     df[previous_target_col] = df[target_col].shift(1)
     peaks = df.query('%(t)s < %(pt)s' % dict(t=target_col, pt=previous_target_col)).index
     troughs = df.query('%(t)s > %(pt)s' % dict(t=target_col, pt=previous_target_col)).index
-  
+
     df[result_col] = 'n'
     df.loc[peaks, result_col] = peak_signal
     df.loc[troughs, result_col] = trough_signal
-  
+
     df[result_col] = df[result_col].shift(-1)
     df = remove_redundant_signal(signal=df, keep='first')
-  
+
     return df
   
 #----------------------------- 移动窗口 -----------------------------------#
