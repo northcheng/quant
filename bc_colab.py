@@ -1,3 +1,9 @@
+# -*- coding: utf-8 -*-
+"""
+Utilities used in Google Colaboratory
+
+:author: Beichen Chen
+"""
 import pandas as pd
 import numpy as np
 import time
@@ -8,33 +14,49 @@ from quant import bc_util as util
 from google.colab import drive
 
 
-# 挂载 Google drive
+# Mount Google Drive
 def mount_google_drive(destination_path='content/drive', force_remount=False):
+"""
+Mount Google Drive to Colaboratory
 
+:param destination_path: the path to mount google drive root
+:param force_remount: whether to forcely remount google drive
+:returns: none
+:raises: none
+"""
   drive.mount('/content/drive', force_remount=force_remount)
 
 
-# 获取股票池 
+# Get Nasdaq stock list
 def get_symbols(remove_invalid=True, remove_not_fetched=True, not_fetched_list='drive/My Drive/probabilistic_model/yahoo_not_fetched_sec_code.csv'):
+"""
+Get Nasdaq stock list
 
-  # 使用pandas_datareader下载股票列表
+:param remove_invalid: whether to remove invalid stock symbols
+:param remove_not_fetched: whether to remove the not-fetched stock symbols
+:param not_fetched_list: the not-fetched stock symbols list file
+:returns: dataframe of stock symbols
+:raises: exception when error reading not-fetched symbols list
+"""
+  # use pandas_datareader to get the symbols
   try:
     symbols = get_nasdaq_symbols()
     symbols = symbols.loc[symbols['Test Issue'] == False,]
   
-  # 直接从纳斯达克网站下载股票列表
+  # when the pandas datareader is not accessible
+  # download symbols from Nasdaq website directly
   except Exception as e:
     symbols = pd.read_table('ftp://ftp.nasdaqtrader.com/symboldirectory/nasdaqtraded.txt', sep='|', index_col='Symbol').drop(np.NaN)
     symbols = symbols.loc[symbols['Test Issue'] == 'N',]
   sec_list = symbols.index.tolist()
 
-  # 删除无效代码
+  # remove invalid symbols
   if remove_invalid:
     original_len = len(sec_list)
     sec_list = [x for x in sec_list if '$' not in x]
     sec_list = [x for x in sec_list if '.' not in x]
 
-  # 删除yahoo无法匹配的代码
+  # remove not-fetched symbols
   if remove_not_fetched:
     original_len = len(sec_list)
     yahoo_not_fetched_list = []
@@ -47,49 +69,68 @@ def get_symbols(remove_invalid=True, remove_not_fetched=True, not_fetched_list='
   return symbols.loc[sec_list, ]
 
 
-# 读取股票数据
+# Read stock data from Google Drive or Web source
 def read_stock_data(sec_code, time_col, file_path='drive/My Drive/stock_data_us/', file_format='.csv', source='google_drive', start_date=None, end_date=None, drop_cols=[], drop_na=False, sort_index=True):
-  
+"""
+Read stock data from Google Drive or pandas_datareader
+
+:param sec_code: the target stock symbol
+:param time_col: time column in the stock data
+:param file-path: the path where stock file (.csv) stored
+:param file_format: the file format of stock data file
+:param source: where to read the data from: 'google_drive' or 'web'
+:param start_date: the start date to read
+:param end_date: the end date to read
+:param dro_cols: columns that will be dropped
+:param drop_na: whether to drop records that contains na values
+:param sort_index: whether to sort the data by index
+:returns: timeseries-dataframe of stock data
+:raises: exception when error reading data
+"""
   try:
-    # 从 Google drive中读取股票数据
+    # read data from google drive files
     if source == 'google_drive':
     
-      # 构建文件名
+      # construct filename by sec_code, file_path and file_format
       filename = file_path + sec_code + file_format
+      
+      # if the file not exists, print information, return an empty dataframe
       if not os.path.exists(filename):
         print(filename, ' not exists')
         data = pd.DataFrame()
-
+        
+      # if the file exists
       else:
-        # 读取数据
+        # load file
         stage = 'reading_from_google_drive'
         if file_format == '.csv':
           data = pd.read_csv(filename, encoding='utf8', engine='python')
         elif file_format == '.xlsx':
           data = pd.read_excel(filename)
 
-        # 转化为时间序列
+        # convert dataframe to timeseries dataframe
         stage = 'transforming_to_timeseries'
         data = util.df_2_timeseries(df=data, time_col=time_col)
         
-        # 处理异常数据
+        # handle invalid data
         stage = 'handling_invalid_data'
-        # 删除指定列
+        # drop specific columns
         data.drop(drop_cols, axis=1, inplace=True)
-        # 删除NA列
+        # drop na rows
         if drop_na:
           data.dropna(axis=1, inplace=True)
-        # 重新排序index
+        # resort dataframe by its index (timeseries information)
         if sort_index:
           data.sort_index(inplace=True)
 
-    # 从网络上下载股票数据
+    # read data from pandas_datareader
     elif source == 'web':
-
-      # 下载数据
+      
+      # download data from yahoo
       stage = 'reading_from_pandas_datareader'
       data = web.DataReader(sec_code, 'yahoo', start=start_date, end=end_date)
-
+      
+    # read data from other undefined sources
     else:
       print('source %s not found' % source)
       data = pd.DataFrame()
@@ -101,48 +142,79 @@ def read_stock_data(sec_code, time_col, file_path='drive/My Drive/stock_data_us/
 
 
 
-# 下载股票数据
+# Download stock data from websources
 def download_stock_data(sec_code, source, time_col, quote_client=None, download_limit=1200, start_date=None, end_date=None, file_path='drive/My Drive/stock_data_us/', file_format='.csv', is_return=False, is_print=True):
-  
+"""
+Download stock data from web sources
+
+:param sec_code: symbol of the stock to download
+:param source: the datasrouce to download data from
+:param time_col: time column in that data
+:param quote_client: quote client when using tiger_open_api
+:param download_limit: download_limit when using tiger_open_api
+:param start_date: start date of the data
+:param end_date: end date of the data
+:param file_path: path to store the download data
+:param file_format: the format of file that data will be stored in
+:param is_return: whether to return the download data in dataframe format
+:param is_print: whether to print the download information
+:returns: dataframe is is_return=True
+:raises: none
+"""
+  # download stock data from yahoo finance api via pandas_datareader
   if source == 'yahoo':
     return download_stock_data_from_yahoo(sec_code=sec_code, time_col=time_col, start_date=start_date, end_date=end_date, file_path=file_path, file_format=file_format, is_return=is_return, is_print=is_print)
+  # download stock data by using tiger open api
   elif source == 'tiger':
     return download_stock_data_from_tiger(sec_code=sec_code, time_col=time_col, quote_client=quote_client, download_limit=download_limit,  start_date=start_date, end_date=end_date, file_path=file_path, file_format=file_format, is_return=is_return, is_print=is_print)
 
 
 
-# 从雅虎金融下载股票数据
+# Download stock data from yahoo finance
 def download_stock_data_from_yahoo(sec_code, time_col='Date', start_date=None, end_date=None, file_path='drive/My Drive/stock_data_us/', file_format='.csv', is_return=False, is_print=True):
-  
-  # 构建股票数据文件名
+"""
+Download stock data from Yahoo finance api via pandas_datareader
+
+:param sec_code: symbol of the stock to download
+:param time_col: time column in that data
+:param start_date: start date of the data
+:param end_date: end date of the data
+:param file_path: path to store the download data
+:param file_format: the format of file that data will be stored in
+:param is_return: whether to return the download data in dataframe format
+:param is_print: whether to print the download information
+:returns: dataframe is is_return=True
+:raises: none
+"""
+  # construct filename by sec_code, file_path and file_format
   filename = file_path + sec_code + file_format
   
-  # 下载开始
+  # start downloading
   stage = 'downloading_started'
   try:
-    # 查看是否已存在下载好的文件, 若有则读取, 若没有则初始化
+    # check whether historical data exists
     stage = 'loading_existed_data'
     data = pd.DataFrame()
     if os.path.exists(filename):
       data = read_stock_data(sec_code, file_path=file_path, file_format=file_format, time_col=time_col)
     
-    # 记录原始数据记录数, 更新下载的起始日期
+    # record the number of existed records, update the start_date
     init_len = len(data)
     if init_len > 0:
       start_date = util.time_2_string(data.index.max(), date_format='%Y-%m-%d')
 
-    # 下载更新新下载的数据并保存
+    # append new data onto the existed data
     stage = 'appending_new_data'
     tmp_data = web.DataReader(sec_code, 'yahoo', start=start_date, end=end_date)
     if len(tmp_data) > 0:
       data = data.append(tmp_data, sort=False)
 
-      # 保存数据
+      # save data
       stage = 'saving_data'
       data = data.reset_index().drop_duplicates(subset=time_col, keep='last')
       data.to_csv(filename, index=False) 
       
-    # 对比记录数量变化
+    # calculate the number of new records
     if is_print:
       final_len = len(data)
       diff_len = final_len - init_len
@@ -151,37 +223,52 @@ def download_stock_data_from_yahoo(sec_code, time_col='Date', start_date=None, e
   except Exception as e:
       print(sec_code, stage, e)
 
-  # 返回数据
+  # return dataframe
   if is_return:
     data = util.df_2_timeseries(data, time_col=time_col)
     return data 
 
 
 
-# 从老虎API下载股票数据
+# Download stock data from Tiger Open API
 def download_stock_data_from_tiger(sec_code, time_col='time', quote_client=None, download_limit=1200, start_date=None, end_date=None, file_path='drive/My Drive/stock_data_us/', file_format='.csv', is_return=False, is_print=True):
-  
-  # 构建股票数据文件名
+"""
+Download stock data from Tiger Open API
+
+:param sec_code: symbol of the stock to download
+:param time_col: time column in that data
+:param quote_client: quote_client used for querying data from API
+:param download limit: the limit of number of records in each download
+:param start_date: start date of the data
+:param end_date: end date of the data
+:param file_path: path to store the download data
+:param file_format: the format of file that data will be stored in
+:param is_return: whether to return the download data in dataframe format
+:param is_print: whether to print the download information
+:returns: dataframe is is_return=True
+:raises: none
+"""  
+  # construct filename by sec_code, file_path and file_format
   filename = file_path + sec_code + file_format
   
-  # 下载开始
+  # start downloading
   stage = 'downloading_started'
   try:
-    # 查看是否已存在下载好的文件, 若有则读取, 若没有则初始化
+    # check whether historical data exists
     stage = 'loading_existed_data'
     data = pd.DataFrame()
     if os.path.exists(filename):  
       data = read_stock_data(sec_code, file_path=file_path, file_format=file_format, time_col='Date')
       
-    # 记录原始数据记录数, 更新下载起始日期
+    # record the number of existed records, update the start_date
     init_len = len(data)  
     if init_len > 0:
       start_date = util.time_2_string(data.index.max(), date_format='%Y-%m-%d')
       
-    # 从老虎API下载数据
+    # download data from tiger open api
     stage = 'downloading_new_data'
 
-    # 将开始结束时间转化为时间戳
+    # transfer start/end date to timestamp instance
     if start_date is not None:
       begin_time = round(time.mktime(util.string_2_time(start_date).timetuple()) * 1000)
     else:
@@ -191,7 +278,7 @@ def download_stock_data_from_tiger(sec_code, time_col='time', quote_client=None,
     else:
       end_time = round(time.time() * 1000)
 
-    # 开始下载数据
+    # start downloading data
     tmp_len = download_limit
     new_data = pd.DataFrame()
     while tmp_len >= download_limit:  
@@ -200,7 +287,7 @@ def download_stock_data_from_tiger(sec_code, time_col='time', quote_client=None,
       new_data = tmp_data.append(new_data)
       end_time = int(tmp_data.time.min())
     
-    # 处理下载的数据
+    # process newly downloaded data
     stage = 'processing_new_data'
     if len(new_data) > 0:
       new_data.drop('symbol', axis=1, inplace=True)
@@ -210,16 +297,16 @@ def download_stock_data_from_tiger(sec_code, time_col='time', quote_client=None,
       time_col = 'Date'
       new_data = util.df_2_timeseries(df=new_data, time_col=time_col)
     
-      # 附上已有数据
+      # append new data onto existed data
       data = data.append(new_data, sort=False)
 
-      # 去重，保存数据
+      # drop duplicated data
       stage = 'saving_data'
       data = data.reset_index().drop_duplicates(subset=time_col, keep='last')
       data.sort_values(by=time_col,  )
       data.to_csv(filename, index=False) 
       
-    # 对比记录数量变化
+    # calculate the number of new records
     if is_print:
       final_len = len(data)
       diff_len = final_len - init_len
@@ -229,7 +316,7 @@ def download_stock_data_from_tiger(sec_code, time_col='time', quote_client=None,
   except Exception as e:
     print(sec_code, stage, e)   
     
-  # 返回数据
+  # return dataframe
   if is_return:
     data = util.df_2_timeseries(data, time_col=time_col)
     return data
