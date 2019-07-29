@@ -31,7 +31,26 @@ def get_min_max(x1, x2, f='min'):
     else:
         return np.nan    
 
+def cal_peak_trough(df, target_col, result_col='signal', peak_signal='p', trough_signal='t'):
+  
+    # 复制dataframe
+    df = df.copy()
 
+    # 前值>现值为下跌, 前值<现值为上涨
+    previous_target_col = 'previous_' + target_col
+    df[previous_target_col] = df[target_col].shift(1)
+    peaks = df.query('%(t)s < %(pt)s' % dict(t=target_col, pt=previous_target_col)).index
+    troughs = df.query('%(t)s > %(pt)s' % dict(t=target_col, pt=previous_target_col)).index
+  
+    df[result_col] = 'n'
+    df.loc[peaks, result_col] = peak_signal
+    df.loc[troughs, result_col] = trough_signal
+  
+    df[result_col] = df[result_col].shift(-1)
+    df = remove_redundant_signal(signal=df)
+  
+  return df
+  
 #----------------------------- 移动窗口 -----------------------------------#
 # 简单移动窗口
 def sm(series, periods, fillna=False):
@@ -194,36 +213,51 @@ def cal_trend_signal(df, trend_dim, buy_window=3, sell_window=2, threshold=0.7):
 
 
 # 去除冗余信号
-def remove_redundant_signal(signal):
+def remove_redundant_signal(signal, keep='first'):
 
     # copy signal
     clear_signal = signal.copy()
 
-    # 获取非空信号
+    # 初始化
     buy_sell_signals = clear_signal.query('signal != "n"')
     valid_signals = []
     last_signal = 'n'
-
+    last_index = None
+    
     # 遍历信号数据 
     for index, row in buy_sell_signals.iterrows():
 
         # 获取当前信号
+        current_index = index
         current_signal = row['signal']  
 
-        # 如果当前信号与上一信号一致, 则移除信号
-        if current_signal == last_signal:
-            continue
+        # 对比前后信号
+        if keep == 'first':
+            # 如果当前信号与上一信号不一致, 则记录信号
+            if current_signal != last_signal:
+                valid_signals.append(current_index)
+        
+        elif keep == 'last':
+            # 如果当前信号与上一信号不一致, 则跳过
+            if current_signal != last_signal:
+                valid_signals.append(last_index)
         else:
-            valid_signals.append(index)
-
+            print('invalid method to keep signal: %s' % keep)
+            break
+              
         # 更新
+        last_index = current_index
         last_signal = current_signal
-
+      
+    # 后处理
+    if keep == 'last' and last_signal != 'n':
+        valid_signals.append(last_index)
+    valid_siganls = [x for x in valid_signals if x is not None]
+    
     # 移除冗余的信号
     redundant_signals = [x for x in clear_signal.index.tolist() if x not in valid_signals]
     clear_signal.loc[redundant_signals, 'signal'] = 'n'
 
-    return clear_signal
 
 
 # 画出信号位置
