@@ -31,23 +31,59 @@ def get_min_max(x1, x2, f='min'):
     else:
         return np.nan    
 
-def cal_peak_trough(df, target_col, result_col='signal', peak_signal='p', trough_signal='t'):
+
+# 计算波峰/波谷
+def cal_peak_trough(df, target_col, result_col='signal', peak_signal='p', trough_signal='t', further_filter=True):
   
+    # 复制 DataFrame
     df = df.copy()
+
+    # 目标列的前一日数值
     previous_target_col = 'previous_' + target_col
     df[previous_target_col] = df[target_col].shift(1)
+
+    # 数值下降则当前为峰
     peaks = df.query('%(t)s < %(pt)s' % dict(t=target_col, pt=previous_target_col)).index
+    # 数值上升则当前为谷
     troughs = df.query('%(t)s > %(pt)s' % dict(t=target_col, pt=previous_target_col)).index
 
+    # 赋予指定的峰/谷值
     df[result_col] = 'n'
     df.loc[peaks, result_col] = peak_signal
     df.loc[troughs, result_col] = trough_signal
 
+    # 信号回调一天, 随后保留第一个信号, 移除后续重复信号
     df[result_col] = df[result_col].shift(-1)
     df = remove_redundant_signal(signal=df, keep='first')
+
+    # 对比前后的峰/谷值, 当前值大于/小于前后值均值的, 才保留
+    if further_filter:
+        
+        # 获取所有的峰/谷信号
+        peak = df.query('%(r)s == "%(p)s"' dict(r=result_col, p=peak_signal)).index.tolist()
+        trough = df.query('%(r)s == "%(t)s"' dict(r=result_col, t=trough_signal)).index.tolist()
+
+        # 过滤波峰信号
+        for i in range(1, len(peak)-1):
+            previous_idx = peak[i-1]
+            current_idx = peak[i]
+            next_idx = peak[i+1]
+
+            if df.loc[current_idx, target_col] < ((df.loc[previous_idx, target_col]+df.loc[next_idx, target_col])/2):
+                df.loc[current_idx, result_col] = 'n'
+
+        # 过滤波谷信号
+        for i in range(1, len(trough)-1):        
+            previous_idx = peak[i-1]
+            current_idx = peak[i]
+            next_idx = peak[i+1]
+
+            if df.loc[current_idx, target_col] > ((df.loc[previous_idx, target_col]+df.loc[next_idx, target_col])/2):
+                df.loc[current_idx, result_col] = 'n'
     
     return df
   
+
 #----------------------------- 移动窗口 -----------------------------------#
 # 简单移动窗口
 def sm(series, periods, fillna=False):
