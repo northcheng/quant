@@ -45,7 +45,7 @@ def cal_peak_trough(df, target_col, result_col='signal', peak_signal='p', trough
 
     df[result_col] = df[result_col].shift(-1)
     df = remove_redundant_signal(signal=df, keep='first')
-    print(df)
+    
     return df
   
 #----------------------------- 移动窗口 -----------------------------------#
@@ -256,7 +256,7 @@ def remove_redundant_signal(signal, keep='first'):
     clear_signal.loc[redundant_signals, 'signal'] = 'n'
 
     return clear_signal
-    
+
 
 # 画出信号位置
 def plot_signal(signal, signal_dim, price_dim='Close', pos_signal='b', neg_signal='s', none_signal='n', figsize=(20, 5), start=None, end=None, title=None):
