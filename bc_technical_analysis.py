@@ -45,7 +45,7 @@ def cal_peak_trough(df, target_col, result_col='signal', peak_signal='p', trough
 
     df[result_col] = df[result_col].shift(-1)
     df = remove_redundant_signal(signal=df, keep='first')
-
+    print(df)
     return df
   
 #----------------------------- 移动窗口 -----------------------------------#
