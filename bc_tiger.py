@@ -1,3 +1,9 @@
+# -*- coding: utf-8 -*-
+"""
+Utilities used for Tiger Open API
+
+:author: Beichen Chen
+"""
 import pandas as pd
 from tigeropen.common.consts import Language
 from tigeropen.tiger_open_config import TigerOpenClientConfig
@@ -6,16 +12,32 @@ from tigeropen.quote.quote_client import QuoteClient
 from tigeropen.trade.trade_client import TradeClient
 
 
-# 获取用户账户信息
 def get_user_info(info_path='drive/My Drive/tiger_quant/'):
+"""
+Get user information stored in Google Drive file
+
+:param info_path: the path where user information file stored in
+:returns: user information in dictionary
+:raises: none
+"""
   user_info = pd.read_csv(info_path + 'user_info.csv')
   return user_info.astype('str').loc[0,:].to_dict()
 
 
-# 获取用户配置
 def get_client_config(account_type='global_account', info_path='drive/My Drive/tiger_quant/', is_sandbox=False):
+"""
+Get client config
+
+:param account_type: which kind of account: global_account/standard_account/simulation_account
+:param info_path: the path where user information file stored in
+:param is_sandbox: whether to use sandbox mode
+:returns: client config instance
+:raises: none
+"""
+  # get user information
   user_info = get_user_info(info_path=info_path)
 
+  # create client config
   client_config = TigerOpenClientConfig(sandbox_debug=is_sandbox)
   client_config.private_key = read_private_key(info_path + user_info['private_key_name'])
   client_config.tiger_id = str(user_info['tiger_id'])
@@ -25,26 +47,43 @@ def get_client_config(account_type='global_account', info_path='drive/My Drive/t
   return client_config  
    
 
-
-# 获取查询器
 def get_quote_client(account_type='global_account'):
+"""
+Get quote client for querying purpose
+
+:param account_type: which kind of account are you using
+:returns: quote client instance
+:raises: none
+"""
   client_config = get_client_config(account_type=account_type)
   quote_client = QuoteClient(client_config)
 
   return quote_client
 
 
-# 获取交易器            
 def get_trade_client(account_type='global_account'):
+"""
+Get trade client for trading purpose
+
+:param account_type: which kind of account are you using
+:returns: trade client instance
+:raises: none
+"""
   client_config = get_client_config(account_type=account_type)
   trade_client = TradeClient(client_config)
 
   return trade_client
 
 
-# 获取账户信息
 def get_account_info(account_type='global_account', info_path='drive/My Drive/tiger_quant/'):
+"""
+Get account information for specific account
 
+:param account_type: which kind of account are you using
+:param info_path: the path where user information file stored in
+:returns: account information in dictionary
+:raises: none
+"""
   user_info = get_user_info(info_path=info_path)
   trade_client = get_trade_client(account_type=account_type)
   managed_account = trade_client.get_managed_accounts()  
@@ -58,14 +97,21 @@ def get_account_info(account_type='global_account', info_path='drive/My Drive/ti
   }  
 
 
-# 获取资产信息
 def get_asset_summary(trade_client, account, is_print=True):
+"""
+Get asset summary for specific account
 
-  # 获取资产
+:param trade_client: trade client instance
+:param account: account instance
+:param is_print: whether to print asset information
+:returns: assets instance
+:raises: none
+"""
+  # get assets instance
   assets = trade_client.get_assets(account=account)
   
+  # print asset information for each asset in assets
   for asset in assets:
-
     if is_print:
       print(
       '''
@@ -96,13 +142,19 @@ def get_asset_summary(trade_client, account, is_print=True):
   return assets
 
 
-# 获取持仓信息
 def get_position_summary(trade_client, account):
+"""
+Get position summary for specific account
 
-  # 获取持仓
+:param trade_client: trade client instance
+:param account: account instance
+:returns: position instance
+:raises: none
+"""
+  # get positions
   positions = trade_client.get_positions(account=account)
 
-  # 计算持仓盈亏
+  # calculate earning for each position
   result = {
     'sec_code': [],
     'quantity': [],
@@ -110,8 +162,6 @@ def get_position_summary(trade_client, account):
     'market_price': []
   }
   for pos in positions:
-  
-    # 计算持仓盈亏
     result['sec_code'].append(pos.contract.symbol)
     result['quantity'].append(pos.quantity)
     result['average_cost'].append(pos.average_cost)
