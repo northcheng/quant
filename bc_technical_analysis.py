@@ -60,8 +60,8 @@ def cal_peak_trough(df, target_col, result_col='signal', peak_signal='p', trough
     if further_filter:
         
         # 获取所有的峰/谷信号
-        peak = df.query('%(r)s == "%(p)s"' dict(r=result_col, p=peak_signal)).index.tolist()
-        trough = df.query('%(r)s == "%(t)s"' dict(r=result_col, t=trough_signal)).index.tolist()
+        peak = df.query('%(r)s == "%(p)s"' % dict(r=result_col, p=peak_signal)).index.tolist()
+        trough = df.query('%(r)s == "%(t)s"' % dict(r=result_col, t=trough_signal)).index.tolist()
 
         # 过滤波峰信号
         for i in range(1, len(peak)-1):
