@@ -74,9 +74,9 @@ def cal_peak_trough(df, target_col, result_col='signal', peak_signal='p', trough
 
         # 过滤波谷信号
         for i in range(1, len(trough)-1):        
-            previous_idx = peak[i-1]
-            current_idx = peak[i]
-            next_idx = peak[i+1]
+            previous_idx = trough[i-1]
+            current_idx = trough[i]
+            next_idx = trough[i+1]
 
             if df.loc[current_idx, target_col] > ((df.loc[previous_idx, target_col]+df.loc[next_idx, target_col])/2):
                 df.loc[current_idx, result_col] = 'n'
