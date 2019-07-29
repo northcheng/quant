@@ -255,7 +255,8 @@ def remove_redundant_signal(signal, keep='first'):
     redundant_signals = [x for x in clear_signal.index.tolist() if x not in valid_signals]
     clear_signal.loc[redundant_signals, 'signal'] = 'n'
 
-
+    return clear_signal
+    
 
 # 画出信号位置
 def plot_signal(signal, signal_dim, price_dim='Close', pos_signal='b', neg_signal='s', none_signal='n', figsize=(20, 5), start=None, end=None, title=None):
