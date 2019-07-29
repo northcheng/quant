@@ -227,7 +227,7 @@ def remove_redundant_signal(signal):
 
 
 # 画出信号位置
-def plot_signal(signal, signal_dim, price_dim='Close', figsize=(20, 5), start=None, end=None, title=None):
+def plot_signal(signal, signal_dim, price_dim='Close', pos_signal='b', neg_signal='s', none_signal='n', figsize=(20, 5), start=None, end=None, title=None):
 
     plot_data = signal[start:end]
 
@@ -235,10 +235,10 @@ def plot_signal(signal, signal_dim, price_dim='Close', figsize=(20, 5), start=No
     ax = plt.gca()
     ax.plot(plot_data.index, plot_data[price_dim], color='black')
 
-    buy_signal = plot_data.query('%s == "b"' % signal_dim)
-    sell_signal = plot_data.query('%s == "s"' % signal_dim)
-    ax.scatter(buy_signal.index, buy_signal[price_dim], marker='^', color='green', alpha=0.6)
-    ax.scatter(sell_signal.index, sell_signal[price_dim], marker='v', color='red', alpha=0.6)
+    positive_signal = plot_data.query('%(signal)s == "%(pos_signal)s"' % dict(signal=signal_dim, pos_signal=pos_signal))
+    negative_signal = plot_data.query('%(signal)s == "%(neg_signal)s"' % dict(signal=signal_dim, neg_signal=neg_signal))
+    ax.scatter(positive_signal.index, positive_signal[price_dim], marker='^', color='green', alpha=0.6)
+    ax.scatter(negative_signal.index, negative_signal[price_dim], marker='v', color='red', alpha=0.6)
 
     plt.legend()  
     plt.title(title)
