@@ -14,7 +14,6 @@ from quant import bc_util as util
 from google.colab import drive
 
 
-# Mount Google Drive
 def mount_google_drive(destination_path='content/drive', force_remount=False):
 """
 Mount Google Drive to Colaboratory
@@ -27,7 +26,6 @@ Mount Google Drive to Colaboratory
   drive.mount('/content/drive', force_remount=force_remount)
 
 
-# Get Nasdaq stock list
 def get_symbols(remove_invalid=True, remove_not_fetched=True, not_fetched_list='drive/My Drive/probabilistic_model/yahoo_not_fetched_sec_code.csv'):
 """
 Get Nasdaq stock list
@@ -69,7 +67,6 @@ Get Nasdaq stock list
   return symbols.loc[sec_list, ]
 
 
-# Read stock data from Google Drive or Web source
 def read_stock_data(sec_code, time_col, file_path='drive/My Drive/stock_data_us/', file_format='.csv', source='google_drive', start_date=None, end_date=None, drop_cols=[], drop_na=False, sort_index=True):
 """
 Read stock data from Google Drive or pandas_datareader
@@ -141,8 +138,6 @@ Read stock data from Google Drive or pandas_datareader
   return data[start_date:end_date]
 
 
-
-# Download stock data from websources
 def download_stock_data(sec_code, source, time_col, quote_client=None, download_limit=1200, start_date=None, end_date=None, file_path='drive/My Drive/stock_data_us/', file_format='.csv', is_return=False, is_print=True):
 """
 Download stock data from web sources
@@ -169,8 +164,6 @@ Download stock data from web sources
     return download_stock_data_from_tiger(sec_code=sec_code, time_col=time_col, quote_client=quote_client, download_limit=download_limit,  start_date=start_date, end_date=end_date, file_path=file_path, file_format=file_format, is_return=is_return, is_print=is_print)
 
 
-
-# Download stock data from yahoo finance
 def download_stock_data_from_yahoo(sec_code, time_col='Date', start_date=None, end_date=None, file_path='drive/My Drive/stock_data_us/', file_format='.csv', is_return=False, is_print=True):
 """
 Download stock data from Yahoo finance api via pandas_datareader
@@ -229,8 +222,6 @@ Download stock data from Yahoo finance api via pandas_datareader
     return data 
 
 
-
-# Download stock data from Tiger Open API
 def download_stock_data_from_tiger(sec_code, time_col='time', quote_client=None, download_limit=1200, start_date=None, end_date=None, file_path='drive/My Drive/stock_data_us/', file_format='.csv', is_return=False, is_print=True):
 """
 Download stock data from Tiger Open API
