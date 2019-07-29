@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+"""
+Utilities used for trade simulation
+
+:authors: Beichen Chen
+"""
 import pandas as pd
 import math
 import matplotlib.pyplot as plt
@@ -6,12 +11,18 @@ from quant import bc_util as util
 from quant import bc_technical_analysis as ta_util
 
 
-
-#----------------------------- 买卖/回测 -------------------------------------#
-# 买入
+#----------------------------- Buy/Sell -------------------------------------#
 def buy(money, price, trading_fee):
+"""
+Buy stocks
 
-	# 计算可买数量, 剩余的现金
+:param money: money used for buying stocks
+:param price: price of the stock
+:param trading_fee: trading_fee
+:returns: left money and bought stocks
+:raises: none
+"""
+	# calculate how many stocks could be bought, and how much money would left
 	stock = math.floor((money-trading_fee) / price)
 	if stock > 0:
 		money = money - trading_fee - (price*stock) 
@@ -22,10 +33,16 @@ def buy(money, price, trading_fee):
 	return {'left_money': money, 'new_stock': stock} 
 
 
-# 卖出
 def sell(stock, price, trading_fee):
+"""
+Sell stocks
 
-	# 计算卖出可获得金额，股票归零
+:param stock: number of stock to sell
+:param price: price of the stock
+:param trading_fee: trading fee
+:returns: left stock and money of sold stock
+"""
+	# calculate how much the stock worthes 
 	money = stock * price - trading_fee
 	if money > 0:
 		stock = 0
@@ -36,37 +53,55 @@ def sell(stock, price, trading_fee):
 	return {'new_money': money, 'left_stock': stock}
 
 
-# 回测
-def back_test(signal, buy_price='Open', sell_price='Close', money=0, stock=0, trading_fee=3, start_date=None, end_date=None, stop_profit=0.1, stop_loss=0.6, mode='signal', force_stop_loss=1,print_trading=True, plot_trading=True):	
-	
-	# 获取指定期间的信号, 移除冗余信号
+def back_test(signal, buy_price='Open', sell_price='Close', money=0, stock=0, trading_fee=3, start_date=None, end_date=None, stop_profit=0.1, stop_loss=0.6, mode='signal', force_stop_loss=1, print_trading=True, plot_trading=True):	
+"""
+Trade simulation with historical data
+
+:param signal: signal dataframe
+:param buy_price: column of buy price
+:param sell_price: column of sell price
+:param money: start money
+:param stock: start stock
+:param trading_fee: trading fee
+:param start_date: date start trading
+:param end_date: date trading stop
+:param stop_profit: the earning rate to stop profit
+:param stop_loss: the loss rate to stop loss
+:param mode: which mode to use: signal
+:param force_stop_loss: the loss rate to force stop loss in all modes
+:param print_trading: whether to print trading information
+:param plot_trading: whether to plot trading charts
+:returns: trading records in dataframe
+:raises: none
+"""
+	# get signal in specific period, and remove redundant(duplicated) signals
 	signal = ta_util.remove_redundant_signal(signal[start_date:end_date])
 
-	# 初始化
+	# initialization
 	original_money = money
 	last_total = total = money	
 
-	# 交易记录
+	# trading records
 	record = {
 		'date': [], 'action': [],
 		'stock': [], 'price': [],
 		'money': [], 'total': []
 	}
 
-	# 以信号模式进行回测
+	# simulate trading according to signals
 	if mode == 'signal':
 
-		# 遍历所有交易日
+		# go through all trading dates
 		date_list = signal.index.tolist()
 		for i in range(len(date_list)-1):
 
-			# 获取当前日期
+			# get current date
 			date = date_list[i]
 			
-			# 次日进行交易
+			# trade in next day after the signal triggered
 			next_date = date_list[i+1]
 			
-			# 如果触发止损条件, 平仓之后不操作
+			# if force stop loss is triggered, sell all the stocks and stop trading today
 			earning = (last_total - total)/last_total
 			if earning >= force_stop_loss:
 				print('stop loss at earning ', earning)
@@ -74,32 +109,32 @@ def back_test(signal, buy_price='Open', sell_price='Close', money=0, stock=0, tr
 				tmp_trading_result = sell(stock=stock, price=price, trading_fee=trading_fee)
 				continue
 
-			# 获取交易信号, 根据信号进行交易
+			# trade according to today's signal
 			action = signal.loc[date, 'signal']
-			if action == 'n': # 无
+			if action == 'n': # none
 				continue
 			
-			elif action == 'b': # 买入
+			elif action == 'b': # buy
 				price = signal.loc[next_date, buy_price]
 				tmp_trading_result = buy(money=money, price=price, trading_fee=trading_fee)
 				money = tmp_trading_result.get('left_money')
 				stock += tmp_trading_result.get('new_stock')
 			
-			elif action == 's': # 卖出
+			elif action == 's': # sell
 				price = signal.loc[next_date, sell_price]
 				tmp_trading_result = sell(stock=stock, price=price, trading_fee=trading_fee)
 				money += tmp_trading_result.get('new_money')
 				stock = tmp_trading_result.get('left_stock')
 
-			else: # 其他
+			else: # others
 				print('Invalid signal: ', action)
 				tmp_result = None
 			
-			# 更新结果  			
+			# update assets			
 			last_total = total
 			total = money + stock*price
 
-			# 记录结果
+			# record trading history
 			record['date'].append(next_date)
 			record['action'].append(action)
 			record['price'].append(price)
@@ -107,7 +142,7 @@ def back_test(signal, buy_price='Open', sell_price='Close', money=0, stock=0, tr
 			record['stock'].append(stock)
 			record['total'].append(total)
 
-		# 计算当前值
+		# calculate the latest assets
 		last_date = signal.index.max()
 		record['date'].append(last_date)
 		record['action'].append(signal.loc[last_date, 'signal'])
@@ -116,10 +151,10 @@ def back_test(signal, buy_price='Open', sell_price='Close', money=0, stock=0, tr
 		record['stock'].append(stock)
 		record['total'].append(money+stock*signal.loc[last_date, 'Close'])
 
-		# 将记录转化为时序数据
+		# transfer trading records to timeseries dataframe
 		record = util.df_2_timeseries(pd.DataFrame(record), time_col='date')
 
-		# 画出回测图
+		# plot trading charts
 		if plot_trading:
 			buying_points = record.query('action == "b"')
 			selling_points = record.query('action == "s"')
