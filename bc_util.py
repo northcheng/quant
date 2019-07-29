@@ -13,7 +13,6 @@ import matplotlib.colors as colors
 import matplotlib.cm as cmx
 
 
-# String -> datetime instance
 def string_2_time(string, date_format='%Y-%m-%d'):
 """
 Convert date string to datetime instance
@@ -27,7 +26,6 @@ Convert date string to datetime instance
     return time_object
  
 
-# Datetime instance -> string
 def time_2_string(time_object, diff_days=0, date_format='%Y-%m-%d'):
 """
 Convert datetime instance to date string, with plus/minus certain days
@@ -43,7 +41,6 @@ Convert datetime instance to date string, with plus/minus certain days
     return time_string
 
 
-# Timestamp instance -> datetime instance
 def timestamp_2_time(timestamp, unit='ms', timezone='CN'):
 """
 Convert pytz timestamp instance to datetime instance
@@ -68,7 +65,6 @@ Convert pytz timestamp instance to datetime instance
     return time_object
  
 
-# Add or reduce days on a date string
 def string_plus_day(string, diff_days, date_format='%Y-%m-%d'):
 """
 Add or reduce days on a date string
@@ -85,7 +81,6 @@ Add or reduce days on a date string
     return time_string    
 
 
-# Calculate the number of days between 2 date strings
 def num_days_between(start_date, end_date, date_format='%Y-%m-%d'):
 """
 Calculate the number of days between 2 date strings
@@ -104,7 +99,6 @@ Calculate the number of days between 2 date strings
     return diff.days
   
 
-# convert dataframe to timeseries-dataframe
 def df_2_timeseries(df, time_col='date'):
 """
 Convert dataframe to timeseries-dataframe
@@ -119,7 +113,6 @@ Convert dataframe to timeseries-dataframe
     return df
 
 
-# Plot chart for several different lines
 def plot_data(df, columns, start=None, end=None, figsize=(20, 5), colormap='tab10'):
 """
 Plot chart for several different lines
