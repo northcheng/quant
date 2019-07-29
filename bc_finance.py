@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+"""
+Utilities in finance calculation
+
+:author: Beichen Chen
+"""
 import pandas as pd
 import numpy as np
 import datetime
@@ -6,86 +11,146 @@ import math
 from quant import bc_util as util
 
 
-
-#----------------------------- 均值/方差模型 -----------------------------------#
-# 风险溢价是超额收益的期望值(rate_premium = mean(excess_return)),
-# 超额收益的标准差是其风险的测度(risk = std(excess_return))
-# 计算持有期收益率(Holding Period Rate)
+#----------------------------- Rate and Risk -----------------------------------#
+# risk_premium = mean(excess_return)
+# risk = std(excess_return)
 def cal_HPR(data, start, end, dim='Close', dividends=0):
+"""
+Calculate Holding-Period-Rate
+
+:param data: original OHLCV data
+:param start: start date
+:param end: end date
+:param dim: price dim to calculate
+:param dividends: divndends to add
+:returns: HPR
+:raises: none
+"""
   data = data[start:end][dim].tolist()
   HPR = (data[-1] - data[0]) / data[0]
   
   return HPR
 
 
-# 计算有效年收益率(Effective Annual Rate)
 def cal_EAR(data, start, end, dim='Close', dividends=0):
-  # 计算期间内的收益率
+"""
+Calculate Effective-Annual-Rate
+
+:param data: original OHLCV data
+:param start: start date
+:param end: end date
+:param dim: price dim to calculate
+:param dividends: divndends to add
+:returns: EAR
+:raises: none
+"""
+  # calculate HPR in specific period
   HPR = cal_HPR(data, start, end, dim, dividends) + 1
-  # 计算期间的长度(年)
+  # convert the period to year
   start_date = util.time_2_string(data[start:end].index.min())
   end_date = util.time_2_string(data[start:end].index.max())
   period_in_year = util.num_days_between(start_date, end_date) / 365.0
-  # 计算有效年利率
+  # calculate EAR
   EAR = pow(HPR, 1/period_in_year) - 1
   
   return EAR
 
 
-# 计算年化百分比利率(Annual Percentile Rate)
 def cal_APR(data, start, end, dim='Close', dividends=0):
-  # 计算期间内的收益率
+"""
+Calculate Annual-Percentile-Rate
+
+:param data: original OHLCV data
+:param start: start date
+:param end: end date
+:param dim: price dim to calculate
+:param dividends: divndends to add
+:returns: APR
+:raises: none
+"""
+  # calculate the HPR in specific period
   HPR = cal_HPR(data, start, end, dim, dividends)
-  # 计算期间的长度(年)
+  # convert the period to year
   start_date = util.time_2_string(data[start:end].index.min())
   end_date = util.time_2_string(data[start:end].index.max())
   period_in_year = util.num_days_between(start_date, end_date) / 365.0
-  # 计算有效年利率
+  # calculate APR
   APR = HPR / period_in_year
   
   return APR
 
 
-# 计算连续复利利率(Continuous Compounding Rate)
 def cal_CCR(data, start, end, dim='Close', dividends=0):
+"""
+Calculate Continuous-Compouding-Rate
+
+:param data: original OHLCV data
+:param start: start date
+:param end: end date
+:param dim: price dim to calculate
+:param dividends: divndends to add
+:returns: CCR
+:raises: none
+"""
   EAR = cal_EAR(data, start, end, dim, dividends)
   CCR = math.log((1+EAR), math.e)
   
   return CCR
 
 
-# 计算风险溢价(Risk Premium)
 def cal_risk_premium(expected_rate, risk_free_rate):
+"""
+Calculate Risk-Premium
+
+:param expected_rate: expected rate
+:param risk_free_rate: the pre-defined risk-free-rate
+:returns: risk premium
+:raises: none
+"""
   RP = expected_rate - risk_free_rate
   
   return RP
 
 
-# 计算超额收益(Excess Return)
 def cal_excess_raturn(expected_rate, real_rate):
+"""
+Calculate Excess-Return
+
+:param expected_rate: expected rate
+:param real_rate: real rate
+:returns: ER
+:raises: none
+"""
   ER = real_rate - expected_rate
   
   return ER
 
 
-# 计算周期收益率(年/月)
 def cal_period_rate_risk(data, dim='Close', by='month'):
-  
-  # 计算每日的变化率
+"""
+Calculate rate and risk in a specfic period
+
+:param data: original OHLCV data
+:param dim: price dim to calculate
+:param by: by which period: year/month/week
+:returns: periodical return and risk
+:raises: none
+"""
+  # calculate the change rate by day
   data = cal_change_rate(df=data, dim=dim, period=1)
 
-  # 获取开始/结束日期, 构造周期列表
+  # get start/end date, construct period list
   start_date = data.index.min().date()
   end_date = data.index.max().date()
   periods = []
 
-  # 年周期
+  # by year
   if by == 'year':
     for year in range(start_date.year, end_date.year+1):
       p = '%(year)s' % dict(year=year)
       periods.append((p, p))
       
-  # 月周期      
+  # by month      
   elif by == 'month':
     for year in range(start_date.year, end_date.year+1):
       for month in range(1, 13):
@@ -94,7 +159,7 @@ def cal_period_rate_risk(data, dim='Close', by='month'):
         p = '%(year)s-%(month)02d' % dict(year=year, month=month)
         periods.append((p, p))
 
-  # 周周期
+  # by week
   elif by == 'week':
     week_start = start_date
     while week_start < end_date:
@@ -104,7 +169,7 @@ def cal_period_rate_risk(data, dim='Close', by='month'):
   else:
     print('Invalid period')
   
-  # 计算周期收益率
+  # calculate the risk/return for the period
   period_rate = {
       'period': [],
       'start': [],
