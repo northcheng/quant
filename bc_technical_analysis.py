@@ -503,9 +503,10 @@ def cal_mean_reversion_signal(df, std_multiple=2, final_signal_threshold=2, star
   # conver final singal from int to specific values  
   sell_signals = df.loc[df[result_col] >= final_signal_threshold, ].index
   buy_signals = df.loc[df[result_col] <= -final_signal_threshold, ].index
+  
   df[result_col] = none_signal
-  df.loc[sell_signals, result_col] = pos_signal
-  df.loc[buy_signals, result_col] = neg_signal
+  df.loc[sell_signals, result_col] = neg_signal
+  df.loc[buy_signals, result_col] = pos_signal
 
   return df
 
