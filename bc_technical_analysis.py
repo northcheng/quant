@@ -240,7 +240,7 @@ def cal_trend_signal(df, trend_col, up_window=3, down_window=2, result_col='sign
   :raises: none   
   """
   # calculate the change of the trend column
-  df = cal_change(df=df, col=trend_col)
+  df = cal_change(df=df, target_col=trend_col)
 
   # up trend and down trend
   up_trend_idx = df.query('acc_change_count >= %s' % up_window).index
