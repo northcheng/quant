@@ -758,8 +758,8 @@ def cal_ichimoku(df, method='original'):
 
   # use original method to calculate ichimoku indicators
   if method == 'original':
-    df = cal_moving_average(df=df, dim='High', ma_windows=[9, 26, 52], window_type='sm')
-    df = cal_moving_average(df=df, dim='Low', ma_windows=[9, 26, 52], window_type='sm')
+    df = cal_moving_average(df=df, target_col='High', ma_windows=[9, 26, 52], window_type='sm')
+    df = cal_moving_average(df=df, target_col='Low', ma_windows=[9, 26, 52], window_type='sm')
 
     df['tankan'] = (df['High_ma_9'] + df['Low_ma_9']) / 2
     df['kijun'] = (df['High_ma_26'] + df['Low_ma_26']) / 2
