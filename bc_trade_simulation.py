@@ -13,15 +13,15 @@ from quant import bc_technical_analysis as ta_util
 
 #----------------------------- Buy/Sell -------------------------------------#
 def buy(money, price, trading_fee):
-"""
-Buy stocks
+  """
+  Buy stocks
 
-:param money: money used for buying stocks
-:param price: price of the stock
-:param trading_fee: trading_fee
-:returns: left money and bought stocks
-:raises: none
-"""
+  :param money: money used for buying stocks
+  :param price: price of the stock
+  :param trading_fee: trading_fee
+  :returns: left money and bought stocks
+  :raises: none
+  """
 	# calculate how many stocks could be bought, and how much money would left
 	stock = math.floor((money-trading_fee) / price)
 	if stock > 0:
@@ -34,14 +34,14 @@ Buy stocks
 
 
 def sell(stock, price, trading_fee):
-"""
-Sell stocks
+  """
+  Sell stocks
 
-:param stock: number of stock to sell
-:param price: price of the stock
-:param trading_fee: trading fee
-:returns: left stock and money of sold stock
-"""
+  :param stock: number of stock to sell
+  :param price: price of the stock
+  :param trading_fee: trading fee
+  :returns: left stock and money of sold stock
+  """
 	# calculate how much the stock worthes 
 	money = stock * price - trading_fee
 	if money > 0:
@@ -54,26 +54,26 @@ Sell stocks
 
 
 def back_test(signal, buy_price='Open', sell_price='Close', money=0, stock=0, trading_fee=3, start_date=None, end_date=None, stop_profit=0.1, stop_loss=0.6, mode='signal', force_stop_loss=1, print_trading=True, plot_trading=True):	
-"""
-Trade simulation with historical data
+  """
+  Trade simulation with historical data
 
-:param signal: signal dataframe
-:param buy_price: column of buy price
-:param sell_price: column of sell price
-:param money: start money
-:param stock: start stock
-:param trading_fee: trading fee
-:param start_date: date start trading
-:param end_date: date trading stop
-:param stop_profit: the earning rate to stop profit
-:param stop_loss: the loss rate to stop loss
-:param mode: which mode to use: signal
-:param force_stop_loss: the loss rate to force stop loss in all modes
-:param print_trading: whether to print trading information
-:param plot_trading: whether to plot trading charts
-:returns: trading records in dataframe
-:raises: none
-"""
+  :param signal: signal dataframe
+  :param buy_price: column of buy price
+  :param sell_price: column of sell price
+  :param money: start money
+  :param stock: start stock
+  :param trading_fee: trading fee
+  :param start_date: date start trading
+  :param end_date: date trading stop
+  :param stop_profit: the earning rate to stop profit
+  :param stop_loss: the loss rate to stop loss
+  :param mode: which mode to use: signal
+  :param force_stop_loss: the loss rate to force stop loss in all modes
+  :param print_trading: whether to print trading information
+  :param plot_trading: whether to plot trading charts
+  :returns: trading records in dataframe
+  :raises: none
+  """
 	# get signal in specific period, and remove redundant(duplicated) signals
 	signal = ta_util.remove_redundant_signal(signal[start_date:end_date])
 

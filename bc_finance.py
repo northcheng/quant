@@ -15,17 +15,17 @@ from quant import bc_util as util
 # risk_premium = mean(excess_return)
 # risk = std(excess_return)
 def cal_HPR(data, start, end, dim='Close', dividends=0):
-"""
-Calculate Holding-Period-Rate
+  """
+  Calculate Holding-Period-Rate
 
-:param data: original OHLCV data
-:param start: start date
-:param end: end date
-:param dim: price dim to calculate
-:param dividends: divndends to add
-:returns: HPR
-:raises: none
-"""
+  :param data: original OHLCV data
+  :param start: start date
+  :param end: end date
+  :param dim: price dim to calculate
+  :param dividends: divndends to add
+  :returns: HPR
+  :raises: none
+  """
   data = data[start:end][dim].tolist()
   HPR = (data[-1] - data[0]) / data[0]
   
@@ -33,23 +33,25 @@ Calculate Holding-Period-Rate
 
 
 def cal_EAR(data, start, end, dim='Close', dividends=0):
-"""
-Calculate Effective-Annual-Rate
+  """
+  Calculate Effective-Annual-Rate
 
-:param data: original OHLCV data
-:param start: start date
-:param end: end date
-:param dim: price dim to calculate
-:param dividends: divndends to add
-:returns: EAR
-:raises: none
-"""
+  :param data: original OHLCV data
+  :param start: start date
+  :param end: end date
+  :param dim: price dim to calculate
+  :param dividends: divndends to add
+  :returns: EAR
+  :raises: none
+  """
   # calculate HPR in specific period
   HPR = cal_HPR(data, start, end, dim, dividends) + 1
+  
   # convert the period to year
   start_date = util.time_2_string(data[start:end].index.min())
   end_date = util.time_2_string(data[start:end].index.max())
   period_in_year = util.num_days_between(start_date, end_date) / 365.0
+  
   # calculate EAR
   EAR = pow(HPR, 1/period_in_year) - 1
   
@@ -57,23 +59,25 @@ Calculate Effective-Annual-Rate
 
 
 def cal_APR(data, start, end, dim='Close', dividends=0):
-"""
-Calculate Annual-Percentile-Rate
+  """
+  Calculate Annual-Percentile-Rate
 
-:param data: original OHLCV data
-:param start: start date
-:param end: end date
-:param dim: price dim to calculate
-:param dividends: divndends to add
-:returns: APR
-:raises: none
-"""
+  :param data: original OHLCV data
+  :param start: start date
+  :param end: end date
+  :param dim: price dim to calculate
+  :param dividends: divndends to add
+  :returns: APR
+  :raises: none
+  """
   # calculate the HPR in specific period
   HPR = cal_HPR(data, start, end, dim, dividends)
+  
   # convert the period to year
   start_date = util.time_2_string(data[start:end].index.min())
   end_date = util.time_2_string(data[start:end].index.max())
   period_in_year = util.num_days_between(start_date, end_date) / 365.0
+  
   # calculate APR
   APR = HPR / period_in_year
   
@@ -81,17 +85,17 @@ Calculate Annual-Percentile-Rate
 
 
 def cal_CCR(data, start, end, dim='Close', dividends=0):
-"""
-Calculate Continuous-Compouding-Rate
+  """
+  Calculate Continuous-Compouding-Rate
 
-:param data: original OHLCV data
-:param start: start date
-:param end: end date
-:param dim: price dim to calculate
-:param dividends: divndends to add
-:returns: CCR
-:raises: none
-"""
+  :param data: original OHLCV data
+  :param start: start date
+  :param end: end date
+  :param dim: price dim to calculate
+  :param dividends: divndends to add
+  :returns: CCR
+  :raises: none
+  """
   EAR = cal_EAR(data, start, end, dim, dividends)
   CCR = math.log((1+EAR), math.e)
   
@@ -99,43 +103,43 @@ Calculate Continuous-Compouding-Rate
 
 
 def cal_risk_premium(expected_rate, risk_free_rate):
-"""
-Calculate Risk-Premium
+  """
+  Calculate Risk-Premium
 
-:param expected_rate: expected rate
-:param risk_free_rate: the pre-defined risk-free-rate
-:returns: risk premium
-:raises: none
-"""
+  :param expected_rate: expected rate
+  :param risk_free_rate: the pre-defined risk-free-rate
+  :returns: risk premium
+  :raises: none
+  """
   RP = expected_rate - risk_free_rate
   
   return RP
 
 
 def cal_excess_raturn(expected_rate, real_rate):
-"""
-Calculate Excess-Return
+  """
+  Calculate Excess-Return
 
-:param expected_rate: expected rate
-:param real_rate: real rate
-:returns: ER
-:raises: none
-"""
+  :param expected_rate: expected rate
+  :param real_rate: real rate
+  :returns: ER
+  :raises: none
+  """
   ER = real_rate - expected_rate
   
   return ER
 
 
 def cal_period_rate_risk(data, dim='Close', by='month'):
-"""
-Calculate rate and risk in a specfic period
+  """
+  Calculate rate and risk in a specfic period
 
-:param data: original OHLCV data
-:param dim: price dim to calculate
-:param by: by which period: year/month/week
-:returns: periodical return and risk
-:raises: none
-"""
+  :param data: original OHLCV data
+  :param dim: price dim to calculate
+  :param by: by which period: year/month/week
+  :returns: periodical return and risk
+  :raises: none
+  """
   # calculate the change rate by day
   data = cal_change_rate(df=data, dim=dim, period=1)
 

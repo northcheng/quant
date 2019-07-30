@@ -13,13 +13,13 @@ from sklearn.model_selection import train_test_split
 
 
 def get_scaler(scale_method='StandardScaler'):
-"""
-Get different kinds of scalers from scikit-learn
+  """
+  Get different kinds of scalers from scikit-learn
 
-:param scale_method: scale method
-:returns: scaler instance
-:raises: none
-"""
+  :param scale_method: scale method
+  :returns: scaler instance
+  :raises: none
+  """
   scaler = None
 
   if scale_method == 'StandardScaler':
@@ -47,14 +47,14 @@ Get different kinds of scalers from scikit-learn
 
 
 def get_scaled_data(df, scaler):
-"""
-Get data scaled with specific kind of scaler
+  """
+  Get data scaled with specific kind of scaler
 
-:param df: dataframe to be scaled
-:param scaler: scaler used to scale the data
-:returns: scaled dataframe
-:raises: none
-"""
+  :param df: dataframe to be scaled
+  :param scaler: scaler used to scale the data
+  :returns: scaled dataframe
+  :raises: none
+  """
   scaled_data = scaler.fit_transform(df)
   scaled_data = pd.DataFrame(scaled_data, index=df.index, columns=df.columns)
   
@@ -62,20 +62,20 @@ Get data scaled with specific kind of scaler
   
 
 def get_train_test_data(scaled_data, input_dim, output_dim, test_size=0.1, is_shuffle=True, start=None, end=None, predict_idx=[]):
-"""
-Split data into trian/valid/test datasets
+  """
+  Split data into trian/valid/test datasets
 
-:param scaled data: scaled dataframe
-:param input_dim: input columns
-:param output_dim: output columns
-:param test_size: size of test dataset
-:param is_shuffle: whether to shuffle the data
-:param start: start row of the data
-:param end: end row of the data
-:param predict_idx: rows used as test data (to be predicted)
-:returns: datasets in dictionary
-:raises: none
-"""
+  :param scaled data: scaled dataframe
+  :param input_dim: input columns
+  :param output_dim: output columns
+  :param test_size: size of test dataset
+  :param is_shuffle: whether to shuffle the data
+  :param start: start row of the data
+  :param end: end row of the data
+  :param predict_idx: rows used as test data (to be predicted)
+  :returns: datasets in dictionary
+  :raises: none
+  """
   try:
     # training set
     train_data = scaled_data[start:end].copy()
@@ -116,23 +116,23 @@ Split data into trian/valid/test datasets
 
 
 def build_dense_network(hidden_layers, neuron_units, input_shape, output_shape, hidden_act_func, output_act_func, loss_func, optimizer, result_metrics, dropout=False, dropout_rate=0.3):
-"""
-Construct dense neural network
+  """
+  Construct dense neural network
 
-:param hidden_layers: number of hidden layers
-:param neuron_units: number of neurons in ecah layer
-:param input_shape: input shape
-:param output_shape: output shape
-:param hidden_act_func: activation function used in hidden layer
-:param output_act_func: activation function used in output layer
-:param loss_func: loss function used in optimizer
-:param optimizer: optimizer
-:param result_metrics: result metrics used for evaluation
-:param dropout: whether to add dropout layers
-:param dropout_rate: dropout rate
-:returns: keras sequential model
-:raises: none
-"""
+  :param hidden_layers: number of hidden layers
+  :param neuron_units: number of neurons in ecah layer
+  :param input_shape: input shape
+  :param output_shape: output shape
+  :param hidden_act_func: activation function used in hidden layer
+  :param output_act_func: activation function used in output layer
+  :param loss_func: loss function used in optimizer
+  :param optimizer: optimizer
+  :param result_metrics: result metrics used for evaluation
+  :param dropout: whether to add dropout layers
+  :param dropout_rate: dropout rate
+  :returns: keras sequential model
+  :raises: none
+  """
   # create sequetial model
   model = keras.models.Sequential()
 

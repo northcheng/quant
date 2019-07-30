@@ -15,27 +15,27 @@ from google.colab import drive
 
 
 def mount_google_drive(destination_path='content/drive', force_remount=False):
-"""
-Mount Google Drive to Colaboratory
+  """
+  Mount Google Drive to Colaboratory
 
-:param destination_path: the path to mount google drive root
-:param force_remount: whether to forcely remount google drive
-:returns: none
-:raises: none
-"""
+  :param destination_path: the path to mount google drive root
+  :param force_remount: whether to forcely remount google drive
+  :returns: none
+  :raises: none
+  """
   drive.mount('/content/drive', force_remount=force_remount)
 
 
 def get_symbols(remove_invalid=True, remove_not_fetched=True, not_fetched_list='drive/My Drive/probabilistic_model/yahoo_not_fetched_sec_code.csv'):
-"""
-Get Nasdaq stock list
+  """
+  Get Nasdaq stock list
 
-:param remove_invalid: whether to remove invalid stock symbols
-:param remove_not_fetched: whether to remove the not-fetched stock symbols
-:param not_fetched_list: the not-fetched stock symbols list file
-:returns: dataframe of stock symbols
-:raises: exception when error reading not-fetched symbols list
-"""
+  :param remove_invalid: whether to remove invalid stock symbols
+  :param remove_not_fetched: whether to remove the not-fetched stock symbols
+  :param not_fetched_list: the not-fetched stock symbols list file
+  :returns: dataframe of stock symbols
+  :raises: exception when error reading not-fetched symbols list
+  """
   # use pandas_datareader to get the symbols
   try:
     symbols = get_nasdaq_symbols()
@@ -68,22 +68,22 @@ Get Nasdaq stock list
 
 
 def read_stock_data(sec_code, time_col, file_path='drive/My Drive/stock_data_us/', file_format='.csv', source='google_drive', start_date=None, end_date=None, drop_cols=[], drop_na=False, sort_index=True):
-"""
-Read stock data from Google Drive or pandas_datareader
+  """
+  Read stock data from Google Drive or pandas_datareader
 
-:param sec_code: the target stock symbol
-:param time_col: time column in the stock data
-:param file-path: the path where stock file (.csv) stored
-:param file_format: the file format of stock data file
-:param source: where to read the data from: 'google_drive' or 'web'
-:param start_date: the start date to read
-:param end_date: the end date to read
-:param dro_cols: columns that will be dropped
-:param drop_na: whether to drop records that contains na values
-:param sort_index: whether to sort the data by index
-:returns: timeseries-dataframe of stock data
-:raises: exception when error reading data
-"""
+  :param sec_code: the target stock symbol
+  :param time_col: time column in the stock data
+  :param file-path: the path where stock file (.csv) stored
+  :param file_format: the file format of stock data file
+  :param source: where to read the data from: 'google_drive' or 'web'
+  :param start_date: the start date to read
+  :param end_date: the end date to read
+  :param dro_cols: columns that will be dropped
+  :param drop_na: whether to drop records that contains na values
+  :param sort_index: whether to sort the data by index
+  :returns: timeseries-dataframe of stock data
+  :raises: exception when error reading data
+  """
   try:
     # read data from google drive files
     if source == 'google_drive':
@@ -139,23 +139,23 @@ Read stock data from Google Drive or pandas_datareader
 
 
 def download_stock_data(sec_code, source, time_col, quote_client=None, download_limit=1200, start_date=None, end_date=None, file_path='drive/My Drive/stock_data_us/', file_format='.csv', is_return=False, is_print=True):
-"""
-Download stock data from web sources
+  """
+  Download stock data from web sources
 
-:param sec_code: symbol of the stock to download
-:param source: the datasrouce to download data from
-:param time_col: time column in that data
-:param quote_client: quote client when using tiger_open_api
-:param download_limit: download_limit when using tiger_open_api
-:param start_date: start date of the data
-:param end_date: end date of the data
-:param file_path: path to store the download data
-:param file_format: the format of file that data will be stored in
-:param is_return: whether to return the download data in dataframe format
-:param is_print: whether to print the download information
-:returns: dataframe is is_return=True
-:raises: none
-"""
+  :param sec_code: symbol of the stock to download
+  :param source: the datasrouce to download data from
+  :param time_col: time column in that data
+  :param quote_client: quote client when using tiger_open_api
+  :param download_limit: download_limit when using tiger_open_api
+  :param start_date: start date of the data
+  :param end_date: end date of the data
+  :param file_path: path to store the download data
+  :param file_format: the format of file that data will be stored in
+  :param is_return: whether to return the download data in dataframe format
+  :param is_print: whether to print the download information
+  :returns: dataframe is is_return=True
+  :raises: none
+  """
   # download stock data from yahoo finance api via pandas_datareader
   if source == 'yahoo':
     return download_stock_data_from_yahoo(sec_code=sec_code, time_col=time_col, start_date=start_date, end_date=end_date, file_path=file_path, file_format=file_format, is_return=is_return, is_print=is_print)
@@ -165,20 +165,20 @@ Download stock data from web sources
 
 
 def download_stock_data_from_yahoo(sec_code, time_col='Date', start_date=None, end_date=None, file_path='drive/My Drive/stock_data_us/', file_format='.csv', is_return=False, is_print=True):
-"""
-Download stock data from Yahoo finance api via pandas_datareader
+  """
+  Download stock data from Yahoo finance api via pandas_datareader
 
-:param sec_code: symbol of the stock to download
-:param time_col: time column in that data
-:param start_date: start date of the data
-:param end_date: end date of the data
-:param file_path: path to store the download data
-:param file_format: the format of file that data will be stored in
-:param is_return: whether to return the download data in dataframe format
-:param is_print: whether to print the download information
-:returns: dataframe is is_return=True
-:raises: none
-"""
+  :param sec_code: symbol of the stock to download
+  :param time_col: time column in that data
+  :param start_date: start date of the data
+  :param end_date: end date of the data
+  :param file_path: path to store the download data
+  :param file_format: the format of file that data will be stored in
+  :param is_return: whether to return the download data in dataframe format
+  :param is_print: whether to print the download information
+  :returns: dataframe is is_return=True
+  :raises: none
+  """
   # construct filename by sec_code, file_path and file_format
   filename = file_path + sec_code + file_format
   
@@ -223,22 +223,22 @@ Download stock data from Yahoo finance api via pandas_datareader
 
 
 def download_stock_data_from_tiger(sec_code, time_col='time', quote_client=None, download_limit=1200, start_date=None, end_date=None, file_path='drive/My Drive/stock_data_us/', file_format='.csv', is_return=False, is_print=True):
-"""
-Download stock data from Tiger Open API
+  """
+  Download stock data from Tiger Open API
 
-:param sec_code: symbol of the stock to download
-:param time_col: time column in that data
-:param quote_client: quote_client used for querying data from API
-:param download limit: the limit of number of records in each download
-:param start_date: start date of the data
-:param end_date: end date of the data
-:param file_path: path to store the download data
-:param file_format: the format of file that data will be stored in
-:param is_return: whether to return the download data in dataframe format
-:param is_print: whether to print the download information
-:returns: dataframe is is_return=True
-:raises: none
-"""  
+  :param sec_code: symbol of the stock to download
+  :param time_col: time column in that data
+  :param quote_client: quote_client used for querying data from API
+  :param download limit: the limit of number of records in each download
+  :param start_date: start date of the data
+  :param end_date: end date of the data
+  :param file_path: path to store the download data
+  :param file_format: the format of file that data will be stored in
+  :param is_return: whether to return the download data in dataframe format
+  :param is_print: whether to print the download information
+  :returns: dataframe is is_return=True
+  :raises: none
+  """  
   # construct filename by sec_code, file_path and file_format
   filename = file_path + sec_code + file_format
   

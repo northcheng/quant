@@ -13,27 +13,27 @@ from tigeropen.trade.trade_client import TradeClient
 
 
 def get_user_info(info_path='drive/My Drive/tiger_quant/'):
-"""
-Get user information stored in Google Drive file
+  """
+  Get user information stored in Google Drive file
 
-:param info_path: the path where user information file stored in
-:returns: user information in dictionary
-:raises: none
-"""
+  :param info_path: the path where user information file stored in
+  :returns: user information in dictionary
+  :raises: none
+  """
   user_info = pd.read_csv(info_path + 'user_info.csv')
   return user_info.astype('str').loc[0,:].to_dict()
 
 
 def get_client_config(account_type='global_account', info_path='drive/My Drive/tiger_quant/', is_sandbox=False):
-"""
-Get client config
+  """
+  Get client config
 
-:param account_type: which kind of account: global_account/standard_account/simulation_account
-:param info_path: the path where user information file stored in
-:param is_sandbox: whether to use sandbox mode
-:returns: client config instance
-:raises: none
-"""
+  :param account_type: which kind of account: global_account/standard_account/simulation_account
+  :param info_path: the path where user information file stored in
+  :param is_sandbox: whether to use sandbox mode
+  :returns: client config instance
+  :raises: none
+  """
   # get user information
   user_info = get_user_info(info_path=info_path)
 
@@ -48,13 +48,13 @@ Get client config
    
 
 def get_quote_client(account_type='global_account'):
-"""
-Get quote client for querying purpose
+  """
+  Get quote client for querying purpose
 
-:param account_type: which kind of account are you using
-:returns: quote client instance
-:raises: none
-"""
+  :param account_type: which kind of account are you using
+  :returns: quote client instance
+  :raises: none
+  """
   client_config = get_client_config(account_type=account_type)
   quote_client = QuoteClient(client_config)
 
@@ -62,13 +62,13 @@ Get quote client for querying purpose
 
 
 def get_trade_client(account_type='global_account'):
-"""
-Get trade client for trading purpose
+  """
+  Get trade client for trading purpose
 
-:param account_type: which kind of account are you using
-:returns: trade client instance
-:raises: none
-"""
+  :param account_type: which kind of account are you using
+  :returns: trade client instance
+  :raises: none
+  """
   client_config = get_client_config(account_type=account_type)
   trade_client = TradeClient(client_config)
 
@@ -76,14 +76,14 @@ Get trade client for trading purpose
 
 
 def get_account_info(account_type='global_account', info_path='drive/My Drive/tiger_quant/'):
-"""
-Get account information for specific account
+  """
+  Get account information for specific account
 
-:param account_type: which kind of account are you using
-:param info_path: the path where user information file stored in
-:returns: account information in dictionary
-:raises: none
-"""
+  :param account_type: which kind of account are you using
+  :param info_path: the path where user information file stored in
+  :returns: account information in dictionary
+  :raises: none
+  """
   user_info = get_user_info(info_path=info_path)
   trade_client = get_trade_client(account_type=account_type)
   managed_account = trade_client.get_managed_accounts()  
@@ -98,15 +98,15 @@ Get account information for specific account
 
 
 def get_asset_summary(trade_client, account, is_print=True):
-"""
-Get asset summary for specific account
+  """
+  Get asset summary for specific account
 
-:param trade_client: trade client instance
-:param account: account instance
-:param is_print: whether to print asset information
-:returns: assets instance
-:raises: none
-"""
+  :param trade_client: trade client instance
+  :param account: account instance
+  :param is_print: whether to print asset information
+  :returns: assets instance
+  :raises: none
+  """
   # get assets instance
   assets = trade_client.get_assets(account=account)
   
@@ -143,14 +143,14 @@ Get asset summary for specific account
 
 
 def get_position_summary(trade_client, account):
-"""
-Get position summary for specific account
+  """
+  Get position summary for specific account
 
-:param trade_client: trade client instance
-:param account: account instance
-:returns: position instance
-:raises: none
-"""
+  :param trade_client: trade client instance
+  :param account: account instance
+  :returns: position instance
+  :raises: none
+  """
   # get positions
   positions = trade_client.get_positions(account=account)
 
