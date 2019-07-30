@@ -123,9 +123,9 @@ def back_test(signal, buy_price='Open', sell_price='Close', money=0, stock=0, tr
         stock += tmp_trading_result.get('new_stock')
         if print_trading:
           print('%(date)s buy with price: %(price)s, stock: %(stock)s -> %(new_stock)s, money: %(money)s->%(new_money)s' % dict(
-            date=date, price=price, 
+            date=date.date(), price=price, 
             stock=previous_stock, new_stock=stock, 
-            money=previous_money, new_money=money))
+            money=round(previous_money), new_money=round(money)))
 
       elif action == 's': # sell
         previous_money = money
@@ -136,9 +136,9 @@ def back_test(signal, buy_price='Open', sell_price='Close', money=0, stock=0, tr
         stock = tmp_trading_result.get('left_stock')
         if print_trading:
           print('%(date)s sell with price: %(price)s, stock: %(stock)s -> %(new_stock)s, money: %(money)s->%(new_money)s' % dict(
-            date=date, price=price, 
+            date=date.date(), price=price, 
             stock=previous_stock, new_stock=stock, 
-            money=previous_money, new_money=money))
+            money=round(previous_money), new_money=round(money)))
 
       else: # others
         print('Invalid signal: ', action)
