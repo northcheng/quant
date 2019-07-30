@@ -478,9 +478,9 @@ def cal_mean_reversion_signal(df, std_multiple=2, final_signal_threshold=2, star
   df = df.copy()
 
   # check whether triger columns are in the dataframe
-  target_dim = [x for x in df.columns if 'bias' in x]
+  target_cols = [x for x in df.columns if 'bias' in x]
   for t in triger_cols:
-    if t not in target_dim:
+    if t not in target_cols:
       print(t, 'not found in columns!')
       triger_cols = [x for x in triger_cols if x != t]
 
