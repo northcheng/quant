@@ -463,7 +463,6 @@ def cal_mean_reversion_signal(df, std_multiple=2, final_signal_threshold=2, star
 
   :param df: dataframe which contains mean reversion columns
   :param std_multiple: the multiple of moving std to triger signals
-  :param triger_cols: columns which could triger signals
   :param final_signal_threshold: how many columns triger signals at the same time could triger the final signal
   :param start_date: start date of the data
   :param end_date: end date of the data
@@ -478,9 +477,9 @@ def cal_mean_reversion_signal(df, std_multiple=2, final_signal_threshold=2, star
   df = df.copy()
 
   # check whether triger columns are in the dataframe
-  target_cols = [x for x in df.columns if 'bias' in x]
+  triger_cols = [x for x in df.columns if 'bias' in x]
   for t in triger_cols:
-    if t not in target_cols:
+    if t not in triger_cols:
       print(t, 'not found in columns!')
       triger_cols = [x for x in triger_cols if x != t]
 
