@@ -620,8 +620,8 @@ def cal_moving_average_signal(df, target_col='Close', ma_windows=[50, 105], star
     print('There should be only 2 moving average lines')
 
   else:
-    short_ma_col = target_col + '_ma_' + min(ma_windows)
-    long_ma_col = target_col + '_ma_' + max(ma_windows)
+    short_ma_col = '%(col)s_ma_%(window_size)s' % dict(col=target_col, window_size=min(ma_windows))
+    long_ma_col = '%(col)s_ma_%(window_size)s' % dict(col=target_col, window_size=max(ma_windows))
 
     # calculate ma crossover signal
     df[result_col] = cal_crossover_signal(df=df, fast_line=short_ma_col, slow_line=long_ma_col, result_col=result_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal)
