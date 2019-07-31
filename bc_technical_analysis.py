@@ -1021,7 +1021,7 @@ def plot_ichimoku_and_mr(df, std_multiple=2, start_date=None, end_date=None, tit
 
   # legend and title
   ichimoku_plot.legend()  
-  ichimoku_plot.set_title(sec_code)  
+  ichimoku_plot.set_title(title)  
 
   # Mean reversion plot
   mean_reversion_plot = plt.subplot(gs[1], sharex=ichimoku_plot) 
