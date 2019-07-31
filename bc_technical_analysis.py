@@ -474,7 +474,7 @@ def cal_mean_reversion_signal(df, std_multiple=2, final_signal_threshold=2, star
   :raises: none
   """
   # copy dataframe
-  df = df.copy()
+  df = df[start_date : end_date].copy()
 
   # check whether triger columns are in the dataframe
   triger_cols = [x for x in df.columns if 'bias' in x]
@@ -489,7 +489,7 @@ def cal_mean_reversion_signal(df, std_multiple=2, final_signal_threshold=2, star
   # calculate signal for each triger column
   for col in triger_cols:
     signal_col = col.replace('bias', result_col)
-    df[signal_col] = 0
+    df[signal_col] = 
 
     # over buy
     df.loc[df[col] > std_multiple, signal_col] = 1
@@ -508,7 +508,7 @@ def cal_mean_reversion_signal(df, std_multiple=2, final_signal_threshold=2, star
   df.loc[sell_signals, result_col] = neg_signal
   df.loc[buy_signals, result_col] = pos_signal
 
-  return df
+  return df[result_col]
 
 
 def cal_mean_reversion_expected_rate(df, rate_col, window_size, std_multiple):
