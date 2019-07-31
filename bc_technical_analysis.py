@@ -618,7 +618,7 @@ def cal_moving_average_signal(df, short_ma_col=None, long_ma_col=None, start_dat
   # calculate ma crossover signal
   df['signal'] = cal_crossover_signal(df=df, fast_line=short_ma_col, slow_line=long_ma_col)
 
-  return df
+  return df['signal']
 
 
 def plot_moving_average(df, short_ma_col, long_ma_col, price_col, window_size, start_date=None, end_date=None):
