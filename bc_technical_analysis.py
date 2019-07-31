@@ -4,6 +4,7 @@ import sympy
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib import gridspec
 import ta
 
 
@@ -977,6 +978,63 @@ def plot_indicator(df, target_col, title=None, start_date=None, end_date=None, p
     ax2=ax1.twinx()
     ax2.plot(df.Close, color='blue' ) 
 
+
+def plot_ichimoku_and_mr(df, std_multiple=2, start_date=None, end_date=None, title=None, save_path=None):
+  """
+  Plot Ichimoku and mean reversion in a same plot
+
+  :param df: dataframe with ichimoku and mean reversion columns
+  :param std_multiple: std_multiple for mean reversion
+  :param start_date: start_date of the data
+  :param end_date: end_date of the data
+  :param title: title of the figure
+  :param save_path: path where the figure will be saved to
+  :returns: plot
+  :raises: none
+  """
+  # select plot data
+  plot_data = df[start_date:end_date].copy()
+  plot_data['upper'] = std_multiple
+  plot_data['lower'] = -std_multiple
+
+  # create figures
+  fig = plt.figure(figsize=(20, 6))
+  gs = gridspec.GridSpec(2, 1, height_ratios=[2, 1])
+
+  # Ichimoku plot
+  ichimoku_plot = plt.subplot(gs[0]) 
+
+  # plot price
+  ichimoku_plot.plot(plot_data.index, plot_data.Close, color='black')
+
+  # plot kijun/tankan lines
+  ichimoku_plot.plot(plot_data.index, plot_data.tankan, color='magenta', linestyle='-.')
+  ichimoku_plot.plot(plot_data.index, plot_data.kijun, color='blue', linestyle='-.')
+
+  # plot senkou lines
+  ichimoku_plot.plot(plot_data.index, plot_data.senkou_a, color='green')
+  ichimoku_plot.plot(plot_data.index, plot_data.senkou_b, color='red')
+
+  # plot clouds
+  ichimoku_plot.fill_between(plot_data.index, plot_data.senkou_a, plot_data.senkou_b, where=plot_data.senkou_a > plot_data.senkou_b, facecolor='green', interpolate=True, alpha=0.6)
+  ichimoku_plot.fill_between(plot_data.index, plot_data.senkou_a, plot_data.senkou_b, where=plot_data.senkou_a <= plot_data.senkou_b, facecolor='red', interpolate=True, alpha=0.6)
+
+  # legend and title
+  ichimoku_plot.legend()  
+  ichimoku_plot.set_title(sec_code)  
+
+  # Mean reversion plot
+  mean_reversion_plot = plt.subplot(gs[1], sharex=ichimoku_plot) 
+  mr_dims = [x for x in plot_data.columns if '_bias' in x] + ['upper', 'lower']
+  for dim in mr_dims:
+    mean_reversion_plot.plot(plot_data.index, plot_data[dim])
+  mean_reversion_plot.legend(loc='best')
+
+  plt.tight_layout() 
+
+  # save image
+  if save_path is not None:
+    plt.savefig(save_path + title + '.png')
 
 #----------------------------- Candlesticks ----------------------------------------#
 def add_candle_dims_for_df(df):
