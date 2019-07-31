@@ -489,7 +489,7 @@ def cal_mean_reversion_signal(df, std_multiple=2, final_signal_threshold=2, star
   # calculate signal for each triger column
   for col in triger_cols:
     signal_col = col.replace('bias', result_col)
-    df[signal_col] = 
+    df[signal_col] = 0
 
     # over buy
     df.loc[df[col] > std_multiple, signal_col] = 1
