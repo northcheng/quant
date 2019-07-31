@@ -13,6 +13,7 @@ import matplotlib.colors as colors
 import matplotlib.cm as cmx
 
 
+#----------------------- Date manipulation -----------------------#
 def string_2_time(string, date_format='%Y-%m-%d'):
   """
   Convert date string to datetime instance
@@ -100,6 +101,7 @@ def num_days_between(start_date, end_date, date_format='%Y-%m-%d'):
   return diff.days
 
 
+#----------------------- Timeseries dataframe --------------------#
 def df_2_timeseries(df, time_col='date'):
   """
   Convert dataframe to timeseries-dataframe
@@ -114,6 +116,7 @@ def df_2_timeseries(df, time_col='date'):
   return df
 
 
+#----------------------- Data visualization ----------------------#
 def plot_data(df, columns, start=None, end=None, figsize=(20, 5), colormap='tab10'):
   """
   Plot chart for several different lines
