@@ -600,7 +600,7 @@ def cal_moving_average(df, target_col, ma_windows=[50, 105], start_date=None, en
   return df
 
 
-def cal_moving_average_signal(df, short_ma_col=None, long_ma_col=None, start_date=None, end_date=None):
+def cal_moving_average_signal(df, target_col='Close', ma_windows=[50, 105], start_date=None, end_date=None, result_col='signal', pos_signal='b', neg_signal='s', none_signal='n'):
   """
   Calculate moving avergae signals gernerated from fast/slow moving average crossover
 
@@ -612,13 +612,21 @@ def cal_moving_average_signal(df, short_ma_col=None, long_ma_col=None, start_dat
   :returns: dataframe with ma crossover signal
   :raises: none
   """
-  # copy dataframe
-  df = df[start_date:end_date].copy()
+  # calculate moving average
+  df = df[start_date : end_date].copy()
+  df[result_col] = none_signal
 
-  # calculate ma crossover signal
-  df['signal'] = cal_crossover_signal(df=df, fast_line=short_ma_col, slow_line=long_ma_col)
+  if len(ma_windows) > 2:
+    print('There should be only 2 moving average lines')
 
-  return df['signal']
+  else:
+    short_ma_col = target_col + '_ma_' + min(ma_windows)
+    long_ma_col = target_col + '_ma_' + max(ma_windows)
+
+    # calculate ma crossover signal
+    df[result_col] = cal_crossover_signal(df=df, fast_line=short_ma_col, slow_line=long_ma_col, result_col=result_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal)
+
+  return df[result_col]
 
 
 def plot_moving_average(df, short_ma_col, long_ma_col, price_col, window_size, start_date=None, end_date=None):
