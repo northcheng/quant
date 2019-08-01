@@ -834,16 +834,13 @@ def cal_ichimoku_status(df, add_change_rate=True, is_save=False, file_name='ichi
     current_cloud_period = df.loc[current_idx, '云长度']
     previous_cloud_period = df.loc[previous_idx, '云长度']
 
+    # calculate how long the cloud has last
     if current_cloud_period * previous_cloud_period > 0:
       df.loc[current_idx, '云长度'] += previous_cloud_period
 
-
+  # calculate distance between Close and each ichimoku lines    
   lines = {'kijun': '基准', 'tankan': '转换', '云顶': '云顶', '云底':'云底'}
-  # calculate distance between Close and each ichimoku lines
   for line in lines.keys():
-
-    # initialize
-    # df[lines[line]] = 0
 
     # breakthrough
     line_signal = cal_crossover_signal(df=df, fast_line='Close', slow_line=line, result_col='signal', pos_signal='up', neg_signal='down', none_signal='')
@@ -863,6 +860,7 @@ def cal_ichimoku_status(df, add_change_rate=True, is_save=False, file_name='ichi
     rate_columns = ['rate', 'acc_rate', 'acc_day', 'Close']
     result_columns += rate_columns
 
+    # round digits for rate columns
     for col in rate_columns:
       df[col] = round(df[col], ndigits=3)
   
