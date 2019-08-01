@@ -847,21 +847,21 @@ def cal_ichimoku_status(df, add_change_rate=True, is_save=False, file_name='ichi
     # calculate distance between close price and indicator
     df[line + '_distance'] = round((df['Close'] - df[line]) / df['Close'], ndigits=3)
 
-    # breakthroughs
+    # breakthrough
     line_signal = cal_crossover_signal(df=df, fast_line='Close', slow_line=line, result_col='signal', pos_signal='上穿', neg_signal='下穿', none_signal='')
     df['breakthrough'] = df['breakthrough'] + line_signal['signal'] + lines[line] + ', '
 
 
   # post processing
   # add change rate of close price
-  result_columns = ['cloud_color', 'cloud_size', 'cloud_period', 'cloud_top_distance', 'cloud_bottom_distance', 'kijun_distance', 'tankan_distance']
+  result_columns = ['cloud_color', 'cloud_size', 'cloud_period', 'cloud_top_distance', 'cloud_bottom_distance', 'kijun_distance', 'tankan_distance', 'breakthrough']
   if add_change_rate:
     df = cal_change_rate(df=df, target_col='Close', drop_na=False)
-    result_columns += ['Close', 'rate', 'acc_rate', 'acc_day']
+    result_columns += ['rate', 'acc_rate', 'acc_day', 'Close']
   
   # select and rename columns
   result = df[result_columns].copy()  
-  new_columns = {'cloud_color': '云', 'cloud_size': '云厚度', 'cloud_period': '云长度', 'cloud_top_distance': '云顶', 'cloud_bottom_distance': '云底', 'kijun_distance': '基准', 'tankan_distance': '转换', 'Close':'收盘价', 'rate': '涨跌幅', 'acc_rate': '累计涨跌幅', 'acc_day':'累计涨跌天数'}
+  new_columns = {'cloud_color': '云', 'cloud_size': '云厚度', 'cloud_period': '云长度', 'cloud_top_distance': '云顶', 'cloud_bottom_distance': '云底', 'kijun_distance': '基准', 'tankan_distance': '转换', 'Close':'收盘价', 'rate': '涨跌幅', 'acc_rate': '累计涨跌幅', 'acc_day':'累计涨跌天数', 'breakthrough': '状态'}
   result.rename(columns=new_columns, inplace=True)
 
   # add extra columns
