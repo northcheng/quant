@@ -787,6 +787,82 @@ def cal_ichimoku(df, method='original'):
   return df
 
 
+def cal_ichimoku_status(df):
+  """
+  Calculate relationship between close price and ichimoku indicators
+
+  :param df: dataframe with close price and ichimoku indicator columns
+  :returns: dataframe with ichimoku status
+  :raises: none
+  """
+  # copy dataframe
+  df = df.copy()
+
+  # calculate cloud size/color and color shift
+  df['cloud_shift'] = cal_crossover_signal(df=df, fast_line='senkou_a', slow_line='senkou_b', pos_signal=1, neg_signal=-1, none_signal=0)
+  df['cloud_size'] = round((df['senkou_a'] - df['senkou_b'])/df['Close'], ndigits=3)
+  df['cloud_period'] = 0
+  df['cloud_color'] = 0
+  df['cloud_top'] = 0
+  df['cloud_bottom'] = 0
+
+  # set values according to cloud color
+  green_idx = df.query('cloud_size > 0').index
+  red_idx = df.query('cloud_size <= 0').index
+  df.loc[green_idx, 'cloud_period'] = 1
+  df.loc[green_idx, 'cloud_color'] = 1
+  df.loc[green_idx, 'cloud_top'] = df['senkou_a']
+  df.loc[green_idx, 'cloud_bottom'] = df['senkou_b']
+  df.loc[red_idx, 'cloud_period'] = -1
+  df.loc[red_idx, 'cloud_color'] = -1
+  df.loc[red_idx, 'cloud_top'] = df['senkou_b']
+  df.loc[red_idx, 'cloud_bottom'] = df['senkou_a']
+
+  # calculate how long current cloud has lasted
+  idx = df.index.tolist()
+  for i in range(1, len(df)):
+    current_idx = idx[i]
+    previous_idx = idx[i-1]
+    current_cloud_period = df.loc[current_idx, 'cloud_period']
+    previous_cloud_period = df.loc[previous_idx, 'cloud_period']
+
+    if current_cloud_period * previous_cloud_period > 0:
+      df.loc[current_idx, 'cloud_period'] += previous_cloud_period
+
+  # calculate distance between Close and each ichimoku lines
+  for line in ['kijun', 'tankan', 'cloud_top', 'cloud_bottom']:
+
+    # initialize
+    df[line + '_distance'] = ''
+
+    # whether Close line is above the indicator line
+    pos_idx = df['Close'] > df[line]
+    neg_idx = df['Close'] < df[line]
+
+    # whether there is a breaktrough
+    df.loc[pos_idx, line + '_distance'] = '上'
+    df.loc[neg_idx, line + '_distance'] = '下'
+    line_signal = cal_crossover_signal(df=df, fast_line='Close', slow_line=line, result_col='signal', pos_signal='穿', neg_signal='穿', none_signal=' ')
+
+    # calculate distance between Close line and indicator line
+    df[line + '_distance'] = df[line + '_distance'] + line_signal['signal']
+    distance = round((df['Close'] - df[line]) / df['Close'], ndigits=3)
+    df[line + '_distance'] = df[line + '_distance'] + distance.astype(str)
+  
+  # post processing
+  new_columns = {
+      'cloud_color': '云', 'cloud_size': '云厚度', 'cloud_period': '云长度', 'cloud_top_distance': '云顶', 'cloud_bottom_distance': '云底', 'kijun_distance': '基准', 'tankan_distance': '转换'
+  }
+  result = df[['cloud_color', 'cloud_size', 'cloud_period', 'cloud_top_distance', 'cloud_bottom_distance', 'kijun_distance', 'tankan_distance']].copy()
+  result.rename(columns=new_columns, inplace=True)
+  result['支撑'] = ''
+  result['阻挡'] = ''
+  result['操作'] = ''
+  result['备注'] = ''
+  
+  return result
+
+
 def cal_ichimoku_signal(df, final_signal_threshold=2):
   """
   Calculate ichimoku signals 
