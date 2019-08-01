@@ -804,6 +804,8 @@ def cal_ichimoku_status(df, add_change_rate=True, is_save=False, file_name='ichi
   if add_change_rate:
     df = cal_change_rate(df=df, target_col='Close')
 
+  print(df.index.max(), len(df))
+
   # calculate cloud size/color and color shift
   df['cloud_shift'] = cal_crossover_signal(df=df, fast_line='senkou_a', slow_line='senkou_b', pos_signal=1, neg_signal=-1, none_signal=0)
   df['cloud_size'] = round((df['senkou_a'] - df['senkou_b'])/df['Close'], ndigits=3)
@@ -811,6 +813,8 @@ def cal_ichimoku_status(df, add_change_rate=True, is_save=False, file_name='ichi
   df['cloud_color'] = 0
   df['cloud_top'] = 0
   df['cloud_bottom'] = 0
+
+  print(df.index.max(), len(df))
 
   # set values according to cloud color
   green_idx = df.query('cloud_size > 0').index
@@ -824,6 +828,8 @@ def cal_ichimoku_status(df, add_change_rate=True, is_save=False, file_name='ichi
   df.loc[red_idx, 'cloud_top'] = df['senkou_b']
   df.loc[red_idx, 'cloud_bottom'] = df['senkou_a']
 
+  print(df.index.max(), len(df))
+
   # calculate how long current cloud has lasted
   idx = df.index.tolist()
   for i in range(1, len(df)):
@@ -834,6 +840,8 @@ def cal_ichimoku_status(df, add_change_rate=True, is_save=False, file_name='ichi
 
     if current_cloud_period * previous_cloud_period > 0:
       df.loc[current_idx, 'cloud_period'] += previous_cloud_period
+
+  print(df.index.max(), len(df))
 
   # calculate distance between Close and each ichimoku lines
   for line in ['kijun', 'tankan', 'cloud_top', 'cloud_bottom']:
@@ -855,6 +863,8 @@ def cal_ichimoku_status(df, add_change_rate=True, is_save=False, file_name='ichi
     distance = round((df['Close'] - df[line]) / df['Close'], ndigits=3)
     df[line + '_distance'] = df[line + '_distance'] + distance.astype(str)
   
+  print(df.index.max(), len(df))
+
   # post processing
   result_columns = ['cloud_color', 'cloud_size', 'cloud_period', 'cloud_top_distance', 'cloud_bottom_distance', 'kijun_distance', 'tankan_distance']
   if add_change_rate:
@@ -869,6 +879,8 @@ def cal_ichimoku_status(df, add_change_rate=True, is_save=False, file_name='ichi
   result['操作'] = ''
   result['备注'] = ''
   
+  print(df.index.max(), len(df))
+
   if is_save:
     result.to_excel(save_path+file_name)
 
