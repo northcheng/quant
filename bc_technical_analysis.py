@@ -787,7 +787,7 @@ def cal_ichimoku(df, method='original'):
   return df
 
 
-def cal_ichimoku_status(df, is_save=False, file_name='ichimoku_status.xlsx', save_path='drive/My Drive/ichimoku/'):
+def cal_ichimoku_status(df, add_change_rate=True, is_save=False, file_name='ichimoku_status.xlsx', save_path='drive/My Drive/ichimoku/'):
   """
   Calculate relationship between close price and ichimoku indicators
 
@@ -800,6 +800,8 @@ def cal_ichimoku_status(df, is_save=False, file_name='ichimoku_status.xlsx', sav
   """
   # copy dataframe
   df = df.copy()
+  if add_change_rate:
+    df = cal_change_rate(df=df, target_col='Close')
 
   # calculate cloud size/color and color shift
   df['cloud_shift'] = cal_crossover_signal(df=df, fast_line='senkou_a', slow_line='senkou_b', pos_signal=1, neg_signal=-1, none_signal=0)
@@ -854,10 +856,15 @@ def cal_ichimoku_status(df, is_save=False, file_name='ichimoku_status.xlsx', sav
   
   # post processing
   new_columns = {
-      'cloud_color': '云', 'cloud_size': '云厚度', 'cloud_period': '云长度', 'cloud_top_distance': '云顶', 'cloud_bottom_distance': '云底', 'kijun_distance': '基准', 'tankan_distance': '转换'
+      'cloud_color': '云', 'cloud_size': '云厚度', 'cloud_period': '云长度', 'cloud_top_distance': '云顶', 'cloud_bottom_distance': '云底', 'kijun_distance': '基准', 'tankan_distance': '转换',
+      'rate': '涨跌幅', 'acc_rate': '累计涨跌幅', 'acc_day'='累计涨跌天数'
   }
-  result = df[['cloud_color', 'cloud_size', 'cloud_period', 'cloud_top_distance', 'cloud_bottom_distance', 'kijun_distance', 'tankan_distance']].copy()
+  result_columns = ['cloud_color', 'cloud_size', 'cloud_period', 'cloud_top_distance', 'cloud_bottom_distance', 'kijun_distance', 'tankan_distance']
+  if add_accumulation:
+    result_col += ['rate', 'acc_rate', 'acc_day']
+  result = df[result_col].copy()
   result.rename(columns=new_columns, inplace=True)
+  
   result['支撑'] = ''
   result['阻挡'] = ''
   result['操作'] = ''
