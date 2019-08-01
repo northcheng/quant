@@ -811,7 +811,7 @@ def cal_ichimoku_status(df, add_change_rate=True, is_save=False, file_name='ichi
   df['cloud_color'] = 0
   df['cloud_top'] = 0
   df['cloud_bottom'] = 0
-  df['breakthrough'] = 0
+  df['breakthrough'] = ''
 
   # set values according to cloud color
   green_idx = df.query('cloud_size > 0').index
