@@ -843,7 +843,7 @@ def cal_ichimoku_status(df, add_change_rate=True, is_save=False, file_name='ichi
   for line in lines.keys():
 
     # initialize
-    df[lines[line]] = 0
+    # df[lines[line]] = 0
 
     # calculate distance between close price and indicator
     df[lines[line]] = round((df['Close'] - df[line]) / df['Close'], ndigits=3)
