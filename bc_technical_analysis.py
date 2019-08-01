@@ -811,6 +811,7 @@ def cal_ichimoku_status(df, add_change_rate=True, is_save=False, file_name='ichi
   df['cloud_color'] = 0
   df['cloud_top'] = 0
   df['cloud_bottom'] = 0
+  df['breakthrough'] = 0
 
   # set values according to cloud color
   green_idx = df.query('cloud_size > 0').index
@@ -835,25 +836,21 @@ def cal_ichimoku_status(df, add_change_rate=True, is_save=False, file_name='ichi
     if current_cloud_period * previous_cloud_period > 0:
       df.loc[current_idx, 'cloud_period'] += previous_cloud_period
 
+
+  lines = {'kijun': '基准线', 'tankan': '转换线', 'cloud_top': '云顶', 'cloud_bottom':'云底'}
   # calculate distance between Close and each ichimoku lines
-  for line in ['kijun', 'tankan', 'cloud_top', 'cloud_bottom']:
+  for line in lines.keys():
 
     # initialize
-    df[line + '_distance'] = ''
+    df[line + '_distance'] = 0
 
-    # whether Close line is above the indicator line
-    pos_idx = df['Close'] > df[line]
-    neg_idx = df['Close'] < df[line]
+    # calculate distance between close price and indicator
+    df[line + '_distance'] = round((df['Close'] - df[line]) / df['Close'], ndigits=3)
 
-    # whether there is a breaktrough
-    df.loc[pos_idx, line + '_distance'] = '上'
-    df.loc[neg_idx, line + '_distance'] = '下'
-    line_signal = cal_crossover_signal(df=df, fast_line='Close', slow_line=line, result_col='signal', pos_signal='穿', neg_signal='穿', none_signal=' ')
+    # breakthroughs
+    line_signal = cal_crossover_signal(df=df, fast_line='Close', slow_line=line, result_col='signal', pos_signal='上穿', neg_signal='下穿', none_signal='')
+    df['breakthrough'] = df['breakthrough'] + line_signal + lines[line] + ', '
 
-    # calculate distance between Close line and indicator line
-    df[line + '_distance'] = df[line + '_distance'] + line_signal['signal']
-    distance = round((df['Close'] - df[line]) / df['Close'], ndigits=3)
-    df[line + '_distance'] = df[line + '_distance'] + distance.astype(str)
 
   # post processing
   # add change rate of close price
