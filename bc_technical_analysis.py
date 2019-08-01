@@ -792,6 +792,9 @@ def cal_ichimoku_status(df, is_save=False, file_name='ichimoku_status.xslx', sav
   Calculate relationship between close price and ichimoku indicators
 
   :param df: dataframe with close price and ichimoku indicator columns
+  :param is_save: whether to save the result into excel file
+  :param file_name: destination filename
+  :patam save_path: where to save the file
   :returns: dataframe with ichimoku status
   :raises: none
   """
