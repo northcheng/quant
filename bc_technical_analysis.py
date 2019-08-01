@@ -128,7 +128,7 @@ def cal_change(df, target_col, periods=1, add_accumulation=True, add_prefix=Fals
   return df    
 
 
-def cal_change_rate(df, target_col, periods=1, add_accumulation=True, add_prefix=False):
+def cal_change_rate(df, target_col, periods=1, add_accumulation=True, add_prefix=False, drop_na=True):
   """
   Calculate change rate of a column with a sliding window
   
@@ -174,7 +174,9 @@ def cal_change_rate(df, target_col, periods=1, add_accumulation=True, add_prefix
         df.loc[current_idx, acc_day_dim] += previous_acc_days
       else:
         df.loc[current_idx, acc_rate_dim] = current_rate
-  df.dropna(inplace=True) 
+
+  if drop_na:        
+    df.dropna(inplace=True) 
 
   return df
 
@@ -801,10 +803,6 @@ def cal_ichimoku_status(df, add_change_rate=True, is_save=False, file_name='ichi
   """
   # copy dataframe
   df = df.copy()
-  if add_change_rate:
-    df = cal_change_rate(df=df, target_col='Close')
-
-  print(df.index.max(), len(df))
 
   # calculate cloud size/color and color shift
   df['cloud_shift'] = cal_crossover_signal(df=df, fast_line='senkou_a', slow_line='senkou_b', pos_signal=1, neg_signal=-1, none_signal=0)
@@ -813,8 +811,6 @@ def cal_ichimoku_status(df, add_change_rate=True, is_save=False, file_name='ichi
   df['cloud_color'] = 0
   df['cloud_top'] = 0
   df['cloud_bottom'] = 0
-
-  print(df.index.max(), len(df))
 
   # set values according to cloud color
   green_idx = df.query('cloud_size > 0').index
@@ -828,8 +824,6 @@ def cal_ichimoku_status(df, add_change_rate=True, is_save=False, file_name='ichi
   df.loc[red_idx, 'cloud_top'] = df['senkou_b']
   df.loc[red_idx, 'cloud_bottom'] = df['senkou_a']
 
-  print(df.index.max(), len(df))
-
   # calculate how long current cloud has lasted
   idx = df.index.tolist()
   for i in range(1, len(df)):
@@ -840,8 +834,6 @@ def cal_ichimoku_status(df, add_change_rate=True, is_save=False, file_name='ichi
 
     if current_cloud_period * previous_cloud_period > 0:
       df.loc[current_idx, 'cloud_period'] += previous_cloud_period
-
-  print(df.index.max(), len(df))
 
   # calculate distance between Close and each ichimoku lines
   for line in ['kijun', 'tankan', 'cloud_top', 'cloud_bottom']:
@@ -862,15 +854,14 @@ def cal_ichimoku_status(df, add_change_rate=True, is_save=False, file_name='ichi
     df[line + '_distance'] = df[line + '_distance'] + line_signal['signal']
     distance = round((df['Close'] - df[line]) / df['Close'], ndigits=3)
     df[line + '_distance'] = df[line + '_distance'] + distance.astype(str)
-  
-  print(df.index.max(), len(df))
 
   # post processing
-  result_columns = ['cloud_color', 'cloud_size', 'cloud_period', 'cloud_top_distance', 'cloud_bottom_distance', 'kijun_distance', 'tankan_distance']
+  result_columns = ['Close', 'cloud_color', 'cloud_size', 'cloud_period', 'cloud_top_distance', 'cloud_bottom_distance', 'kijun_distance', 'tankan_distance']
   if add_change_rate:
+    df = cal_change_rate(df=df, target_col='Close', drop_na=False)
     result_columns += ['rate', 'acc_rate', 'acc_day']
-  result = df[result_columns].copy()
   
+  result = df[result_columns].copy()  
   new_columns = {'cloud_color': '云', 'cloud_size': '云厚度', 'cloud_period': '云长度', 'cloud_top_distance': '云顶', 'cloud_bottom_distance': '云底', 'kijun_distance': '基准', 'tankan_distance': '转换', 'rate': '涨跌幅', 'acc_rate': '累计涨跌幅', 'acc_day':'累计涨跌天数'}
   result.rename(columns=new_columns, inplace=True)
 
