@@ -845,9 +845,6 @@ def cal_ichimoku_status(df, add_change_rate=True, is_save=False, file_name='ichi
     # initialize
     # df[lines[line]] = 0
 
-    # calculate distance between close price and indicator
-    df[lines[line]] = round((df['Close'] - df[line]) / df['Close'], ndigits=3)
-
     # breakthrough
     line_signal = cal_crossover_signal(df=df, fast_line='Close', slow_line=line, result_col='signal', pos_signal='up', neg_signal='down', none_signal='')
     up_idx = line_signal.query('signal == "up"').index
@@ -855,6 +852,8 @@ def cal_ichimoku_status(df, add_change_rate=True, is_save=False, file_name='ichi
     df.loc[up_idx, '上穿'] = df.loc[up_idx, '上穿'] + lines[line] + ','
     df.loc[down_idx, '下穿'] = df.loc[down_idx, '下穿'] + lines[line] + ','
 
+    # calculate distance between close price and indicator
+    df[lines[line]] = round((df['Close'] - df[line]) / df['Close'], ndigits=3)
 
   # post processing
   # add change rate of close price
