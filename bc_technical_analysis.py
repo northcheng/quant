@@ -793,7 +793,6 @@ def cal_ichimoku_status(df, add_change_rate=True, is_save=False, file_name='ichi
 
   :param df: dataframe with close price and ichimoku indicator columns
   :param is_add_change_rate: whether to add change rate of close price
-  :param drop_na: whether to drop na rows
   :param is_save: whether to save the result into excel file
   :param file_name: destination filename
   :patam save_path: where to save the file
