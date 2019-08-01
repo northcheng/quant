@@ -838,15 +838,15 @@ def cal_ichimoku_status(df, add_change_rate=True, is_save=False, file_name='ichi
       df.loc[current_idx, '云长度'] += previous_cloud_period
 
 
-  lines = {'kijun': '基准线', 'tankan': '转换线', '云顶': '云顶', '云底':'云底'}
+  lines = {'kijun': '基准', 'tankan': '转换', '云顶': '云顶', '云底':'云底'}
   # calculate distance between Close and each ichimoku lines
   for line in lines.keys():
 
     # initialize
-    df[line + '距离'] = 0
+    df[lines[line]] = 0
 
     # calculate distance between close price and indicator
-    df[line + '距离'] = round((df['Close'] - df[line]) / df['Close'], ndigits=3)
+    df[lines[line]] = round((df['Close'] - df[line]) / df['Close'], ndigits=3)
 
     # breakthrough
     line_signal = cal_crossover_signal(df=df, fast_line='Close', slow_line=line, result_col='signal', pos_signal='up', neg_signal='down', none_signal='')
@@ -858,7 +858,7 @@ def cal_ichimoku_status(df, add_change_rate=True, is_save=False, file_name='ichi
 
   # post processing
   # add change rate of close price
-  result_columns = ['云', '云厚度', '云长度', '云顶距离', '云底距离', 'kijun_distance', 'tankan_distance']
+  result_columns = ['云', '云厚度', '云长度', '云顶', '云底', '基准', '转换']
   if add_change_rate:
     df = cal_change_rate(df=df, target_col='Close', drop_na=False)
     rate_columns = ['rate', 'acc_rate', 'acc_day', 'Close']
@@ -871,7 +871,7 @@ def cal_ichimoku_status(df, add_change_rate=True, is_save=False, file_name='ichi
   result = df[result_columns].copy()
   result['上穿'] = df['上穿']  
   result['下穿'] = df['下穿']  
-  new_columns = {'云顶距离': '云顶', '云底距离': '云底', 'kijun_distance': '基准', 'tankan_distance': '转换', 'Close':'收盘价', 'rate': '涨跌', 'acc_rate': '累计涨跌', 'acc_day':'累计天数'}
+  new_columns = {'Close':'收盘价', 'rate': '涨跌', 'acc_rate': '累计涨跌', 'acc_day':'累计天数'}
   result.rename(columns=new_columns, inplace=True)
 
   # add extra columns
