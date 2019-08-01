@@ -806,47 +806,47 @@ def cal_ichimoku_status(df, add_change_rate=True, is_save=False, file_name='ichi
 
   # calculate cloud size/color and color shift
   df['cloud_shift'] = cal_crossover_signal(df=df, fast_line='senkou_a', slow_line='senkou_b', pos_signal=1, neg_signal=-1, none_signal=0)
-  df['cloud_size'] = round((df['senkou_a'] - df['senkou_b'])/df['Close'], ndigits=3)
-  df['cloud_period'] = 0
-  df['cloud_color'] = 0
-  df['cloud_top'] = 0
-  df['cloud_bottom'] = 0
+  df['云厚度'] = round((df['senkou_a'] - df['senkou_b'])/df['Close'], ndigits=3)
+  df['云长度'] = 0
+  df['云'] = 0
+  df['云顶'] = 0
+  df['云底'] = 0
   df['上穿'] = ''
   df['下穿'] = ''
 
   # set values according to cloud color
-  green_idx = df.query('cloud_size > 0').index
-  red_idx = df.query('cloud_size <= 0').index
-  df.loc[green_idx, 'cloud_period'] = 1
-  df.loc[green_idx, 'cloud_color'] = 1
-  df.loc[green_idx, 'cloud_top'] = df['senkou_a']
-  df.loc[green_idx, 'cloud_bottom'] = df['senkou_b']
-  df.loc[red_idx, 'cloud_period'] = -1
-  df.loc[red_idx, 'cloud_color'] = -1
-  df.loc[red_idx, 'cloud_top'] = df['senkou_b']
-  df.loc[red_idx, 'cloud_bottom'] = df['senkou_a']
+  green_idx = df.query('云厚度 > 0').index
+  red_idx = df.query('云厚度 <= 0').index
+  df.loc[green_idx, '云长度'] = 1
+  df.loc[green_idx, '云'] = 1
+  df.loc[green_idx, '云顶'] = df['senkou_a']
+  df.loc[green_idx, '云底'] = df['senkou_b']
+  df.loc[red_idx, '云长度'] = -1
+  df.loc[red_idx, '云'] = -1
+  df.loc[red_idx, '云顶'] = df['senkou_b']
+  df.loc[red_idx, '云底'] = df['senkou_a']
 
   # calculate how long current cloud has lasted
   idx = df.index.tolist()
   for i in range(1, len(df)):
     current_idx = idx[i]
     previous_idx = idx[i-1]
-    current_cloud_period = df.loc[current_idx, 'cloud_period']
-    previous_cloud_period = df.loc[previous_idx, 'cloud_period']
+    current_cloud_period = df.loc[current_idx, '云长度']
+    previous_cloud_period = df.loc[previous_idx, '云长度']
 
     if current_cloud_period * previous_cloud_period > 0:
-      df.loc[current_idx, 'cloud_period'] += previous_cloud_period
+      df.loc[current_idx, '云长度'] += previous_cloud_period
 
 
-  lines = {'kijun': '基准线', 'tankan': '转换线', 'cloud_top': '云顶', 'cloud_bottom':'云底'}
+  lines = {'kijun': '基准线', 'tankan': '转换线', '云顶': '云顶', '云底':'云底'}
   # calculate distance between Close and each ichimoku lines
   for line in lines.keys():
 
     # initialize
-    df[line + '_distance'] = 0
+    df[line + '距离'] = 0
 
     # calculate distance between close price and indicator
-    df[line + '_distance'] = round((df['Close'] - df[line]) / df['Close'], ndigits=3)
+    df[line + '距离'] = round((df['Close'] - df[line]) / df['Close'], ndigits=3)
 
     # breakthrough
     line_signal = cal_crossover_signal(df=df, fast_line='Close', slow_line=line, result_col='signal', pos_signal='up', neg_signal='down', none_signal='')
@@ -858,7 +858,7 @@ def cal_ichimoku_status(df, add_change_rate=True, is_save=False, file_name='ichi
 
   # post processing
   # add change rate of close price
-  result_columns = ['cloud_color', 'cloud_size', 'cloud_period', 'cloud_top_distance', 'cloud_bottom_distance', 'kijun_distance', 'tankan_distance']
+  result_columns = ['云', '云厚度', '云长度', '云顶距离', '云底距离', 'kijun_distance', 'tankan_distance']
   if add_change_rate:
     df = cal_change_rate(df=df, target_col='Close', drop_na=False)
     rate_columns = ['rate', 'acc_rate', 'acc_day', 'Close']
@@ -871,7 +871,7 @@ def cal_ichimoku_status(df, add_change_rate=True, is_save=False, file_name='ichi
   result = df[result_columns].copy()
   result['上穿'] = df['上穿']  
   result['下穿'] = df['下穿']  
-  new_columns = {'cloud_color': '云', 'cloud_size': '云厚度', 'cloud_period': '云长度', 'cloud_top_distance': '云顶', 'cloud_bottom_distance': '云底', 'kijun_distance': '基准', 'tankan_distance': '转换', 'Close':'收盘价', 'rate': '涨跌幅', 'acc_rate': '累计涨跌幅', 'acc_day':'累计涨跌天数'}
+  new_columns = {'云顶距离': '云顶', '云底距离': '云底', 'kijun_distance': '基准', 'tankan_distance': '转换', 'Close':'收盘价', 'rate': '涨跌', 'acc_rate': '累计涨跌', 'acc_day':'累计天数'}
   result.rename(columns=new_columns, inplace=True)
 
   # add extra columns
