@@ -787,12 +787,13 @@ def cal_ichimoku(df, method='original'):
   return df
 
 
-def cal_ichimoku_status(df, add_change_rate=True, is_save=False, file_name='ichimoku_status.xlsx', save_path='drive/My Drive/ichimoku/'):
+def cal_ichimoku_status(df, add_change_rate=True, drop_na=True, is_save=False, file_name='ichimoku_status.xlsx', save_path='drive/My Drive/ichimoku/'):
   """
   Calculate relationship between close price and ichimoku indicators
 
   :param df: dataframe with close price and ichimoku indicator columns
   :param is_add_change_rate: whether to add change rate of close price
+  :param drop_na: whether to drop na rows
   :param is_save: whether to save the result into excel file
   :param file_name: destination filename
   :patam save_path: where to save the file
@@ -865,6 +866,9 @@ def cal_ichimoku_status(df, add_change_rate=True, is_save=False, file_name='ichi
     result_columns += ['rate', 'acc_rate', 'acc_day']
   result = df[result_columns].copy()
   result.rename(columns=new_columns, inplace=True)
+
+  if drop_na:
+    result = result.dropna()
 
   result['支撑'] = ''
   result['阻挡'] = ''
