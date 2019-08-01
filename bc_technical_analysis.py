@@ -849,7 +849,8 @@ def cal_ichimoku_status(df, add_change_rate=True, is_save=False, file_name='ichi
 
     # breakthrough
     line_signal = cal_crossover_signal(df=df, fast_line='Close', slow_line=line, result_col='signal', pos_signal='上穿', neg_signal='下穿', none_signal='')
-    df['breakthrough'] = df['breakthrough'] + line_signal['signal'] + lines[line] + ', '
+    breakthrough_idx = line_signal.query('signal != ""')
+    df[breakthrough_idx, 'breakthrough'] = df['breakthrough'] + line_signal['signal'] + lines[line] + ', '
 
 
   # post processing
