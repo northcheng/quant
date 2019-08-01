@@ -792,6 +792,7 @@ def cal_ichimoku_status(df, add_change_rate=True, is_save=False, file_name='ichi
   Calculate relationship between close price and ichimoku indicators
 
   :param df: dataframe with close price and ichimoku indicator columns
+  :param is_add_change_rate: whether to add change rate of close price
   :param is_save: whether to save the result into excel file
   :param file_name: destination filename
   :patam save_path: where to save the file
@@ -860,7 +861,7 @@ def cal_ichimoku_status(df, add_change_rate=True, is_save=False, file_name='ichi
       'rate': '涨跌幅', 'acc_rate': '累计涨跌幅', 'acc_day':'累计涨跌天数'
   }
   result_columns = ['cloud_color', 'cloud_size', 'cloud_period', 'cloud_top_distance', 'cloud_bottom_distance', 'kijun_distance', 'tankan_distance']
-  if add_accumulation:
+  if add_change_rate:
     result_col += ['rate', 'acc_rate', 'acc_day']
   result = df[result_col].copy()
   result.rename(columns=new_columns, inplace=True)
