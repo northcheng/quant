@@ -811,7 +811,8 @@ def cal_ichimoku_status(df, add_change_rate=True, is_save=False, file_name='ichi
   df['cloud_color'] = 0
   df['cloud_top'] = 0
   df['cloud_bottom'] = 0
-  df['breakthrough'] = ''
+  df['上穿'] = ''
+  df['下穿'] = ''
 
   # set values according to cloud color
   green_idx = df.query('cloud_size > 0').index
@@ -848,21 +849,29 @@ def cal_ichimoku_status(df, add_change_rate=True, is_save=False, file_name='ichi
     df[line + '_distance'] = round((df['Close'] - df[line]) / df['Close'], ndigits=3)
 
     # breakthrough
-    line_signal = cal_crossover_signal(df=df, fast_line='Close', slow_line=line, result_col='signal', pos_signal='上穿', neg_signal='下穿', none_signal='')
-    breakthrough_idx = line_signal.query('signal != ""').index
-    df.loc[breakthrough_idx, 'breakthrough'] = df.loc[breakthrough_idx, 'breakthrough'] + line_signal.loc[breakthrough_idx, 'signal'] + lines[line] + ', '
+    line_signal = cal_crossover_signal(df=df, fast_line='Close', slow_line=line, result_col='signal', pos_signal='up', neg_signal='down', none_signal='')
+    up_idx = line_signal.query('signal == "up"').index
+    down_idx = line_signal.query('signal == "down"').index
+    df.loc[up_idx, '上穿'] = df.loc[up_idx, '上穿'] + lines[line] + ','
+    df.loc[down_idx, '下穿'] = df.loc[down_idx, '下穿'] + lines[line] + ','
 
 
   # post processing
   # add change rate of close price
-  result_columns = ['cloud_color', 'cloud_size', 'cloud_period', 'cloud_top_distance', 'cloud_bottom_distance', 'kijun_distance', 'tankan_distance', 'breakthrough']
+  result_columns = ['cloud_color', 'cloud_size', 'cloud_period', 'cloud_top_distance', 'cloud_bottom_distance', 'kijun_distance', 'tankan_distance']
   if add_change_rate:
     df = cal_change_rate(df=df, target_col='Close', drop_na=False)
-    result_columns += ['rate', 'acc_rate', 'acc_day', 'Close']
+    rate_columns = ['rate', 'acc_rate', 'acc_day', 'Close']
+    result_columns += rate_columns
+
+    for col in rate_columns:
+      df[col] = round(df[col], ndigits=3)
   
   # select and rename columns
-  result = df[result_columns].copy()  
-  new_columns = {'cloud_color': '云', 'cloud_size': '云厚度', 'cloud_period': '云长度', 'cloud_top_distance': '云顶', 'cloud_bottom_distance': '云底', 'kijun_distance': '基准', 'tankan_distance': '转换', 'Close':'收盘价', 'rate': '涨跌幅', 'acc_rate': '累计涨跌幅', 'acc_day':'累计涨跌天数', 'breakthrough': '状态'}
+  result = df[result_columns].copy()
+  result['上穿'] = df['上穿']  
+  result['下穿'] = df['下穿']  
+  new_columns = {'cloud_color': '云', 'cloud_size': '云厚度', 'cloud_period': '云长度', 'cloud_top_distance': '云顶', 'cloud_bottom_distance': '云底', 'kijun_distance': '基准', 'tankan_distance': '转换', 'Close':'收盘价', 'rate': '涨跌幅', 'acc_rate': '累计涨跌幅', 'acc_day':'累计涨跌天数'}
   result.rename(columns=new_columns, inplace=True)
 
   # add extra columns
