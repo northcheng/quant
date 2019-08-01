@@ -862,8 +862,8 @@ def cal_ichimoku_status(df, add_change_rate=True, is_save=False, file_name='ichi
   }
   result_columns = ['cloud_color', 'cloud_size', 'cloud_period', 'cloud_top_distance', 'cloud_bottom_distance', 'kijun_distance', 'tankan_distance']
   if add_change_rate:
-    result_col += ['rate', 'acc_rate', 'acc_day']
-  result = df[result_col].copy()
+    result_columns += ['rate', 'acc_rate', 'acc_day']
+  result = df[result_columns].copy()
   result.rename(columns=new_columns, inplace=True)
 
   result['支撑'] = ''
