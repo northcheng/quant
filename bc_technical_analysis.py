@@ -856,22 +856,24 @@ def cal_ichimoku_status(df, add_change_rate=True, is_save=False, file_name='ichi
     df[line + '_distance'] = df[line + '_distance'] + distance.astype(str)
 
   # post processing
-  result_columns = ['Close', 'cloud_color', 'cloud_size', 'cloud_period', 'cloud_top_distance', 'cloud_bottom_distance', 'kijun_distance', 'tankan_distance']
+  # add change rate of close price
+  result_columns = ['cloud_color', 'cloud_size', 'cloud_period', 'cloud_top_distance', 'cloud_bottom_distance', 'kijun_distance', 'tankan_distance']
   if add_change_rate:
     df = cal_change_rate(df=df, target_col='Close', drop_na=False)
-    result_columns += ['rate', 'acc_rate', 'acc_day']
+    result_columns += ['Close', 'rate', 'acc_rate', 'acc_day']
   
+  # select and rename columns
   result = df[result_columns].copy()  
-  new_columns = {'cloud_color': '云', 'cloud_size': '云厚度', 'cloud_period': '云长度', 'cloud_top_distance': '云顶', 'cloud_bottom_distance': '云底', 'kijun_distance': '基准', 'tankan_distance': '转换', 'rate': '涨跌幅', 'acc_rate': '累计涨跌幅', 'acc_day':'累计涨跌天数'}
+  new_columns = {'cloud_color': '云', 'cloud_size': '云厚度', 'cloud_period': '云长度', 'cloud_top_distance': '云顶', 'cloud_bottom_distance': '云底', 'kijun_distance': '基准', 'tankan_distance': '转换', 'Close':'收盘价', 'rate': '涨跌幅', 'acc_rate': '累计涨跌幅', 'acc_day':'累计涨跌天数'}
   result.rename(columns=new_columns, inplace=True)
 
+  # add extra columns
   result['支撑'] = ''
   result['阻挡'] = ''
   result['操作'] = ''
   result['备注'] = ''
-  
-  print(df.index.max(), len(df))
 
+  # save result to files
   if is_save:
     result.to_excel(save_path+file_name)
 
