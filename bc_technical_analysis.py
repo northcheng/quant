@@ -787,7 +787,7 @@ def cal_ichimoku(df, method='original'):
   return df
 
 
-def cal_ichimoku_status(df, is_save=False, file_name='ichimoku_status.xslx', save_path='drive/My Drive/ichimoku/'):
+def cal_ichimoku_status(df, is_save=False, file_name='ichimoku_status.xlsx', save_path='drive/My Drive/ichimoku/'):
   """
   Calculate relationship between close price and ichimoku indicators
 
