@@ -1020,7 +1020,7 @@ def plot_ichimoku_and_mr(df, std_multiple=2, start_date=None, end_date=None, tit
   ichimoku_plot.fill_between(plot_data.index, plot_data.senkou_a, plot_data.senkou_b, where=plot_data.senkou_a <= plot_data.senkou_b, facecolor='red', interpolate=True, alpha=0.6)
 
   # legend and title
-  ichimoku_plot.legend()  
+  ichimoku_plot.legend(loc='upper left')  
   ichimoku_plot.set_title(title)  
 
   # Mean reversion plot
@@ -1028,7 +1028,7 @@ def plot_ichimoku_and_mr(df, std_multiple=2, start_date=None, end_date=None, tit
   mr_dims = [x for x in plot_data.columns if '_bias' in x] + ['upper', 'lower']
   for dim in mr_dims:
     mean_reversion_plot.plot(plot_data.index, plot_data[dim])
-  mean_reversion_plot.legend(loc='best')
+  mean_reversion_plot.legend(loc='upper left')
 
   plt.tight_layout() 
 
