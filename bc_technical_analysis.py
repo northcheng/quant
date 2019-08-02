@@ -665,6 +665,9 @@ def plot_moving_average(df, short_ma_col, long_ma_col, price_col, window_size, s
 
 
 #----------------------------- technical indicators --------------------------------#
+#----------------------------- trend indicators ------------------------------------#
+# def cal_adx_signal()
+
 def cal_macd_signal(df, n_fast=50, n_slow=105):
   """
   Calculate MACD(Moving Average Convergence Divergence) signals
@@ -682,31 +685,6 @@ def cal_macd_signal(df, n_fast=50, n_slow=105):
   df.rename(columns={'signal': 'macd_signal'}, inplace=True)
 
   return df[['macd_signal']]   
-
-
-def cal_rsi_signal(df, n=14, up=70, low=30):
-  """
-  Calculate RSI(Relative Strength Index) signals
-
-  :param df: original OHLCV dataframe
-  :param n: windowsize
-  :param up: up boundary
-  :param low: low boundary
-  :returns: rsi signal
-  :raises: none
-  """
-  # divergence / failed swing not implemented
-  # only implemented up/low bound
-  df = df.copy()
-  df['rsi'] = ta.rsi(close=df.Close, n=n)
-  df['rsi_signal'] = 'n'
-  over_buy_idx = df.query('rsi > %(up)s' % dict(up=up)).index
-  over_sell_idx = df.query('rsi < %(low)s' % dict(low=low)).index
-
-  df.loc[over_buy_idx, 'rsi_signal'] = 's'
-  df.loc[over_sell_idx, 'rsi_signal'] = 'b'
-
-  return df[['rsi_signal']]
 
 
 def cal_aroon_signal(df, up=90, low=10):
@@ -754,6 +732,33 @@ def cal_cci_signal(df, up=200, low=-200):
 
   return df[['cci_signal']]
 
+
+def cal_rsi_signal(df, n=14, up=70, low=30):
+  """
+  Calculate RSI(Relative Strength Index) signals
+
+  :param df: original OHLCV dataframe
+  :param n: windowsize
+  :param up: up boundary
+  :param low: low boundary
+  :returns: rsi signal
+  :raises: none
+  """
+  # divergence / failed swing not implemented
+  # only implemented up/low bound
+  df = df.copy()
+  df['rsi'] = ta.rsi(close=df.Close, n=n)
+  df['rsi_signal'] = 'n'
+  over_buy_idx = df.query('rsi > %(up)s' % dict(up=up)).index
+  over_sell_idx = df.query('rsi < %(low)s' % dict(low=low)).index
+
+  df.loc[over_buy_idx, 'rsi_signal'] = 's'
+  df.loc[over_sell_idx, 'rsi_signal'] = 'b'
+
+  return df[['rsi_signal']]
+
+
+# def cal_dpo_signal()
 
 def cal_ichimoku(df, method='original'):
   """
@@ -989,6 +994,78 @@ def cal_kst_signal(df):
   df['kst_signal'] = cal_crossover_signal(df=df, fast_line='kst', slow_line='kst_sig')
   
   return df[['kst_signal']]
+
+
+# def cal_mi_signal()
+
+
+# def cal_trix_siganl()
+
+
+def cal_vi_signal(df):
+  """
+  Calculate Vortex Indicators
+
+  :param df: original OHLCV dataframe
+  :returns: vortex signal
+  :raises: none
+  """
+  # copy dataframe
+  df = df.copy()
+  
+  # calculate vortex indicators
+  df['vi_pos'] = ta.vortex_indicator_pos(high=df.High, low=df.Low, close=df.Close)
+  df['vi_neg'] = ta.vortex_indicator_neg(high=df.High, low=df.Low, close=df.Close)
+  
+  # calculate vortex signal
+  df['signal']= cal_crossover_signal(df=df, fast_line='vi_pos', slow_line='vi_neg')
+
+  return df[['signal']]
+
+
+#----------------------------- volume indicators -----------------------------------#
+# def cal_adi_signal()
+
+
+# def cal_cmf_signal(df):
+
+
+def cal_eom_signal(df):
+  """
+  Calculate Ease of movement signal
+
+  :param df: original OHLCV dataframe
+  :returns: eom signal
+  :raises: none
+  """
+
+  # copy dataframe
+  df = df.copy()
+
+  # calculate eom indicator and signal
+  df['eom'] = ta.ease_of_movement(high=df.High, low=df.Low, close=df.Close, volume=df.Volume)
+  df['zero'] = 0
+  df['signal'] = cal_crossover_signal(df=df, fast_line='eom', slow_line='zero')
+  
+  return df[['signal']]
+
+
+# def cal_fi()
+
+
+# def cal_nvi_signal()
+
+
+# def cal_obv_signal()
+
+
+# def cal_vpt_signal()
+
+
+#----------------------------- momentum indicators ---------------------------------#
+
+
+#----------------------------- volatility indicators -------------------------------#
 
 
 #----------------------------- Indicator visualization -----------------------------#
