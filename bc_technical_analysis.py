@@ -345,13 +345,13 @@ def plot_signal(df, signal_col, price_col='Close', pos_signal='b', neg_signal='s
   ax = plt.gca()
 
   # plot price
-  ax.plot(df.index, df[price_col], color='black')
+  ax.plot(df.index, df[price_col], label=price_col, color='black')
 
   # plot signals
   positive_signal = df.query('%(signal)s == "%(pos_signal)s"' % dict(signal=signal_col, pos_signal=pos_signal))
   negative_signal = df.query('%(signal)s == "%(neg_signal)s"' % dict(signal=signal_col, neg_signal=neg_signal))
-  ax.scatter(positive_signal.index, positive_signal[price_col], marker='^', color='green', alpha=0.6)
-  ax.scatter(negative_signal.index, negative_signal[price_col], marker='v', color='red', alpha=0.6)
+  ax.scatter(positive_signal.index, positive_signal[price_col], label='%s' % pos_signal, marker='^', color='green', alpha=0.6)
+  ax.scatter(negative_signal.index, negative_signal[price_col], label='%s' % neg_signal, marker='v', color='red', alpha=0.6)
 
   # legend and title
   plt.legend()  
