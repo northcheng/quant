@@ -401,24 +401,39 @@ def cal_peak_trough(df, target_col, result_col='signal', peak_signal='p', trough
     # get all peak/trough signals
     peak = df.query('%(r)s == "%(p)s"' % dict(r=result_col, p=peak_signal)).index.tolist()
     trough = df.query('%(r)s == "%(t)s"' % dict(r=result_col, t=trough_signal)).index.tolist()
-
+        
+    # peak/trough that not qualified
+    false_peak = []
+    false_trough = []
+    
     # filter peak signals
-    for i in range(1, len(peak)-1):
-      previous_idx = peak[i-1]
+    for i in range(len(peak)):
       current_idx = peak[i]
-      next_idx = peak[i+1]
-
-      if df.loc[current_idx, target_col] < ((df.loc[previous_idx, target_col]+df.loc[next_idx, target_col])/2):
-        df.loc[current_idx, result_col] = none_signal
-
+      benchmark = 0
+      
+      # the peak is not qualified if it is lower that the average of previous 2 troughs
+      previous_troughs = df[:current_idx].query('%(r)s == "%(t)s"' % dict(r=result_col, t=trough_signal)).tail(2)
+      if len(previous_troughs) > 0:
+        benchmark = previous_troughs[target_col].mean()
+      
+      if df.loc[current_idx, target_col] < benchmark:
+        false_peak.append(current_idx)
+        
     # filter trough signals
-    for i in range(1, len(trough)-1):        
-      previous_idx = trough[i-1]
+    for i in range(len(trough)):        
       current_idx = trough[i]
-      next_idx = trough[i+1]
+      benchmark = 0
 
-      if df.loc[current_idx, target_col] > ((df.loc[previous_idx, target_col]+df.loc[next_idx, target_col])/2):
-        df.loc[current_idx, result_col] = none_signal
+      # the trough is not qualified if it is lower that the average of previous 2 peaks
+      previous_peaks = df[:current_idx].query('%(r)s == "%(p)s"' % dict(r=result_col, p=peak_signal)).tail(2)
+      if len(previous_peaks) > 0:
+        benchmark = previous_peaks[target_col].mean()
+      
+      if df.loc[current_idx, target_col] > benchmark:
+        false_trough.append(current_idx)
+          
+    df.loc[false_peak, result_col] = none_signal
+    df.loc[false_trough, result_col] = none_signal
 
   return df[[result_col]]
   
