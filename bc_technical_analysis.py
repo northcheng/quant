@@ -358,7 +358,7 @@ def plot_signal(df, signal_col, price_col='Close', pos_signal='b', neg_signal='s
   plt.title(title)
 
 
-#----------------------------- Support/Resistant -----------------------------------#
+#----------------------------- Support/resistant -----------------------------------#
 def cal_peak_trough(df, target_col, result_col='signal', peak_signal='p', trough_signal='t', none_signal='n', further_filter=True):
   """
   Calculate the position (signal) of the peak/trough of the target column
@@ -389,7 +389,7 @@ def cal_peak_trough(df, target_col, result_col='signal', peak_signal='p', trough
   df.loc[peaks, result_col] = peak_signal
   df.loc[troughs, result_col] = trough_signal
 
-  # shift the signal back 1 unit
+  # shift the signal back by 1 unit
   df[result_col] = df[result_col].shift(-1)
 
   # remove redundant signals
@@ -438,7 +438,7 @@ def cal_peak_trough(df, target_col, result_col='signal', peak_signal='p', trough
   return df[[result_col]]
   
 
-#----------------------------- mean reversion --------------------------------------#
+#----------------------------- Mean reversion --------------------------------------#
 def cal_mean_reversion(df, target_col, window_size=100, start_date=None, end_date=None, window_type='sm'):
   """
   Calculate (current value - moving avg) / moving std
@@ -585,7 +585,7 @@ def plot_mean_reversion(df, std_multiple, window_size, start_date=None, end_date
   plt.title(title)
 
 
-#----------------------------- moving average --------------------------------------#
+#----------------------------- Moving average --------------------------------------#
 def cal_moving_average(df, target_col, ma_windows=[50, 105], start_date=None, end_date=None, window_type='em'):
   """
   Calculate moving average of the tarhet column with specific window size
@@ -679,8 +679,7 @@ def plot_moving_average(df, short_ma_col, long_ma_col, price_col, window_size, s
   plt.legend(loc='best')
 
 
-#----------------------------- technical indicators --------------------------------#
-#----------------------------- trend indicators ------------------------------------#
+#----------------------------- TA trend indicators ---------------------------------#
 # def cal_adx_signal()
 
 def cal_macd_signal(df, n_fast=50, n_slow=105):
@@ -1038,7 +1037,7 @@ def cal_vi_signal(df):
   return df[['signal']]
 
 
-#----------------------------- volume indicators -----------------------------------#
+#----------------------------- TA volume indicators --------------------------------#
 # def cal_adi_signal()
 
 
@@ -1077,10 +1076,10 @@ def cal_eom_signal(df):
 # def cal_vpt_signal()
 
 
-#----------------------------- momentum indicators ---------------------------------#
+#----------------------------- TA momentum indicators ------------------------------#
 
 
-#----------------------------- volatility indicators -------------------------------#
+#----------------------------- TA volatility indicators ----------------------------#
 
 
 #----------------------------- Indicator visualization -----------------------------#
