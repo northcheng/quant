@@ -1258,7 +1258,6 @@ def plot_multiple_indicators(df, args={'name': ['ichimoku', 'mean_reversion'], '
     axes[tmp_indicator] = plt.subplot(gs[i]) 
 
     if tmp_indicator == 'ichimoku':
-      print(' ')
       plot_ichimoku(df=plot_data, title=tmp_indicator, use_ax=axes[tmp_indicator])
 
     elif tmp_indicator == 'mean_reversion':
@@ -1269,34 +1268,26 @@ def plot_multiple_indicators(df, args={'name': ['ichimoku', 'mean_reversion'], '
     elif tmp_indicator == 'moving_average':
       short_ma_col = tmp_args.get('short_ma_col')
       long_ma_col = tmp_args.get('long_ma_col')
-      print(short_ma_col, long_ma_col)
-      plot_moving_average(df=plot_data, short_ma_col=short_ma_col, long_ma_col=long_ma_col)
+      plot_moving_average(df=plot_data, short_ma_col=short_ma_col, long_ma_col=long_ma_col, use_ax=axes[tmp_indicator])
 
     else:
       print(' ')
 
 
-    if i < (num_indicators-1):
-      axes[tmp_indicator].set_xticks([])  
-  # # # Ichimoku plot
-  # # ichimoku_plot = plt.subplot(gs[0]) 
-  # # plot_ichimoku(df=plot_data, title=title, use_ax=ichimoku_plot)
-
-  # # Mean reversion plot
-  # # mean_reversion_plot = plt.subplot(gs[1], sharex=ichimoku_plot) 
-  # # plot_mean_reversion(df=plot_data, std_multiple=std_multiple, use_ax=mean_reversion_plot)
+    # if i < (num_indicators-1):
+    #   axes[tmp_indicator].set_xticks([])  
 
   # adjust plot layout
   plt.tight_layout() 
   plt.title(title)
 
-  # # save image
-  # if save_path is not None:
-  #   plt.savefig(save_path + title + '.png')
+  # save image
+  if save_path is not None:
+    plt.savefig(save_path + title + '.png')
     
-  # # close image
-  # if not show_image:
-  #   plt.close(fig)
+  # close image
+  if not show_image:
+    plt.close(fig)
 
 #----------------------------- Candlesticks ----------------------------------------#
 def add_candle_dims_for_df(df):
