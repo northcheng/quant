@@ -319,45 +319,6 @@ def remove_redundant_signal(df, signal_col='signal', keep='first', pos_signal='b
   return df
 
 
-def plot_signal(df, signal_col, price_col='Close', pos_signal='b', neg_signal='s', none_signal='n', start=None, end=None, title=None, figsize=(20, 5)):
-  """
-  Plot signals along with the price
-
-  :param df: dataframe with price and signal columns
-  :param signal_col: columnname of the signal values
-  :param price_col: columnname of the price values
-  :param keep: which one to keep: first/last
-  :param pos_signal: the value of positive signal
-  :param neg_siganl: the value of negative signal
-  :param none_signal: the value of none signal
-  :param start: start row to plot
-  :param end: end row to stop
-  :param title: plot title
-  :param figsize: figsize
-  :returns: a signal plotted price chart
-  :raises: none
-  """
-  # copy dataframe within the specific period
-  df = df[start:end]
-
-  # create figure
-  fig = plt.figure(figsize=figsize)
-  ax = plt.gca()
-
-  # plot price
-  ax.plot(df.index, df[price_col], label=price_col, color='black')
-
-  # plot signals
-  positive_signal = df.query('%(signal)s == "%(pos_signal)s"' % dict(signal=signal_col, pos_signal=pos_signal))
-  negative_signal = df.query('%(signal)s == "%(neg_signal)s"' % dict(signal=signal_col, neg_signal=neg_signal))
-  ax.scatter(positive_signal.index, positive_signal[price_col], label='%s' % pos_signal, marker='^', color='green', alpha=0.6)
-  ax.scatter(negative_signal.index, negative_signal[price_col], label='%s' % neg_signal, marker='v', color='red', alpha=0.6)
-
-  # legend and title
-  plt.legend()  
-  plt.title(title)
-
-
 #----------------------------- Support/resistant -----------------------------------#
 def cal_peak_trough(df, target_col, result_col='signal', peak_signal='p', trough_signal='t', none_signal='n', further_filter=True):
   """
@@ -550,50 +511,6 @@ def cal_mean_reversion_expected_rate(df, rate_col, window_size, std_multiple):
   return result
 
 
-def plot_mean_reversion(df, std_multiple, start_date=None, end_date=None, title='', use_ax=None):
-  """
-  Plot mean reversion charts
-
-  :param df: original dataframe which contains plot data
-  :param std_multiple: the multiple of moving std to triger signals
-  :param start_date: start date of plot data
-  :param end_date: end date of plot data
-  :param title: title of the plot
-  :param use_ax: the already-created ax to draw on
-  :returns: plot of mean-reversion
-  :raises: none
-  """
-  
-  # columns to be plotted
-  plot_dims = [x for x in df.columns if '_bias' in x]
-  
-  # rows to be plotted
-  df = df[plot_dims][:end_date]
-
-  # plot boundaries
-  df['upper'] = std_multiple
-  df['lower'] = -std_multiple
-  plot_dims += ['upper', 'lower']
-
-  # create figure
-  ax = use_ax
-  if ax is None:
-    fig = plt.figure(figsize=(20, 5))
-    ax = plt.gca()
-
-  # plot signals
-  for dim in plot_dims:
-    ax.plot(df.index, df[dim], label=dim)
-
-  # plot legend and title
-  ax.legend(loc='upper left')
-  ax.set_title(title)
-
-  # return ax
-  if use_ax is not None:
-    return ax
-
-
 #----------------------------- Moving average --------------------------------------#
 def cal_moving_average(df, target_col, ma_windows=[50, 105], start_date=None, end_date=None, window_type='em'):
   """
@@ -654,50 +571,6 @@ def cal_moving_average_signal(df, target_col='Close', ma_windows=[50, 105], star
     df[result_col] = cal_crossover_signal(df=df, fast_line=short_ma_col, slow_line=long_ma_col, result_col=result_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal)
 
   return df[result_col]
-
-
-def plot_moving_average(df, short_ma_col, long_ma_col, price_col, start_date=None, end_date=None, title='', use_ax=None):
-  """
-  Plot moving average chart
-
-  :param df: original dataframe which contains ma columns
-  :param short_ma_col: columnname of the short ma
-  :param long_ma_col: columnname of the long ma
-  :param price_col: columnname of the price
-  :param start_date: start date of the data
-  :param end_date: end date of the data
-  :param title: title of the plot
-  :param use_ax: the already-created ax to draw on
-  :returns: plot of moving average
-  :raises: none
-  """
-  # columns to be plotted
-  plot_dims = ['Close']
-  if long_ma_col not in df.columns or short_ma_col not in df.columns:
-    print("%(short)s or %(long)s on %(dim)s not found" % dict(short=short_ma_col, long=long_ma_col, dim=dim))
-  else:
-    plot_dims += [long_ma_col, short_ma_col]
-
-  # select data
-  df = df[plot_dims][start_date:end_date]
-
-  # create figure
-  ax = use_ax
-  if ax is None:
-    fig = plt.figure(figsize=(20, 5))
-    ax = plt.gca()
-
-  # plot signals
-  for dim in plot_dims:
-    ax.plot(df.index, df[dim], label=dim)
-
-  # plot legend and title
-  ax.legend(loc='upper left')
-  ax.set_title(title)
-
-  # return ax
-  if use_ax is not None:
-    return ax
 
 
 #----------------------------- TA trend indicators ---------------------------------#
@@ -963,62 +836,6 @@ def cal_ichimoku_signal(df, final_signal_threshold=2):
   return df[['ichimoku_signal']]
   
 
-def plot_ichimoku(df, start=None, end=None, signal_col=None, title=None, save_path=None, use_ax=None):
-  """
-  Plot ichimoku chart
-
-  :param df: dataframe with ichimoku indicator columns
-  :param start: start row to plot
-  :param end: end row to plot
-  :param signal_col: columnname of signal values
-  :param title: title of the plot
-  :param save_path: path to save the plot
-  :returns: ichimoku plot
-  :raises: none
-  """
-  # copy dataframe within a specific period
-  df = df[start:end]
-
-  # create figure
-  ax = use_ax
-  if ax is None:
-    fig = plt.figure(figsize=(20, 5))
-    ax = plt.gca()
-
-  # plot price
-  ax.plot(df.index, df.Close, color='black')
-
-  # plot kijun/tankan lines
-  ax.plot(df.index, df.tankan, color='magenta', linestyle='-.')
-  ax.plot(df.index, df.kijun, color='blue', linestyle='-.')
-
-  # plot senkou lines
-  ax.plot(df.index, df.senkou_a, color='green')
-  ax.plot(df.index, df.senkou_b, color='red')
-
-  # plot clouds
-  ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a > df.senkou_b, facecolor='green', interpolate=True, alpha=0.6)
-  ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a <= df.senkou_b, facecolor='red', interpolate=True, alpha=0.6)
-
-  # plot signals
-  if signal_col is not None:
-    if signal_col in df.columns.tolist():
-      buy_signal = df.query('%s == "b"' % signal_col)
-      sell_signal = df.query('%s == "s"' % signal_col)
-      ax.scatter(buy_signal.index, buy_signal.Close, marker='^', color='green', )
-      ax.scatter(sell_signal.index, sell_signal.Close, marker='v', color='red', )
-
-  plt.legend(loc='upper left')  
-  plt.title(title)
-
-  # save image
-  if save_path is not None:
-    plt.savefig(save_path + title + '.png')
-
-  if use_ax is not None:
-    return ax
-
-
 def cal_kst_signal(df):
   """
   Calculate kst signal
@@ -1109,6 +926,197 @@ def cal_eom_signal(df):
 
 
 #----------------------------- Indicator visualization -----------------------------#
+def plot_signal(df, signal_col='signal', price_col='Close', pos_signal='b', neg_signal='s', none_signal='n', start=None, end=None, title=None, figsize=(20, 5), use_ax=None):
+  """
+  Plot signals along with the price
+
+  :param df: dataframe with price and signal columns
+  :param signal_col: columnname of the signal values
+  :param price_col: columnname of the price values
+  :param keep: which one to keep: first/last
+  :param pos_signal: the value of positive signal
+  :param neg_siganl: the value of negative signal
+  :param none_signal: the value of none signal
+  :param start: start row to plot
+  :param end: end row to stop
+  :param title: plot title
+  :param figsize: figsize
+  :param use_ax: the already-created ax to draw on
+  :returns: a signal plotted price chart
+  :raises: none
+  """
+  # copy dataframe within the specific period
+  df = df[start:end]
+
+  # create figure
+  ax = use_ax
+  if ax is None:
+    fig = plt.figure(figsize=figsize)
+    ax = plt.gca()
+
+  # plot price
+  ax.plot(df.index, df[price_col], label=price_col, color='black')
+
+  # plot signals
+  positive_signal = df.query('%(signal)s == "%(pos_signal)s"' % dict(signal=signal_col, pos_signal=pos_signal))
+  negative_signal = df.query('%(signal)s == "%(neg_signal)s"' % dict(signal=signal_col, neg_signal=neg_signal))
+  ax.scatter(positive_signal.index, positive_signal[price_col], label='%s' % pos_signal, marker='^', color='green', alpha=0.6)
+  ax.scatter(negative_signal.index, negative_signal[price_col], label='%s' % neg_signal, marker='v', color='red', alpha=0.6)
+
+  # legend and title
+  ax.legend(loc='upper left')  
+  ax.set_title(title)
+
+  # return ax
+  if use_ax is not None:
+    return ax
+
+
+def plot_mean_reversion(df, std_multiple=2, start=None, end=None, title=None, , figsize=(20, 5), use_ax=None):
+  """
+  Plot mean reversion charts
+
+  :param df: original dataframe which contains plot data
+  :param std_multiple: the multiple of moving std to triger signals
+  :param start: start date of plot data
+  :param end: end date of plot data
+  :param title: title of the plot
+  :param figsize: figsize
+  :param use_ax: the already-created ax to draw on
+  :returns: plot of mean-reversion
+  :raises: none
+  """
+  
+  # columns to be plotted
+  plot_dims = [x for x in df.columns if '_bias' in x]
+  
+  # rows to be plotted
+  df = df[plot_dims][start:end]
+
+  # plot boundaries
+  df['upper'] = std_multiple
+  df['lower'] = -std_multiple
+  plot_dims += ['upper', 'lower']
+
+  # create figure
+  ax = use_ax
+  if ax is None:
+    fig = plt.figure(figsize=figsize)
+    ax = plt.gca()
+
+  # plot signals
+  for dim in plot_dims:
+    ax.plot(df.index, df[dim], label=dim)
+
+  # plot legend and title
+  ax.legend(loc='upper left')
+  ax.set_title(title)
+
+  # return ax
+  if use_ax is not None:
+    return ax
+
+
+def plot_moving_average(df, short_ma_col, long_ma_col, price_col='Close', start=None, end=None, title=None, figsize=(20, 5), use_ax=None):
+  """
+  Plot moving average chart
+
+  :param df: original dataframe which contains ma columns
+  :param short_ma_col: columnname of the short ma
+  :param long_ma_col: columnname of the long ma
+  :param price_col: columnname of the price
+  :param start: start date of the data
+  :param end: end date of the data
+  :param title: title of the plot
+  :param figsize: figsize
+  :param use_ax: the already-created ax to draw on
+  :returns: plot of moving average
+  :raises: none
+  """
+  # columns to be plotted
+  plot_dims = ['Close']
+  plot_dims += [long_ma_col, short_ma_col]
+
+  # rows to be plotted
+  df = df[plot_dims][start:end]
+
+  # create figure
+  ax = use_ax
+  if ax is None:
+    fig = plt.figure(figsize=figsize)
+    ax = plt.gca()
+
+  # plot signals
+  for dim in plot_dims:
+    ax.plot(df.index, df[dim], label=dim)
+
+  # plot legend and title
+  ax.legend(loc='upper left')
+  ax.set_title(title)
+
+  # return ax
+  if use_ax is not None:
+    return ax
+
+
+def plot_ichimoku(df, signal_col='signal', price_col='Close', start=None, end=None, save_path=None, title=None, figsize=(20, 5), use_ax=None):
+  """
+  Plot ichimoku chart
+
+  :param df: dataframe with ichimoku indicator columns
+  :param signal_col: columnname of signal values
+  :param price_col: columnname of the price
+  :param start: start row to plot
+  :param end: end row to plot
+  :param save_path: path to save the plot
+  :param title: title of the plot
+  :param figsize: figsize
+  :returns: ichimoku plot
+  :raises: none
+  """
+  # copy dataframe within a specific period
+  df = df[start:end]
+
+  # create figure
+  ax = use_ax
+  if ax is None:
+    fig = plt.figure(figsize=figsize)
+    ax = plt.gca()
+
+  # plot price
+  ax.plot(df.index, df.Close, color='black')
+
+  # plot kijun/tankan lines
+  ax.plot(df.index, df.tankan, color='magenta', linestyle='-.')
+  ax.plot(df.index, df.kijun, color='blue', linestyle='-.')
+
+  # plot senkou lines
+  ax.plot(df.index, df.senkou_a, color='green')
+  ax.plot(df.index, df.senkou_b, color='red')
+
+  # plot clouds
+  ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a > df.senkou_b, facecolor='green', interpolate=True, alpha=0.6)
+  ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a <= df.senkou_b, facecolor='red', interpolate=True, alpha=0.6)
+
+  # plot signals
+  if signal_col is not None:
+    if signal_col in df.columns.tolist():
+      buy_signal = df.query('%s == "b"' % signal_col)
+      sell_signal = df.query('%s == "s"' % signal_col)
+      ax.scatter(buy_signal.index, buy_signal.Close, marker='^', color='green', )
+      ax.scatter(sell_signal.index, sell_signal.Close, marker='v', color='red', )
+
+  ax.legend(loc='upper left')  
+  ax.set_title(title)
+
+  # save image
+  if save_path is not None:
+    plt.savefig(save_path + title + '.png')
+
+  if use_ax is not None:
+    return ax
+
+
 def plot_indicator_around_benchmark(df, target_col, benchmark=0, title=None, start_date=None, end_date=None, color_mode='up_down', plot_close=True, figsize=(20, 5)):
   """
   Plot indicators around a benchmark
@@ -1233,6 +1241,8 @@ def plot_ichimoku_and_mr(df, std_multiple=2, start_date=None, end_date=None, tit
   if not show_image:
     plt.close(fig)
 
+
+# def plot_multiple_indicators(df, indicators, start_date=None, end_date=None, title=None, save_path=None, show_image=False)
 #----------------------------- Candlesticks ----------------------------------------#
 def add_candle_dims_for_df(df):
   """
