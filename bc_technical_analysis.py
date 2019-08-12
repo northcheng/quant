@@ -1245,7 +1245,7 @@ def plot_multiple_indicators(df, args={'name': ['ichimoku', 'mean_reversion'], '
       plot_indicator(df=plot_data, target_col=target_col, benchmark=benchmark, color_mode=color_mode, title=tmp_indicator, use_ax=axes[tmp_indicator])
 
   # adjust plot layout
-  plt.tight_layout() 
+  fig.tight_layout() 
   fig.suptitle(title, x=xp, y=yp)
 
   # save image
