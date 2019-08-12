@@ -1155,21 +1155,23 @@ def plot_indicator(df, target_col, price_col='Close', start=None, end=None, benc
   # plot colro bars if there is only one indicator to plot
   if len(target_col) == 1:
 
+    tar = target_col[0]
+
     # plot in up_down mode
     if color_mode == 'up_down':  
       df['color'] = 'red'
-      previous_target_col = 'previous_'+target_col
-      df[previous_target_col] = df[target_col].shift(1)
-      df.loc[df[target_col] > df[previous_target_col], 'color'] = 'green'
+      previous_target_col = 'previous_' + tar
+      df[previous_target_col] = df[tar].shift(1)
+      df.loc[df[tar] > df[previous_target_col], 'color'] = 'green'
 
     # plot in benchmark mode
     elif color_mode == 'benchmark':
       df['color'] = 'red'
-      df.loc[df[target_col] > benchmark, 'color'] = 'green'
+      df.loc[df[tar] > benchmark, 'color'] = 'green'
       
     # plot indicator
     if 'color' in df.columns:
-      ax.bar(df.index, height=df[target_col], color=df.color, alpha=0.5)
+      ax.bar(df.index, height=df[tar], color=df.color, alpha=0.5)
 
   # plot close price
   if price_col in df.columns:
