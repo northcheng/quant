@@ -1187,11 +1187,6 @@ def plot_indicator_around_benchmark(df, target_col, price_col='Close', benchmark
   ax.legend(loc='upper left') 
   ax.set_title(title)
 
-  # plot close price
-  if price_col in df.columns:
-    ax2=ax.twinx()
-    ax2.plot(df.Close, color='blue')
-
   # plot in up_down mode
   if color_mode == 'up_down':  
     df['color'] = 'red'
@@ -1212,6 +1207,11 @@ def plot_indicator_around_benchmark(df, target_col, price_col='Close', benchmark
 
   # plot indicator
   ax.bar(df.index, height=df[target_col], color=df.color, alpha=0.5)
+
+  # plot close price
+  if price_col in df.columns:
+    ax2=ax.twinx()
+    ax2.plot(df.Close, color='blue')
 
   # return ax
   if use_ax is not None:
