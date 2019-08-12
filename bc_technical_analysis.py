@@ -1163,7 +1163,6 @@ def plot_indicator(df, target_col, price_col='Close', start=None, end=None, benc
     
   else:
     print('Unknown Color Mode')
-    return None
 
   # plot indicator
   ax.bar(df.index, height=df[target_col], color=df.color, alpha=0.5)
@@ -1181,7 +1180,7 @@ def plot_indicator(df, target_col, price_col='Close', start=None, end=None, benc
     return ax
 
 
-def plot_multiple_indicators(df, args={'name': ['ichimoku', 'mean_reversion'], 'mean_reversion': {'std_multiple': 2}}, start=None, end=None, title=None, save_path=None, show_image=False, x=0, y=0):
+def plot_multiple_indicators(df, args={'name': ['ichimoku', 'mean_reversion'], 'mean_reversion': {'std_multiple': 2}}, start=None, end=None, title=None, save_path=None, show_image=False):
   """
   Plot Ichimoku and mean reversion in a same plot
 
@@ -1228,11 +1227,14 @@ def plot_multiple_indicators(df, args={'name': ['ichimoku', 'mean_reversion'], '
       plot_moving_average(df=plot_data, short_ma_col=short_ma_col, long_ma_col=long_ma_col, title=tmp_indicator, use_ax=axes[tmp_indicator])
 
     else:
-      print(' ') 
+      target_col = tmp_args.get('target_col')
+      benchmark = tmp_args.get('benchmark')
+      color_mode = tmp_args.get('color_mode')
+      plot_indicator(df=plot_data, target_col=target_col, benchmark=benchmark, color_mode=color_mode, title=tmp_indicator, use_ax=axes[tmp_indicator])
 
   # adjust plot layout
   plt.tight_layout() 
-  fig.suptitle(title, x=x, y=y)
+  fig.suptitle(title, x=1, y=1)
 
   # save image
   if save_path is not None:
