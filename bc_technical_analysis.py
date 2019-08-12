@@ -1145,7 +1145,7 @@ def plot_indicator(df, target_col, price_col='Close', start=None, end=None, benc
     ax = fig.add_subplot(111)
 
   # plot benchmark
-  if benckmark is not None:
+  if benchmark is not None:
     df['benchmark'] = benchmark
     ax.plot(df.index, df['benchmark'], color='black')
 
