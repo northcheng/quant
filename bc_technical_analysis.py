@@ -556,10 +556,10 @@ def plot_mean_reversion(df, std_multiple, start_date=None, end_date=None, title=
 
   :param df: original dataframe which contains plot data
   :param std_multiple: the multiple of moving std to triger signals
-  :param window_size: window_size of the data to plot
   :param start_date: start date of plot data
   :param end_date: end date of plot data
   :param title: title of the plot
+  :param use_ax: the already-created ax to draw on
   :returns: plot of mean-reversion
   :raises: none
   """
@@ -656,7 +656,7 @@ def cal_moving_average_signal(df, target_col='Close', ma_windows=[50, 105], star
   return df[result_col]
 
 
-def plot_moving_average(df, short_ma_col, long_ma_col, price_col, window_size, start_date=None, end_date=None):
+def plot_moving_average(df, short_ma_col, long_ma_col, price_col, start_date=None, end_date=None, title='', use_ax=None):
   """
   Plot moving average chart
 
@@ -664,9 +664,10 @@ def plot_moving_average(df, short_ma_col, long_ma_col, price_col, window_size, s
   :param short_ma_col: columnname of the short ma
   :param long_ma_col: columnname of the long ma
   :param price_col: columnname of the price
-  :param window_size: window size of the data to be plotted
   :param start_date: start date of the data
   :param end_date: end date of the data
+  :param title: title of the plot
+  :param use_ax: the already-created ax to draw on
   :returns: plot of moving average
   :raises: none
   """
@@ -677,15 +678,26 @@ def plot_moving_average(df, short_ma_col, long_ma_col, price_col, window_size, s
   else:
     plot_dims += [long_ma_col, short_ma_col]
 
-  # create figure
-  plt.figure()
-
   # select data
-  df = df[plot_dims][start_date:end_date].tail(window_size)
+  df = df[plot_dims][start_date:end_date]
 
-  # plot data
-  df.plot(figsize=(20, 3))
-  plt.legend(loc='best')
+  # create figure
+  ax = use_ax
+  if ax is None:
+    fig = plt.figure(figsize=(20, 5))
+    ax = plt.gca()
+
+  # plot signals
+  for dim in plot_dims:
+    ax.plot(df.index, df[dim], label=dim)
+
+  # plot legend and title
+  ax.legend(loc='upper left')
+  ax.set_title(title)
+
+  # return ax
+  if use_ax is not None:
+    return ax
 
 
 #----------------------------- TA trend indicators ---------------------------------#
@@ -1191,13 +1203,12 @@ def plot_ichimoku_and_mr(df, std_multiple=2, start_date=None, end_date=None, tit
   :param end_date: end_date of the data
   :param title: title of the figure
   :param save_path: path where the figure will be saved to
+  :param use_ax: the already-created ax to draw on
   :returns: plot
   :raises: none
   """
   # select plot data
   plot_data = df[start_date:end_date].copy()
-  # plot_data['upper'] = std_multiple
-  # plot_data['lower'] = -std_multiple
 
   # create figures
   fig = plt.figure(figsize=(20, 6))
@@ -1206,33 +1217,12 @@ def plot_ichimoku_and_mr(df, std_multiple=2, start_date=None, end_date=None, tit
   # Ichimoku plot
   ichimoku_plot = plt.subplot(gs[0]) 
   plot_ichimoku(df=plot_data, title=title, use_ax=ichimoku_plot)
-  # # plot price
-  # ichimoku_plot.plot(plot_data.index, plot_data.Close, color='black')
-
-  # # plot kijun/tankan lines
-  # ichimoku_plot.plot(plot_data.index, plot_data.tankan, color='magenta', linestyle='-.')
-  # ichimoku_plot.plot(plot_data.index, plot_data.kijun, color='blue', linestyle='-.')
-
-  # # plot senkou lines
-  # ichimoku_plot.plot(plot_data.index, plot_data.senkou_a, color='green')
-  # ichimoku_plot.plot(plot_data.index, plot_data.senkou_b, color='red')
-
-  # # plot clouds
-  # ichimoku_plot.fill_between(plot_data.index, plot_data.senkou_a, plot_data.senkou_b, where=plot_data.senkou_a > plot_data.senkou_b, facecolor='green', interpolate=True, alpha=0.6)
-  # ichimoku_plot.fill_between(plot_data.index, plot_data.senkou_a, plot_data.senkou_b, where=plot_data.senkou_a <= plot_data.senkou_b, facecolor='red', interpolate=True, alpha=0.6)
-
-  # # legend and title
-  # ichimoku_plot.legend(loc='upper left')  
-  # ichimoku_plot.set_title(title)  
 
   # Mean reversion plot
   mean_reversion_plot = plt.subplot(gs[1], sharex=ichimoku_plot) 
   plot_mean_reversion(df=plot_data, std_multiple=std_multiple, use_ax=mean_reversion_plot)
-  # mr_dims = [x for x in plot_data.columns if '_bias' in x] + ['upper', 'lower']
-  # for dim in mr_dims:
-  #   mean_reversion_plot.plot(plot_data.index, plot_data[dim])
-  # mean_reversion_plot.legend(loc='upper left')
 
+  # adjust plot layout
   plt.tight_layout() 
 
   # save image
