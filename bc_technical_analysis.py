@@ -1225,6 +1225,7 @@ def plot_multiple_indicators(df, args={'name': ['ichimoku', 'mean_reversion'], '
     tmp_indicator = indicators[i]
     tmp_args = args.get(tmp_indicator)
     axes[tmp_indicator] = plt.subplot(gs[i]) 
+    axes[tmp_indicator].patch.set_alpha(0.5)
 
     if tmp_indicator == 'ichimoku':
       plot_ichimoku(df=plot_data, title=tmp_indicator, use_ax=axes[tmp_indicator])
@@ -1250,7 +1251,7 @@ def plot_multiple_indicators(df, args={'name': ['ichimoku', 'mean_reversion'], '
 
   # save image
   if save_path is not None:
-    plt.savefig(save_path + title + '.png')
+    plt.savefig(save_path + title + '.png', transparent=True)
     
   # close image
   if not show_image:
