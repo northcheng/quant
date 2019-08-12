@@ -972,7 +972,7 @@ def plot_signal(df, signal_col='signal', price_col='Close', pos_signal='b', neg_
     return ax
 
 
-def plot_mean_reversion(df, std_multiple=2, start=None, end=None, title=None, , figsize=(20, 5), use_ax=None):
+def plot_mean_reversion(df, std_multiple=2, start=None, end=None, title=None, figsize=(20, 5), use_ax=None):
   """
   Plot mean reversion charts
 
