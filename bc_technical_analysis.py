@@ -1173,7 +1173,7 @@ def plot_indicator(df, target_col, title=None, start_date=None, end_date=None, p
     ax2.plot(df.Close, color='blue' ) 
 
 
-def plot_ichimoku_and_mr(df, std_multiple=2, start_date=None, end_date=None, title=None, save_path=None):
+def plot_ichimoku_and_mr(df, std_multiple=2, start_date=None, end_date=None, title=None, save_path=None, show_image=False):
   """
   Plot Ichimoku and mean reversion in a same plot
 
@@ -1229,6 +1229,10 @@ def plot_ichimoku_and_mr(df, std_multiple=2, start_date=None, end_date=None, tit
   # save image
   if save_path is not None:
     plt.savefig(save_path + title + '.png')
+    
+  # close image
+  if not show_image:
+    plt.close(fig)
 
 #----------------------------- Candlesticks ----------------------------------------#
 def add_candle_dims_for_df(df):
