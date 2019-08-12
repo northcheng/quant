@@ -1118,54 +1118,16 @@ def plot_ichimoku(df, signal_col='signal', price_col='Close', start=None, end=No
     return ax
 
 
-def plot_indicator(df, target_col, price_col='Close', start=None, end=None, title=None, figsize=(20, 5), use_ax=None):
-  """
-  Plot indicators
-
-  :param df: dataframe which contains target columns
-  :param target_col: columnname of the target indicator
-  :param price_col: columnname of the price values
-  :param start: start date of the data
-  :param end: end of the data
-  :param title: title of the plot
-  :param figsize: figure size
-  :param use_ax: the already-created ax to draw on
-  :returns: figure with indicators and close price plotted
-  :raises: none
-  """
-  # copy dataframe  
-  df = df[start:end]
-
-  # create figure
-  ax = use_ax
-  if use_ax is None:
-    fig = plt.figure(figsize=figsize)
-    ax = fig.add_subplot(111)
-
-  # plot indicator
-  ax.plot(df[target_col], color='red', alpha=0.5)
-  ax.legend(loc='upper left') 
-  ax.set_title(title)
-
-  # plot close price
-  if price_col in df.columns:
-    ax2=ax.twinx()
-    ax2.plot(df.Close, color='blue')
-
-  if use_ax is not None:
-    return ax 
-
-
-def plot_indicator_around_benchmark(df, target_col, price_col='Close', benchmark=0, start=None, end=None, color_mode='up_down', title=None, figsize=(20, 5), use_ax=None):
+def plot_indicator(df, target_col, price_col='Close', start=None, end=None, benchmark=0, color_mode='up_down', title=None, figsize=(20, 5), use_ax=None):
   """
   Plot indicators around a benchmark
 
   :param df: dataframe which contains target columns
   :param target_col: columnname of the target indicator
   :param price_col: columnname of the price values
-  :param benchmark: benchmark, a fixed value
   :param start: start date of the data
   :param end: end of the data
+  :param benchmark: benchmark, a fixed value
   :param color_mode: which color mode to use: benckmark/up_down
   :param title: title of the plot
   :param figsize: figure size
@@ -1184,8 +1146,6 @@ def plot_indicator_around_benchmark(df, target_col, price_col='Close', benchmark
 
   # plot indicator
   ax.plot(df[target_col], color='red', alpha=0.5)
-  ax.legend(loc='upper left') 
-  ax.set_title(title)
 
   # plot in up_down mode
   if color_mode == 'up_down':  
@@ -1212,6 +1172,9 @@ def plot_indicator_around_benchmark(df, target_col, price_col='Close', benchmark
   if price_col in df.columns:
     ax2=ax.twinx()
     ax2.plot(df.Close, color='blue')
+
+  ax.legend(loc='upper left') 
+  ax.set_title(title)
 
   # return ax
   if use_ax is not None:
@@ -1259,7 +1222,65 @@ def plot_ichimoku_and_mr(df, std_multiple=2, start=None, end=None, title=None, s
     plt.close(fig)
 
 
-# def plot_multiple_indicators(df, indicators, start=None, end=None, title=None, save_path=None, show_image=False)
+def plot_multiple_indicators(df, args={'name': ['ichimoku', 'mean_reversion'], 'std_multiple': 2}, start=None, end=None, title=None, save_path=None, show_image=False):
+  """
+  Plot Ichimoku and mean reversion in a same plot
+
+  :param df: dataframe with ichimoku and mean reversion columns
+  :param std_multiple: std_multiple for mean reversion
+  :param start: start of the data
+  :param end: end of the data
+  :param title: title of the figure
+  :param save_path: path where the figure will be saved to
+  :param use_ax: the already-created ax to draw on
+  :returns: plot
+  :raises: none
+  """
+  # select plot data
+  plot_data = df[start:end].copy()
+
+  indicators = args.get('name')
+  if indicator is None or len(indicators) <= 0:
+    print('No indicator to plot')
+    return None
+
+  num_indicators = len(indicators)
+
+  # create figures
+  fig = plt.figure(figsize=(20, num_indicators*3))
+  gs = gridspec.GridSpec(num_indicators, 1, height_ratios=list(np.ones(num_indicators,dtype=np.int8)))
+
+  axes = {}
+  for i in range(num_indicators):
+    tmp_indicator = indicators[i]
+    axes[tmp_indicator] = plt.subplot(gs[i]) 
+
+    if tmp_indicator == 'ichimoku':
+      plot_ichimoku(df=plot_data, title=tmp_indicator, use_ax=axes[tmp_indicator])
+
+    if tmp_indicator == 'mean_reversion':
+      std_multiple = args.get('std_multiple')
+      plot_mean_reversion(df=plot_data, std_multiple=std_multiple, use_ax=mean_reversion_plot)
+  # # Ichimoku plot
+  # ichimoku_plot = plt.subplot(gs[0]) 
+  # plot_ichimoku(df=plot_data, title=title, use_ax=ichimoku_plot)
+
+  # Mean reversion plot
+  # mean_reversion_plot = plt.subplot(gs[1], sharex=ichimoku_plot) 
+  # plot_mean_reversion(df=plot_data, std_multiple=std_multiple, use_ax=mean_reversion_plot)
+
+  # adjust plot layout
+  plt.tight_layout() 
+  plt.title(title)
+
+  # save image
+  if save_path is not None:
+    plt.savefig(save_path + title + '.png')
+    
+  # close image
+  if not show_image:
+    plt.close(fig)
+
 #----------------------------- Candlesticks ----------------------------------------#
 def add_candle_dims_for_df(df):
   """
