@@ -1220,7 +1220,6 @@ def plot_multiple_indicators(df, args={'name': ['ichimoku', 'mean_reversion'], '
 
     elif tmp_indicator == 'mean_reversion':
       std_multiple = tmp_args.get('std_multiple')
-      print(std_multiple)
       plot_mean_reversion(df=plot_data, std_multiple=std_multiple, title=tmp_indicator, use_ax=axes[tmp_indicator])
 
     elif tmp_indicator == 'moving_average':
@@ -1233,7 +1232,7 @@ def plot_multiple_indicators(df, args={'name': ['ichimoku', 'mean_reversion'], '
 
   # adjust plot layout
   plt.tight_layout() 
-  fig.suptitle(title, ha='left')
+  fig.suptitle(title, y=0.98)
 
   # save image
   if save_path is not None:
