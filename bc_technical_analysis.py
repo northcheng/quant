@@ -1271,7 +1271,8 @@ def plot_multiple_indicators(df, args={'name': ['ichimoku', 'mean_reversion'], '
       print(short_ma_col, long_ma_col)
       # plot_moving_average(df=plot_data, short_ma_col=short_ma_col, long_ma_col=long_ma_col)
 
-  #   else:
+    else:
+      print(' ')
 
 
     if i < (num_indicators-1):
