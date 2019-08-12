@@ -1241,7 +1241,7 @@ def plot_multiple_indicators(df, args={'name': ['ichimoku', 'mean_reversion'], '
       color_mode = tmp_args.get('color_mode')
       plot_indicator(df=plot_data, target_col=target_col, benchmark=benchmark, color_mode=color_mode, title=tmp_indicator, use_ax=axes[tmp_indicator])
 
-    if i % 2 == 1 and x < (num_indicators-1):
+    if i % 2 == 1 and i < (num_indicators-1):
       axes[tmp_indicator].set_xticks([])
 
   # adjust plot layout
