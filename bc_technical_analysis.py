@@ -1257,23 +1257,25 @@ def plot_multiple_indicators(df, args={'name': ['ichimoku', 'mean_reversion'], '
     print(tmp_indicator, tmp_args)
     axes[tmp_indicator] = plt.subplot(gs[i]) 
 
-  #   if tmp_indicator == 'ichimoku':
-  #     plot_ichimoku(df=plot_data, title=tmp_indicator, use_ax=axes[tmp_indicator])
+    if tmp_indicator == 'ichimoku':
+      # plot_ichimoku(df=plot_data, title=tmp_indicator, use_ax=axes[tmp_indicator])
 
-  #   elif tmp_indicator == 'mean_reversion':
-  #     std_multiple = tmp_args.get('std_multiple')
-  #     plot_mean_reversion(df=plot_data, std_multiple=std_multiple, use_ax=axes[tmp_indicator])
+    elif tmp_indicator == 'mean_reversion':
+      std_multiple = tmp_args.get('std_multiple')
+      print(std_multiple)
+      # plot_mean_reversion(df=plot_data, std_multiple=std_multiple, use_ax=axes[tmp_indicator])
 
-  #   elif tmp_indicator == 'moving_average':
-  #     short_ma_col = tmp_args.get('short_ma_col')
-  #     long_ma_col = tmp_args.get('long_ma_col')
-  #     plot_moving_average(df=plot_data, short_ma_col=short_ma_col, long_ma_col=long_ma_col)
+    elif tmp_indicator == 'moving_average':
+      short_ma_col = tmp_args.get('short_ma_col')
+      long_ma_col = tmp_args.get('long_ma_col')
+      print(short_ma_col, long_ma_col)
+      # plot_moving_average(df=plot_data, short_ma_col=short_ma_col, long_ma_col=long_ma_col)
 
   #   else:
 
 
-  #   if i < (num_indicators-1):
-  #     axes[tmp_indicator].set_xticks([])  
+    if i < (num_indicators-1):
+      axes[tmp_indicator].set_xticks([])  
   # # # Ichimoku plot
   # # ichimoku_plot = plt.subplot(gs[0]) 
   # # plot_ichimoku(df=plot_data, title=title, use_ax=ichimoku_plot)
