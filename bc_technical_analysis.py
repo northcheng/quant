@@ -1145,7 +1145,7 @@ def plot_indicator(df, target_col, price_col='Close', start=None, end=None, benc
     ax = fig.add_subplot(111)
 
   # plot indicator
-  ax.plot(df[target_col], color='red', alpha=0.5)
+  ax.plot(df[target_col], alpha=0.5)
 
   # plot in up_down mode
   if color_mode == 'up_down':  
@@ -1222,7 +1222,7 @@ def plot_ichimoku_and_mr(df, std_multiple=2, start=None, end=None, title=None, s
     plt.close(fig)
 
 
-def plot_multiple_indicators(df, args={'name': ['ichimoku', 'mean_reversion'], 'std_multiple': 2}, start=None, end=None, title=None, save_path=None, show_image=False):
+def plot_multiple_indicators(df, args={'name': ['ichimoku', 'mean_reversion'], 'mean_reversion': {'std_multiple': 2}}, start=None, end=None, title=None, save_path=None, show_image=False):
   """
   Plot Ichimoku and mean reversion in a same plot
 
@@ -1253,14 +1253,27 @@ def plot_multiple_indicators(df, args={'name': ['ichimoku', 'mean_reversion'], '
   axes = {}
   for i in range(num_indicators):
     tmp_indicator = indicators[i]
+    tmp_args = args.get(tmp_indicator)
+    print(tmp_indicator, tmp_args)
     axes[tmp_indicator] = plt.subplot(gs[i]) 
 
     if tmp_indicator == 'ichimoku':
       plot_ichimoku(df=plot_data, title=tmp_indicator, use_ax=axes[tmp_indicator])
 
-    if tmp_indicator == 'mean_reversion':
-      std_multiple = args.get('std_multiple')
+    elif tmp_indicator == 'mean_reversion':
+      std_multiple = tmp_args.get('std_multiple')
       plot_mean_reversion(df=plot_data, std_multiple=std_multiple, use_ax=axes[tmp_indicator])
+
+    elif tmp_indicator == 'moving_average':
+      short_ma_col = tmp_args.get('short_ma_col')
+      long_ma_col = tmp_args.get('long_ma_col')
+      plot_moving_average(df=plot_data, short_ma_col=short_ma_col, long_ma_col=long_ma_col)
+
+    else:
+
+
+    if i < (num_indicators-1):
+      axes[tmp_indicator].set_xticks([])  
   # # Ichimoku plot
   # ichimoku_plot = plt.subplot(gs[0]) 
   # plot_ichimoku(df=plot_data, title=title, use_ax=ichimoku_plot)
