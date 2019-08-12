@@ -550,7 +550,7 @@ def cal_mean_reversion_expected_rate(df, rate_col, window_size, std_multiple):
   return result
 
 
-def plot_mean_reversion(df, std_multiple, window_size, start_date=None, end_date=None, title=''):
+def plot_mean_reversion(df, std_multiple, window_size, start_date=None, end_date=None, title='', use_ax=None):
   """
   Plot mean reversion charts
 
@@ -567,22 +567,31 @@ def plot_mean_reversion(df, std_multiple, window_size, start_date=None, end_date
   # columns to be plotted
   plot_dims = [x for x in df.columns if '_bias' in x]
   
-  # create figure
-  plt.figure()
-
   # rows to be plotted
   df = df[plot_dims][:end_date].tail(window_size)
 
   # plot boundaries
   df['upper'] = std_multiple
   df['lower'] = -std_multiple
+  plot_dims += ['upper', 'lower']
+
+  # create figure
+  ax = use_ax
+  if ax is None:
+    fig = plt.figure(figsize=(20, 5))
+    ax = plt.gca()
 
   # plot signals
-  df.plot(figsize=(20, 3))
+  for dim in plot_dims:
+    ax.plot(df.index, df[dim], label=dim)
 
   # plot legend and title
-  plt.legend(loc='best')
-  plt.title(title)
+  ax.legend(loc='upper left')
+  ax.set_title(title)
+
+  # return ax
+  if use_ax is not None:
+    return ax
 
 
 #----------------------------- Moving average --------------------------------------#
@@ -987,7 +996,7 @@ def plot_ichimoku(df, start=None, end=None, signal_col=None, title=None, save_pa
       ax.scatter(buy_signal.index, buy_signal.Close, marker='^', color='green', )
       ax.scatter(sell_signal.index, sell_signal.Close, marker='v', color='red', )
 
-  plt.legend()  
+  plt.legend(loc='upper left')  
   plt.title(title)
 
   # save image
@@ -1187,8 +1196,8 @@ def plot_ichimoku_and_mr(df, std_multiple=2, start_date=None, end_date=None, tit
   """
   # select plot data
   plot_data = df[start_date:end_date].copy()
-  plot_data['upper'] = std_multiple
-  plot_data['lower'] = -std_multiple
+  # plot_data['upper'] = std_multiple
+  # plot_data['lower'] = -std_multiple
 
   # create figures
   fig = plt.figure(figsize=(20, 6))
@@ -1218,10 +1227,11 @@ def plot_ichimoku_and_mr(df, std_multiple=2, start_date=None, end_date=None, tit
 
   # Mean reversion plot
   mean_reversion_plot = plt.subplot(gs[1], sharex=ichimoku_plot) 
-  mr_dims = [x for x in plot_data.columns if '_bias' in x] + ['upper', 'lower']
-  for dim in mr_dims:
-    mean_reversion_plot.plot(plot_data.index, plot_data[dim])
-  mean_reversion_plot.legend(loc='upper left')
+  plot_mean_reversion(df=plot_data, std_multiple=std_multiple, use_ax=mean_reversion_plot)
+  # mr_dims = [x for x in plot_data.columns if '_bias' in x] + ['upper', 'lower']
+  # for dim in mr_dims:
+  #   mean_reversion_plot.plot(plot_data.index, plot_data[dim])
+  # mean_reversion_plot.legend(loc='upper left')
 
   plt.tight_layout() 
 
