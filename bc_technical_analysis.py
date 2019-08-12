@@ -1146,7 +1146,7 @@ def plot_indicator(df, target_col, price_col='Close', start=None, end=None, titl
   ax.set_title(title)
 
   # plot close price
-  if plot_close:
+  if price_col in df.columns:
     ax2=ax.twinx()
     ax2.plot(df.Close, color='blue')
 
