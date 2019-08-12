@@ -1188,7 +1188,7 @@ def plot_indicator(df, target_col, price_col='Close', start=None, end=None, benc
     return ax
 
 
-def plot_multiple_indicators(df, args={'name': ['ichimoku', 'mean_reversion'], 'mean_reversion': {'std_multiple': 2}}, start=None, end=None, title=None, save_path=None, show_image=False, w=0, h=0, x=0, y=0):
+def plot_multiple_indicators(df, args={'name': ['ichimoku', 'mean_reversion'], 'mean_reversion': {'std_multiple': 2}}, start=None, end=None, title=None, save_path=None, show_image=False, ws=0, hs=0, xp=0, yp=0):
   """
   Plot Ichimoku and mean reversion in a same plot
 
@@ -1211,11 +1211,14 @@ def plot_multiple_indicators(df, args={'name': ['ichimoku', 'mean_reversion'], '
     return None
 
   num_indicators = len(indicators)
+  plot_ratio = args.get('plot_ratio')
+  if plot_ratio is None:
+    plot_ratio=list(np.ones(num_indicators,dtype=np.int8))
 
   # create figures
   fig = plt.figure(figsize=(20, num_indicators*3))  
-  gs = gridspec.GridSpec(num_indicators, 1, height_ratios=list(np.ones(num_indicators,dtype=np.int8)))
-  gs.update(wspace=w, hspace=h)
+  gs = gridspec.GridSpec(num_indicators, 1, height_ratios=plot_ratio)
+  gs.update(wspace=ws, hspace=hs)
 
   axes = {}
   for i in range(num_indicators):
@@ -1241,12 +1244,9 @@ def plot_multiple_indicators(df, args={'name': ['ichimoku', 'mean_reversion'], '
       color_mode = tmp_args.get('color_mode')
       plot_indicator(df=plot_data, target_col=target_col, benchmark=benchmark, color_mode=color_mode, title=tmp_indicator, use_ax=axes[tmp_indicator])
 
-    # if i % 2 == 1 and i < (num_indicators-1):
-    #   axes[tmp_indicator].set_xticks([])
-
   # adjust plot layout
   plt.tight_layout() 
-  fig.suptitle(title, x=x, y=y)
+  fig.suptitle(title, x=xp, y=yp)
 
   # save image
   if save_path is not None:
