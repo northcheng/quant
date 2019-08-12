@@ -1260,7 +1260,7 @@ def plot_multiple_indicators(df, args={'name': ['ichimoku', 'mean_reversion'], '
 
     if tmp_indicator == 'mean_reversion':
       std_multiple = args.get('std_multiple')
-      plot_mean_reversion(df=plot_data, std_multiple=std_multiple, use_ax=mean_reversion_plot)
+      plot_mean_reversion(df=plot_data, std_multiple=std_multiple, use_ax=axes[tmp_indicator])
   # # Ichimoku plot
   # ichimoku_plot = plt.subplot(gs[0]) 
   # plot_ichimoku(df=plot_data, title=title, use_ax=ichimoku_plot)
