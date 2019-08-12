@@ -1071,6 +1071,7 @@ def plot_ichimoku(df, signal_col='signal', price_col='Close', start=None, end=No
   :param save_path: path to save the plot
   :param title: title of the plot
   :param figsize: figsize
+  :param use_ax: the already-created ax to draw on
   :returns: ichimoku plot
   :raises: none
   """
@@ -1123,12 +1124,12 @@ def plot_indicator(df, target_col, price_col='Close', start=None, end=None, titl
 
   :param df: dataframe which contains target columns
   :param target_col: columnname of the target indicator
-  :param title: title of the plot
+  :param price_col: columnname of the price values
   :param start: start date of the data
   :param end: end of the data
-  :param plot_close: whether to plot close price
   :param title: title of the plot
   :param figsize: figure size
+  :param use_ax: the already-created ax to draw on
   :returns: figure with indicators and close price plotted
   :raises: none
   """
@@ -1143,6 +1144,7 @@ def plot_indicator(df, target_col, price_col='Close', start=None, end=None, titl
 
   # plot indicator
   ax.plot(df[target_col], color='red', alpha=0.5)
+  ax.legend(loc='upper left') 
   ax.set_title(title)
 
   # plot close price
@@ -1154,19 +1156,20 @@ def plot_indicator(df, target_col, price_col='Close', start=None, end=None, titl
     return ax 
 
 
-def plot_indicator_around_benchmark(df, target_col, benchmark=0, title=None, start=None, end=None, color_mode='up_down', plot_close=True, figsize=(20, 5)):
+def plot_indicator_around_benchmark(df, target_col, price_col='Close', benchmark=0, start=None, end=None, color_mode='up_down', title=None, figsize=(20, 5), use_ax=None):
   """
   Plot indicators around a benchmark
 
   :param df: dataframe which contains target columns
   :param target_col: columnname of the target indicator
+  :param price_col: columnname of the price values
   :param benchmark: benchmark, a fixed value
-  :param title: title of the plot
   :param start: start date of the data
   :param end: end of the data
   :param color_mode: which color mode to use: benckmark/up_down
-  :param plot_close: whether to plot close price
+  :param title: title of the plot
   :param figsize: figure size
+  :param use_ax: the already-created ax to draw on
   :returns: figure with indicators and close price plotted
   :raises: none
   """
@@ -1174,10 +1177,20 @@ def plot_indicator_around_benchmark(df, target_col, benchmark=0, title=None, sta
   df = df[start:end].copy()
   
   # create figure
-  fig = plt.figure(figsize=figsize)
-  
-  # set indicator colors
-  ax1 = fig.add_subplot(111)
+  ax = use_ax
+  if ax is None:
+    fig = plt.figure(figsize=figsize)
+    ax = fig.add_subplot(111)
+
+  # plot indicator
+  ax.plot(df[target_col], color='red', alpha=0.5)
+  ax.legend(loc='upper left') 
+  ax.set_title(title)
+
+  # plot close price
+  if price_col in df.columns:
+    ax2=ax.twinx()
+    ax2.plot(df.Close, color='blue')
 
   # plot in up_down mode
   if color_mode == 'up_down':  
@@ -1191,20 +1204,18 @@ def plot_indicator_around_benchmark(df, target_col, benchmark=0, title=None, sta
     df['color'] = 'red'
     df.loc[df[target_col] > benchmark, 'color'] = 'green'
     df['benchmark'] = benchmark
-    ax1.plot(df.index, df['benchmark'], color='black')
+    ax.plot(df.index, df['benchmark'], color='black')
     
   else:
     print('Unknown Color Mode')
     return None
 
   # plot indicator
-  ax1.bar(df.index, height=df[target_col], color=df.color, alpha=0.5)
-  ax1.set_title(title)
+  ax.bar(df.index, height=df[target_col], color=df.color, alpha=0.5)
 
-  # plot close price
-  if plot_close:
-    ax2=ax1.twinx()
-    ax2.plot(df.Close, color='blue' )
+  # return ax
+  if use_ax is not None:
+    return ax
 
 
 def plot_ichimoku_and_mr(df, std_multiple=2, start=None, end=None, title=None, save_path=None, show_image=False):
