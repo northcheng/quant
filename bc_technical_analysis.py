@@ -1197,25 +1197,25 @@ def plot_ichimoku_and_mr(df, std_multiple=2, start_date=None, end_date=None, tit
 
   # Ichimoku plot
   ichimoku_plot = plt.subplot(gs[0]) 
+  plot_ichimoku(df=plot_data, title=title, use_ax=ichimoku_plot)
+  # # plot price
+  # ichimoku_plot.plot(plot_data.index, plot_data.Close, color='black')
 
-  # plot price
-  ichimoku_plot.plot(plot_data.index, plot_data.Close, color='black')
+  # # plot kijun/tankan lines
+  # ichimoku_plot.plot(plot_data.index, plot_data.tankan, color='magenta', linestyle='-.')
+  # ichimoku_plot.plot(plot_data.index, plot_data.kijun, color='blue', linestyle='-.')
 
-  # plot kijun/tankan lines
-  ichimoku_plot.plot(plot_data.index, plot_data.tankan, color='magenta', linestyle='-.')
-  ichimoku_plot.plot(plot_data.index, plot_data.kijun, color='blue', linestyle='-.')
+  # # plot senkou lines
+  # ichimoku_plot.plot(plot_data.index, plot_data.senkou_a, color='green')
+  # ichimoku_plot.plot(plot_data.index, plot_data.senkou_b, color='red')
 
-  # plot senkou lines
-  ichimoku_plot.plot(plot_data.index, plot_data.senkou_a, color='green')
-  ichimoku_plot.plot(plot_data.index, plot_data.senkou_b, color='red')
+  # # plot clouds
+  # ichimoku_plot.fill_between(plot_data.index, plot_data.senkou_a, plot_data.senkou_b, where=plot_data.senkou_a > plot_data.senkou_b, facecolor='green', interpolate=True, alpha=0.6)
+  # ichimoku_plot.fill_between(plot_data.index, plot_data.senkou_a, plot_data.senkou_b, where=plot_data.senkou_a <= plot_data.senkou_b, facecolor='red', interpolate=True, alpha=0.6)
 
-  # plot clouds
-  ichimoku_plot.fill_between(plot_data.index, plot_data.senkou_a, plot_data.senkou_b, where=plot_data.senkou_a > plot_data.senkou_b, facecolor='green', interpolate=True, alpha=0.6)
-  ichimoku_plot.fill_between(plot_data.index, plot_data.senkou_a, plot_data.senkou_b, where=plot_data.senkou_a <= plot_data.senkou_b, facecolor='red', interpolate=True, alpha=0.6)
-
-  # legend and title
-  ichimoku_plot.legend(loc='upper left')  
-  ichimoku_plot.set_title(title)  
+  # # legend and title
+  # ichimoku_plot.legend(loc='upper left')  
+  # ichimoku_plot.set_title(title)  
 
   # Mean reversion plot
   mean_reversion_plot = plt.subplot(gs[1], sharex=ichimoku_plot) 
