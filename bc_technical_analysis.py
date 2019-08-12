@@ -1248,6 +1248,7 @@ def plot_multiple_indicators(df, args={'name': ['ichimoku', 'mean_reversion'], '
 
   # create figures
   fig = plt.figure(figsize=(20, num_indicators*3))
+  plt.title(title)
   gs = gridspec.GridSpec(num_indicators, 1, height_ratios=list(np.ones(num_indicators,dtype=np.int8)))
 
   axes = {}
@@ -1263,12 +1264,12 @@ def plot_multiple_indicators(df, args={'name': ['ichimoku', 'mean_reversion'], '
     elif tmp_indicator == 'mean_reversion':
       std_multiple = tmp_args.get('std_multiple')
       print(std_multiple)
-      plot_mean_reversion(df=plot_data, std_multiple=std_multiple, use_ax=axes[tmp_indicator])
+      plot_mean_reversion(df=plot_data, std_multiple=std_multiple, title=tmp_indicator, use_ax=axes[tmp_indicator])
 
     elif tmp_indicator == 'moving_average':
       short_ma_col = tmp_args.get('short_ma_col')
       long_ma_col = tmp_args.get('long_ma_col')
-      plot_moving_average(df=plot_data, short_ma_col=short_ma_col, long_ma_col=long_ma_col, use_ax=axes[tmp_indicator])
+      plot_moving_average(df=plot_data, short_ma_col=short_ma_col, long_ma_col=long_ma_col, title=tmp_indicator, use_ax=axes[tmp_indicator])
 
     else:
       print(' ')
@@ -1279,7 +1280,7 @@ def plot_multiple_indicators(df, args={'name': ['ichimoku', 'mean_reversion'], '
 
   # adjust plot layout
   plt.tight_layout() 
-  plt.title(title)
+  
 
   # save image
   if save_path is not None:
