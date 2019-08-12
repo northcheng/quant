@@ -550,7 +550,7 @@ def cal_mean_reversion_expected_rate(df, rate_col, window_size, std_multiple):
   return result
 
 
-def plot_mean_reversion(df, std_multiple, window_size, start_date=None, end_date=None, title='', use_ax=None):
+def plot_mean_reversion(df, std_multiple, start_date=None, end_date=None, title='', use_ax=None):
   """
   Plot mean reversion charts
 
@@ -568,7 +568,7 @@ def plot_mean_reversion(df, std_multiple, window_size, start_date=None, end_date
   plot_dims = [x for x in df.columns if '_bias' in x]
   
   # rows to be plotted
-  df = df[plot_dims][:end_date].tail(window_size)
+  df = df[plot_dims][:end_date]
 
   # plot boundaries
   df['upper'] = std_multiple
