@@ -1145,10 +1145,11 @@ def plot_indicator(df, target_col, price_col='Close', start=None, end=None, benc
     ax = fig.add_subplot(111)
 
   # plot indicator
-  ax.plot(df[target_col])
+  for col in target_col:
+    ax.plot(df.index, df[target_col], label=col)
 
+  # plot bar plots
   if len(target_col) == 1:
-
     # plot in up_down mode
     if color_mode == 'up_down':  
       df['color'] = 'red'
@@ -1170,7 +1171,7 @@ def plot_indicator(df, target_col, price_col='Close', start=None, end=None, benc
   # plot close price
   if price_col in df.columns:
     ax2=ax.twinx()
-    ax2.plot(df.Close, color='blue')
+    ax2.plot(df.Close, color='blue', label=price_col)
 
   ax.legend(loc='upper left') 
   ax.set_title(title)
