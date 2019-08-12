@@ -1258,6 +1258,7 @@ def plot_multiple_indicators(df, args={'name': ['ichimoku', 'mean_reversion'], '
     axes[tmp_indicator] = plt.subplot(gs[i]) 
 
     if tmp_indicator == 'ichimoku':
+      print(' ')
       # plot_ichimoku(df=plot_data, title=tmp_indicator, use_ax=axes[tmp_indicator])
 
     elif tmp_indicator == 'mean_reversion':
