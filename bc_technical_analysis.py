@@ -1181,7 +1181,7 @@ def plot_indicator(df, target_col, price_col='Close', start=None, end=None, benc
     return ax
 
 
-def plot_multiple_indicators(df, args={'name': ['ichimoku', 'mean_reversion'], 'mean_reversion': {'std_multiple': 2}}, start=None, end=None, title=None, save_path=None, show_image=False):
+def plot_multiple_indicators(df, args={'name': ['ichimoku', 'mean_reversion'], 'mean_reversion': {'std_multiple': 2}}, start=None, end=None, title=None, save_path=None, show_image=False, x=0, y=0):
   """
   Plot Ichimoku and mean reversion in a same plot
 
@@ -1232,7 +1232,7 @@ def plot_multiple_indicators(df, args={'name': ['ichimoku', 'mean_reversion'], '
 
   # adjust plot layout
   plt.tight_layout() 
-  fig.suptitle(title, y=0)
+  fig.suptitle(title, x=x, y=y)
 
   # save image
   if save_path is not None:
