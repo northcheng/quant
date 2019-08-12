@@ -1144,12 +1144,15 @@ def plot_indicator(df, target_col, price_col='Close', start=None, end=None, benc
     fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111)
 
-  # plot indicator
+  # plot benchmark
+  df['benchmark'] = benchmark
   ax.plot(df.index, df['benchmark'], color='black')
+
+  # plot indicator(s)
   for col in target_col:
     ax.plot(df.index, df[col], label=col)
 
-  # plot bar plots
+  # plot colro bars if there is only one indicator to plot
   if len(target_col) == 1:
 
     # plot in up_down mode
@@ -1163,7 +1166,6 @@ def plot_indicator(df, target_col, price_col='Close', start=None, end=None, benc
     elif color_mode == 'benchmark':
       df['color'] = 'red'
       df.loc[df[target_col] > benchmark, 'color'] = 'green'
-      df['benchmark'] = benchmark
       
     # plot indicator
     if 'color' in df.columns:
@@ -1175,6 +1177,7 @@ def plot_indicator(df, target_col, price_col='Close', start=None, end=None, benc
     ax2.plot(df.index, df['price_col'], color='blue', label=price_col)
     ax2.legend(loc='upper left')
 
+  # plot title and legend
   ax.legend(loc='upper left') 
   ax.set_title(title)
 
