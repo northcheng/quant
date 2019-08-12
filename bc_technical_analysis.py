@@ -959,11 +959,10 @@ def plot_ichimoku(df, start=None, end=None, signal_col=None, title=None, save_pa
   df = df[start:end]
 
   # create figure
+  ax = use_ax
   if ax is None:
     fig = plt.figure(figsize=(20, 5))
     ax = plt.gca()
-  else:
-    ax = use_ax
 
   # plot price
   ax.plot(df.index, df.Close, color='black')
