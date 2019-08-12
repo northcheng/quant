@@ -1251,7 +1251,7 @@ def plot_multiple_indicators(df, args={'name': ['ichimoku', 'mean_reversion'], '
 
   # save image
   if save_path is not None:
-    plt.savefig(save_path + title + '.png', transparent=True)
+    plt.savefig(save_path + title + '.png')
     
   # close image
   if not show_image:
