@@ -1145,27 +1145,27 @@ def plot_indicator(df, target_col, price_col='Close', start=None, end=None, benc
     ax = fig.add_subplot(111)
 
   # plot indicator
-  ax.plot(df[target_col], alpha=0.5)
+  ax.plot(df[target_col])
 
-  # plot in up_down mode
-  if color_mode == 'up_down':  
-    df['color'] = 'red'
-    previous_target_col = 'previous_'+target_col
-    df[previous_target_col] = df[target_col].shift(1)
-    df.loc[df[target_col] > df[previous_target_col], 'color'] = 'green'
+  if len(target_col) == 1:
 
-  # plot in benchmark mode
-  elif color_mode == 'benchmark':
-    df['color'] = 'red'
-    df.loc[df[target_col] > benchmark, 'color'] = 'green'
-    df['benchmark'] = benchmark
-    ax.plot(df.index, df['benchmark'], color='black')
-    
-  else:
-    print('Unknown Color Mode')
+    # plot in up_down mode
+    if color_mode == 'up_down':  
+      df['color'] = 'red'
+      previous_target_col = 'previous_'+target_col
+      df[previous_target_col] = df[target_col].shift(1)
+      df.loc[df[target_col] > df[previous_target_col], 'color'] = 'green'
 
-  # plot indicator
-  ax.bar(df.index, height=df[target_col], color=df.color, alpha=0.5)
+    # plot in benchmark mode
+    elif color_mode == 'benchmark':
+      df['color'] = 'red'
+      df.loc[df[target_col] > benchmark, 'color'] = 'green'
+      df['benchmark'] = benchmark
+      ax.plot(df.index, df['benchmark'], color='black')
+
+    # plot indicator
+    if 'color' in df.columns:
+      ax.bar(df.index, height=df[target_col], color=df.color, alpha=0.5)
 
   # plot close price
   if price_col in df.columns:
