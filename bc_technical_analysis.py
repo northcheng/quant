@@ -1259,18 +1259,18 @@ def plot_multiple_indicators(df, args={'name': ['ichimoku', 'mean_reversion'], '
 
     if tmp_indicator == 'ichimoku':
       print(' ')
-      # plot_ichimoku(df=plot_data, title=tmp_indicator, use_ax=axes[tmp_indicator])
+      plot_ichimoku(df=plot_data, title=tmp_indicator, use_ax=axes[tmp_indicator])
 
     elif tmp_indicator == 'mean_reversion':
       std_multiple = tmp_args.get('std_multiple')
       print(std_multiple)
-      # plot_mean_reversion(df=plot_data, std_multiple=std_multiple, use_ax=axes[tmp_indicator])
+      plot_mean_reversion(df=plot_data, std_multiple=std_multiple, use_ax=axes[tmp_indicator])
 
     elif tmp_indicator == 'moving_average':
       short_ma_col = tmp_args.get('short_ma_col')
       long_ma_col = tmp_args.get('long_ma_col')
       print(short_ma_col, long_ma_col)
-      # plot_moving_average(df=plot_data, short_ma_col=short_ma_col, long_ma_col=long_ma_col)
+      plot_moving_average(df=plot_data, short_ma_col=short_ma_col, long_ma_col=long_ma_col)
 
     else:
       print(' ')
@@ -1286,9 +1286,9 @@ def plot_multiple_indicators(df, args={'name': ['ichimoku', 'mean_reversion'], '
   # # mean_reversion_plot = plt.subplot(gs[1], sharex=ichimoku_plot) 
   # # plot_mean_reversion(df=plot_data, std_multiple=std_multiple, use_ax=mean_reversion_plot)
 
-  # # adjust plot layout
-  # plt.tight_layout() 
-  # plt.title(title)
+  # adjust plot layout
+  plt.tight_layout() 
+  plt.title(title)
 
   # # save image
   # if save_path is not None:
