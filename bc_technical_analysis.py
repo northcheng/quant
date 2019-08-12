@@ -1232,7 +1232,7 @@ def plot_multiple_indicators(df, args={'name': ['ichimoku', 'mean_reversion'], '
 
   # adjust plot layout
   plt.tight_layout() 
-  fig.suptitle(title, x=0.1)
+  fig.suptitle(title, y=0)
 
   # save image
   if save_path is not None:
