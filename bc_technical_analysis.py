@@ -1240,7 +1240,7 @@ def plot_multiple_indicators(df, args={'name': ['ichimoku', 'mean_reversion'], '
   plot_data = df[start:end].copy()
 
   indicators = args.get('name')
-  if indicator is None or len(indicators) <= 0:
+  if indicators is None or len(indicators) <= 0:
     print('No indicator to plot')
     return None
 
