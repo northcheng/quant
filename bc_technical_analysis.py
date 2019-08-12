@@ -962,7 +962,7 @@ def plot_ichimoku(df, start=None, end=None, signal_col=None, title=None, save_pa
   if ax is None:
     fig = plt.figure(figsize=(20, 5))
     ax = plt.gca()
-  eles:
+  else:
     ax = use_ax
 
   # plot price
