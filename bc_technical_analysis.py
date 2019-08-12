@@ -1215,8 +1215,8 @@ def plot_multiple_indicators(df, args={'name': ['ichimoku', 'mean_reversion'], '
   # create figures
   fig = plt.figure(figsize=(20, num_indicators*3))  
   gs = gridspec.GridSpec(num_indicators, 1, height_ratios=list(np.ones(num_indicators,dtype=np.int8)))
-  gs.update(wspace=0.025, hspace=0.05)
-  
+  gs.update(wspace=0.025, hspace=0)
+
   axes = {}
   for i in range(num_indicators):
     tmp_indicator = indicators[i]
