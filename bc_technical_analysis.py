@@ -942,7 +942,7 @@ def cal_ichimoku_signal(df, final_signal_threshold=2):
   return df[['ichimoku_signal']]
   
 
-def plot_ichimoku(df, start=None, end=None, signal_col=None, title=None, save_path=None):
+def plot_ichimoku(df, start=None, end=None, signal_col=None, title=None, save_path=None, use_ax=None):
   """
   Plot ichimoku chart
 
@@ -959,8 +959,11 @@ def plot_ichimoku(df, start=None, end=None, signal_col=None, title=None, save_pa
   df = df[start:end]
 
   # create figure
-  fig = plt.figure(figsize=(20, 5))
-  ax = plt.gca()
+  if ax is None:
+    fig = plt.figure(figsize=(20, 5))
+    ax = plt.gca()
+  eles:
+    ax = use_ax
 
   # plot price
   ax.plot(df.index, df.Close, color='black')
@@ -991,6 +994,9 @@ def plot_ichimoku(df, start=None, end=None, signal_col=None, title=None, save_pa
   # save image
   if save_path is not None:
     plt.savefig(save_path + title + '.png')
+
+  if use_ax is not None:
+    return ax
 
 
 def cal_kst_signal(df):
