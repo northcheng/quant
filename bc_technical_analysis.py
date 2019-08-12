@@ -400,21 +400,21 @@ def cal_peak_trough(df, target_col, result_col='signal', peak_signal='p', trough
   
 
 #----------------------------- Mean reversion --------------------------------------#
-def cal_mean_reversion(df, target_col, window_size=100, start_date=None, end_date=None, window_type='sm'):
+def cal_mean_reversion(df, target_col, window_size=100, start=None, end=None, window_type='sm'):
   """
   Calculate (current value - moving avg) / moving std
 
   :param df: original dataframe which contains target column
   :param window_size: window size of the moving window
-  :param start_date: start row
-  :param end_date: end row
+  :param start: start row
+  :param end: end row
   :window_type: which type of moving window is going to be used: sm/em
   :returns: dataframe with mean-reversion result columns
   :raises: none
   """
   # calculate change rate by day
   original_columns = df.columns
-  df = cal_change_rate(df=df, target_col=target_col, periods=1, add_accumulation=True)[start_date:end_date]
+  df = cal_change_rate(df=df, target_col=target_col, periods=1, add_accumulation=True)[start:end]
 
   # select the type of moving window
   if window_type == 'em':
@@ -436,15 +436,15 @@ def cal_mean_reversion(df, target_col, window_size=100, start_date=None, end_dat
   return df
 
 
-def cal_mean_reversion_signal(df, std_multiple=2, final_signal_threshold=2, start_date=None, end_date=None, result_col='signal', pos_signal='b', neg_signal='s', none_signal='n'):
+def cal_mean_reversion_signal(df, std_multiple=2, final_signal_threshold=2, start=None, end=None, result_col='signal', pos_signal='b', neg_signal='s', none_signal='n'):
   """
   Calculate signal from mean reversion data
 
   :param df: dataframe which contains mean reversion columns
   :param std_multiple: the multiple of moving std to triger signals
   :param final_signal_threshold: how many columns triger signals at the same time could triger the final signal
-  :param start_date: start date of the data
-  :param end_date: end date of the data
+  :param start: start date of the data
+  :param end: end date of the data
   :param result_col: columnname of the result signal
   :param pos_signal: the value of positive signal
   :param neg_siganl: the value of negative signal
@@ -453,7 +453,7 @@ def cal_mean_reversion_signal(df, std_multiple=2, final_signal_threshold=2, star
   :raises: none
   """
   # copy dataframe
-  df = df[start_date : end_date].copy()
+  df = df[start : end].copy()
 
   # check whether triger columns are in the dataframe
   triger_cols = [x for x in df.columns if 'bias' in x]
@@ -512,20 +512,20 @@ def cal_mean_reversion_expected_rate(df, rate_col, window_size, std_multiple):
 
 
 #----------------------------- Moving average --------------------------------------#
-def cal_moving_average(df, target_col, ma_windows=[50, 105], start_date=None, end_date=None, window_type='em'):
+def cal_moving_average(df, target_col, ma_windows=[50, 105], start=None, end=None, window_type='em'):
   """
   Calculate moving average of the tarhet column with specific window size
 
   :param df: original dataframe which contains target column
   :param ma_windows: a list of moving average window size to be calculated
-  :param start_date: start date of the data
-  :param end_date: end date of the data
+  :param start: start date of the data
+  :param end: end date of the data
   :param window_type: which moving window to be used: sm/em
   :returns: dataframe with moving averages
   :raises: none
   """
   # copy dataframe
-  df = df[start_date:end_date].copy()
+  df = df[start:end].copy()
 
   # select moving window type
   if window_type == 'em':
@@ -544,20 +544,20 @@ def cal_moving_average(df, target_col, ma_windows=[50, 105], start_date=None, en
   return df
 
 
-def cal_moving_average_signal(df, target_col='Close', ma_windows=[50, 105], start_date=None, end_date=None, result_col='signal', pos_signal='b', neg_signal='s', none_signal='n'):
+def cal_moving_average_signal(df, target_col='Close', ma_windows=[50, 105], start=None, end=None, result_col='signal', pos_signal='b', neg_signal='s', none_signal='n'):
   """
   Calculate moving avergae signals gernerated from fast/slow moving average crossover
 
   :param df: original dataframe which contains short/ling ma columns
   :param short_ma_col: columnname of the short ma
   :param long_ma_col: columnname of the long ma
-  :param start_date: start date of the data
-  :param end_date: end date of the data
+  :param start: start date of the data
+  :param end: end date of the data
   :returns: dataframe with ma crossover signal
   :raises: none
   """
   # calculate moving average
-  df = df[start_date : end_date].copy()
+  df = df[start : end].copy()
   df[result_col] = none_signal
 
   if len(ma_windows) > 2:
@@ -1117,7 +1117,44 @@ def plot_ichimoku(df, signal_col='signal', price_col='Close', start=None, end=No
     return ax
 
 
-def plot_indicator_around_benchmark(df, target_col, benchmark=0, title=None, start_date=None, end_date=None, color_mode='up_down', plot_close=True, figsize=(20, 5)):
+def plot_indicator(df, target_col, price_col='Close', start=None, end=None, title=None, figsize=(20, 5), use_ax=None):
+  """
+  Plot indicators
+
+  :param df: dataframe which contains target columns
+  :param target_col: columnname of the target indicator
+  :param title: title of the plot
+  :param start: start date of the data
+  :param end: end of the data
+  :param plot_close: whether to plot close price
+  :param title: title of the plot
+  :param figsize: figure size
+  :returns: figure with indicators and close price plotted
+  :raises: none
+  """
+  # copy dataframe  
+  df = df[start:end]
+
+  # create figure
+  ax = use_ax
+  if use_ax is None:
+    fig = plt.figure(figsize=figsize)
+    ax = fig.add_subplot(111)
+
+  # plot indicator
+  ax.plot(df[target_col], color='red', alpha=0.5)
+  ax.set_title(title)
+
+  # plot close price
+  if plot_close:
+    ax2=ax.twinx()
+    ax2.plot(df.Close, color='blue')
+
+  if use_ax is not None:
+    return ax 
+
+
+def plot_indicator_around_benchmark(df, target_col, benchmark=0, title=None, start=None, end=None, color_mode='up_down', plot_close=True, figsize=(20, 5)):
   """
   Plot indicators around a benchmark
 
@@ -1125,8 +1162,8 @@ def plot_indicator_around_benchmark(df, target_col, benchmark=0, title=None, sta
   :param target_col: columnname of the target indicator
   :param benchmark: benchmark, a fixed value
   :param title: title of the plot
-  :param start_date: start date of the data
-  :param end_date: end_date of the data
+  :param start: start date of the data
+  :param end: end of the data
   :param color_mode: which color mode to use: benckmark/up_down
   :param plot_close: whether to plot close price
   :param figsize: figure size
@@ -1134,7 +1171,7 @@ def plot_indicator_around_benchmark(df, target_col, benchmark=0, title=None, sta
   :raises: none
   """
   # select data
-  df = df[start_date:end_date].copy()
+  df = df[start:end].copy()
   
   # create figure
   fig = plt.figure(figsize=figsize)
@@ -1170,45 +1207,14 @@ def plot_indicator_around_benchmark(df, target_col, benchmark=0, title=None, sta
     ax2.plot(df.Close, color='blue' )
 
 
-def plot_indicator(df, target_col, title=None, start_date=None, end_date=None, plot_close=True, figsize=(20, 5)):
-  """
-  Plot indicators
-
-  :param df: dataframe which contains target columns
-  :param target_col: columnname of the target indicator
-  :param title: title of the plot
-  :param start_date: start date of the data
-  :param end_date: end_date of the data
-  :param plot_close: whether to plot close price
-  :param figsize: figure size
-  :returns: figure with indicators and close price plotted
-  :raises: none
-  """
-  # copy dataframe  
-  df = df[start_date:end_date].copy()
-
-  # create figure
-  fig = plt.figure(figsize=figsize)
-  ax1 = fig.add_subplot(111)
-
-  # plot indicator
-  ax1.plot(df[target_col], color='red', alpha=0.5)
-  ax1.set_title(title)
-
-  # plot close price
-  if plot_close:
-    ax2=ax1.twinx()
-    ax2.plot(df.Close, color='blue' ) 
-
-
-def plot_ichimoku_and_mr(df, std_multiple=2, start_date=None, end_date=None, title=None, save_path=None, show_image=False):
+def plot_ichimoku_and_mr(df, std_multiple=2, start=None, end=None, title=None, save_path=None, show_image=False):
   """
   Plot Ichimoku and mean reversion in a same plot
 
   :param df: dataframe with ichimoku and mean reversion columns
   :param std_multiple: std_multiple for mean reversion
-  :param start_date: start_date of the data
-  :param end_date: end_date of the data
+  :param start: start of the data
+  :param end: end of the data
   :param title: title of the figure
   :param save_path: path where the figure will be saved to
   :param use_ax: the already-created ax to draw on
@@ -1216,7 +1222,7 @@ def plot_ichimoku_and_mr(df, std_multiple=2, start_date=None, end_date=None, tit
   :raises: none
   """
   # select plot data
-  plot_data = df[start_date:end_date].copy()
+  plot_data = df[start:end].copy()
 
   # create figures
   fig = plt.figure(figsize=(20, 6))
@@ -1242,7 +1248,7 @@ def plot_ichimoku_and_mr(df, std_multiple=2, start_date=None, end_date=None, tit
     plt.close(fig)
 
 
-# def plot_multiple_indicators(df, indicators, start_date=None, end_date=None, title=None, save_path=None, show_image=False)
+# def plot_multiple_indicators(df, indicators, start=None, end=None, title=None, save_path=None, show_image=False)
 #----------------------------- Candlesticks ----------------------------------------#
 def add_candle_dims_for_df(df):
   """
