@@ -1145,8 +1145,9 @@ def plot_indicator(df, target_col, price_col='Close', start=None, end=None, benc
     ax = fig.add_subplot(111)
 
   # plot benchmark
-  df['benchmark'] = benchmark
-  ax.plot(df.index, df['benchmark'], color='black')
+  if benckmark is not None:
+    df['benchmark'] = benchmark
+    ax.plot(df.index, df['benchmark'], color='black')
 
   # plot indicator(s)
   for col in target_col:
@@ -1165,7 +1166,7 @@ def plot_indicator(df, target_col, price_col='Close', start=None, end=None, benc
       df.loc[df[tar] > df[previous_target_col], 'color'] = 'green'
 
     # plot in benchmark mode
-    elif color_mode == 'benchmark':
+    elif color_mode == 'benchmark' and benchmark is not None:
       df['color'] = 'red'
       df.loc[df[tar] > benchmark, 'color'] = 'green'
       
@@ -1247,7 +1248,7 @@ def plot_multiple_indicators(df, args={'name': ['ichimoku', 'mean_reversion'], '
 
     if i < (num_indicators-1):
       axes[tmp_indicator].set_xticks([])
-      
+
   # adjust plot layout
   fig.tight_layout() 
   fig.suptitle(title, x=xp, y=yp)
