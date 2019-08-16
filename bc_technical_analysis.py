@@ -1153,7 +1153,7 @@ def plot_indicator(df, target_col, price_col='Close', start=None, end=None, benc
   if price_col in df.columns:
     ax2=ax.twinx()
     ax2.plot(df.index, df[price_col], color='blue', label=price_col)
-    ax2.legend(loc='upper left')
+    ax2.legend(loc='lower left')
 
   # plot title and legend
   ax.legend(loc='upper left') 
@@ -1181,6 +1181,7 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
   # select plot data
   plot_data = df[start:end].copy()
 
+  # get indicator names and plot ratio
   plot_ratio = args.get('plot_ratio')
   if plot_ratio is None :
     print('No indicator to plot')
@@ -1220,8 +1221,8 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
       color_mode = tmp_args.get('color_mode')
       plot_indicator(df=plot_data, target_col=target_col, benchmark=benchmark, color_mode=color_mode, title=tmp_indicator, use_ax=axes[tmp_indicator])
 
-    if i < (num_indicators-1):
-      axes[tmp_indicator].set_xticks([])
+    # if i < (num_indicators-1):
+    #   axes[tmp_indicator].set_xticks([])
 
   # adjust plot layout
   fig.tight_layout() 
