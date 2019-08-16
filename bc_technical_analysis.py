@@ -1133,7 +1133,7 @@ def plot_indicator(df, target_col, price_col='Close', start=None, end=None, benc
 
   # plot indicator(s)
   for col in target_col:
-    ax.plot(df.index, df[col], label=col)
+    ax.plot(df.index, df[col], label=col, alpha=0.8)
 
   # plot color bars if there is only one indicator to plot
   if len(target_col) == 1:
@@ -1159,7 +1159,7 @@ def plot_indicator(df, target_col, price_col='Close', start=None, end=None, benc
   # plot close price
   if price_col in df.columns:
     ax2=ax.twinx()
-    ax2.plot(df.index, df[price_col], color='blue', label=price_col)
+    ax2.plot(df.index, df[price_col], color='blue', label=price_col, , alpha=0.8)
     ax2.legend(loc='lower left')
 
   # plot title and legend
