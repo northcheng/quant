@@ -1213,20 +1213,20 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
     if tmp_indicator == 'ichimoku':
       plot_ichimoku(df=plot_data, title=tmp_indicator, use_ax=axes[tmp_indicator])
 
-    elif tmp_indicator == 'mean_reversion':
-      std_multiple = tmp_args.get('std_multiple')
-      plot_mean_reversion(df=plot_data, std_multiple=std_multiple, title=tmp_indicator, use_ax=axes[tmp_indicator])
+    # elif tmp_indicator == 'mean_reversion':
+    #   std_multiple = tmp_args.get('std_multiple')
+    #   plot_mean_reversion(df=plot_data, std_multiple=std_multiple, title=tmp_indicator, use_ax=axes[tmp_indicator])
 
-    elif tmp_indicator == 'moving_average':
-      short_ma_col = tmp_args.get('short_ma_col')
-      long_ma_col = tmp_args.get('long_ma_col')
-      plot_moving_average(df=plot_data, short_ma_col=short_ma_col, long_ma_col=long_ma_col, title=tmp_indicator, use_ax=axes[tmp_indicator])
+    # elif tmp_indicator == 'moving_average':
+    #   short_ma_col = tmp_args.get('short_ma_col')
+    #   long_ma_col = tmp_args.get('long_ma_col')
+    #   plot_moving_average(df=plot_data, short_ma_col=short_ma_col, long_ma_col=long_ma_col, title=tmp_indicator, use_ax=axes[tmp_indicator])
 
     else:
       target_col = tmp_args.get('target_col')
       benchmark = tmp_args.get('benchmark')
-      color_mode = tmp_args.get('color_mode')
       boundary = tmp_args.get('boundary')
+      color_mode = tmp_args.get('color_mode')
       plot_indicator(df=plot_data, target_col=target_col, benchmark=benchmark, boundary=boundary, color_mode=color_mode, title=tmp_indicator, use_ax=axes[tmp_indicator])
 
     # if i < (num_indicators-1):
