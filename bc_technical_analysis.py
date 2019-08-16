@@ -1135,7 +1135,7 @@ def plot_indicator(df, target_col, price_col='Close', start=None, end=None, benc
   for col in target_col:
     ax.plot(df.index, df[col], label=col, alpha=0.6)
 
-  # plot colro bars if there is only one indicator to plot
+  # plot color bars if there is only one indicator to plot
   if len(target_col) == 1:
 
     tar = target_col[0]
