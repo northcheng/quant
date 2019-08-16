@@ -1122,14 +1122,14 @@ def plot_indicator(df, target_col, price_col='Close', start=None, end=None, benc
   # plot benchmark
   if benchmark is not None:
     df['benchmark'] = benchmark
-    ax.plot(df.index, df['benchmark'], color='black', linestyle='--')
+    ax.plot(df.index, df['benchmark'], color='black', linestyle='--', label='%s'%benchmark)
 
   if boundary is not None:
     if len(boundary) > 0:
       df['upper_boundary'] = max(boundary)
       df['lower_boundary'] = min(boundary)
-      ax.plot(df.index, df['upper_boundary'], color='black', linestyle='--')
-      ax.plot(df.index, df['lower_boundary'], color='black', linestyle='--')
+      ax.plot(df.index, df['upper_boundary'], color='black', linestyle='--', label='%s'% max(boundary))
+      ax.plot(df.index, df['lower_boundary'], color='black', linestyle='--', label='%s'% min(boundary))
 
   # plot indicator(s)
   for col in target_col:
