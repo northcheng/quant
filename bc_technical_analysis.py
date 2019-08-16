@@ -1225,7 +1225,8 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
       target_col = tmp_args.get('target_col')
       benchmark = tmp_args.get('benchmark')
       color_mode = tmp_args.get('color_mode')
-      plot_indicator(df=plot_data, target_col=target_col, benchmark=benchmark, color_mode=color_mode, title=tmp_indicator, use_ax=axes[tmp_indicator])
+      boundary = tmp_args.get('boundary')
+      plot_indicator(df=plot_data, target_col=target_col, benchmark=benchmark, boundary=boundary, color_mode=color_mode, title=tmp_indicator, use_ax=axes[tmp_indicator])
 
     # if i < (num_indicators-1):
     #   axes[tmp_indicator].set_xticks([])
