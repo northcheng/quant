@@ -1093,7 +1093,7 @@ def plot_ichimoku(df, signal_col='signal', price_col='Close', start=None, end=No
     return ax
 
 
-def plot_indicator(df, target_col, price_col='Close', start=None, end=None, benchmark=0, color_mode='up_down', title=None, figsize=(20, 5), use_ax=None):
+def plot_indicator(df, target_col, price_col='Close', start=None, end=None, benchmark=0, boundary=[], color_mode='up_down', title=None, figsize=(20, 5), use_ax=None):
   """
   Plot indicators around a benchmark
 
@@ -1123,6 +1123,12 @@ def plot_indicator(df, target_col, price_col='Close', start=None, end=None, benc
   if benchmark is not None:
     df['benchmark'] = benchmark
     ax.plot(df.index, df['benchmark'], color='black')
+
+  if len(boundary) > 0:
+    df['upper_boundary'] = max(boundary)
+    df['lower_boundary'] = min(boundary)
+    ax.plot(df.index, df['upper_boundary'], color='black')
+    ax.plot(df.index, df['lower_boundary'], color='black')
 
   # plot indicator(s)
   for col in target_col:
@@ -1225,7 +1231,7 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
     #   axes[tmp_indicator].set_xticks([])
 
   # adjust plot layout
-  fig.tight_layout() 
+  # fig.tight_layout() 
   fig.suptitle(title, x=xp, y=yp)
 
   # save image
