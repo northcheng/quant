@@ -1093,7 +1093,7 @@ def plot_ichimoku(df, signal_col='signal', price_col='Close', start=None, end=No
     return ax
 
 
-def plot_indicator(df, target_col, price_col='Close', start=None, end=None, benchmark=0, boundary=[], color_mode='up_down', title=None, figsize=(20, 5), use_ax=None):
+def plot_indicator(df, target_col, price_col='Close', start=None, end=None, benchmark=0, boundary=None, color_mode='up_down', title=None, figsize=(20, 5), use_ax=None):
   """
   Plot indicators around a benchmark
 
@@ -1122,13 +1122,14 @@ def plot_indicator(df, target_col, price_col='Close', start=None, end=None, benc
   # plot benchmark
   if benchmark is not None:
     df['benchmark'] = benchmark
-    ax.plot(df.index, df['benchmark'], color='black')
+    ax.plot(df.index, df['benchmark'], color='black', linestyle='--')
 
-  if len(boundary) > 0:
-    df['upper_boundary'] = max(boundary)
-    df['lower_boundary'] = min(boundary)
-    ax.plot(df.index, df['upper_boundary'], color='black')
-    ax.plot(df.index, df['lower_boundary'], color='black')
+  if boundary is not None:
+    if len(boundary) > 0
+      df['upper_boundary'] = max(boundary)
+      df['lower_boundary'] = min(boundary)
+      ax.plot(df.index, df['upper_boundary'], color='black', linestyle='--')
+      ax.plot(df.index, df['lower_boundary'], color='black', linestyle='--')
 
   # plot indicator(s)
   for col in target_col:
