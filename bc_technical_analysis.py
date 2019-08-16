@@ -1128,12 +1128,12 @@ def plot_indicator(df, target_col, price_col='Close', start=None, end=None, benc
     if len(boundary) > 0:
       df['upper_boundary'] = max(boundary)
       df['lower_boundary'] = min(boundary)
-      ax.plot(df.index, df['upper_boundary'], color='black', linestyle='--', label='%s'% max(boundary))
-      ax.plot(df.index, df['lower_boundary'], color='black', linestyle='--', label='%s'% min(boundary))
+      ax.plot(df.index, df['upper_boundary'], color='green', linestyle='--', label='%s'% max(boundary))
+      ax.plot(df.index, df['lower_boundary'], color='red', linestyle='--', label='%s'% min(boundary))
 
   # plot indicator(s)
   for col in target_col:
-    ax.plot(df.index, df[col], label=col, alpha=0.6)
+    ax.plot(df.index, df[col], label=col)
 
   # plot color bars if there is only one indicator to plot
   if len(target_col) == 1:
