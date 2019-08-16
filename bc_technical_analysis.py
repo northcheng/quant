@@ -719,82 +719,82 @@ def cal_ichimoku_status(df, add_change_rate=True, is_save=False, file_name='ichi
 
   # calculate cloud size/color and color shift
   df['cloud_shift'] = cal_crossover_signal(df=df, fast_line='senkou_a', slow_line='senkou_b', pos_signal=1, neg_signal=-1, none_signal=0)
-  df['云厚度'] = round((df['senkou_a'] - df['senkou_b'])/df['Close'], ndigits=3)
-  df['云长度'] = 0
-  df['云'] = 0
-  df['云顶'] = 0
-  df['云底'] = 0
-  df['上穿'] = ''
-  df['下穿'] = ''
+  df['cloud_height'] = round((df['senkou_a'] - df['senkou_b'])/df['Close'], ndigits=3)
+  df['cloud_width'] = 0
+  df['cloud_color'] = 0
+  df['cloud_top'] = 0
+  df['cloud_bottom'] = 0
+  df['break_up'] = ''
+  df['break_down'] = ''
 
-  # set values according to cloud color
-  green_idx = df.query('云厚度 > 0').index
-  red_idx = df.query('云厚度 <= 0').index
-  df.loc[green_idx, '云长度'] = 1
-  df.loc[green_idx, '云'] = 1
-  df.loc[green_idx, '云顶'] = df['senkou_a']
-  df.loc[green_idx, '云底'] = df['senkou_b']
-  df.loc[red_idx, '云长度'] = -1
-  df.loc[red_idx, '云'] = -1
-  df.loc[red_idx, '云顶'] = df['senkou_b']
-  df.loc[red_idx, '云底'] = df['senkou_a']
+  # initialize values according to ichimoku indicators
+  green_idx = df.query('cloud_height > 0').index
+  red_idx = df.query('cloud_height <= 0').index
+  df.loc[green_idx, 'cloud_width'] = 1
+  df.loc[green_idx, 'cloud_color'] = 1
+  df.loc[green_idx, 'cloud_top'] = df['senkou_a']
+  df.loc[green_idx, 'cloud_bottom'] = df['senkou_b']
+  df.loc[red_idx, 'cloud_width'] = -1
+  df.loc[red_idx, 'cloud_color'] = -1
+  df.loc[red_idx, 'cloud_top'] = df['senkou_b']
+  df.loc[red_idx, 'cloud_bottom'] = df['senkou_a']
 
   # calculate how long current cloud has lasted
   idx = df.index.tolist()
   for i in range(1, len(df)):
     current_idx = idx[i]
     previous_idx = idx[i-1]
-    current_cloud_period = df.loc[current_idx, '云长度']
-    previous_cloud_period = df.loc[previous_idx, '云长度']
+    current_cloud_period = df.loc[current_idx, 'cloud_width']
+    previous_cloud_period = df.loc[previous_idx, 'cloud_width']
 
     # calculate how long the cloud has last
     if current_cloud_period * previous_cloud_period > 0:
-      df.loc[current_idx, '云长度'] += previous_cloud_period
+      df.loc[current_idx, 'cloud_width'] += previous_cloud_period
 
   # calculate distance between Close and each ichimoku lines    
-  lines = {'kijun': '基准', 'tankan': '转换', '云顶': '云顶', '云底':'云底'}
-  for line in lines.keys():
+  lines = ['kijun', 'tankan', 'cloud_top', 'cloud_bottom']
+  for line in lines:
 
     # breakthrough
     line_signal = cal_crossover_signal(df=df, fast_line='Close', slow_line=line, result_col='signal', pos_signal='up', neg_signal='down', none_signal='')
     up_idx = line_signal.query('signal == "up"').index
     down_idx = line_signal.query('signal == "down"').index
-    df.loc[up_idx, '上穿'] = df.loc[up_idx, '上穿'] + lines[line] + ','
-    df.loc[down_idx, '下穿'] = df.loc[down_idx, '下穿'] + lines[line] + ','
+    df.loc[up_idx, 'break_up'] = df.loc[up_idx, 'break_up'] + line + ','
+    df.loc[down_idx, 'break_down'] = df.loc[down_idx, 'break_down'] + line + ','
 
     # calculate distance between close price and indicator
-    df[lines[line]] = round((df['Close'] - df[line]) / df['Close'], ndigits=3)
+    df['close_to_' + line] = round((df['Close'] - df[line]) / df['Close'], ndigits=3)
 
   # post processing
   # add change rate of close price
-  result_columns = ['云', '云厚度', '云长度', '云顶', '云底', '基准', '转换']
-  if add_change_rate:
-    df = cal_change_rate(df=df, target_col='Close', drop_na=False)
-    rate_columns = ['rate', 'acc_rate', 'acc_day', 'Close']
-    result_columns += rate_columns
+  # result_columns = ['cloud_color', 'cloud_height', 'cloud_width', 'cloud_top', 'cloud_bottom', 'close_to_kijun', 'close_to_tankan']
+  # if add_change_rate:
+  #   df = cal_change_rate(df=df, target_col='Close', drop_na=False)
+  #   rate_columns = ['rate', 'acc_rate', 'acc_day', 'Close']
+  #   result_columns += rate_columns
 
-    # round digits for rate columns
-    for col in rate_columns:
-      df[col] = round(df[col], ndigits=3)
+    # # round digits for rate columns
+    # for col in rate_columns:
+    #   df[col] = round(df[col], ndigits=3)
   
   # select and rename columns
-  result = df[result_columns].copy()
-  result['上穿'] = df['上穿']  
-  result['下穿'] = df['下穿']  
-  new_columns = {'Close':'收盘价', 'rate': '涨跌', 'acc_rate': '累计涨跌', 'acc_day':'累计天数'}
-  result.rename(columns=new_columns, inplace=True)
+  # result = df[result_columns].copy()
+  # result['break_up'] = df['break_up']  
+  # result['break_down'] = df['break_down']  
+  # new_columns = {'Close':'收盘价', 'rate': '涨跌', 'acc_rate': '累计涨跌', 'acc_day':'累计天数'}
+  # result.rename(columns=new_columns, inplace=True)
 
-  # add extra columns
-  result['支撑'] = ''
-  result['阻挡'] = ''
-  result['操作'] = ''
-  result['备注'] = ''
+  # # add extra columns
+  # result['支撑'] = ''
+  # result['阻挡'] = ''
+  # result['操作'] = ''
+  # result['备注'] = ''
 
   # save result to files
   if is_save:
-    result.to_excel(save_path+file_name)
+    df.to_excel(save_path+file_name)
 
-  return result
+  return df
 
 
 def cal_ichimoku_signal(df, final_signal_threshold=2):
