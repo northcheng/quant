@@ -765,31 +765,6 @@ def cal_ichimoku_status(df, add_change_rate=True, is_save=False, file_name='ichi
     # calculate distance between close price and indicator
     df['close_to_' + line] = round((df['Close'] - df[line]) / df['Close'], ndigits=3)
 
-  # post processing
-  # add change rate of close price
-  # result_columns = ['cloud_color', 'cloud_height', 'cloud_width', 'cloud_top', 'cloud_bottom', 'close_to_kijun', 'close_to_tankan']
-  # if add_change_rate:
-  #   df = cal_change_rate(df=df, target_col='Close', drop_na=False)
-  #   rate_columns = ['rate', 'acc_rate', 'acc_day', 'Close']
-  #   result_columns += rate_columns
-
-    # # round digits for rate columns
-    # for col in rate_columns:
-    #   df[col] = round(df[col], ndigits=3)
-  
-  # select and rename columns
-  # result = df[result_columns].copy()
-  # result['break_up'] = df['break_up']  
-  # result['break_down'] = df['break_down']  
-  # new_columns = {'Close':'收盘价', 'rate': '涨跌', 'acc_rate': '累计涨跌', 'acc_day':'累计天数'}
-  # result.rename(columns=new_columns, inplace=True)
-
-  # # add extra columns
-  # result['支撑'] = ''
-  # result['阻挡'] = ''
-  # result['操作'] = ''
-  # result['备注'] = ''
-
   # save result to files
   if is_save:
     df.to_excel(save_path+file_name)
@@ -1189,7 +1164,7 @@ def plot_indicator(df, target_col, price_col='Close', start=None, end=None, benc
     return ax
 
 
-def plot_multiple_indicators(df, args={'name': ['ichimoku', 'mean_reversion'], 'mean_reversion': {'std_multiple': 2}}, start=None, end=None, title=None, save_path=None, show_image=False, ws=0, hs=0, xp=0, yp=0):
+def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reversion':1}, 'mean_reversion': {'std_multiple': 2}}, start=None, end=None, title=None, save_path=None, show_image=False, ws=0, hs=0, xp=0, yp=0):
   """
   Plot Ichimoku and mean reversion in a same plot
 
@@ -1206,19 +1181,18 @@ def plot_multiple_indicators(df, args={'name': ['ichimoku', 'mean_reversion'], '
   # select plot data
   plot_data = df[start:end].copy()
 
-  indicators = args.get('name')
-  if indicators is None or len(indicators) <= 0:
+  plot_ratio = args.get('plot_ratio')
+  if plot_ratio is None :
     print('No indicator to plot')
     return None
 
+  indicators = list(plot_ratio.keys())
+  ratios = list(plot_ratio.values())
   num_indicators = len(indicators)
-  plot_ratio = args.get('plot_ratio')
-  if plot_ratio is None:
-    plot_ratio=list(np.ones(num_indicators,dtype=np.int8))
-
+  
   # create figures
   fig = plt.figure(figsize=(20, num_indicators*3))  
-  gs = gridspec.GridSpec(num_indicators, 1, height_ratios=plot_ratio)
+  gs = gridspec.GridSpec(num_indicators, 1, height_ratios=ratios)
   gs.update(wspace=ws, hspace=hs)
 
   axes = {}
