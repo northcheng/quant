@@ -602,7 +602,7 @@ def cal_macd_signal(df, n_fast=50, n_slow=105, result_col='signal', pos_signal='
   return df[[result_col]]   
 
 
-def cal_aroon_signal(df, up=90, low=10, result_col='signal', pos_signal='b', neg_signal='s', none_signal='n'):
+def cal_aroon_signal(df, up=50, low=50, result_col='signal', pos_signal='b', neg_signal='s', none_signal='n'):
   """
   Calculate Aroon Indicator signals
 
@@ -619,15 +619,15 @@ def cal_aroon_signal(df, up=90, low=10, result_col='signal', pos_signal='b', neg
   df = df.copy()
   df['aroon_up'] = ta.aroon_up(close=df.Close)
   df['aroon_down'] = ta.aroon_down(close=df.Close)
-  df['aroon_signal'] = 'n'
+  df[result_col] = none_signal
 
   bull_idx = df.query('aroon_up > %(up)s and aroon_down < %(low)s' % dict(up=up, low=low)).index
   bear_idx = df.query('aroon_down > %(up)s and aroon_up < %(low)s' % dict(up=up, low=low)).index
 
-  df.loc[bull_idx, 'aroon_signal'] = 'b'
-  df.loc[bear_idx, 'aroon_signal'] = 's'
+  df.loc[bull_idx, result_col] = pos_signal
+  df.loc[bear_idx, result_col] = neg_signal
 
-  return df[['aroon_signal']]    
+  return df[[result_col]]    
 
 
 def cal_cci_signal(df, up=200, low=-200):
