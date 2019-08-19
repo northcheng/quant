@@ -57,7 +57,7 @@ def get_symbols(remove_invalid=True, remove_not_fetched=False, not_fetched_list=
   return symbols.loc[sec_list, ]
 
 
-def read_stock_data(sec_code, time_col, file_path, file_format, source, start_date=None, end_date=None, drop_cols=[], drop_na=False, sort_index=True):
+def read_stock_data(sec_code, time_col, file_path, file_format, source='google_drive', start_date=None, end_date=None, drop_cols=[], drop_na=False, sort_index=True):
   """
   Read stock data from Google Drive or pandas_datareader
 
@@ -178,7 +178,7 @@ def download_stock_data_from_yahoo(sec_code, file_path, file_format, time_col='D
     stage = 'loading_existed_data'
     data = pd.DataFrame()
     if os.path.exists(filename):
-      data = read_stock_data(sec_code, file_path=file_path, file_format=file_format, time_col=time_col)
+      data = read_stock_data(sec_code, time_col=time_col, file_path=file_path, file_format=file_format， source='google_drive')
     
     # record the number of existed records, update the start_date
     init_len = len(data)
