@@ -845,11 +845,15 @@ def cal_kst_signal(df):
 # def cal_trix_siganl()
 
 
-def cal_vi_signal(df):
+def cal_vi_signal(df,  result_col='signal', pos_signal='b', neg_signal='s', none_signal='n'):
   """
   Calculate Vortex Indicators
 
   :param df: original OHLCV dataframe
+  :param result_col: columnname of the result signal
+  :param pos_signal: the value of positive signal
+  :param neg_siganl: the value of negative signal
+  :param none_signal: the value of none signal
   :returns: vortex signal
   :raises: none
   """
@@ -861,9 +865,9 @@ def cal_vi_signal(df):
   df['vi_neg'] = ta.vortex_indicator_neg(high=df.High, low=df.Low, close=df.Close)
   
   # calculate vortex signal
-  df['signal']= cal_crossover_signal(df=df, fast_line='vi_pos', slow_line='vi_neg')
+  df[result_col]= cal_crossover_signal(df=df, fast_line='vi_pos', slow_line='vi_neg', result_col=result_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal)
 
-  return df[['signal']]
+  return df[[result_col]]
 
 
 #----------------------------- TA volume indicators --------------------------------#
