@@ -57,7 +57,7 @@ def get_symbols(remove_invalid=True, remove_not_fetched=False, not_fetched_list=
   return symbols.loc[sec_list, ]
 
 
-def read_stock_data(sec_code, time_col, file_path, file_format, source='google_drive', start_date=None, end_date=None, drop_cols=[], drop_na=False, sort_index=True):
+def read_stock_data(sec_code, time_col, file_path, file_format='.csv', source='google_drive', start_date=None, end_date=None, drop_cols=[], drop_na=False, sort_index=True):
   """
   Read stock data from Google Drive or pandas_datareader
 
@@ -127,7 +127,7 @@ def read_stock_data(sec_code, time_col, file_path, file_format, source='google_d
   return data[start_date:end_date]
 
 
-def download_stock_data(sec_code, source, time_col, file_path, file_format, quote_client=None, download_limit=1200, start_date=None, end_date=None, is_return=False, is_print=True):
+def download_stock_data(sec_code, source, time_col, file_path, file_format='.csv', quote_client=None, download_limit=1200, start_date=None, end_date=None, is_return=False, is_print=True):
   """
   Download stock data from web sources
 
@@ -153,7 +153,7 @@ def download_stock_data(sec_code, source, time_col, file_path, file_format, quot
     return download_stock_data_from_tiger(sec_code=sec_code, time_col=time_col, quote_client=quote_client, download_limit=download_limit,  start_date=start_date, end_date=end_date, file_path=file_path, file_format=file_format, is_return=is_return, is_print=is_print)
 
 
-def download_stock_data_from_yahoo(sec_code, file_path, file_format, time_col='Date', start_date=None, end_date=None, is_return=False, is_print=True):
+def download_stock_data_from_yahoo(sec_code, file_path, file_format='.csv', time_col='Date', start_date=None, end_date=None, is_return=False, is_print=True):
   """
   Download stock data from Yahoo finance api via pandas_datareader
 
@@ -211,7 +211,7 @@ def download_stock_data_from_yahoo(sec_code, file_path, file_format, time_col='D
     return data 
 
 
-def download_stock_data_from_tiger(sec_code, file_path, file_format, time_col='time', start_date=None, end_date=None, is_return=False, is_print=True, quote_client=None, download_limit=1200,):
+def download_stock_data_from_tiger(sec_code, file_path, file_format='.csv', time_col='time', start_date=None, end_date=None, is_return=False, is_print=True, quote_client=None, download_limit=1200,):
   """
   Download stock data from Tiger Open API
 

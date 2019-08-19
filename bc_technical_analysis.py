@@ -553,6 +553,10 @@ def cal_moving_average_signal(df, target_col='Close', ma_windows=[50, 105], star
   :param long_ma_col: columnname of the long ma
   :param start: start date of the data
   :param end: end date of the data
+  :param result_col: columnname of the result signal
+  :param pos_signal: the value of positive signal
+  :param neg_siganl: the value of negative signal
+  :param none_signal: the value of none signal
   :returns: dataframe with ma crossover signal
   :raises: none
   """
@@ -576,32 +580,39 @@ def cal_moving_average_signal(df, target_col='Close', ma_windows=[50, 105], star
 #----------------------------- TA trend indicators ---------------------------------#
 # def cal_adx_signal()
 
-def cal_macd_signal(df, n_fast=50, n_slow=105):
+def cal_macd_signal(df, n_fast=50, n_slow=105, result_col='signal', pos_signal='b', neg_signal='s', none_signal='n'):
   """
   Calculate MACD(Moving Average Convergence Divergence) signals
 
   :param df: original OHLCV dataframe
   :param n_fast: ma window of fast ma
   :param n_slow: ma window of slow ma
+  :param result_col: columnname of the result signal
+  :param pos_signal: the value of positive signal
+  :param neg_siganl: the value of negative signal
+  :param none_signal: the value of none signal
   :returns: macd signals
   :raises: none
   """
   df = df.copy()
   df['macd_diff']  = ta.macd_diff(close=df.Close, n_fast=n_fast, n_slow=n_slow)
   df['zero'] = 0
-  df['signal'] = cal_crossover_signal(df=df, fast_line='macd_diff', slow_line='zero')
-  df.rename(columns={'signal': 'macd_signal'}, inplace=True)
+  df[result_col] = cal_crossover_signal(df=df, fast_line='macd_diff', slow_line='zero', result_col=result_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal)
 
-  return df[['macd_signal']]   
+  return df[[result_col]]   
 
 
-def cal_aroon_signal(df, up=90, low=10):
+def cal_aroon_signal(df, up=90, low=10, result_col='signal', pos_signal='b', neg_signal='s', none_signal='n'):
   """
   Calculate Aroon Indicator signals
 
   :param df: original OHLCV dataframe
   :param up: up boundary
   :param low: low bounday
+  :param result_col: columnname of the result signal
+  :param pos_signal: the value of positive signal
+  :param neg_siganl: the value of negative signal
+  :param none_signal: the value of none signal
   :returns: aroon signals
   :raises: none
   """
@@ -1159,7 +1170,7 @@ def plot_indicator(df, target_col, price_col='Close', start=None, end=None, benc
   # plot close price
   if price_col in df.columns:
     ax2=ax.twinx()
-    ax2.plot(df.index, df[price_col], color='blue', label=price_col, alpha=0.8)
+    ax2.plot(df.index, df[price_col], color='blue', label=price_col, alpha=0.3, linestyle='m.-.')
     ax2.legend(loc='lower left')
 
   # plot title and legend
