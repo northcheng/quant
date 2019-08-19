@@ -178,7 +178,7 @@ def download_stock_data_from_yahoo(sec_code, file_path, file_format, time_col='D
     stage = 'loading_existed_data'
     data = pd.DataFrame()
     if os.path.exists(filename):
-      data = read_stock_data(sec_code, time_col=time_col, file_path=file_path, file_format=file_format， source='google_drive')
+      data = read_stock_data(sec_code, time_col=time_col, file_path=file_path, file_format=file_format, source='google_drive')
     
     # record the number of existed records, update the start_date
     init_len = len(data)
