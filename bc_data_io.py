@@ -181,12 +181,14 @@ def download_stock_data_from_yahoo(sec_code, file_path, file_format='.csv', time
     
     # record the number of existed records, update the start_date
     init_len = len(data)
+    print(init_len)
     if init_len > 0:
       start_date = util.time_2_string(data.index.max(), date_format='%Y-%m-%d')
 
     # update data
     stage = 'updating_data'
     new_data = web.DataReader(name=sec_code, data_source='yahoo', start=start_date, end=end_date)
+    print(len(new_data))
     if len(new_data) > 0:
       data = data.append(new_data, sort=True)
     else:
@@ -195,6 +197,7 @@ def download_stock_data_from_yahoo(sec_code, file_path, file_format='.csv', time
     # save data
     stage = 'saving_data'
     final_len = len(data)
+    print(final_len)
     if final_len > 0:
       data = data.reset_index().drop_duplicates(subset=time_col, keep='last')
       data.to_csv(filename, index=False) 
