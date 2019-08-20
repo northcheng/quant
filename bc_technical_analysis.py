@@ -947,11 +947,12 @@ def plot_signal(df, signal_col='signal', price_col='Close', pos_signal='b', neg_
   # plot price
   ax.plot(df.index, df[price_col], color='black', label=price_col, alpha=0.5)
 
-  # plot signals
-  positive_signal = df.query('%(signal)s == "%(pos_signal)s"' % dict(signal=signal_col, pos_signal=pos_signal))
-  negative_signal = df.query('%(signal)s == "%(neg_signal)s"' % dict(signal=signal_col, neg_signal=neg_signal))
-  ax.scatter(positive_signal.index, positive_signal[price_col], label='%s' % pos_signal, marker='^', color='green', alpha=0.8)
-  ax.scatter(negative_signal.index, negative_signal[price_col], label='%s' % neg_signal, marker='v', color='red', alpha=0.8)
+  if signal_col in df.columns:
+    # plot signals
+    positive_signal = df.query('%(signal)s == "%(pos_signal)s"' % dict(signal=signal_col, pos_signal=pos_signal))
+    negative_signal = df.query('%(signal)s == "%(neg_signal)s"' % dict(signal=signal_col, neg_signal=neg_signal))
+    ax.scatter(positive_signal.index, positive_signal[price_col], label='%s' % pos_signal, marker='^', color='green', alpha=0.8)
+    ax.scatter(negative_signal.index, negative_signal[price_col], label='%s' % neg_signal, marker='v', color='red', alpha=0.8)
 
   # legend and title
   ax.legend(loc='upper left')  
@@ -1049,7 +1050,7 @@ def plot_moving_average(df, short_ma_col, long_ma_col, price_col='Close', start=
     return ax
 
 
-def plot_ichimoku(df, signal_col='signal', price_col='Close', start=None, end=None, save_path=None, title=None, figsize=(20, 5), use_ax=None):
+def plot_ichimoku(df, price_col='Close', start=None, end=None, signal_col='signal',  pos_signal='b', neg_signal='s', none_signal='n', save_path=None, title=None, figsize=(20, 5), use_ax=None):
   """
   Plot ichimoku chart
 
@@ -1075,7 +1076,8 @@ def plot_ichimoku(df, signal_col='signal', price_col='Close', start=None, end=No
     ax = plt.gca()
 
   # plot price
-  ax.plot(df.index, df.Close, color='black')
+  ax = plot_signal(df, signal_col=signal_col, price_col=price_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, start=None, end=None, title=None, use_ax=ax)
+  # ax.plot(df.index, df.Close, color='black')
 
   # plot kijun/tankan lines
   ax.plot(df.index, df.tankan, color='magenta', linestyle='-.')
@@ -1090,12 +1092,11 @@ def plot_ichimoku(df, signal_col='signal', price_col='Close', start=None, end=No
   ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a <= df.senkou_b, facecolor='red', interpolate=True, alpha=0.3)
 
   # plot signals
-  if signal_col is not None:
-    if signal_col in df.columns.tolist():
-      buy_signal = df.query('%s == "b"' % signal_col)
-      sell_signal = df.query('%s == "s"' % signal_col)
-      ax.scatter(buy_signal.index, buy_signal.Close, marker='^', color='green', )
-      ax.scatter(sell_signal.index, sell_signal.Close, marker='v', color='red', )
+  # if signal_col in df.columns.tolist():
+  #   buy_signal = df.query('%(signal_col)s == "%(pos_signal)s"' % signal_col)
+  #   sell_signal = df.query('%(signal_col)s == "%(neg_signal)s"' % signal_col)
+  #   ax.scatter(buy_signal.index, buy_signal.Close, marker='^', color='green', )
+  #   ax.scatter(sell_signal.index, sell_signal.Close, marker='v', color='red', )
 
   ax.legend(loc='upper left')  
   ax.set_title(title)
@@ -1174,8 +1175,7 @@ def plot_indicator(df, target_col, start=None, end=None, benchmark=0, boundary=N
   # plot close price
   if price_col in df.columns:
     ax2=ax.twinx()
-    plot_signal(df, signal_col=signal_col, price_col=price_col, pos_signal='b', neg_signal='s', none_signal='n', start=None, end=None, title=None, use_ax=ax2)
-    # ax2.plot(df.index, df[price_col], color='blue', linestyle='--', marker='o', label=price_col, alpha=0.3)
+    plot_signal(df, signal_col=signal_col, price_col=price_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, start=None, end=None, title=None, use_ax=ax2)
     ax2.legend(loc='lower left')
 
   # plot title and legend
