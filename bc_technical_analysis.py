@@ -1054,7 +1054,7 @@ def plot_moving_average(df, short_ma_col, long_ma_col, price_col='Close', start=
     return ax
 
 
-def plot_ichimoku(df, price_col='Close', start=None, end=None, signal_col='signal',  pos_signal='b', neg_signal='s', none_signal='n', save_path=None, title=None, figsize=(20, 5), use_ax=None):
+def plot_ichimoku(df, price_col='Close', start=None, end=None, signal_col='signal',  pos_signal='b', neg_signal='s', none_signal='n', filter_signal='first', save_path=None, title=None, figsize=(20, 5), use_ax=None):
   """
   Plot ichimoku chart
 
@@ -1080,7 +1080,7 @@ def plot_ichimoku(df, price_col='Close', start=None, end=None, signal_col='signa
     ax = plt.gca()
 
   # plot price and signal
-  ax = plot_signal(df, price_col=price_col, signal_col=signal_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, filter_signal='first', use_ax=ax)
+  ax = plot_signal(df, price_col=price_col, signal_col=signal_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, filter_signal=filter_signal, use_ax=ax)
 
   # plot kijun/tankan lines
   ax.plot(df.index, df.tankan, color='magenta', linestyle='-.')
@@ -1239,7 +1239,7 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
         df=plot_data, target_col=target_col, benchmark=benchmark, boundary=boundary, color_mode=color_mode, 
         price_col=price_col, signal_col=signal_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, filter_signal=filter_signal,
         title=tmp_indicator, use_ax=axes[tmp_indicator])
-      
+
   # adjust plot layout
   fig.suptitle(title, x=xp, y=yp)
 
