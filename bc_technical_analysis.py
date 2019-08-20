@@ -916,7 +916,7 @@ def cal_eom_signal(df):
 
 
 #----------------------------- Indicator visualization -----------------------------#
-def plot_signal(df, signal_col='signal', price_col='Close', pos_signal='b', neg_signal='s', none_signal='n', start=None, end=None, title=None, figsize=(20, 5), use_ax=None):
+def plot_signal(df, start=None, end=None, price_col='Close', signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', filter_signal=None, title=None, figsize=(20, 5), use_ax=None):
   """
   Plot signals along with the price
 
@@ -937,6 +937,10 @@ def plot_signal(df, signal_col='signal', price_col='Close', pos_signal='b', neg_
   """
   # copy dataframe within the specific period
   df = df[start:end]
+
+  # remove redundant signals
+  if filter_signal in ['first', 'last']:
+    df = remove_redundant_signal(df, signal_col=signal_col, keep=filter_signal, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal)
 
   # create figure
   ax = use_ax
@@ -1075,9 +1079,8 @@ def plot_ichimoku(df, price_col='Close', start=None, end=None, signal_col='signa
     fig = plt.figure(figsize=figsize)
     ax = plt.gca()
 
-  # plot price
-  ax = plot_signal(df, signal_col=signal_col, price_col=price_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, start=None, end=None, title=None, use_ax=ax)
-  # ax.plot(df.index, df.Close, color='black')
+  # plot price and signal
+  ax = plot_signal(df, price_col=price_col, signal_col=signal_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, filter_signal='first', use_ax=ax)
 
   # plot kijun/tankan lines
   ax.plot(df.index, df.tankan, color='magenta', linestyle='-.')
@@ -1091,13 +1094,7 @@ def plot_ichimoku(df, price_col='Close', start=None, end=None, signal_col='signa
   ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a > df.senkou_b, facecolor='green', interpolate=True, alpha=0.3)
   ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a <= df.senkou_b, facecolor='red', interpolate=True, alpha=0.3)
 
-  # plot signals
-  # if signal_col in df.columns.tolist():
-  #   buy_signal = df.query('%(signal_col)s == "%(pos_signal)s"' % signal_col)
-  #   sell_signal = df.query('%(signal_col)s == "%(neg_signal)s"' % signal_col)
-  #   ax.scatter(buy_signal.index, buy_signal.Close, marker='^', color='green', )
-  #   ax.scatter(sell_signal.index, sell_signal.Close, marker='v', color='red', )
-
+  # title and legend
   ax.legend(loc='upper left')  
   ax.set_title(title)
 
@@ -1109,7 +1106,7 @@ def plot_ichimoku(df, price_col='Close', start=None, end=None, signal_col='signa
     return ax
 
 
-def plot_indicator(df, target_col, start=None, end=None, benchmark=0, boundary=None, color_mode='up_down', signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', price_col='Close', title=None, figsize=(20, 5), use_ax=None):
+def plot_indicator(df, target_col, start=None, end=None, benchmark=0, boundary=None, color_mode='up_down', price_col='Close', signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', filter_signal=None, title=None, figsize=(20, 5), use_ax=None):
   """
   Plot indicators around a benchmark
 
@@ -1153,7 +1150,6 @@ def plot_indicator(df, target_col, start=None, end=None, benchmark=0, boundary=N
 
   # plot color bars if there is only one indicator to plot
   if len(target_col) == 1:
-
     tar = target_col[0]
 
     # plot in up_down mode
@@ -1175,7 +1171,7 @@ def plot_indicator(df, target_col, start=None, end=None, benchmark=0, boundary=N
   # plot close price
   if price_col in df.columns:
     ax2=ax.twinx()
-    plot_signal(df, signal_col=signal_col, price_col=price_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, start=None, end=None, title=None, use_ax=ax2)
+    plot_signal(df, price_col=price_col, signal_col=signal_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, filter_signal=filter_signal, use_ax=ax2)
     ax2.legend(loc='lower left')
 
   # plot title and legend
@@ -1229,28 +1225,22 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
     if tmp_indicator == 'ichimoku':
       plot_ichimoku(df=plot_data, title=tmp_indicator, use_ax=axes[tmp_indicator])
 
-    # elif tmp_indicator == 'mean_reversion':
-    #   std_multiple = tmp_args.get('std_multiple')
-    #   plot_mean_reversion(df=plot_data, std_multiple=std_multiple, title=tmp_indicator, use_ax=axes[tmp_indicator])
-
-    # elif tmp_indicator == 'moving_average':
-    #   short_ma_col = tmp_args.get('short_ma_col')
-    #   long_ma_col = tmp_args.get('long_ma_col')
-    #   plot_moving_average(df=plot_data, short_ma_col=short_ma_col, long_ma_col=long_ma_col, title=tmp_indicator, use_ax=axes[tmp_indicator])
-
     else:
       target_col = tmp_args.get('target_col')
       benchmark = tmp_args.get('benchmark')
       boundary = tmp_args.get('boundary')
       color_mode = tmp_args.get('color_mode')
       price_col = tmp_args.get('price_col')
-      plot_indicator(df=plot_data, target_col=target_col, price_col=price_col, benchmark=benchmark, boundary=boundary, color_mode=color_mode, title=tmp_indicator, use_ax=axes[tmp_indicator])
-
-    # if i < (num_indicators-1):
-    #   axes[tmp_indicator].set_xticks([])
-
+      signal_col = tmp_args.get('signal_col')
+      pos_signal = tmp_args.get('pos_signal')
+      neg_signal = tmp_args.get('neg_signal')
+      filter_signal = tmp_args.get('filter_signal')
+      plot_indicator(
+        df=plot_data, target_col=target_col, benchmark=benchmark, boundary=boundary, color_mode=color_mode, 
+        price_col=price_col, signal_col=signal_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, filter_signal=filter_signal,
+        title=tmp_indicator, use_ax=axes[tmp_indicator])
+      
   # adjust plot layout
-  # fig.tight_layout() 
   fig.suptitle(title, x=xp, y=yp)
 
   # save image
