@@ -1108,7 +1108,7 @@ def plot_ichimoku(df, signal_col='signal', price_col='Close', start=None, end=No
     return ax
 
 
-def plot_indicator(df, target_col, price_col='Close', start=None, end=None, benchmark=0, boundary=None, color_mode='up_down', title=None, figsize=(20, 5), use_ax=None):
+def plot_indicator(df, target_col, start=None, end=None, benchmark=0, boundary=None, color_mode='up_down', signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', price_col='Close', title=None, figsize=(20, 5), use_ax=None):
   """
   Plot indicators around a benchmark
 
@@ -1174,7 +1174,8 @@ def plot_indicator(df, target_col, price_col='Close', start=None, end=None, benc
   # plot close price
   if price_col in df.columns:
     ax2=ax.twinx()
-    ax2.plot(df.index, df[price_col], color='blue', linestyle='--', marker='o', label=price_col, alpha=0.3)
+    plot_signal(df, signal_col=signal_col, price_col=price_col, pos_signal='b', neg_signal='s', none_signal='n', start=None, end=None, title=None, use_ax=ax2)
+    # ax2.plot(df.index, df[price_col], color='blue', linestyle='--', marker='o', label=price_col, alpha=0.3)
     ax2.legend(loc='lower left')
 
   # plot title and legend
