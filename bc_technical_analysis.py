@@ -1010,7 +1010,7 @@ def plot_ichimoku(df, price_col='Close', start=None, end=None, signal_col='signa
   ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a <= df.senkou_b, facecolor='red', interpolate=True, alpha=0.3)
 
   # title and legend
-  ax.legend(loc='upper left')  
+  ax.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=5, mode="expand", borderaxespad=0.)
   ax.set_title(title)
 
   # save image
@@ -1098,7 +1098,7 @@ def plot_indicator(df, target_col, start=None, end=None, benchmark=0, boundary=N
     return ax
 
 
-def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reversion':1}, 'mean_reversion': {'std_multiple': 2}}, start=None, end=None, title=None, save_path=None, show_image=False, ws=0, hs=0, xp=0, yp=0):
+def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reversion':1}, 'mean_reversion': {'std_multiple': 2}}, start=None, end=None, title=None, save_path=None, show_image=False, ws=0, hs=0, xp=0, yp=0, unit_size=3):
   """
   Plot Ichimoku and mean reversion in a same plot
 
@@ -1126,7 +1126,7 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
   num_indicators = len(indicators)
   
   # create figures
-  fig = plt.figure(figsize=(20, num_indicators*3))  
+  fig = plt.figure(figsize=(20, num_indicators*unit_size))  
   gs = gridspec.GridSpec(num_indicators, 1, height_ratios=ratios)
   gs.update(wspace=ws, hspace=hs)
 
