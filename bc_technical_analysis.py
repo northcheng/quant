@@ -260,7 +260,7 @@ def cal_trend_signal(df, trend_col, up_window=3, down_window=2, result_col='sign
   return df[[result_col]]
 
 
-def remove_redundant_signal(df, signal_col='signal', keep='first', pos_signal='b', neg_signal='s', none_signal='n'):
+def remove_redundant_signal(df, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', keep='first'):
   """
   Remove redundant (duplicated continuous) signals, keep only the first or the last one
 
@@ -602,7 +602,7 @@ def cal_macd_signal(df, n_fast=50, n_slow=105, result_col='signal', pos_signal='
   return df[[result_col]]   
 
 
-def cal_aroon_signal(df, up=50, low=50, result_col='signal', pos_signal='b', neg_signal='s', none_signal='n'):
+def cal_aroon_signal(df, up=50, low=50, result_col='signal', pos_signal='b', neg_signal='s', none_signal='n', filter_signal='first'):
   """
   Calculate Aroon Indicator signals
 
@@ -626,6 +626,9 @@ def cal_aroon_signal(df, up=50, low=50, result_col='signal', pos_signal='b', neg
 
   df.loc[bull_idx, result_col] = pos_signal
   df.loc[bear_idx, result_col] = neg_signal
+
+  if filter_signal in ['first', 'last']:
+    df = remove_redundant_signal(df=df, signal_col=result_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, keep=filter_signal)
 
   return df[[result_col]]    
 
@@ -783,7 +786,7 @@ def cal_ichimoku_status(df, add_change_rate=True, is_save=False, file_name='ichi
   return df
 
 
-def cal_ichimoku_signal(df, final_signal_threshold=2):
+def cal_ichimoku_signal(df, result_col='signal', pos_signal='b', neg_signal='s', none_signal='n', filter_signal='first', final_signal_threshold=2):
   """
   Calculate ichimoku signals 
 
@@ -815,11 +818,14 @@ def cal_ichimoku_signal(df, final_signal_threshold=2):
   buy_idx = df.query('signal_sum == %s' % final_signal_threshold).index
   sell_idx = df.query('signal_sum == %s' % -final_signal_threshold).index
 
-  df['ichimoku_signal'] = 'n'
-  df.loc[buy_idx, 'ichimoku_signal'] = 'b'
-  df.loc[sell_idx, 'ichimoku_signal'] = 's'
+  df[result_col] = none_signal
+  df.loc[buy_idx, result_col] = pos_signal
+  df.loc[sell_idx, result_col] = neg_signal
 
-  return df[['ichimoku_signal']]
+  if filter_signal in ['first', 'last']:
+    df = remove_redundant_signal(df=df, signal_col=result_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, keep=filter_signal)
+
+  return df[[result_col]]
   
 
 def cal_kst_signal(df):

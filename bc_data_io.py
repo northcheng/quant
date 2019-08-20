@@ -114,7 +114,7 @@ def read_stock_data(sec_code, time_col, file_path, file_format='.csv', source='g
     elif source == 'yahoo':
       # download data from yahoo
       stage = 'download_data_from_yahoo_finance'
-      data = download_stock_data_from_yahoo(sec_code=sec_code, time_col=time_col, file_path=file_path, file_format=file_format, start_date=start_date, end_date=end_date, is_append=False, is_return=True, is_print=True)
+      data = download_stock_data_from_yahoo(sec_code=sec_code, time_col=time_col, file_path=file_path, file_format=file_format, start_date=start_date, end_date=end_date, is_append=False, is_return=True, is_svae=False, is_print=True)
     
     # read data from other sources
     else:
@@ -126,7 +126,7 @@ def read_stock_data(sec_code, time_col, file_path, file_format='.csv', source='g
   return data[start_date:end_date]
 
 
-def download_stock_data(sec_code, source, time_col, file_path, file_format='.csv', start_date=None, end_date=None, quote_client=None, download_limit=1200, is_append=True, is_return=False, is_print=True):
+def download_stock_data(sec_code, source, time_col, file_path, file_format='.csv', start_date=None, end_date=None, quote_client=None, download_limit=1200, is_append=True, is_return=False, is_save=True, is_print=True):
   """
   Download stock data from web sources
 
@@ -147,13 +147,13 @@ def download_stock_data(sec_code, source, time_col, file_path, file_format='.csv
   """
   # download stock data from yahoo finance api via pandas_datareader
   if source == 'yahoo':
-    return download_stock_data_from_yahoo(sec_code=sec_code, time_col=time_col, file_path=file_path, file_format=file_format, start_date=start_date, end_date=end_date, is_append=is_append, is_return=is_return, is_print=is_print)
+    return download_stock_data_from_yahoo(sec_code=sec_code, time_col=time_col, file_path=file_path, file_format=file_format, start_date=start_date, end_date=end_date, is_append=is_append, is_return=is_return, is_save=is_save, is_print=is_print)
   # download stock data by using tiger open api
   elif source == 'tiger':
-    return download_stock_data_from_tiger(sec_code=sec_code, time_col=time_col, file_path=file_path, file_format=file_format, start_date=start_date, end_date=end_date, is_append=is_append, is_return=is_return, is_print=is_print, quote_client=quote_client, download_limit=download_limit,)
+    return download_stock_data_from_tiger(sec_code=sec_code, time_col=time_col, file_path=file_path, file_format=file_format, start_date=start_date, end_date=end_date, is_append=is_append, is_return=is_return, is_save=is_save, is_print=is_print, quote_client=quote_client, download_limit=download_limit,)
 
 
-def download_stock_data_from_yahoo(sec_code, file_path, file_format='.csv', time_col='Date', start_date=None, end_date=None, is_append=True, is_return=False, is_print=True):
+def download_stock_data_from_yahoo(sec_code, file_path, file_format='.csv', time_col='Date', start_date=None, end_date=None, is_append=True, is_return=False, is_save=True, is_print=True):
   """
   Download stock data from Yahoo finance api via pandas_datareader
 
@@ -196,7 +196,9 @@ def download_stock_data_from_yahoo(sec_code, file_path, file_format='.csv', time
     stage = 'saving_data'
     if len(data) > 0:
       data = data.reset_index().drop_duplicates(subset=time_col, keep='last')
-      data.to_csv(filename, index=False) 
+
+      if  is_save:
+        data.to_csv(filename, index=False)
     else:
       print('no file created for %s' % sec_code)
       
@@ -206,6 +208,7 @@ def download_stock_data_from_yahoo(sec_code, file_path, file_format='.csv', time
       diff_len = final_len - init_len
       print('%(sec_code)s: %(first_date)s - %(latest_date)s, 新增记录 %(diff_len)s/%(final_len)s, ' % dict(
         diff_len=diff_len, final_len=final_len, first_date=data[time_col].min().date(), latest_date=data[time_col].max().date(), sec_code=sec_code))
+
   except Exception as e:
       print(sec_code, stage, e)
 
@@ -214,7 +217,7 @@ def download_stock_data_from_yahoo(sec_code, file_path, file_format='.csv', time
     return util.df_2_timeseries(data, time_col=time_col) 
 
 
-def download_stock_data_from_tiger(sec_code, file_path, file_format='.csv', time_col='time', start_date=None, end_date=None, is_append=True, is_return=False, is_print=True, quote_client=None, download_limit=1200,):
+def download_stock_data_from_tiger(sec_code, file_path, file_format='.csv', time_col='time', start_date=None, end_date=None, is_append=True, is_return=False, is_save=True, is_print=True, quote_client=None, download_limit=1200,):
   """
   Download stock data from Tiger Open API
 
@@ -286,8 +289,9 @@ def download_stock_data_from_tiger(sec_code, file_path, file_format='.csv', time
       # drop duplicated data
       stage = 'saving_data'
       data = data.reset_index().drop_duplicates(subset=time_col, keep='last')
-      data.sort_values(by=time_col,  )
-      data.to_csv(filename, index=False) 
+      data.sort_values(by=time_col,  inplace=True)
+      if is_save:
+        data.to_csv(filename, index=False) 
       
     # calculate the number of new records
     if is_print:
