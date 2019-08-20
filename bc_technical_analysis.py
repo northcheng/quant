@@ -1090,7 +1090,7 @@ def plot_indicator(df, target_col, start=None, end=None, benchmark=0, boundary=N
     ax2.legend(loc='lower left')
 
   # plot title and legend
-  ax.legend(bbox_to_anchor=(1.02, 0., 3, .102), loc=3, ncol=5, mode="expand", borderaxespad=0.) 
+  ax.legend(bbox_to_anchor=(1.02, 0., 3, .102), loc=3, ncol=5, borderaxespad=0.) 
   ax.set_title(title)
 
   # return ax
