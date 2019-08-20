@@ -1138,7 +1138,7 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
     axes[tmp_indicator].patch.set_alpha(0.5)
 
     if tmp_indicator == 'ichimoku':
-      plot_ichimoku(df=plot_data, title=tmp_indicator, use_ax=axes[tmp_indicator])
+      plot_ichimoku(df=plot_data, signal_col='ichimoku', title=tmp_indicator, use_ax=axes[tmp_indicator])
 
     else:
       target_col = tmp_args.get('target_col')
