@@ -959,7 +959,9 @@ def plot_signal(df, start=None, end=None, price_col='Close', signal_col='signal'
     # remove redundant signals
     if filter_signal in ['first', 'last']:
       signal = remove_redundant_signal(df, signal_col=signal_col, keep=filter_signal, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal)
-
+    else:
+      signal = df
+      
     # plot positive and negative signlas
     positive_signal = signal.query('%(signal)s == "%(pos_signal)s"' % dict(signal=signal_col, pos_signal=pos_signal))
     negative_signal = signal.query('%(signal)s == "%(neg_signal)s"' % dict(signal=signal_col, neg_signal=neg_signal))
