@@ -28,7 +28,7 @@ def buy(money, price, trading_fee):
     money = money - trading_fee - (price*stock) 
   else:
     stock = 0
-    print('Not enough money to buy')
+    # print('Not enough money to buy')
 
   return {'left_money': money, 'new_stock': stock} 
 
@@ -48,7 +48,7 @@ def sell(stock, price, trading_fee):
     stock = 0
   else:
     money = 0
-    print('Not enough stock to sell')
+    # print('Not enough stock to sell')
 
   return {'new_money': money, 'left_stock': stock}
 
