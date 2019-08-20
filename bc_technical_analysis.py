@@ -1235,6 +1235,7 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
       signal_col = tmp_args.get('signal_col')
       pos_signal = tmp_args.get('pos_signal')
       neg_signal = tmp_args.get('neg_signal')
+      none_signal = tmp_args.get('none_signal')
       filter_signal = tmp_args.get('filter_signal')
       plot_indicator(
         df=plot_data, target_col=target_col, benchmark=benchmark, boundary=boundary, color_mode=color_mode, 
