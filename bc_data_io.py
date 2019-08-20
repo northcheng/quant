@@ -147,10 +147,10 @@ def download_stock_data(sec_code, source, time_col, file_path, file_format='.csv
   """
   # download stock data from yahoo finance api via pandas_datareader
   if source == 'yahoo':
-    return download_stock_data_from_yahoo(sec_code=sec_code, time_col=time_col, file_path=file_path, file_format=file_format, start_date=start_date, end_date=end_date, is_append=append, is_return=is_return, is_print=is_print)
+    return download_stock_data_from_yahoo(sec_code=sec_code, time_col=time_col, file_path=file_path, file_format=file_format, start_date=start_date, end_date=end_date, is_append=True, is_return=is_return, is_print=is_print)
   # download stock data by using tiger open api
   elif source == 'tiger':
-    return download_stock_data_from_tiger(sec_code=sec_code, time_col=time_col, file_path=file_path, file_format=file_format, start_date=start_date, end_date=end_date, is_append=append, is_return=is_return, is_print=is_print, quote_client=quote_client, download_limit=download_limit,)
+    return download_stock_data_from_tiger(sec_code=sec_code, time_col=time_col, file_path=file_path, file_format=file_format, start_date=start_date, end_date=end_date, is_append=True, is_return=is_return, is_print=is_print, quote_client=quote_client, download_limit=download_limit,)
 
 
 def download_stock_data_from_yahoo(sec_code, file_path, file_format='.csv', time_col='Date', start_date=None, end_date=None, is_append=True, is_return=False, is_print=True):
@@ -214,7 +214,7 @@ def download_stock_data_from_yahoo(sec_code, file_path, file_format='.csv', time
     return util.df_2_timeseries(data, time_col=time_col) 
 
 
-def download_stock_data_from_tiger(sec_code, file_path, file_format='.csv', time_col='time', start_date=None, end_date=None, mode='append', is_return=False, is_print=True, quote_client=None, download_limit=1200,):
+def download_stock_data_from_tiger(sec_code, file_path, file_format='.csv', time_col='time', start_date=None, end_date=None, is_append=True, is_return=False, is_print=True, quote_client=None, download_limit=1200,):
   """
   Download stock data from Tiger Open API
 
