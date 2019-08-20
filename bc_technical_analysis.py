@@ -1010,7 +1010,7 @@ def plot_ichimoku(df, price_col='Close', start=None, end=None, signal_col='signa
   ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a <= df.senkou_b, facecolor='red', interpolate=True, alpha=0.3)
 
   # title and legend
-  ax.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=5, mode="expand", borderaxespad=0.)
+  ax.legend(bbox_to_anchor=(1.02, 0.), loc=3, ncol=1, borderaxespad=0.) 
   ax.set_title(title)
 
   # save image
