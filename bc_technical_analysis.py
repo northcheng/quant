@@ -938,10 +938,6 @@ def plot_signal(df, start=None, end=None, price_col='Close', signal_col='signal'
   # copy dataframe within the specific period
   df = df[start:end]
 
-  # remove redundant signals
-  if filter_signal in ['first', 'last']:
-    df = remove_redundant_signal(df, signal_col=signal_col, keep=filter_signal, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal)
-
   # create figure
   ax = use_ax
   if ax is None:
@@ -952,6 +948,11 @@ def plot_signal(df, start=None, end=None, price_col='Close', signal_col='signal'
   ax.plot(df.index, df[price_col], color='black', label=price_col, alpha=0.5)
 
   if signal_col in df.columns:
+
+    # remove redundant signals
+    if filter_signal in ['first', 'last']:
+      df = remove_redundant_signal(df, signal_col=signal_col, keep=filter_signal, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal)
+    
     # plot signals
     positive_signal = df.query('%(signal)s == "%(pos_signal)s"' % dict(signal=signal_col, pos_signal=pos_signal))
     negative_signal = df.query('%(signal)s == "%(neg_signal)s"' % dict(signal=signal_col, neg_signal=neg_signal))
