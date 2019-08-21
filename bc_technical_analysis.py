@@ -227,6 +227,41 @@ def cal_crossover_signal(df, fast_line, slow_line, result_col='signal', pos_sign
   return df[[result_col]]
 
 
+def cal_boundary_signal(df, upper_col, lower_col, upper_boundary, lower_boundary, result_col='signal', pos_signal='b', neg_signal='s', none_signal='n'):
+  """
+  Calculate signal generated from triger of boundaries
+  When upper_col breakthrough upper_boundary, positive signal will be generated
+  When lower_col breakthrough lower_boundary, negative signal will be generated 
+
+  :param df: original dffame which contains a fast line and a slow line
+  :param upper_col: columnname of the positive column
+  :param lower_col: columnname of the negative column
+  :param upper_boundary: upper boundary
+  :param lower_boundary: lower boundary
+  :param result_col: columnname of the result
+  :param pos_signal: the value of positive signal
+  :param neg_siganl: the value of negative signal
+  :param none_signal: the value of none signal
+  :returns: series of the result column
+  :raises: none
+  """
+  # copy dataframe
+  df = df.copy()
+
+  # when there is only one line
+  if lower_col is None:
+    lower_col = upper_col
+
+  # calculate signals
+  df[result_col] = none_signal
+  pos_idx = df.query('%(column)s > %(value)s' dict(column=upper_col, value=upper_boundary)).index
+  neg_idx = df.query('%(column)s < %(value)s' dict(column=lower_col, value=lower_boundary)).index
+  df.loc[pos_idx, result_col] = pos_signal
+  df.loc[neg_idx, result_col] = neg_signal
+
+  return df[[result_col]]
+
+
 def cal_trend_signal(df, trend_col, up_window=3, down_window=2, result_col='signal', pos_signal='b', neg_signal='s', none_signal='n'):
   """
   Calculate signal generated from trend change
@@ -580,57 +615,91 @@ def cal_moving_average_signal(df, target_col='Close', ma_windows=[50, 105], star
 #----------------------------- TA trend indicators ---------------------------------#
 # def cal_adx_signal()
 
-def cal_macd_signal(df, n_fast=50, n_slow=105, result_col='signal', pos_signal='b', neg_signal='s', none_signal='n'):
-  """
-  Calculate MACD(Moving Average Convergence Divergence) signals
+def add_macd_features(df, n_fast=12, n_slow=26, n_sign=9, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+  '''
+  Calculate MACD(Moving Average Convergence Divergence)
 
   :param df: original OHLCV dataframe
   :param n_fast: ma window of fast ma
   :param n_slow: ma window of slow ma
-  :param result_col: columnname of the result signal
-  :param pos_signal: the value of positive signal
-  :param neg_siganl: the value of negative signal
-  :param none_signal: the value of none signal
-  :returns: macd signals
-  :raises: none
-  """
+  :paran n_sign: ma window of macd signal line
+  :param close: column name of the close
+  :param open: column name of the open
+  :param high: column name of the high
+  :param low: column name of the low
+  :param volume: column name of the volume
+  :param fillna: whether to fill na with 0
+  :param cal_signal: whether to calculate signal
+  :returns: dataframe with new features generated
+  '''
+  # copy dataframe
   df = df.copy()
-  df['macd_diff']  = ta.macd_diff(close=df.Close, n_fast=n_fast, n_slow=n_slow)
-  df['zero'] = 0
-  df[result_col] = cal_crossover_signal(df=df, fast_line='macd_diff', slow_line='zero', result_col=result_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal)
 
-  return df[[result_col]]   
+  # calculate fast and slow ema of close price
+  emafast = ema(series=df[close], periods=n_fast, fillna=fillna)
+  emaslow = ema(series=df[close], periods=n_slow, fillna=fillna)
+  
+  # calculate macd, ema(macd), macd-ema(macd)
+  macd = emafast - emaslow
+  macd_sign = ema(series=macd, periods=n_sign, fillna=fillna)
+  macd_diff = macd - macd_sign
+
+  # fill na value with 0
+  if fillna:
+      macd = macd.replace([np.inf, -np.inf], np.nan).fillna(0)
+      macd_sign = macd_sign.replace([np.inf, -np.inf], np.nan).fillna(0)
+      macd_diff = macd_diff.replace([np.inf, -np.inf], np.nan).fillna(0)
+
+  # assign valuse to df
+  df['macd'] = macd
+  df['macd_sign'] = macd_sign
+  df['macd_diff'] = macd_diff
+
+  # calculate crossover signal
+  if cal_signal:
+    df['zero'] = 0
+    df['macd_signal'] = cal_crossover_signal(df=df, fast_line='macd_diff', slow_line='zero')
+    df.drop(labels='zero', axis=1, inplace=True)
+
+  return df
 
 
-def cal_aroon_signal(df, up=50, low=50, result_col='signal', pos_signal='b', neg_signal='s', none_signal='n', filter_signal='first'):
-  """
-  Calculate Aroon Indicator signals
+
+def add_aroon_features(df, n=25, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, boundary=[50, 50]):
+  '''
+  Calculate Aroon
 
   :param df: original OHLCV dataframe
-  :param up: up boundary
-  :param low: low bounday
-  :param result_col: columnname of the result signal
-  :param pos_signal: the value of positive signal
-  :param neg_siganl: the value of negative signal
-  :param none_signal: the value of none signal
-  :returns: aroon signals
-  :raises: none
-  """
-  df = df.copy()
-  df['aroon_up'] = ta.aroon_up(close=df.Close)
-  df['aroon_down'] = ta.aroon_down(close=df.Close)
-  df[result_col] = none_signal
+  :param n: look back window size
+  :param close: column name of the close
+  :param open: column name of the open
+  :param high: column name of the high
+  :param low: column name of the low
+  :param volume: column name of the volume
+  :param fillna: whether to fill na with 0
+  :param cal_signal: whether to calculate signal
+  :returns: dataframe with new features generated
+  '''
+  # calculate aroon up and down indicators
+  aroon_up = df[close].rolling(n, min_periods=0).apply(lambda x: float(np.argmax(x) + 1) / n * 100, raw=True)
+  aroon_down = df[close].rolling(n, min_periods=0).apply(lambda x: float(np.argmin(x) + 1) / n * 100, raw=True)
+  
+  # fill na value with 0
+  if fillna:
+    aroon_up = aroon_up.replace([np.inf, -np.inf], np.nan).fillna(0)
+    aroon_down = aroon_down.replace([np.inf, -np.inf], np.nan).fillna(0)
 
-  bull_idx = df.query('aroon_up > %(up)s and aroon_down < %(low)s' % dict(up=up, low=low)).index
-  bear_idx = df.query('aroon_down > %(up)s and aroon_up < %(low)s' % dict(up=up, low=low)).index
+  # assign values to df
+  df['aroon_up'] = aroon_up
+  df['aroon_down'] = aroon_down
 
-  df.loc[bull_idx, result_col] = pos_signal
-  df.loc[bear_idx, result_col] = neg_signal
+  # calculate aroon signal
+  if cal_signal:
+    up = max(boundary)
+    low = min(boundary)
+    df['aroon_signal'] = cal_boundary_signal(df=df, upper_col='aroon_up', lower_col='aroon_down', upper_boundary=up, lower_boundary=low)
 
-  if filter_signal in ['first', 'last']:
-    df = remove_redundant_signal(df=df, signal_col=result_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, keep=filter_signal)
-
-  return df[[result_col]]    
+  return df
 
 
 def cal_cci_signal(df, up=200, low=-200):
