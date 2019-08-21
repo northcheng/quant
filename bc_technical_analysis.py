@@ -774,6 +774,122 @@ def add_dpo_features(df, n=20, close='Close', open='Open', high='High', low='Low
 
   return df
 
+
+def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='original', close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, cal_status=True):
+  """
+  Calculate Ichimoku indicators
+
+  :param df: original OHLCV dataframe
+  :param n_short: short window size
+  :param n_medium: medium window size
+  :param n_long: long window size
+  :param close: column name of the close
+  :param open: column name of the open
+  :param high: column name of the high
+  :param low: column name of the low
+  :param volume: column name of the volume
+  :param fillna: whether to fill na with 0
+  :param cal_signal: whether to calculate signal
+  :param method: original/ta way to calculate ichimoku indicators
+  :returns: dataframe with new features generated
+  """
+  # copy dataframe
+  df = df.copy()
+
+  # use original method to calculate ichimoku indicators
+  if method == 'original':
+    df = cal_moving_average(df=df, target_col=high, ma_windows=[n_short, n_medium, n_long], window_type='sm')
+    df = cal_moving_average(df=df, target_col=low, ma_windows=[n_short, n_medium, n_long], window_type='sm')
+
+    df['tankan'] = (df['%(high)s_ma_%(p)s' % dict(high=high, p=n_short)] + df['%(low)s_ma_%(p)s' % dict(low=low, p=n_short)]) / 2
+    df['kijun'] = (df['%(high)s_ma_%(p)s' % dict(high=high, p=n_medium)] + df['%(low)s_ma_%(p)s' % dict(low=low, p=n_medium)]) / 2
+    df['senkou_a'] = (df['tankan'] + df['kijun']) / 2
+    df['senkou_b'] = (df['%(high)s_ma_%(p)s' % dict(high=high, p=n_long)] + df['%(low)s_ma_%(p)s' % dict(low=low, p=n_long)]) / 2
+    df['chikan'] = df[close].shift(-n_medium)
+  
+  # use ta method to calculate ichimoku indicators
+  elif method == 'ta':
+    df['tankan'] = (df[high].rolling(n_short, min_periods=0).max() + df[low].rolling(n_short, min_periods=0).min()) / 2
+    df['kijun'] = (df[high].rolling(n_medium, min_periods=0).max() + df[low].rolling(n_medium, min_periods=0).min()) / 2
+    df['senkou_a'] = (df['tankan'] + df['kijun']) / 2
+    df['senkou_b'] = (df[high].rolling(n_long, min_periods=0).max() + df[low].rolling(n_long, min_periods=0).min()) / 2
+    df['chikan'] = df[close].shift(-n_medium)
+
+  # calculate ichmoku status
+  if cal_status:
+    # cloud status
+    df['cloud_shift'] = cal_crossover_signal(df=df, fast_line='senkou_a', slow_line='senkou_b', pos_signal=1, neg_signal=-1, none_signal=0)
+    df['cloud_height'] = round((df['senkou_a'] - df['senkou_b'])/df[close], ndigits=3)
+    df['cloud_width'] = 0
+    df['cloud_top'] = 0
+    df['cloud_bottom'] = 0
+    df['break_up'] = ''
+    df['break_down'] = ''
+
+    # initialize values according to ichimoku indicators
+    green_idx = df.query('cloud_height > 0').index
+    red_idx = df.query('cloud_height <= 0').index
+    df.loc[green_idx, 'cloud_width'] = 1
+    df.loc[green_idx, 'cloud_top'] = df['senkou_a']
+    df.loc[green_idx, 'cloud_bottom'] = df['senkou_b']
+    df.loc[red_idx, 'cloud_width'] = -1
+    df.loc[red_idx, 'cloud_top'] = df['senkou_b']
+    df.loc[red_idx, 'cloud_bottom'] = df['senkou_a']
+
+    # calculate how long current cloud has lasted
+    idx = df.index.tolist()
+    for i in range(1, len(df)):
+      current_idx = idx[i]
+      previous_idx = idx[i-1]
+      current_cloud_period = df.loc[current_idx, 'cloud_width']
+      previous_cloud_period = df.loc[previous_idx, 'cloud_width']
+
+      # calculate how long the cloud has last
+      if current_cloud_period * previous_cloud_period > 0:
+        df.loc[current_idx, 'cloud_width'] += previous_cloud_period
+
+    # calculate distance between Close and each ichimoku lines    
+    lines = ['kijun', 'tankan', 'cloud_top', 'cloud_bottom']
+    for line in lines:
+
+      # breakthrough
+      line_signal = cal_crossover_signal(df=df, fast_line=close, slow_line=line, result_col='signal', pos_signal='up', neg_signal='down', none_signal='')
+      up_idx = line_signal.query('signal == "up"').index
+      down_idx = line_signal.query('signal == "down"').index
+      df.loc[up_idx, 'break_up'] = df.loc[up_idx, 'break_up'] + line + ','
+      df.loc[down_idx, 'break_down'] = df.loc[down_idx, 'break_down'] + line + ','
+
+      # calculate distance between close price and indicator
+      df['close_to_' + line] = round((df['Close'] - df[line]) / df['Close'], ndigits=3)
+
+    # calculate ichimoku signal
+    if cal_signal:
+      # senkou signal
+      df['signal_senkou'] = cal_crossover_signal(df=df, fast_line='senkou_a', slow_line='senkou_b', pos_signal=1, neg_signal=-1, none_signal=0)
+
+      # tankan signal
+      df['signal_tankan'] = cal_crossover_signal(df=df, fast_line=close, slow_line='tankan', pos_signal=1, neg_signal=-1, none_signal=0)
+      
+      # cloud signal
+      df['signal_cloud'] = 0
+      up_idx = df.query('cloud_height > 0').index
+      down_idx = df.query('cloud_height < 0').index
+      df.loc[up_idx, 'signal_cloud'] = 1
+      df.loc[down_idx, 'signal_cloud'] = -1
+
+      # breakthrough signal
+      df['signal_breakthrough'] = 0
+      break_up_idx = df['break_up'].str.contains('tankan')
+      break_down_idx = df['break_down'].str.contains('tankan')
+      df.loc[break_up_idx, 'signal_breakthrough'] = 1
+      df.loc[break_down_idx, 'signal_breakthrough'] = -1
+
+      # final signal
+      df['signal_sum'] = df['signal_senkou'] + df['signal_tankan'] + df['signal_cloud'] + df['signal_breakthrough']
+
+  return df
+
+
 def cal_rsi_signal(df, n=14, up=70, low=30):
   """
   Calculate RSI(Relative Strength Index) signals
