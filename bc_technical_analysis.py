@@ -769,7 +769,7 @@ def add_dpo_features(df, n=20, close='Close', open='Open', high='High', low='Low
   # calculate_signal
   if cal_signal:
     df['zero'] = 0
-    df['dpo_signal'] = cal_crossover_signal(df=df, fast_line=dpo, slow_line='zero')
+    df['dpo_signal'] = cal_crossover_signal(df=df, fast_line='dpo', slow_line='zero')
     df.drop(labels='zero', axis=1, inplace=True)
 
   return df
