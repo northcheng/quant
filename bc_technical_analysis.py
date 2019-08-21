@@ -248,10 +248,6 @@ def cal_boundary_signal(df, upper_col, lower_col, upper_boundary, lower_boundary
   # copy dataframe
   df = df.copy()
 
-  # when there is only one line
-  if lower_col is None:
-    lower_col = upper_col
-
   # calculate signals
   df[result_col] = none_signal
   pos_idx = df.query('%(column)s > %(value)s' % dict(column=upper_col, value=upper_boundary)).index
@@ -616,7 +612,7 @@ def cal_moving_average_signal(df, target_col='Close', ma_windows=[50, 105], star
 # def cal_adx_signal()
 
 def add_macd_features(df, n_fast=12, n_slow=26, n_sign=9, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
-  '''
+  """
   Calculate MACD(Moving Average Convergence Divergence)
 
   :param df: original OHLCV dataframe
@@ -631,7 +627,7 @@ def add_macd_features(df, n_fast=12, n_slow=26, n_sign=9, close='Close', open='O
   :param fillna: whether to fill na with 0
   :param cal_signal: whether to calculate signal
   :returns: dataframe with new features generated
-  '''
+  """
   # copy dataframe
   df = df.copy()
 
@@ -665,7 +661,7 @@ def add_macd_features(df, n_fast=12, n_slow=26, n_sign=9, close='Close', open='O
 
 
 def add_aroon_features(df, n=25, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, boundary=[50, 50]):
-  '''
+  """
   Calculate Aroon
 
   :param df: original OHLCV dataframe
@@ -677,8 +673,9 @@ def add_aroon_features(df, n=25, close='Close', open='Open', high='High', low='L
   :param volume: column name of the volume
   :param fillna: whether to fill na with 0
   :param cal_signal: whether to calculate signal
+  :param boundary: upper and lower boundary for calculating signal
   :returns: dataframe with new features generated
-  '''
+  """
   # calculate aroon up and down indicators
   aroon_up = df[close].rolling(n, min_periods=0).apply(lambda x: float(np.argmax(x) + 1) / n * 100, raw=True)
   aroon_down = df[close].rolling(n, min_periods=0).apply(lambda x: float(np.argmin(x) + 1) / n * 100, raw=True)
@@ -705,6 +702,41 @@ def add_aroon_features(df, n=25, close='Close', open='Open', high='High', low='L
 
   return df
 
+
+def add_cci_features(df, n=20, c=0.015, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, boundary=[200, -200]):
+  """
+  Calculate CCI(Commidity Channel Indicator) 
+
+  :param df: original OHLCV dataframe
+  :param n: look back window size
+  :param c: constant value used in cci calculation
+  :param close: column name of the close
+  :param open: column name of the open
+  :param high: column name of the high
+  :param low: column name of the low
+  :param volume: column name of the volume
+  :param fillna: whether to fill na with 0
+  :param cal_signal: whether to calculate signal
+  :returns: dataframe with new features generated
+  """
+  # copy dataframe
+  df = df.copy()
+
+  # calculate cci
+  pp = (df[high] + df[low] + df[close]) / 3.0
+  mad = lambda x : np.mean(np.abs(x-np.mean(x)))
+  cci = (pp - pp.rolling(n, min_periods=0).mean()) / (c * pp.rolling(n).apply(mad,True))
+
+  # assign values to dataframe
+  df['cci'] = cci
+
+  # calculate siganl
+  if cal_signal:
+    upper_boundary = max(boundary)
+    lower_boundary = min(boundary)
+    df['cci_signal'] = cal_boundary_signal(df=df, upper_col='cci', lower_col='cci', upper_boundary=upper_boundary, lower_boundary=lower_boundary)
+
+  return df
 
 def cal_cci_signal(df, up=200, low=-200):
   """
