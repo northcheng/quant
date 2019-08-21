@@ -717,6 +717,7 @@ def add_cci_features(df, n=20, c=0.015, close='Close', open='Open', high='High',
   :param volume: column name of the volume
   :param fillna: whether to fill na with 0
   :param cal_signal: whether to calculate signal
+  :param boundary: upper and lower boundary for calculating signal
   :returns: dataframe with new features generated
   """
   # copy dataframe
@@ -738,27 +739,40 @@ def add_cci_features(df, n=20, c=0.015, close='Close', open='Open', high='High',
 
   return df
 
-def cal_cci_signal(df, up=200, low=-200):
+
+def add_dpo_features(df, n=20, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
-  Calculate CCI(Commidity Channel Indicator) signal
+  Calculate DPO(Detrended Price Oscillator ) 
 
   :param df: original OHLCV dataframe
-  :param up: up boundary
-  :param low: low bounday
-  :returns: CCI signals
-  :raises: none
+  :param n: look back window size
+  :param close: column name of the close
+  :param open: column name of the open
+  :param high: column name of the high
+  :param low: column name of the low
+  :param volume: column name of the volume
+  :param fillna: whether to fill na with 0
+  :param cal_signal: whether to calculate signal
+  :returns: dataframe with new features generated
   """
+  # copy dataframe
   df = df.copy()
-  df['cci'] = ta.cci(high=df.High, low=df.Low, close=df.Close)
-  df['cci_signal'] = 'n'
-  over_buy_idx = df.query('cci > %(up)s' % dict(up=up)).index
-  over_sell_idx = df.query('cci < %(low)s' % dict(low=low)).index
 
-  df.loc[over_buy_idx, 'cci_signal'] = 's'
-  df.loc[over_sell_idx, 'cci_signal'] = 'b'
+  # calculate dpo
+  dpo = df[close].shift(int((0.5 * n) + 1)) - df[close].rolling(n, min_periods=0).mean()
+  if fillna:
+    dpo = dpo.replace([np.inf, -np.inf], np.nan).fillna(0)
 
-  return df[['cci_signal']]
+  # assign values to df
+  df['dpo'] = dpo
 
+  # calculate_signal
+  if cal_signal:
+    df['zero'] = 0
+    df['dpo_signal'] = cal_crossover_signal(df=df, fast_line=dpo, slow_line='zero')
+    df.drop(labels='zero', axis=1, inplace=True)
+
+  return df
 
 def cal_rsi_signal(df, n=14, up=70, low=30):
   """
