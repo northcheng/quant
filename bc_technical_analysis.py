@@ -795,7 +795,8 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='origina
   """
   # copy dataframe
   df = df.copy()
-
+  col_to_drop = []
+  
   # use original method to calculate ichimoku indicators
   if method == 'original':
     df = cal_moving_average(df=df, target_col=high, ma_windows=[n_short, n_medium, n_long], window_type='sm')
@@ -808,7 +809,7 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='origina
     medium_low = '%(col)s_ma_%(p)s' % dict(col=low, p=n_medium)
     long_high = '%(col)s_ma_%(p)s' % dict(col=high, p=n_long)
     long_low = '%(col)s_ma_%(p)s' % dict(col=low, p=n_long)
-    col_to_drop = [short_high, medium_high, long_high, short_low, medium_low, long_low]
+    col_to_drop += [short_high, medium_high, long_high, short_low, medium_low, long_low]
 
     df['tankan'] = (df[short_high] + df[short_low]) / 2
     df['kijun'] = (df[medium_high] + df[medium_low]) / 2
