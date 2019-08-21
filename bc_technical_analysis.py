@@ -801,10 +801,19 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='origina
     df = cal_moving_average(df=df, target_col=high, ma_windows=[n_short, n_medium, n_long], window_type='sm')
     df = cal_moving_average(df=df, target_col=low, ma_windows=[n_short, n_medium, n_long], window_type='sm')
 
-    df['tankan'] = (df['%(high)s_ma_%(p)s' % dict(high=high, p=n_short)] + df['%(low)s_ma_%(p)s' % dict(low=low, p=n_short)]) / 2
-    df['kijun'] = (df['%(high)s_ma_%(p)s' % dict(high=high, p=n_medium)] + df['%(low)s_ma_%(p)s' % dict(low=low, p=n_medium)]) / 2
+    # generate column names
+    short_high = '%(col)s_ma_%(p)s' % dict(col=high, p=n_short)
+    short_low = '%(col)s_ma_%(p)s' % dict(col=low, p=n_short)
+    medium_high = '%(col)s_ma_%(p)s' % dict(col=high, p=n_medium)
+    medium_low = '%(col)s_ma_%(p)s' % dict(col=low, p=n_medium)
+    long_high = '%(col)s_ma_%(p)s' % dict(col=high, p=n_long)
+    long_low = '%(col)s_ma_%(p)s' % dict(col=low, p=n_long)
+    col_to_remove = [short_high, medium_high, long_high, short_low, medium_low, long_low]
+
+    df['tankan'] = (df[short_high] + df[short_low]) / 2
+    df['kijun'] = (df[medium_high] + df[medium_low]) / 2
     df['senkou_a'] = (df['tankan'] + df['kijun']) / 2
-    df['senkou_b'] = (df['%(high)s_ma_%(p)s' % dict(high=high, p=n_long)] + df['%(low)s_ma_%(p)s' % dict(low=low, p=n_long)]) / 2
+    df['senkou_b'] = (df[long_high] + df[long_low]) / 2
     df['chikan'] = df[close].shift(-n_medium)
   
   # use ta method to calculate ichimoku indicators
@@ -849,43 +858,35 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='origina
         df.loc[current_idx, 'cloud_width'] += previous_cloud_period
 
     # calculate distance between Close and each ichimoku lines    
-    lines = ['kijun', 'tankan', 'cloud_top', 'cloud_bottom']
-    for line in lines:
+    line_weight = {'kijun':2, 'tankan':3, 'cloud_top':1, 'cloud_bottom':1}
+    df['signal_breakthrough'] = 0
+    for line in line_weight.keys():
 
-      # breakthrough
-      line_signal = cal_crossover_signal(df=df, fast_line=close, slow_line=line, result_col='signal', pos_signal='up', neg_signal='down', none_signal='')
-      up_idx = line_signal.query('signal == "up"').index
-      down_idx = line_signal.query('signal == "down"').index
+      # set weight for this line
+      weight = line_weight[line]
+
+      # calculate breakthrough
+      line_signal = cal_crossover_signal(df=df, fast_line=close, slow_line=line, pos_signal=weight, neg_signal=-weight, none_signal=0)
+      
+      # record breakthrough
+      up_idx = line_signal.query('signal == %s' % weight).index
+      down_idx = line_signal.query('signal == %s' % -weight).index      
       df.loc[up_idx, 'break_up'] = df.loc[up_idx, 'break_up'] + line + ','
       df.loc[down_idx, 'break_down'] = df.loc[down_idx, 'break_down'] + line + ','
+      df['signal_%s' % line] = line_signal
+
+      # accumulate breakthrough signals
+      df['signal_breakthrough'] = df['signal_breakthrough'] + line_signal
 
       # calculate distance between close price and indicator
       df['close_to_' + line] = round((df['Close'] - df[line]) / df['Close'], ndigits=3)
 
     # calculate ichimoku signal
     if cal_signal:
-      # senkou signal
-      df['signal_senkou'] = cal_crossover_signal(df=df, fast_line='senkou_a', slow_line='senkou_b', pos_signal=1, neg_signal=-1, none_signal=0)
-
-      # tankan signal
-      df['signal_tankan'] = cal_crossover_signal(df=df, fast_line=close, slow_line='tankan', pos_signal=1, neg_signal=-1, none_signal=0)
-      
-      # cloud signal
-      df['signal_cloud'] = 0
-      up_idx = df.query('cloud_height > 0').index
-      down_idx = df.query('cloud_height < 0').index
-      df.loc[up_idx, 'signal_cloud'] = 1
-      df.loc[down_idx, 'signal_cloud'] = -1
-
-      # breakthrough signal
-      df['signal_breakthrough'] = 0
-      break_up_idx = df['break_up'].str.contains('tankan')
-      break_down_idx = df['break_down'].str.contains('tankan')
-      df.loc[break_up_idx, 'signal_breakthrough'] = 1
-      df.loc[break_down_idx, 'signal_breakthrough'] = -1
+      # sum up signals
+      df['signal_sum'] = df['signal_breakthrough'] + df['cloud_shift']
 
       # final signal
-      df['signal_sum'] = df['signal_senkou'] + df['signal_tankan'] + df['signal_cloud'] + df['signal_breakthrough']
       buy_idx = df.query('signal_sum > %s' % signal_threhold).index
       sell_idx = df.query('signal_sum < %s' % -signal_threhold).index
       df['ichimoku_signal'] = 'n'
