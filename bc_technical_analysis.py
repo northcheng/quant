@@ -775,7 +775,7 @@ def add_dpo_features(df, n=20, close='Close', open='Open', high='High', low='Low
   return df
 
 
-def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='original', close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, cal_status=True):
+def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='original', close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_status=True, cal_signal=True, signal_threhold=2):
   """
   Calculate Ichimoku indicators
 
@@ -886,6 +886,12 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='origina
 
       # final signal
       df['signal_sum'] = df['signal_senkou'] + df['signal_tankan'] + df['signal_cloud'] + df['signal_breakthrough']
+      buy_idx = df.query('signal_sum > %s' % signal_threhold)
+      sell_idx = df.query('signal_sum < %s' % -signal_threhold)
+      df['ichimoku_signal'] = 'n'
+      df.loc[buy_idx, 'ichimoku_signal'] = 'b'
+      df.loc[sell_idx, 'ichimoku_signal'] = 's'
+      # df.drop(['signal_senkou', 'signal_tankan', 'signal_cloud', 'signal_breakthrough'], axis=1, inplace=True)
 
   return df
 
