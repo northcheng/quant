@@ -886,8 +886,8 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='origina
 
       # final signal
       df['signal_sum'] = df['signal_senkou'] + df['signal_tankan'] + df['signal_cloud'] + df['signal_breakthrough']
-      buy_idx = df.query('signal_sum > %s' % signal_threhold)
-      sell_idx = df.query('signal_sum < %s' % -signal_threhold)
+      buy_idx = df.query('signal_sum > %s' % signal_threhold).index
+      sell_idx = df.query('signal_sum < %s' % -signal_threhold).index
       df['ichimoku_signal'] = 'n'
       df.loc[buy_idx, 'ichimoku_signal'] = 'b'
       df.loc[sell_idx, 'ichimoku_signal'] = 's'
