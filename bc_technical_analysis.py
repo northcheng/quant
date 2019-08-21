@@ -694,9 +694,14 @@ def add_aroon_features(df, n=25, close='Close', open='Open', high='High', low='L
 
   # calculate aroon signal
   if cal_signal:
-    up = max(boundary)
-    low = min(boundary)
-    df['aroon_signal'] = cal_boundary_signal(df=df, upper_col='aroon_up', lower_col='aroon_down', upper_boundary=up, lower_boundary=low)
+    upper_boundary = max(boundary)
+    lower_boundary = min(boundary)
+    pos_idx = df.query('aroon_up > %(upper_boundary)s and aroon_down < %(lower_boundary)s' % dict(upper_boundary=upper_boundary, lower_boundary=lower_boundary)).index
+    neg_idx = df.query('aroon_up < %(upper_boundary)s and aroon_down > %(lower_boundary)s' % dict(upper_boundary=upper_boundary, lower_boundary=lower_boundary)).index
+
+    df['aroon_signal'] = 'n'
+    df.loc[pos_idx, 'aroon_signal'] = 'b'
+    df.loc[neg_idx, 'aroon_signal'] = 's'
 
   return df
 
