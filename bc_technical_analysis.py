@@ -632,12 +632,12 @@ def add_macd_features(df, n_fast=12, n_slow=26, n_sign=9, close='Close', open='O
   df = df.copy()
 
   # calculate fast and slow ema of close price
-  emafast = ema(series=df[close], periods=n_fast, fillna=fillna)
-  emaslow = ema(series=df[close], periods=n_slow, fillna=fillna)
+  emafast = em(series=df[close], periods=n_fast, fillna=fillna).mean()
+  emaslow = ema(series=df[close], periods=n_slow, fillna=fillna).mean()
   
   # calculate macd, ema(macd), macd-ema(macd)
   macd = emafast - emaslow
-  macd_sign = ema(series=macd, periods=n_sign, fillna=fillna)
+  macd_sign = ema(series=macd, periods=n_sign, fillna=fillna).mean()
   macd_diff = macd - macd_sign
 
   # fill na value with 0
@@ -796,7 +796,7 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='origina
   # copy dataframe
   df = df.copy()
   col_to_drop = []
-  
+
   # use original method to calculate ichimoku indicators
   if method == 'original':
     df = cal_moving_average(df=df, target_col=high, ma_windows=[n_short, n_medium, n_long], window_type='sm')
@@ -896,7 +896,9 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='origina
       df.loc[buy_idx, 'ichimoku_signal'] = 'b'
       df.loc[sell_idx, 'ichimoku_signal'] = 's'
       col_to_drop += ['cloud_shift', 'signal_breakthrough', 'signal_sum']
-      df.drop(col_to_drop, axis=1, inplace=True)
+
+    # drop redundant columns  
+    df.drop(col_to_drop, axis=1, inplace=True)
 
   return df
 
