@@ -633,11 +633,11 @@ def add_macd_features(df, n_fast=12, n_slow=26, n_sign=9, close='Close', open='O
 
   # calculate fast and slow ema of close price
   emafast = em(series=df[close], periods=n_fast, fillna=fillna).mean()
-  emaslow = ema(series=df[close], periods=n_slow, fillna=fillna).mean()
+  emaslow = em(series=df[close], periods=n_slow, fillna=fillna).mean()
   
   # calculate macd, ema(macd), macd-ema(macd)
   macd = emafast - emaslow
-  macd_sign = ema(series=macd, periods=n_sign, fillna=fillna).mean()
+  macd_sign = em(series=macd, periods=n_sign, fillna=fillna).mean()
   macd_diff = macd - macd_sign
 
   # fill na value with 0
