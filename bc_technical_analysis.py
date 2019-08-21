@@ -887,15 +887,15 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='origina
     # calculate ichimoku signal
     if cal_signal:
       # sum up signals
-      df['signal_sum'] = df['signal_breakthrough'] + df['cloud_shift']
+      df['ichimoku_idx'] = df['signal_breakthrough'] + df['cloud_shift']
 
       # final signal
-      buy_idx = df.query('signal_sum > %s' % signal_threhold).index
-      sell_idx = df.query('signal_sum < %s' % -signal_threhold).index
+      buy_idx = df.query('ichimoku_idx > %s' % signal_threhold).index
+      sell_idx = df.query('ichimoku_idx < %s' % -signal_threhold).index
       df['ichimoku_signal'] = 'n'
       df.loc[buy_idx, 'ichimoku_signal'] = 'b'
       df.loc[sell_idx, 'ichimoku_signal'] = 's'
-      col_to_drop += ['cloud_shift', 'signal_breakthrough', 'signal_sum']
+      col_to_drop += ['cloud_shift', 'signal_breakthrough']
 
     # drop redundant columns  
     df.drop(col_to_drop, axis=1, inplace=True)
