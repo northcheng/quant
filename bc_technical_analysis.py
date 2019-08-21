@@ -808,7 +808,7 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='origina
     medium_low = '%(col)s_ma_%(p)s' % dict(col=low, p=n_medium)
     long_high = '%(col)s_ma_%(p)s' % dict(col=high, p=n_long)
     long_low = '%(col)s_ma_%(p)s' % dict(col=low, p=n_long)
-    col_to_remove = [short_high, medium_high, long_high, short_low, medium_low, long_low]
+    col_to_drop = [short_high, medium_high, long_high, short_low, medium_low, long_low]
 
     df['tankan'] = (df[short_high] + df[short_low]) / 2
     df['kijun'] = (df[medium_high] + df[medium_low]) / 2
@@ -859,6 +859,7 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='origina
 
     # calculate distance between Close and each ichimoku lines    
     line_weight = {'kijun':2, 'tankan':3, 'cloud_top':1, 'cloud_bottom':1}
+    col_to_drop = col_to_drop + list(line_weight.keys())
     df['signal_breakthrough'] = 0
     for line in line_weight.keys():
 
@@ -876,7 +877,7 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='origina
       df['signal_%s' % line] = line_signal
 
       # accumulate breakthrough signals
-      df['signal_breakthrough'] = df['signal_breakthrough'] + line_signal
+      df['signal_breakthrough'] = df['signal_breakthrough'].astype(int) + df['signal_%s' % line].astype(int)
 
       # calculate distance between close price and indicator
       df['close_to_' + line] = round((df['Close'] - df[line]) / df['Close'], ndigits=3)
