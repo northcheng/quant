@@ -858,7 +858,7 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='origina
         df.loc[current_idx, 'cloud_width'] += previous_cloud_period
 
     # calculate distance between Close and each ichimoku lines    
-    line_weight = {'kijun':1, 'tankan':1, 'cloud_top':1, 'cloud_bottom':1}
+    line_weight = {'kijun':1, 'tankan':2, 'cloud_top':1, 'cloud_bottom':1}
     df['signal_breakthrough'] = 0
     for line in line_weight.keys():
 
@@ -894,7 +894,7 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='origina
       df['ichimoku_signal'] = 'n'
       df.loc[buy_idx, 'ichimoku_signal'] = 'b'
       df.loc[sell_idx, 'ichimoku_signal'] = 's'
-      col_to_drop += ['signal_breakthrough', 'signal_sum']
+      col_to_drop += ['cloud_shift', 'signal_breakthrough', 'signal_sum']
       df.drop(col_to_drop, axis=1, inplace=True)
 
   return df
