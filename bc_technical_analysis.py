@@ -868,7 +868,7 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='origina
       # calculate breakthrough
       line_signal = cal_crossover_signal(df=df, fast_line=close, slow_line=line, pos_signal=weight, neg_signal=-weight, none_signal=0)
       line_signal_name = 'signal_%s' % line
-      col_to_drop = col_to_drop.append(line_signal_name)
+      col_to_drop.append(line_signal_name)
 
       # record breakthrough
       up_idx = line_signal.query('signal == %s' % weight).index
