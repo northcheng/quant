@@ -254,8 +254,8 @@ def cal_boundary_signal(df, upper_col, lower_col, upper_boundary, lower_boundary
 
   # calculate signals
   df[result_col] = none_signal
-  pos_idx = df.query('%(column)s > %(value)s' dict(column=upper_col, value=upper_boundary)).index
-  neg_idx = df.query('%(column)s < %(value)s' dict(column=lower_col, value=lower_boundary)).index
+  pos_idx = df.query('%(column)s > %(value)s' % dict(column=upper_col, value=upper_boundary)).index
+  neg_idx = df.query('%(column)s < %(value)s' % dict(column=lower_col, value=lower_boundary)).index
   df.loc[pos_idx, result_col] = pos_signal
   df.loc[neg_idx, result_col] = neg_signal
 
@@ -662,7 +662,6 @@ def add_macd_features(df, n_fast=12, n_slow=26, n_sign=9, close='Close', open='O
     df.drop(labels='zero', axis=1, inplace=True)
 
   return df
-
 
 
 def add_aroon_features(df, n=25, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, boundary=[50, 50]):
