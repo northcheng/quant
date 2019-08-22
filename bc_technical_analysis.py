@@ -1071,7 +1071,7 @@ def add_trix_features(df, n=15, n_sign=9, close='Close', open='Open', high='High
   # calculate trix
   ema1 = em(series=df[close], periods=n, fillna=fillna).mean()
   ema2 = em(series=ema1, periods=n, fillna=fillna).mean()
-  ema3 = ema(series=ema2, periods=n, fillna=fillna).mean()
+  ema3 = em(series=ema2, periods=n, fillna=fillna).mean()
   trix = (ema3 - ema3.shift(1)) / ema3.shift(1)
   trix *= 100
 
