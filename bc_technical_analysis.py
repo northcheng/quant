@@ -838,8 +838,8 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
     if cal_signal:
 
       # identify trend
-      up_idx = df.query('cloud_height > 0 and %s > senkou_a' % close).index
-      down_idx = df.query('cloud_height < 0 and %s < senkou_a' % close).index
+      up_idx = df.query('cloud_height > 0 and %s > cloud_top' % close).index
+      down_idx = df.query('cloud_height < 0 and %s < cloud_bottom' % close).index
       df['trend'] = 0
       df.loc[up_idx, 'trend'] = 2
       df.loc[down_idx, 'trend'] = -2
