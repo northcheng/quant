@@ -1049,7 +1049,7 @@ def add_mi_features(df, n=9, n2=25, close='Close', open='Open', high='High', low
   return df
 
 
-def add_trix_features(df, n=15, n_sign=9, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+def add_trix_features(df, n=15, n_sign=9, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, signal_mode='mix'):
   """
   Calculate TRIX
 
@@ -1086,19 +1086,28 @@ def add_trix_features(df, n=15, n_sign=9, close='Close', open='Open', high='High
   # calculate signal
   if cal_signal:
 
-    # signal line crossover
+    # zero line crossover
     df['zero'] = 0
-    df['sign_crossover'] = cal_crossover_signal(df=df, fast_line='trix', slow_line='trix_sign', pos_signal=1, neg_signal=-1, none_signal=0)
-    df['zero_crossover'] = cal_crossover_signal(df=df, fast_line='trix', slow_line='zero', pos_signal=1, neg_signal=-1, none_signal=0)
-    df['trix_signal'] = df['sign_crossover'].astype(int) + df['zero_crossover'].astype(int)
+    df['zero_crossover'] = cal_crossover_signal(df=df, fast_line='trix', slow_line='zero')
 
-    up_idx = df.query('trix_signal > 0').index
-    down_idx = df.query('trix_signal < 0').index
-    df['trix_signal'] = 'n'
-    df.loc[up_idx, 'trix_signal'] = 'b'
-    df.loc[down_idx, 'trix_signal'] = 's'
+    # signal line crossover
+    df['sign_crossover'] = cal_crossover_signal(df=df, fast_line='trix', slow_line='trix_sign')
+    
+    if signal_mode == 'zero':
+      df['trix_signal'] = df['zero_crossover']
 
-    df.drop(['zero', 'sign_crossover', 'zero_crossover'], axis=1, inplace=True)
+    elif signal_mode == 'sign':
+      df['trix_signal'] = df['sign_crossover']
+
+    elif signal_mode == 'mix'
+      up_idx = df.query('sign_crossover  == "b"').index
+      down_idx = df.query('zero_crossover == "s"').index
+
+      df['trix_signal'] = 'n'
+      df.loc[up_idx, 'trix_signal'] = 'b'
+      df.loc[down_idx, 'trix_signal'] = 's'
+
+    df.drop(['zero', 'zero_crossover', 'sign_crossover'], axis=1, inplace=True)
 
   return df
 
