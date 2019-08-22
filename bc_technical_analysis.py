@@ -1462,20 +1462,24 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
     axes[tmp_indicator] = plt.subplot(gs[i]) 
     axes[tmp_indicator].patch.set_alpha(0.5)
 
-    if tmp_indicator == 'ichimoku':
-      plot_ichimoku(df=plot_data, signal_col='ichimoku', title=tmp_indicator, use_ax=axes[tmp_indicator])
+    # get extra arguments
+    price_col = tmp_args.get('price_col')
+    signal_col = tmp_args.get('signal_col')
+    pos_signal = tmp_args.get('pos_signal')
+    neg_signal = tmp_args.get('neg_signal')
+    none_signal = tmp_args.get('none_signal')
+    filter_signal = tmp_args.get('filter_signal')
+    target_col = tmp_args.get('target_col')
+    benchmark = tmp_args.get('benchmark')
+    boundary = tmp_args.get('boundary')
+    color_mode = tmp_args.get('color_mode')
 
+    # plot ichimoku
+    if tmp_indicator == 'ichimoku':
+      plot_ichimoku(df=plot_data, signal_col=signal_col, title=tmp_indicator, use_ax=axes[tmp_indicator])
+
+    # plot other
     else:
-      target_col = tmp_args.get('target_col')
-      benchmark = tmp_args.get('benchmark')
-      boundary = tmp_args.get('boundary')
-      color_mode = tmp_args.get('color_mode')
-      price_col = tmp_args.get('price_col')
-      signal_col = tmp_args.get('signal_col')
-      pos_signal = tmp_args.get('pos_signal')
-      neg_signal = tmp_args.get('neg_signal')
-      none_signal = tmp_args.get('none_signal')
-      filter_signal = tmp_args.get('filter_signal')
       plot_indicator(
         df=plot_data, target_col=target_col, benchmark=benchmark, boundary=boundary, color_mode=color_mode, 
         price_col=price_col, signal_col=signal_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, filter_signal=filter_signal,
