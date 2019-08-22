@@ -1088,8 +1088,8 @@ def add_trix_features(df, n=15, n_sign=9, close='Close', open='Open', high='High
 
     # signal line crossover
     df['zero'] = 0
-    df['sign_crossover'] = cal_crossover_signal(df=df, fast_line=trix, slow_line='trix_sign', pos_signal=1, neg_signal=-1, none_signal=0)
-    df['zero_crossover'] = cal_crossover_signal(df=df, fast_line=trix, slow_line='zero', pos_signal=1, neg_signal=-1, none_signal=0)
+    df['sign_crossover'] = cal_crossover_signal(df=df, fast_line='trix', slow_line='trix_sign', pos_signal=1, neg_signal=-1, none_signal=0)
+    df['zero_crossover'] = cal_crossover_signal(df=df, fast_line='trix', slow_line='zero', pos_signal=1, neg_signal=-1, none_signal=0)
     df['trix_signal'] = df['sign_crossover'].astype(int) + df['zero_crossover'].astype(int)
 
     up_idx = df.query('trix_signal > 0').index
