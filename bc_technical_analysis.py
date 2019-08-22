@@ -609,7 +609,7 @@ def cal_moving_average_signal(df, target_col='Close', ma_windows=[50, 105], star
 
 
 #----------------------------- TA trend indicators ---------------------------------#
-# def cal_adx_signal()
+# def add_adx_features()
 
 def add_macd_features(df, n_fast=12, n_slow=26, n_sign=9, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
@@ -902,7 +902,7 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='origina
 
   return df
 
-
+# def add_rsi_features
 def cal_rsi_signal(df, n=14, up=70, low=30):
   """
   Calculate RSI(Relative Strength Index) signals
@@ -927,8 +927,6 @@ def cal_rsi_signal(df, n=14, up=70, low=30):
 
   return df[['rsi_signal']]
 
-
-# def cal_dpo_signal()
 
 def cal_ichimoku(df, method='original'):
   """
@@ -1075,7 +1073,7 @@ def cal_ichimoku_signal(df, result_col='signal', pos_signal='b', neg_signal='s',
 
   return df[[result_col]]
   
-
+# def add_kst_features
 def cal_kst_signal(df):
   """
   Calculate kst signal
@@ -1093,12 +1091,12 @@ def cal_kst_signal(df):
   return df[['kst_signal']]
 
 
-# def cal_mi_signal()
+# def add_mi_features
 
 
-# def cal_trix_siganl()
+# def add_trix_features
 
-
+# def add_vi_features
 def cal_vi_signal(df,  result_col='signal', pos_signal='b', neg_signal='s', none_signal='n'):
   """
   Calculate Vortex Indicators
@@ -1125,12 +1123,12 @@ def cal_vi_signal(df,  result_col='signal', pos_signal='b', neg_signal='s', none
 
 
 #----------------------------- TA volume indicators --------------------------------#
-# def cal_adi_signal()
+# def add_adi_features()
 
 
-# def cal_cmf_signal(df):
+# def add_cmf_features()
 
-
+# def add_eom_features()
 def cal_eom_signal(df):
   """
   Calculate Ease of movement signal
@@ -1151,16 +1149,16 @@ def cal_eom_signal(df):
   return df[['signal']]
 
 
-# def cal_fi()
+# def add_fi_features()
 
 
-# def cal_nvi_signal()
+# def add_nvi_features()
 
 
-# def cal_obv_signal()
+# def add_obv_features()
 
 
-# def cal_vpt_signal()
+# def add_vpt_features()
 
 
 #----------------------------- TA momentum indicators ------------------------------#
