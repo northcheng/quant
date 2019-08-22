@@ -806,7 +806,7 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
         df.loc[current_idx, 'cloud_width'] += previous_cloud_period
 
     # calculate distance between Close and each ichimoku lines    
-    line_weight = {'kijun':1, 'tankan':0.5, 'cloud_top':0.2, 'cloud_bottom':0.3}
+    line_weight = {'kijun':1, 'tankan':0.5, 'cloud_top':1, 'cloud_bottom':1}
     df['break_up'] = ''
     df['break_down'] = ''
     df['breakthrough'] = 0
@@ -859,7 +859,7 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
       col_to_drop += ['trend', 'tankan_kijun_crossover']
 
     # drop redundant columns  
-    df.drop(col_to_drop, axis=1, inplace=True)
+    # df.drop(col_to_drop, axis=1, inplace=True)
 
   return df
 
