@@ -1115,7 +1115,7 @@ def add_trix_features(df, n=15, n_sign=9, close='Close', open='Open', high='High
   return df
 
 
-def add_vi_features(df, n=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+def add_vortex_features(df, n=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
   Calculate Vortex indicator
 
