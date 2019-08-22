@@ -714,7 +714,7 @@ def add_dpo_features(df, n=20, close='Close', open='Open', high='High', low='Low
   return df
 
 
-def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='original', close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_status=True, cal_signal=True, signal_threhold=2):
+def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is_shift=True, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_status=True, cal_signal=True, signal_threhold=2):
   """
   Calculate Ichimoku indicators
 
@@ -722,6 +722,8 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='origina
   :param n_short: short window size
   :param n_medium: medium window size
   :param n_long: long window size
+  :param method: original/ta way to calculate ichimoku indicators
+  :param is_shift: whether to shift senkou_a and senkou_b n_medium units
   :param close: column name of the close
   :param open: column name of the open
   :param high: column name of the high
@@ -729,7 +731,6 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='origina
   :param volume: column name of the volume
   :param fillna: whether to fill na with 0
   :param cal_signal: whether to calculate signal
-  :param method: original/ta way to calculate ichimoku indicators
   :returns: dataframe with new features generated
   """
   # copy dataframe
@@ -750,6 +751,7 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='origina
     long_low = '%(col)s_ma_%(p)s' % dict(col=low, p=n_long)
     col_to_drop += [short_high, medium_high, long_high, short_low, medium_low, long_low]
 
+    # calculate ichimoku indicators
     df['tankan'] = (df[short_high] + df[short_low]) / 2
     df['kijun'] = (df[medium_high] + df[medium_low]) / 2
     df['senkou_a'] = (df['tankan'] + df['kijun']) / 2
@@ -764,25 +766,31 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='origina
     df['senkou_b'] = (df[high].rolling(n_long, min_periods=0).max() + df[low].rolling(n_long, min_periods=0).min()) / 2
     df['chikan'] = df[close].shift(-n_medium)
 
+  # shift senkou_a and senkou_b n_medium units
+  if is_shift:
+    df['senkou_a'] = df['senkou_a'].shift(n_medium)
+    df['senkou_b'] = df['senkou_b'].shift(n_medium)
+
   # calculate ichmoku status
   if cal_status:
-    # cloud status
+    # cloud color change
     df['cloud_shift'] = cal_crossover_signal(df=df, fast_line='senkou_a', slow_line='senkou_b', pos_signal=1, neg_signal=-1, none_signal=0)
     df['cloud_height'] = round((df['senkou_a'] - df['senkou_b'])/df[close], ndigits=3)
-    df['cloud_width'] = 0
-    df['cloud_top'] = 0
-    df['cloud_bottom'] = 0
-    df['break_up'] = ''
-    df['break_down'] = ''
-
-    # initialize values according to ichimoku indicators
     green_idx = df.query('cloud_height > 0').index
     red_idx = df.query('cloud_height <= 0').index
+
+    # cloud width (how long does it last)
+    df['cloud_width'] = 0
     df.loc[green_idx, 'cloud_width'] = 1
-    df.loc[green_idx, 'cloud_top'] = df['senkou_a']
-    df.loc[green_idx, 'cloud_bottom'] = df['senkou_b']
     df.loc[red_idx, 'cloud_width'] = -1
+
+    # cloud top and bottom
+    df['cloud_top'] = 0
+    df.loc[green_idx, 'cloud_top'] = df['senkou_a']
     df.loc[red_idx, 'cloud_top'] = df['senkou_b']
+
+    df['cloud_bottom'] = 0
+    df.loc[green_idx, 'cloud_bottom'] = df['senkou_b']
     df.loc[red_idx, 'cloud_bottom'] = df['senkou_a']
 
     # calculate how long current cloud has lasted
@@ -799,6 +807,8 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='origina
 
     # calculate distance between Close and each ichimoku lines    
     line_weight = {'kijun':1, 'tankan':0.5, 'cloud_top':0.2, 'cloud_bottom':0.3}
+    df['break_up'] = ''
+    df['break_down'] = ''
     df['breakthrough'] = 0
     col_to_drop.append('breakthrough')
 
@@ -828,8 +838,8 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='origina
     if cal_signal:
 
       # identify trend
-      up_idx = df.query('cloud_height > 0 and %s > senkou_a' % close)
-      down_idx = df.query('cloud_height < 0 and %s < senkou_a' % close)
+      up_idx = df.query('cloud_height > 0 and %s > senkou_a' % close).index
+      down_idx = df.query('cloud_height < 0 and %s < senkou_a' % close).index
       df['trend'] = 0
       df.loc[up_idx, 'trend'] = 1
       df.loc[down_idx, 'trend'] = -1
