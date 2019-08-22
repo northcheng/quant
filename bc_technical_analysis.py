@@ -889,24 +889,30 @@ def add_kst_features(df, r1=10, r2=15, r3=20, r4=30, n1=10, n2=10, n3=10, n4=15,
 
   # calculate signal
   if cal_signal:
-    if signal_mode == 'zero':
-      df['zero'] = 0
-      df['kst_signal'] = cal_crossover_signal(df=df, fast_line='kst', slow_line='zero')
-      col_to_drop.append('zero')
+    df['zero'] = 0
+    col_to_drop.append('zero')
 
+    # kst-0 crossover
+    if signal_mode == 'zero':  
+      df['kst_signal'] = cal_crossover_signal(df=df, fast_line='kst', slow_line='zero')
+      
+    # kst-kst_sign crossovers
     elif signal_mode == 'kst_sign':
       df['kst_signal'] = cal_crossover_signal(df=df, fast_line='kst', slow_line='kst_sign')
 
+    # buy with kst-0 crossover, sell with kst-kst_sign crossover
     elif signal_mode == 'mix':
       df['signal_kst'] = cal_crossover_signal(df=df, fast_line='kst', slow_line='zero', pos_signal=1, neg_signal=0, none_signal=0)
       df['signal_kst_sign'] = cal_crossover_signal(df=df, fast_line='kst', slow_line='kst_sign', pos_signal=0, neg_signal=-1, none_signal=0)
+      col_to_drop += ['signal_kst', 'signal_kst_sign']
+
       df['kst_signal'] = df['signal_kst'].astype(int) + df['signal_kst_sign'].astype(int)
       buy_idx = df.query('kst_signal == 1').index
       sell_idx = df.query('kst_signal == -1').index
+      
       df['kst_signal'] = 'n'
       df.loc[buy_idx, 'kst_signal'] = 'b'
       df.loc[sell_idx, 'kst_signal'] = 's'
-      col_to_drop += ['signal_kst', 'signal_kst_sign']
     
     else:
       print('unknown signal mode')
