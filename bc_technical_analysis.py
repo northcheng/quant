@@ -1045,7 +1045,7 @@ def add_mi_features(df, n=9, n2=25, close='Close', open='Open', high='High', low
     df.loc[down_idx, 'mi_signal'] = 's'
 
     df.drop(['benchmark', 'triger_signal', 'complete_signal'], axis=1, inplace=True)
-      
+
   return df
 
 
@@ -1081,35 +1081,15 @@ def add_trix_features(df, n=15, close='Close', open='Open', high='High', low='Lo
   # assign value to df
   df['trix'] = trix
 
+  # calculate signal
+  if cal_signal:
+    df['trix_signal'] = 'n'
+
   return df
 
 
-def add_vi_features
+# def add_vi_features(df, n=14, , close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
 
-
-def cal_vi_signal(df,  result_col='signal', pos_signal='b', neg_signal='s', none_signal='n'):
-  """
-  Calculate Vortex Indicators
-
-  :param df: original OHLCV dataframe
-  :param result_col: columnname of the result signal
-  :param pos_signal: the value of positive signal
-  :param neg_siganl: the value of negative signal
-  :param none_signal: the value of none signal
-  :returns: vortex signal
-  :raises: none
-  """
-  # copy dataframe
-  df = df.copy()
-  
-  # calculate vortex indicators
-  df['vi_pos'] = ta.vortex_indicator_pos(high=df.High, low=df.Low, close=df.Close)
-  df['vi_neg'] = ta.vortex_indicator_neg(high=df.High, low=df.Low, close=df.Close)
-  
-  # calculate vortex signal
-  df[result_col]= cal_crossover_signal(df=df, fast_line='vi_pos', slow_line='vi_neg', result_col=result_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal)
-
-  return df[[result_col]]
 
 
 #----------------------------- TA volume indicators --------------------------------#
