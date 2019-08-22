@@ -1049,12 +1049,13 @@ def add_mi_features(df, n=9, n2=25, close='Close', open='Open', high='High', low
   return df
 
 
-def add_trix_features(df, n=15, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+def add_trix_features(df, n=15, n_sign=9, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
   Calculate TRIX
 
   :param df: original OHLCV dataframe
   :param n: ema window of close price
+  :param n_sign: ema window of signal line (ema of trix)
   :param close: column name of the close
   :param open: column name of the open
   :param high: column name of the high
@@ -1080,10 +1081,24 @@ def add_trix_features(df, n=15, close='Close', open='Open', high='High', low='Lo
   
   # assign value to df
   df['trix'] = trix
+  df['trix_sign'] = em(series=trix, periods=n_sign, fillna=fillna).mean()
 
   # calculate signal
   if cal_signal:
+
+    # signal line crossover
+    df['zero'] = 0
+    df['sign_crossover'] = cal_crossover_signal(df=df, fast_line=trix, slow_line='trix_sign', pos_signal=1, neg_signal=-1, none_signal=0)
+    df['zero_crossover'] = cal_crossover_signal(df=df, fast_line=trix, slow_line='zero', pos_signal=1, neg_signal=-1, none_signal=0)
+    df['trix_signal'] = df['sign_crossover'].astype(int) + df['zero_crossover'].astype(int)
+
+    up_idx = df.query('trix_signal > 0').index
+    down_idx = df.query('trix_signal < 0').index
     df['trix_signal'] = 'n'
+    df.loc[up_idx, 'trix_signal'] = 'b'
+    df.loc[down_idx, 'trix_signal'] = 's'
+
+    df.drop(['zero', 'sign_crossover', 'zero_crossover'], axis=1, inplace=True)
 
   return df
 
