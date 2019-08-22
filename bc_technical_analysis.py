@@ -714,7 +714,7 @@ def add_dpo_features(df, n=20, close='Close', open='Open', high='High', low='Low
   return df
 
 
-def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is_shift=True, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_status=True, cal_signal=True, signal_threhold=2):
+def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is_shift=True, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_status=True, cal_signal=True, signal_threshold=2):
   """
   Calculate Ichimoku indicators
 
