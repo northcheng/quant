@@ -798,10 +798,11 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='origina
         df.loc[current_idx, 'cloud_width'] += previous_cloud_period
 
     # calculate distance between Close and each ichimoku lines    
-    line_weight = {'kijun':1, 'tankan':2, 'cloud_top':1, 'cloud_bottom':1}
-    df['signal_breakthrough'] = 0
-    for line in line_weight.keys():
+    line_weight = {'kijun':1, 'tankan':0.5, 'cloud_top':0.2, 'cloud_bottom':0.3}
+    df['breakthrough'] = 0
+    col_to_drop.append('breakthrough')
 
+    for line in line_weight.keys():
       # set weight for this line
       weight = line_weight[line]
 
@@ -818,15 +819,26 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='origina
       
       # accumulate breakthrough signals
       df[line_signal_name] = line_signal
-      df['signal_breakthrough'] = df['signal_breakthrough'].astype(int) +df[line_signal_name].astype(int)
+      df['breakthrough'] = df['breakthrough'].astype(int) +df[line_signal_name].astype(int)
 
       # calculate distance between close price and indicator
       df['close_to_' + line] = round((df['Close'] - df[line]) / df['Close'], ndigits=3)
 
     # calculate ichimoku signal
     if cal_signal:
+
+      # identify trend
+      up_idx = df.query('cloud_height > 0 and %s > senkou_a' % close)
+      down_idx = df.query('cloud_height < 0 and %s < senkou_a' % close)
+      df['trend'] = 0
+      df.loc[up_idx, 'trend'] = 1
+      df.loc[down_idx, 'trend'] = -1
+
+      # identify takan-kijun crossover
+      df['tankan_kijun_crossover'] = cal_crossover_signal(df=df, fast_line='tankan', slow_line='kijun', pos_signal=1, neg_signal=-1, none_signal=0)   
+
       # sum up signals
-      df['ichimoku_idx'] = df['signal_breakthrough'] + df['cloud_shift']
+      df['ichimoku_idx'] = df['trend'].astype(float) + df['cloud_shift'].astype(float) + df['breakthrough'].astype(float) + df['tankan_kijun_crossover'].astype(float)
 
       # final signal
       buy_idx = df.query('ichimoku_idx > %s' % signal_threhold).index
@@ -834,7 +846,7 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='origina
       df['ichimoku_signal'] = 'n'
       df.loc[buy_idx, 'ichimoku_signal'] = 'b'
       df.loc[sell_idx, 'ichimoku_signal'] = 's'
-      col_to_drop += ['cloud_shift', 'signal_breakthrough']
+      col_to_drop += ['trend', 'tankan_kijun_crossover']
 
     # drop redundant columns  
     df.drop(col_to_drop, axis=1, inplace=True)
