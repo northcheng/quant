@@ -838,17 +838,24 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
     if cal_signal:
 
       # identify trend
-      up_idx = df.query('cloud_height > 0 and %s > cloud_top' % close).index
-      down_idx = df.query('cloud_height < 0 and %s < cloud_bottom' % close).index
+      up_idx = df.query('%s > cloud_top' % close).index
+      down_idx = df.query('%s < cloud_bottom' % close).index
       df['trend'] = 0
       df.loc[up_idx, 'trend'] = 2
       df.loc[down_idx, 'trend'] = -2
+
+      # cloud color
+      up_idx = df.query('cloud_height > 0').index
+      down_idx = df.query('cloud_height <= 0').index
+      df['cloud_color'] = 0
+      df.loc[up_idx, 'cloud_color'] = 1
+      df.loc[down_idx, 'cloud_color'] = -1
 
       # identify takan-kijun crossover
       df['tankan_kijun_crossover'] = cal_crossover_signal(df=df, fast_line='tankan', slow_line='kijun', pos_signal=1, neg_signal=-1, none_signal=0)   
 
       # sum up signals
-      df['ichimoku_idx'] = df['trend'].astype(float) + df['cloud_shift'].astype(float) + df['breakthrough'].astype(float) + df['tankan_kijun_crossover'].astype(float)
+      df['ichimoku_idx'] = df['trend'].astype(float) + df['cloud_color'].astype(float) + df['cloud_shift'].astype(float) + df['breakthrough'].astype(float) + df['tankan_kijun_crossover'].astype(float)
 
       # final signal
       buy_idx = df.query('ichimoku_idx > %s' % signal_threhold).index
@@ -856,7 +863,7 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
       df['ichimoku_signal'] = 'n'
       df.loc[buy_idx, 'ichimoku_signal'] = 'b'
       df.loc[sell_idx, 'ichimoku_signal'] = 's'
-      col_to_drop += ['trend', 'tankan_kijun_crossover']
+      col_to_drop += ['trend', 'cloud_color', 'tankan_kijun_crossover']
 
     # drop redundant columns  
     # df.drop(col_to_drop, axis=1, inplace=True)
