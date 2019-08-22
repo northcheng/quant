@@ -1034,7 +1034,39 @@ def add_mi_features(df, n=9, n2=25, close='Close', open='Open', high='High', low
   return df
 
 
-# def add_trix_features
+def add_trix_features(df, n=15, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+  """
+  Calculate TRIX
+
+  :param df: original OHLCV dataframe
+  :param n: ema window of close price
+  :param close: column name of the close
+  :param open: column name of the open
+  :param high: column name of the high
+  :param low: column name of the low
+  :param volume: column name of the volume
+  :param fillna: whether to fill na with 0
+  :param cal_signal: whether to calculate signal
+  :returns: dataframe with new features generated
+  """
+  # copy dataframe
+  df = df.copy()
+
+  # calculate trix
+  ema1 = em(series=df[close], periods=n, fillna=fillna).mean()
+  ema2 = em(series=ema1, periods=n, fillna=fillna).mean()
+  ema3 = ema(series=ema2, periods=n, fillna=fillna).mean()
+  trix = (ema3 - ema3.shift(1)) / ema3.shift(1)
+  trix *= 100
+
+  # fillna value
+  if fillna:
+    trix = trix.replace([np.inf, -np.inf], np.nan).fillna(0)
+  
+  # assign value to df
+  df['trix'] = trix
+
+  return df
 
 # def add_vi_features
 def cal_vi_signal(df,  result_col='signal', pos_signal='b', neg_signal='s', none_signal='n'):
