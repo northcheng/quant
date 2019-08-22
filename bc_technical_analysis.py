@@ -817,18 +817,17 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
       weight = line_weight[line]
 
       # calculate breakthrough
-      line_signal = cal_crossover_signal(df=df, fast_line=close, slow_line=line, pos_signal=weight, neg_signal=-weight, none_signal=0)
       line_signal_name = 'signal_%s' % line
       col_to_drop.append(line_signal_name)
-
+      df[line_signal_name] = cal_crossover_signal(df=df, fast_line=close, slow_line=line, pos_signal=weight, neg_signal=-weight, none_signal=0)
+      
       # record breakthrough
-      up_idx = line_signal.query('signal == %s' % weight).index
-      down_idx = line_signal.query('signal == %s' % -weight).index      
+      up_idx = df.query('%(name)s == %(value)s' % dict(name=line_signal_name, value=weight)).index
+      down_idx = df.query('%(name)s == %(value)s' % dict(name=line_signal_name, value=-weight)).index      
       df.loc[up_idx, 'break_up'] = df.loc[up_idx, 'break_up'] + line + ','
       df.loc[down_idx, 'break_down'] = df.loc[down_idx, 'break_down'] + line + ','
       
       # accumulate breakthrough signals
-      df[line_signal_name] = line_signal
       df['breakthrough'] = df['breakthrough'].astype(int) +df[line_signal_name].astype(int)
 
       # calculate distance between close price and indicator
@@ -866,7 +865,7 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
       col_to_drop += ['trend', 'cloud_color', 'tankan_kijun_crossover']
 
     # drop redundant columns  
-    # df.drop(col_to_drop, axis=1, inplace=True)
+    df.drop(col_to_drop, axis=1, inplace=True)
 
   return df
 
