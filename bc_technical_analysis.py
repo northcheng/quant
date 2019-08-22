@@ -1153,7 +1153,7 @@ def add_vortex_features(df, n=14, close='Close', open='Open', high='High', low='
 
   # calculate signal
   if cal_signal:
-    df['vortex_siganl'] = cal_crossover_signal(df=df, fast_line='vortex_pos', slow_line='vortex_neg')
+    df['vortex_signal'] = cal_crossover_signal(df=df, fast_line='vortex_pos', slow_line='vortex_neg')
 
   return df
 
