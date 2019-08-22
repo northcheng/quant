@@ -485,38 +485,25 @@ def cal_mean_reversion_signal(df, std_multiple=2, final_signal_threshold=2, star
   """
   # copy dataframe
   df = df[start : end].copy()
+  col_to_drop = []
 
   # check whether triger columns are in the dataframe
-  triger_cols = [x for x in df.columns if 'bias' in x]
-  for t in triger_cols:
-    if t not in triger_cols:
-      print(t, 'not found in columns!')
-      triger_cols = [x for x in triger_cols if x != t]
+  triger_cols = ['rate_bias', 'acc_rate_bias', 'acc_day_bias']
 
   # initialization
-  df[result_col] = 0
+  df['final_signal'] = 0
+  col_to_drop.append('final_signal')
 
   # calculate signal for each triger column
   for col in triger_cols:
-    signal_col = col.replace('bias', result_col)
-    df[signal_col] = 0
+    col_signal = col.replace('bias', 'signal')
+    col_to_drop.append(col_signal)
 
-    # over buy
-    df.loc[df[col] > std_multiple, signal_col] = 1
+    df[col_signal] = cal_boundary_signal(df=df, upper_col=col, lower_col=col, upper_boundary=std_multiple, lower_boundary=-std_multiple, pos_signal=1, neg_signal=-1, none_signal=0)
+    df['final_signal'] = df['final_signal'].astype(int) + df[col_signal].astype(int)
 
-    # over sell
-    df.loc[df[col] < -std_multiple, signal_col] = -1
-
-    # final signal
-    df[result_col] = df[result_col].astype(int) + df[signal_col].astype(int)
-
-  # conver final singal from int to specific values  
-  sell_signals = df.loc[df[result_col] >= final_signal_threshold, ].index
-  buy_signals = df.loc[df[result_col] <= -final_signal_threshold, ].index
-  
-  df[result_col] = none_signal
-  df.loc[sell_signals, result_col] = neg_signal
-  df.loc[buy_signals, result_col] = pos_signal
+  # conver final singal from int to specific values 
+  df[result_col]  = cal_boundary_signal(df=df, upper_col='final_signal', lower_col='final_signal', upper_boundary=final_signal_threshold, lower_boundary=-final_signal_threshold, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal)
 
   return df[result_col]
 
@@ -610,54 +597,6 @@ def cal_moving_average_signal(df, target_col='Close', ma_windows=[50, 105], star
 
 #----------------------------- TA trend indicators ---------------------------------#
 # def add_adx_features()
-
-def add_macd_features(df, n_fast=12, n_slow=26, n_sign=9, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
-  """
-  Calculate MACD(Moving Average Convergence Divergence)
-
-  :param df: original OHLCV dataframe
-  :param n_fast: ma window of fast ma
-  :param n_slow: ma window of slow ma
-  :paran n_sign: ma window of macd signal line
-  :param close: column name of the close
-  :param open: column name of the open
-  :param high: column name of the high
-  :param low: column name of the low
-  :param volume: column name of the volume
-  :param fillna: whether to fill na with 0
-  :param cal_signal: whether to calculate signal
-  :returns: dataframe with new features generated
-  """
-  # copy dataframe
-  df = df.copy()
-
-  # calculate fast and slow ema of close price
-  emafast = em(series=df[close], periods=n_fast, fillna=fillna).mean()
-  emaslow = em(series=df[close], periods=n_slow, fillna=fillna).mean()
-  
-  # calculate macd, ema(macd), macd-ema(macd)
-  macd = emafast - emaslow
-  macd_sign = em(series=macd, periods=n_sign, fillna=fillna).mean()
-  macd_diff = macd - macd_sign
-
-  # fill na value with 0
-  if fillna:
-      macd = macd.replace([np.inf, -np.inf], np.nan).fillna(0)
-      macd_sign = macd_sign.replace([np.inf, -np.inf], np.nan).fillna(0)
-      macd_diff = macd_diff.replace([np.inf, -np.inf], np.nan).fillna(0)
-
-  # assign valuse to df
-  df['macd'] = macd
-  df['macd_sign'] = macd_sign
-  df['macd_diff'] = macd_diff
-
-  # calculate crossover signal
-  if cal_signal:
-    df['zero'] = 0
-    df['macd_signal'] = cal_crossover_signal(df=df, fast_line='macd_diff', slow_line='zero')
-    df.drop(labels='zero', axis=1, inplace=True)
-
-  return df
 
 
 def add_aroon_features(df, n=25, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, boundary=[50, 50]):
@@ -902,30 +841,79 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='origina
 
   return df
 
-# def add_rsi_features
-def cal_rsi_signal(df, n=14, up=70, low=30):
+
+def add_kst_features(df, r1=10, r2=15, r3=20, r4=30, n1=10, n2=10, n3=10, n4=15, nsign=9, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, signal_mode='mix'):
   """
-  Calculate RSI(Relative Strength Index) signals
+  Calculate KST(Know Sure Thing)
 
   :param df: original OHLCV dataframe
-  :param n: windowsize
-  :param up: up boundary
-  :param low: low boundary
-  :returns: rsi signal
-  :raises: none
+  :param r_1: r1 window size
+  :param r_2: r2 window size
+  :param r_3: r3 window size
+  :param r_4: r4 window size
+  :param n_1: n1 window size
+  :param n_2: n2 window size
+  :param n_3: n3 window size
+  :param n_4: n4 window size
+  :param n_sign: kst signal window size
+  :param close: column name of the close
+  :param open: column name of the open
+  :param high: column name of the high
+  :param low: column name of the low
+  :param volume: column name of the volume
+  :param fillna: whether to fill na with 0
+  :param cal_signal: whether to calculate signal
+  :returns: dataframe with new features generated
   """
-  # divergence / failed swing not implemented
-  # only implemented up/low bound
+  # copy dataframe
   df = df.copy()
-  df['rsi'] = ta.rsi(close=df.Close, n=n)
-  df['rsi_signal'] = 'n'
-  over_buy_idx = df.query('rsi > %(up)s' % dict(up=up)).index
-  over_sell_idx = df.query('rsi < %(low)s' % dict(low=low)).index
+  col_to_drop = []
 
-  df.loc[over_buy_idx, 'rsi_signal'] = 's'
-  df.loc[over_sell_idx, 'rsi_signal'] = 'b'
+  # calculate kst
+  rocma1 = ((df[close] - df[close].shift(r1)) / df[close].shift(r1)).rolling(n1, min_periods=0).mean()
+  rocma2 = ((df[close] - df[close].shift(r2)) / df[close].shift(r2)).rolling(n2, min_periods=0).mean()
+  rocma3 = ((df[close] - df[close].shift(r3)) / df[close].shift(r3)).rolling(n3, min_periods=0).mean()
+  rocma4 = ((df[close] - df[close].shift(r4)) / df[close].shift(r4)).rolling(n4, min_periods=0).mean()
+  
+  kst = 100 * (rocma1 + 2 * rocma2 + 3 * rocma3 + 4 * rocma4)
+  kst_sign = kst.rolling(nsign, min_periods=0).mean()
 
-  return df[['rsi_signal']]
+  # fill na value
+  if fillna:
+    kst = kst.replace([np.inf, -np.inf], np.nan).fillna(0)
+    kst_sign = kst_sig.replace([np.inf, -np.inf], np.nan).fillna(0)
+
+  # assign values to df
+  df['kst'] = kst
+  df['kst_sign'] = kst_sign
+
+  # calculate signal
+  if cal_signal:
+    if signal_mode == 'zero':
+      df['zero'] = 0
+      df['kst_signal'] = cal_crossover_signal(df=df, fast_line='kst', slow_line='zero')
+      col_to_drop.append('zero')
+
+    elif signal_mode == 'kst_sign':
+      df['kst_signal'] = cal_crossover_signal(df=df, fast_line='kst', slow_line='kst_sign')
+
+    elif signal_mode == 'mix':
+      df['signal_kst'] = cal_crossover_signal(df=df, fast_line='kst', slow_line='zero', pos_signal=1, neg_signal=0, none_signal=0)
+      df['signal_kst_sign'] = cal_crossover_signal(df=df, fast_line='kst', slow_line='kst_sign', pos_signal=0, neg_signal=-1, none_signal=0)
+      df['kst_signal'] = df['signal_kst'].astype(int) + df['signal_kst_sign'].astype(int)
+      buy_idx = df.query('kst_signal == 1').index
+      sell_idx = df.query('kst_signal == -1').index
+      df['kst_signal'] = 'n'
+      df.loc[buy_idx, 'kst_signal'] = 'b'
+      df.loc[sell_idx, 'kst_signal'] = 's'
+      col_to_drop += ['signal_kst', 'signal_kst_sign']
+    
+    else:
+      print('unknown signal mode')
+      df['kst_signal'] = 'n'
+
+  df.drop('zero', axis=1, inplace=True)
+  return df
 
 
 def cal_ichimoku(df, method='original'):
@@ -1089,6 +1077,55 @@ def cal_kst_signal(df):
   df['kst_signal'] = cal_crossover_signal(df=df, fast_line='kst', slow_line='kst_sig')
   
   return df[['kst_signal']]
+
+
+def add_macd_features(df, n_fast=12, n_slow=26, n_sign=9, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+  """
+  Calculate MACD(Moving Average Convergence Divergence)
+
+  :param df: original OHLCV dataframe
+  :param n_fast: ma window of fast ma
+  :param n_slow: ma window of slow ma
+  :paran n_sign: ma window of macd signal line
+  :param close: column name of the close
+  :param open: column name of the open
+  :param high: column name of the high
+  :param low: column name of the low
+  :param volume: column name of the volume
+  :param fillna: whether to fill na with 0
+  :param cal_signal: whether to calculate signal
+  :returns: dataframe with new features generated
+  """
+  # copy dataframe
+  df = df.copy()
+
+  # calculate fast and slow ema of close price
+  emafast = em(series=df[close], periods=n_fast, fillna=fillna).mean()
+  emaslow = em(series=df[close], periods=n_slow, fillna=fillna).mean()
+  
+  # calculate macd, ema(macd), macd-ema(macd)
+  macd = emafast - emaslow
+  macd_sign = em(series=macd, periods=n_sign, fillna=fillna).mean()
+  macd_diff = macd - macd_sign
+
+  # fill na value with 0
+  if fillna:
+      macd = macd.replace([np.inf, -np.inf], np.nan).fillna(0)
+      macd_sign = macd_sign.replace([np.inf, -np.inf], np.nan).fillna(0)
+      macd_diff = macd_diff.replace([np.inf, -np.inf], np.nan).fillna(0)
+
+  # assign valuse to df
+  df['macd'] = macd
+  df['macd_sign'] = macd_sign
+  df['macd_diff'] = macd_diff
+
+  # calculate crossover signal
+  if cal_signal:
+    df['zero'] = 0
+    df['macd_signal'] = cal_crossover_signal(df=df, fast_line='macd_diff', slow_line='zero')
+    df.drop(labels='zero', axis=1, inplace=True)
+
+  return df
 
 
 # def add_mi_features
