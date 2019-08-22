@@ -950,169 +950,6 @@ def add_kst_features(df, r1=10, r2=15, r3=20, r4=30, n1=10, n2=10, n3=10, n4=15,
   return df
 
 
-def cal_ichimoku(df, method='original'):
-  """
-  Calculate Ichimoku indicators
-
-  :param df: origianl OHLCV dataframe
-  :param method: how to calculate Ichimoku indicators: original/ta
-  :returns: dataframe with ichimoku indicators
-  :raises: none
-  """
-  # copy dataframe
-  df = df.copy()
-
-  # use original method to calculate ichimoku indicators
-  if method == 'original':
-    df = cal_moving_average(df=df, target_col='High', ma_windows=[9, 26, 52], window_type='sm')
-    df = cal_moving_average(df=df, target_col='Low', ma_windows=[9, 26, 52], window_type='sm')
-
-    df['tankan'] = (df['High_ma_9'] + df['Low_ma_9']) / 2
-    df['kijun'] = (df['High_ma_26'] + df['Low_ma_26']) / 2
-    df['senkou_a'] = (df['tankan'] + df['kijun']) / 2
-    df['senkou_b'] = (df['High_ma_52'] + df['Low_ma_52']) / 2
-    df['chikan'] = df.Close.shift(-26)
-  
-  # use ta method to calculate ichimoku indicators
-  elif method == 'ta':
-    df['tankan'] = (df.High.rolling(9, min_periods=0).max() + df.Low.rolling(9, min_periods=0).min()) / 2
-    df['kijun'] = (df.High.rolling(26, min_periods=0).max() + df.Low.rolling(26, min_periods=0).min()) / 2
-    df['senkou_a'] = (df['tankan'] + df['kijun']) / 2
-    df['senkou_b'] = (df.High.rolling(52, min_periods=0).max() + df.Low.rolling(52, min_periods=0).min()) / 2
-    df['chikan'] = df.Close.shift(-26)
-
-  return df
-
-
-def cal_ichimoku_status(df, add_change_rate=True, is_save=False, file_name='ichimoku_status.xlsx', save_path='drive/My Drive/ichimoku/'):
-  """
-  Calculate relationship between close price and ichimoku indicators
-
-  :param df: dataframe with close price and ichimoku indicator columns
-  :param is_add_change_rate: whether to add change rate of close price
-  :param is_save: whether to save the result into excel file
-  :param file_name: destination filename
-  :patam save_path: where to save the file
-  :returns: dataframe with ichimoku status
-  :raises: none
-  """
-  # copy dataframe
-  df = df.copy()
-
-  # calculate cloud size/color and color shift
-  df['cloud_shift'] = cal_crossover_signal(df=df, fast_line='senkou_a', slow_line='senkou_b', pos_signal=1, neg_signal=-1, none_signal=0)
-  df['cloud_height'] = round((df['senkou_a'] - df['senkou_b'])/df['Close'], ndigits=3)
-  df['cloud_width'] = 0
-  df['cloud_color'] = 0
-  df['cloud_top'] = 0
-  df['cloud_bottom'] = 0
-  df['break_up'] = ''
-  df['break_down'] = ''
-
-  # initialize values according to ichimoku indicators
-  green_idx = df.query('cloud_height > 0').index
-  red_idx = df.query('cloud_height <= 0').index
-  df.loc[green_idx, 'cloud_width'] = 1
-  df.loc[green_idx, 'cloud_color'] = 1
-  df.loc[green_idx, 'cloud_top'] = df['senkou_a']
-  df.loc[green_idx, 'cloud_bottom'] = df['senkou_b']
-  df.loc[red_idx, 'cloud_width'] = -1
-  df.loc[red_idx, 'cloud_color'] = -1
-  df.loc[red_idx, 'cloud_top'] = df['senkou_b']
-  df.loc[red_idx, 'cloud_bottom'] = df['senkou_a']
-
-  # calculate how long current cloud has lasted
-  idx = df.index.tolist()
-  for i in range(1, len(df)):
-    current_idx = idx[i]
-    previous_idx = idx[i-1]
-    current_cloud_period = df.loc[current_idx, 'cloud_width']
-    previous_cloud_period = df.loc[previous_idx, 'cloud_width']
-
-    # calculate how long the cloud has last
-    if current_cloud_period * previous_cloud_period > 0:
-      df.loc[current_idx, 'cloud_width'] += previous_cloud_period
-
-  # calculate distance between Close and each ichimoku lines    
-  lines = ['kijun', 'tankan', 'cloud_top', 'cloud_bottom']
-  for line in lines:
-
-    # breakthrough
-    line_signal = cal_crossover_signal(df=df, fast_line='Close', slow_line=line, result_col='signal', pos_signal='up', neg_signal='down', none_signal='')
-    up_idx = line_signal.query('signal == "up"').index
-    down_idx = line_signal.query('signal == "down"').index
-    df.loc[up_idx, 'break_up'] = df.loc[up_idx, 'break_up'] + line + ','
-    df.loc[down_idx, 'break_down'] = df.loc[down_idx, 'break_down'] + line + ','
-
-    # calculate distance between close price and indicator
-    df['close_to_' + line] = round((df['Close'] - df[line]) / df['Close'], ndigits=3)
-
-  # save result to files
-  if is_save:
-    df.to_excel(save_path+file_name)
-
-  return df
-
-
-def cal_ichimoku_signal(df, result_col='signal', pos_signal='b', neg_signal='s', none_signal='n', filter_signal='first', final_signal_threshold=2):
-  """
-  Calculate ichimoku signals 
-
-  :param df: dataframe with ichimoku indicator columns
-  :returns: ichimoku signals
-  """
-  # copy dataframe
-  df = df.copy()
-
-  # calculate crossover signals
-  df['signal_senkou'] = cal_crossover_signal(df=df, fast_line='senkou_a', slow_line='senkou_b', pos_signal=1, neg_signal=-1, none_signal=0)
-
-  # calculate cloud signals
-  df['signal_cloud'] = 0
-  buy_idx = df.query('Close > senkou_a and senkou_a >= senkou_b').index
-  sell_idx = df.query('Close < senkou_a').index
-  df.loc[buy_idx, 'signal_cloud'] = 1
-  df.loc[sell_idx, 'signal_cloud'] = -1
-
-  # calculate kijun/tankan signal
-  df['signal_tankan_kijun'] = 0
-  buy_idx = df.query('tankan > kijun').index
-  sell_idx = df.query('tankan < kijun').index
-  df.loc[buy_idx, 'signal_tankan_kijun'] = 1
-  df.loc[sell_idx, 'signal_tankan_kijun'] = -1
-
-  # final signal
-  df['signal_sum'] = df['signal_senkou'] + df['signal_cloud'] + df['signal_tankan_kijun'] 
-  buy_idx = df.query('signal_sum == %s' % final_signal_threshold).index
-  sell_idx = df.query('signal_sum == %s' % -final_signal_threshold).index
-
-  df[result_col] = none_signal
-  df.loc[buy_idx, result_col] = pos_signal
-  df.loc[sell_idx, result_col] = neg_signal
-
-  if filter_signal in ['first', 'last']:
-    df = remove_redundant_signal(df=df, signal_col=result_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, keep=filter_signal)
-
-  return df[[result_col]]
-  
-# def add_kst_features
-def cal_kst_signal(df):
-  """
-  Calculate kst signal
-
-  :param df: original OHLCV dataframe
-  :returns: kst signals
-  :raises: none
-  """
-  # copy dataframe
-  df = df.copy()
-  df['kst'] = ta.kst(close=df.Close)
-  df['kst_sig'] = ta.kst_sig(close=df.Close)
-  df['kst_signal'] = cal_crossover_signal(df=df, fast_line='kst', slow_line='kst_sig')
-  
-  return df[['kst_signal']]
-
-
 def add_macd_features(df, n_fast=12, n_slow=26, n_sign=9, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
   Calculate MACD(Moving Average Convergence Divergence)
@@ -1162,7 +999,39 @@ def add_macd_features(df, n_fast=12, n_slow=26, n_sign=9, close='Close', open='O
   return df
 
 
-# def add_mi_features
+def add_mi_features(df, n=9, n2=25, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+  """
+  Calculate Mass Index
+
+  :param df: original OHLCV dataframe
+  :param n: ema window of high-low difference
+  :param n_2: window of cumsum of ema ratio
+  :param close: column name of the close
+  :param open: column name of the open
+  :param high: column name of the high
+  :param low: column name of the low
+  :param volume: column name of the volume
+  :param fillna: whether to fill na with 0
+  :param cal_signal: whether to calculate signal
+  :returns: dataframe with new features generated
+  """
+  # copy dataframe
+  df = df.copy()
+
+  amplitude = df[high] - df[low]
+  ema1 = em(series=amplitude, periods=n, fillna=fillna).mean()
+  ema2 = em(series=ema1, periods=n, fillna=fillna).mean()
+  mass = ema1 / ema2
+  mass = mass.rolling(n2, min_periods=0).sum()
+  
+  # fillna value  
+  if fillna:
+    mass = mass.replace([np.inf, -np.inf], np.nan).fillna(n2)
+
+  # assign value to df
+  df['mi'] = mass
+  
+  return df
 
 
 # def add_trix_features
