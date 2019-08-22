@@ -1106,7 +1106,7 @@ def add_trix_features(df, n=15, n_sign=9, close='Close', open='Open', high='High
       df['trix_signal'] = 'n'
       df.loc[up_idx, 'trix_signal'] = 'b'
       df.loc[down_idx, 'trix_signal'] = 's'
-      
+
     else:
       df['trix_signal'] = 'n'
 
@@ -1115,9 +1115,47 @@ def add_trix_features(df, n=15, n_sign=9, close='Close', open='Open', high='High
   return df
 
 
-# def add_vi_features(df, n=14, , close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+def add_vi_features(df, n=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+  """
+  Calculate Vortex indicator
 
+  :param df: original OHLCV dataframe
+  :param n: ema window of close price
+  :param close: column name of the close
+  :param open: column name of the open
+  :param high: column name of the high
+  :param low: column name of the low
+  :param volume: column name of the volume
+  :param fillna: whether to fill na with 0
+  :param cal_signal: whether to calculate signal
+  :returns: dataframe with new features generated
+  """
+  # copy dataframe
+  df = df.copy()
 
+  # calculate vortex
+  tr = (df[high].combine(df[close].shift(1), max) - df[low].combine(df[close].shift(1), min))
+  trn = tr.rolling(n).sum()
+
+  vmp = np.abs(df[high] - df[low].shift(1))
+  vmm = np.abs(df[low] - df[high].shift(1))
+
+  vip = vmp.rolling(n, min_periods=0).sum() / trn
+  vin = vmm.rolling(n, min_periods=0).sum() / trn
+
+  if fillna:
+    vip = vip.replace([np.inf, -np.inf], np.nan).fillna(1)
+    vin = vin.replace([np.inf, -np.inf], np.nan).fillna(1)
+  
+  # assign values to df
+  df['vortex_pos'] = vip
+  df['vortex_neg'] = vin
+
+  # calculate signal
+  if cal_signal:
+    df['vortex_siganl'] = cal_crossover_signal(df=df, fast_line='vortex_pos', slow_line='vortex_neg')
+
+  return df
 
 #----------------------------- TA volume indicators --------------------------------#
 # def add_adi_features()
