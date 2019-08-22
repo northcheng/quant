@@ -841,8 +841,8 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
       up_idx = df.query('cloud_height > 0 and %s > senkou_a' % close).index
       down_idx = df.query('cloud_height < 0 and %s < senkou_a' % close).index
       df['trend'] = 0
-      df.loc[up_idx, 'trend'] = 1
-      df.loc[down_idx, 'trend'] = -1
+      df.loc[up_idx, 'trend'] = 2
+      df.loc[down_idx, 'trend'] = -2
 
       # identify takan-kijun crossover
       df['tankan_kijun_crossover'] = cal_crossover_signal(df=df, fast_line='tankan', slow_line='kijun', pos_signal=1, neg_signal=-1, none_signal=0)   
