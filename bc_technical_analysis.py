@@ -1030,7 +1030,22 @@ def add_mi_features(df, n=9, n2=25, close='Close', open='Open', high='High', low
 
   # assign value to df
   df['mi'] = mass
-  
+
+  # calculate signal
+  if cal_signal:
+    df['benchmark'] = 27
+    df['triger_signal'] = cal_crossover_signal(df=df, fast_line='mi', slow_line='benchmark', pos_signal='b', neg_signal='n', none_signal='n')
+    df['benchmark'] = 26.5
+    df['complete_signal'] = cal_crossover_signal(df=df, fast_line='mi', slow_line='benchmark', pos_signal='n', neg_signal='s', none_signal='n')
+
+    up_idx = df.query('triger_signal == "b"').index
+    down_idx = df.query('complete_signal == "s"').index
+    df['mi_signal'] = 'n'
+    df.loc[up_idx, 'mi_signal'] = 'b'
+    df.loc[down_idx, 'mi_signal'] = 's'
+
+    df.drop(['benchmark', 'triger_signal', 'complete_signal'], axis=1, inplace=True)
+      
   return df
 
 
@@ -1068,7 +1083,10 @@ def add_trix_features(df, n=15, close='Close', open='Open', high='High', low='Lo
 
   return df
 
-# def add_vi_features
+
+def add_vi_features
+
+
 def cal_vi_signal(df,  result_col='signal', pos_signal='b', neg_signal='s', none_signal='n'):
   """
   Calculate Vortex Indicators
