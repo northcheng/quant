@@ -1099,13 +1099,16 @@ def add_trix_features(df, n=15, n_sign=9, close='Close', open='Open', high='High
     elif signal_mode == 'sign':
       df['trix_signal'] = df['sign_crossover']
 
-    elif signal_mode == 'mix'
+    elif signal_mode == 'mix':
       up_idx = df.query('sign_crossover  == "b"').index
       down_idx = df.query('zero_crossover == "s"').index
 
       df['trix_signal'] = 'n'
       df.loc[up_idx, 'trix_signal'] = 'b'
       df.loc[down_idx, 'trix_signal'] = 's'
+      
+    else:
+      df['trix_signal'] = 'n'
 
     df.drop(['zero', 'zero_crossover', 'sign_crossover'], axis=1, inplace=True)
 
