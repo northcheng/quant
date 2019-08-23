@@ -36,9 +36,9 @@ def get_min_max(x1, x2, f='min'):
   """    
   if not np.isnan(x1) and not np.isnan(x2):
     if f == 'max':
-      max(x1, x2)
+      return max(x1, x2)
     elif f == 'min':
-      min(x1, x2)
+      return min(x1, x2)
     else:
       raise ValueError('"f" variable value should be "min" or "max"')
   else:
@@ -128,7 +128,7 @@ def cal_change(df, target_col, periods=1, add_accumulation=True, add_prefix=Fals
   return df    
 
 
-def cal_change_rate(df, target_col, periods=1, add_accumulation=True, add_prefix=False, drop_na=True):
+def cal_change_rate(df, target_col, periods=1, add_accumulation=True, add_prefix=False, drop_na=False):
   """
   Calculate change rate of a column with a sliding window
   
@@ -596,7 +596,23 @@ def cal_moving_average_signal(df, target_col='Close', ma_windows=[50, 105], star
 
 
 #----------------------------- TA trend indicators ---------------------------------#
-# def add_adx_features()
+def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True)：
+  """
+  Calculate ADX(Average Directional Index)
+
+  :param df: original OHLCV dataframe
+  :param n: look back window size
+  :param close: column name of the close
+  :param open: column name of the open
+  :param high: column name of the high
+  :param low: column name of the low
+  :param volume: column name of the volume
+  :param fillna: whether to fill na with 0
+  :param cal_signal: whether to calculate signal
+  :returns: dataframe with new features generated
+  """
+  # copy dataframe
+  df = df.copy()
 
 
 def add_aroon_features(df, n=25, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, boundary=[50, 50]):
@@ -615,6 +631,9 @@ def add_aroon_features(df, n=25, close='Close', open='Open', high='High', low='L
   :param boundary: upper and lower boundary for calculating signal
   :returns: dataframe with new features generated
   """
+  # copy dataframe
+  df = df.copy()
+
   # calculate aroon up and down indicators
   aroon_up = df[close].rolling(n, min_periods=0).apply(lambda x: float(np.argmax(x) + 1) / n * 100, raw=True)
   aroon_down = df[close].rolling(n, min_periods=0).apply(lambda x: float(np.argmin(x) + 1) / n * 100, raw=True)

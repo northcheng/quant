@@ -114,7 +114,7 @@ def read_stock_data(sec_code, time_col, file_path, file_format='.csv', source='g
     elif source == 'yahoo':
       # download data from yahoo
       stage = 'download_data_from_yahoo_finance'
-      data = download_stock_data_from_yahoo(sec_code=sec_code, time_col=time_col, file_path=file_path, file_format=file_format, start_date=start_date, end_date=end_date, is_append=False, is_return=True, is_save=False, is_print=True)
+      data = download_stock_data_from_yahoo(sec_code=sec_code, time_col=time_col, file_path=file_path, file_format=file_format, start_date=start_date, end_date=end_date, is_append=False, is_return=True, is_save=False, is_print=False)
     
     # read data from other sources
     else:
