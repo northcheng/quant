@@ -614,6 +614,78 @@ def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low
   # copy dataframe
   df = df.copy()
 
+  # calculate adx indicators
+  cs = df[close].shift(1)
+  pdm = df[high].combine(cs, lambda x1, x2: get_min_max(x1, x2, 'max'))
+  pdn = df[low].combine(cs, lambda x1, x2: get_min_max(x1, x2, 'min'))
+  tr = pdm - pdn
+
+  trs_initial = np.zeros(n-1)
+  trs = np.zeros(len(df[close]) - (n-1))
+  trs[0] = tr.dropna()[0:n].sum()
+  tr = tr.reset_index(drop=True)
+  for i in range(1, len(trs)-1):
+    trs[i] = trs[i-1] - (trs[i-1]/float(n)) + tr[n+i]
+
+  up = df[high] - df[high].shift(1)
+  dn = df[low].shift(1) - df[low]
+  pos = abs(((up > dn)&(up>0)) * up)
+  neg = abs(((up < dn)&(dn>0)) * dn)
+
+  # calculate +DI and -DI
+  dip_mio = np.zeros(len(df[close]) - (n-1))
+  din_mio = np.zeros(len(df[close]) - (n-1))
+
+  dip_mio[0] = pos.dropna()[0:n].sum()
+  din_mio[0] = neg.dropna()[0:n].sum()
+
+  pos = pos.reset_index(drop=True)
+  neg = neg.reset_index(drop=True)
+
+  for i in range(1, len(dip_mio)-1):
+    dip_mio[i] = dip_mio[i-1] - (dip_mio[i-1]/float(n)) + pos[n+i]
+  for i in range(1, len(din_mio)-1):
+    din_mio[i] = din_mio[i-1] - (din_mio[i-1]/float(n)) + neg[n+i]
+
+  dip = np.zeros(len(df[close]))
+  din = np.zeros(len(df[close]))
+
+  for i in range(1, len(trs)-1):
+    dip[i+n] = 100 * (dip_mio[i]/float(trs[i]))
+  for i in range(1, len(trs)-1):
+    din[i+n] = 100 * (din_mio[i]/float(trs[i]))
+
+  # calculate adx
+  dx = 100 * np.abs((dip - din) / (dip + din))
+  adx = np.zeros(len(trs))
+  adx[n] = dx[0:n].mean()
+  for i in range(n+1, len(adx)):
+    adx[i] = ((adx[i-1] * (n - 1)) + dx[i-1]) / float(n)
+  adx = np.concatenate((trs_initial, adx), axis=0)
+
+  # convert values to pd.Series
+  dip = pd.Series(data=dip, index=df.index)
+  din = pd.Series(data=din, index=df.index)
+  adx = pd.Series(data=adx, index=df.index)
+
+  # fill na values
+  if fillna:
+    dip = dip.replace([np.inf, -np.inf], np.nan).fillna(0)
+    din = din.replace([np.inf, -np.inf], np.nan).fillna(0)
+    adx = adx.replace([np.inf, -np.inf], np.nan).fillna(0)
+
+  # assign values to df  
+  df['adx_pos'] = dip
+  df['adx_neg'] = din
+  df['adx'] = adx
+
+  # calculate signals
+  if cal_signal:
+    df['adx_signal'] = 'n'
+
+  return df
+
+
 
 def add_aroon_features(df, n=25, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, boundary=[50, 50]):
   """
