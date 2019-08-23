@@ -596,7 +596,7 @@ def cal_moving_average_signal(df, target_col='Close', ma_windows=[50, 105], star
 
 
 #----------------------------- TA trend indicators ---------------------------------#
-def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True)：
+def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
   Calculate ADX(Average Directional Index)
 
