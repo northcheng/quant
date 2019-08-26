@@ -1402,6 +1402,47 @@ def plot_signal(df, start=None, end=None, price_col='Close', signal_col='signal'
     return ax
 
 
+def plot_peak_through(df, start=None, end=None, price_col='Close', signal_col='signal', pos_signal='p', neg_signal='t', none_signal='n', filter_signal=None, title=None, figsize=(20, 5), use_ax=None):
+  """
+  Plot peaks and throughs
+
+  :param df: dataframe with price and signal columns
+  :param signal_col: columnname of the signal values
+  :param price_col: columnname of the price values
+  :param keep: which one to keep: first/last
+  :param pos_signal: the value of positive signal
+  :param neg_siganl: the value of negative signal
+  :param none_signal: the value of none signal
+  :param start: start row to plot
+  :param end: end row to stop
+  :param title: plot title
+  :param figsize: figsize
+  :param use_ax: the already-created ax to draw on
+  :returns: a signal plotted price chart
+  :raises: none
+  """
+  # copy dataframe within the specific period
+  df = df[start:end]
+
+  # create figure
+  ax = use_ax
+  if ax is None:
+    fig = plt.figure(figsize=figsize)
+    ax = plt.gca()
+
+  # get peaks and throughs
+  peaks = df.query('%(column)s != "%(value)s"' % dict(column=signal_col, value=pos_signal))
+  throughs = df.query('%(column)s != "%(value)s"' % dict(column=signal_col, value=neg_signal))
+
+  # plot peak and through
+  ax.plot(df.index, df[price_col])
+  ax.plot(peaks.index, peaks[price_col], color='green', linestyle='--', marker='^', alpha=0.5)
+  ax.plot(troughs.index, troughs[price_col], color='red', linestyle='--', marker='v', alpha=0.5)
+
+  if use_ax is not None:
+    return ax
+
+
 def plot_ichimoku(df, price_col='Close', start=None, end=None, signal_col='signal',  pos_signal='b', neg_signal='s', none_signal='n', filter_signal='first', save_path=None, title=None, figsize=(20, 5), use_ax=None):
   """
   Plot ichimoku chart
