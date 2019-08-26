@@ -653,7 +653,7 @@ def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low
   for i in range(n, len(df)-1):
     current_idx = idx[i]
     previous_idx = idx[i-1]
-    df.loc[current_idx, 'adx'] = (df.loc[previous_idx, 'adx'] * (n-1) + df.loc[current_idx, 'dx'])
+    df.loc[current_idx, 'adx'] = (df.loc[previous_idx, 'adx'] * (n-1) + df.loc[current_idx, 'dx']) / n
  
   # fill na values
   if fillna:
