@@ -666,11 +666,15 @@ def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low
 
   # calculate signals
   if cal_signal:
-    df['adx_signal'] = cal_crossover_signal(df=df, fast_line='pdi', slow_line='mdi')
-    none_idx = df.query('adx < %s' % adx_threshold).index
-    df.loc[none_idx, 'adx_signal'] = 'n'
+    df['adx_signal'] = 'n'
+    df['di_diff'] = df['pdi'] - df['mdi']
 
-  df.drop(['high_diff', 'low_diff', 'zero', 'pdm', 'mdm', 'pdm_smooth', 'mdm_smooth', 'tr_smooth', 'dx'], axis=1, inplace=True)
+    up_idx = df.query('di_diff > %s' % adx_threshold).index
+    down_idx = df.query('di_diff < %s' % -adx_threshold/2).index
+    df.loc[up_idx, 'adx_signal'] = 'b'
+    df.loc[down_idx, 'adx_signal'] = 's'
+
+  df.drop(['high_diff', 'low_diff', 'zero', 'pdm', 'mdm', 'pdm_smooth', 'mdm_smooth', 'tr_smooth', 'dx', 'di_diff'], axis=1, inplace=True)
 
   return df
 
