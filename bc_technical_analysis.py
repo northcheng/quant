@@ -596,7 +596,7 @@ def cal_moving_average_signal(df, target_col='Close', ma_windows=[50, 105], star
 
 
 #----------------------------- TA trend indicators ---------------------------------#
-def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, adx_threshold=25):
   """
   Calculate ADX(Average Directional Index)
 
@@ -609,6 +609,7 @@ def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low
   :param volume: column name of the volume
   :param fillna: whether to fill na with 0
   :param cal_signal: whether to calculate signal
+  :param adx_threshold: the threshold to filter none-trending signals
   :returns: dataframe with new features generated
   """
   # copy dataframe
@@ -670,11 +671,9 @@ def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low
 
   # calculate signals
   if cal_signal:
-    df['adx_signal'] = 'n'
-    up_idx = df.query('adx > 20 and pdi > mdi').index
-    down_idx = df.query('adx > 20 and pdi < mdi').index
-    df.loc[up_idx, 'adx_signal'] = 'b'
-    df.loc[down_idx, 'adx_signal'] = 's'
+    df['adx_signal'] = cal_crossover_signal(df=df, fast_line='pdi', slow_line='mdi')
+    none_idx = df.query('adx < %s' % adx_threshold).index
+    df.loc[none_idx, 'adx_signal'] = 'n'
 
   df.drop(['high_diff', 'low_diff', 'zero', 'pdm', 'mdm', 'pdm_smooth', 'mdm_smooth', 'tr_smooth', 'dx'], axis=1, inplace=True)
 
