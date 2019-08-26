@@ -1345,7 +1345,7 @@ def add_atr_features(df, n=14, close='Close', open='Open', high='High', low='Low
       current_idx = idx[i]
       previous_idx = idx[i-1]
       df.loc[current_idx, 'atr'] = (df[previous_idx, 'atr'] * 13 + df[current_idx, 'tr']) / 14
-    except Excception as e:
+    except Exception as e:
       print(df)
 
 
