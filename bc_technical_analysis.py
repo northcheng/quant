@@ -649,7 +649,7 @@ def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low
 
   print('6')
   # calculate adx
-  df['adx'] = em(series=df['dx'], periods=n, fillna=fillna).mean()
+  df['adx'] = em(series=df['dx'], periods=n).mean()
   for i in range(n, len(df)-1):
     current_idx = idx[i]
     previous_idx = idx[i-1]
@@ -1320,7 +1320,7 @@ def add_atr_features(df, n=14, close='Close', open='Open', high='High', low='Low
   if cal_signal:
     df['atr_signal'] = 'n'
 
-  # df.drop(['h_l', 'h_pc', 'l_pc'], axis=1, inplace=True)
+  df.drop(['h_l', 'h_pc', 'l_pc'], axis=1, inplace=True)
 
   return df
 
