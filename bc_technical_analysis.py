@@ -1324,7 +1324,7 @@ def add_atr_features(df, n=14, close='Close', open='Open', high='High', low='Low
 
   # calculate signal
   if cal_signal:
-    df['atr_signal'] = 'n'
+    df['atr_signal'] = df['tr'] - df['atr']
 
   df.drop(['h_l', 'h_pc', 'l_pc'], axis=1, inplace=True)
 
