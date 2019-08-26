@@ -629,7 +629,7 @@ def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low
   print('2')
   # smooth directional movement, true range
   df['pdm_smooth'] = sm(series=df['pdm'], periods=n).sum()
-  df['mdm_smooth'] = sm(series=df['mdm'], periods=).sum()
+  df['mdm_smooth'] = sm(series=df['mdm'], periods=n).sum()
   df['tr_smooth'] = sm(series=df['tr'], periods=n).sum()
 
   idx = df.index.tolist()
