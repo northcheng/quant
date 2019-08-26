@@ -1337,17 +1337,13 @@ def add_atr_features(df, n=14, close='Close', open='Open', high='High', low='Low
   df['tr'] = df[['h_l', 'h_pc', 'l_pc']].max(axis=1)
 
   # calculate average true range
-  idx = df.index.tolist()
   df['atr'] = sm(series=df['tr'], periods=n, fillna=fillna).mean()
   
-  for i in range(len(df)-1):
+  idx = df.index.tolist()
+  for i in range(n, len(df)):
     current_idx = idx[i]
-
-    if i < n:
-      df.loc[current_idx, 'atr'] = np.nan
-    else:
-      previous_idx = idx[i-1]
-      df.loc[current_idx, 'atr'] = (df[previous_idx, 'atr'] * 13 + df[current_idx, 'tr']) / 14
+    previous_idx = idx[i-1]
+    df.loc[current_idx, 'atr'] = (df[previous_idx, 'atr'] * 13 + df[current_idx, 'tr']) / 14
 
   # fill na value
   if fillna:
