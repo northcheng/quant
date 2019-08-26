@@ -1402,7 +1402,7 @@ def plot_signal(df, start=None, end=None, price_col='Close', signal_col='signal'
     return ax
 
 
-def plot_peak_through(df, start=None, end=None, price_col='Close', signal_col='signal', pos_signal='p', neg_signal='t', none_signal='n', filter_signal=None, title=None, figsize=(20, 5), use_ax=None):
+def plot_peak_trough(df, start=None, end=None, price_col='Close', signal_col='signal', pos_signal='p', neg_signal='t', none_signal='n', filter_signal=None, title=None, figsize=(20, 5), use_ax=None):
   """
   Plot peaks and throughs
 
@@ -1630,6 +1630,9 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
     # plot ichimoku
     if tmp_indicator == 'ichimoku':
       plot_ichimoku(df=plot_data, signal_col=signal_col, title=tmp_indicator, use_ax=axes[tmp_indicator])
+
+    elif tmp_indicator == 'peak_trough':
+      plot_peak_trough(df=plot_data, signal_col=signal_col, title=tmp_indicator, use_ax=axes[tmp_indicator])
 
     # plot other
     else:
