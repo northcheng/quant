@@ -668,11 +668,13 @@ def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low
   if cal_signal:
     df['adx_signal'] = 'n'
     df['di_diff'] = df['pdi'] - df['mdi']
-
     up_idx = df.query('di_diff > %s' % adx_threshold).index
-    down_idx = df.query('di_diff < %s' % -adx_threshold/2).index
+    down_idx = df.query('di_diff < %s' % float(adx_threshold)/-2).index
+    none_idx = df.query('adx < %s' % adx_threshold).index
+    
     df.loc[up_idx, 'adx_signal'] = 'b'
     df.loc[down_idx, 'adx_signal'] = 's'
+    df.loc[none_idx, 'adx_signal'] = 'n'
 
   df.drop(['high_diff', 'low_diff', 'zero', 'pdm', 'mdm', 'pdm_smooth', 'mdm_smooth', 'tr_smooth', 'dx', 'di_diff'], axis=1, inplace=True)
 
