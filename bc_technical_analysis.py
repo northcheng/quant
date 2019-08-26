@@ -726,6 +726,7 @@ def add_aroon_features(df, n=25, close='Close', open='Open', high='High', low='L
   # assign values to df
   df['aroon_up'] = aroon_up
   df['aroon_down'] = aroon_down
+  df['aroon_diff'] = (df['aroon_up']-50) + (50-df['aroon_down'])
 
   # calculate aroon signal
   if cal_signal:
