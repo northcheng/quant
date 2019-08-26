@@ -291,6 +291,20 @@ def cal_trend_signal(df, trend_col, up_window=3, down_window=2, result_col='sign
   return df[[result_col]]
 
 
+def replace_signal(df, signal_col='signal', replacement={'b':1, 's':-1, 'n': 0}):
+
+  new_df = df.copy()
+
+  for i in replacement.keys():
+    original_signal = i
+    new_signal = replacement[i]
+
+    idx = df.query('%(column)s == "%(value)s"' % dict(column=signal_col, value=original_signal))
+    new_df.loc[idx, signal_col] = new_signal
+
+  return new_df
+
+
 def remove_redundant_signal(df, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', keep='first'):
   """
   Remove redundant (duplicated continuous) signals, keep only the first or the last one
