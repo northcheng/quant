@@ -1334,7 +1334,7 @@ def add_atr_features(df, n=14, close='Close', open='Open', high='High', low='Low
   df['h_l'] = df[low] - df[low]
   df['h_pc'] = abs(df[high] - df[close].shift(1))
   df['l_pc'] = abs(df[low] - df[close].shift(1))
-  df['tr'] = df[['hl', 'h_pc', 'l_pc']].max(axis=1)
+  df['tr'] = df[['h_l', 'h_pc', 'l_pc']].max(axis=1)
 
   # calculate average true range
   idx = df.index.tolist()
