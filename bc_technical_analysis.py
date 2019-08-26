@@ -619,9 +619,16 @@ def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low
   previous_close = df[close].shift(1)
 
   print('1')
+  # plus/minus directional movement
+  df['high_diff'] = df[high] - df[high].shift(1)
+  df['low_diff'] = df[low].shift(1) - df[low]
+  df['zero'] = 0
+  # df.loc[df['high_diff'] < 0, 'high_diff'] = 0
+  # df.loc[df['low_diff'] < 0, 'high_diff'] = 0
+
   # plus/minus directional movement, true range
-  pdm = df[high].combine(previous_close, lambda x1, x2: get_min_max(x1, x2, 'max'))
-  mdm = df[low].combine(previous_close, lambda x1, x2: get_min_max(x1, x2, 'min'))
+  pdm = df['high_diff'].combine(df['zero'], lambda x1, x2: get_min_max(x1, x2, 'max'))
+  mdm = df['low_diff'].combine(df['high_diff'], lambda x1, x2: get_min_max(x1, x2, 'max'))
   tr = pdm - mdm
   df['pdm'] = pdm
   df['mdm'] = mdm
@@ -631,7 +638,7 @@ def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low
   # true range
   trs_initial = np.zeros(n-1)
   trs = np.zeros(len(df[close]) - (n-1))
-  trs[0] = tr.dropna()[0:n].sum()
+  trs[0] = tr[0:n].dropna().sum()
   tr = tr.reset_index(drop=True)
   for i in range(1, len(trs)-1):
     trs[i] = trs[i-1] - (trs[i-1]/float(n)) + tr[n+i]
@@ -1305,6 +1312,52 @@ def cal_eom_signal(df):
 
 
 #----------------------------- TA volatility indicators ----------------------------#
+def add_atr_features(df, n=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+   """
+  Calculate Average True Range
+
+  :param df: original OHLCV dataframe
+  :param n: ema window
+  :param close: column name of the close
+  :param open: column name of the open
+  :param high: column name of the high
+  :param low: column name of the low
+  :param volume: column name of the volume
+  :param fillna: whether to fill na with 0
+  :param cal_signal: whether to calculate signal
+  :returns: dataframe with new features generated
+  """
+  # copy dataframe
+  df = df.copy()
+
+  # calculate true range
+  df['h_l'] = df[low] - df[low]
+  df['h_pc'] = abs(df[high] - df[close].shift(1))
+  df['l_pc'] = abs(df[low] - df[close.shift(1)])
+  df['tr'] = df[['hl', 'h_pc', 'l_pc']].max(axis=1)
+
+  # calculate average true range
+  idx = df.index.tolist()
+  df['atr'] = sm(series=df['tr'], periods=n, fillna=fillna).mean()
+  
+  for i in range(len(df)-1):
+    current_idx = idx[i]
+
+    if i < n:
+      df.loc[current_idx, 'atr'] = np.nan
+    else:
+      previous_idx = idx[i-1]
+      df.loc[current_idx, 'atr'] = (df[previous_idx, 'atr'] * 13 + df[current_idx, 'tr']) / 14
+
+  # fill na value
+  if fillna:
+    df['atr'] = df['atr'].replace([np.inf, -np.inf], np.nan).fillna(0)
+
+  # calculate signal
+  if cal_siganl:
+    df['atr_signal'] = 'n'
+
+  return df
 
 
 #----------------------------- Indicator visualization -----------------------------#
