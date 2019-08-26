@@ -615,11 +615,9 @@ def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low
   # copy dataframe
   df = df.copy()
 
-  print('0')
   # calculate true range
   df = add_atr_features(df=df, cal_signal=False)
 
-  print('1')
   # plus/minus directional movement
   df['high_diff'] = df[high] - df[high].shift(1)
   df['low_diff'] = df[low].shift(1) - df[low]
@@ -627,7 +625,6 @@ def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low
   df['pdm'] = df['high_diff'].combine(df['zero'], lambda x1, x2: get_min_max(x1, x2, 'max'))
   df['mdm'] = df['low_diff'].combine(df['zero'], lambda x1, x2: get_min_max(x1, x2, 'max'))
   
-  print('2')
   # smooth directional movement, true range
   df['pdm_smooth'] = sm(series=df['pdm'], periods=n).sum()
   df['mdm_smooth'] = sm(series=df['mdm'], periods=n).sum()
@@ -642,13 +639,11 @@ def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low
     df.loc[current_idx, 'mdm_smooth'] = df.loc[previous_idx, 'mdm_smooth'] - df.loc[previous_idx, 'mdm_smooth']/n + df.loc[current_idx, 'mdm']
     df.loc[current_idx, 'tr_smooth'] = df.loc[previous_idx, 'tr_smooth'] - df.loc[previous_idx, 'tr_smooth']/n + df.loc[current_idx, 'tr']
 
-  print('3')
   # calculate ± DI
   df['pdi'] = df['pdm_smooth'] / df['tr_smooth'] * 100
   df['mdi'] = df['mdm_smooth'] / df['tr_smooth'] * 100
   df['dx'] = abs((df['pdi']-df['mdi']) / (df['pdi']+df['mdi'])) * 100
 
-  print('6')
   # calculate adx
   df['adx'] = em(series=df['dx'], periods=n).mean()
   for i in range(n, len(df)-1):
