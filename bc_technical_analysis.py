@@ -1350,7 +1350,7 @@ def add_atr_features(df, n=14, close='Close', open='Open', high='High', low='Low
     df['atr'] = df['atr'].replace([np.inf, -np.inf], np.nan).fillna(0)
 
   # calculate signal
-  if cal_siganl:
+  if cal_signal:
     df['atr_signal'] = 'n'
 
   return df
