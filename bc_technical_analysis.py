@@ -1340,14 +1340,10 @@ def add_atr_features(df, n=14, close='Close', open='Open', high='High', low='Low
   df['atr'] = sm(series=df['tr'], periods=n, fillna=fillna).mean()
   
   idx = df.index.tolist()
-  for i in range(n, len(df)):
-    try:
-      current_idx = idx[i]
-      previous_idx = idx[i-1]
-      df.loc[current_idx, 'atr'] = (df[previous_idx, 'atr'] * 13 + df[current_idx, 'tr']) / 14
-    except Exception as e:
-      return df
-
+  for i in range(n+1, len(df)):
+    current_idx = idx[i]
+    previous_idx = idx[i-1]
+    df.loc[current_idx, 'atr'] = (df.loc[previous_idx, 'atr'] * 13 + df.loc[current_idx, 'tr']) / 14
 
   # fill na value
   if fillna:
