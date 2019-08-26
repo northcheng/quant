@@ -595,7 +595,7 @@ def cal_moving_average_signal(df, target_col='Close', ma_windows=[50, 105], star
   return df[result_col]
 
 
-#----------------------------- TA trend indicators ---------------------------------#
+#----------------------------- Trend indicators ---------------------------------#
 def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, adx_threshold=25):
   """
   Calculate ADX(Average Directional Index)
@@ -942,8 +942,8 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
       df['ichimoku_idx'] = df['trend'].astype(float) + df['cloud_color'].astype(float) + df['cloud_shift'].astype(float) + df['breakthrough'].astype(float) + df['tankan_kijun_crossover'].astype(float)
 
       # final signal
-      buy_idx = df.query('ichimoku_idx > %s' % signal_threhold).index
-      sell_idx = df.query('ichimoku_idx < %s' % -signal_threhold).index
+      buy_idx = df.query('ichimoku_idx > %s' % signal_threshold).index
+      sell_idx = df.query('ichimoku_idx < %s' % -signal_threshold).index
       df['ichimoku_signal'] = 'n'
       df.loc[buy_idx, 'ichimoku_signal'] = 'b'
       df.loc[sell_idx, 'ichimoku_signal'] = 's'
@@ -1242,7 +1242,7 @@ def add_vortex_features(df, n=14, close='Close', open='Open', high='High', low='
 
   return df
 
-#----------------------------- TA volume indicators --------------------------------#
+#----------------------------- Volume indicators --------------------------------#
 # def add_adi_features()
 
 
@@ -1281,10 +1281,10 @@ def cal_eom_signal(df):
 # def add_vpt_features()
 
 
-#----------------------------- TA momentum indicators ------------------------------#
+#----------------------------- Momentum indicators ------------------------------#
 
 
-#----------------------------- TA volatility indicators ----------------------------#
+#----------------------------- Volatility indicators ----------------------------#
 def add_atr_features(df, n=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
   Calculate Average True Range
