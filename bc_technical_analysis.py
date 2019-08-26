@@ -614,24 +614,36 @@ def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low
   # copy dataframe
   df = df.copy()
 
+  print('0')
   # calculate adx indicators
-  cs = df[close].shift(1)
-  pdm = df[high].combine(cs, lambda x1, x2: get_min_max(x1, x2, 'max'))
-  pdn = df[low].combine(cs, lambda x1, x2: get_min_max(x1, x2, 'min'))
-  tr = pdm - pdn
+  previous_close = df[close].shift(1)
 
+  print('1')
+  # plus/minus directional movement, true range
+  pdm = df[high].combine(previous_close, lambda x1, x2: get_min_max(x1, x2, 'max'))
+  mdm = df[low].combine(previous_close, lambda x1, x2: get_min_max(x1, x2, 'min'))
+  tr = pdm - mdm
+  df['pdm'] = pdm
+  df['mdm'] = mdm
+  df['tr'] = tr
+
+  print('2')
+  # true range
   trs_initial = np.zeros(n-1)
   trs = np.zeros(len(df[close]) - (n-1))
   trs[0] = tr.dropna()[0:n].sum()
   tr = tr.reset_index(drop=True)
   for i in range(1, len(trs)-1):
     trs[i] = trs[i-1] - (trs[i-1]/float(n)) + tr[n+i]
+  df['trs'] = np.concatenate((trs_initial, trs), axis=0)
 
+  print('3')
   up = df[high] - df[high].shift(1)
   dn = df[low].shift(1) - df[low]
   pos = abs(((up > dn)&(up>0)) * up)
   neg = abs(((up < dn)&(dn>0)) * dn)
 
+  print('4')
   # calculate +DI and -DI
   dip_mio = np.zeros(len(df[close]) - (n-1))
   din_mio = np.zeros(len(df[close]) - (n-1))
@@ -642,6 +654,7 @@ def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low
   pos = pos.reset_index(drop=True)
   neg = neg.reset_index(drop=True)
 
+  print('5')
   for i in range(1, len(dip_mio)-1):
     dip_mio[i] = dip_mio[i-1] - (dip_mio[i-1]/float(n)) + pos[n+i]
   for i in range(1, len(din_mio)-1):
@@ -655,6 +668,7 @@ def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low
   for i in range(1, len(trs)-1):
     din[i+n] = 100 * (din_mio[i]/float(trs[i]))
 
+  print('6')
   # calculate adx
   dx = 100 * np.abs((dip - din) / (dip + din))
   adx = np.zeros(len(trs))
