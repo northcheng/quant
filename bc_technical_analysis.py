@@ -299,7 +299,7 @@ def replace_signal(df, signal_col='signal', replacement={'b':1, 's':-1, 'n': 0})
     original_signal = i
     new_signal = replacement[i]
 
-    idx = df.query('%(column)s == "%(value)s"' % dict(column=signal_col, value=original_signal))
+    idx = df.query('%(column)s == "%(value)s"' % dict(column=signal_col, value=original_signal)).index
     new_df.loc[idx, signal_col] = new_signal
 
   return new_df
