@@ -1432,7 +1432,7 @@ def plot_peak_through(df, start=None, end=None, price_col='Close', signal_col='s
 
   # get peaks and throughs
   peaks = df.query('%(column)s != "%(value)s"' % dict(column=signal_col, value=pos_signal))
-  throughs = df.query('%(column)s != "%(value)s"' % dict(column=signal_col, value=neg_signal))
+  troughs = df.query('%(column)s != "%(value)s"' % dict(column=signal_col, value=neg_signal))
 
   # plot peak and through
   ax.plot(df.index, df[price_col])
