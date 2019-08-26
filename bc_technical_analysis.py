@@ -1439,6 +1439,10 @@ def plot_peak_through(df, start=None, end=None, price_col='Close', signal_col='s
   ax.plot(peaks.index, peaks[price_col], color='green', linestyle='--', marker='^', alpha=0.5)
   ax.plot(troughs.index, troughs[price_col], color='red', linestyle='--', marker='v', alpha=0.5)
 
+  # legend and title
+  ax.legend(loc='upper left')  
+  ax.set_title('peak_trough')
+
   if use_ax is not None:
     return ax
 
