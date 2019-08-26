@@ -46,7 +46,7 @@ def get_min_max(x1, x2, f='min'):
     
 
 #----------------------------- Rolling windows -------------------------------------#
-def sm(series, periods, fillna=False):
+def sm(series, periods, fillna=True):
   """
   Simple Moving Window
 
@@ -61,7 +61,7 @@ def sm(series, periods, fillna=False):
   return series.rolling(window=periods, min_periods=periods)
 
 
-def em(series, periods, fillna=False):
+def em(series, periods, fillna=True):
   """
   Exponential Moving Window
 
@@ -628,9 +628,9 @@ def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low
   
   print('2')
   # smooth directional movement, true range
-  df['pdm_smooth'] = sm(series=df['pdm'], periods=n, fillna=fillna).sum()
-  df['mdm_smooth'] = sm(series=df['mdm'], periods=n, fillna=fillna).sum()
-  df['tr_smooth'] = sm(series=df['tr'], periods=n, fillna=fillna).sum()
+  df['pdm_smooth'] = sm(series=df['pdm'], periods=n).sum()
+  df['mdm_smooth'] = sm(series=df['mdm'], periods=).sum()
+  df['tr_smooth'] = sm(series=df['tr'], periods=n).sum()
 
   idx = df.index.tolist()
   for i in range(n, len(df)-1):
@@ -1304,7 +1304,7 @@ def add_atr_features(df, n=14, close='Close', open='Open', high='High', low='Low
   df['tr'] = df[['h_l', 'h_pc', 'l_pc']].max(axis=1)
 
   # calculate average true range
-  df['atr'] = sm(series=df['tr'], periods=n, fillna=fillna).mean()
+  df['atr'] = sm(series=df['tr'], periods=n, fillna=True).mean()
   
   idx = df.index.tolist()
   for i in range(n, len(df)):
