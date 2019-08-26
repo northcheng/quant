@@ -1313,7 +1313,7 @@ def cal_eom_signal(df):
 
 #----------------------------- TA volatility indicators ----------------------------#
 def add_atr_features(df, n=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
-   """
+  """
   Calculate Average True Range
 
   :param df: original OHLCV dataframe
