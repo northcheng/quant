@@ -623,89 +623,59 @@ def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low
   df['high_diff'] = df[high] - df[high].shift(1)
   df['low_diff'] = df[low].shift(1) - df[low]
   df['zero'] = 0
-  # df.loc[df['high_diff'] < 0, 'high_diff'] = 0
-  # df.loc[df['low_diff'] < 0, 'high_diff'] = 0
-
-  # plus/minus directional movement, true range
-  pdm = df['high_diff'].combine(df['zero'], lambda x1, x2: get_min_max(x1, x2, 'max'))
-  mdm = df['low_diff'].combine(df['high_diff'], lambda x1, x2: get_min_max(x1, x2, 'max'))
-  tr = pdm - mdm
-  df['pdm'] = pdm
-  df['mdm'] = mdm
-  df['tr'] = tr
-
+  df['pdm'] = df['high_diff'].combine(df['zero'], lambda x1, x2: get_min_max(x1, x2, 'max'))
+  df['mdm'] = df['low_diff'].combine(df['high_diff'], lambda x1, x2: get_min_max(x1, x2, 'max'))
+  
+  # calculate true range
+  df = add_atr_features(df=df, cal_signal=False)
+  
   print('2')
-  # true range
-  trs_initial = np.zeros(n-1)
-  trs = np.zeros(len(df[close]) - (n-1))
-  trs[0] = tr[0:n].dropna().sum()
-  tr = tr.reset_index(drop=True)
-  for i in range(1, len(trs)-1):
-    trs[i] = trs[i-1] - (trs[i-1]/float(n)) + tr[n+i]
-  df['trs'] = np.concatenate((trs_initial, trs), axis=0)
+  # smooth directional movement, true range
+  df['pdm_smooth'] = sm(series=df['pdm'], periods=n, fillna=fillna).sum()
+  df['mdm_smooth'] = sm(series=df['mdm'], periods=n, fillna=fillna).sum()
+  df['tr_smooth'] = sm(series=df['tr'], periods=n, fillna=fillna).sum()
+
+  idx = df.index.tolist()
+  for i in range(n, len(df)-1):
+    current_idx = idx[i]
+    previous_idx = idx[i-1]
+
+    df.loc[current_idx, 'pdm_smooth'] = df.loc[previous_idx, 'pdm_smooth'] - df.loc[previous_idx, 'pdm_smooth']/n + df.loc[current_idx, 'pdm']
+    df.loc[current_idx, 'mdm_smooth'] = df.loc[previous_idx, 'mdm_smooth'] - df.loc[previous_idx, 'mdm_smooth']/n + df.loc[current_idx, 'mdm']
+    df.loc[current_idx, 'tr_smooth'] = df.loc[previous_idx, 'tr_smooth'] - df.loc[previous_idx, 'tr_smooth']/n + df.loc[current_idx, 'tr']
 
   print('3')
-  up = df[high] - df[high].shift(1)
-  dn = df[low].shift(1) - df[low]
-  pos = abs(((up > dn)&(up>0)) * up)
-  neg = abs(((up < dn)&(dn>0)) * dn)
-
-  print('4')
-  # calculate +DI and -DI
-  dip_mio = np.zeros(len(df[close]) - (n-1))
-  din_mio = np.zeros(len(df[close]) - (n-1))
-
-  dip_mio[0] = pos.dropna()[0:n].sum()
-  din_mio[0] = neg.dropna()[0:n].sum()
-
-  pos = pos.reset_index(drop=True)
-  neg = neg.reset_index(drop=True)
-
-  print('5')
-  for i in range(1, len(dip_mio)-1):
-    dip_mio[i] = dip_mio[i-1] - (dip_mio[i-1]/float(n)) + pos[n+i]
-  for i in range(1, len(din_mio)-1):
-    din_mio[i] = din_mio[i-1] - (din_mio[i-1]/float(n)) + neg[n+i]
-
-  dip = np.zeros(len(df[close]))
-  din = np.zeros(len(df[close]))
-
-  for i in range(1, len(trs)-1):
-    dip[i+n] = 100 * (dip_mio[i]/float(trs[i]))
-  for i in range(1, len(trs)-1):
-    din[i+n] = 100 * (din_mio[i]/float(trs[i]))
+  # calculate ± DI
+  df['pdi'] = df['pdm_smooth'] / df['tr_smooth'] * 100
+  df['mdi'] = df['mdm_smooth'] / df['tr_smooth'] * 100
+  df['dx'] = abs((df['pdi']-df['mdi']) / (df['pdi']+df['mdi'])) * 100
 
   print('6')
   # calculate adx
-  dx = 100 * np.abs((dip - din) / (dip + din))
-  adx = np.zeros(len(trs))
-  adx[n] = dx[0:n].mean()
-  for i in range(n+1, len(adx)):
-    adx[i] = ((adx[i-1] * (n - 1)) + dx[i-1]) / float(n)
-  adx = np.concatenate((trs_initial, adx), axis=0)
-
-  # convert values to pd.Series
-  dip = pd.Series(data=dip, index=df.index)
-  din = pd.Series(data=din, index=df.index)
-  adx = pd.Series(data=adx, index=df.index)
-
+  df['adx'] = em(series=df['dx'], periods=n, fillna=fillna).mean()
+  for i in range(n, len(df)-1):
+    current_idx = idx[i]
+    previous_idx = idx[i-1]
+    df.loc[current_idx, 'adx'] = (df.loc[previous_idx, 'adx'] * (n-1) + df.loc[current_idx, 'dx'])
+ 
   # fill na values
   if fillna:
-    dip = dip.replace([np.inf, -np.inf], np.nan).fillna(0)
-    din = din.replace([np.inf, -np.inf], np.nan).fillna(0)
-    adx = adx.replace([np.inf, -np.inf], np.nan).fillna(0)
-
-  # assign values to df  
-  df['adx_pos'] = dip
-  df['adx_neg'] = din
-  df['adx'] = adx
+    df['pdm'] = df['pdm'].replace([np.inf, -np.inf], np.nan).fillna(0)
+    df['mdm'] = df['mdm'].replace([np.inf, -np.inf], np.nan).fillna(0)
+    df['tr'] = df['tr'].replace([np.inf, -np.inf], np.nan).fillna(0)
+    df['pdm_smooth'] = df['pdm_smooth'].replace([np.inf, -np.inf], np.nan).fillna(0)
+    df['mdm_smooth'] = df['mdm_smooth'].replace([np.inf, -np.inf], np.nan).fillna(0)
+    df['tr_smooth'] = df['tr_smooth'].replace([np.inf, -np.inf], np.nan).fillna(0)
+    df['pdi'] = df['pdi'].replace([np.inf, -np.inf], np.nan).fillna(0)
+    df['mdi'] = df['mdi'].replace([np.inf, -np.inf], np.nan).fillna(0)
+    df['dx'] = df['dx'].replace([np.inf, -np.inf], np.nan).fillna(0)
+    df['adx'] = df['adx'].replace([np.inf, -np.inf], np.nan).fillna(0)
 
   # calculate signals
   if cal_signal:
     df['adx_signal'] = 'n'
 
   return df
-
 
 
 def add_aroon_features(df, n=25, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, boundary=[50, 50]):
@@ -1352,6 +1322,8 @@ def add_atr_features(df, n=14, close='Close', open='Open', high='High', low='Low
   # calculate signal
   if cal_signal:
     df['atr_signal'] = 'n'
+
+  df.drop(['h_l', 'h_pc', 'l_pc'], axis=1, inplace=True)
 
   return df
 
