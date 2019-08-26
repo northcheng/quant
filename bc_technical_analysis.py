@@ -615,17 +615,14 @@ def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low
   df = df.copy()
 
   print('0')
-  # calculate adx indicators
-  previous_close = df[close].shift(1)
-
-  print('1')
   # plus/minus directional movement
   df['high_diff'] = df[high] - df[high].shift(1)
   df['low_diff'] = df[low].shift(1) - df[low]
   df['zero'] = 0
   df['pdm'] = df['high_diff'].combine(df['zero'], lambda x1, x2: get_min_max(x1, x2, 'max'))
-  df['mdm'] = df['low_diff'].combine(df['high_diff'], lambda x1, x2: get_min_max(x1, x2, 'max'))
+  df['mdm'] = df['low_diff'].combine(df['zero'], lambda x1, x2: get_min_max(x1, x2, 'max'))
   
+  print('1')
   # calculate true range
   df = add_atr_features(df=df, cal_signal=False)
   
