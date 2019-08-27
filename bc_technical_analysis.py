@@ -1633,7 +1633,6 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
       plot_ichimoku(df=plot_data, signal_col=signal_col, title=tmp_indicator, use_ax=axes[tmp_indicator])
 
     elif tmp_indicator == 'peak_trough':
-      # print(signal_col, price_col, pos_signal, neg_signal, none_signal)
       plot_peak_trough(df=plot_data, signal_col=signal_col, title=tmp_indicator, use_ax=axes[tmp_indicator])
 
     # plot other
