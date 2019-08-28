@@ -1330,6 +1330,63 @@ def cal_mean_reversion_expected_rate(df, rate_col, n=100, mr_threshold=2):
   return result
 
 
+def add_bb_features(df=df, n=20, ndev=2, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+  """
+  Calculate Bollinger Band
+
+  :param df: original OHLCV dataframe
+  :param n: look back window size
+  :param ndev: standard deviation factor
+  :param close: column name of the close
+  :param open: column name of the open
+  :param high: column name of the high
+  :param low: column name of the low
+  :param volume: column name of the volume
+  :param fillna: whether to fill na with 0
+  :param cal_signal: whether to calculate signal
+  :returns: dataframe with new features generated
+  """
+  # copy dataframe
+  df = df.copy()
+
+  # calculate bollinger band 
+  mavg = sm(series=df[close], periods=n).mean()
+  mstd = m(series=df[close], periods=n).std()
+  high_band = mavg + ndev*mstd
+  low_band = mavg - ndev*mstd
+
+  # calculate bollinger band indicator
+  close_df = df[[close]].copy()
+  close_df['high_band'] = 0.0
+  close_df['low_band'] = 0.0
+  close_df.loc[df[close]>high_band, 'high_band'] = 1.0
+  close_df.loc[df[close]<low_band, 'low_band'] = 1.0
+  high_band_indicator = close_df['high_band']
+  low_band_indicator = close_df['low_band']
+
+  # fill na values
+  if fillna:
+      mavg = mavg.replace([np.inf, -np.inf], np.nan).fillna(method='backfill')
+      mstd = mstd.replace([np.inf, -np.inf], np.nan).fillna(method='backfill')
+      high_band = high_band.replace([np.inf, -np.inf], np.nan).fillna(method='backfill')
+      low_band = low_band.replace([np.inf, -np.inf], np.nan).fillna(method='backfill')
+      high_band_indicator = high_band_indicator.replace([np.inf, -np.inf], np.nan).fillna(method='backfill')
+      low_band_indicator = low_band_indicator.replace([np.inf, -np.inf], np.nan).fillna(method='backfill')
+  
+  # assign values to df
+  df['mavg'] = mavg
+  df['mstd'] = mstd
+  df['bb_high_band'] = high_band
+  df['bb_low_band'] = low_band
+  df['bbi_high_band'] = high_band_indicator
+  df['bbi_low_band'] = low_band_indicator
+
+  if cal_signal:
+    df['bb_signal'] = 'n'
+
+  return df
+
+
 #----------------------------- Indicator visualization -----------------------------#
 def plot_signal(df, start=None, end=None, price_col='Close', signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', filter_signal=None, title=None, figsize=(20, 5), use_ax=None):
   """
