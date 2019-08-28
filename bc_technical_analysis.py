@@ -1399,8 +1399,8 @@ def add_mean_reversion_features(df, n=100, close='Close', open='Open', high='Hig
 
   # calculate mr signal
   if cal_signal:
-    df['rate_signal'] = cal_boundary_signal(df=df, upper_col='rate', lower_col='rate', upper_boundary=mr_threshold, lower_boundary=-mr_threshold, pos_signal=1, neg_signal=-1, none_signal=0)
-    df['acc_rate_signal'] = cal_boundary_signal(df=df, upper_col='acc_rate', lower_col='acc_rate', upper_boundary=mr_threshold, lower_boundary=-mr_threshold, pos_signal=1, neg_signal=-1, none_signal=0)
+    df['rate_signal'] = cal_boundary_signal(df=df, upper_col='rate_bias', lower_col='rate_bias', upper_boundary=mr_threshold, lower_boundary=-mr_threshold, pos_signal=1, neg_signal=-1, none_signal=0)
+    df['acc_rate_signal'] = cal_boundary_signal(df=df, upper_col='acc_rate_bias', lower_col='acc_rate_bias', upper_boundary=mr_threshold, lower_boundary=-mr_threshold, pos_signal=1, neg_signal=-1, none_signal=0)
     df['mr_signal'] = df['rate_signal'].astype(int) + df['acc_rate_signal'].astype(int)
 
   return df
