@@ -1355,34 +1355,25 @@ def add_bb_features(df, n=20, ndev=2, close='Close', open='Open', high='High', l
   high_band = mavg + ndev*mstd
   low_band = mavg - ndev*mstd
 
-  # calculate bollinger band indicator
-  close_df = df[[close]].copy()
-  close_df['high_band'] = 0.0
-  close_df['low_band'] = 0.0
-  close_df.loc[df[close]>high_band, 'high_band'] = 1.0
-  close_df.loc[df[close]<low_band, 'low_band'] = 1.0
-  high_band_indicator = close_df['high_band']
-  low_band_indicator = close_df['low_band']
-
   # fill na values
   if fillna:
       mavg = mavg.replace([np.inf, -np.inf], np.nan).fillna(method='backfill')
       mstd = mstd.replace([np.inf, -np.inf], np.nan).fillna(method='backfill')
       high_band = high_band.replace([np.inf, -np.inf], np.nan).fillna(method='backfill')
       low_band = low_band.replace([np.inf, -np.inf], np.nan).fillna(method='backfill')
-      high_band_indicator = high_band_indicator.replace([np.inf, -np.inf], np.nan).fillna(method='backfill')
-      low_band_indicator = low_band_indicator.replace([np.inf, -np.inf], np.nan).fillna(method='backfill')
-  
+      
   # assign values to df
   df['mavg'] = mavg
   df['mstd'] = mstd
   df['bb_high_band'] = high_band
   df['bb_low_band'] = low_band
-  df['bbi_high_band'] = high_band_indicator
-  df['bbi_low_band'] = low_band_indicator
 
   if cal_signal:
     df['bb_signal'] = 'n'
+    buy_idx = df.query('%(column)s < bb_low_band' % dict(column=close)).index
+    sell_idx = df.query('%(column)s > bb_high_band' % dict(column=close)).index
+    df.loc[buy_idx, 'bb_signal'] = 'b'
+    df.loc[sell_idx, 'bb_signal'] = 's'
 
   return df
 
