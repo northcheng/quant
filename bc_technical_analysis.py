@@ -1378,12 +1378,22 @@ def add_mean_reversion_features(df, n=100, close='Close', open='Open', high='Hig
     tmp_std = mw.std()
     df[col+'_bias'] = (df[col] - tmp_mean) / (tmp_std)
 
+  # calculate the expected change rate that will triger signal
   if cal_signal:
-    result = cal_mean_reversion_expected_rate(df=df, rate_col='rate', window_size=n, std_multiple=mr_threshold)
-    df['mr_signal'] = str([round(x, ndigits=2) for x in result])
+    result = cal_mean_reversion_expected_rate(df=df, rate_col='acc_rate', window_size=n, std_multiple=mr_threshold)
+    last_value = df['acc_rate'].tail(1).values[0]
+    
+    up = down = 0
+    if last_value > 0:
+      up = max(result) - last_value
+      down = min(result)
+    else:
+      up = max(result)
+      down = min(result) - last_value
+
+    df['mr_signal'] = '%(up)s or %(down)s' % dict(up=up, down=down)
 
   return df
-
 
 #----------------------------- Indicator visualization -----------------------------#
 def plot_signal(df, start=None, end=None, price_col='Close', signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', filter_signal=None, title=None, figsize=(20, 5), use_ax=None):
