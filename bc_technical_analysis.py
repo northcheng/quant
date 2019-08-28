@@ -1394,8 +1394,8 @@ def add_mean_reversion_features(df, n=100, close='Close', open='Open', high='Hig
 
     up_price = round(up * last_close, ndigits=2)
     up_price = round(up * last_close, ndigits=2)
-    up = round(up, ngidits=2) * 100
-    down = round(down, ndigit=2) * 100
+    up = round(up, ndigits=2) * 100
+    down = round(down, ndigits=2) * 100
     df['mr_signal'] = '%(up_price)s(%(up)s)\n%(down_price)s(%(down)s)' % dict(up_price=up_price, up=up, down_price=down_price, down=down)
 
   return df
