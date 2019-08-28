@@ -513,7 +513,7 @@ def add_mean_reversion_features(df, n=100, close='Close', open='Open', high='Hig
     df[col+'_bias'] = (df[col] - tmp_mean) / (tmp_std)
 
   if cal_signal:
-    for col in bias_col:
+    for col in target_col:
       bias_col = col + '_bias'
       x = sympy.Symbol('x')
       tmp_df = np.hstack((df.tail(n-1)[bias_col].values, x))
