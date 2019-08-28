@@ -1351,7 +1351,7 @@ def add_bb_features(df, n=20, ndev=2, close='Close', open='Open', high='High', l
 
   # calculate bollinger band 
   mavg = sm(series=df[close], periods=n).mean()
-  mstd = m(series=df[close], periods=n).std()
+  mstd = sm(series=df[close], periods=n).std()
   high_band = mavg + ndev*mstd
   low_band = mavg - ndev*mstd
 
