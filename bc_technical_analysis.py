@@ -510,7 +510,7 @@ def add_mean_reversion_features(df, n=100, close='Close', open='Open', high='Hig
     mw = sm(series=df[col], periods=n)
     tmp_mean = mw.mean()
     tmp_std = mw.std()
-    df[col+'_bias'] = (df[d] - tmp_mean) / (tmp_std)
+    df[col+'_bias'] = (df[col] - tmp_mean) / (tmp_std)
 
   if cal_signal:
     for col in bias_col:
