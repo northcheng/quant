@@ -481,47 +481,6 @@ def cal_mean_reversion(df, target_col, window_size=100, start=None, end=None, wi
 
   return df
 
-def add_mean_reversion_features(df, n=100, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, mr_threshold=2):
-  """
-  Calculate Mean Reversion
-
-  :param df: original OHLCV dataframe
-  :param n: look back window size
-  :param close: column name of the close
-  :param open: column name of the open
-  :param high: column name of the high
-  :param low: column name of the low
-  :param volume: column name of the volume
-  :param fillna: whether to fill na with 0
-  :param cal_signal: whether to calculate signal
-  :param mr_threshold: the threshold to triger signal
-  :returns: dataframe with new features generated
-  """
-  # copy dataframe
-  df = df.copy()
-
-  # calculate change rate of close price
-  df = cal_change_rate(df=df, target_col=close, periods=1, add_accumulation=True)
-  target_col = ['rate', 'acc_rate', 'acc_day']
-  col_to_drop = target_col
-
-  # calculate the (current value - moving avg) / moving std
-  for col in target_col:
-    mw = sm(series=df[col], periods=n)
-    tmp_mean = mw.mean()
-    tmp_std = mw.std()
-    df[col+'_bias'] = (df[col] - tmp_mean) / (tmp_std)
-
-  if cal_signal:
-    for col in target_col:
-      x = sympy.Symbol('x')
-      tmp_data = np.hstack((df.tail(n-1)[col].values, x))
-      ma = tmp_data.mean()
-      std = sympy.sqrt(sum((tmp_data - ma)**2)/(n-1))
-      result = sympy.solve(((x - ma)**2) - ((mr_threshold*std)**2), x)
-      df[col+'_signal'] = str(result)
-
-  return df
 
 def cal_mean_reversion_signal(df, std_multiple=2, final_signal_threshold=2, start=None, end=None, result_col='signal', pos_signal='b', neg_signal='s', none_signal='n'):
   """
@@ -1384,6 +1343,44 @@ def add_atr_features(df, n=14, close='Close', open='Open', high='High', low='Low
     df['atr_signal'] = df['tr'] - df['atr']
 
   df.drop(['h_l', 'h_pc', 'l_pc'], axis=1, inplace=True)
+
+  return df
+
+
+def add_mean_reversion_features(df, n=100, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, mr_threshold=2):
+  """
+  Calculate Mean Reversion
+
+  :param df: original OHLCV dataframe
+  :param n: look back window size
+  :param close: column name of the close
+  :param open: column name of the open
+  :param high: column name of the high
+  :param low: column name of the low
+  :param volume: column name of the volume
+  :param fillna: whether to fill na with 0
+  :param cal_signal: whether to calculate signal
+  :param mr_threshold: the threshold to triger signal
+  :returns: dataframe with new features generated
+  """
+  # copy dataframe
+  df = df.copy()
+
+  # calculate change rate of close price
+  df = cal_change_rate(df=df, target_col=close, periods=1, add_accumulation=True)
+  target_col = ['rate', 'acc_rate', 'acc_day']
+  col_to_drop = target_col
+
+  # calculate the (current value - moving avg) / moving std
+  for col in target_col:
+    mw = sm(series=df[col], periods=n)
+    tmp_mean = mw.mean()
+    tmp_std = mw.std()
+    df[col+'_bias'] = (df[col] - tmp_mean) / (tmp_std)
+
+  if cal_signal:
+    result = cal_mean_reversion_expected_rate(df=df, rate_col='rate', window_size=n, std_multiple=mr_threshold)
+    df['mr_signal'] = str([round(x, ndigits=2) for x in result])
 
   return df
 
