@@ -1330,7 +1330,7 @@ def cal_mean_reversion_expected_rate(df, rate_col, n=100, mr_threshold=2):
   return result
 
 
-def add_bb_features(df=df, n=20, ndev=2, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+def add_bb_features(df, n=20, ndev=2, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
   Calculate Bollinger Band
 
