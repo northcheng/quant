@@ -523,23 +523,23 @@ def cal_mean_reversion_signal(df, std_multiple=2, final_signal_threshold=2, star
   return df[result_col]
 
 
-def cal_mean_reversion_expected_rate(df, rate_col, window_size, std_multiple):
+def cal_mean_reversion_expected_rate(df, bias_col, n=100, mr_threshold=2):
   """
   Calculate the expected rate change to triger mean-reversion signals
 
   :param df: original dataframe which contains rate column
-  :param rate_col: columnname of the change rate values
-  :param window_size: windowsize of the moving window
-  :param std_multiple: the multiple of moving std to triger signals
+  :param bias_col: columnname of the bias of change rate values
+  :param n: windowsize of the moving window
+  :param mr_threshold: the multiple of moving std to triger signals
   :returns: the expected up/down rate to triger signals
   :raises: none
   """
   x = sympy.Symbol('x')
 
-  df = np.hstack((df.tail(window_size-1)[rate_col].values, x))
+  df = np.hstack((df.tail(n-1)[bias_col].values, x))
   ma = df.mean()
-  std = sympy.sqrt(sum((df - ma)**2)/(window_size-1))
-  result = sympy.solve(((x - ma)**2) - ((std_multiple*std)**2), x)
+  std = sympy.sqrt(sum((df - ma)**2)/(n-1))
+  result = sympy.solve(((x - ma)**2) - ((mr_threshold*std)**2), x)
 
   return result
 
@@ -1378,7 +1378,7 @@ def add_mean_reversion_features(df, n=100, close='Close', open='Open', high='Hig
     df[col+'_bias'] = (df[col] - tmp_mean) / (tmp_std)
 
   # calculate the expected change rate that will triger signal
-  result = cal_mean_reversion_expected_rate(df=df, rate_col='acc_rate', window_size=n, std_multiple=mr_threshold)
+  result = cal_mean_reversion_expected_rate(df=df, rate_col='acc_rate', n=n, mr_threshold=mr_threshold)
   last_acc_rate = df['acc_rate'].tail(1).values[0]
   last_close = df[close].tail(1).values[0]
 
@@ -1405,6 +1405,29 @@ def add_mean_reversion_features(df, n=100, close='Close', open='Open', high='Hig
     df.drop(['rate_signal', 'acc_rate_signal'], axis=1, inplace=True)   
 
   return df
+
+
+def cal_mean_reversion_expected_rate(df, rate_col, n=100, mr_threshold=2):
+  """
+  Calculate the expected rate change to triger mean-reversion signals
+
+  :param df: original dataframe which contains rate column
+  :param rate_col: columnname of the change rate values
+  :param n: windowsize of the moving window
+  :param mr_threshold: the multiple of moving std to triger signals
+  :returns: the expected up/down rate to triger signals
+  :raises: none
+  """
+  x = sympy.Symbol('x')
+
+  df = np.hstack((df.tail(n-1)[rate_col].values, x))
+  ma = df.mean()
+  std = sympy.sqrt(sum((df - ma)**2)/(n-1))
+  result = sympy.solve(((x - ma)**2) - ((mr_threshold*std)**2), x)
+
+  return result
+
+
 
 #----------------------------- Indicator visualization -----------------------------#
 def plot_signal(df, start=None, end=None, price_col='Close', signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', filter_signal=None, title=None, figsize=(20, 5), use_ax=None):
