@@ -519,7 +519,7 @@ def add_mean_reversion_features(df, n=100, close='Close', open='Open', high='Hig
       tmp_df = np.hstack((df.tail(n-1)[bias_col].values, x))
       ma = tmp_df.mean()
       std = sympy.sqrt(sum((tmp_df - ma)**2)/(n-1))
-      result = sympy.solve(((x - ma)**2) - ((std_multiple*std)**2), x)
+      result = sympy.solve(((x - ma)**2) - ((mr_threshold*std)**2), x)
       df[col+'_signal'] = result
 
   return df
