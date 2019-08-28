@@ -481,7 +481,7 @@ def cal_mean_reversion(df, target_col, window_size=100, start=None, end=None, wi
 
   return df
 
-def add_mean_reversion_features(df, n=100, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, mr_threshold=2)：
+def add_mean_reversion_features(df, n=100, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, mr_threshold=2):
 """
   Calculate Mean Reversion
 
