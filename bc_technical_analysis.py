@@ -1379,24 +1379,29 @@ def add_mean_reversion_features(df, n=100, close='Close', open='Open', high='Hig
     df[col+'_bias'] = (df[col] - tmp_mean) / (tmp_std)
 
   # calculate the expected change rate that will triger signal
+  result = cal_mean_reversion_expected_rate(df=df, rate_col='acc_rate', window_size=n, std_multiple=mr_threshold)
+  last_acc_rate = df['acc_rate'].tail(1).values[0]
+  last_close = df[close].tail(1).values[0]
+
+  up = down = 0
+  if last_acc_rate > 0:
+    up = max(result) - last_acc_rate
+    down = min(result)
+  else:
+    up = max(result)
+    down = min(result) - last_acc_rate
+
+  up_price = round((1+up) * last_close, ndigits=2)
+  down_price = round((1+down) * last_close, ndigits=2)
+  up = round(up * 100, ndigits=0) 
+  down = round(down * 100, ndigits=0) 
+  df['mr_price'] = '%(up_price)s(%(up)s%%), %(down_price)s(%(down)s%%)' % dict(up_price=up_price, up=up, down_price=down_price, down=down)
+
+  # calculate mr signal
   if cal_signal:
-    result = cal_mean_reversion_expected_rate(df=df, rate_col='acc_rate', window_size=n, std_multiple=mr_threshold)
-    last_acc_rate = df['acc_rate'].tail(1).values[0]
-    last_close = df[close].tail(1).values[0]
-
-    up = down = 0
-    if last_acc_rate > 0:
-      up = max(result) - last_acc_rate
-      down = min(result)
-    else:
-      up = max(result)
-      down = min(result) - last_acc_rate
-
-    up_price = round((1+up) * last_close, ndigits=2)
-    down_price = round((1+down) * last_close, ndigits=2)
-    up = round(up * 100, ndigits=0) 
-    down = round(down * 100, ndigits=0) 
-    df['mr_signal'] = '%(up_price)s(%(up)s%%), %(down_price)s(%(down)s%%)' % dict(up_price=up_price, up=up, down_price=down_price, down=down)
+    df['rate_signal'] = cal_boundary_signal(df=df, upper_col='rate', lower_col='rate', upper_boundary=mr_threshold, lower_boundary=-mr_threshold, pos_signa=1, neg_signal=-1, none_signal=0)
+    df['acc_rate_signal'] = cal_boundary_signal(df=df, upper_col='acc_rate', lower_col='acc_rate', upper_boundary=mr_threshold, lower_boundary=-mr_threshold, pos_signa=1, neg_signal=-1, none_signal=0)
+    df['mr_signal'] = df['rate_signal'].astype(int) + df['acc_rate_signal'].astype(int)
 
   return df
 
