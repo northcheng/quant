@@ -1369,7 +1369,6 @@ def add_mean_reversion_features(df, n=100, close='Close', open='Open', high='Hig
   # calculate change rate of close price
   df = cal_change_rate(df=df, target_col=close, periods=1, add_accumulation=True)
   target_col = ['rate', 'acc_rate', 'acc_day']
-  col_to_drop = target_col
 
   # calculate the (current value - moving avg) / moving std
   for col in target_col:
@@ -1402,6 +1401,8 @@ def add_mean_reversion_features(df, n=100, close='Close', open='Open', high='Hig
     df['rate_signal'] = cal_boundary_signal(df=df, upper_col='rate_bias', lower_col='rate_bias', upper_boundary=mr_threshold, lower_boundary=-mr_threshold, pos_signal=1, neg_signal=-1, none_signal=0)
     df['acc_rate_signal'] = cal_boundary_signal(df=df, upper_col='acc_rate_bias', lower_col='acc_rate_bias', upper_boundary=mr_threshold, lower_boundary=-mr_threshold, pos_signal=1, neg_signal=-1, none_signal=0)
     df['mr_signal'] = df['rate_signal'].astype(int) + df['acc_rate_signal'].astype(int)
+    df = replace_signal(df=df, signal_col='mr_signal', replacement={0: 'n', 1: 'n', -1:'n', 2:'b', -2:'s'})
+    df.drop(['rate_signal', 'acc_rate_signal'], axis=1, inplace=True)   
 
   return df
 
