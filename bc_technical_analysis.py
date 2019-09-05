@@ -1167,7 +1167,7 @@ def add_vortex_features(df, n=14, close='Close', open='Open', high='High', low='
 # def add_cmf_features()
 
 # def add_eom_features()
-def cal_eom_signal(df, n=20, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+def add_eom_features(df, n=20, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
   Calculate Vortex indicator
 
