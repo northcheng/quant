@@ -101,7 +101,7 @@ def cal_change(df, target_col, periods=1, add_accumulation=True, add_prefix=Fals
   acc_change_day_dim = prefix + 'acc_change_count'
 
   # calculate change within the period
-  df[change_dim] = df[target_col] - df[target_col].shift(periods)
+  df[change_dim] = df[target_col].diff(periods=periods)
   
   # calculate accumulative change in a same direction
   if add_accumulation:
@@ -1167,24 +1167,41 @@ def add_vortex_features(df, n=14, close='Close', open='Open', high='High', low='
 # def add_cmf_features()
 
 # def add_eom_features()
-def cal_eom_signal(df):
+def cal_eom_signal(df, n=20, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
-  Calculate Ease of movement signal
+  Calculate Vortex indicator
 
   :param df: original OHLCV dataframe
-  :returns: eom signal
-  :raises: none
+  :param n: ema window of close price
+  :param close: column name of the close
+  :param open: column name of the open
+  :param high: column name of the high
+  :param low: column name of the low
+  :param volume: column name of the volume
+  :param fillna: whether to fill na with 0
+  :param cal_signal: whether to calculate signal
+  :returns: dataframe with new features generated
   """
 
   # copy dataframe
   df = df.copy()
 
-  # calculate eom indicator and signal
-  df['eom'] = ta.ease_of_movement(high=df.High, low=df.Low, close=df.Close, volume=df.Volume)
-  df['zero'] = 0
-  df['signal'] = cal_crossover_signal(df=df, fast_line='eom', slow_line='zero')
-  
-  return df[['signal']]
+  # calculate eom
+  eom = (df[high].diff(periods=1) + df[low].diff(periods=1)) * (df[high] - df[low]) / (df[volume] * 2)
+  eom = eom.rolling(periods=n, min_periods=0).mean()
+
+  # fill na values
+  if fillna:
+    eom = eom.replace([np.inf, -np.inf], np.nan).fillna(0)
+
+  # assign eom to df
+  df['eom'] = eom
+
+  # calculate signals
+  if cal_signal:
+    df['eom_signal'] = 'n'
+
+  return df
 
 
 # def add_fi_features()
@@ -1196,8 +1213,43 @@ def cal_eom_signal(df):
 # def add_obv_features()
 
 
-# def add_vpt_features()
+def add_vpt_features(df, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+  """
+  Calculate Vortex indicator
 
+  :param df: original OHLCV dataframe
+  :param close: column name of the close
+  :param open: column name of the open
+  :param high: column name of the high
+  :param low: column name of the low
+  :param volume: column name of the volume
+  :param fillna: whether to fill na with 0
+  :param cal_signal: whether to calculate signal
+  :returns: dataframe with new features generated
+  """
+  # copy dataframe
+  df = df.copy()
+
+  # calculate vpt
+  df['close_change_rate'] = df[close].pct_change(periods=1)
+  vpt = df[volume] * df['close_change_rate']
+  vpt = vpt.shift(1) + vpt
+
+  # fillna values
+  if fillna:
+    vpt = vpt.replace([np.inf, -np.inf], np.nan).fillna(0)
+
+  # assign vpt value to df
+  df['vpt'] = vpt
+
+  # calculate signals
+  if cal_signal:
+    df['vpt_signal'] = 'n'
+
+  # drop redundant columns
+  df.drop(['close_change_rate'], axis=1, inplace=True)
+
+  return df
 
 #----------------------------- Momentum indicators ------------------------------#
 
