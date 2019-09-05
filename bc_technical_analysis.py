@@ -1188,7 +1188,7 @@ def add_eom_features(df, n=20, close='Close', open='Open', high='High', low='Low
 
   # calculate eom
   eom = (df[high].diff(periods=1) + df[low].diff(periods=1)) * (df[high] - df[low]) / (df[volume] * 2)
-  eom = eom.rolling(periods=n, min_periods=0).mean()
+  eom = eom.rolling(window=n, min_periods=0).mean()
 
   # fill na values
   if fillna:
