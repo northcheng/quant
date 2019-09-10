@@ -1660,7 +1660,7 @@ def plot_indicator(df, target_col, start=None, end=None, benchmark=0, boundary=N
     return ax
 
 
-def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reversion':1}, 'mean_reversion': {'std_multiple': 2}}, start=None, end=None, title=None, save_path=None, show_image=False, ws=0, hs=0, xp=0, yp=0, unit_size=3):
+def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reversion':1}, 'mean_reversion': {'std_multiple': 2}}, start=None, end=None, title=None, save_path=None, show_image=False, ws=0, hs=0, unit_size=3):
   """
   Plot Ichimoku and mean reversion in a same plot
 
@@ -1726,7 +1726,7 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
         title=tmp_indicator, use_ax=axes[tmp_indicator])
 
   # adjust plot layout
-  fig.suptitle(title, x=xp, y=yp)
+  fig.suptitle(title)
 
   # save image
   if save_path is not None:
