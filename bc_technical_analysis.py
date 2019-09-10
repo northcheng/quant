@@ -1431,7 +1431,7 @@ def add_bb_features(df, n=20, ndev=2, close='Close', open='Open', high='High', l
 
 
 #----------------------------- Indicator visualization -----------------------------#
-def plot_signal(df, start=None, end=None, price_col='Close', signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', filter_signal=None, title=None, figsize=(20, 5), use_ax=None):
+def plot_signal(df, start=None, end=None, price_col='Close', signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', filter_signal=None, title=None, figsize=(20, 5), use_ax=None, title_rotation='vertical', title_x=-0.05, title_y=0.8):
   """
   Plot signals along with the price
 
@@ -1447,6 +1447,9 @@ def plot_signal(df, start=None, end=None, price_col='Close', signal_col='signal'
   :param title: plot title
   :param figsize: figsize
   :param use_ax: the already-created ax to draw on
+  :param title_rotation: 'vertical' or 'horizontal'
+  :param title_x: title position x
+  :param title_y: title position y
   :returns: a signal plotted price chart
   :raises: none
   """
@@ -1479,14 +1482,14 @@ def plot_signal(df, start=None, end=None, price_col='Close', signal_col='signal'
 
   # legend and title
   ax.legend(loc='upper left')  
-  ax.set_title(title, rotation='vertical',x=-0.05,y=0.9)
+  ax.set_title(title, rotation=title_rotation, x=title_x, y=title_y)
 
   # return ax
   if use_ax is not None:
     return ax
 
 
-def plot_peak_trough(df, start=None, end=None, price_col='Close', signal_col='signal', pos_signal='p', neg_signal='t', none_signal='n', filter_signal=None, title=None, figsize=(20, 5), use_ax=None):
+def plot_peak_trough(df, start=None, end=None, price_col='Close', signal_col='signal', pos_signal='p', neg_signal='t', none_signal='n', filter_signal=None, title=None, figsize=(20, 5), use_ax=None, title_rotation='vertical', title_x=-0.05, title_y=0.8):
   """
   Plot peaks and throughs
 
@@ -1502,6 +1505,9 @@ def plot_peak_trough(df, start=None, end=None, price_col='Close', signal_col='si
   :param title: plot title
   :param figsize: figsize
   :param use_ax: the already-created ax to draw on
+  :param title_rotation: 'vertical' or 'horizontal'
+  :param title_x: title position x
+  :param title_y: title position y
   :returns: a signal plotted price chart
   :raises: none
   """
@@ -1525,13 +1531,13 @@ def plot_peak_trough(df, start=None, end=None, price_col='Close', signal_col='si
 
   # legend and title
   ax.legend(loc='upper left')  
-  ax.set_title(title, rotation='vertical',x=-0.05,y=0.9)
+  ax.set_title(title, rotation=title_rotation, x=title_x, y=title_y)
 
   if use_ax is not None:
     return ax
 
 
-def plot_ichimoku(df, price_col='Close', start=None, end=None, signal_col='signal',  pos_signal='b', neg_signal='s', none_signal='n', filter_signal='first', save_path=None, title=None, figsize=(20, 5), use_ax=None):
+def plot_ichimoku(df, price_col='Close', start=None, end=None, signal_col='signal',  pos_signal='b', neg_signal='s', none_signal='n', filter_signal='first', save_path=None, title=None, figsize=(20, 5), use_ax=None, title_rotation='vertical', title_x=-0.05, title_y=0.8):
   """
   Plot ichimoku chart
 
@@ -1544,6 +1550,9 @@ def plot_ichimoku(df, price_col='Close', start=None, end=None, signal_col='signa
   :param title: title of the plot
   :param figsize: figsize
   :param use_ax: the already-created ax to draw on
+  :param title_rotation: 'vertical' or 'horizontal'
+  :param title_x: title position x
+  :param title_y: title position y
   :returns: ichimoku plot
   :raises: none
   """
@@ -1573,7 +1582,7 @@ def plot_ichimoku(df, price_col='Close', start=None, end=None, signal_col='signa
 
   # title and legend
   ax.legend(bbox_to_anchor=(1.02, 0.), loc=3, ncol=1, borderaxespad=0.) 
-  ax.set_title(title, rotation='vertical',x=-0.05,y=0.9)
+  ax.set_title(title, rotation=title_rotation, x=title_x, y=title_y)
 
   # save image
   if save_path is not None:
@@ -1583,7 +1592,7 @@ def plot_ichimoku(df, price_col='Close', start=None, end=None, signal_col='signa
     return ax
 
 
-def plot_indicator(df, target_col, start=None, end=None, benchmark=0, boundary=None, color_mode='up_down', price_col='Close', signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', filter_signal=None, title=None, figsize=(20, 5), use_ax=None):
+def plot_indicator(df, target_col, start=None, end=None, benchmark=0, boundary=None, color_mode='up_down', price_col='Close', signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', filter_signal=None, title=None, figsize=(20, 5), use_ax=None, title_rotation='vertical', title_x=-0.05, title_y=0.8):
   """
   Plot indicators around a benchmark
 
@@ -1597,6 +1606,9 @@ def plot_indicator(df, target_col, start=None, end=None, benchmark=0, boundary=N
   :param title: title of the plot
   :param figsize: figure size
   :param use_ax: the already-created ax to draw on
+  :param title_rotation: 'vertical' or 'horizontal'
+  :param title_x: title position x
+  :param title_y: title position y
   :returns: figure with indicators and close price plotted
   :raises: none
   """
@@ -1653,17 +1665,16 @@ def plot_indicator(df, target_col, start=None, end=None, benchmark=0, boundary=N
 
   # plot title and legend
   ax.legend(bbox_to_anchor=(1.02, 0.), loc=3, ncol=1, borderaxespad=0.) 
-  ax.set_title(title, rotation='vertical',x=-0.05,y=0.9)
+  ax.set_title(title, rotation=title_rotation, x=title_x, y=title_y)
 
   # return ax
   if use_ax is not None:
     return ax
 
 
-def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reversion':1}, 'mean_reversion': {'std_multiple': 2}}, start=None, end=None, title=None, save_path=None, show_image=False, ws=0, hs=0, unit_size=3):
+def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reversion':1}, 'mean_reversion': {'std_multiple': 2}}, start=None, end=None, title=None, save_path=None, show_image=False, unit_size=3, ws=0, hs=0, title_rotation='horizontal', title_x=0.5, title_y=0.9):
   """
   Plot Ichimoku and mean reversion in a same plot
-
   :param df: dataframe with ichimoku and mean reversion columns
   :param std_multiple: std_multiple for mean reversion
   :param start: start of the data
@@ -1671,6 +1682,9 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
   :param title: title of the figure
   :param save_path: path where the figure will be saved to
   :param use_ax: the already-created ax to draw on
+  :param title_rotation: 'vertical' or 'horizontal'
+  :param title_x: title position x
+  :param title_y: title position y
   :returns: plot
   :raises: none
   """
@@ -1726,7 +1740,7 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
         title=tmp_indicator, use_ax=axes[tmp_indicator])
 
   # adjust plot layout
-  fig.suptitle(title, x=0.5, y=0.9, fontsize=20)
+  fig.suptitle(title, rotation=title_rotation, x=title_x, y=title_y, fontsize=20)
 
   # save image
   if save_path is not None:
@@ -1735,6 +1749,7 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
   # close image
   if not show_image:
     plt.close(fig)
+
 
 #----------------------------- Candlesticks ----------------------------------------#
 def add_candle_dims_for_df(df):
