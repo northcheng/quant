@@ -1479,7 +1479,7 @@ def plot_signal(df, start=None, end=None, price_col='Close', signal_col='signal'
 
   # legend and title
   ax.legend(loc='upper left')  
-  ax.set_title(title)
+  ax.set_title(title, rotation='vertical',x=-0.05,y=0.5)
 
   # return ax
   if use_ax is not None:
@@ -1525,7 +1525,7 @@ def plot_peak_trough(df, start=None, end=None, price_col='Close', signal_col='si
 
   # legend and title
   ax.legend(loc='upper left')  
-  ax.set_title('peak_trough')
+  ax.set_title(title, rotation='vertical',x=-0.05,y=0.5)
 
   if use_ax is not None:
     return ax
@@ -1573,7 +1573,7 @@ def plot_ichimoku(df, price_col='Close', start=None, end=None, signal_col='signa
 
   # title and legend
   ax.legend(bbox_to_anchor=(1.02, 0.), loc=3, ncol=1, borderaxespad=0.) 
-  ax.set_title(title)
+  ax.set_title(title, rotation='vertical',x=-0.05,y=0.5)
 
   # save image
   if save_path is not None:
@@ -1653,7 +1653,7 @@ def plot_indicator(df, target_col, start=None, end=None, benchmark=0, boundary=N
 
   # plot title and legend
   ax.legend(bbox_to_anchor=(1.02, 0.), loc=3, ncol=1, borderaxespad=0.) 
-  ax.set_title(title)
+  ax.set_title(title, rotation='vertical',x=-0.05,y=0.5)
 
   # return ax
   if use_ax is not None:
