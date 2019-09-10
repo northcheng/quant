@@ -9,6 +9,8 @@ import pandas as pd
 import numpy as np
 import time
 import os
+import requests
+import json
 import pandas_datareader.data as web 
 from pandas_datareader.nasdaq_trader import get_nasdaq_symbols
 from quant import bc_util as util
@@ -315,6 +317,8 @@ def remove_stock_data(sec_code, file_path, file_format='.csv'):
   :param sec_code: symbol of the stock to download
   :param file_path: path to store the download data
   :param file_format: the format of file that data will be stored in
+  :returns: None
+  :raises: None
   '''
   filename = file_path + sec_code + file_format
 
@@ -323,3 +327,128 @@ def remove_stock_data(sec_code, file_path, file_format='.csv'):
   
   except Exception as e:
     print(sec_code, e)
+
+
+def download_nytimes(year, month, api_key, file_path, file_format='.json', is_print=False, is_return=False):
+  '''
+  download news from newyork times api
+
+  :param year: year to download
+  :param month: month to download
+  :param api_key: nytimes api key
+  :param file_path: where the data will be save to
+  :param file_format: which format the data will be saved in
+  :param is_print: whether to print download information
+  :param is_return: whether to return data
+  :returns: data if is_return=True
+  :raises: None
+  '''
+  # construct URL
+  url = "https://api.nytimes.com/svc/archive/v1/{year}/{month}.json?api-key={api_key}" 
+  url = url.format(year=year, month=month, api_key=api_key)
+
+  # construct filename
+  filename = '{file_path}{year}-{month:02}{file_format}'.format(file_path=file_path, year=year, month=month, file_format=file_format)
+
+  # get data
+  items = requests.get(url)
+
+  # resolve data
+  try:
+    if file_format == '.json':
+      data = items.json()
+      
+      # get all news
+      docs = data["response"]["docs"]
+      
+      # drop duplicated news
+      doc_id = []
+      duplicated_doc_index = []
+      for i in range(len(docs)):
+        if docs[i]['_id'] not in doc_id:
+          doc_id.append(docs[i]['_id'])
+        else:
+          duplicated_doc_index.append(i)
+      duplicated_doc_index.sort(reverse=True)
+      
+      for i in duplicated_doc_index:
+        docs.pop(i)
+        
+      # update
+      data["response"]["docs"] = docs
+      data['response']['meta']['hits'] = len(docs)
+      
+      # save
+      with open(filename, 'w') as f:
+        json.dump(data, f)
+        
+  except Exception as e:
+    print(e)
+    print(data)
+    pass
+
+  # print info
+  if is_print:
+    print("Finished downloading {}/{} ({}hints)".format(year, month, len(docs)))
+
+  # return data
+  if is_return:
+    return data
+
+
+def read_nytimes(year, month, file_path, file_format='.json'):
+  """
+  read nytimes files into dataframe
+
+  :param year: year to read
+  :param month: month to read
+  :param file_path: where to read the file
+  :file_format: what is the file format of the file
+  :returns: dataframe
+  :raises: None
+  """
+  # construct filename
+  filename = '{file_path}{year}-{month:02}{file_format}'.format(file_path=file_path, year=year, month=month, file_format=file_format)
+  
+  # load json data
+  with open(filename) as data_file:    
+    NYTimes_data = json.load(data_file)
+  
+  # convert json to dataframe
+  date_list = []
+  df = pd.DataFrame()  
+  df['News'] = None
+  num_hits = NYTimes_data['response']['meta']['hits']
+  print('读取 {year}/{month} 新闻, {num_hits}条'.format(year=year, month=month, num_hits=num_hits))
+
+  # original columns
+  columns = [
+      'title',
+      'pub_date',
+      'news_desk',
+      'section_name',
+      'snippet',
+      'word_count'
+  ]
+  
+  # initialization
+  result = {}
+  for col in columns:
+    result[col] = []
+
+  # go through json
+  for article_number in range(num_hits):
+    
+    tmp_news = NYTimes_data["response"]["docs"][article_number]
+
+    result['title'].append(tmp_news.get('headline').get('main'))  
+    result['pub_date'].append(util.time_2_string(datetime.datetime.strptime(tmp_news.get('pub_date'), "%Y-%m-%dT%H:%M:%S+0000"), date_format='%Y-%m-%d %H:%M:%S'))
+    result['news_desk'].append(tmp_news.get('news_desk'))
+    result['section_name'].append(tmp_news.get('section_name'))
+    result['word_count'].append(tmp_news.get('word_count'))       
+    result['snippet'].append(tmp_news.get('snippet'))     
+
+  df = pd.DataFrame(result)
+
+  # return dataframe
+  return df  
