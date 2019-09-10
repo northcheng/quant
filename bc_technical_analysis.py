@@ -1736,6 +1736,7 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
   if not show_image:
     plt.close(fig)
 
+
 #----------------------------- Candlesticks ----------------------------------------#
 def add_candle_dims_for_df(df):
   """
