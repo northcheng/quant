@@ -75,17 +75,15 @@ def read_stock_data(sec_code, time_col, file_path, file_name=None, start_date=No
   :returns: timeseries-dataframe of stock data
   :raises: exception when error reading data
   """
-  # initialization
-  data = pd.DataFrame()
+  # construct filename by sec_code, file_path and file_format
+  stage = 'initialization'
+  if file_name is None:
+    file_name = file_path + sec_code + '.csv'
+  else:
+    file_name = file_path + file_name + '.csv'
 
-  # read data from google drive files
+  # read data from google drive
   try:
-    # construct filename by sec_code, file_path and file_format
-    if file_name is None:
-      file_name = file_path + sec_code + '.csv'
-    else:
-      file_name = file_path + file_name + '.csv'
-    
     # if the file not exists, print information, return an empty dataframe
     if not os.path.exists(file_name):
       print(file_name, ' not exists')
