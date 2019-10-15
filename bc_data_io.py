@@ -91,7 +91,7 @@ def read_stock_data(sec_code, time_col, file_path, file_name=None, start_date=No
     else:
       # load file
       stage = 'reading_from_google_drive'
-        data = pd.read_csv(file_name, encoding='utf8', engine='python')
+      data = pd.read_csv(file_name, encoding='utf8', engine='python')
 
       # convert dataframe to timeseries dataframe
       stage = 'transforming_to_timeseries'
