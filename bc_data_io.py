@@ -161,6 +161,8 @@ def download_stock_data_from_yahoo(sec_code, file_path, file_name=None, start_da
   # construct filename by sec_code, file_path and file_format
   if file_name is None:
     file_name = file_path + sec_code + '.csv'
+  else:
+    file_name = file_path + file_name + '.csv'
   
   try:
     # download data
@@ -209,6 +211,8 @@ def download_stock_data_from_tiger(sec_code, file_path, file_name=None, start_da
   # construct filename by sec_code, file_path and file_format
   if file_name is None:
     file_name = file_path + sec_code + '.csv'
+  else:
+    file_name = file_path + file_name + '.csv'
   
   try:     
     # download data from tiger open api
