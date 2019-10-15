@@ -81,21 +81,19 @@ def read_stock_data(sec_code, time_col, file_path, file_name=None, start_date=No
   # read data from google drive files
   try:
     # construct filename by sec_code, file_path and file_format
-    if filename is None:
-      filename = file_path + sec_code + '.csv'
+    if file_name is None:
+      file_name = file_path + sec_code + '.csv'
+    else:
+      file_name = file_path + file_name + '.csv'
     
     # if the file not exists, print information, return an empty dataframe
-    if not os.path.exists(filename):
-      print(filename, ' not exists')
+    if not os.path.exists(file_name):
+      print(file_name, ' not exists')
 
     else:
       # load file
       stage = 'reading_from_google_drive'
-      if file_format == '.csv':
-        data = pd.read_csv(filename, encoding='utf8', engine='python')
-      
-      elif file_format == '.xlsx':
-        data = pd.read_excel(filename)
+        data = pd.read_csv(file_name, encoding='utf8', engine='python')
 
       # convert dataframe to timeseries dataframe
       stage = 'transforming_to_timeseries'
