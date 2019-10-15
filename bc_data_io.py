@@ -285,7 +285,7 @@ def remove_stock_data(sec_code, file_path, file_name=None):
     os.remove(file_name)
   
   except Exception as e:
-    print(sec_code, e)
+    print(sec_code, e) 
 
 
 def download_nytimes(year, month, api_key, file_path, file_format='.json', is_print=False, is_return=False):
