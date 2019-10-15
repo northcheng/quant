@@ -159,8 +159,8 @@ def download_stock_data_from_yahoo(sec_code, file_path, file_name=None, start_da
   :raises: none
   """
   # construct filename by sec_code, file_path and file_format
-  if filename is None:
-    filename = file_path + sec_code + '.csv'
+  if file_name is None:
+    file_name = file_path + sec_code + '.csv'
   
   try:
     # download data
@@ -174,7 +174,7 @@ def download_stock_data_from_yahoo(sec_code, file_path, file_name=None, start_da
       data = data.reset_index().drop_duplicates(subset=time_col, keep='last')
 
       if  is_save:
-        data.to_csv(filename, index=False)
+        data.to_csv(file_name, index=False)
       
     # print download result
     if is_print:
@@ -207,8 +207,8 @@ def download_stock_data_from_tiger(sec_code, file_path, file_name=None, start_da
   :raises: none
   """  
   # construct filename by sec_code, file_path and file_format
-  if filename is None:
-    filename = file_path + sec_code + '.csv'
+  if file_name is None:
+    file_name = file_path + sec_code + '.csv'
   
   try:     
     # download data from tiger open api
@@ -249,7 +249,7 @@ def download_stock_data_from_tiger(sec_code, file_path, file_name=None, start_da
       data = data.reset_index().drop_duplicates(subset=time_col, keep='last')
       data.sort_values(by=time_col,  inplace=True)
       if is_save:
-        data.to_csv(filename, index=False) 
+        data.to_csv(file_name, index=False) 
       
     # print download result
     if is_print:
