@@ -266,7 +266,7 @@ def download_stock_data_from_tiger(sec_code, file_path, file_name=None, start_da
     return util.df_2_timeseries(data, time_col=time_col)
 
 
-def remove_stock_data(sec_code, file_path, file_format='.csv'):
+def remove_stock_data(sec_code, file_path, file_name=None):
   '''
   Remove stock data file from drive
 
@@ -276,10 +276,13 @@ def remove_stock_data(sec_code, file_path, file_format='.csv'):
   :returns: None
   :raises: None
   '''
-  filename = file_path + sec_code + file_format
-
+  if file_name is None:
+    file_name = file_path + sec_code + '.csv'
+  else:
+    file_name = file_path + file_name + '.csv'
+  
   try:
-    os.remove(filename)
+    os.remove(file_name)
   
   except Exception as e:
     print(sec_code, e)
