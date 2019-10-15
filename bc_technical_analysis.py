@@ -1161,12 +1161,84 @@ def add_vortex_features(df, n=14, close='Close', open='Open', high='High', low='
 
 
 #----------------------------- Volume indicators --------------------------------#
-# def add_adi_features()
+# *
+def add_adi_features(df, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+  """
+  Calculate Accumulation Distribution Index
 
+  :param df: original OHLCV dataframe
+  :param close: column name of the close
+  :param open: column name of the open
+  :param high: column name of the high
+  :param low: column name of the low
+  :param volume: column name of the volume
+  :param fillna: whether to fill na with 0
+  :param cal_signal: whether to calculate signal
+  :returns: dataframe with new features generated
+  """
 
-# def add_cmf_features()
+  # copy dataframe
+  df = df.copy()
 
-# def add_eom_features()
+  # calculate ADI
+  clv = ((df[close] - df[low]) - (df[high] - df[close])) / (df[high] - df[low])
+  clv = clv.fillna(0.0)  # float division by zero
+  ad = clv * df[volume]
+  ad = ad + ad.shift(1)
+
+  # fill na values
+  if fillna:
+    ad = ad.replace([np.inf, -np.inf], np.nan).fillna(0)
+
+  # assign adi to df
+  df['adi'] = ad
+
+  # calculate signals
+  if cal_signal:
+    df['adi_signal'] = 'n'
+
+  return df
+
+# *
+def add_cmf_features(df, n=20, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+  """
+  Calculate Chaikin Money FLow
+
+  :param df: original OHLCV dataframe
+  :param n: ema window of close price
+  :param close: column name of the close
+  :param open: column name of the open
+  :param high: column name of the high
+  :param low: column name of the low
+  :param volume: column name of the volume
+  :param fillna: whether to fill na with 0
+  :param cal_signal: whether to calculate signal
+  :returns: dataframe with new features generated
+  """
+
+  # copy dataframe
+  df = df.copy()
+
+  # calculate cmf
+  mfv = ((df[close] - df[low]) - (df[high] - df[close])) / (df[high] - df[low])
+  mfv = mfv.fillna(0.0)  # float division by zero
+  mfv *= df[volume]
+  cmf = (mfv.rolling(n, min_periods=0).sum() / df[volume].rolling(n, min_periods=0).sum())
+
+  # fill na values
+  if fillna:
+    cmf = cmf.replace([np.inf, -np.inf], np.nan).fillna(0)
+
+  # assign cmf to df
+  df['cmf'] = cmf
+
+  # calculate signals
+  if cal_signal:
+    df['cmf_signal'] = 'n'
+
+  return df
+
+# *
 def add_eom_features(df, n=20, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
   Calculate Vortex indicator
@@ -1203,14 +1275,85 @@ def add_eom_features(df, n=20, close='Close', open='Open', high='High', low='Low
 
   return df
 
+# *
+def add_fi_features(df, n=2, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+  """
+  Calculate Force Index
 
-# def add_fi_features()
+  :param df: original OHLCV dataframe
+  :param n: ema window of close price
+  :param close: column name of the close
+  :param open: column name of the open
+  :param high: column name of the high
+  :param low: column name of the low
+  :param volume: column name of the volume
+  :param fillna: whether to fill na with 0
+  :param cal_signal: whether to calculate signal
+  :returns: dataframe with new features generated
+  """
 
+  # copy dataframe
+  df = df.copy()
 
-# def add_nvi_features()
+  # calculate fi
+  fi = df[close].diff(n) * df[volume].diff(n)
 
+  # fill na values
+  if fillna:
+    fi = fi.replace([np.inf, -np.inf], np.nan).fillna(0)
 
-# def add_obv_features()
+  # assign fi to df
+  df['fi'] = fi
+
+  # calculate signals
+  if cal_signal:
+    df['fi_signal'] = 'n'
+
+  return df
+
+# *def add_nvi_features(df, n=20, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+
+# *
+def add_obv_features(df, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+  """
+  Calculate Force Index
+
+  :param df: original OHLCV dataframe
+  :param close: column name of the close
+  :param open: column name of the open
+  :param high: column name of the high
+  :param low: column name of the low
+  :param volume: column name of the volume
+  :param fillna: whether to fill na with 0
+  :param cal_signal: whether to calculate signal
+  :returns: dataframe with new features generated
+  """
+  # copy dataframe
+  df_original = df.copy()
+
+  # calculate obv
+  df = df[[close, volume]].transpose()
+  df['OBV'] = np.nan
+  c1 = df[close] < df[close].shift(1)
+  c2 = df[close] > df[close].shift(1)
+  if c1.any():
+    df.loc[c1, 'OBV'] = - df[volume]
+  if c2.any():
+    df.loc[c2, 'OBV'] = df[volume]
+  obv = df['OBV'].cumsum()
+
+  # fill na values
+  if fillna:
+    obv = obv.replace([np.inf, -np.inf], np.nan).fillna(0)
+
+  # assign obv to df
+  df_original['obv'] = obv
+
+  # calculate signals
+  if cal_signal:
+    df_original['obv_signal'] = 'n'
+
+  return df_original
 
 
 def add_vpt_features(df, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
