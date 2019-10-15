@@ -246,7 +246,7 @@ def download_stock_data_from_tiger(sec_code, file_path, interval, file_name=None
       # drop duplicated data
       stage = 'saving_data'
       time_col = 'Date'
-      data = data.reset_index().drop_duplicates(subset=time_col, keep='last')
+      data = data.drop_duplicates(subset=time_col, keep='last')
       data.sort_values(by=time_col,  inplace=True)
       if is_save:
         data.to_csv(file_name, index=False) 
