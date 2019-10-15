@@ -6,6 +6,7 @@ Utilities used for Tiger Open API
 """
 import pandas as pd
 from tigeropen.common.consts import Language
+from tigeropen.common.consts import BarPeriod
 from tigeropen.tiger_open_config import TigerOpenClientConfig
 from tigeropen.common.util.signature_utils import read_private_key
 from tigeropen.quote.quote_client import QuoteClient

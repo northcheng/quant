@@ -138,7 +138,7 @@ def download_stock_data(sec_code, file_path, file_name=None, start_date=None, en
     return download_stock_data_from_tiger(sec_code=sec_code, file_path=file_path, file_name=file_name, start_date=start_date, end_date=end_date, time_col=time_col, interval=interval, is_return=is_return, is_save=is_save, is_print=is_print, quote_client=quote_client, download_limit=download_limit)
 
 
-def download_stock_data_from_yahoo(sec_code, file_path, file_name=None, start_date=None, end_date=None, time_col='Date', interval='d', is_return=False, is_save=True, is_print=True):
+def download_stock_data_from_yahoo(sec_code, file_path, interval='d', file_name=None, start_date=None, end_date=None, time_col='Date', is_return=False, is_save=True, is_print=True):
   """
   Download stock data from Yahoo finance api via pandas_datareader
 
@@ -187,7 +187,7 @@ def download_stock_data_from_yahoo(sec_code, file_path, file_name=None, start_da
     return util.df_2_timeseries(data, time_col=time_col) 
 
 
-def download_stock_data_from_tiger(sec_code, file_path, file_name=None, start_date=None, end_date=None, time_col='time', interval='day', is_return=False, is_save=True, is_print=True, quote_client=None, download_limit=1200):
+def download_stock_data_from_tiger(sec_code, file_path, interval, file_name=None, start_date=None, end_date=None, time_col='time', is_return=False, is_save=True, is_print=True, quote_client=None, download_limit=1200):
   """
   Download stock data from Tiger Open API
   :param sec_code: symbol of the stock to download
