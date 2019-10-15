@@ -254,7 +254,7 @@ def download_stock_data_from_tiger(sec_code, file_path, interval, file_name=None
     # print download result
     if is_print:
       print('[From Tiger]%(sec_code)s: %(first_date)s - %(latest_date)s, 下载记录 %(data_length)s, ' % dict(
-        sec_code=sec_code, first_date=data[time_col].min().date(), latest_date=data[time_col].max().date(), data_length=data_length))
+        sec_code=sec_code, first_date=data[time_col].min(), latest_date=data[time_col].max(), data_length=data_length))
       
   except Exception as e:
     print(sec_code, stage, e)   
