@@ -1671,8 +1671,8 @@ def plot_peak_trough(df, start=None, end=None, price_col='Close', signal_col='si
 
   # plot peak and through
   ax.plot(df.index, df[price_col])
-  ax.plot(peaks.index, peaks[price_col], color='green', linestyle='--', marker='^', alpha=1)
-  ax.plot(troughs.index, troughs[price_col], color='red', linestyle='--', marker='v', alpha=1)
+  ax.plot(peaks.index, peaks[price_col], color='green', linestyle='--', marker='^', alpha= 0.8)
+  ax.plot(troughs.index, troughs[price_col], color='red', linestyle='--', marker='v', alpha=0.8)
 
   # legend and title
   ax.legend(loc='upper left')  
@@ -1869,23 +1869,22 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
     benchmark = tmp_args.get('benchmark')
     boundary = tmp_args.get('boundary')
     color_mode = tmp_args.get('color_mode')
-    add_candlestick = tmp_args.get('add_candlestick')
-
-    if add_candlestick:
-      width = tmp_args.get('width')
-      if width is None: 
-        width = 1
-      colorup = tmp_args.get('colorup')
-      if colorup is None: 
-        colorup = 'green'
-      colordown = tmp_args.get('colordown')
-      if colordown is None: 
-        colordown = 'red'
-      alpha = tmp_args.get('alpha')
-      if alpha is None:
-        alpha = 1
-
-      plot_candlestick(df=plot_data, title=tmp_indicator, use_ax=axes[tmp_indicator], width=width, colorup=colorup, colordown=colordown, alpha=alpha)
+    
+    # add_candlestick = tmp_args.get('add_candlestick')
+    # if add_candlestick:
+    #   width = tmp_args.get('width')
+    #   if width is None: 
+    #     width = 1
+    #   colorup = tmp_args.get('colorup')
+    #   if colorup is None: 
+    #     colorup = 'green'
+    #   colordown = tmp_args.get('colordown')
+    #   if colordown is None: 
+    #     colordown = 'red'
+    #   alpha = tmp_args.get('alpha')
+    #   if alpha is None:
+    #     alpha = 1
+      # plot_candlestick(df=plot_data, title=tmp_indicator, use_ax=axes[tmp_indicator], width=width, colorup=colorup, colordown=colordown, alpha=alpha)
 
     # plot ichimoku
     if tmp_indicator == 'ichimoku':
