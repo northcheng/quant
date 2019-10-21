@@ -1900,8 +1900,27 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
 
 
 def plot_candlestick(df, start=None, end=None, max_length=100, open_col='Open', high_col='High', low_col='Low', close_col='Close', date_col='Date', title=None, figsize=(20, 5), use_ax=None, width=0.8, colorup='green', colordown='red', alpha=0.8, title_rotation='vertical', title_x=-0.05, title_y=0.8):
-  
-  # copy data used for ploting
+  """
+  Plot candlestick data
+  :param df: dataframe with ichimoku and mean reversion columns
+  :param start: start of the data
+  :param end: end of the data
+  :prarm max_length: max length of records for ploting
+  :param open_col: column name for open values
+  :param high_col: column name for high values
+  :param low_col: column name for low values
+  :param close_col: column name for close values
+  :param date_col: column name for date values
+  :param title: title of the figure
+  :param use_ax: the already-created ax to draw on
+  :param width: width of each candlestick
+  :param title_rotation: 'vertical' or 'horizontal'
+  :param title_x: title position x
+  :param title_y: title position y
+  :returns: plot
+  :raises: none
+  """
+  # select plot data
   df = df[start:end].copy()
 
   # transform date to numbers
