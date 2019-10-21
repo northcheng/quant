@@ -1893,6 +1893,12 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
 
     elif tmp_indicator == 'peak_trough':
       plot_peak_trough(df=plot_data, signal_col=signal_col, title=tmp_indicator, use_ax=axes[tmp_indicator])
+
+      add_bbl = tmp_args.get('add_bbl')
+      if add_bbl is not None:
+        plot_indicator(
+        df=plot_data, target_col=['mavg', 'bb_high_band', 'bb_low_band'], benchmark=None, boundary=None, color_mode=None, 
+        price_col=None, signal_col=None, title=tmp_indicator, use_ax=axes[tmp_indicator])
       
     elif tmp_indicator == 'candlestick':
       plot_candlestick(df=plot_data, title=tmp_indicator, use_ax=axes[tmp_indicator])
