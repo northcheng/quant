@@ -1877,6 +1877,9 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
     elif tmp_indicator == 'peak_trough':
       plot_peak_trough(df=plot_data, signal_col=signal_col, title=tmp_indicator, use_ax=axes[tmp_indicator])
 
+    elif tmp_indicator == 'candlestick':
+      plot_candlestick(df=plot_data, title=tmp_indicator, use_ax=axes[tmp_indicator])
+
     # plot other
     else:
       plot_indicator(
@@ -1896,7 +1899,7 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
     plt.close(fig)
 
 
-def plot_candlestick(df, start=None, end=None, open_col='Open', high_col='High', low_col='Low', close_col='Close', date_col='Date', title=None, figsize=(20, 5), use_ax=None, width=0.8, colorup='green', colordown='red', alpha=0.8, title_rotation='vertical', title_x=-0.05, title_y=0.8):
+def plot_candlestick(df, start=None, end=None, max_length=100, open_col='Open', high_col='High', low_col='Low', close_col='Close', date_col='Date', title=None, figsize=(20, 5), use_ax=None, width=0.8, colorup='green', colordown='red', alpha=0.8, title_rotation='vertical', title_x=-0.05, title_y=0.8):
   
   # copy data used for ploting
   df = df[start:end].copy()
@@ -1904,7 +1907,7 @@ def plot_candlestick(df, start=None, end=None, open_col='Open', high_col='High',
   # transform date to numbers
   df.reset_index(inplace=True)
   df[date_col] = df[date_col].apply(mdates.date2num)
-  plot_data = df[[date_col, open_col, high_col, low_col, close_col]]
+  plot_data = df[[date_col, open_col, high_col, low_col, close_col]].tail(max_length)
 
   # create figure
   ax = use_ax
@@ -1921,6 +1924,8 @@ def plot_candlestick(df, start=None, end=None, open_col='Open', high_col='High',
 
   if use_ax is not None:
     return ax
+
+
 #----------------------------- Candlesticks ----------------------------------------#
 def add_candle_dims_for_df(df):
   """
