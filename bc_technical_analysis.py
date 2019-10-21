@@ -1671,8 +1671,8 @@ def plot_peak_trough(df, start=None, end=None, price_col='Close', signal_col='si
 
   # plot peak and through
   ax.plot(df.index, df[price_col])
-  ax.plot(peaks.index, peaks[price_col], color='green', linestyle='--', marker='^', alpha=0.5)
-  ax.plot(troughs.index, troughs[price_col], color='red', linestyle='--', marker='v', alpha=0.5)
+  ax.plot(peaks.index, peaks[price_col], color='green', linestyle='--', marker='^', alpha=1)
+  ax.plot(troughs.index, troughs[price_col], color='red', linestyle='--', marker='v', alpha=1)
 
   # legend and title
   ax.legend(loc='upper left')  
