@@ -1899,7 +1899,7 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
     plt.close(fig)
 
 
-def plot_candlestick(df, start=None, end=None, max_length=100, open_col='Open', high_col='High', low_col='Low', close_col='Close', date_col='Date', title=None, figsize=(20, 5), use_ax=None, width=0.8, colorup='green', colordown='red', alpha=0.8, title_rotation='vertical', title_x=-0.05, title_y=0.8):
+def plot_candlestick(df, start=None, end=None, max_length=None, open_col='Open', high_col='High', low_col='Low', close_col='Close', date_col='Date', title=None, figsize=(20, 5), use_ax=None, width=0.8, colorup='green', colordown='red', alpha=0.8, title_rotation='vertical', title_x=-0.05, title_y=0.8):
   """
   Plot candlestick data
   :param df: dataframe with ichimoku and mean reversion columns
@@ -1926,7 +1926,9 @@ def plot_candlestick(df, start=None, end=None, max_length=100, open_col='Open', 
   # transform date to numbers
   df.reset_index(inplace=True)
   df[date_col] = df[date_col].apply(mdates.date2num)
-  plot_data = df[[date_col, open_col, high_col, low_col, close_col]].tail(max_length)
+  plot_data = df[[date_col, open_col, high_col, low_col, close_col]]
+  if max_length is not None:
+    plot_data = plot_data.tail(max_length)
 
   # create figure
   ax = use_ax
