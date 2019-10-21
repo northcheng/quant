@@ -1889,7 +1889,7 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
         title=tmp_indicator, use_ax=axes[tmp_indicator])
 
     if add_candlestick:
-      plot_candlestick(df=plot_data, title=tmp_indicator, use_ax=axes[tmp_indicator], alpha=0.6)
+      plot_candlestick(df=plot_data, title=tmp_indicator, use_ax=axes[tmp_indicator], width=1, alpha=0.6)
 
   # adjust plot layout
   fig.suptitle(title, rotation=title_rotation, x=title_x, y=title_y, fontsize=20)
