@@ -1877,9 +1877,7 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
 
     elif tmp_indicator == 'peak_trough':
       plot_peak_trough(df=plot_data, signal_col=signal_col, title=tmp_indicator, use_ax=axes[tmp_indicator])
-      if add_candlestick:
-        plot_candlestick(df=plot_data, use_ax=axes[tmp_indicator], alpha=0.6)
-
+      
     elif tmp_indicator == 'candlestick':
       plot_candlestick(df=plot_data, title=tmp_indicator, use_ax=axes[tmp_indicator])
 
@@ -1889,8 +1887,9 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
         df=plot_data, target_col=target_col, benchmark=benchmark, boundary=boundary, color_mode=color_mode, 
         price_col=price_col, signal_col=signal_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, filter_signal=filter_signal,
         title=tmp_indicator, use_ax=axes[tmp_indicator])
-      if add_candlestick:
-        plot_candlestick(df=plot_data, use_ax=axes[tmp_indicator], alpha=0.6)
+      
+    if add_candlestick:
+      plot_candlestick(df=plot_data, use_ax=axes[tmp_indicator], alpha=0.6)
 
   # adjust plot layout
   fig.suptitle(title, rotation=title_rotation, x=title_x, y=title_y, fontsize=20)
