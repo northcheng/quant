@@ -17,6 +17,7 @@ from pandas_datareader.nasdaq_trader import get_nasdaq_symbols
 from quant import bc_util as util
 
 
+#----------------------------- Stock Data -------------------------------------#
 def get_symbols(remove_invalid=True, remove_not_fetched=False, not_fetched_list=None):
   """
   Get Nasdaq stock list
@@ -58,84 +59,6 @@ def get_symbols(remove_invalid=True, remove_not_fetched=False, not_fetched_list=
     sec_list = [x for x in sec_list if x not in yahoo_not_fetched_list]
   
   return symbols.loc[sec_list, ]
-
-
-def read_stock_data(sec_code, time_col, file_path, file_name=None, start_date=None, end_date=None, drop_na=False, sort_index=True):
-  """
-  Read stock data from Google Drive
-
-  :param sec_code: the target stock symbol
-  :param time_col: time column in the stock data
-  :param file_path: the path where stock file (.csv) stored
-  :param file_name: name of the stock data file
-  :param start_date: the start date to read
-  :param end_date: the end date to read
-  :param drop_na: whether to drop records that contains na values
-  :param sort_index: whether to sort the data by index
-  :returns: timeseries-dataframe of stock data
-  :raises: exception when error reading data
-  """
-  # construct filename by sec_code, file_path and file_format
-  stage = 'initialization'
-  if file_name is None:
-    file_name = file_path + sec_code + '.csv'
-  else:
-    file_name = file_path + file_name + '.csv'
-
-  # read data from google drive
-  try:
-    # if the file not exists, print information, return an empty dataframe
-    if not os.path.exists(file_name):
-      print(file_name, ' not exists')
-
-    else:
-      # load file
-      stage = 'reading_from_google_drive'
-      data = pd.read_csv(file_name, encoding='utf8', engine='python')
-
-      # convert dataframe to timeseries dataframe
-      stage = 'transforming_to_timeseries'
-      data = util.df_2_timeseries(df=data, time_col=time_col)
-      
-      # handle invalid data
-      stage = 'handling_invalid_data'
-      if drop_na:
-        data.dropna(axis=1, inplace=True)
-      
-      if sort_index:
-        data.sort_index(inplace=True)
-
-  except Exception as e:
-    print(sec_code, stage, e)
-
-  return data[start_date:end_date]
-
-
-def download_stock_data(sec_code, file_path, file_name=None, start_date=None, end_date=None, source='yahoo', time_col='Date', interval='d', quote_client=None, download_limit=1200, is_return=False, is_save=True, is_print=True):
-  """
-  Download stock data from web sources
-
-  :param sec_code: symbol of the stock to download
-  :param file_path: path to store the download data
-  :param file_name: name of the stock data file
-  :param start_date: start date of the data
-  :param end_date: end date of the data
-  :param source: the datasrouce to download data from
-  :param time_col: time column in that data
-  :param interval: period of data, for yahoo: d/w/m/v; for tiger day/week/month/year/1min/5min/15min/30min/60min
-  :param quote_client: quote client when using tiger_open_api
-  :param download_limit: download_limit when using tiger_open_api
-  :param is_return: whether to return the download data in dataframe format
-  :param is_print: whether to print the download information
-  :returns: dataframe is is_return=True
-  :raises: none
-  """
-  # download stock data from yahoo finance api via pandas_datareader
-  if source == 'yahoo':
-    return download_stock_data_from_yahoo(sec_code=sec_code, file_path=file_path, file_name=file_name, start_date=start_date, end_date=end_date, time_col=time_col, interval=interval, is_return=is_return, is_save=is_save, is_print=is_print)
-  # download stock data by using tiger open api
-  elif source == 'tiger':
-    return download_stock_data_from_tiger(sec_code=sec_code, file_path=file_path, file_name=file_name, start_date=start_date, end_date=end_date, time_col=time_col, interval=interval, is_return=is_return, is_save=is_save, is_print=is_print, quote_client=quote_client, download_limit=download_limit)
 
 
 def download_stock_data_from_yahoo(sec_code, file_path, interval='d', file_name=None, start_date=None, end_date=None, time_col='Date', is_return=False, is_save=True, is_print=True):
@@ -264,6 +187,84 @@ def download_stock_data_from_tiger(sec_code, file_path, interval, file_name=None
     return util.df_2_timeseries(data, time_col=time_col)
 
 
+def download_stock_data(sec_code, file_path, file_name=None, start_date=None, end_date=None, source='yahoo', time_col='Date', interval='d', quote_client=None, download_limit=1200, is_return=False, is_save=True, is_print=True):
+  """
+  Download stock data from web sources
+
+  :param sec_code: symbol of the stock to download
+  :param file_path: path to store the download data
+  :param file_name: name of the stock data file
+  :param start_date: start date of the data
+  :param end_date: end date of the data
+  :param source: the datasrouce to download data from
+  :param time_col: time column in that data
+  :param interval: period of data, for yahoo: d/w/m/v; for tiger day/week/month/year/1min/5min/15min/30min/60min
+  :param quote_client: quote client when using tiger_open_api
+  :param download_limit: download_limit when using tiger_open_api
+  :param is_return: whether to return the download data in dataframe format
+  :param is_print: whether to print the download information
+  :returns: dataframe is is_return=True
+  :raises: none
+  """
+  # download stock data from yahoo finance api via pandas_datareader
+  if source == 'yahoo':
+    return download_stock_data_from_yahoo(sec_code=sec_code, file_path=file_path, file_name=file_name, start_date=start_date, end_date=end_date, time_col=time_col, interval=interval, is_return=is_return, is_save=is_save, is_print=is_print)
+  # download stock data by using tiger open api
+  elif source == 'tiger':
+    return download_stock_data_from_tiger(sec_code=sec_code, file_path=file_path, file_name=file_name, start_date=start_date, end_date=end_date, time_col=time_col, interval=interval, is_return=is_return, is_save=is_save, is_print=is_print, quote_client=quote_client, download_limit=download_limit)
+
+
+def read_stock_data(sec_code, time_col, file_path, file_name=None, start_date=None, end_date=None, drop_na=False, sort_index=True):
+  """
+  Read stock data from Google Drive
+
+  :param sec_code: the target stock symbol
+  :param time_col: time column in the stock data
+  :param file_path: the path where stock file (.csv) stored
+  :param file_name: name of the stock data file
+  :param start_date: the start date to read
+  :param end_date: the end date to read
+  :param drop_na: whether to drop records that contains na values
+  :param sort_index: whether to sort the data by index
+  :returns: timeseries-dataframe of stock data
+  :raises: exception when error reading data
+  """
+  # construct filename by sec_code, file_path and file_format
+  stage = 'initialization'
+  if file_name is None:
+    file_name = file_path + sec_code + '.csv'
+  else:
+    file_name = file_path + file_name + '.csv'
+
+  # read data from google drive
+  try:
+    # if the file not exists, print information, return an empty dataframe
+    if not os.path.exists(file_name):
+      print(file_name, ' not exists')
+
+    else:
+      # load file
+      stage = 'reading_from_google_drive'
+      data = pd.read_csv(file_name, encoding='utf8', engine='python')
+
+      # convert dataframe to timeseries dataframe
+      stage = 'transforming_to_timeseries'
+      data = util.df_2_timeseries(df=data, time_col=time_col)
+      
+      # handle invalid data
+      stage = 'handling_invalid_data'
+      if drop_na:
+        data.dropna(axis=1, inplace=True)
+      
+      if sort_index:
+        data.sort_index(inplace=True)
+
+  except Exception as e:
+    print(sec_code, stage, e)
+
+  return data[start_date:end_date]
+
+
 def remove_stock_data(sec_code, file_path, file_name=None):
   '''
   Remove stock data file from drive
@@ -285,6 +286,8 @@ def remove_stock_data(sec_code, file_path, file_name=None):
   except Exception as e:
     print(sec_code, e) 
 
+
+#----------------------------- NYTimes Data -------------------------------------#
 
 def download_nytimes(year, month, api_key, file_path, file_format='.json', is_print=False, is_return=False):
   '''

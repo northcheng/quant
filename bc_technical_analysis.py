@@ -4,7 +4,9 @@ import sympy
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 from matplotlib import gridspec
+from mpl_finance import candlestick_ohlc
 import ta
 
 
@@ -1894,6 +1896,29 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
     plt.close(fig)
 
 
+def plot_candlestick(df, start=None, end=None, open_col='Open', high_col='High', low_col='Low', close_col='Close', date_col='Date', title=None, figsize=(20, 5), use_ax=None, title_rotation='vertical', title_x=-0.05, title_y=0.8):
+  
+  # copy data used for ploting
+  df = df[start:end].copy()
+
+  # transform date to numbers
+  df.reset_index(inplace=True)
+  df[date_col] = df[date_col].apply(mdates.date2num)
+
+  # create figure
+  ax = use_ax
+  if ax is None:
+    fig = plt.figure(figsize=figsize)
+    ax = plt.gca()
+
+  plot_data = candlestick_ohlc(df[[date_col, open_col, high_col, low_col, close_col]].values, width=width, colorup=colorup, colordown=colordown, alpha=alpha)
+  ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+
+  # ax.legend(loc='upper left')  
+  ax.set_title(title, rotation=title_rotation, x=title_x, y=title_y)
+
+  if use_ax is not None:
+    return ax
 #----------------------------- Candlesticks ----------------------------------------#
 def add_candle_dims_for_df(df):
   """
