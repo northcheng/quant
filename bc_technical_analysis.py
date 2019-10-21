@@ -1904,14 +1904,16 @@ def plot_candlestick(df, start=None, end=None, open_col='Open', high_col='High',
   # transform date to numbers
   df.reset_index(inplace=True)
   df[date_col] = df[date_col].apply(mdates.date2num)
+  plot_data = df[[date_col, open_col, high_col, low_col, close_col]]
 
   # create figure
   ax = use_ax
   if ax is None:
     fig = plt.figure(figsize=figsize)
     ax = plt.gca()
-
-  plot_data = candlestick_ohlc(df[[date_col, open_col, high_col, low_col, close_col]].values, width=width, colorup=colorup, colordown=colordown, alpha=alpha)
+  
+  # plot candlesticks
+  candlestick_ohlc(ax=ax, quotes=plot_data.values, width=width, colorup=colorup, colordown=colordown, alpha=alpha)
   ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
 
   # ax.legend(loc='upper left')  
