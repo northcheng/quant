@@ -1901,7 +1901,19 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
         price_col=None, signal_col=None, title=tmp_indicator, use_ax=axes[tmp_indicator])
       
     elif tmp_indicator == 'candlestick':
-      plot_candlestick(df=plot_data, title=tmp_indicator, use_ax=axes[tmp_indicator])
+      width = tmp_args.get('width')
+      if width is None: 
+        width = 1
+      colorup = tmp_args.get('colorup')
+      if colorup is None: 
+        colorup = 'green'
+      colordown = tmp_args.get('colordown')
+      if colordown is None: 
+        colordown = 'red'
+      alpha = tmp_args.get('alpha')
+      if alpha is None:
+        alpha = 1
+      plot_candlestick(df=plot_data, title=tmp_indicator, use_ax=axes[tmp_indicator], width=width, colorup=colorup, colordown=colordown, alpha=alpha)
 
     # plot other
     else:
