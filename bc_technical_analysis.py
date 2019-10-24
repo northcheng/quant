@@ -1675,7 +1675,7 @@ def plot_peak_trough(df, start=None, end=None, price_col='Close', signal_col='si
   ax.scatter(df.index, df['Low'], marker='.', alpha=0.5)
   ax.plot(peaks.index, peaks[price_col], color='green', linestyle='--', marker='^', alpha= 0.8)
   ax.plot(troughs.index, troughs[price_col], color='red', linestyle='--', marker='v', alpha=0.8)
-   x.fill_between(df.index, peaks[price_col], troughs[price_col], facecolor='green', interpolate=True, alpha=0.1)
+  ax.fill_between(df.index, peaks[price_col], troughs[price_col], facecolor='green', interpolate=True, alpha=0.1)
 
   # legend and title
   ax.legend(loc='upper left')  
