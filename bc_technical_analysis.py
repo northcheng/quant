@@ -1721,8 +1721,8 @@ def plot_ichimoku(df, price_col='Close', start=None, end=None, signal_col='signa
   ax = plot_signal(df, price_col=price_col, signal_col=signal_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, filter_signal=filter_signal, use_ax=ax)
 
   # plot kijun/tankan lines
-  ax.plot(df.index, df.tankan, color='magenta', linestyle='-.')
-  ax.plot(df.index, df.kijun, color='blue', linestyle='-.')
+  ax.plot(df.index, df.tankan, color='magenta', linestyle='--')
+  ax.plot(df.index, df.kijun, color='blue', linestyle='--')
 
   # plot senkou lines
   ax.plot(df.index, df.senkou_a, color='green', alpha=0.3)
