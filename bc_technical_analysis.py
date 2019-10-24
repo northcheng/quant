@@ -1959,18 +1959,22 @@ def plot_candlestick(df, start=None, end=None, max_length=None, open_col='Open',
   # select plot data
   df = df[start:end].copy()
 
+  # create figure
+  ax = use_ax
+  if ax is None:
+    fig = plt.figure(figsize=figsize)
+    ax = plt.gca()
+
+  # plot ma
+  df = cal_moving_average(df=df, target_col=close_col, ma_windows=[9, 12, 26], start=None, end=None, window_type='em')
+  ax.plot(df.index, df[[close_col+'_ma_9', close_col+'_ma_12', close_col+'_ma_26']],  alpha=0.5)
+
   # transform date to numbers
   df.reset_index(inplace=True)
   df[date_col] = df[date_col].apply(mdates.date2num)
   plot_data = df[[date_col, open_col, high_col, low_col, close_col]]
   if max_length is not None:
     plot_data = plot_data.tail(max_length)
-
-  # create figure
-  ax = use_ax
-  if ax is None:
-    fig = plt.figure(figsize=figsize)
-    ax = plt.gca()
   
   # plot candlesticks
   candlestick_ohlc(ax=ax, quotes=plot_data.values, width=width, colorup=colorup, colordown=colordown, alpha=alpha)
