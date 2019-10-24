@@ -1671,6 +1671,8 @@ def plot_peak_trough(df, start=None, end=None, price_col='Close', signal_col='si
 
   # plot peak and through
   ax.plot(df.index, df[price_col])
+  ax.plot(df.index, df['High'])
+  ax.plot(df.index, df['Low'])
   ax.plot(peaks.index, peaks[price_col], color='green', linestyle='--', marker='^', alpha= 0.8)
   ax.plot(troughs.index, troughs[price_col], color='red', linestyle='--', marker='v', alpha=0.8)
 
@@ -1984,7 +1986,8 @@ def plot_candlestick(df, start=None, end=None, max_length=None, open_col='Open',
   candlestick_ohlc(ax=ax, quotes=plot_data.values, width=width, colorup=colorup, colordown=colordown, alpha=alpha)
   ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
 
-  # ax.legend(loc='upper left')  
+  # legend and title
+  ax.legend(loc='upper left')  
   ax.set_title(title, rotation=title_rotation, x=title_x, y=title_y)
 
   if use_ax is not None:
