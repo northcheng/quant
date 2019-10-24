@@ -1679,7 +1679,7 @@ def plot_peak_trough(df, start=None, end=None, price_col='Close', signal_col='si
   last_peak = peaks.tail(2).copy()
   last_trough = troughs.tail(2).copy()
   ax.plot(last_peak.index, last_peak[price_col], color='green', linestyle='--', marker='^', alpha= 0.8)
-  ax.plot(last_trough.index, last_trough[price_col], , color='red', linestyle='--', marker='v', alpha=0.8)
+  ax.plot(last_trough.index, last_trough[price_col], color='red', linestyle='--', marker='v', alpha=0.8)
 
 
 
