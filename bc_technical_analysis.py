@@ -1670,7 +1670,7 @@ def plot_peak_trough(df, start=None, end=None, price_col='Close', signal_col='si
   troughs = df.query('%(column)s == "%(value)s"' % dict(column=signal_col, value=neg_signal))
 
   # plot peak and through
-  ax.plot(df.index, df[price_col], label=price_col, color='black')
+  ax.plot(df.index, df[price_col], label=price_col, color='black', alpha= 0.5)
   ax.fill_between(df.index, df['High'], df['Low'], facecolor='blue', interpolate=True, alpha=0.2)
   ax.scatter(peaks.index, peaks[price_col], label='peak', color='green', linestyle='--', marker='^', alpha= 0.8)
   ax.scatter(troughs.index, troughs[price_col], label='trough',color='red', linestyle='--', marker='v', alpha=0.8)
