@@ -1935,7 +1935,7 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
     plt.close(fig)
 
 
-def plot_candlestick(df, start=None, end=None, max_length=None, open_col='Open', high_col='High', low_col='Low', close_col='Close', date_col='Date', title=None, figsize=(20, 5), use_ax=None, width=0.8, colorup='green', colordown='red', alpha=0.8, title_rotation='vertical', title_x=-0.05, title_y=0.8):
+def plot_candlestick(df, start=None, end=None, max_length=None, open_col='Open', high_col='High', low_col='Low', close_col='Close', date_col='Date', ma_windows=[9, 12, 26], title=None, figsize=(20, 5), use_ax=None, width=0.8, colorup='green', colordown='red', alpha=0.8, title_rotation='vertical', title_x=-0.05, title_y=0.8):
   """
   Plot candlestick data
   :param df: dataframe with ichimoku and mean reversion columns
@@ -1966,8 +1966,12 @@ def plot_candlestick(df, start=None, end=None, max_length=None, open_col='Open',
     ax = plt.gca()
 
   # plot ma
-  df = cal_moving_average(df=df, target_col=close_col, ma_windows=[9, 12, 26], start=None, end=None, window_type='em')
-  ax.plot(df.index, df[[close_col+'_ma_9', close_col+'_ma_12', close_col+'_ma_26']],  alpha=0.5)
+  if len(ma_windows) > 0:
+    df = cal_moving_average(df=df, target_col=close_col, ma_windows=ma_windows, start=None, end=None, window_type='em')
+    
+    for w in ma_windows:
+      tmp_col = close_col+'_ma_%s' % w
+      ax.plot(df.index, df[tmp_col], label=tmp_col, alpha=alpha)
 
   # transform date to numbers
   df.reset_index(inplace=True)
