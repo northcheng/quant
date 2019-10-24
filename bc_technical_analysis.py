@@ -1634,13 +1634,15 @@ def plot_signal(df, start=None, end=None, price_col='Close', signal_col='signal'
     return ax
 
 
-def plot_peak_trough(df, start=None, end=None, price_col='Close', signal_col='signal', pos_signal='p', neg_signal='t', none_signal='n', filter_signal=None, title=None, figsize=(20, 5), use_ax=None, title_rotation='vertical', title_x=-0.05, title_y=0.8):
+def plot_peak_trough(df, start=None, end=None, price_col='Close', high_col='High', low_col='Low', signal_col='signal', pos_signal='p', neg_signal='t', none_signal='n', filter_signal=None, title=None, figsize=(20, 5), use_ax=None, title_rotation='vertical', title_x=-0.05, title_y=0.8):
   """
   Plot peaks and throughs
 
   :param df: dataframe with price and signal columns
   :param signal_col: columnname of the signal values
   :param price_col: columnname of the price values
+  :param high_col: columnname of high vlaues
+  :param low_col: columnname of low values
   :param keep: which one to keep: first/last
   :param pos_signal: the value of positive signal
   :param neg_siganl: the value of negative signal
@@ -1665,17 +1667,21 @@ def plot_peak_trough(df, start=None, end=None, price_col='Close', signal_col='si
     fig = plt.figure(figsize=figsize)
     ax = plt.gca()
 
-  # get peaks and throughs
+  # get peaks and troughs
   peaks = df.query('%(column)s == "%(value)s"' % dict(column=signal_col, value=pos_signal))
   troughs = df.query('%(column)s == "%(value)s"' % dict(column=signal_col, value=neg_signal))
 
-  # plot peak and through
+  # plot high-low range
+  ax.fill_between(df.index, df[high_col], df[low_col], facecolor='blue', interpolate=True, alpha=0.2)
+
+  # plot price
   ax.plot(df.index, df[price_col], label=price_col, color='black', alpha= 0.5)
-  ax.fill_between(df.index, df['High'], df['Low'], facecolor='blue', interpolate=True, alpha=0.2)
+  
+  # plot peak and through
   ax.scatter(peaks.index, peaks[price_col], label='peak', color='green', linestyle='--', marker='^', alpha= 0.8)
   ax.scatter(troughs.index, troughs[price_col], label='trough',color='red', linestyle='--', marker='v', alpha=0.8)
 
-  # plot last trend
+  # plot trend
   last_peak = peaks.tail(2).copy()
   last_trough = troughs.tail(2).copy()
   ax.plot(last_peak.index, last_peak[price_col], label='peak_trend', color='green', linestyle='--', marker='^', alpha= 0.8)
@@ -1722,8 +1728,8 @@ def plot_ichimoku(df, price_col='Close', start=None, end=None, signal_col='signa
   ax.plot(df.index, df.senkou_b, color='red', alpha=0.3)
 
   # plot clouds
-  ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a > df.senkou_b, facecolor='green', interpolate=True, alpha=0.2)
-  ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a <= df.senkou_b, facecolor='red', interpolate=True, alpha=0.2)
+  ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a > df.senkou_b, facecolor='green', interpolate=True, alpha=0.3)
+  ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a <= df.senkou_b, facecolor='red', interpolate=True, alpha=0.3)
 
   # plot kijun/tankan lines
   ax.plot(df.index, df.tankan, color='magenta', linestyle='--')
