@@ -1987,7 +1987,7 @@ def plot_candlestick(df, start=None, end=None, max_length=None, open_col='Open',
   ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
 
   # legend and title
-  ax.legend(loc='upper left')  
+  ax.legend(bbox_to_anchor=(1.02, 0.), loc=3, ncol=1, borderaxespad=0.)
   ax.set_title(title, rotation=title_rotation, x=title_x, y=title_y)
 
   if use_ax is not None:
