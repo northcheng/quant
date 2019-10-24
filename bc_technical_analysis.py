@@ -1725,8 +1725,8 @@ def plot_ichimoku(df, price_col='Close', start=None, end=None, signal_col='signa
   ax.plot(df.index, df.kijun, color='blue', linestyle='-.')
 
   # plot senkou lines
-  ax.plot(df.index, df.senkou_a, color='green')
-  ax.plot(df.index, df.senkou_b, color='red')
+  ax.plot(df.index, df.senkou_a, color='green', alpha=0.1)
+  ax.plot(df.index, df.senkou_b, color='red', alpha=0.1)
 
   # plot clouds
   ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a > df.senkou_b, facecolor='green', interpolate=True, alpha=0.1)
