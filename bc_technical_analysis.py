@@ -1723,21 +1723,21 @@ def plot_ichimoku(df, price_col='Close', start=None, end=None, signal_col='signa
     fig = plt.figure(figsize=figsize)
     ax = plt.gca()
 
+  # plot price and signal
+  ax = plot_signal(df, price_col=price_col, signal_col=signal_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, filter_signal=filter_signal, use_ax=ax)
+
   # plot senkou lines
-  ax.plot(df.index, df.senkou_a, color='green', alpha=0.3)
-  ax.plot(df.index, df.senkou_b, color='red', alpha=0.3)
+  ax.plot(df.index, df.senkou_a, label='senkou_a', color='green', alpha=0.3)
+  ax.plot(df.index, df.senkou_b, label='senkou_b', color='red', alpha=0.3)
 
   # plot clouds
   ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a > df.senkou_b, facecolor='green', interpolate=True, alpha=0.3)
   ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a <= df.senkou_b, facecolor='red', interpolate=True, alpha=0.3)
 
   # plot kijun/tankan lines
-  ax.plot(df.index, df.tankan, color='magenta', linestyle='--')
-  ax.plot(df.index, df.kijun, color='blue', linestyle='--')
+  ax.plot(df.index, df.tankan, label='tankan', color='magenta', linestyle='--')
+  ax.plot(df.index, df.kijun, label='kijun', color='blue', linestyle='--')
 
-  # plot price and signal
-  ax = plot_signal(df, price_col=price_col, signal_col=signal_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, filter_signal=filter_signal, use_ax=ax)
-  
   # title and legend
   ax.legend(bbox_to_anchor=(1.02, 0.), loc=3, ncol=1, borderaxespad=0.) 
   ax.set_title(title, rotation=title_rotation, x=title_x, y=title_y)
