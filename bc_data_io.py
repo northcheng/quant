@@ -13,6 +13,7 @@ import os
 import requests
 import json
 import pandas_datareader.data as web 
+import yfinance as yf
 from pandas_datareader.nasdaq_trader import get_nasdaq_symbols
 from quant import bc_util as util
 
@@ -185,6 +186,56 @@ def download_stock_data_from_tiger(sec_code, file_path, interval, file_name=None
   # return dataframe
   if is_return:
     return util.df_2_timeseries(data, time_col=time_col)
+
+
+def download stock_data_from_yfinance (sec_code, file_path, interval, file_name=None, start_date=None, end_date=None, time_col='Date', is_return=False, is_save=True, is_print=True):
+  """
+  Download stock data from Yahoo finance api via yfinance
+
+  :param sec_code: symbol of the stock to download
+  :param file_path: path to store the download data
+  :param file_name: name of the stock data file
+  :param start_date: start date of the data
+  :param end_date: end date of the data
+  :param time_col: time column in that data
+  :param interval: period of data: 1m,2m,5m,15m,30m,60m,90m,1h,1d,5d,1wk,1mo,3mo
+  :param is_return: whether to return the download data in dataframe format
+  :param is_print: whether to print the download information
+  :returns: dataframe is is_return=True
+  :raises: none
+  """
+  # construct filename by sec_code, file_path and file_format
+  if file_name is None:
+    file_name = file_path + sec_code + '.csv'
+  else:
+    file_name = file_path + file_name + '.csv'
+
+  try:
+    # download data
+    stage = 'downloading_data'
+    ticker = yf.Ticker(sec_code)
+    data = ticker.history(start=start_date, end=end_date, interval=interval).dropna()
+    
+    # save data
+    stage = 'saving_data'
+    data_length = len(data)
+    if data_length > 0:
+      data = data.reset_index().drop_duplicates(subset=time_col, keep='last')
+
+      if  is_save:
+        data.to_csv(file_name, index=False)
+      
+    # print download result
+    if is_print:
+      print('[From Yahoo]%(sec_code)s: %(first_date)s - %(latest_date)s, 下载记录 %(data_length)s, ' % dict(
+        sec_code=sec_code, first_date=data[time_col].min().date(), latest_date=data[time_col].max().date(), data_length=data_length))
+
+  except Exception as e:
+      print(sec_code, stage, e)
+
+  # return dataframe
+  if is_return: 
+    return util.df_2_timeseries(data, time_col=time_col) 
 
 
 def download_stock_data(sec_code, file_path, file_name=None, start_date=None, end_date=None, source='yahoo', time_col='Date', interval='d', quote_client=None, download_limit=1200, is_return=False, is_save=True, is_print=True):
