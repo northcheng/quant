@@ -188,7 +188,7 @@ def download_stock_data_from_tiger(sec_code, file_path, interval, file_name=None
     return util.df_2_timeseries(data, time_col=time_col)
 
 
-def download stock_data_from_yfinance (sec_code, file_path, interval, file_name=None, start_date=None, end_date=None, time_col='Date', is_return=False, is_save=True, is_print=True):
+def download stock_data_from_yfinance(sec_code, file_path, interval, file_name=None, start_date=None, end_date=None, time_col='Date', is_return=False, is_save=True, is_print=True):
   """
   Download stock data from Yahoo finance api via yfinance
 
