@@ -443,6 +443,8 @@ def read_nytimes(year, month, file_path, file_format='.json'):
       'news_desk',
       'section_name',
       'snippet',
+      'lead_paragraph',
+      'web_url',
       'word_count'
   ]
   
@@ -462,6 +464,8 @@ def read_nytimes(year, month, file_path, file_format='.json'):
     result['section_name'].append(tmp_news.get('section_name'))
     result['word_count'].append(tmp_news.get('word_count'))       
     result['snippet'].append(tmp_news.get('snippet'))     
+    result['lead_paragraph'].append(tmp_news.get('lead_paragraph')) 
+    result['web_url'].append(tmp_news.get('web_url')) 
 
   df = pd.DataFrame(result)
 
