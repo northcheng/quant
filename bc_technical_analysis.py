@@ -1396,7 +1396,9 @@ def add_vpt_features(df, close='Close', open='Open', high='High', low='Low', vol
 
   return df
 
+
 #----------------------------- Momentum indicators ------------------------------#
+# *
 def add_ao_features(df, n_short=5, n_long=34, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
   Calculate Awesome Oscillator
@@ -1437,7 +1439,7 @@ def add_ao_features(df, n_short=5, n_long=34, close='Close', open='Open', high='
 
   return df
 
-
+# *
 def add_kama_features(df, n1=10, n2=2, n3=30, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
   Calculate Kaufman's Adaptive Moving Average
@@ -1496,8 +1498,6 @@ def add_kama_features(df, n1=10, n2=2, n3=30, close='Close', open='Open', high='
     df['kama_signal'] = 'n'
 
   return df
-
-
 
 
 #----------------------------- Volatility indicators ----------------------------#
@@ -1628,6 +1628,7 @@ def cal_mean_reversion_expected_rate(df, rate_col, n=100, mr_threshold=2):
   return result
 
 
+# *
 def add_bb_features(df, n=20, ndev=2, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
   Calculate Bollinger Band
@@ -1676,6 +1677,7 @@ def add_bb_features(df, n=20, ndev=2, close='Close', open='Open', high='High', l
   return df
 
 
+# *
 def add_dc_features(df, n=20, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
   Calculate Donchian Channel
@@ -1717,6 +1719,56 @@ def add_dc_features(df, n=20, close='Close', open='Open', high='High', low='Low'
     sell_idx = df.query('%(column)s >= dc_high_band' % dict(column=close)).index
     df.loc[buy_idx, 'dc_signal'] = 'b'
     df.loc[sell_idx, 'dc_signal'] = 's'
+
+  return df
+
+# *
+def add_kc_features(df, n=10, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+  """
+  Calculate Keltner channel (KC)
+
+  :param df: original OHLCV dataframe
+  :param n: look back window size
+  :param close: column name of the close
+  :param open: column name of the open
+  :param high: column name of the high
+  :param low: column name of the low
+  :param volume: column name of the volume
+  :param fillna: whether to fill na with 0
+  :param cal_signal: whether to calculate signal
+  :returns: dataframe with new features generated
+  """
+  # copy dataframe
+  df = df.copy()
+
+  # calculate keltner channel
+  typical_price = (df[high] +  df[low] + df[close]) / 3.0
+  middle_band = typical_price.rolling(n, min_periods=0).mean()
+
+  typical_price = ((4*df[high]) - (2*df[low]) + df[close]) / 3.0
+  high_band = typical_price.rolling(n, min_periods=0).mean()
+
+  typical_price = ((-2*df[high]) + (4*df[low]) + df[close]) / 3.0
+  low_band = typical_price.rolling(n, min_periods=0).mean()
+
+  # fill na values
+  if fillna:
+    middle_band = middle_band.replace([np.inf, -np.inf], np.nan).fillna(method='backfill')
+    high_band = high_band.replace([np.inf, -np.inf], np.nan).fillna(method='backfill')
+    low_band = low_band.replace([np.inf, -np.inf], np.nan).fillna(method='backfill')
+
+  # assign values to df
+  df['kc_high_band'] = high_band
+  df['kc_middle_band'] = middle_band
+  df['kc_low_band'] = low_band
+
+  # calculate signals
+  if cal_signal:
+    df['kc_signal'] = 'n'
+    buy_idx = df.query('%(column)s < kc_low_band' % dict(column=close)).index
+    sell_idx = df.query('%(column)s > kc_high_band' % dict(column=close)).index
+    df.loc[buy_idx, 'kc_signal'] = 'b'
+    df.loc[sell_idx, 'kc_signal'] = 's'
 
   return df
 
