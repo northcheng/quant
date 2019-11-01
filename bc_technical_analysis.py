@@ -2092,7 +2092,7 @@ def plot_candlestick(df, start=None, end=None, max_length=None, open_col='Open',
 
     for w in kama_n2_windows:
       tmp_col = 'kama(10,%s,30)'%w
-      df = add_kama_features(df=df, n2=w).rename(columns={'kama': 'kama(10,%s,30)'%2})
+      df = add_kama_features(df=df, n2=w).rename(columns={'kama': tmp_col})
       ax.plot(df.index, df[tmp_col], label=tmp_col, alpha=alpha)
 
   # transform date to numbers
