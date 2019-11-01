@@ -1721,14 +1721,13 @@ def add_dc_features(df, n=20, close='Close', open='Open', high='High', low='Low'
   return df
 
 #----------------------------- Indicator visualization -----------------------------#
-def plot_signal(df, start=None, end=None, price_col='Close', plot_price=True, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', filter_signal=None, title=None, figsize=(20, 5), use_ax=None, title_rotation='vertical', title_x=-0.05, title_y=0.8):
+def plot_signal(df, start=None, end=None, price_col='Close', signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', filter_signal=None, title=None, figsize=(20, 5), use_ax=None, title_rotation='vertical', title_x=-0.05, title_y=0.8):
   """
   Plot signals along with the price
 
   :param df: dataframe with price and signal columns
   :param signal_col: columnname of the signal values
   :param price_col: columnname of the price values
-  :param plot_price: whether to plot price
   :param keep: which one to keep: first/last
   :param pos_signal: the value of positive signal
   :param neg_siganl: the value of negative signal
@@ -1753,24 +1752,26 @@ def plot_signal(df, start=None, end=None, price_col='Close', plot_price=True, si
     fig = plt.figure(figsize=figsize)
     ax = plt.gca()
 
-  # plot price
-  if (price_col is not None) and plot_price:
+  # plot price and signal
+  if price_col  in df.columns:
+
+    # plot price
     ax.plot(df.index, df[price_col], color='black', label=price_col, alpha=0.5)
 
-  # plot signal
-  if signal_col in df.columns and price_col in df.columns:
+    # plot signal
+    if signal_col in df.columns:
 
-    # remove redundant signals
-    if filter_signal in ['first', 'last']:
-      signal = remove_redundant_signal(df, signal_col=signal_col, keep=filter_signal, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal)
-    else:
-      signal = df
-      
-    # plot positive and negative signlas
-    positive_signal = signal.query('%(signal)s == "%(pos_signal)s"' % dict(signal=signal_col, pos_signal=pos_signal))
-    negative_signal = signal.query('%(signal)s == "%(neg_signal)s"' % dict(signal=signal_col, neg_signal=neg_signal))
-    ax.scatter(positive_signal.index, positive_signal[price_col], label='%s' % pos_signal, marker='^', color='green', alpha=0.8)
-    ax.scatter(negative_signal.index, negative_signal[price_col], label='%s' % neg_signal, marker='v', color='red', alpha=0.8)
+      # remove redundant signals
+      if filter_signal in ['first', 'last']:
+        signal = remove_redundant_signal(df, signal_col=signal_col, keep=filter_signal, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal)
+      else:
+        signal = df
+        
+      # plot positive and negative signlas
+      positive_signal = signal.query('%(signal)s == "%(pos_signal)s"' % dict(signal=signal_col, pos_signal=pos_signal))
+      negative_signal = signal.query('%(signal)s == "%(neg_signal)s"' % dict(signal=signal_col, neg_signal=neg_signal))
+      ax.scatter(positive_signal.index, positive_signal[price_col], label='%s' % pos_signal, marker='^', color='green', alpha=0.8)
+      ax.scatter(negative_signal.index, negative_signal[price_col], label='%s' % neg_signal, marker='v', color='red', alpha=0.8)
 
   # legend and title
   ax.legend(loc='upper left')  
@@ -1940,6 +1941,7 @@ def plot_indicator(df, target_col, start=None, end=None, benchmark=0, boundary=N
       ax.plot(df.index, df['lower_boundary'], color='red', linestyle='--', label='%s'% min(boundary))
 
   # plot indicator(s)
+  target_col = [x for x in target_col if x in df.columns]
   for col in target_col:
     ax.plot(df.index, df[col], label=col, alpha=0.8)
 
@@ -1964,7 +1966,7 @@ def plot_indicator(df, target_col, start=None, end=None, benchmark=0, boundary=N
       ax.bar(df.index, height=df[tar], color=df.color, alpha=0.5)
 
   # plot close price
-  if (price_col is not None) and (price_col in df.columns) and (signal_col in df.columns):
+  if price_col in df.columns:
     if plot_price_in_twin_ax:
       ax2=ax.twinx()
       plot_signal(df, price_col=price_col, signal_col=signal_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, filter_signal=filter_signal, use_ax=ax2)
