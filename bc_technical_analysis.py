@@ -1739,17 +1739,21 @@ def add_kc_features(df, n=10, close='Close', open='Open', high='High', low='Low'
   :returns: dataframe with new features generated
   """
   # copy dataframe
-  df = df.copy()
+  # df = df.copy()
+  df = add_atr_features(df=df)
 
   # calculate keltner channel
   typical_price = (df[high] +  df[low] + df[close]) / 3.0
   middle_band = typical_price.rolling(n, min_periods=0).mean()
 
-  typical_price = ((4*df[high]) - (2*df[low]) + df[close]) / 3.0
-  high_band = typical_price.rolling(n, min_periods=0).mean()
+  high_band = middle_band + 2 * df['atr']
+  low_band = middle_band - 2 * df['atr']
 
-  typical_price = ((-2*df[high]) + (4*df[low]) + df[close]) / 3.0
-  low_band = typical_price.rolling(n, min_periods=0).mean()
+  # typical_price = ((4*df[high]) - (2*df[low]) + df[close]) / 3.0
+  # high_band = typical_price.rolling(n, min_periods=0).mean()
+
+  # typical_price = ((-2*df[high]) + (4*df[low]) + df[close]) / 3.0
+  # low_band = typical_price.rolling(n, min_periods=0).mean()
 
   # fill na values
   if fillna:
