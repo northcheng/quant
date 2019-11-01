@@ -1438,6 +1438,67 @@ def add_ao_features(df, n_short=5, n_long=34, close='Close', open='Open', high='
   return df
 
 
+def add_kama_features(df, n1=10, n2=2, n3=30, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+  """
+  Calculate Kaufman's Adaptive Moving Average
+
+  :param df: original OHLCV dataframe
+  :param n1: number of periods for Efficiency Ratio(ER)
+  :param n2: number of periods for the fastest EMA constant
+  :param n3: number of periods for the slowest EMA constant
+  :param close: column name of the close
+  :param open: column name of the open
+  :param high: column name of the high
+  :param low: column name of the low
+  :param volume: column name of the volume
+  :param fillna: whether to fill na with 0
+  :param cal_signal: whether to calculate signal
+  :returns: dataframe with new features generated
+  """
+  # copy dataframe
+  df_original = df.copy()
+
+  # calculate kama
+  close_values = df[close].values
+  vol = pd.Series(abs(df[close] - np.roll(df[close], 1)))
+
+  ER_num = abs(close_values - np.roll(close_values, n1))
+  ER_den = vol.rolling(n1).sum()
+  ER = ER_num / ER_den
+
+  sc = ((ER * (2.0/(n2+1.0) - 2.0/(n3+1.0)) + 2.0/(n3+1.0)) ** 2.0).values
+
+  kama = np.zeros(sc.size)
+  N = len(kama)
+  first_value = True
+
+  for i in range(N):
+    if np.isnan(sc[i]):
+      kama[i] = np.nan
+    else:
+      if first_value:
+        kama[i] = close_values[i]
+        first_value = False
+      else:
+        kama[i] = kama[i-1] + sc[i] * (close_values[i] - kama[i-1])
+
+  kama = pd.Series(kama, name='kama', index=df[close].index)
+
+  # fill na values
+  if fillna:
+    kama = kama.replace([np.inf, -np.inf], np.nan).fillna(df[close])
+
+  # assign kama to df
+  df['kama'] = kama
+
+  # calculate signals
+  if cal_signal:
+    df['kama_signal'] = 'n'
+
+  return df
+
+
+
 
 #----------------------------- Volatility indicators ----------------------------#
 def add_atr_features(df, n=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
