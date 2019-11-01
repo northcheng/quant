@@ -1758,6 +1758,7 @@ def plot_signal(df, start=None, end=None, price_col='Close', signal_col='signal'
 
   # plot signal
   if signal_col in df.columns:
+
     # remove redundant signals
     if filter_signal in ['first', 'last']:
       signal = remove_redundant_signal(df, signal_col=signal_col, keep=filter_signal, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal)
@@ -1961,7 +1962,7 @@ def plot_indicator(df, target_col, start=None, end=None, benchmark=0, boundary=N
       ax.bar(df.index, height=df[tar], color=df.color, alpha=0.5)
 
   # plot close price
-  if price_col in df.columns:
+  if (price_col in df.columns) or (signal_col in df.columns):
     ax2=ax.twinx()
     plot_signal(df, price_col=price_col, signal_col=signal_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, filter_signal=filter_signal, use_ax=ax2)
     ax2.legend(loc='lower left')
