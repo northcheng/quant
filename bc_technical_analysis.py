@@ -1753,11 +1753,11 @@ def plot_signal(df, start=None, end=None, price_col='Close', signal_col='signal'
     ax = plt.gca()
 
   # plot price
-  ax.plot(df.index, df[price_col], color='black', label=price_col, alpha=0.5)
+  if price_col is not None:
+    ax.plot(df.index, df[price_col], color='black', label=price_col, alpha=0.5)
 
   # plot signal
   if signal_col in df.columns:
-
     # remove redundant signals
     if filter_signal in ['first', 'last']:
       signal = remove_redundant_signal(df, signal_col=signal_col, keep=filter_signal, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal)
