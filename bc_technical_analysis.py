@@ -1428,7 +1428,7 @@ def add_ao_features(df, n_short=5, n_long=34, close='Close', open='Open', high='
   df['ao'] = ao
 
   # calculate signal
-  if cal_siganl:
+  if cal_signal:
 
     # zero line crossover
     df['zero'] = 0
