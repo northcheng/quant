@@ -1970,7 +1970,7 @@ def plot_indicator(df, target_col, start=None, end=None, benchmark=0, boundary=N
       plot_signal(df, price_col=price_col, signal_col=signal_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, filter_signal=filter_signal, use_ax=ax2)
       ax2.legend(loc='lower left')
     else:
-      plot_signal(df, price_col=price_col, plot_price=plot_price, signal_col=signal_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, filter_signal=filter_signal, use_ax=ax)
+      plot_signal(df, price_col=price_col, signal_col=signal_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, filter_signal=filter_signal, use_ax=ax)
 
   # plot title and legend
   ax.legend(bbox_to_anchor=(1.02, 0.), loc=3, ncol=1, borderaxespad=0.) 
