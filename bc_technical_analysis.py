@@ -1897,14 +1897,13 @@ def plot_ichimoku(df, price_col='Close', start=None, end=None, signal_col='signa
     return ax
 
 
-def plot_indicator(df, target_col, start=None, end=None, benchmark=0, boundary=None, color_mode='up_down', price_col='Close', plot_price=True, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', filter_signal=None, title=None, figsize=(20, 5), use_ax=None, title_rotation='vertical', title_x=-0.05, title_y=0.8):
+def plot_indicator(df, target_col, start=None, end=None, benchmark=0, boundary=None, color_mode='up_down', price_col='Close', signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', filter_signal=None, title=None, figsize=(20, 5), use_ax=None,  plot_price_in_twin_ax=True, title_rotation='vertical', title_x=-0.05, title_y=0.8):
   """
   Plot indicators around a benchmark
 
   :param df: dataframe which contains target columns
   :param target_col: columnname of the target indicator
   :param price_col: columnname of the price values
-  :param plot_price: whether to plot price
   :param start: start date of the data
   :param end: end of the data
   :param benchmark: benchmark, a fixed value
@@ -1912,6 +1911,7 @@ def plot_indicator(df, target_col, start=None, end=None, benchmark=0, boundary=N
   :param title: title of the plot
   :param figsize: figure size
   :param use_ax: the already-created ax to draw on
+  :param plot_price_in_twin_ax: whether plot price and signal in a same ax or in a twin ax
   :param title_rotation: 'vertical' or 'horizontal'
   :param title_x: title position x
   :param title_y: title position y
@@ -1965,9 +1965,12 @@ def plot_indicator(df, target_col, start=None, end=None, benchmark=0, boundary=N
 
   # plot close price
   if (price_col is not None) and (price_col in df.columns) and (signal_col in df.columns):
-    ax2=ax.twinx()
-    plot_signal(df, price_col=price_col, plot_price=plot_price, signal_col=signal_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, filter_signal=filter_signal, use_ax=ax2)
-    ax2.legend(loc='lower left')
+    if plot_price_in_twin_ax:
+      ax2=ax.twinx()
+      plot_signal(df, price_col=price_col, signal_col=signal_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, filter_signal=filter_signal, use_ax=ax2)
+      ax2.legend(loc='lower left')
+    else:
+      plot_signal(df, price_col=price_col, plot_price=plot_price, signal_col=signal_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, filter_signal=filter_signal, use_ax=ax)
 
   # plot title and legend
   ax.legend(bbox_to_anchor=(1.02, 0.), loc=3, ncol=1, borderaxespad=0.) 
