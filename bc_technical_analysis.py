@@ -1627,7 +1627,6 @@ def cal_mean_reversion_expected_rate(df, rate_col, n=100, mr_threshold=2):
 
   return result
 
-
 # *
 def add_bb_features(df, n=20, ndev=2, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
@@ -1676,7 +1675,6 @@ def add_bb_features(df, n=20, ndev=2, close='Close', open='Open', high='High', l
 
   return df
 
-
 # *
 def add_dc_features(df, n=20, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
@@ -1723,7 +1721,7 @@ def add_dc_features(df, n=20, close='Close', open='Open', high='High', low='Low'
   return df
 
 # *
-def add_kc_features(df, n=10, close='Close', open='Open', high='High', low='Low', volume='Volume', method='atr'， fillna=False, cal_signal=True):
+def add_kc_features(df, n=10, close='Close', open='Open', high='High', low='Low', volume='Volume', method='atr', fillna=False, cal_signal=True):
   """
   Calculate Keltner channel (KC)
 
