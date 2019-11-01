@@ -1676,6 +1676,47 @@ def add_bb_features(df, n=20, ndev=2, close='Close', open='Open', high='High', l
   return df
 
 
+def add_dc_features(df, n=20, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+  """
+  Calculate Donchian Channel
+
+  :param df: original OHLCV dataframe
+  :param n: look back window size
+  :param close: column name of the close
+  :param open: column name of the open
+  :param high: column name of the high
+  :param low: column name of the low
+  :param volume: column name of the volume
+  :param fillna: whether to fill na with 0
+  :param cal_signal: whether to calculate signal
+  :returns: dataframe with new features generated
+  """
+  # copy dataframe
+  df = df.copy()
+
+  # calculate dochian channel
+  high_band = df[close].rolling(n, min_periods=0).max()
+  low_band = df[close].rolling(n, min_periods=0).min()
+
+  # fill na values
+  if fillna:
+    high_band = high_band.replace([np.inf, -np.inf], np.nan).fillna(method='backfill')
+    low_band = low_band.replace([np.inf, -np.inf], np.nan).fillna(method='backfill')
+
+  # assign values to df
+  df['dc_high_band'] = high_band
+  df['dc_low_band'] = low_band
+
+  # calculate signals
+  if cal_signal:
+    df['dc_signal'] = 'n'
+    buy_idx = df.query('%(column)s < dc_low_band' % dict(column=close)).index
+    sell_idx = df.query('%(column)s > dc_high_band' % dict(column=close)).index
+    df.loc[buy_idx, 'dc_signal'] = 'b'
+    df.loc[sell_idx, 'dc_signal'] = 's'
+
+  return df
+
 #----------------------------- Indicator visualization -----------------------------#
 def plot_signal(df, start=None, end=None, price_col='Close', signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', filter_signal=None, title=None, figsize=(20, 5), use_ax=None, title_rotation='vertical', title_x=-0.05, title_y=0.8):
   """
