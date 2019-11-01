@@ -493,6 +493,26 @@ def create_config_file(config_dict, file_path, file_name):
     print(e)
 
 
+def read_config(file_path, file_name):
+  """
+  Read config from a specific file
+
+  :param file_path: the path to save the file
+  :param file_name: the name of the file
+  :returns: config dict
+  :raises: read error
+  """
+  try:
+    # read existing config
+    with open(file_path + file_name, 'r') as f:
+      config_dict = json.loads(f.read())
+
+  except Exception as e:
+    print(e)
+
+  return config_dict
+
+
 def add_config(config_key, config_value, file_path, file_name):
   """
   Add a new config in to the config file
@@ -507,10 +527,7 @@ def add_config(config_key, config_value, file_path, file_name):
 
   try:
     # read existing config
-    with open(file_path + file_name, 'r') as f:
-      old_config = json.loads(f.read())
-
-    new_config = old_config
+    new_config = read_config(file_path, file_name)
     new_config[config_key] = config_value
 
     with open(file_path + file_name, 'w') as f:
@@ -533,10 +550,7 @@ def remove_config(config_key, file_path, file_name):
   """
   try:
     # read existing config
-    with open(file_path + file_name, 'r') as f:
-      old_config = json.loads(f.read())
-
-    new_config = old_config
+    new_config = read_config(file_path, file_name)
     new_config.pop(config_key)
 
     with open(file_path + file_name, 'w') as f:
@@ -560,10 +574,7 @@ def modify_config(config_key, config_value, file_path, file_name):
   """
   try:
     # read existing config
-    with open(file_path + file_name, 'r') as f:
-      old_config = json.loads(f.read())
-
-    new_config = old_config
+    new_config = read_config(file_path, file_name)
     new_config[config_key] = config_value
 
     with open(file_path + file_name, 'w') as f:
