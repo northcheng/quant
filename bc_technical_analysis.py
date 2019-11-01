@@ -1713,7 +1713,7 @@ def add_dc_features(df, n=20, close='Close', open='Open', high='High', low='Low'
   # calculate signals
   if cal_signal:
     df['dc_signal'] = 'n'
-    buy_idx = df.query('%(column)s =< dc_low_band' % dict(column=close)).index
+    buy_idx = df.query('%(column)s <= dc_low_band' % dict(column=close)).index
     sell_idx = df.query('%(column)s >= dc_high_band' % dict(column=close)).index
     df.loc[buy_idx, 'dc_signal'] = 'b'
     df.loc[sell_idx, 'dc_signal'] = 's'
