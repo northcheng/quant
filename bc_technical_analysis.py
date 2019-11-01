@@ -1397,6 +1397,46 @@ def add_vpt_features(df, close='Close', open='Open', high='High', low='Low', vol
   return df
 
 #----------------------------- Momentum indicators ------------------------------#
+def add_ao_features(df, n_short=5, n_long=34, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+  """
+  Calculate Awesome Oscillator
+
+  :param df: original OHLCV dataframe
+  :param n_short: short window size for calculating sma
+  :param n_long: long window size for calculating sma
+  :param close: column name of the close
+  :param open: column name of the open
+  :param high: column name of the high
+  :param low: column name of the low
+  :param volume: column name of the volume
+  :param fillna: whether to fill na with 0
+  :param cal_signal: whether to calculate signal
+  :returns: dataframe with new features generated
+  """
+  # copy dataframe
+  df_original = df.copy()
+
+  # calculate ao
+  mp = 0.5 * (df[high] + df[low])
+  ao = mp.rolling(n_short, min_periods=0).mean() - mp.rolling(n_long, min_periods=0).mean()
+
+  # fill na values
+  if fillna:
+    ao = ao.replace([np.inf, -np.inf], np.nan).fillna(0)
+
+  # assign ao to df
+  df['ao'] = ao
+
+  # calculate signal
+  if cal_siganl:
+
+    # zero line crossover
+    df['zero'] = 0
+    df['ao_signal'] = cal_crossover_signal(df=df, fast_line='ao', slow_line='zero')
+    df.drop(['zero'], axis=1, inplace=True)
+
+  return df
+
 
 
 #----------------------------- Volatility indicators ----------------------------#
