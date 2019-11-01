@@ -471,3 +471,104 @@ def read_nytimes(year, month, file_path, file_format='.json'):
 
   # return dataframe
   return df  
+
+
+#----------------------------- Global Parameter Setting -------------------------#
+def create_config_file(config_dict, file_path, file_name):
+  """
+  Create a config file and save global parameters into the file
+
+  :param config_dict: config parameter of keys and values
+  :param file_path: the path to save the file
+  :param file_name: the name of the file
+  :returns: None
+  :raises: save error
+  """
+  try:
+    with open(file_path + file_name, 'w') as f:
+      json.dump(config_dict, f)
+    print('Config saved successfully')
+
+  except Exception as e:
+    print(e)
+
+
+def add_config(config_key, config_value, file_path, file_name):
+  """
+  Add a new config in to the config file
+
+  :param config_key: name of the new config
+  :param config_value: value of the config
+  :param file_path: the path to save the file
+  :param file_name: the name of the file
+  :returns: None
+  :raises: save error
+  """
+
+  try:
+    # read existing config
+    with open(file_path + file_name, 'r') as f:
+      old_config = json.loads(f.read())
+
+    new_config = old_config
+    new_config[config_key] = config_value
+
+    with open(file_path + file_name, 'w') as f:
+      json.dump(new_config, f)
+      print('Config added successfully')
+
+  except Exception as e:
+    print(e)
+
+
+def remove_config(config_key, file_path, file_name):
+  """
+  remove a config from the config file
+
+  :param config_key: name of the new config
+  :param file_path: the path to save the file
+  :param file_name: the name of the file
+  :returns: None
+  :raises: save error
+  """
+  try:
+    # read existing config
+    with open(file_path + file_name, 'r') as f:
+      old_config = json.loads(f.read())
+
+    new_config = old_config
+    new_config.pop(config_key)
+
+    with open(file_path + file_name, 'w') as f:
+      json.dump(new_config, f)
+      print('Config removed successfully')
+
+  except Exception as e:
+    print(e)
+
+
+def modify_config(config_key, config_value, file_path, file_name):
+  """
+  modify the value of a config with certain config_key
+
+  :param config_key: name of the new config
+  :param config_value: value of the config
+  :param file_path: the path to save the file
+  :param file_name: the name of the file
+  :returns: None
+  :raises: save error
+  """
+  try:
+    # read existing config
+    with open(file_path + file_name, 'r') as f:
+      old_config = json.loads(f.read())
+
+    new_config = old_config
+    new_config[config_key] = config_value
+
+    with open(file_path + file_name, 'w') as f:
+      json.dump(new_config, f)
+      print('Config modified successfully')
+
+  except Exception as e:
+    print(e)
