@@ -2049,7 +2049,7 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
     plt.close(fig)
 
 
-def plot_candlestick(df, start=None, end=None, max_length=None, open_col='Open', high_col='High', low_col='Low', close_col='Close', date_col='Date', ma_windows=[9, 12, 26], title=None, figsize=(20, 5), use_ax=None, width=0.8, colorup='green', colordown='red', alpha=0.8, title_rotation='vertical', title_x=-0.05, title_y=0.8):
+def plot_candlestick(df, start=None, end=None, max_length=None, open_col='Open', high_col='High', low_col='Low', close_col='Close', date_col='Date', ma_windows=[9, 12, 26], kama_n2_windows=[2, 5], title=None, figsize=(20, 5), use_ax=None, width=0.8, colorup='green', colordown='red', alpha=0.8, title_rotation='vertical', title_x=-0.05, title_y=0.8):
   """
   Plot candlestick data
   :param df: dataframe with ichimoku and mean reversion columns
@@ -2085,6 +2085,14 @@ def plot_candlestick(df, start=None, end=None, max_length=None, open_col='Open',
     
     for w in ma_windows:
       tmp_col = close_col+'_ma_%s' % w
+      ax.plot(df.index, df[tmp_col], label=tmp_col, alpha=alpha)
+
+  # plot_kama
+  if len(kama_n2_windows) > 0:
+    
+    for w in kama_n2_windows:
+      tmp_col = 'kama(10,%s,30)'%w
+      df = add_kama_features(df=df, n2=w).rename(columns={'kama': 'kama(10,%s,30)'%2})
       ax.plot(df.index, df[tmp_col], label=tmp_col, alpha=alpha)
 
   # transform date to numbers
