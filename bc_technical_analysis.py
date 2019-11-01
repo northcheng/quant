@@ -1697,21 +1697,24 @@ def add_dc_features(df, n=20, close='Close', open='Open', high='High', low='Low'
   # calculate dochian channel
   high_band = df[close].rolling(n, min_periods=0).max()
   low_band = df[close].rolling(n, min_periods=0).min()
+  middle_band = (high_band + low_band)/2
 
   # fill na values
   if fillna:
     high_band = high_band.replace([np.inf, -np.inf], np.nan).fillna(method='backfill')
     low_band = low_band.replace([np.inf, -np.inf], np.nan).fillna(method='backfill')
+    middle_band = middle_band.replace([np.inf, -np.inf], np.nan).fillna(method='backfill')
 
   # assign values to df
   df['dc_high_band'] = high_band
   df['dc_low_band'] = low_band
+  df['dc_middle_band'] = middle_band
 
   # calculate signals
   if cal_signal:
     df['dc_signal'] = 'n'
-    buy_idx = df.query('%(column)s < dc_low_band' % dict(column=close)).index
-    sell_idx = df.query('%(column)s > dc_high_band' % dict(column=close)).index
+    buy_idx = df.query('%(column)s =< dc_low_band' % dict(column=close)).index
+    sell_idx = df.query('%(column)s >= dc_high_band' % dict(column=close)).index
     df.loc[buy_idx, 'dc_signal'] = 'b'
     df.loc[sell_idx, 'dc_signal'] = 's'
 
