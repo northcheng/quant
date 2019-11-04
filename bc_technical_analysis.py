@@ -2006,7 +2006,7 @@ def plot_ichimoku(df, price_col='Close', start=None, end=None, signal_col='signa
     return ax
 
 
-def plot_indicator(df, target_col, start=None, end=None, benchmark=0, boundary=None, color_mode='up_down', price_col='Close', signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', filter_signal=None, title=None, figsize=(20, 5), use_ax=None,  plot_price_in_twin_ax=True, title_rotation='vertical', title_x=-0.05, title_y=0.8):
+def plot_indicator(df, target_col, start=None, end=None, benchmark=0, boundary=None, color_mode='up_down', price_col='Close', signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', filter_signal=None, title=None, figsize=(20, 5), use_ax=None,  plot_price_in_twin_ax=True, title_rotation='vertical', title_x=-0.05, title_y=0.3):
   """
   Plot indicators around a benchmark
 
@@ -2144,22 +2144,6 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
     boundary = tmp_args.get('boundary')
     color_mode = tmp_args.get('color_mode')
     
-    # add_candlestick = tmp_args.get('add_candlestick')
-    # if add_candlestick:
-    #   width = tmp_args.get('width')
-    #   if width is None: 
-    #     width = 1
-    #   colorup = tmp_args.get('colorup')
-    #   if colorup is None: 
-    #     colorup = 'green'
-    #   colordown = tmp_args.get('colordown')
-    #   if colordown is None: 
-    #     colordown = 'red'
-    #   alpha = tmp_args.get('alpha')
-    #   if alpha is None:
-    #     alpha = 1
-      # plot_candlestick(df=plot_data, title=tmp_indicator, use_ax=axes[tmp_indicator], width=width, colorup=colorup, colordown=colordown, alpha=alpha)
-
     # plot ichimoku
     if tmp_indicator == 'ichimoku':
       plot_ichimoku(df=plot_data, signal_col=signal_col, title=tmp_indicator, use_ax=axes[tmp_indicator])
