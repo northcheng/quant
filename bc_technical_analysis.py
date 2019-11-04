@@ -1829,7 +1829,7 @@ def add_kc_features(df, n=10, close='Close', open='Open', high='High', low='Low'
   return df
 
 #----------------------------- Indicator visualization -----------------------------#
-def plot_signal(df, start=None, end=None, price_col='Close', signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', filter_signal=None, title=None, figsize=(20, 5), use_ax=None, title_rotation='vertical', title_x=-0.05, title_y=0.8):
+def plot_signal(df, start=None, end=None, price_col='Close', signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', filter_signal=None, title=None, figsize=(20, 5), use_ax=None, title_rotation='vertical', title_x=-0.05, title_y=0.3):
   """
   Plot signals along with the price
 
@@ -1890,7 +1890,7 @@ def plot_signal(df, start=None, end=None, price_col='Close', signal_col='signal'
     return ax
 
 
-def plot_peak_trough(df, start=None, end=None, price_col='Close', high_col='High', low_col='Low', signal_col='signal', pos_signal='p', neg_signal='t', none_signal='n', filter_signal=None, title=None, figsize=(20, 5), use_ax=None, title_rotation='vertical', title_x=-0.05, title_y=0.8):
+def plot_peak_trough(df, start=None, end=None, price_col='Close', high_col='High', low_col='Low', signal_col='signal', pos_signal='p', neg_signal='t', none_signal='n', filter_signal=None, title=None, figsize=(20, 5), use_ax=None, title_rotation='vertical', title_x=-0.05, title_y=0.3):
   """
   Plot peaks and throughs
 
@@ -1951,7 +1951,7 @@ def plot_peak_trough(df, start=None, end=None, price_col='Close', high_col='High
     return ax
 
 
-def plot_ichimoku(df, price_col='Close', start=None, end=None, signal_col='signal',  pos_signal='b', neg_signal='s', none_signal='n', filter_signal='first', save_path=None, title=None, figsize=(20, 5), use_ax=None, title_rotation='vertical', title_x=-0.05, title_y=0.8):
+def plot_ichimoku(df, price_col='Close', start=None, end=None, signal_col='signal',  pos_signal='b', neg_signal='s', none_signal='n', filter_signal='first', save_path=None, title=None, figsize=(20, 5), use_ax=None, title_rotation='vertical', title_x=-0.05, title_y=0.3):
   """
   Plot ichimoku chart
 
