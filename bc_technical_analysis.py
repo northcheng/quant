@@ -1439,7 +1439,7 @@ def add_ao_features(df, n_short=5, n_long=34, close='Close', open='Open', high='
 
   return df
 
-# *
+
 def add_kama_features(df, n1=10, n2=2, n3=30, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
   Calculate Kaufman's Adaptive Moving Average
@@ -1495,10 +1495,54 @@ def add_kama_features(df, n1=10, n2=2, n3=30, close='Close', open='Open', high='
 
   # calculate signals
   if cal_signal:
-    df['kama_signal'] = 'n'
+    n_param = {'fast': [10, 20, 30], 'slow': [10, 5, 30]}
+    df['kama_signal'] = add_kama_siangl(df=df, n_param=n_param, close=close, open=open, high=high, low=low, volume=volume)
 
   return df
 
+
+def add_kama_siangl(df, n_param = {'fast': [10, 20, 30], 'slow': [10, 5, 30]}, close='Close', open='Open', high='High', low='Low', volume='Volume'):
+ """
+  Calculate Kaufman's Adaptive Moving Average Signal
+
+  :param df: original OHLCV dataframe
+  :param n1: number of periods for Efficiency Ratio(ER)
+  :param n2: number of periods for the fastest EMA constant
+  :param n3: number of periods for the slowest EMA constant
+  :param close: column name of the close
+  :param open: column name of the open
+  :param high: column name of the high
+  :param low: column name of the low
+  :param volume: column name of the volume
+  :param fillna: whether to fill na with 0
+  :param cal_signal: whether to calculate signal
+  :returns: dataframe with new features generated
+  """
+  # copy dataframe
+  df = df.copy()
+
+  # calculate fast and slow kama
+  df = add_kama_features(df=df, n1=n_param['fast'][0], n2=n_param['fast'][1], n3=n_param['fast'][2], close=close, open=open, high=high, low=low, volume=volume)
+  df.rename(columns={'kama': 'kama_fast'}, inplace=True)
+  
+  df = add_kama_features(df=df, n1=n_param['slow'][0], n2=n_param['slow'][1], n3=n_param['slow'][2], close=close, open=open, high=high, low=low, volume=volume)
+  df.rename(columns={'kama': 'kama_slow'}, inplace=True)
+  
+  # calculate kama signal
+  df['kama_signal'] = cal_crossover_signal(df=df, fast_line=close, slow_line='kama_fast', result_col='kama_signal', pos_signal='b', neg_signal='s', none_signal='n')
+  
+  # buy when price go up through kama fast, and kama fast is above kama slow
+  buy_idx = df.query('kama_signal == "b" and kama_fast > kama_slow').index
+
+  # sell when price go down through kama fast, and kama fast is below kama slow
+  sell_idx = df.query('kama_signal == "s"  and kama_fast < kama_slow').index
+
+  # otherwise, do nothing
+  df['kama_signal'] = 'n'
+  df[buy_idx, 'kama_signal'] = 'b'
+  df[sell_idx, 'kama_signal'] = 's'
+
+  return df['kama_signal']
 
 #----------------------------- Volatility indicators ----------------------------#
 def add_atr_features(df, n=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
