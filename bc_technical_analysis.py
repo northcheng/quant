@@ -1530,11 +1530,7 @@ def add_kama_features(df, n_param={'kama_fast': [10, 2, 30], 'kama_slow': [10, 5
   # calculate kama signals  
   if cal_signal:
 
-    if set(['kama_fast']) < set(df.columns):
-      df['kama_signal'] = 'n'
-      print('please specify kama_fast and kama_slow parameters in n_param')
-    
-    else:
+    if set(['kama_fast', 'kama_slow']) < set(df.columns):
       # calculate kama signal
       df['kama_signal'] = cal_crossover_signal(df=df, fast_line=close, slow_line='kama_fast', result_col='kama_signal', pos_signal='b', neg_signal='s', none_signal='n')
     
@@ -1548,6 +1544,10 @@ def add_kama_features(df, n_param={'kama_fast': [10, 2, 30], 'kama_slow': [10, 5
       df['kama_signal'] = 'n'
       df.loc[buy_idx, 'kama_signal'] = 'b'
       df.loc[sell_idx, 'kama_signal'] = 's'
+      
+    else:
+      df['kama_signal'] = 'n'
+      print('please specify kama_fast and kama_slow parameters in n_param')
 
   return df
 
@@ -2209,7 +2209,7 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
     plt.close(fig)
 
 
-def plot_candlestick(df, start=None, end=None, max_length=None, open_col='Open', high_col='High', low_col='Low', close_col='Close', date_col='Date', ma_windows=[], kama_n_param={'kama_fast': [10, 2, 30], 'kama_slow': [10, 5, 30]}, title=None, figsize=(20, 5), use_ax=None, width=0.8, colorup='green', colordown='red', alpha=0.8, title_rotation='vertical', title_x=-0.05, title_y=0.8):
+def plot_candlestick(df, start=None, end=None, max_length=None, open_col='Open', high_col='High', low_col='Low', close_col='Close', date_col='Date', ma_windows=[], title=None, figsize=(20, 5), use_ax=None, width=0.8, colorup='green', colordown='red', alpha=0.8, title_rotation='vertical', title_x=-0.05, title_y=0.8):
   """
   Plot candlestick data
   :param df: dataframe with ichimoku and mean reversion columns
@@ -2248,12 +2248,8 @@ def plot_candlestick(df, start=None, end=None, max_length=None, open_col='Open',
       ax.plot(df.index, df[tmp_col], label=tmp_col, alpha=alpha)
 
   # plot_kama
-  if len(kama_n_param) is not None:
-
-    df = add_kama_features(df=df, n_param=kama_n_param)
-    
-    for k in kama_n_param.keys():
-
+  if set(['kama_fast', 'kama_slow']) < set(df.columns):
+    for k in ['kama_fast', 'kama_slow']:
       ax.plot(df.index, df[k], label=k, alpha=alpha)
 
   # transform date to numbers
