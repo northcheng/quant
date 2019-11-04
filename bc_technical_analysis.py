@@ -2199,7 +2199,7 @@ def plot_candlestick(df, start=None, end=None, open_col='Open', high_col='High',
     ax = plt.gca()
 
   # plot_kama
-  if set(['kama_fast', 'kama_slow']) < set(df.columns):
+  if set(['kama_fast', 'kama_slow']) < set(df.columns) and plot_kama:
     for k in ['kama_fast', 'kama_slow']:
       ax.plot(df.index, df[k], label=k, alpha=alpha)
 
