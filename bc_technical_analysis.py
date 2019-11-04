@@ -1502,7 +1502,7 @@ def add_kama_features(df, n1=10, n2=2, n3=30, close='Close', open='Open', high='
 
 
 def add_kama_siangl(df, n_param = {'fast': [10, 20, 30], 'slow': [10, 5, 30]}, close='Close', open='Open', high='High', low='Low', volume='Volume'):
- """
+  """
   Calculate Kaufman's Adaptive Moving Average Signal
 
   :param df: original OHLCV dataframe
