@@ -1538,8 +1538,8 @@ def add_kama_features(df, n_param = {'kama_fast': [10, 20, 30], 'kama_slow': [10
 
     # otherwise, do nothing
     df['kama_signal'] = 'n'
-    df[buy_idx, 'kama_signal'] = 'b'
-    df[sell_idx, 'kama_signal'] = 's'
+    df.loc[buy_idx, 'kama_signal'] = 'b'
+    df.loc[sell_idx, 'kama_signal'] = 's'
 
   return df['kama_signal']
 
