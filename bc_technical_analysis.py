@@ -1440,7 +1440,7 @@ def add_ao_features(df, n_short=5, n_long=34, close='Close', open='Open', high='
   return df
 
 
-def add_kama_features(df, n1=10, n2=2, n3=30, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+def cal_kama(df, n1=10, n2=2, n3=30, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False):
   """
   Calculate Kaufman's Adaptive Moving Average
 
@@ -1493,15 +1493,10 @@ def add_kama_features(df, n1=10, n2=2, n3=30, close='Close', open='Open', high='
   # assign kama to df
   df['kama'] = kama
 
-  # calculate signals
-  if cal_signal:
-    n_param = {'fast': [10, 20, 30], 'slow': [10, 5, 30]}
-    df['kama_signal'] = add_kama_siangl(df=df, n_param=n_param, close=close, open=open, high=high, low=low, volume=volume)
-
   return df
 
 
-def add_kama_siangl(df, n_param = {'fast': [10, 20, 30], 'slow': [10, 5, 30]}, close='Close', open='Open', high='High', low='Low', volume='Volume'):
+def add_kama_features(df, n_param = {'kama_fast': [10, 20, 30], 'kama_slow': [10, 5, 30]}, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
   Calculate Kaufman's Adaptive Moving Average Signal
 
@@ -1522,25 +1517,29 @@ def add_kama_siangl(df, n_param = {'fast': [10, 20, 30], 'slow': [10, 5, 30]}, c
   df = df.copy()
 
   # calculate fast and slow kama
-  df = add_kama_features(df=df, n1=n_param['fast'][0], n2=n_param['fast'][1], n3=n_param['fast'][2], close=close, open=open, high=high, low=low, volume=volume)
-  df.rename(columns={'kama': 'kama_fast'}, inplace=True)
-  
-  df = add_kama_features(df=df, n1=n_param['slow'][0], n2=n_param['slow'][1], n3=n_param['slow'][2], close=close, open=open, high=high, low=low, volume=volume)
-  df.rename(columns={'kama': 'kama_slow'}, inplace=True)
-  
-  # calculate kama signal
-  df['kama_signal'] = cal_crossover_signal(df=df, fast_line=close, slow_line='kama_fast', result_col='kama_signal', pos_signal='b', neg_signal='s', none_signal='n')
-  
-  # buy when price go up through kama fast, and kama fast is above kama slow
-  buy_idx = df.query('kama_signal == "b" and kama_fast > kama_slow').index
+  for k in n_param.keys():
+    tmp_n = n_param[k]
+    n1 = tmp_n[0],
+    n2 = tmp_n[1],
+    n3 = tmp_n[2]
 
-  # sell when price go down through kama fast, and kama fast is below kama slow
-  sell_idx = df.query('kama_signal == "s"  and kama_fast < kama_slow').index
+    df = cal_kama(df=df, n1=n1, n2=n2, n3=n3, close=close, open=open, high=high, low=low, volume=volume, fillna=fillna)
+    df.rename(columns={'kama': k}, inplace=True)
+  
+  if cal_signal:
+    # calculate kama signal
+    df['kama_signal'] = cal_crossover_signal(df=df, fast_line=close, slow_line='kama_fast', result_col='kama_signal', pos_signal='b', neg_signal='s', none_signal='n')
+  
+    # buy when price go up through kama fast, and kama fast is above kama slow
+    buy_idx = df.query('kama_signal == "b" and kama_fast > kama_slow').index
 
-  # otherwise, do nothing
-  df['kama_signal'] = 'n'
-  df[buy_idx, 'kama_signal'] = 'b'
-  df[sell_idx, 'kama_signal'] = 's'
+    # sell when price go down through kama fast, and kama fast is below kama slow
+    sell_idx = df.query('kama_signal == "s"  and kama_fast < kama_slow').index
+
+    # otherwise, do nothing
+    df['kama_signal'] = 'n'
+    df[buy_idx, 'kama_signal'] = 'b'
+    df[sell_idx, 'kama_signal'] = 's'
 
   return df['kama_signal']
 
