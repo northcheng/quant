@@ -550,8 +550,8 @@ def add_candlestick_features(df, close='Close', open='Open', high='High', low='L
   df['entity'] = abs(df[close] - df[open])
   
   # up and down rows
-  up_idx = df.[open] < df.[close]
-  down_idx = df.[open] >= df.[close]
+  up_idx = df[open] < df[close]
+  down_idx = df[open] >= df[close]
 
   # upper/lower shadow
   df['upper_shadow'] = 0
