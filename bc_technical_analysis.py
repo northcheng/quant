@@ -2091,7 +2091,7 @@ def plot_indicator(df, target_col, start=None, end=None, benchmark=0, boundary=N
     return ax
 
 
-def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reversion':1}, 'mean_reversion': {'std_multiple': 2}}, start=None, end=None, title=None, save_path=None, show_image=False, unit_size=3, ws=0, hs=0, title_rotation='horizontal', title_x=0.5, title_y=0.9):
+def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reversion':1}, 'mean_reversion': {'std_multiple': 2}}, start=None, end=None, title=None, save_path=None, show_image=False, unit_size=3, ws=0, hs=0, title_rotation='horizontal', title_x=0.5, title_y=0.9, subtitle_rotation='vertical', subtitle_x=-0.05, subtitle_y=0.3):
   """
   Plot Ichimoku and mean reversion in a same plot
   :param df: dataframe with ichimoku and mean reversion columns
@@ -2146,10 +2146,10 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
     
     # plot ichimoku
     if tmp_indicator == 'ichimoku':
-      plot_ichimoku(df=plot_data, signal_col=signal_col, title=tmp_indicator, use_ax=axes[tmp_indicator])
+      plot_ichimoku(df=plot_data, signal_col=signal_col, title=tmp_indicator, use_ax=axes[tmp_indicator], title_rotation=subtitle_rotation, title_x=subtitle_x, title_y=subtitle_y)
 
     elif tmp_indicator == 'peak_trough':
-      plot_peak_trough(df=plot_data, signal_col=signal_col, title=tmp_indicator, use_ax=axes[tmp_indicator])
+      plot_peak_trough(df=plot_data, signal_col=signal_col, title=tmp_indicator, use_ax=axes[tmp_indicator], title_rotation=subtitle_rotation, title_x=subtitle_x, title_y=subtitle_y)
 
       add_bbl = tmp_args.get('add_bbl')
       if add_bbl is not None:
@@ -2170,14 +2170,14 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
       alpha = tmp_args.get('alpha')
       if alpha is None:
         alpha = 1
-      plot_candlestick(df=plot_data, title=tmp_indicator, use_ax=axes[tmp_indicator], width=width, colorup=colorup, colordown=colordown, alpha=alpha)
+      plot_candlestick(df=plot_data, title=tmp_indicator, use_ax=axes[tmp_indicator], width=width, colorup=colorup, colordown=colordown, alpha=alpha, title_rotation=subtitle_rotation, title_x=subtitle_x, title_y=subtitle_y)
 
     # plot other
     else:
       plot_indicator(
         df=plot_data, target_col=target_col, benchmark=benchmark, boundary=boundary, color_mode=color_mode, 
         price_col=price_col, signal_col=signal_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, filter_signal=filter_signal,
-        title=tmp_indicator, use_ax=axes[tmp_indicator])
+        title=tmp_indicator, use_ax=axes[tmp_indicator], title_rotation=subtitle_rotation, title_x=subtitle_x, title_y=subtitle_y)
 
     
 
