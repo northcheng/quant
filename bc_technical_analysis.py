@@ -1519,8 +1519,8 @@ def add_kama_features(df, n_param = {'kama_fast': [10, 20, 30], 'kama_slow': [10
   # calculate fast and slow kama
   for k in n_param.keys():
     tmp_n = n_param[k]
-    n1 = tmp_n[0],
-    n2 = tmp_n[1],
+    n1 = tmp_n[0]
+    n2 = tmp_n[1]
     n3 = tmp_n[2]
 
     df = cal_kama(df=df, n1=n1, n2=n2, n3=n3, close=close, open=open, high=high, low=low, volume=volume, fillna=fillna)
