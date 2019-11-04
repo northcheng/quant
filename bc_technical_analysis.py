@@ -2243,10 +2243,11 @@ def plot_candlestick(df, start=None, end=None, max_length=None, open_col='Open',
   if len(kama_n_param) > 0:
 
     df = add_kama_features(df=df, n_param=kama_n_param)
+    print(df.tail())
     
     for k in kama_n_param.keys():
 
-      ax.plot(df.index, df[k], label=l, alpha=alpha)
+      ax.plot(df.index, df[k], label=k, alpha=alpha)
 
   # transform date to numbers
   df.reset_index(inplace=True)
