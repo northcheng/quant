@@ -11,7 +11,7 @@ import ta
 
 
 
-#----------------------------- Basic calculation -----------------------------------#
+# ================================================================================== Basic calculation ================================================================================== #
 def dropna(df):
   """
   Drop rows with "Nans" values
@@ -47,7 +47,8 @@ def get_min_max(x1, x2, f='min'):
     return np.nan    
     
 
-#----------------------------- Rolling windows -------------------------------------#
+
+# ================================================================================== Rolling windows ==================================================================================== #
 def sm(series, periods, fillna=True):
   """
   Simple Moving Window
@@ -78,7 +79,8 @@ def em(series, periods, fillna=True):
   return series.ewm(span=periods, min_periods=periods)  
 
 
-#----------------------------- Change calculation ----------------------------------#
+
+# ================================================================================== Change calculation ================================================================================= #
 def cal_change(df, target_col, periods=1, add_accumulation=True, add_prefix=False):
   """
   Calculate change of a column with a sliding window
@@ -183,7 +185,8 @@ def cal_change_rate(df, target_col, periods=1, add_accumulation=True, add_prefix
   return df
 
 
-#----------------------------- Signal processing -----------------------------------#
+
+# ================================================================================== Signal processing ================================================================================== #
 def cal_crossover_signal(df, fast_line, slow_line, result_col='signal', pos_signal='b', neg_signal='s', none_signal='n'):
   """
   Calculate signal generated from the crossover of 2 lines
@@ -366,7 +369,8 @@ def remove_redundant_signal(df, signal_col='signal', pos_signal='b', neg_signal=
   return df
 
 
-#----------------------------- Support/resistant -----------------------------------#
+
+# ================================================================================== Support/resistant ================================================================================== #
 def cal_peak_trough(df, target_col, result_col='signal', peak_signal='p', trough_signal='t', none_signal='n', further_filter=True):
   """
   Calculate the position (signal) of the peak/trough of the target column
@@ -447,7 +451,54 @@ def cal_peak_trough(df, target_col, result_col='signal', peak_signal='p', trough
   return df[[result_col]]
 
 
-#----------------------------- Moving average --------------------------------------#
+
+# ================================================================================== Candle sticks ====================================================================================== #
+def add_candlestick_features(df, close='Close', open='Open', high='High', low='Low', volume='Volume'):
+  """
+  Add candlestick dimentions for dataframe
+
+  :param df: original OHLCV dataframe
+  :param close: column name of the close
+  :param open: column name of the open
+  :param high: column name of the high
+  :param low: column name of the low
+  :param volume: column name of the volume
+  :returns: dataframe with candlestick columns
+  :raises: none
+  """
+  # copy dataframe
+  df = df.copy()
+  
+  # shadow
+  df['shadow'] = (df[high] - df[low])    
+  
+  # entity
+  df['entity'] = abs(df[close] - df[open])
+  
+  # up and down rows
+  up_idx = df.[open] < df.[close]
+  down_idx = df.[open] >= df.[close]
+
+  # upper/lower shadow
+  df['upper_shadow'] = 0
+  df['lower_shadow'] = 0
+  df['candle_color'] = 0
+  
+  # up
+  df.loc[up_idx, 'candle_color'] = 1
+  df.loc[up_idx, 'upper_shadow'] = (df.loc[up_idx, high] - df.loc[up_idx, close])
+  df.loc[up_idx, 'lower_shadow'] = (df.loc[up_idx, open] - df.loc[up_idx, low])
+  
+  # down
+  df.loc[down_idx, 'candle_color'] = -1
+  df.loc[down_idx, 'upper_shadow'] = (df.loc[down_idx, high] - df.loc[down_idx, open])
+  df.loc[down_idx, 'lower_shadow'] = (df.loc[down_idx, close] - df.loc[down_idx, low])
+  
+  return df
+
+
+
+# ================================================================================== Moving average ===================================================================================== #
 def cal_moving_average(df, target_col, ma_windows=[50, 105], start=None, end=None, window_type='em'):
   """
   Calculate moving average of the tarhet column with specific window size
@@ -513,7 +564,8 @@ def cal_moving_average_signal(df, target_col='Close', ma_windows=[50, 105], star
   return df[result_col]
 
 
-#----------------------------- Trend indicators ---------------------------------#
+
+# ================================================================================== Trend indicators =================================================================================== #
 def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, adx_threshold=25):
   """
   Calculate ADX(Average Directional Index)
@@ -1162,7 +1214,8 @@ def add_vortex_features(df, n=14, close='Close', open='Open', high='High', low='
   return df
 
 
-#----------------------------- Volume indicators --------------------------------#
+
+# ================================================================================== Volume indicators ================================================================================== #
 # *
 def add_adi_features(df, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
@@ -1397,7 +1450,8 @@ def add_vpt_features(df, close='Close', open='Open', high='High', low='Low', vol
   return df
 
 
-#----------------------------- Momentum indicators ------------------------------#
+
+# ================================================================================== Momentum indicators ================================================================================ #
 # *
 def add_ao_features(df, n_short=5, n_long=34, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
@@ -1551,7 +1605,8 @@ def add_kama_features(df, n_param={'kama_fast': [10, 2, 30], 'kama_slow': [10, 5
 
   return df
 
-#----------------------------- Volatility indicators ----------------------------#
+
+# ================================================================================== Volatility indicators ============================================================================== #
 def add_atr_features(df, n=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
   Calculate Average True Range
@@ -1828,23 +1883,25 @@ def add_kc_features(df, n=10, close='Close', open='Open', high='High', low='Low'
 
   return df
 
-#----------------------------- Indicator visualization -----------------------------#
-def plot_signal(df, start=None, end=None, price_col='Close', signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', filter_signal=None, title=None, figsize=(20, 5), use_ax=None, title_rotation='vertical', title_x=-0.05, title_y=0.3):
+
+
+# ================================================================================== Indicator visualization  =========================================================================== #
+def plot_signal(df, start=None, end=None, price_col='Close', signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', filter_signal=None, use_ax=None, figsize=(20, 5), title=None, title_rotation='vertical', title_x=-0.05, title_y=0.3):
   """
   Plot signals along with the price
 
   :param df: dataframe with price and signal columns
-  :param signal_col: columnname of the signal values
+  :param start: start row to plot
+  :param end: end row to stop
   :param price_col: columnname of the price values
-  :param keep: which one to keep: first/last
+  :param signal_col: columnname of the signal values
+  :param filter_signal: whether to filter signals and which one to keep: first/last
   :param pos_signal: the value of positive signal
   :param neg_siganl: the value of negative signal
   :param none_signal: the value of none signal
-  :param start: start row to plot
-  :param end: end row to stop
-  :param title: plot title
-  :param figsize: figsize
   :param use_ax: the already-created ax to draw on
+  :param figsize: figsize
+  :param title: plot title
   :param title_rotation: 'vertical' or 'horizontal'
   :param title_x: title position x
   :param title_y: title position y
@@ -1890,24 +1947,24 @@ def plot_signal(df, start=None, end=None, price_col='Close', signal_col='signal'
     return ax
 
 
-def plot_peak_trough(df, start=None, end=None, price_col='Close', high_col='High', low_col='Low', signal_col='signal', pos_signal='p', neg_signal='t', none_signal='n', filter_signal=None, title=None, figsize=(20, 5), use_ax=None, title_rotation='vertical', title_x=-0.05, title_y=0.3):
+def plot_peak_trough(df, start=None, end=None, price_col='Close', high_col='High', low_col='Low', signal_col='signal', pos_signal='p', neg_signal='t', none_signal='n', filter_signal=None, use_ax=None, figsize=(20, 5), title=None, title_rotation='vertical', title_x=-0.05, title_y=0.3):
   """
   Plot peaks and throughs
 
   :param df: dataframe with price and signal columns
-  :param signal_col: columnname of the signal values
+  :param start: start row to plot
+  :param end: end row to stop
   :param price_col: columnname of the price values
   :param high_col: columnname of high vlaues
   :param low_col: columnname of low values
-  :param keep: which one to keep: first/last
+  :param signal_col: columnname of the signal values
   :param pos_signal: the value of positive signal
   :param neg_siganl: the value of negative signal
   :param none_signal: the value of none signal
-  :param start: start row to plot
-  :param end: end row to stop
-  :param title: plot title
-  :param figsize: figsize
+  :param filter_signal: whether to filter signals and which one to keep: first/last
   :param use_ax: the already-created ax to draw on
+  :param figsize: figsize
+  :param title: plot title
   :param title_rotation: 'vertical' or 'horizontal'
   :param title_x: title position x
   :param title_y: title position y
@@ -1951,19 +2008,22 @@ def plot_peak_trough(df, start=None, end=None, price_col='Close', high_col='High
     return ax
 
 
-def plot_ichimoku(df, price_col='Close', start=None, end=None, signal_col='signal',  pos_signal='b', neg_signal='s', none_signal='n', filter_signal='first', save_path=None, title=None, figsize=(20, 5), use_ax=None, title_rotation='vertical', title_x=-0.05, title_y=0.3):
+def plot_ichimoku(df, start=None, end=None, price_col='Close', signal_col='signal',  pos_signal='b', neg_signal='s', none_signal='n', filter_signal='first', use_ax=None, figsize=(20, 5), title=None, title_rotation='vertical', title_x=-0.05, title_y=0.3):
   """
   Plot ichimoku chart
 
   :param df: dataframe with ichimoku indicator columns
-  :param signal_col: columnname of signal values
-  :param price_col: columnname of the price
   :param start: start row to plot
   :param end: end row to plot
-  :param save_path: path to save the plot
-  :param title: title of the plot
-  :param figsize: figsize
+  :param price_col: columnname of the price
+  :param signal_col: columnname of signal values
+  :param pos_signal: the value of positive signal
+  :param neg_siganl: the value of negative signal
+  :param none_signal: the value of none signal
+  :param filter_signal: whether to filter signals and which one to keep: first/last
   :param use_ax: the already-created ax to draw on
+  :param figsize: figsize
+  :param title: plot title
   :param title_rotation: 'vertical' or 'horizontal'
   :param title_x: title position x
   :param title_y: title position y
@@ -1998,15 +2058,11 @@ def plot_ichimoku(df, price_col='Close', start=None, end=None, signal_col='signa
   ax.legend(bbox_to_anchor=(1.02, 0.), loc=3, ncol=1, borderaxespad=0.) 
   ax.set_title(title, rotation=title_rotation, x=title_x, y=title_y)
 
-  # save image
-  if save_path is not None:
-    plt.savefig(save_path + title + '.png')
-
   if use_ax is not None:
     return ax
 
 
-def plot_indicator(df, target_col, start=None, end=None, benchmark=0, boundary=None, color_mode='up_down', price_col='Close', signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', filter_signal=None, title=None, figsize=(20, 5), use_ax=None,  plot_price_in_twin_ax=True, title_rotation='vertical', title_x=-0.05, title_y=0.3):
+def plot_indicator(df, target_col, start=None, end=None, price_col='Close', signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', filter_signal=None, benchmark=None, boundary=None, color_mode='up_down', use_ax=None, figsize=(20, 5),  title=None, plot_price_in_twin_ax=False, title_rotation='vertical', title_x=-0.05, title_y=0.3):
   """
   Plot indicators around a benchmark
 
@@ -2015,11 +2071,18 @@ def plot_indicator(df, target_col, start=None, end=None, benchmark=0, boundary=N
   :param price_col: columnname of the price values
   :param start: start date of the data
   :param end: end of the data
+  :param price_col: columnname of the price
+  :param signal_col: columnname of signal values
+  :param pos_signal: the value of positive signal
+  :param neg_siganl: the value of negative signal
+  :param none_signal: the value of none signal
+  :param filter_signal: whether to filter signals and which one to keep: first/last
   :param benchmark: benchmark, a fixed value
+  :param boundary: upper/lower boundaries, a list of fixed values
   :param color_mode: which color mode to use: benckmark/up_down
-  :param title: title of the plot
-  :param figsize: figure size
   :param use_ax: the already-created ax to draw on
+  
+  :param title: title of the plot
   :param plot_price_in_twin_ax: whether plot price and signal in a same ax or in a twin ax
   :param title_rotation: 'vertical' or 'horizontal'
   :param title_x: title position x
@@ -2091,19 +2154,81 @@ def plot_indicator(df, target_col, start=None, end=None, benchmark=0, boundary=N
     return ax
 
 
-def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reversion':1}, 'mean_reversion': {'std_multiple': 2}}, start=None, end=None, title=None, save_path=None, show_image=False, unit_size=3, ws=0, hs=0, title_rotation='horizontal', title_x=0.5, title_y=0.9, subtitle_rotation='vertical', subtitle_x=-0.05, subtitle_y=0.3):
+def plot_candlestick(df, start=None, end=None, open_col='Open', high_col='High', low_col='Low', close_col='Close', date_col='Date', plot_kama=True, use_ax=None, figsize=(20, 5), title=None, width=0.8, colorup='green', colordown='red', alpha=0.8, title_rotation='vertical', title_x=-0.05, title_y=0.8):
   """
-  Plot Ichimoku and mean reversion in a same plot
+  Plot candlestick data
   :param df: dataframe with ichimoku and mean reversion columns
-  :param std_multiple: std_multiple for mean reversion
   :param start: start of the data
   :param end: end of the data
-  :param title: title of the figure
-  :param save_path: path where the figure will be saved to
+  :param open_col: column name for open values
+  :param high_col: column name for high values
+  :param low_col: column name for low values
+  :param close_col: column name for close values
+  :param date_col: column name for date values
+  :param plot_kama: whether to plot kama with candlesticks
   :param use_ax: the already-created ax to draw on
+  :param figsize: figure size
+  :param title: title of the figure
+  :param width: width of each candlestick
+  :param colorup: color for candlesticks which open > close
+  :param colordown: color for candlesticks which open < close
+  :param alpha: alpha for charts
   :param title_rotation: 'vertical' or 'horizontal'
   :param title_x: title position x
   :param title_y: title position y
+  :returns: plot
+  :raises: none
+  """
+  # select plot data
+  df = df[start:end].copy()
+
+  # create figure
+  ax = use_ax
+  if ax is None:
+    fig = plt.figure(figsize=figsize)
+    ax = plt.gca()
+
+  # plot_kama
+  if set(['kama_fast', 'kama_slow']) < set(df.columns):
+    for k in ['kama_fast', 'kama_slow']:
+      ax.plot(df.index, df[k], label=k, alpha=alpha)
+
+  # transform date to numbers
+  df.reset_index(inplace=True)
+  df[date_col] = df[date_col].apply(mdates.date2num)
+  plot_data = df[[date_col, open_col, high_col, low_col, close_col]]
+  
+  # plot candlesticks
+  candlestick_ohlc(ax=ax, quotes=plot_data.values, width=width, colorup=colorup, colordown=colordown, alpha=alpha)
+  ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+
+  # legend and title
+  ax.legend(bbox_to_anchor=(1.02, 0.), loc=3, ncol=1, borderaxespad=0.)
+  ax.set_title(title, rotation=title_rotation, x=title_x, y=title_y)
+
+  if use_ax is not None:
+    return ax
+
+
+def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reversion':1}, 'mean_reversion': {'std_multiple': 2}}, start=None, end=None, save_path=None, show_image=False, title=None, unit_size=3, ws=0, hs=0, title_rotation='horizontal', title_x=0.5, title_y=0.9, subtitle_rotation='vertical', subtitle_x=-0.05, subtitle_y=0.3):
+  """
+  Plot Ichimoku and mean reversion in a same plot
+  :param df: dataframe with ichimoku and mean reversion columns
+  :param args: dict of args for multiple plots
+  :param start: start of the data
+  :param end: end of the data
+  :param save_path: path where the figure will be saved to, if set to None, then image will not be saved
+  :param show_image: whether to display image
+  :param title: title of the figure
+  :param unit_size: height of each subplot
+  :param ws: wide space 
+  :param hs: heighe space between subplots
+  :param title_rotation: 'vertical' or 'horizontal'
+  :param title_x: title position x
+  :param title_y: title position y
+  :param subtitle_rotation: 'vertical' or 'horizontal'
+  :param subtitle_x: title position x
+  :param subtitle_y: title position y
   :returns: plot
   :raises: none
   """
@@ -2133,13 +2258,13 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
     axes[tmp_indicator].patch.set_alpha(0.5)
 
     # get extra arguments
+    target_col = tmp_args.get('target_col')
     price_col = tmp_args.get('price_col')
     signal_col = tmp_args.get('signal_col')
     pos_signal = tmp_args.get('pos_signal')
     neg_signal = tmp_args.get('neg_signal')
     none_signal = tmp_args.get('none_signal')
     filter_signal = tmp_args.get('filter_signal')
-    target_col = tmp_args.get('target_col')
     benchmark = tmp_args.get('benchmark')
     boundary = tmp_args.get('boundary')
     color_mode = tmp_args.get('color_mode')
@@ -2148,38 +2273,42 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
     if tmp_indicator == 'ichimoku':
       plot_ichimoku(df=plot_data, signal_col=signal_col, title=tmp_indicator, use_ax=axes[tmp_indicator], title_rotation=subtitle_rotation, title_x=subtitle_x, title_y=subtitle_y)
 
+    # plot peak and trough with bollinger band
     elif tmp_indicator == 'peak_trough':
       plot_peak_trough(df=plot_data, signal_col=signal_col, title=tmp_indicator, use_ax=axes[tmp_indicator], title_rotation=subtitle_rotation, title_x=subtitle_x, title_y=subtitle_y)
 
       add_bbl = tmp_args.get('add_bbl')
       if add_bbl is not None:
-        plot_indicator(
-        df=plot_data, target_col=['mavg', 'bb_high_band', 'bb_low_band'], benchmark=None, boundary=None, color_mode=None, 
-        price_col=None, signal_col=None, title=tmp_indicator, use_ax=axes[tmp_indicator])
+        plot_indicator(df=plot_data, target_col=['mavg', 'bb_high_band', 'bb_low_band'], benchmark=None, boundary=None, color_mode=None, price_col=None, signal_col=None, use_ax=axes[tmp_indicator])
       
     elif tmp_indicator == 'candlestick':
       width = tmp_args.get('width')
+
       if width is None: 
         width = 1
+      
       colorup = tmp_args.get('colorup')
       if colorup is None: 
         colorup = 'green'
+      
       colordown = tmp_args.get('colordown')
       if colordown is None: 
         colordown = 'red'
+      
       alpha = tmp_args.get('alpha')
       if alpha is None:
         alpha = 1
-      plot_candlestick(df=plot_data, title=tmp_indicator, use_ax=axes[tmp_indicator], width=width, colorup=colorup, colordown=colordown, alpha=alpha, title_rotation=subtitle_rotation, title_x=subtitle_x, title_y=subtitle_y)
 
-    # plot other
+      plot_kama = tmp_args.get('plot_kama')
+      if plot_kama is None:
+        plot_kama=False
+      
+      plot_candlestick(df=plot_data, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_kama=plot_kama, width=width, colorup=colorup, colordown=colordown, alpha=alpha, title_rotation=subtitle_rotation, title_x=subtitle_x, title_y=subtitle_y)
+
+    # plot other indicators
     else:
       plot_indicator(
-        df=plot_data, target_col=target_col, benchmark=benchmark, boundary=boundary, color_mode=color_mode, 
-        price_col=price_col, signal_col=signal_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, filter_signal=filter_signal,
-        title=tmp_indicator, use_ax=axes[tmp_indicator], title_rotation=subtitle_rotation, title_x=subtitle_x, title_y=subtitle_y)
-
-    
+        df=plot_data, target_col=target_col, benchmark=benchmark, boundary=boundary, color_mode=color_mode, price_col=price_col, signal_col=signal_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, filter_signal=filter_signal, title=tmp_indicator, use_ax=axes[tmp_indicator], title_rotation=subtitle_rotation, title_x=subtitle_x, title_y=subtitle_y)
 
   # adjust plot layout
   fig.suptitle(title, rotation=title_rotation, x=title_x, y=title_y, fontsize=20)
@@ -2193,105 +2322,5 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
     plt.close(fig)
 
 
-def plot_candlestick(df, start=None, end=None, max_length=None, open_col='Open', high_col='High', low_col='Low', close_col='Close', date_col='Date', ma_windows=[], title=None, figsize=(20, 5), use_ax=None, width=0.8, colorup='green', colordown='red', alpha=0.8, title_rotation='vertical', title_x=-0.05, title_y=0.8):
-  """
-  Plot candlestick data
-  :param df: dataframe with ichimoku and mean reversion columns
-  :param start: start of the data
-  :param end: end of the data
-  :prarm max_length: max length of records for ploting
-  :param open_col: column name for open values
-  :param high_col: column name for high values
-  :param low_col: column name for low values
-  :param close_col: column name for close values
-  :param date_col: column name for date values
-  :param title: title of the figure
-  :param use_ax: the already-created ax to draw on
-  :param width: width of each candlestick
-  :param title_rotation: 'vertical' or 'horizontal'
-  :param title_x: title position x
-  :param title_y: title position y
-  :returns: plot
-  :raises: none
-  """
-  # select plot data
-  df = df[start:end].copy()
-
-  # create figure
-  ax = use_ax
-  if ax is None:
-    fig = plt.figure(figsize=figsize)
-    ax = plt.gca()
-
-  # plot ma
-  if len(ma_windows) > 0:
-    df = cal_moving_average(df=df, target_col=close_col, ma_windows=ma_windows, start=None, end=None, window_type='em')
-    
-    for w in ma_windows:
-      tmp_col = close_col+'_ma_%s' % w
-      ax.plot(df.index, df[tmp_col], label=tmp_col, alpha=alpha)
-
-  # plot_kama
-  if set(['kama_fast', 'kama_slow']) < set(df.columns):
-    for k in ['kama_fast', 'kama_slow']:
-      ax.plot(df.index, df[k], label=k, alpha=alpha)
-
-  # transform date to numbers
-  df.reset_index(inplace=True)
-  df[date_col] = df[date_col].apply(mdates.date2num)
-  plot_data = df[[date_col, open_col, high_col, low_col, close_col]]
-  if max_length is not None:
-    plot_data = plot_data.tail(max_length)
-  
-  # plot candlesticks
-  candlestick_ohlc(ax=ax, quotes=plot_data.values, width=width, colorup=colorup, colordown=colordown, alpha=alpha)
-  ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
-
-  # legend and title
-  ax.legend(bbox_to_anchor=(1.02, 0.), loc=3, ncol=1, borderaxespad=0.)
-  ax.set_title(title, rotation=title_rotation, x=title_x, y=title_y)
-
-  if use_ax is not None:
-    return ax
-
-
-#----------------------------- Candlesticks ----------------------------------------#
-def add_candle_dims_for_df(df):
-  """
-  Add candlestick dimentions for dataframe
-
-  :param df: original OHLCV dataframe
-  :returns: dataframe with candlestick columns
-  :raises: none
-  """
-  # copy dataframe
-  df = df.copy()
-  
-  # shadow
-  df['shadow'] = (df['High'] - df['Low'])    
-  
-  # entity
-  df['entity'] = abs(df['Close'] - df['Open'])
-  
-  # up and down rows
-  up_idx = df.Open < df.Close
-  down_idx = df.Open >= df.Close
-
-  # upper/lower shadow
-  df['upper_shadow'] = 0
-  df['lower_shadow'] = 0
-  df['candle_color'] = 0
-  
-  # up
-  df.loc[up_idx, 'candle_color'] = 1
-  df.loc[up_idx, 'upper_shadow'] = (df.loc[up_idx, 'High'] - df.loc[up_idx, 'Close'])
-  df.loc[up_idx, 'lower_shadow'] = (df.loc[up_idx, 'Open'] - df.loc[up_idx, 'Low'])
-  
-  # down
-  df.loc[down_idx, 'candle_color'] = -1
-  df.loc[down_idx, 'upper_shadow'] = (df.loc[down_idx, 'High'] - df.loc[down_idx, 'Open'])
-  df.loc[down_idx, 'lower_shadow'] = (df.loc[down_idx, 'Close'] - df.loc[down_idx, 'Low'])
-  
-  return df
 
 
