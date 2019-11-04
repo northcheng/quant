@@ -51,7 +51,7 @@ def get_min_max(x1, x2, f='min'):
 
 # ================================================================================== Rolling windows ==================================================================================== #
 # simple moving window
-def sm(series, periods, fillna=True):
+def sm(series, periods, fillna=False):
   """
   Simple Moving Window
 
@@ -66,7 +66,7 @@ def sm(series, periods, fillna=True):
   return series.rolling(window=periods, min_periods=periods)
 
 # exponential moving window
-def em(series, periods, fillna=True):
+def em(series, periods, fillna=False):
   """
   Exponential Moving Window
 
@@ -1667,7 +1667,7 @@ def add_mfi_features(df, n=14, close='Close', open='Open', high='High', low='Low
   df.drop('up_or_down', axis=1, inplace=True)
   return df
 
-# Relative Strength Index (RSI)
+#* Relative Strength Index (RSI)
 def add_rsi_features(df, n=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
   Calculate Relative Strength Index
@@ -1710,6 +1710,29 @@ def add_rsi_features(df, n=14, close='Close', open='Open', high='High', low='Low
     df['rsi_signal'] = 'n'
 
   return df
+
+# Stochastic Oscillator
+def add_stochastic_features(df, n=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+  """
+  Calculate Stochastic Oscillator
+
+  :param df: original OHLCV dataframe
+  :param n: ma window size
+  :param close: column name of the close
+  :param open: column name of the open
+  :param high: column name of the high
+  :param low: column name of the low
+  :param volume: column name of the volume
+  :param fillna: whether to fill na with 0
+  :param cal_signal: whether to calculate signal
+  :returns: dataframe with new features generated
+  """
+  # copy dataframe
+  df = df.copy()
+
+  # calculate stochastic
+
+
 
 # ================================================================================== Volatility indicators ============================================================================== #
 # Average True Range
@@ -1988,7 +2011,6 @@ def add_kc_features(df, n=10, close='Close', open='Open', high='High', low='Low'
     df.loc[sell_idx, 'kc_signal'] = 's'
 
   return df
-
 
 
 # ================================================================================== Indicator visualization  =========================================================================== #
