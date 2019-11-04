@@ -12,6 +12,7 @@ import ta
 
 
 # ================================================================================== Basic calculation ================================================================================== #
+# drop na valuse for dataframe
 def dropna(df):
   """
   Drop rows with "Nans" values
@@ -25,7 +26,7 @@ def dropna(df):
   df = df.dropna()
   return df
 
-
+# get max/min in 2 values
 def get_min_max(x1, x2, f='min'):
   """
   Get Max or Min value from 2 values
@@ -49,6 +50,7 @@ def get_min_max(x1, x2, f='min'):
 
 
 # ================================================================================== Rolling windows ==================================================================================== #
+# simple moving window
 def sm(series, periods, fillna=True):
   """
   Simple Moving Window
@@ -63,7 +65,7 @@ def sm(series, periods, fillna=True):
     return series.rolling(window=periods, min_periods=0)
   return series.rolling(window=periods, min_periods=periods)
 
-
+# exponential moving window
 def em(series, periods, fillna=True):
   """
   Exponential Moving Window
@@ -81,6 +83,7 @@ def em(series, periods, fillna=True):
 
 
 # ================================================================================== Change calculation ================================================================================= #
+# calculate change of a column in certain period
 def cal_change(df, target_col, periods=1, add_accumulation=True, add_prefix=False):
   """
   Calculate change of a column with a sliding window
@@ -131,7 +134,7 @@ def cal_change(df, target_col, periods=1, add_accumulation=True, add_prefix=Fals
 
   return df    
 
-
+# calculate change rate of a column in certain period
 def cal_change_rate(df, target_col, periods=1, add_accumulation=True, add_prefix=False, drop_na=False):
   """
   Calculate change rate of a column with a sliding window
@@ -187,6 +190,7 @@ def cal_change_rate(df, target_col, periods=1, add_accumulation=True, add_prefix
 
 
 # ================================================================================== Signal processing ================================================================================== #
+# calculate signal that generated from 2 lines crossover
 def cal_crossover_signal(df, fast_line, slow_line, result_col='signal', pos_signal='b', neg_signal='s', none_signal='n'):
   """
   Calculate signal generated from the crossover of 2 lines
@@ -231,7 +235,7 @@ def cal_crossover_signal(df, fast_line, slow_line, result_col='signal', pos_sign
   
   return df[[result_col]]
 
-
+# calculate signal that generated from trigering boundaries
 def cal_boundary_signal(df, upper_col, lower_col, upper_boundary, lower_boundary, result_col='signal', pos_signal='b', neg_signal='s', none_signal='n'):
   """
   Calculate signal generated from triger of boundaries
@@ -262,7 +266,7 @@ def cal_boundary_signal(df, upper_col, lower_col, upper_boundary, lower_boundary
 
   return df[[result_col]]
 
-
+# calculate trend signal
 def cal_trend_signal(df, trend_col, up_window=3, down_window=2, result_col='signal', pos_signal='b', neg_signal='s', none_signal='n'):
   """
   Calculate signal generated from trend change
@@ -295,7 +299,7 @@ def cal_trend_signal(df, trend_col, up_window=3, down_window=2, result_col='sign
 
   return df[[result_col]]
 
-
+# replace signal values 
 def replace_signal(df, signal_col='signal', replacement={'b':1, 's':-1, 'n': 0}):
 
   new_df = df.copy()
@@ -309,7 +313,7 @@ def replace_signal(df, signal_col='signal', replacement={'b':1, 's':-1, 'n': 0})
 
   return new_df
 
-
+# remove duplicated signals
 def remove_redundant_signal(df, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', keep='first'):
   """
   Remove redundant (duplicated continuous) signals, keep only the first or the last one
@@ -371,6 +375,7 @@ def remove_redundant_signal(df, signal_col='signal', pos_signal='b', neg_signal=
 
 
 # ================================================================================== Support/resistant ================================================================================== #
+# calculate peak / trough in price
 def cal_peak_trough(df, target_col, result_col='signal', peak_signal='p', trough_signal='t', none_signal='n', further_filter=True):
   """
   Calculate the position (signal) of the peak/trough of the target column
@@ -452,7 +457,76 @@ def cal_peak_trough(df, target_col, result_col='signal', peak_signal='p', trough
 
 
 
+# ================================================================================== Moving average ===================================================================================== #
+# calculate moving average 
+def cal_moving_average(df, target_col, ma_windows=[50, 105], start=None, end=None, window_type='em'):
+  """
+  Calculate moving average of the tarhet column with specific window size
+
+  :param df: original dataframe which contains target column
+  :param ma_windows: a list of moving average window size to be calculated
+  :param start: start date of the data
+  :param end: end date of the data
+  :param window_type: which moving window to be used: sm/em
+  :returns: dataframe with moving averages
+  :raises: none
+  """
+  # copy dataframe
+  df = df[start:end].copy()
+
+  # select moving window type
+  if window_type == 'em':
+    mw_func = em
+  elif window_type == 'sm':
+    mw_func = sm
+  else:
+    print('Unknown moving window type')
+    return df
+
+  # calculate moving averages
+  for mw in ma_windows:
+    ma_col = '%(target_col)s_ma_%(window_size)s' % dict(target_col=target_col, window_size=mw)
+    df[ma_col] = mw_func(series=df[target_col], periods=mw).mean()
+  
+  return df
+
+# calculate signal generated from 2 ma lines crossover
+def cal_moving_average_signal(df, target_col='Close', ma_windows=[50, 105], start=None, end=None, result_col='signal', pos_signal='b', neg_signal='s', none_signal='n'):
+  """
+  Calculate moving avergae signals gernerated from fast/slow moving average crossover
+
+  :param df: original dataframe which contains short/ling ma columns
+  :param short_ma_col: columnname of the short ma
+  :param long_ma_col: columnname of the long ma
+  :param start: start date of the data
+  :param end: end date of the data
+  :param result_col: columnname of the result signal
+  :param pos_signal: the value of positive signal
+  :param neg_siganl: the value of negative signal
+  :param none_signal: the value of none signal
+  :returns: dataframe with ma crossover signal
+  :raises: none
+  """
+  # calculate moving average
+  df = df[start : end].copy()
+  df[result_col] = none_signal
+
+  if len(ma_windows) > 2:
+    print('There should be only 2 moving average lines')
+
+  else:
+    short_ma_col = '%(col)s_ma_%(window_size)s' % dict(col=target_col, window_size=min(ma_windows))
+    long_ma_col = '%(col)s_ma_%(window_size)s' % dict(col=target_col, window_size=max(ma_windows))
+
+    # calculate ma crossover signal
+    df[result_col] = cal_crossover_signal(df=df, fast_line=short_ma_col, slow_line=long_ma_col, result_col=result_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal)
+
+  return df[result_col]
+
+
+
 # ================================================================================== Candle sticks ====================================================================================== #
+# add candle stick features 
 def add_candlestick_features(df, close='Close', open='Open', high='High', low='Low', volume='Volume'):
   """
   Add candlestick dimentions for dataframe
@@ -498,74 +572,9 @@ def add_candlestick_features(df, close='Close', open='Open', high='High', low='L
 
 
 
-# ================================================================================== Moving average ===================================================================================== #
-def cal_moving_average(df, target_col, ma_windows=[50, 105], start=None, end=None, window_type='em'):
-  """
-  Calculate moving average of the tarhet column with specific window size
-
-  :param df: original dataframe which contains target column
-  :param ma_windows: a list of moving average window size to be calculated
-  :param start: start date of the data
-  :param end: end date of the data
-  :param window_type: which moving window to be used: sm/em
-  :returns: dataframe with moving averages
-  :raises: none
-  """
-  # copy dataframe
-  df = df[start:end].copy()
-
-  # select moving window type
-  if window_type == 'em':
-    mw_func = em
-  elif window_type == 'sm':
-    mw_func = sm
-  else:
-    print('Unknown moving window type')
-    return df
-
-  # calculate moving averages
-  for mw in ma_windows:
-    ma_col = '%(target_col)s_ma_%(window_size)s' % dict(target_col=target_col, window_size=mw)
-    df[ma_col] = mw_func(series=df[target_col], periods=mw).mean()
-  
-  return df
-
-
-def cal_moving_average_signal(df, target_col='Close', ma_windows=[50, 105], start=None, end=None, result_col='signal', pos_signal='b', neg_signal='s', none_signal='n'):
-  """
-  Calculate moving avergae signals gernerated from fast/slow moving average crossover
-
-  :param df: original dataframe which contains short/ling ma columns
-  :param short_ma_col: columnname of the short ma
-  :param long_ma_col: columnname of the long ma
-  :param start: start date of the data
-  :param end: end date of the data
-  :param result_col: columnname of the result signal
-  :param pos_signal: the value of positive signal
-  :param neg_siganl: the value of negative signal
-  :param none_signal: the value of none signal
-  :returns: dataframe with ma crossover signal
-  :raises: none
-  """
-  # calculate moving average
-  df = df[start : end].copy()
-  df[result_col] = none_signal
-
-  if len(ma_windows) > 2:
-    print('There should be only 2 moving average lines')
-
-  else:
-    short_ma_col = '%(col)s_ma_%(window_size)s' % dict(col=target_col, window_size=min(ma_windows))
-    long_ma_col = '%(col)s_ma_%(window_size)s' % dict(col=target_col, window_size=max(ma_windows))
-
-    # calculate ma crossover signal
-    df[result_col] = cal_crossover_signal(df=df, fast_line=short_ma_col, slow_line=long_ma_col, result_col=result_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal)
-
-  return df[result_col]
-
-
 
 # ================================================================================== Trend indicators =================================================================================== #
+# ADX(Average Directional Index) 
 def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, adx_threshold=25):
   """
   Calculate ADX(Average Directional Index)
@@ -650,7 +659,7 @@ def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low
 
   return df
 
-
+# Aroon
 def add_aroon_features(df, n=25, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, boundary=[50, 50]):
   """
   Calculate Aroon
@@ -697,7 +706,7 @@ def add_aroon_features(df, n=25, close='Close', open='Open', high='High', low='L
 
   return df
 
-
+# CCI(Commidity Channel Indicator)
 def add_cci_features(df, n=20, c=0.015, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, boundary=[200, -200]):
   """
   Calculate CCI(Commidity Channel Indicator) 
@@ -734,10 +743,10 @@ def add_cci_features(df, n=20, c=0.015, close='Close', open='Open', high='High',
 
   return df
 
-
+# DPO(Detrended Price Oscillator)
 def add_dpo_features(df, n=20, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
-  Calculate DPO(Detrended Price Oscillator ) 
+  Calculate DPO(Detrended Price Oscillator) 
 
   :param df: original OHLCV dataframe
   :param n: look back window size
@@ -769,7 +778,7 @@ def add_dpo_features(df, n=20, close='Close', open='Open', high='High', low='Low
 
   return df
 
-
+# Ichimoku 
 def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is_shift=True, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_status=True, cal_signal=True, signal_threshold=2):
   """
   Calculate Ichimoku indicators
@@ -925,7 +934,7 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
 
   return df
 
-
+# KST(Know Sure Thing)
 def add_kst_features(df, r1=10, r2=15, r3=20, r4=30, n1=10, n2=10, n3=10, n4=15, nsign=9, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, signal_mode='mix'):
   """
   Calculate KST(Know Sure Thing)
@@ -1005,7 +1014,7 @@ def add_kst_features(df, r1=10, r2=15, r3=20, r4=30, n1=10, n2=10, n3=10, n4=15,
   df.drop('zero', axis=1, inplace=True)
   return df
 
-
+# MACD(Moving Average Convergence Divergence)
 def add_macd_features(df, n_fast=12, n_slow=26, n_sign=9, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
   Calculate MACD(Moving Average Convergence Divergence)
@@ -1054,7 +1063,7 @@ def add_macd_features(df, n_fast=12, n_slow=26, n_sign=9, close='Close', open='O
 
   return df
 
-
+# Mass Index
 def add_mi_features(df, n=9, n2=25, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
   Calculate Mass Index
@@ -1104,7 +1113,7 @@ def add_mi_features(df, n=9, n2=25, close='Close', open='Open', high='High', low
 
   return df
 
-
+# TRIX
 def add_trix_features(df, n=15, n_sign=9, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, signal_mode='mix'):
   """
   Calculate TRIX
@@ -1170,7 +1179,7 @@ def add_trix_features(df, n=15, n_sign=9, close='Close', open='Open', high='High
 
   return df
 
-
+# Vortex
 def add_vortex_features(df, n=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
   Calculate Vortex indicator
@@ -1886,6 +1895,7 @@ def add_kc_features(df, n=10, close='Close', open='Open', high='High', low='Low'
 
 
 # ================================================================================== Indicator visualization  =========================================================================== #
+# plot signals on price line
 def plot_signal(df, start=None, end=None, price_col='Close', signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', filter_signal=None, use_ax=None, figsize=(20, 5), title=None, title_rotation='vertical', title_x=-0.05, title_y=0.3):
   """
   Plot signals along with the price
@@ -1946,7 +1956,7 @@ def plot_signal(df, start=None, end=None, price_col='Close', signal_col='signal'
   if use_ax is not None:
     return ax
 
-
+# plot peack and trough on price line
 def plot_peak_trough(df, start=None, end=None, price_col='Close', high_col='High', low_col='Low', signal_col='signal', pos_signal='p', neg_signal='t', none_signal='n', filter_signal=None, use_ax=None, figsize=(20, 5), title=None, title_rotation='vertical', title_x=-0.05, title_y=0.3):
   """
   Plot peaks and throughs
@@ -2007,7 +2017,7 @@ def plot_peak_trough(df, start=None, end=None, price_col='Close', high_col='High
   if use_ax is not None:
     return ax
 
-
+# plot ichimoku chart
 def plot_ichimoku(df, start=None, end=None, price_col='Close', signal_col='signal',  pos_signal='b', neg_signal='s', none_signal='n', filter_signal='first', use_ax=None, figsize=(20, 5), title=None, title_rotation='vertical', title_x=-0.05, title_y=0.3):
   """
   Plot ichimoku chart
@@ -2061,7 +2071,7 @@ def plot_ichimoku(df, start=None, end=None, price_col='Close', signal_col='signa
   if use_ax is not None:
     return ax
 
-
+# plot general ta indicators
 def plot_indicator(df, target_col, start=None, end=None, price_col='Close', signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', filter_signal=None, benchmark=None, boundary=None, color_mode='up_down', use_ax=None, figsize=(20, 5),  title=None, plot_price_in_twin_ax=False, title_rotation='vertical', title_x=-0.05, title_y=0.3):
   """
   Plot indicators around a benchmark
@@ -2153,7 +2163,7 @@ def plot_indicator(df, target_col, start=None, end=None, price_col='Close', sign
   if use_ax is not None:
     return ax
 
-
+# plot candlestick charts
 def plot_candlestick(df, start=None, end=None, open_col='Open', high_col='High', low_col='Low', close_col='Close', date_col='Date', plot_kama=True, use_ax=None, figsize=(20, 5), title=None, width=0.8, colorup='green', colordown='red', alpha=0.8, title_rotation='vertical', title_x=-0.05, title_y=0.8):
   """
   Plot candlestick data
@@ -2209,7 +2219,7 @@ def plot_candlestick(df, start=None, end=None, open_col='Open', high_col='High',
   if use_ax is not None:
     return ax
 
-
+# plot multiple indicators on a same chart
 def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reversion':1}, 'mean_reversion': {'std_multiple': 2}}, start=None, end=None, save_path=None, show_image=False, title=None, unit_size=3, ws=0, hs=0, title_rotation='horizontal', title_x=0.5, title_y=0.9, subtitle_rotation='vertical', subtitle_x=-0.05, subtitle_y=0.3):
   """
   Plot Ichimoku and mean reversion in a same plot
