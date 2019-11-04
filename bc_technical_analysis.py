@@ -1693,9 +1693,9 @@ def add_rsi_features(df, n=14, close='Close', open='Open', high='High', low='Low
   up, down = diff, diff*0
   up[which_down], down[which_down] = 0, -up[which_down]
 
-  emaup = em(up, n, fillna).mean()
-  emadown = em(down, n, fillna).mean()
-
+  emaup = up.ewm(com=n-1, min_periods=0).mean()
+  emadown = dn.ewm(com=n-1, min_periods=0).mean()
+  
   rsi = 100 * emaup / (emaup + emadown)
 
   # fill na values
