@@ -1541,7 +1541,7 @@ def add_kama_features(df, n_param = {'kama_fast': [10, 20, 30], 'kama_slow': [10
     df.loc[buy_idx, 'kama_signal'] = 'b'
     df.loc[sell_idx, 'kama_signal'] = 's'
 
-  return df['kama_signal']
+  return df
 
 #----------------------------- Volatility indicators ----------------------------#
 def add_atr_features(df, n=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
