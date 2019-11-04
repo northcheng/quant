@@ -1614,7 +1614,7 @@ def add_kama_features(df, n_param={'kama_fast': [10, 2, 30], 'kama_slow': [10, 5
 
   return df
 
-# Money Flow Index(MFI)
+#* Money Flow Index(MFI)
 def add_mfi_features(df, n=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
   Calculate Money Flow Index Signal
@@ -1667,6 +1667,49 @@ def add_mfi_features(df, n=14, close='Close', open='Open', high='High', low='Low
   df.drop('up_or_down', axis=1, inplace=True)
   return df
 
+# Relative Strength Index (RSI)
+def add_rsi_features(df, n=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+  """
+  Calculate Relative Strength Index
+
+  :param df: original OHLCV dataframe
+  :param n: ma window size
+  :param close: column name of the close
+  :param open: column name of the open
+  :param high: column name of the high
+  :param low: column name of the low
+  :param volume: column name of the volume
+  :param fillna: whether to fill na with 0
+  :param cal_signal: whether to calculate signal
+  :returns: dataframe with new features generated
+  """
+  # copy dataframe
+  df = df.copy()
+
+  # calculate RSI
+  diff = df[close].diff(1)
+  which_down = diff < 0
+
+  up, down = diff, diff*0
+  up[which_down], down[which_down] = 0, -up[which_down]
+
+  emaup = em(up, n, fillna).mean()
+  emadown = em(down, n, fillna).mean()
+
+  rsi = 100 * emaup / (emaup + emadown)
+
+  # fill na values
+  if fillna:
+    rsi = rsi.replace([np.inf, -np.inf], np.nan).fillna(0)
+
+  # assign rsi to df
+  df['rsi'] = rsi
+
+  # calculate signals
+  if cal_signal:
+    df['rsi_signal'] = 'n'
+
+  return df
 
 # ================================================================================== Volatility indicators ============================================================================== #
 # Average True Range
