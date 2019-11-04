@@ -1664,6 +1664,9 @@ def add_mfi_features(df, n=14, close='Close', open='Open', high='High', low='Low
   if cal_signal:
     df['mfi_signal'] = 'n'
 
+  df.drop('up_or_down', axis=1, inplace=True)
+  return df
+
 
 # ================================================================================== Volatility indicators ============================================================================== #
 # Average True Range
