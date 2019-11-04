@@ -1694,8 +1694,8 @@ def add_rsi_features(df, n=14, close='Close', open='Open', high='High', low='Low
   up[which_down], down[which_down] = 0, -up[which_down]
 
   emaup = up.ewm(com=n-1, min_periods=0).mean()
-  emadown = dn.ewm(com=n-1, min_periods=0).mean()
-  
+  emadown = down.ewm(com=n-1, min_periods=0).mean()
+
   rsi = 100 * emaup / (emaup + emadown)
 
   # fill na values
@@ -1884,7 +1884,7 @@ def add_bb_features(df, n=20, ndev=2, close='Close', open='Open', high='High', l
 
   # calculate bollinger band 
   mavg = sm(series=df[close], periods=n).mean()
-  mstd = sm(series=df[close], periods=n).std()
+  mstd = sm(series=df[close], periods=n).std(ddof=0)
   high_band = mavg + ndev*mstd
   low_band = mavg - ndev*mstd
 
