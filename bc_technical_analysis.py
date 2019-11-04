@@ -1225,7 +1225,7 @@ def add_vortex_features(df, n=14, close='Close', open='Open', high='High', low='
 
 
 # ================================================================================== Volume indicators ================================================================================== #
-# *
+# Accumulation Distribution Index
 def add_adi_features(df, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
   Calculate Accumulation Distribution Index
@@ -1461,7 +1461,7 @@ def add_vpt_features(df, close='Close', open='Open', high='High', low='Low', vol
 
 
 # ================================================================================== Momentum indicators ================================================================================ #
-# *
+# Awesome Oscillator
 def add_ao_features(df, n_short=5, n_long=34, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
   Calculate Awesome Oscillator
@@ -1502,7 +1502,7 @@ def add_ao_features(df, n_short=5, n_long=34, close='Close', open='Open', high='
 
   return df
 
-
+# Kaufman's Adaptive Moving Average (KAMA)
 def cal_kama(df, n1=10, n2=2, n3=30, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False):
   """
   Calculate Kaufman's Adaptive Moving Average
@@ -1557,7 +1557,7 @@ def cal_kama(df, n1=10, n2=2, n3=30, close='Close', open='Open', high='High', lo
 
   return df
 
-
+# Kaufman's Adaptive Moving Average (KAMA)
 def add_kama_features(df, n_param={'kama_fast': [10, 2, 30], 'kama_slow': [10, 5, 30]}, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
   Calculate Kaufman's Adaptive Moving Average Signal
@@ -1614,8 +1614,59 @@ def add_kama_features(df, n_param={'kama_fast': [10, 2, 30], 'kama_slow': [10, 5
 
   return df
 
+# Money Flow Index(MFI)
+def add_mfi_features(df, n=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+  """
+  Calculate Money Flow Index Signal
+
+  :param df: original OHLCV dataframe
+  :param n: ma window size
+  :param close: column name of the close
+  :param open: column name of the open
+  :param high: column name of the high
+  :param low: column name of the low
+  :param volume: column name of the volume
+  :param fillna: whether to fill na with 0
+  :param cal_signal: whether to calculate signal
+  :returns: dataframe with new features generated
+  """
+  # copy dataframe
+  df = df.copy()
+
+  # calculate adi
+  typical_price = (df[high] + df[low] + df[close])  / 3.0
+
+  df['up_or_down'] = 0
+  df.loc[(typical_price > typical_price.shift(1)), 'up_or_down'] = 1
+  df.loc[(typical_price < typical_price.shift(1)), 'up_or_down'] = -1
+
+  money_flow = typical_price * df[volume] * df['up_or_down']
+
+  n_positive_mf = money_flow.rolling(n).apply(
+    lambda x: np.sum(np.where(x >= 0.0, x, 0.0)), 
+    raw=True)
+
+  n_negative_mf = abs(money_flow.rolling(n).apply(
+    lambda x: np.sum(np.where(x < 0.0, x, 0.0)),
+    raw=True))
+
+  mfi = n_positive_mf / n_negative_mf
+  mfi = (100 - (100 / (1 + mfi)))
+
+  # fill na values
+  if fillna:
+    mfi = mfi.replace([np.inf, -np.inf], np.nan).fillna(0)
+
+  # assign mfi to df
+  df['mfi'] = mfi
+
+  # calculate signals
+  if cal_signal:
+    df['mfi_signal'] = 'n'
+
 
 # ================================================================================== Volatility indicators ============================================================================== #
+# Average True Range
 def add_atr_features(df, n=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
   Calculate Average True Range
@@ -1661,7 +1712,7 @@ def add_atr_features(df, n=14, close='Close', open='Open', high='High', low='Low
 
   return df
 
-
+# Mean Reversion
 def add_mean_reversion_features(df, n=100, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, mr_threshold=2):
   """
   Calculate Mean Reversion
@@ -1721,7 +1772,7 @@ def add_mean_reversion_features(df, n=100, close='Close', open='Open', high='Hig
 
   return df
 
-
+# calculate price that will triger mean reversion signal
 def cal_mean_reversion_expected_rate(df, rate_col, n=100, mr_threshold=2):
   """
   Calculate the expected rate change to triger mean-reversion signals
@@ -1742,7 +1793,7 @@ def cal_mean_reversion_expected_rate(df, rate_col, n=100, mr_threshold=2):
 
   return result
 
-# *
+# Bollinger Band
 def add_bb_features(df, n=20, ndev=2, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
   Calculate Bollinger Band
@@ -1790,7 +1841,7 @@ def add_bb_features(df, n=20, ndev=2, close='Close', open='Open', high='High', l
 
   return df
 
-# *
+# Donchian Channel
 def add_dc_features(df, n=20, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
   Calculate Donchian Channel
@@ -1835,7 +1886,7 @@ def add_dc_features(df, n=20, close='Close', open='Open', high='High', low='Low'
 
   return df
 
-# *
+# Keltner channel (KC)
 def add_kc_features(df, n=10, close='Close', open='Open', high='High', low='Low', volume='Volume', method='atr', fillna=False, cal_signal=True):
   """
   Calculate Keltner channel (KC)
