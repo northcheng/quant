@@ -1658,7 +1658,7 @@ def add_kama_features(df, n_param={'kama_fast': [10, 2, 30], 'kama_slow': [10, 5
 
   return df
 
-#* Money Flow Index(MFI)
+# Money Flow Index(MFI)
 def add_mfi_features(df, n=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, boundary=[20, 80]):
   """
   Calculate Money Flow Index Signal
@@ -1697,9 +1697,9 @@ def add_mfi_features(df, n=14, close='Close', open='Open', high='High', low='Low
   mfi = n_positive_mf / n_negative_mf
   mfi = (100 - (100 / (1 + mfi)))
 
-  # fill na values
+  # fill na values, as 50 is the central line (mfi wave between 0-100)
   if fillna:
-    mfi = mfi.replace([np.inf, -np.inf], np.nan).fillna(0)
+    mfi = mfi.replace([np.inf, -np.inf], np.nan).fillna(50)
 
   # assign mfi to df
   df['mfi'] = mfi
@@ -1713,7 +1713,7 @@ def add_mfi_features(df, n=14, close='Close', open='Open', high='High', low='Low
   return df
 
 #* Relative Strength Index (RSI)
-def add_rsi_features(df, n=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+def add_rsi_features(df, n=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, boundary=[30, 70]):
   """
   Calculate Relative Strength Index
 
@@ -1743,16 +1743,17 @@ def add_rsi_features(df, n=14, close='Close', open='Open', high='High', low='Low
 
   rsi = 100 * emaup / (emaup + emadown)
 
-  # fill na values
+  # fill na values, as 50 is the central line (rsi wave between 0-100)
   if fillna:
-    rsi = rsi.replace([np.inf, -np.inf], np.nan).fillna(0)
+    rsi = rsi.replace([np.inf, -np.inf], np.nan).fillna(50)
 
   # assign rsi to df
   df['rsi'] = rsi
 
   # calculate signals
   if cal_signal:
-    df['rsi_signal'] = 'n'
+    df['rsi_signal'] = cal_boundary_signal(df=df, upper_col='rsi', lower_col='rsi', upper_boundary=max(boundary), lower_boundary=min(boundary), result_col='signal', pos_signal='s', neg_signal='b', none_signal='n')
+    df = remove_redundant_signal(df=df, signal_col='mfi_signal', pos_signal='s', neg_signal='b', none_signal='n', keep='first')
 
   return df
 
