@@ -1744,7 +1744,7 @@ def add_stochastic_features(df, n=14, d_n=3, close='Close', open='Open', high='H
 
   # assign stochastic values to df
   df['stoch_k'] = stoch_k
-  df['stock_d'] = stock_d
+  df['stoch_d'] = stock_d
 
   # calculate signals
   if cal_signal:
