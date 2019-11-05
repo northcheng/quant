@@ -2321,11 +2321,8 @@ def plot_peak_trough(df, start=None, end=None, price_col='Close', high_col='High
   ax.plot(last_trough.index, last_trough[price_col], label='trough_trend', color='red', linestyle='--', marker='v', alpha=0.8)
 
   # legend and title
-  # title and legend
-  ax.legend(bbox_to_anchor=(1.02, 0.), loc=3, ncol=1, borderaxespad=0.) 
+  ax.legend(loc='upper left')  
   ax.set_title(title, rotation=title_rotation, x=title_x, y=title_y)
-  # ax.legend(loc='upper left')  
-  # ax.set_title(title, rotation=title_rotation, x=title_x, y=title_y)
 
   if use_ax is not None:
     return ax
@@ -2536,7 +2533,7 @@ def plot_candlestick(df, start=None, end=None, open_col='Open', high_col='High',
     return ax
 
 # plot multiple indicators on a same chart
-def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reversion':1}, 'mean_reversion': {'std_multiple': 2}}, start=None, end=None, save_path=None, show_image=False, title=None, unit_size=3, ws=0, hs=0, title_rotation='horizontal', title_x=0.5, title_y=0.9, subtitle_rotation='vertical', subtitle_x=-0.05, subtitle_y=0.3):
+def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reversion':1}, 'mean_reversion': {'std_multiple': 2}}, start=None, end=None, save_path=None, show_image=False, title=None, unit_size=3, ws=0, hs=0.2, title_rotation='horizontal', title_x=0.5, title_y=0.9, subtitle_rotation='vertical', subtitle_x=-0.05, subtitle_y=0.3):
   """
   Plot Ichimoku and mean reversion in a same plot
   :param df: dataframe with ichimoku and mean reversion columns
