@@ -1263,7 +1263,7 @@ def add_adi_features(df, close='Close', open='Open', high='High', low='Low', vol
 
   return df
 
-# *
+# *Chaikin Money Flow (CMF)
 def add_cmf_features(df, n=20, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
   Calculate Chaikin Money FLow
@@ -1302,7 +1302,7 @@ def add_cmf_features(df, n=20, close='Close', open='Open', high='High', low='Low
 
   return df
 
-# *
+# *Ease of movement (EoM, EMV)
 def add_eom_features(df, n=20, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
   Calculate Vortex indicator
@@ -1339,7 +1339,7 @@ def add_eom_features(df, n=20, close='Close', open='Open', high='High', low='Low
 
   return df
 
-# *
+# *Force Index (FI)
 def add_fi_features(df, n=2, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
   Calculate Force Index
@@ -1375,9 +1375,52 @@ def add_fi_features(df, n=2, close='Close', open='Open', high='High', low='Low',
 
   return df
 
-# *def add_nvi_features(df, n=20, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+# *Negative Volume Index (NVI)
+def add_nvi_features(df, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+  """
+  Calculate Negative Volume Index (NVI)
 
-# *
+  :param df: original OHLCV dataframe
+  :param n: ema window of close price
+  :param close: column name of the close
+  :param open: column name of the open
+  :param high: column name of the high
+  :param low: column name of the low
+  :param volume: column name of the volume
+  :param fillna: whether to fill na with 0
+  :param cal_signal: whether to calculate signal
+  :returns: dataframe with new features generated
+  """
+  # copy dataframe
+  df = df.copy()
+
+  # calculate nvi
+  price_change = df[close].pct_change()
+  vol_decress = (df[volume].shift(1) > df[volume])
+
+  nvi = pd.Series(data=np.nan, index=df[close].index, dtype='float64', name='nvi')
+
+  nvi.iloc[0] = 1000
+  for i in range(1, len(nvi)):
+    if vol_decress.iloc[i]:
+      nvi.iloc[i] = nvi.iloc[i-1] * (1.0 + price_change.iloc[i])
+    else:
+      nvi.iloc[i] = nvi.iloc[i-1]
+
+  # fill na values
+  if fillna:
+    nvi = nvi.replace([np.inf, -np.inf], np.nan).fillna(0)
+
+  # assign nvi to df
+  df['nvi'] = nvi
+
+  # calculate signal
+  if cal_signal:
+    df['nvi_signal'] = 'n'
+
+  return df
+
+# *On-balance volume (OBV)
 def add_obv_features(df, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
   Calculate Force Index
@@ -1419,7 +1462,7 @@ def add_obv_features(df, close='Close', open='Open', high='High', low='Low', vol
 
   return df_original
 
-
+# *Volume-price trend (VPT)
 def add_vpt_features(df, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
   Calculate Vortex indicator
@@ -1457,6 +1500,7 @@ def add_vpt_features(df, close='Close', open='Open', high='High', low='Low', vol
   df.drop(['close_change_rate'], axis=1, inplace=True)
 
   return df
+
 
 
 
