@@ -1439,7 +1439,6 @@ def add_obv_features(df, close='Close', open='Open', high='High', low='Low', vol
   df = df.copy()
 
   # calculate obv
-  # df = df[[close, volume]]
   df['OBV'] = np.nan
   c1 = df[close] < df[close].shift(1)
   c2 = df[close] > df[close].shift(1)
@@ -2322,8 +2321,11 @@ def plot_peak_trough(df, start=None, end=None, price_col='Close', high_col='High
   ax.plot(last_trough.index, last_trough[price_col], label='trough_trend', color='red', linestyle='--', marker='v', alpha=0.8)
 
   # legend and title
-  ax.legend(loc='upper left')  
+  # title and legend
+  ax.legend(bbox_to_anchor=(1.02, 0.), loc=3, ncol=1, borderaxespad=0.) 
   ax.set_title(title, rotation=title_rotation, x=title_x, y=title_y)
+  # ax.legend(loc='upper left')  
+  # ax.set_title(title, rotation=title_rotation, x=title_x, y=title_y)
 
   if use_ax is not None:
     return ax
