@@ -1439,7 +1439,7 @@ def add_obv_features(df, close='Close', open='Open', high='High', low='Low', vol
   df_original = df.copy()
 
   # calculate obv
-  df = df[[close, volume]].transpose()
+  df = df[[close, volume]]
   df['OBV'] = np.nan
   c1 = df[close] < df[close].shift(1)
   c2 = df[close] > df[close].shift(1)
