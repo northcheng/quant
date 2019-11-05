@@ -1791,6 +1791,59 @@ def add_tsi_features(df, r=25, s=13, close='Close', open='Open', high='High', lo
 
   return df
 
+#* Ultimate Oscillator
+def add_uo_features(df, s=7, m=14, l=28, ws=4.0, wm=2.0, wl=1.0, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+  """
+  Calculate Stochastic Oscillator
+
+  :param df: original OHLCV dataframe
+  :param s: short ma window size 
+  :param m: mediem window size
+  :param l: long window size
+  :param ws: weight for short period
+  :param wm: weight for medium period
+  :param wl: weight for long period
+  :param close: column name of the close
+  :param open: column name of the open
+  :param high: column name of the high
+  :param low: column name of the low
+  :param volume: column name of the volume
+  :param fillna: whether to fill na with 0
+  :param cal_signal: whether to calculate signal
+  :returns: dataframe with new features generated
+  """
+  # copy dataframe
+  df = df.copy()
+
+  # calculate uo
+  min_l_or_pc = df[close].shift(1, fill_value=df[close].mean()).combine(df[low].min)
+  max_h_or_pc = df[close].shift(1, fill_value=df[close].mean()).combine(df[high].max)
+
+  bp = df[close] - min_l_or_pc
+  tr = max_h_or_pc - min_l_or_pc
+
+  avg_s = bp.rolling(s, min_periods=0).sum() / tr.rolling(s, min_periods=0).sum()
+  avg_m = bp.rolling(m, min_periods=0).sum() / tr.rolling(m, min_periods=0).sum()
+  avg_l = bp.rolling(l, min_periods=0).sum() / tr.rolling(l, min_periods=0).sum()
+
+  uo = 100.0 * ((ws * avg_s) + (wm * avg_m) + (wl * avg_l)) / (ws + wm + wl)
+
+  # fill na values
+  if fillna:
+    uo = uo.replace([np.inf, -np.inf], np.nan).fillna(0)
+
+  # assign uo to df
+  df['uo'] = uo
+
+  # calculate signal
+  if cal_signal:
+    df['uo_signal'] = 'n'
+
+  return df
+
+
+
+
 # ================================================================================== Volatility indicators ============================================================================== #
 # Average True Range
 def add_atr_features(df, n=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
