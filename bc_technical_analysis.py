@@ -1816,8 +1816,8 @@ def add_uo_features(df, s=7, m=14, l=28, ws=4.0, wm=2.0, wl=1.0, close='Close', 
   df = df.copy()
 
   # calculate uo
-  min_l_or_pc = df[close].shift(1, fill_value=df[close].mean()).combine(df[low].min)
-  max_h_or_pc = df[close].shift(1, fill_value=df[close].mean()).combine(df[high].max)
+  min_l_or_pc = df[close].shift(1, fill_value=df[close].mean()).combine(df[low], min)
+  max_h_or_pc = df[close].shift(1, fill_value=df[close].mean()).combine(df[high], max)
 
   bp = df[close] - min_l_or_pc
   tr = max_h_or_pc - min_l_or_pc
