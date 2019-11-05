@@ -1711,13 +1711,14 @@ def add_rsi_features(df, n=14, close='Close', open='Open', high='High', low='Low
 
   return df
 
-# Stochastic Oscillator
-def add_stochastic_features(df, n=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+#* Stochastic Oscillator
+def add_stochastic_features(df, n=14, d_n=3, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
   Calculate Stochastic Oscillator
 
   :param df: original OHLCV dataframe
   :param n: ma window size
+  :param d_n: ma window size for stoch
   :param close: column name of the close
   :param open: column name of the open
   :param high: column name of the high
@@ -1731,6 +1732,25 @@ def add_stochastic_features(df, n=14, close='Close', open='Open', high='High', l
   df = df.copy()
 
   # calculate stochastic
+  stoch_min = df[low].rolling(n, min_periods=0).min()
+  stoch_max = df[high].rolling(n, min_periods=0).max()
+  stoch_k = 100 * (df[close] - stoch_min) / (stoch_max - stoch_min)
+  stock_d = stoch_k.rolling(d_n, min_periods=0).mean()
+
+  # fill na values
+  if fillna:
+    stoch_k = stoch_k.replace([np.inf, -np.inf], np.nan).fillna(0)
+    stoch_d = stoch_d.replace([np.inf, -np.inf], np.nan).fillna(0)
+
+  # assign stochastic values to df
+  df['stoch_k'] = stoch_k
+  df['stock_d'] = stock_d
+
+  # calculate signals
+  if calculate_signal:
+    df['stoch_signal'] = 'n'
+
+  return df
 
 
 
