@@ -1781,7 +1781,7 @@ def add_stoch_features(df, n=14, d_n=3, close='Close', open='Open', high='High',
   stoch_min = df[low].rolling(n, min_periods=0).min()
   stoch_max = df[high].rolling(n, min_periods=0).max()
   stoch_k = 100 * (df[close] - stoch_min) / (stoch_max - stoch_min)
-  stock_d = stoch_k.rolling(d_n, min_periods=0).mean()
+  stoch_d = stoch_k.rolling(d_n, min_periods=0).mean()
 
   # fill na values
   if fillna:
@@ -1790,11 +1790,11 @@ def add_stoch_features(df, n=14, d_n=3, close='Close', open='Open', high='High',
 
   # assign stochastic values to df
   df['stoch_k'] = stoch_k
-  df['stoch_d'] = stock_d
+  df['stoch_d'] = stoch_d
 
   # calculate signals
   if cal_signal:
-    df['stoch_signal'] = 'n'
+    df['stoch_signal'] = cal_crossover_signal(df=df, fast_line=stoch_k, slow_line=stoch_d, result_col='signal', pos_signal='b', neg_signal='s', none_signal='n')
 
   return df
 
