@@ -1706,7 +1706,7 @@ def add_mfi_features(df, n=14, close='Close', open='Open', high='High', low='Low
 
   # calculate signals
   if cal_signal:
-    df['mfi_signal'] = cal_boundary_signal(df=df, upper_col='mfi', lower_col='mfi', upper_boundary=max(boundary), lower_boundary=min(boundary), result_col='signal', pos_signal='b', neg_signal='s', none_signal='n')
+    df['mfi_signal'] = cal_boundary_signal(df=df, upper_col='mfi', lower_col='mfi', upper_boundary=max(boundary), lower_boundary=min(boundary), result_col='signal', pos_signal='s', neg_signal='b', none_signal='n')
 
   df.drop('up_or_down', axis=1, inplace=True)
   return df
