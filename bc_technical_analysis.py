@@ -1755,7 +1755,7 @@ def add_stoch_features(df, n=14, d_n=3, close='Close', open='Open', high='High',
 #* True strength index (TSI)
 def add_tsi_features(df, r=25, s=13, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
-  Calculate Stochastic Oscillator
+  Calculate True strength index
 
   :param df: original OHLCV dataframe
   :param r: ma window size for high
@@ -1794,7 +1794,7 @@ def add_tsi_features(df, r=25, s=13, close='Close', open='Open', high='High', lo
 #* Ultimate Oscillator
 def add_uo_features(df, s=7, m=14, l=28, ws=4.0, wm=2.0, wl=1.0, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
-  Calculate Stochastic Oscillator
+  Calculate Ultimate Oscillator
 
   :param df: original OHLCV dataframe
   :param s: short ma window size 
@@ -1841,6 +1841,43 @@ def add_uo_features(df, s=7, m=14, l=28, ws=4.0, wm=2.0, wl=1.0, close='Close', 
 
   return df
 
+#* Williams %R
+def add_wr_features(df, lbp=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+  """
+  Calculate Williams %R
+
+  :param df: original OHLCV dataframe
+  :param lbp: look back period
+  :param close: column name of the close
+  :param open: column name of the open
+  :param high: column name of the high
+  :param low: column name of the low
+  :param volume: column name of the volume
+  :param fillna: whether to fill na with 0
+  :param cal_signal: whether to calculate signal
+  :returns: dataframe with new features generated
+  """
+  # copy dataframe
+  df = df.copy()
+
+  # calculate wr
+  hh = df[high].rolling(lbp, min_periods=0).max()
+  ll = df[low].rolling(lbp, min_periods=0).min()
+
+  wr = -100 * (hh - df[close]) / (hh - ll)
+
+  # fill na values
+  if fillna:
+    wr = wr.replace([np.inf, -np.inf], np.nan).fillna(0)
+
+  # assign wr to df
+  df['wr'] = wr
+
+  # calulate signal
+  if cal_signal:
+    df['wr_signal'] = 'n'
+
+  return df
 
 
 
