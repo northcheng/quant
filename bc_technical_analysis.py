@@ -1794,7 +1794,7 @@ def add_stoch_features(df, n=14, d_n=3, close='Close', open='Open', high='High',
 
   # calculate signals
   if cal_signal:
-    df['stoch_signal'] = cal_crossover_signal(df=df, fast_line=stoch_k, slow_line=stoch_d, result_col='signal', pos_signal='b', neg_signal='s', none_signal='n')
+    df['stoch_signal'] = cal_crossover_signal(df=df, fast_line='stoch_k', slow_line='stoch_d', result_col='signal', pos_signal='b', neg_signal='s', none_signal='n')
 
   return df
 
