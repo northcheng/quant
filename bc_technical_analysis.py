@@ -1712,7 +1712,7 @@ def add_rsi_features(df, n=14, close='Close', open='Open', high='High', low='Low
   return df
 
 #* Stochastic Oscillator
-def add_stochastic_features(df, n=14, d_n=3, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+def add_stoch_features(df, n=14, d_n=3, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
   Calculate Stochastic Oscillator
 
@@ -1752,7 +1752,44 @@ def add_stochastic_features(df, n=14, d_n=3, close='Close', open='Open', high='H
 
   return df
 
+#* True strength index (TSI)
+def add_tsi_features(df, r=25, s=13, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+  """
+  Calculate Stochastic Oscillator
 
+  :param df: original OHLCV dataframe
+  :param r: ma window size for high
+  :param s: ma window size for low
+  :param close: column name of the close
+  :param open: column name of the open
+  :param high: column name of the high
+  :param low: column name of the low
+  :param volume: column name of the volume
+  :param fillna: whether to fill na with 0
+  :param cal_signal: whether to calculate signal
+  :returns: dataframe with new features generated
+  """
+  # copy dataframe
+  df = df.copy()
+
+  # calculate tsi
+  m = df[close] - df[close].shift(1, fill_value=df[close].mean())
+  m1 = m.ewm(r).mean().ewm(s).mean()
+  m2 = abs(m).ewm(r).mean().ewm(s).mean()
+  tsi = 100 * (m1 / m2)
+
+  # fill na values
+  if fillna:
+    tsi = tsi.replace([np.inf, -np.inf], np.nan).fillna(0)
+
+  # assign tsi to df
+  df['tsi'] = tsi
+
+  # calculate signal
+  if cal_signal:
+    df['tsi_signal'] = 'n'
+
+  return df
 
 # ================================================================================== Volatility indicators ============================================================================== #
 # Average True Range
@@ -2261,6 +2298,9 @@ def plot_indicator(df, target_col, start=None, end=None, price_col='Close', sign
       ax.plot(df.index, df['lower_boundary'], color='red', linestyle='--', label='%s'% min(boundary))
 
   # plot indicator(s)
+  unexpected_col = [x for x in target_col if x not in df.columns]
+  if len(unexpected_col) > 0:
+    print('column not found: ', unexpected_col)
   target_col = [x for x in target_col if x in df.columns]
   for col in target_col:
     ax.plot(df.index, df[col], label=col, alpha=0.8)
