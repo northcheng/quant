@@ -1436,10 +1436,10 @@ def add_obv_features(df, close='Close', open='Open', high='High', low='Low', vol
   :returns: dataframe with new features generated
   """
   # copy dataframe
-  df_original = df.copy()
+  df = df.copy()
 
   # calculate obv
-  df = df[[close, volume]]
+  # df = df[[close, volume]]
   df['OBV'] = np.nan
   c1 = df[close] < df[close].shift(1)
   c2 = df[close] > df[close].shift(1)
@@ -1454,13 +1454,14 @@ def add_obv_features(df, close='Close', open='Open', high='High', low='Low', vol
     obv = obv.replace([np.inf, -np.inf], np.nan).fillna(0)
 
   # assign obv to df
-  df_original['obv'] = obv
+  df['obv'] = obv
 
   # calculate signals
   if cal_signal:
-    df_original['obv_signal'] = 'n'
+    df['obv_signal'] = 'n'
 
-  return df_original
+  df.drop('OBV', axis=1, inplace=True)
+  return df
 
 # *Volume-price trend (VPT)
 def add_vpt_features(df, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
