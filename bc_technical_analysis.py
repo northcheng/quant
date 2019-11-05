@@ -2321,9 +2321,9 @@ def plot_peak_trough(df, start=None, end=None, price_col='Close', high_col='High
   ax.plot(last_trough.index, last_trough[price_col], label='trough_trend', color='red', linestyle='--', marker='v', alpha=0.8)
 
   # legend and title
-  ax.legend(loc='upper left')  
   ax.set_title(title, rotation=title_rotation, x=title_x, y=title_y)
-
+  ax.legend(loc='upper left')  
+  
   if use_ax is not None:
     return ax
 
@@ -2602,7 +2602,7 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
 
       add_bbl = tmp_args.get('add_bbl')
       if add_bbl is not None:
-        plot_indicator(df=plot_data, target_col=['mavg', 'bb_high_band', 'bb_low_band'], benchmark=None, boundary=None, color_mode=None, price_col=None, signal_col=None, use_ax=axes[tmp_indicator])
+        plot_indicator(df=plot_data, target_col=['mavg', 'bb_high_band', 'bb_low_band'], color_mode=None, price_col=None, signal_col=None, use_ax=axes[tmp_indicator], title=tmp_indicator, title_rotation=subtitle_rotation, title_x=subtitle_x, title_y=subtitle_y)
       
     elif tmp_indicator == 'candlestick':
       width = tmp_args.get('width')
