@@ -1732,12 +1732,14 @@ def add_rsi_features(df, n=14, close='Close', open='Open', high='High', low='Low
   df = df.copy()
 
   # calculate RSI
-  diff = df[close].pct_change(1)#diff(1)
-  which_down = diff < 0
-
-  up, down = diff, diff*0
-  up[which_down], down[which_down] = 0, -up[which_down]
-
+  diff = df[close].pct_change(1)
+  
+  up = diff.copy()
+  up[diff < 0] = 0
+  
+  down = -diff.copy()
+  down[diff > 0] = 0
+  
   emaup = up.ewm(com=n-1, min_periods=0).mean()
   emadown = down.ewm(com=n-1, min_periods=0).mean()
 
