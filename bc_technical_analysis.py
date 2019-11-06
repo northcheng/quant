@@ -1732,7 +1732,7 @@ def add_rsi_features(df, n=14, close='Close', open='Open', high='High', low='Low
   df = df.copy()
 
   # calculate RSI
-  diff = df[close].pet_change(1)#diff(1)
+  diff = df[close].pct_change(1)#diff(1)
   which_down = diff < 0
 
   up, down = diff, diff*0
