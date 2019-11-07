@@ -48,7 +48,7 @@ def get_client_config(account_type='global_account', info_path='drive/My Drive/t
   return client_config  
    
 
-def get_quote_client(account_type='global_account'):
+def get_quote_client(account_type='global_account', info_path='drive/My Drive/tiger_quant/', is_sandbox=False):
   """
   Get quote client for querying purpose
 
