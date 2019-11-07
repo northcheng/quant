@@ -1785,10 +1785,10 @@ def add_stoch_features(df, n=14, d_n=3, close='Close', open='Open', high='High',
   stoch_k = 100 * (df[close] - stoch_min) / (stoch_max - stoch_min)
   stoch_d = stoch_k.rolling(d_n, min_periods=0).mean()
 
-  # fill na values
+  # fill na values, as 50 is the central line (rsi wave between 0-100)
   if fillna:
-    stoch_k = stoch_k.replace([np.inf, -np.inf], np.nan).fillna(0)
-    stoch_d = stoch_d.replace([np.inf, -np.inf], np.nan).fillna(0)
+    stoch_k = stoch_k.replace([np.inf, -np.inf], np.nan).fillna(50)
+    stoch_d = stoch_d.replace([np.inf, -np.inf], np.nan).fillna(50)
 
   # assign stochastic values to df
   df['stoch_k'] = stoch_k
