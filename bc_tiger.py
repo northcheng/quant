@@ -56,13 +56,13 @@ def get_quote_client(account_type='global_account', info_path='drive/My Drive/ti
   :returns: quote client instance
   :raises: none
   """
-  client_config = get_client_config(account_type=account_type)
+  client_config = get_client_config(account_type=account_type, info_path=info_path, is_sandbox=is_sandbox)
   quote_client = QuoteClient(client_config)
 
   return quote_client
 
 
-def get_trade_client(account_type='global_account'):
+def get_trade_client(account_type='global_account', info_path='drive/My Drive/tiger_quant/', is_sandbox=False):
   """
   Get trade client for trading purpose
 
@@ -70,7 +70,7 @@ def get_trade_client(account_type='global_account'):
   :returns: trade client instance
   :raises: none
   """
-  client_config = get_client_config(account_type=account_type)
+  client_config = get_client_config(account_type=account_type, info_path=info_path, is_sandbox=is_sandbox)
   trade_client = TradeClient(client_config)
 
   return trade_client
@@ -86,7 +86,7 @@ def get_account_info(account_type='global_account', info_path='drive/My Drive/ti
   :raises: none
   """
   user_info = get_user_info(info_path=info_path)
-  trade_client = get_trade_client(account_type=account_type)
+  trade_client = get_trade_client(account_type=account_type, info_path='drive/My Drive/tiger_quant/')
   managed_account = trade_client.get_managed_accounts()  
   position = trade_client.get_positions(account_type=user_info[account_type])
   assets = trade_client.get_assets(account_type=user_info[account_type])
