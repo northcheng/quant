@@ -14,7 +14,7 @@ import requests
 import json
 import pandas_datareader.data as web 
 try:
-import yfinance as yf
+  import yfinance as yf
 except Exception as e:
   print(e)
 from pandas_datareader.nasdaq_trader import get_nasdaq_symbols
