@@ -2606,6 +2606,9 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
     benchmark = tmp_args.get('benchmark')
     boundary = tmp_args.get('boundary')
     color_mode = tmp_args.get('color_mode')
+    plot_price_in_twin_ax = tmp_args.get('plot_price_in_twin_ax')
+    if plot_price_in_twin_ax is None:
+      plot_price_in_twin_ax = False
     
     # plot ichimoku
     if tmp_indicator == 'ichimoku':
