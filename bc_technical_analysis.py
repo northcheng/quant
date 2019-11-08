@@ -1806,7 +1806,7 @@ def add_stoch_features(df, n=14, d_n=3, close='Close', open='Open', high='High',
   return df
 
 #* True strength index (TSI)
-def add_tsi_features(df, r=25, s=13, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+def add_tsi_features(df, r=25, s=13, ema_period=7, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
   Calculate True strength index
 
@@ -1830,17 +1830,20 @@ def add_tsi_features(df, r=25, s=13, close='Close', open='Open', high='High', lo
   m1 = m.ewm(r).mean().ewm(s).mean()
   m2 = abs(m).ewm(r).mean().ewm(s).mean()
   tsi = 100 * (m1 / m2)
+  tsi_sig = ewm(series=tsi, periods=ema_period).mean()
 
   # fill na values
   if fillna:
     tsi = tsi.replace([np.inf, -np.inf], np.nan).fillna(0)
+    tsi_sig = tsi_sig.replace([np.inf, -np.inf], np.nan).fillna(0)
 
   # assign tsi to df
   df['tsi'] = tsi
+  df['tsi_sig'] = tsi_sig
 
   # calculate signal
   if cal_signal:
-    df['tsi_signal'] = 'n'
+    df['tsi_signal'] = cal_crossover_signal(df=df, fast_line='tsi', slow_line='tsi_sig', result_col='signal', pos_signal='b', neg_signal='s', none_signal='n')
 
   return df
 
