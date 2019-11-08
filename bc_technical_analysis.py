@@ -2649,7 +2649,10 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
     # plot other indicators
     else:
       plot_indicator(
-        df=plot_data, target_col=target_col, benchmark=benchmark, boundary=boundary, color_mode=color_mode, price_col=price_col, signal_col=signal_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, filter_signal=filter_signal, title=tmp_indicator, use_ax=axes[tmp_indicator], title_rotation=subtitle_rotation, title_x=subtitle_x, title_y=subtitle_y)
+        df=plot_data, target_col=target_col, price_col=price_col, 
+        signal_col=signal_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, filter_signal=filter_signal, 
+        benchmark=benchmark, boundary=boundary, color_mode=color_mode,
+        title=tmp_indicator, use_ax=axes[tmp_indicator], plot_price_in_twin_ax=plot_price_in_twin_ax, title_rotation=subtitle_rotation, title_x=subtitle_x, title_y=subtitle_y)
 
   # adjust plot layout
   fig.suptitle(title, rotation=title_rotation, x=title_x, y=title_y, fontsize=20)
