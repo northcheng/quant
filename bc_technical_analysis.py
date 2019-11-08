@@ -1801,7 +1801,7 @@ def add_stoch_features(df, n=14, d_n=3, close='Close', open='Open', high='High',
   if cal_signal:
     df['stoch_k_d_signal'] = cal_crossover_signal(df=df, fast_line='stoch_k', slow_line='stoch_d', result_col='signal', pos_signal='b', neg_signal='s', none_signal='n')
     df['stoch_boundary_signal'] = cal_boundary_signal(df=df, upper_col='stoch_k', lower_col='stoch_k', upper_boundary=max(boundary), lower_boundary=min(boundary), result_col='signal', pos_signal='s', neg_signal='b', none_signal='n')
-    df = remove_redundant_signal(df=df, signal_col='stoch_boundary_signal', pos_signal='s', neg_signal='b', none_signal='n', keep='first')
+    # df = remove_redundant_signal(df=df, signal_col='stoch_boundary_signal', pos_signal='s', neg_signal='b', none_signal='n', keep='first')
 
   return df
 
@@ -1934,7 +1934,7 @@ def add_wr_features(df, lbp=14, close='Close', open='Open', high='High', low='Lo
   # calulate signal
   if cal_signal:
     df['wr_signal'] = cal_boundary_signal(df=df, upper_col='wr', lower_col='wr', upper_boundary=max(boundary), lower_boundary=min(boundary), result_col='signal', pos_signal='s', neg_signal='b', none_signal='n')
-    df = remove_redundant_signal(df=df, signal_col='wr_signal', pos_signal='s', neg_signal='b', none_signal='n', keep='last')
+    # df = remove_redundant_signal(df=df, signal_col='wr_signal', pos_signal='s', neg_signal='b', none_signal='n', keep='last')
 
   return df
 
