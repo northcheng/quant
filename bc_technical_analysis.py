@@ -1850,7 +1850,7 @@ def add_tsi_features(df, r=25, s=13, ema_period=7, close='Close', open='Open', h
   return df
 
 #* Ultimate Oscillator
-def add_uo_features(df, s=7, m=14, l=28, ws=4.0, wm=2.0, wl=1.0, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+def add_uo_features(df, s=7, m=14, l=28, ws=4.0, wm=2.0, wl=1.0, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=False):
   """
   Calculate Ultimate Oscillator
 
@@ -1926,7 +1926,7 @@ def add_wr_features(df, lbp=14, close='Close', open='Open', high='High', low='Lo
 
   # fill na values
   if fillna:
-    wr = wr.replace([np.inf, -np.inf], np.nan).fillna(0)
+    wr = wr.replace([np.inf, -np.inf], np.nan).fillna(-50)
 
   # assign wr to df
   df['wr'] = wr
