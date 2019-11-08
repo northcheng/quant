@@ -1672,6 +1672,7 @@ def add_mfi_features(df, n=14, close='Close', open='Open', high='High', low='Low
   :param volume: column name of the volume
   :param fillna: whether to fill na with 0
   :param cal_signal: whether to calculate signal
+  :param boundary: boundaries for overbuy/oversell
   :returns: dataframe with new features generated
   """
   # copy dataframe
@@ -1726,6 +1727,7 @@ def add_rsi_features(df, n=14, close='Close', open='Open', high='High', low='Low
   :param volume: column name of the volume
   :param fillna: whether to fill na with 0
   :param cal_signal: whether to calculate signal
+  :param boundary: boundaries for overbuy/oversell
   :returns: dataframe with new features generated
   """
   # copy dataframe
@@ -1760,7 +1762,7 @@ def add_rsi_features(df, n=14, close='Close', open='Open', high='High', low='Low
   return df
 
 #* Stochastic Oscillator
-def add_stoch_features(df, n=14, d_n=3, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+def add_stoch_features(df, n=14, d_n=3, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, boundary=[20, 80]):
   """
   Calculate Stochastic Oscillator
 
@@ -1774,6 +1776,7 @@ def add_stoch_features(df, n=14, d_n=3, close='Close', open='Open', high='High',
   :param volume: column name of the volume
   :param fillna: whether to fill na with 0
   :param cal_signal: whether to calculate signal
+  :param boundary: boundaries for overbuy/oversell
   :returns: dataframe with new features generated
   """
   # copy dataframe
@@ -1796,7 +1799,9 @@ def add_stoch_features(df, n=14, d_n=3, close='Close', open='Open', high='High',
 
   # calculate signals
   if cal_signal:
-    df['stoch_signal'] = cal_crossover_signal(df=df, fast_line='stoch_k', slow_line='stoch_d', result_col='signal', pos_signal='b', neg_signal='s', none_signal='n')
+    df['stoch_k_d_signal'] = cal_crossover_signal(df=df, fast_line='stoch_k', slow_line='stoch_d', result_col='signal', pos_signal='b', neg_signal='s', none_signal='n')
+    df['stoch_boundary_signal'] = cal_boundary_signal(df=df, upper_col='stoch_k', lower_col='stoch_k', upper_boundary=max(boundary), lower_boundary=min(boundary), result_col='signal', pos_signal='s', neg_signal='b', none_signal='n')
+    df = remove_redundant_signal(df=df, signal_col='stoch_boundary_signal', pos_signal='s', neg_signal='b', none_signal='n', keep='first')
 
   return df
 
