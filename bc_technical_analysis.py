@@ -1849,7 +1849,7 @@ def add_tsi_features(df, r=25, s=13, ema_period=7, close='Close', open='Open', h
 
   return df
 
-#* Ultimate Oscillator
+# Ultimate Oscillator
 def add_uo_features(df, s=7, m=14, l=28, ws=4.0, wm=2.0, wl=1.0, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=False):
   """
   Calculate Ultimate Oscillator
@@ -1899,7 +1899,7 @@ def add_uo_features(df, s=7, m=14, l=28, ws=4.0, wm=2.0, wl=1.0, close='Close', 
 
   return df
 
-#* Williams %R
+# Williams %R
 def add_wr_features(df, lbp=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, boundary=[-20, -80]):
   """
   Calculate Williams %R
@@ -1935,7 +1935,7 @@ def add_wr_features(df, lbp=14, close='Close', open='Open', high='High', low='Lo
   if cal_signal:
     df['wr_signal'] = cal_boundary_signal(df=df, upper_col='wr', lower_col='wr', upper_boundary=max(boundary), lower_boundary=min(boundary), result_col='signal', pos_signal='s', neg_signal='b', none_signal='n')
     df = remove_redundant_signal(df=df, signal_col='wr_signal', pos_signal='s', neg_signal='b', none_signal='n', keep='last')
-    
+
   return df
 
 
@@ -2397,7 +2397,7 @@ def plot_ichimoku(df, start=None, end=None, price_col='Close', signal_col='signa
     return ax
 
 # plot general ta indicators
-def plot_indicator(df, target_col, start=None, end=None, price_col='Close', signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', filter_signal=None, benchmark=None, boundary=None, color_mode='up_down', use_ax=None, figsize=(20, 5),  title=None, plot_price_in_twin_ax=False, title_rotation='vertical', title_x=-0.05, title_y=0.3):
+def plot_indicator(df, target_col, start=None, end=None, price_col='Close', signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', filter_signal=None, benchmark=None, boundary=None, color_mode=None, use_ax=None, figsize=(20, 5),  title=None, plot_price_in_twin_ax=False, title_rotation='vertical', title_x=-0.05, title_y=0.3):
   """
   Plot indicators around a benchmark
 
