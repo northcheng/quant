@@ -1843,7 +1843,9 @@ def add_tsi_features(df, r=25, s=13, ema_period=7, close='Close', open='Open', h
 
   # calculate signal
   if cal_signal:
-    df['tsi_signal'] = cal_crossover_signal(df=df, fast_line='tsi', slow_line='tsi_sig', result_col='signal', pos_signal='b', neg_signal='s', none_signal='n')
+    df['zero'] = 0
+    df['tsi_fast_slow_signal'] = cal_crossover_signal(df=df, fast_line='tsi', slow_line='tsi_sig', result_col='signal', pos_signal='b', neg_signal='s', none_signal='n')
+    df['tsi_centerline_signal'] = cal_crossover_signal(df=df, fast_line='tsi', slow_line='zero', result_col='signal', pos_signal='b', neg_signal='s', none_signal='n')
 
   return df
 
