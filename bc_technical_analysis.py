@@ -1713,7 +1713,7 @@ def add_mfi_features(df, n=14, close='Close', open='Open', high='High', low='Low
   df.drop('up_or_down', axis=1, inplace=True)
   return df
 
-#* Relative Strength Index (RSI)
+# Relative Strength Index (RSI)
 def add_rsi_features(df, n=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, boundary=[30, 70]):
   """
   Calculate Relative Strength Index
@@ -1761,7 +1761,7 @@ def add_rsi_features(df, n=14, close='Close', open='Open', high='High', low='Low
 
   return df
 
-#* Stochastic Oscillator
+# Stochastic Oscillator
 def add_stoch_features(df, n=14, d_n=3, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, boundary=[20, 80]):
   """
   Calculate Stochastic Oscillator
@@ -1805,7 +1805,7 @@ def add_stoch_features(df, n=14, d_n=3, close='Close', open='Open', high='High',
 
   return df
 
-#* True strength index (TSI)
+# True strength index (TSI)
 def add_tsi_features(df, r=25, s=13, ema_period=7, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
   Calculate True strength index
