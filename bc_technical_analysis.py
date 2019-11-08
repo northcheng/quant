@@ -1638,6 +1638,7 @@ def add_kama_features(df, n_param={'kama_fast': [10, 2, 30], 'kama_slow': [10, 5
   if cal_signal:
 
     if set(['kama_fast', 'kama_slow']) < set(df.columns):
+      
       # calculate kama signal
       df['kama_signal'] = cal_crossover_signal(df=df, fast_line=close, slow_line='kama_fast', result_col='kama_signal', pos_signal='b', neg_signal='s', none_signal='n')
     
