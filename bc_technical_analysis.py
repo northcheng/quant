@@ -1900,7 +1900,7 @@ def add_uo_features(df, s=7, m=14, l=28, ws=4.0, wm=2.0, wl=1.0, close='Close', 
   return df
 
 #* Williams %R
-def add_wr_features(df, lbp=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+def add_wr_features(df, lbp=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, boundary=[20, 80]):
   """
   Calculate Williams %R
 
@@ -1933,7 +1933,7 @@ def add_wr_features(df, lbp=14, close='Close', open='Open', high='High', low='Lo
 
   # calulate signal
   if cal_signal:
-    df['wr_signal'] = 'n'
+    df['wr_signal'] = cal_boundary_signal(df=df, upper_col='wr', lower_col='wr', upper_boundary=max(boundary), lower_boundary=min(boundary), result_col='signal', pos_signal='s', neg_signal='b', none_signal='n')
 
   return df
 
