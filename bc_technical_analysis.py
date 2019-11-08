@@ -1830,7 +1830,7 @@ def add_tsi_features(df, r=25, s=13, ema_period=7, close='Close', open='Open', h
   m1 = m.ewm(r).mean().ewm(s).mean()
   m2 = abs(m).ewm(r).mean().ewm(s).mean()
   tsi = 100 * (m1 / m2)
-  tsi_sig = ewm(series=tsi, periods=ema_period).mean()
+  tsi_sig = em(series=tsi, periods=ema_period).mean()
 
   # fill na values
   if fillna:
