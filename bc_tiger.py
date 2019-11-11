@@ -25,7 +25,7 @@ def get_user_info(info_path='drive/My Drive/tiger_quant/'):
   return user_info.astype('str').loc[0,:].to_dict()
 
 
-def get_client_config(accoun='global_account', info_path='drive/My Drive/tiger_quant/', is_sandbox=False):
+def get_client_config(account='global_account', info_path='drive/My Drive/tiger_quant/', is_sandbox=False):
   """
   Get client config
 
