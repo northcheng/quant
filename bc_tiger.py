@@ -25,11 +25,11 @@ def get_user_info(info_path='drive/My Drive/tiger_quant/'):
   return user_info.astype('str').loc[0,:].to_dict()
 
 
-def get_client_config(account_type='global_account', info_path='drive/My Drive/tiger_quant/', is_sandbox=False):
+def get_client_config(accoun='global_account', info_path='drive/My Drive/tiger_quant/', is_sandbox=False):
   """
   Get client config
 
-  :param account_type: which kind of account: global_account/standard_account/simulation_account
+  :param account: which kind of account: global_account/standard_account/simulation_account
   :param info_path: the path where user information file stored in
   :param is_sandbox: whether to use sandbox mode
   :returns: client config instance
@@ -42,54 +42,54 @@ def get_client_config(account_type='global_account', info_path='drive/My Drive/t
   client_config = TigerOpenClientConfig(sandbox_debug=is_sandbox)
   client_config.private_key = read_private_key(info_path + user_info['private_key_name'])
   client_config.tiger_id = str(user_info['tiger_id'])
-  client_config.account = str(user_info[account_type])
+  client_config.account = str(user_info[account])
   client_config.language = Language.en_US
 
   return client_config  
    
 
-def get_quote_client(account_type='global_account', info_path='drive/My Drive/tiger_quant/', is_sandbox=False):
+def get_quote_client(account='global_account', info_path='drive/My Drive/tiger_quant/', is_sandbox=False):
   """
   Get quote client for querying purpose
 
-  :param account_type: which kind of account are you using
+  :param account: which kind of account are you using
   :returns: quote client instance
   :raises: none
   """
-  client_config = get_client_config(account_type=account_type, info_path=info_path, is_sandbox=is_sandbox)
+  client_config = get_client_config(account=account, info_path=info_path, is_sandbox=is_sandbox)
   quote_client = QuoteClient(client_config)
 
   return quote_client
 
 
-def get_trade_client(account_type='global_account', info_path='drive/My Drive/tiger_quant/', is_sandbox=False):
+def get_trade_client(account='global_account', info_path='drive/My Drive/tiger_quant/', is_sandbox=False):
   """
   Get trade client for trading purpose
 
-  :param account_type: which kind of account are you using
+  :param account: which kind of account are you using
   :returns: trade client instance
   :raises: none
   """
-  client_config = get_client_config(account_type=account_type, info_path=info_path, is_sandbox=is_sandbox)
+  client_config = get_client_config(account=account, info_path=info_path, is_sandbox=is_sandbox)
   trade_client = TradeClient(client_config)
 
   return trade_client
 
 
-def get_account_info(account_type='global_account', info_path='drive/My Drive/tiger_quant/'):
+def get_account_info(account='global_account', info_path='drive/My Drive/tiger_quant/'):
   """
   Get account information for specific account
 
-  :param account_type: which kind of account are you using
+  :param account: which kind of account are you using
   :param info_path: the path where user information file stored in
   :returns: account information in dictionary
   :raises: none
   """
   user_info = get_user_info(info_path=info_path)
-  trade_client = get_trade_client(account_type=account_type, info_path='drive/My Drive/tiger_quant/')
+  trade_client = get_trade_client(account=account, info_path='drive/My Drive/tiger_quant/')
   managed_account = trade_client.get_managed_accounts()  
-  position = trade_client.get_positions(account_type=user_info[account_type])
-  assets = trade_client.get_assets(account_type=user_info[account_type])
+  position = trade_client.get_positions(account=user_info[account])
+  assets = trade_client.get_assets(account=user_info[account])
   
   return{
       'managed_account': managed_account,

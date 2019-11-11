@@ -13,11 +13,11 @@ import os
 import requests
 import json
 import pandas_datareader.data as web 
+from pandas_datareader.nasdaq_trader import get_nasdaq_symbols
 try:
   import yfinance as yf
 except Exception as e:
   print(e)
-from pandas_datareader.nasdaq_trader import get_nasdaq_symbols
 from quant import bc_util as util
 
 
