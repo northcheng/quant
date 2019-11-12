@@ -2537,8 +2537,8 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
       add_bbl = tmp_args.get('add_bbl')
       if add_bbl is not None:
         plot_indicator(df=plot_data, target_col=['mavg', 'bb_high_band', 'bb_low_band'], color_mode=None, price_col=None, signal_col=None, use_ax=axes[tmp_indicator], title=tmp_indicator, title_rotation=subtitle_rotation, title_x=subtitle_x, title_y=subtitle_y)
-        axes[tmp_indicator].fill_between(df.index, df.mavg, df.bb_high_band, facecolor='green', interpolate=True, alpha=0.1)
-        axes[tmp_indicator].fill_between(df.index, df.mavg, df.bb_low_band, facecolor='red', interpolate=True, alpha=0.1)
+        axes[tmp_indicator].fill_between(plot_data.index, plot_data.mavg, plot_data.bb_high_band, facecolor='green', interpolate=True, alpha=0.1)
+        axes[tmp_indicator].fill_between(plot_data.index, plot_data.mavg, plot_data.bb_low_band, facecolor='red', interpolate=True, alpha=0.1)
 
     elif tmp_indicator == 'candlestick':
       width = tmp_args.get('width')
