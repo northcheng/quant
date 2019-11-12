@@ -9,6 +9,7 @@ from matplotlib import gridspec
 from mpl_finance import candlestick_ohlc
 from scipy.signal import find_peaks
 from scipy.stats import linregress
+from quant import bc_util as util
 import ta
 
 
@@ -2228,15 +2229,12 @@ def plot_peak_trough(df, start=None, end=None, price_col='Close', high_col='High
   ax.scatter(troughs.index, troughs[price_col], label='trough',color='red', marker='v', alpha=0.8)
 
   # plot trend
-  window_size = 3
+  window_size = 2
   last_peak = peaks.tail(window_size).copy()
   last_trough = troughs.tail(window_size).copy()
 
-  # print(last_peak, last_trough)
-
   # linear regression 
-  x = range(1, len(last_peak)+1)
-  print(x)
+  x = range(1, window_size+1)
   peak_lr = linregress(x, last_peak[price_col])
   trough_lr = linregress(x, last_trough[price_col])
 
