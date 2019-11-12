@@ -2229,23 +2229,24 @@ def plot_peak_trough(df, start=None, end=None, price_col='Close', high_col='High
 
   # plot trend
   window_size = 3
-  last_peak = peaks.tail(window_size).copy()
-  last_trough = troughs.tail(window_size).copy()
+  last_peak = df.iloc[peaks.tail(window_size).index.tolist() + [df.index.max()]].copy()
+  last_trough = df.iloc[troughs.tail(window_size).index.tolist() + [df.index.max()]].copy()
 
   # linear regression 
-  peak_lr = linregress(range(1, window_size+1), last_peak[price_col])
-  trough_lr = linregress(range(1, window_size+1), last_trough[price_col])
+  x = range(1, len(last_peak)+1)
+  peak_lr = linregress(x, last_peak[price_col])
+  trough_lr = linregress(x, last_trough[price_col])
 
-  last_peak['x'] = range(1, window_size+1)
+  last_peak['x'] = x  
   last_peak['y'] = last_peak['x'] * peak_lr[0] + peak_lr[1]
 
-  last_trough['x'] = range(1, window_size+1)
+  last_trough['x'] = x
   last_trough['y'] = last_trough['x'] * trough_lr[0] + trough_lr[1]
 
   # last_peak = peaks.tail(2).copy()
   # last_trough = troughs.tail(2).copy()
-  ax.plot(last_peak.index, last_peak['y'], label='peak_trend', color='green', linestyle='--', marker='^', alpha= 0.8)
-  ax.plot(last_trough.index, last_trough['y'], label='trough_trend', color='red', linestyle='--', marker='v', alpha=0.8)
+  ax.plot(last_peak.index, last_peak['y'], label='peak_trend', color='green', linestyle='--', alpha= 0.8)
+  ax.plot(last_trough.index, last_trough['y'], label='trough_trend', color='red', linestyle='--', alpha=0.8)
 
   # legend and title
   ax.set_title(title, rotation=title_rotation, x=title_x, y=title_y)
