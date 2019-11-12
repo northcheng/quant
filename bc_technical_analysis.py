@@ -2232,8 +2232,11 @@ def plot_peak_trough(df, start=None, end=None, price_col='Close', high_col='High
   last_peak = df.iloc[peaks.tail(window_size).index.tolist() + [df.index.max()]].copy()
   last_trough = df.iloc[troughs.tail(window_size).index.tolist() + [df.index.max()]].copy()
 
+  print(last_peak, last_trough)
+
   # linear regression 
   x = range(1, len(last_peak)+1)
+  print(x)
   peak_lr = linregress(x, last_peak[price_col])
   trough_lr = linregress(x, last_trough[price_col])
 
