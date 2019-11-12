@@ -1875,7 +1875,7 @@ def add_wr_features(df, lbp=14, close='Close', open='Open', high='High', low='Lo
   # calulate signal
   if cal_signal:
     df['wr_signal'] = cal_boundary_signal(df=df, upper_col='wr', lower_col='wr', upper_boundary=max(boundary), lower_boundary=min(boundary), result_col='signal', pos_signal='s', neg_signal='b', none_signal='n')
-    # df = remove_redundant_signal(df=df, signal_col='wr_signal', pos_signal='s', neg_signal='b', none_signal='n', keep='last')
+    df = remove_redundant_signal(df=df, signal_col='wr_signal', pos_signal='s', neg_signal='b', none_signal='n', keep='first')
 
   return df
 
