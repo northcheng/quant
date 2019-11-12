@@ -13,7 +13,7 @@ import ta
 
 
 # ================================================================================== Basic calculation ================================================================================== #
-# drop na valuse for dataframe
+# drop na values for dataframe
 def dropna(df):
   """
   Drop rows with "Nans" values
@@ -26,6 +26,18 @@ def dropna(df):
   df = df[df != 0.0]
   df = df.dropna()
   return df
+
+# fill na values for dataframe
+def fillna(series, fill_value=0):
+  """
+  Fill na value for a series with specific value
+  :param series: series to fillna
+  :param fill_value: the value to replace na values
+  :returns: series with na values filled
+  :raises: none
+  """
+  series.replace([np.inf, -np.inf], np.nan).fillna(fill_value)
+  return series
 
 # get max/min in 2 values
 def get_min_max(x1, x2, f='min'):
@@ -85,7 +97,7 @@ def em(series, periods, fillna=False):
 
 # ================================================================================== Change calculation ================================================================================= #
 # calculate change of a column in certain period
-def cal_change(df, target_col, periods=1, add_accumulation=True, add_prefix=False):
+def cal_change(df, target_col, periods=1, add_accumulation=True, add_prefix=False, drop_na=False):
   """
   Calculate change of a column with a sliding window
   
@@ -94,8 +106,11 @@ def cal_change(df, target_col, periods=1, add_accumulation=True, add_prefix=Fals
   :param periods: calculate the change within the period
   :param add_accumulation: wether to add accumulative change in a same direction
   :param add_prefix: whether to add prefix for the result columns (when there are multiple target columns to calculate)
+  :param drop_na: whether to drop na values from dataframe:
+  :returns: dataframe with change rate columns
+  :raises: none
   """
-  # copy dfframe
+  # copy dateframe
   df = df.copy()
 
   # set prefix for result columns
@@ -131,7 +146,10 @@ def cal_change(df, target_col, periods=1, add_accumulation=True, add_prefix=Fals
         df.loc[current_idx, acc_change_day_dim] += previous_acc_change_days
       else:
         df.loc[current_idx, acc_change_dim] = current_change
-  df.dropna(inplace=True) 
+
+  # drop NA values
+  if drop_na:        
+    df.dropna(inplace=True)
 
   return df    
 
@@ -145,6 +163,9 @@ def cal_change_rate(df, target_col, periods=1, add_accumulation=True, add_prefix
   :param periods: calculate the change rate within the period
   :param add_accumulation: wether to add accumulative change rate in a same direction
   :param add_prefix: whether to add prefix for the result columns (when there are multiple target columns to calculate)
+  :param drop_na: whether to drop na values from dataframe:
+  :returns: dataframe with change rate columns
+  :raises: none
   """
   # copy dfframe
   df = df.copy()
@@ -377,7 +398,7 @@ def remove_redundant_signal(df, signal_col='signal', pos_signal='b', neg_signal=
 
 # ================================================================================== Support/resistant ================================================================================== #
 # calculate peak / trough in price
-def cal_peak_trough(df, target_col, result_col='signal', peak_signal='p', trough_signal='t', none_signal='n', height=None, threshold=None, distance=None, width=None):
+def cal_peak_trough(df, target_col, height=None, threshold=None, distance=None, width=None, result_col='signal', peak_signal='p', trough_signal='t', none_signal='n'):
   """
   Calculate the position (signal) of the peak/trough of the target column
 
@@ -393,10 +414,11 @@ def cal_peak_trough(df, target_col, result_col='signal', peak_signal='p', trough
   # copy dataframe
   df = df.copy()
 
-  # find peaks and troughs
+  # find peaks 
   peaks, _ = find_peaks(df[target_col], height=height, threshold=threshold, distance=distance, width=width)
   peaks = df.iloc[peaks,].index
 
+  # find troughs
   troughs, _ = find_peaks(-df[target_col], height=height, threshold=threshold, distance=distance, width=width)
   troughs = df.iloc[troughs,].index
 
@@ -404,68 +426,6 @@ def cal_peak_trough(df, target_col, result_col='signal', peak_signal='p', trough
   df[result_col] = none_signal
   df.loc[peaks, result_col] = peak_signal
   df.loc[troughs, result_col] = trough_signal
-
-
-  # # previous value of the target column
-  # previous_target_col = 'previous_' + target_col
-  # df[previous_target_col] = df[target_col].shift(1)
-
-  # # when value goes down, it means it is currently at peak
-  # peaks = df.query('%(t)s < %(pt)s' % dict(t=target_col, pt=previous_target_col)).index
-  # # when value goes up, it means it is currently at trough
-  # troughs = df.query('%(t)s > %(pt)s' % dict(t=target_col, pt=previous_target_col)).index
-
-  # # set signal values
-  # df[result_col] = none_signal
-  # df.loc[peaks, result_col] = peak_signal
-  # df.loc[troughs, result_col] = trough_signal
-
-  # # shift the signal back by 1 unit
-  # df[result_col] = df[result_col].shift(-1)
-
-  # # remove redundant signals
-  # df = remove_redundant_signal(df=df, signal_col=result_col, keep='first', pos_signal=peak_signal, neg_signal=trough_signal, none_signal=none_signal)
-
-  # # further filter the signals
-  # if further_filter:
-      
-  #   # get all peak/trough signals
-  #   peak = df.query('%(r)s == "%(p)s"' % dict(r=result_col, p=peak_signal)).index.tolist()
-  #   trough = df.query('%(r)s == "%(t)s"' % dict(r=result_col, t=trough_signal)).index.tolist()
-        
-  #   # peak/trough that not qualified
-  #   false_peak = []
-  #   false_trough = []
-    
-  #   # filter peak signals
-  #   for i in range(len(peak)):
-  #     current_idx = peak[i]
-  #     benchmark = 0
-      
-  #     # the peak is not qualified if it is lower that the average of previous 2 troughs
-  #     previous_troughs = df[:current_idx].query('%(r)s == "%(t)s"' % dict(r=result_col, t=trough_signal)).tail(2)
-  #     if len(previous_troughs) > 0:
-  #       benchmark = previous_troughs[target_col].mean()
-      
-  #     if df.loc[current_idx, target_col] < benchmark:
-  #       false_peak.append(current_idx)
-        
-  #   # filter trough signals
-  #   for i in range(len(trough)):        
-  #     current_idx = trough[i]
-  #     benchmark = 0
-
-  #     # the trough is not qualified if it is lower that the average of previous 2 peaks
-  #     previous_peaks = df[:current_idx].query('%(r)s == "%(p)s"' % dict(r=result_col, p=peak_signal)).tail(2)
-  #     if len(previous_peaks) > 0:
-  #       benchmark = previous_peaks[target_col].mean()
-      
-  #     if df.loc[current_idx, target_col] > benchmark:
-  #       false_trough.append(current_idx)
-          
-  #   df.loc[false_peak, result_col] = none_signal
-  #   df.loc[false_trough, result_col] = none_signal
-  #   df.fillna('n')
 
   return df[[result_col]]
 
@@ -721,7 +681,7 @@ def add_aroon_features(df, n=25, close='Close', open='Open', high='High', low='L
   return df
 
 # CCI(Commidity Channel Indicator)
-def add_cci_features(df, n=20, c=0.015, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, boundary=[200, -200]):
+def add_cci_features(df, n=20, c=0.015,  vclose='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, boundary=[200, -200]):
   """
   Calculate CCI(Commidity Channel Indicator) 
 
