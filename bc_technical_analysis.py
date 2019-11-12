@@ -2358,7 +2358,7 @@ def plot_peak_trough(df, start=None, end=None, price_col='Close', high_col='High
     return ax
 
 # plot ichimoku chart
-def plot_ichimoku(df, start=None, end=None, price_col='Close', signal_col='signal',  pos_signal='b', neg_signal='s', none_signal='n', filter_signal='first', use_ax=None, figsize=(20, 5), title=None, title_rotation='vertical', title_x=-0.05, title_y=0.3):
+def plot_ichimoku(df, start=None, end=None, price_col='Close',  date_col='Date', signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', filter_signal='first', use_ax=None, figsize=(20, 5), title=None, title_rotation='vertical', title_x=-0.05, title_y=0.3, candlestick=True):
   """
   Plot ichimoku chart
 
@@ -2389,9 +2389,6 @@ def plot_ichimoku(df, start=None, end=None, price_col='Close', signal_col='signa
     fig = plt.figure(figsize=figsize)
     ax = plt.gca()
 
-  # plot price and signal
-  ax = plot_signal(df, price_col=price_col, signal_col=signal_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, filter_signal=filter_signal, use_ax=ax)
-
   # plot senkou lines
   ax.plot(df.index, df.senkou_a, label='senkou_a', color='green', alpha=0.3)
   ax.plot(df.index, df.senkou_b, label='senkou_b', color='red', alpha=0.3)
@@ -2403,6 +2400,21 @@ def plot_ichimoku(df, start=None, end=None, price_col='Close', signal_col='signa
   # plot kijun/tankan lines
   ax.plot(df.index, df.tankan, label='tankan', color='magenta', linestyle='--')
   ax.plot(df.index, df.kijun, label='kijun', color='blue', linestyle='--')
+
+  if candlestick:
+    # transform date to numbers
+    df.reset_index(inplace=True)
+    df[date_col] = df[date_col].apply(mdates.date2num)
+    plot_data = df[[date_col, open_col, high_col, low_col, close_col]]
+  
+    # plot candlesticks
+    candlestick_ohlc(ax=ax, quotes=plot_data.values, width=width, colorup=colorup, colordown=colordown, alpha=alpha)
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+  else:
+
+    # plot price and signal
+    ax = plot_signal(df, price_col=price_col, signal_col=signal_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, filter_signal=filter_signal, use_ax=ax)
+
 
   # title and legend
   ax.legend(bbox_to_anchor=(1.02, 0.), loc=3, ncol=1, borderaxespad=0.) 
