@@ -9,7 +9,6 @@ from matplotlib import gridspec
 from mpl_finance import candlestick_ohlc
 from scipy.signal import find_peaks
 from scipy.stats import linregress
-from quant import bc_util as util
 import ta
 
 
@@ -2238,16 +2237,26 @@ def plot_peak_trough(df, start=None, end=None, price_col='Close', high_col='High
   peak_lr = linregress(x, last_peak[price_col])
   trough_lr = linregress(x, last_trough[price_col])
 
-  last_peak['x'] = x  
-  last_peak['y'] = last_peak['x'] * peak_lr[0] + peak_lr[1]
+  window_size = 10
+  pt_data = df.tail(window_size).copy()
+  pt_data['x'] = range(1, window_size+1)
+  pt_data['y_p'] = pt_data['x'] * peak_lr[0] + peak_lr[1]
+  pt_data['y_t'] = pt_data['x'] * trough_lr[0] + trough_lr[1]
 
-  last_trough['x'] = x
-  last_trough['y'] = last_trough['x'] * trough_lr[0] + trough_lr[1]
+  # last_peak['x'] = x  
+  # last_peak['y'] = last_peak['x'] * peak_lr[0] + peak_lr[1]
+
+  # last_trough['x'] = x
+  # last_trough['y'] = last_trough['x'] * trough_lr[0] + trough_lr[1]
 
   # last_peak = peaks.tail(2).copy()
   # last_trough = troughs.tail(2).copy()
-  ax.plot(last_peak.index, last_peak['y'], label='peak_trend', color='green', linestyle='--', alpha= 0.8)
-  ax.plot(last_trough.index, last_trough['y'], label='trough_trend', color='red', linestyle='--', alpha=0.8)
+  # ax.plot(last_peak.index, last_peak['y'], label='peak_trend', color='green', linestyle='--', alpha= 0.8)
+  # ax.plot(last_trough.index, last_trough['y'], label='trough_trend', color='red', linestyle='--', alpha=0.8)
+  ax.plot(pt_data.index, pt_data['y_p'], label='peak_trend', color='green', linestyle='--', alpha= 0.8)
+  ax.plot(pt_data.index, pt_data['y_t'], label='trough_trend', color='red', linestyle='--', alpha=0.8)
+
+
 
   # legend and title
   ax.set_title(title, rotation=title_rotation, x=title_x, y=title_y)
