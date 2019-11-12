@@ -316,44 +316,32 @@ def remove_redundant_signal(df, signal_col='signal', pos_signal='b', neg_signal=
   # copy dataframe
   df = df.copy()
 
-  # initialization
+  # find rows which signal is not none
   none_empty_signals = df.query('%(signal)s != "%(none_signal)s"' % dict(signal=signal_col, none_signal=none_signal))
   valid_signals = []
-  last_signal = none_signal
-  last_index = None
-  
+
   # go through the none empty signals
-  for index, row in none_empty_signals.iterrows():
+  idx = none_empty_signals.index.tolist()
+  for i in range(1, len(none_empty_signals)):
 
-    # get current signals
-    current_index = index
-    current_signal = row[signal_col]  
+    # get current and previous index, signal
+    current_idx = idx[i]
+    previous_idx = idx[i-1]
+    current_signal = df.loc[current_idx, signal_col]
+    previous_signal = df.loc[previous_idx, signal_col]
 
-    # compare current signal with previous one
-    if keep == 'first':
-      # if current signal is different from the last one, keep the current one(first)
-      if current_signal != last_signal:
-        valid_signals.append(current_index)
-    
-    elif keep == 'last':
-      # if current signal is differnet from the last one, keep the last one(last)
-      if current_signal != last_signal:
-        valid_signals.append(last_index)
-    else:
-      print('invalid method to keep signal: %s' % keep)
-      break
-          
-    # update last_index, last_signal
-    last_index = current_index
-    last_signal = current_signal
-    
-  # post-processing
-  if keep == 'last' and last_signal != none_signal:
-    valid_signals.append(last_index)
-  valid_siganls = [x for x in valid_signals if x is not None]
-  
+    # keep the first or last signal's index
+    if current_signal != previous_signal:
+      if keep == 'first':
+        valid_signals.append(current_idx)
+      elif keep == 'last':
+        valid_signals.append(previous_idx)
+      else:
+        print('invalid method to keep signal: %s' % keep)
+        break
+
   # set redundant signals to none_signal
-  redundant_signals = [x for x in df.index.tolist() if x not in valid_signals]
+  redundant_signals = [x for x in idx if x not in valid_signals]
   df.loc[redundant_signals, signal_col] = none_signal
 
   return df
