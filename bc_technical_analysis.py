@@ -233,27 +233,30 @@ def cal_crossover_signal(df, fast_line, slow_line, result_col='signal', pos_sign
 
   # calculate the distance between fast and slow line
   df['diff'] = df[fast_line] - df[slow_line]
+  df['diff_prev'] = df['diff'].shift(1)
 
-  # calculate signal by going through the whole dfframe
   df[result_col] = none_signal
-  last_value = None
-  for index, row in df.iterrows():
-  
-    # whehter the last_value exists
-    current_value = row['diff']
-    if last_value is None:
-      last_value = current_value
-      continue
+  pos_idx = df.query('diff > 0 and diff_prev <= 0').index
+  neg_idx = df.query('diff <= 0 and diff_prev > 0').index
 
-    # fast line breakthrough slow line from the bottom
-    if last_value < 0 and current_value > 0:
-      df.loc[index, result_col] = pos_signal
+  df[result_col] = none_signal
+  df.loc[pos_idx, result_col] = pos_signal
+  df.loc[neg_idx, result_col] = neg_signal
 
-    # fast line breakthrough slow line from the top
-    elif last_value > 0 and current_value < 0:
-      df.loc[index, result_col] = neg_signal
-  
-    last_value = current_value
+  # # calculate signal by going through the whole dfframe
+  # df[result_col] = none_signal
+  # idx = df.index.tolist()
+  # for i in range(1, len(df)):
+  #   current_idx = idx[i]
+  #   previous_idx = idx[i-1]
+
+  #   previous_value = df.loc[previous_idx, 'diff']
+  #   current_value = df.loc[currnet_idx, 'diff']
+
+  #   if previous_value < 0 and current_value > 0:
+  #     df.loc[currnet_idx, result_col] = pos_signal
+  #   elif previous_value > 0 and current_value < 0:
+  #     df.loc[current_idx, result_col] = neg_signal
   
   return df[[result_col]]
 
