@@ -2292,16 +2292,16 @@ def plot_ichimoku(df, start=None, end=None, price_col='Close', signal_col='signa
     ax = plt.gca()
 
   # plot senkou lines
-  ax.plot(df.index, df.senkou_a, label='senkou_a', color='green', alpha=0.8)
-  ax.plot(df.index, df.senkou_b, label='senkou_b', color='red', alpha=0.8)
+  ax.plot(df.index, df.senkou_a, label='senkou_a', color='green', alpha=0.4)
+  ax.plot(df.index, df.senkou_b, label='senkou_b', color='red', alpha=0.4)
 
   # plot clouds
   ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a > df.senkou_b, facecolor='green', interpolate=True, alpha=0.1)
   ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a <= df.senkou_b, facecolor='red', interpolate=True, alpha=0.1)
 
   # plot kijun/tankan lines
-  ax.plot(df.index, df.tankan, label='tankan', color='indigo', linestyle='--')
-  ax.plot(df.index, df.kijun, label='kijun', color='navy', linestyle='--')
+  ax.plot(df.index, df.tankan, label='tankan', color='magenta', linestyle='--')
+  ax.plot(df.index, df.kijun, label='kijun', color='blue', linestyle='--')
 
   # plot price and signal
   ax = plot_signal(df, price_col=price_col, signal_col=signal_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, use_ax=ax)
