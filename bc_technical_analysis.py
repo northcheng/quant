@@ -2296,8 +2296,8 @@ def plot_ichimoku(df, start=None, end=None, price_col='Close', signal_col='signa
   ax.plot(df.index, df.senkou_b, label='senkou_b', color='red', alpha=0.3)
 
   # plot clouds
-  ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a > df.senkou_b, facecolor='green', interpolate=True, alpha=0.3)
-  ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a <= df.senkou_b, facecolor='red', interpolate=True, alpha=0.3)
+  ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a > df.senkou_b, facecolor='green', interpolate=True, alpha=0.1)
+  ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a <= df.senkou_b, facecolor='red', interpolate=True, alpha=0.1)
 
   # plot kijun/tankan lines
   ax.plot(df.index, df.tankan, label='tankan', color='magenta', linestyle='--')
