@@ -377,7 +377,7 @@ def remove_redundant_signal(df, signal_col='signal', pos_signal='b', neg_signal=
 
 # ================================================================================== Support/resistant ================================================================================== #
 # calculate peak / trough in price
-def cal_peak_trough(df, target_col, result_col='signal', peak_signal='p', trough_signal='t', none_signal='n', further_filter=True):
+def cal_peak_trough(df, target_col, result_col='signal', peak_signal='p', trough_signal='t', none_signal='n', height=None, threshold=None, distance=None, width=None):
   """
   Calculate the position (signal) of the peak/trough of the target column
 
