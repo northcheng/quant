@@ -394,10 +394,10 @@ def cal_peak_trough(df, target_col, result_col='signal', peak_signal='p', trough
   df = df.copy()
 
   # find peaks and troughs
-  peaks, _ = find_peaks(df[target_col])
+  peaks, _ = find_peaks(df[target_col], height=height, threshold=threshold, distance=distance, width=width)
   peaks = df.iloc[peaks,].index
 
-  troughs, _ = find_peaks(-df[target_col])
+  troughs, _ = find_peaks(-df[target_col], height=height, threshold=threshold, distance=distance, width=width)
   troughs = df.iloc[troughs,].index
 
   # set signal values
