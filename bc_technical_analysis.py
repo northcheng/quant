@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from matplotlib import gridspec
 from mpl_finance import candlestick_ohlc
+from scipy.signal import find_peaks
 import ta
 
 
@@ -392,66 +393,79 @@ def cal_peak_trough(df, target_col, result_col='signal', peak_signal='p', trough
   # copy dataframe
   df = df.copy()
 
-  # previous value of the target column
-  previous_target_col = 'previous_' + target_col
-  df[previous_target_col] = df[target_col].shift(1)
+  # find peaks and troughs
+  peaks, _ = find_peaks(df[target_col])
+  peaks = df.iloc[peaks,].index
 
-  # when value goes down, it means it is currently at peak
-  peaks = df.query('%(t)s < %(pt)s' % dict(t=target_col, pt=previous_target_col)).index
-  # when value goes up, it means it is currently at trough
-  troughs = df.query('%(t)s > %(pt)s' % dict(t=target_col, pt=previous_target_col)).index
+  troughs, _ = find_peaks(-df[target_col])
+  troughs = df.iloc[troughs,].index
 
   # set signal values
   df[result_col] = none_signal
   df.loc[peaks, result_col] = peak_signal
   df.loc[troughs, result_col] = trough_signal
 
-  # shift the signal back by 1 unit
-  df[result_col] = df[result_col].shift(-1)
 
-  # remove redundant signals
-  df = remove_redundant_signal(df=df, signal_col=result_col, keep='first', pos_signal=peak_signal, neg_signal=trough_signal, none_signal=none_signal)
+  # # previous value of the target column
+  # previous_target_col = 'previous_' + target_col
+  # df[previous_target_col] = df[target_col].shift(1)
 
-  # further filter the signals
-  if further_filter:
+  # # when value goes down, it means it is currently at peak
+  # peaks = df.query('%(t)s < %(pt)s' % dict(t=target_col, pt=previous_target_col)).index
+  # # when value goes up, it means it is currently at trough
+  # troughs = df.query('%(t)s > %(pt)s' % dict(t=target_col, pt=previous_target_col)).index
+
+  # # set signal values
+  # df[result_col] = none_signal
+  # df.loc[peaks, result_col] = peak_signal
+  # df.loc[troughs, result_col] = trough_signal
+
+  # # shift the signal back by 1 unit
+  # df[result_col] = df[result_col].shift(-1)
+
+  # # remove redundant signals
+  # df = remove_redundant_signal(df=df, signal_col=result_col, keep='first', pos_signal=peak_signal, neg_signal=trough_signal, none_signal=none_signal)
+
+  # # further filter the signals
+  # if further_filter:
       
-    # get all peak/trough signals
-    peak = df.query('%(r)s == "%(p)s"' % dict(r=result_col, p=peak_signal)).index.tolist()
-    trough = df.query('%(r)s == "%(t)s"' % dict(r=result_col, t=trough_signal)).index.tolist()
+  #   # get all peak/trough signals
+  #   peak = df.query('%(r)s == "%(p)s"' % dict(r=result_col, p=peak_signal)).index.tolist()
+  #   trough = df.query('%(r)s == "%(t)s"' % dict(r=result_col, t=trough_signal)).index.tolist()
         
-    # peak/trough that not qualified
-    false_peak = []
-    false_trough = []
+  #   # peak/trough that not qualified
+  #   false_peak = []
+  #   false_trough = []
     
-    # filter peak signals
-    for i in range(len(peak)):
-      current_idx = peak[i]
-      benchmark = 0
+  #   # filter peak signals
+  #   for i in range(len(peak)):
+  #     current_idx = peak[i]
+  #     benchmark = 0
       
-      # the peak is not qualified if it is lower that the average of previous 2 troughs
-      previous_troughs = df[:current_idx].query('%(r)s == "%(t)s"' % dict(r=result_col, t=trough_signal)).tail(2)
-      if len(previous_troughs) > 0:
-        benchmark = previous_troughs[target_col].mean()
+  #     # the peak is not qualified if it is lower that the average of previous 2 troughs
+  #     previous_troughs = df[:current_idx].query('%(r)s == "%(t)s"' % dict(r=result_col, t=trough_signal)).tail(2)
+  #     if len(previous_troughs) > 0:
+  #       benchmark = previous_troughs[target_col].mean()
       
-      if df.loc[current_idx, target_col] < benchmark:
-        false_peak.append(current_idx)
+  #     if df.loc[current_idx, target_col] < benchmark:
+  #       false_peak.append(current_idx)
         
-    # filter trough signals
-    for i in range(len(trough)):        
-      current_idx = trough[i]
-      benchmark = 0
+  #   # filter trough signals
+  #   for i in range(len(trough)):        
+  #     current_idx = trough[i]
+  #     benchmark = 0
 
-      # the trough is not qualified if it is lower that the average of previous 2 peaks
-      previous_peaks = df[:current_idx].query('%(r)s == "%(p)s"' % dict(r=result_col, p=peak_signal)).tail(2)
-      if len(previous_peaks) > 0:
-        benchmark = previous_peaks[target_col].mean()
+  #     # the trough is not qualified if it is lower that the average of previous 2 peaks
+  #     previous_peaks = df[:current_idx].query('%(r)s == "%(p)s"' % dict(r=result_col, p=peak_signal)).tail(2)
+  #     if len(previous_peaks) > 0:
+  #       benchmark = previous_peaks[target_col].mean()
       
-      if df.loc[current_idx, target_col] > benchmark:
-        false_trough.append(current_idx)
+  #     if df.loc[current_idx, target_col] > benchmark:
+  #       false_trough.append(current_idx)
           
-    df.loc[false_peak, result_col] = none_signal
-    df.loc[false_trough, result_col] = none_signal
-    df.fillna('n')
+  #   df.loc[false_peak, result_col] = none_signal
+  #   df.loc[false_trough, result_col] = none_signal
+  #   df.fillna('n')
 
   return df[[result_col]]
 
