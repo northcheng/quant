@@ -2247,24 +2247,11 @@ def plot_peak_trough(df, start=None, end=None, price_col='Close', high_col='High
   # linear regression 
   peak_lr = linregress(last_peak['x'], last_peak[price_col])
   trough_lr = linregress(last_trough['x'], last_trough[price_col])
-
-  pt = df.tail(10).copy()
-  pt['x'] = range(10)
-  pt['y_p'] = pt['x'] * peak_lr[0] + peak_lr[1]
-  pt['y_t'] = pt['x'] * trough_lr[0] + trough_lr[1]
-
-  ax.plot(pt.index, pt['y_p'], label='peak_trend', color='green', linestyle='--', alpha= 0.8)
-  ax.plot(pt.index, pt['y_t'], label='trough_trend', color='red', linestyle='--', alpha=0.8)
-
   last_peak['y'] = last_peak['x'] * peak_lr[0] + peak_lr[1]
   last_trough['y'] = last_trough['x'] * trough_lr[0] + trough_lr[1]
 
   ax.plot(last_peak.index, last_peak['y'], label='peak_trend', color='green', linestyle='--', alpha= 0.8)
   ax.plot(last_trough.index, last_trough['y'], label='trough_trend', color='red', linestyle='--', alpha=0.8)
-
-
-
-
 
   # legend and title
   ax.set_title(title, rotation=title_rotation, x=title_x, y=title_y)
