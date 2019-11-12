@@ -416,39 +416,6 @@ def cal_moving_average(df, target_col, ma_windows=[50, 105], start=None, end=Non
   
   return df
 
-# calculate signal generated from 2 ma lines crossover
-def cal_moving_average_signal(df, target_col='Close', ma_windows=[50, 105], start=None, end=None, result_col='signal', pos_signal='b', neg_signal='s', none_signal='n'):
-  """
-  Calculate moving avergae signals gernerated from fast/slow moving average crossover
-
-  :param df: original dataframe which contains short/ling ma columns
-  :param short_ma_col: columnname of the short ma
-  :param long_ma_col: columnname of the long ma
-  :param start: start date of the data
-  :param end: end date of the data
-  :param result_col: columnname of the result signal
-  :param pos_signal: the value of positive signal
-  :param neg_siganl: the value of negative signal
-  :param none_signal: the value of none signal
-  :returns: dataframe with ma crossover signal
-  :raises: none
-  """
-  # calculate moving average
-  df = df[start : end].copy()
-  df[result_col] = none_signal
-
-  if len(ma_windows) > 2:
-    print('There should be only 2 moving average lines')
-
-  else:
-    short_ma_col = '%(col)s_ma_%(window_size)s' % dict(col=target_col, window_size=min(ma_windows))
-    long_ma_col = '%(col)s_ma_%(window_size)s' % dict(col=target_col, window_size=max(ma_windows))
-
-    # calculate ma crossover signal
-    df[result_col] = cal_crossover_signal(df=df, fast_line=short_ma_col, slow_line=long_ma_col, result_col=result_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal)
-
-  return df[result_col]
-
 
 
 # ================================================================================== Candle sticks ====================================================================================== #
@@ -474,15 +441,15 @@ def add_candlestick_features(df, close='Close', open='Open', high='High', low='L
   
   # entity
   df['entity'] = abs(df[close] - df[open])
-  
-  # up and down rows
-  up_idx = df[open] < df[close]
-  down_idx = df[open] >= df[close]
 
   # upper/lower shadow
   df['upper_shadow'] = 0
   df['lower_shadow'] = 0
   df['candle_color'] = 0
+  
+  # up and down rows
+  up_idx = df[open] < df[close]
+  down_idx = df[open] >= df[close]
   
   # up
   df.loc[up_idx, 'candle_color'] = 1
@@ -495,7 +462,6 @@ def add_candlestick_features(df, close='Close', open='Open', high='High', low='L
   df.loc[down_idx, 'lower_shadow'] = (df.loc[down_idx, close] - df.loc[down_idx, low])
   
   return df
-
 
 
 
@@ -633,7 +599,7 @@ def add_aroon_features(df, n=25, close='Close', open='Open', high='High', low='L
   return df
 
 # CCI(Commidity Channel Indicator)
-def add_cci_features(df, n=20, c=0.015,  vclose='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, boundary=[200, -200]):
+def add_cci_features(df, n=20, c=0.015, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, boundary=[200, -200]):
   """
   Calculate CCI(Commidity Channel Indicator) 
 
