@@ -235,28 +235,15 @@ def cal_crossover_signal(df, fast_line, slow_line, result_col='signal', pos_sign
   df['diff'] = df[fast_line] - df[slow_line]
   df['diff_prev'] = df['diff'].shift(1)
 
+  # get signals from fast/slow lines cross over
   df[result_col] = none_signal
-  pos_idx = df.query('diff > 0 and diff_prev <= 0').index
-  neg_idx = df.query('diff <= 0 and diff_prev > 0').index
+  pos_idx = df.query('diff > 0 and diff_prev < 0').index
+  neg_idx = df.query('diff < 0 and diff_prev > 0').index
 
+  # assign signal values
   df[result_col] = none_signal
   df.loc[pos_idx, result_col] = pos_signal
   df.loc[neg_idx, result_col] = neg_signal
-
-  # # calculate signal by going through the whole dfframe
-  # df[result_col] = none_signal
-  # idx = df.index.tolist()
-  # for i in range(1, len(df)):
-  #   current_idx = idx[i]
-  #   previous_idx = idx[i-1]
-
-  #   previous_value = df.loc[previous_idx, 'diff']
-  #   current_value = df.loc[currnet_idx, 'diff']
-
-  #   if previous_value < 0 and current_value > 0:
-  #     df.loc[currnet_idx, result_col] = pos_signal
-  #   elif previous_value > 0 and current_value < 0:
-  #     df.loc[current_idx, result_col] = neg_signal
   
   return df[[result_col]]
 
@@ -283,58 +270,32 @@ def cal_boundary_signal(df, upper_col, lower_col, upper_boundary, lower_boundary
   df = df.copy()
 
   # calculate signals
-  df[result_col] = none_signal
   pos_idx = df.query('%(column)s > %(value)s' % dict(column=upper_col, value=upper_boundary)).index
   neg_idx = df.query('%(column)s < %(value)s' % dict(column=lower_col, value=lower_boundary)).index
+
+  # assign signal values
+  df[result_col] = none_signal
   df.loc[pos_idx, result_col] = pos_signal
   df.loc[neg_idx, result_col] = neg_signal
 
   return df[[result_col]]
 
-# calculate trend signal
-def cal_trend_signal(df, trend_col, up_window=3, down_window=2, result_col='signal', pos_signal='b', neg_signal='s', none_signal='n'):
-  """
-  Calculate signal generated from trend change
-
-  :param df: original dataframe
-  :param trend_col: columnname of the trend value
-  :param up_window: the window size to judge the up trend
-  :param down_window: the window size to judge the down trned
-  :param result_col: columnname of the result
-  :param pos_signal: the value of positive signal
-  :param neg_siganl: the value of negative signal
-  :param none_signal: the value of none signal
-  :returns: series of the result column
-  :raises: none   
-  """
-  # calculate the change of the trend column
-  df = cal_change(df=df, target_col=trend_col)
-
-  # up trend and down trend
-  up_trend_idx = df.query('acc_change_count >= %s' % up_window).index
-  down_trend_idx = df.query('acc_change_count <= %s' % -down_window).index
-
-  # set signal
-  df[result_col] = none_signal
-  df.loc[up_trend_idx, result_col] = pos_signal
-  df.loc[down_trend_idx, result_col] = neg_signal
-
-  # remove redundant signals (duplicated continuous signals)
-  df = remove_redundant_signal(df=df, signal_col=result_col, keep='first', pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal)
-
-  return df[[result_col]]
-
 # replace signal values 
 def replace_signal(df, signal_col='signal', replacement={'b':1, 's':-1, 'n': 0}):
-
+  """
+  Replace signals with different values
+  :param df: df that contains signal column
+  :param signal_col: column name of the signal
+  :param replacement: replacement, key is original value, value is the new value
+  :returns: df with signal values replaced
+  :raises: none
+  """
+  # copy dataframe
   new_df = df.copy()
 
+  # find and replace
   for i in replacement.keys():
-    original_signal = i
-    new_signal = replacement[i]
-
-    idx = df.query('%(column)s == "%(value)s"' % dict(column=signal_col, value=original_signal)).index
-    new_df.loc[idx, signal_col] = new_signal
+    new_df[signal_col].replace(to_replace=i, value=replacement[i], inplace=True)
 
   return new_df
 
