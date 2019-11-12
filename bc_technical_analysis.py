@@ -2246,7 +2246,7 @@ def plot_peak_trough(df, start=None, end=None, price_col='Close', high_col='High
 
     peak_lr = linregress(last_peak['x'], last_peak[price_col])
     trough_lr = linregress(last_trough['x'], last_trough[price_col])
-    
+
     last_peak['y'] = last_peak['x'] * peak_lr[0] + peak_lr[1]
     last_trough['y'] = last_trough['x'] * trough_lr[0] + trough_lr[1]
 
@@ -2537,7 +2537,9 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
       add_bbl = tmp_args.get('add_bbl')
       if add_bbl is not None:
         plot_indicator(df=plot_data, target_col=['mavg', 'bb_high_band', 'bb_low_band'], color_mode=None, price_col=None, signal_col=None, use_ax=axes[tmp_indicator], title=tmp_indicator, title_rotation=subtitle_rotation, title_x=subtitle_x, title_y=subtitle_y)
-      
+        axes[tmp_indicator].fill_between(df.index, df.mavg, df.bb_high_band, facecolor='green', interpolate=True, alpha=0.1)
+        axes[tmp_indicator].fill_between(df.index, df.mavg, df.bb_low_band, facecolor='red', interpolate=True, alpha=0.1)
+
     elif tmp_indicator == 'candlestick':
       width = tmp_args.get('width')
 
