@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+from quant import bc_util as util
 from matplotlib import gridspec
 from mpl_finance import candlestick_ohlc
 from scipy.signal import find_peaks
@@ -2228,20 +2229,28 @@ def plot_peak_trough(df, start=None, end=None, price_col='Close', high_col='High
   ax.scatter(troughs.index, troughs[price_col], label='trough',color='red', marker='v', alpha=0.8)
 
   # plot trend
+  # calculate slope and intercept for peaks and troughs
   window_size = 5
+
+  peaks['date'] = peaks.index.astype(str)
+  peaks['date_prev'] = peaks['date'].shift(1)
   last_peak = peaks.tail(window_size).copy()
+  last_peak['date_diff'] = last_peak.apply(lambda row: util.num_days_between(row['date_prev'], row['date']), axis=1)
+  last_peak['x'] = last_peak['date_diff'].cumsum()
+
+  troughs['date'] = troughs.index.astype(str)
+  troughs['date_prev'] = troughs['date'].shift(1)
   last_trough = troughs.tail(window_size).copy()
+  last_trough['date_diff'] = last_trough.apply(lambda row: util.num_days_between(row['date_prev'], row['date']), axis=1)
+  last_trough['x'] = last_trough['date_diff'].cumsum()
 
   # linear regression 
-  x = range(1, window_size+1)
-  peak_lr = linregress(x, last_peak[price_col])
-  trough_lr = linregress(x, last_trough[price_col])
+  peak_lr = linregress(last_peak['x'], last_peak[price_col])
+  trough_lr = linregress(last_trough['x'], last_trough[price_col])
 
-  last_peak['x'] = x  
   last_peak['y'] = last_peak['x'] * peak_lr[0] + peak_lr[1]
-
-  last_trough['x'] = x
   last_trough['y'] = last_trough['x'] * trough_lr[0] + trough_lr[1]
+  
   ax.plot(last_peak.index, last_peak['y'], label='peak_trend', color='green', linestyle='--', alpha= 0.8)
   ax.plot(last_trough.index, last_trough['y'], label='trough_trend', color='red', linestyle='--', alpha=0.8)
 
