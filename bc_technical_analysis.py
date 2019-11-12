@@ -2215,8 +2215,8 @@ def plot_peak_trough(df, start=None, end=None, price_col='Close', high_col='High
     ax = plt.gca()
 
   # get peaks and troughs
-  peaks = df.query('%(column)s == "%(value)s"' % dict(column=signal_col, value=pos_signal))
-  troughs = df.query('%(column)s == "%(value)s"' % dict(column=signal_col, value=neg_signal))
+  peaks = df.query('%(column)s == "%(value)s"' % dict(column=signal_col, value=pos_signal)).copy()
+  troughs = df.query('%(column)s == "%(value)s"' % dict(column=signal_col, value=neg_signal)).copy()
 
   # plot high-low range
   ax.fill_between(df.index, df[high_col], df[low_col], facecolor='blue', interpolate=True, alpha=0.2)
@@ -2248,8 +2248,8 @@ def plot_peak_trough(df, start=None, end=None, price_col='Close', high_col='High
   peak_lr = linregress(last_peak['x'], last_peak[price_col])
   trough_lr = linregress(last_trough['x'], last_trough[price_col])
 
-  pt = df.tail(50).copy()
-  pt['x'] = range(50)
+  pt = df.tail(10).copy()
+  pt['x'] = range(10)
   pt['y_p'] = pt['x'] * peak_lr[0] + peak_lr[1]
   pt['y_t'] = pt['x'] * trough_lr[0] + trough_lr[1]
 
