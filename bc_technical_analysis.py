@@ -353,7 +353,7 @@ def remove_redundant_signal(df, signal_col='signal', pos_signal='b', neg_signal=
 
 
 
-# ================================================================================== Support/resistant ================================================================================== #
+# ================================================================================== Self-defined TA ================================================================================== #
 # calculate peak / trough in price
 def cal_peak_trough(df, target_col, height=None, threshold=None, distance=None, width=None, result_col='signal', peak_signal='p', trough_signal='t', none_signal='n'):
   """
@@ -453,9 +453,6 @@ def cal_peak_trough(df, target_col, height=None, threshold=None, distance=None, 
 
   return df[[result_col]]
 
-
-
-# ================================================================================== Moving average ===================================================================================== #
 # calculate moving average 
 def cal_moving_average(df, target_col, ma_windows=[50, 105], start=None, end=None, window_type='em'):
   """
@@ -488,9 +485,6 @@ def cal_moving_average(df, target_col, ma_windows=[50, 105], start=None, end=Non
   
   return df
 
-
-
-# ================================================================================== Candle sticks ====================================================================================== #
 # add candle stick features 
 def add_candlestick_features(df, close='Close', open='Open', high='High', low='Low', volume='Volume'):
   """
@@ -1464,7 +1458,6 @@ def add_vpt_features(df, close='Close', open='Open', high='High', low='Low', vol
   df.drop(['close_change_rate'], axis=1, inplace=True)
 
   return df
-
 
 
 
