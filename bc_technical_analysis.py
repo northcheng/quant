@@ -1260,7 +1260,7 @@ def add_cmf_features(df, n=20, close='Close', open='Open', high='High', low='Low
 
   return df
 
-# *Ease of movement (EoM, EMV)
+# Ease of movement (EoM, EMV)
 def add_eom_features(df, n=20, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
   Calculate Vortex indicator
@@ -1298,7 +1298,7 @@ def add_eom_features(df, n=20, close='Close', open='Open', high='High', low='Low
   return df
 
 # *Force Index (FI)
-def add_fi_features(df, n=2, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+def add_fi_features(df, n1=1, n2=13, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
   Calculate Force Index
 
@@ -1318,7 +1318,8 @@ def add_fi_features(df, n=2, close='Close', open='Open', high='High', low='Low',
   df = df.copy()
 
   # calculate fi
-  fi = df[close].diff(n) * df[volume].diff(n)
+  fi = df[close].diff(n1) * df[volume]#.diff(n)
+  fi = em(series=fi, periods=n2).mean()
 
   # fill na values
   if fillna:
