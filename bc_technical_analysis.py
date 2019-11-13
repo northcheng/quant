@@ -1298,7 +1298,7 @@ def add_eom_features(df, n=20, close='Close', open='Open', high='High', low='Low
   return df
 
 # *Force Index (FI)
-def add_fi_features(df, n1=1, n2=13, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+def add_fi_features(df, n1=2, n2=22, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
   Calculate Force Index
 
