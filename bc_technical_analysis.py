@@ -1256,7 +1256,7 @@ def add_cmf_features(df, n=20, close='Close', open='Open', high='High', low='Low
 
   # calculate signals
   if cal_signal:
-    df['cmf_signal'] = 'n'
+    df['cmf_signal'] = cal_boundary_signal(df=df, upper_col='cmf', lower_col='cmf', upper_boundary=0.05, lower_boundary=-0.05, result_col='signal', pos_signal='b', neg_signal='s', none_signal='n')
 
   return df
 
