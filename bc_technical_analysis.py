@@ -1319,7 +1319,7 @@ def add_fi_features(df, n1=1, n2=13, close='Close', open='Open', high='High', lo
 
   # calculate fi
   fi = df[close].diff(n1) * df[volume]#.diff(n)
-  fi = em(series=fi, periods=n2).mean()
+  fi_ema = em(series=fi, periods=n2).mean()
 
   # fill na values
   if fillna:
@@ -1327,6 +1327,7 @@ def add_fi_features(df, n1=1, n2=13, close='Close', open='Open', high='High', lo
 
   # assign fi to df
   df['fi'] = fi
+  df['fi_ema'] = fi_ema
 
   # calculate signals
   if cal_signal:
