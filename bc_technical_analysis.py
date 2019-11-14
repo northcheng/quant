@@ -1408,11 +1408,12 @@ def add_obv_features(df, close='Close', open='Open', high='High', low='Low', vol
   if c2.any():
     df.loc[c2, 'OBV'] = df[volume]
   obv = df['OBV'].cumsum()
+  obv = obv.fillna(method='ffill')
 
   # fill na values
   if fillna:
-    # obv = obv.replace([np.inf, -np.inf], np.nan).fillna(0)
-    obv = obv.fillna(how='ffill')
+    obv = obv.replace([np.inf, -np.inf], np.nan).fillna(0)
+
 
   # assign obv to df
   df['obv'] = obv
