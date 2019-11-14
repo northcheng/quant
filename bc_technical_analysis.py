@@ -572,7 +572,7 @@ def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low
   # Average directional index
   df['adx'] = em(series=df['dx'], periods=n).mean()
   idx = df.index.tolist()
-  for i in range(n, len(df)-1):
+  for i in range(n*2, len(df)-1):
     current_idx = idx[i]
     previous_idx = idx[i-1]
     df.loc[current_idx, 'adx'] = (df.loc[previous_idx, 'adx'] * (n-1) + df.loc[current_idx, 'dx']) / n
