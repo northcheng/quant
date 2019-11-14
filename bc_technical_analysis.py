@@ -1373,6 +1373,7 @@ def add_nvi_features(df, n=255, close='Close', open='Open', high='High', low='Lo
 
   # assign nvi to df
   df['nvi'] = nvi
+  df['nvi_ema'] = em(series=nvi, periods=n).mean()
 
   # calculate signal
   if cal_signal:
