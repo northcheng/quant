@@ -1336,7 +1336,7 @@ def add_fi_features(df, n1=2, n2=22, close='Close', open='Open', high='High', lo
   return df
 
 # *Negative Volume Index (NVI)
-def add_nvi_features(df, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+def add_nvi_features(df, n=255, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
   Calculate Negative Volume Index (NVI)
 
@@ -1355,7 +1355,7 @@ def add_nvi_features(df, close='Close', open='Open', high='High', low='Low', vol
   df = df.copy()
 
   # calculate nvi
-  price_change = df[close].pct_change()
+  price_change = df[close].pct_change()*100
   vol_decress = (df[volume].shift(1) > df[volume])
 
   nvi = pd.Series(data=np.nan, index=df[close].index, dtype='float64', name='nvi')
@@ -1363,7 +1363,7 @@ def add_nvi_features(df, close='Close', open='Open', high='High', low='Low', vol
   nvi.iloc[0] = 1000
   for i in range(1, len(nvi)):
     if vol_decress.iloc[i]:
-      nvi.iloc[i] = nvi.iloc[i-1] * (1.0 + price_change.iloc[i])
+      nvi.iloc[i] = nvi.iloc[i-1] + (price_change.iloc[i])
     else:
       nvi.iloc[i] = nvi.iloc[i-1]
 
