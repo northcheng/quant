@@ -613,7 +613,7 @@ def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low
     df.loc[down_idx, 'adx_signal'] = 's'
     df.loc[none_idx, 'adx_signal'] = 'n'
 
-  df.drop(['high_diff', 'low_diff', 'zero', 'pdm', 'mdm', 'pdm_smooth', 'mdm_smooth', 'tr_smooth', 'dx', 'di_diff', 'tr', 'atr'], axis=1, inplace=True)
+  # df.drop(['high_diff', 'low_diff', 'zero', 'pdm', 'mdm', 'pdm_smooth', 'mdm_smooth', 'tr_smooth', 'dx', 'di_diff', 'tr', 'atr'], axis=1, inplace=True)
 
   return df
 
