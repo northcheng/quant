@@ -553,35 +553,23 @@ def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low
   df = df.copy()
 
   # calculate true range
-  df = add_atr_features(df=df, cal_signal=False)
+  df = add_atr_features(df=df, n=n, cal_signal=False)
 
-  # plus/minus directional movement
+  # plus/minus directional movements
   df['high_diff'] = df[high] - df[high].shift(1)
   df['low_diff'] = df[low].shift(1) - df[low]
   df['zero'] = 0
   df['pdm'] = df['high_diff'].combine(df['zero'], lambda x1, x2: get_min_max(x1, x2, 'max'))
   df['mdm'] = df['low_diff'].combine(df['zero'], lambda x1, x2: get_min_max(x1, x2, 'max'))
   
-  # smooth directional movement, true range
-  df['pdm_smooth'] = sm(series=df['pdm'], periods=n).sum()
-  df['mdm_smooth'] = sm(series=df['mdm'], periods=n).sum()
-  df['tr_smooth'] = sm(series=df['tr'], periods=n).sum()
+  # plus/minus directional indicators
+  df['pdi'] = 100 * em(series=df['pdm'], periods=n).mean() / df['atr']
+  df['mdi'] = 100 * em(series=df['mdm'], periods=n).mean() / df['atr']
 
-  idx = df.index.tolist()
-  for i in range(n, len(df)-1):
-    current_idx = idx[i]
-    previous_idx = idx[i-1]
+  # directional movement index
+  df['dx'] = 100 * abs(df['pdi'] - df['mdi']) / (df['pdi'] + df['mdi'])
 
-    df.loc[current_idx, 'pdm_smooth'] = df.loc[previous_idx, 'pdm_smooth'] - df.loc[previous_idx, 'pdm_smooth']/n + df.loc[current_idx, 'pdm']
-    df.loc[current_idx, 'mdm_smooth'] = df.loc[previous_idx, 'mdm_smooth'] - df.loc[previous_idx, 'mdm_smooth']/n + df.loc[current_idx, 'mdm']
-    df.loc[current_idx, 'tr_smooth'] = df.loc[previous_idx, 'tr_smooth'] - df.loc[previous_idx, 'tr_smooth']/n + df.loc[current_idx, 'tr']
-
-  # calculate ± DI
-  df['pdi'] = df['pdm_smooth'] / df['tr_smooth'] * 100
-  df['mdi'] = df['mdm_smooth'] / df['tr_smooth'] * 100
-  df['dx'] = abs((df['pdi']-df['mdi']) / (df['pdi']+df['mdi'])) * 100
-
-  # calculate adx
+  # Average directional index
   df['adx'] = em(series=df['dx'], periods=n).mean()
   for i in range(n, len(df)-1):
     current_idx = idx[i]
@@ -592,10 +580,7 @@ def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low
   if fillna:
     df['pdm'] = df['pdm'].replace([np.inf, -np.inf], np.nan).fillna(0)
     df['mdm'] = df['mdm'].replace([np.inf, -np.inf], np.nan).fillna(0)
-    df['tr'] = df['tr'].replace([np.inf, -np.inf], np.nan).fillna(0)
-    df['pdm_smooth'] = df['pdm_smooth'].replace([np.inf, -np.inf], np.nan).fillna(0)
-    df['mdm_smooth'] = df['mdm_smooth'].replace([np.inf, -np.inf], np.nan).fillna(0)
-    df['tr_smooth'] = df['tr_smooth'].replace([np.inf, -np.inf], np.nan).fillna(0)
+    df['atr'] = df['atr'].replace([np.inf, -np.inf], np.nan).fillna(0)
     df['pdi'] = df['pdi'].replace([np.inf, -np.inf], np.nan).fillna(0)
     df['mdi'] = df['mdi'].replace([np.inf, -np.inf], np.nan).fillna(0)
     df['dx'] = df['dx'].replace([np.inf, -np.inf], np.nan).fillna(0)
@@ -613,7 +598,7 @@ def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low
     df.loc[down_idx, 'adx_signal'] = 's'
     df.loc[none_idx, 'adx_signal'] = 'n'
 
-  # df.drop(['high_diff', 'low_diff', 'zero', 'pdm', 'mdm', 'pdm_smooth', 'mdm_smooth', 'tr_smooth', 'dx', 'di_diff', 'tr', 'atr'], axis=1, inplace=True)
+  df.drop(['high_diff', 'low_diff', 'zero', 'pdm', 'mdm', 'atr', 'dx', 'di_diff', 'atr'], axis=1, inplace=True)
 
   return df
 
