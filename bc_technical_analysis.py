@@ -610,7 +610,19 @@ def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low
     none_idx = df.query('adx < %s' % adx_threshold).index
     df.loc[none_idx, 'adx_signal'] = 'n'
 
-  df.drop(['high_diff', 'low_diff', 'zero', 'pdm', 'mdm', 'atr', 'dx'], axis=1, inplace=True)
+    df = ta_util.cal_change_rate(df=df, target_col='pdi', add_prefix=True)
+    df = ta_util.cal_change_rate(df=df, target_col='mdi', add_prefix=True)
+
+    pdi_periods = int(abs(df.iloc[-1]['pdi_acc_day']) + 1)
+    pdi_slope = ta_util.linear_fit(df=df, target_col='pdi', periods=pdi_periods)[0]
+    mdi_periods = int(abs(df.iloc[-1]['mdi_acc_day']) + 1)
+    mdi_slope = ta_util.linear_fit(df=df, target_col='mdi', periods=pdi_periods)[0]
+
+    df['pdi_slope'] = pdi_slope
+    df['mdi_slope'] = mdi_slope
+
+
+  df.drop(['high_diff', 'low_diff', 'zero', 'pdm', 'mdm', 'atr', 'dx', 'pdi_rate', 'pdi_acc_rate', 'pdi_acc_day', 'mdi_rate', 'mdi_acc_rate', 'mdi_acc_day'], axis=1, inplace=True)
 
   return df
 
