@@ -529,6 +529,23 @@ def add_candlestick_features(df, close='Close', open='Open', high='High', low='L
   
   return df
 
+# linear regression
+def linear_fit(df, target_col, periods):
+  """
+  Calculate slope for selected piece of data
+  :param df: dataframe
+  :param target_col: target column name
+  :param periods: input data length 
+  :returns: slope of selected data from linear regression
+  :raises: none
+  """
+
+  x = range(1, periods+1)
+  y = df[target_col].tail(periods).values.tolist()
+  lr = linregress(x, y)
+
+  return lr[0]
+
 
 
 # ================================================================================== Trend indicators =================================================================================== #
