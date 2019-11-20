@@ -610,8 +610,8 @@ def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low
     none_idx = df.query('adx < %s' % adx_threshold).index
     df.loc[none_idx, 'adx_signal'] = 'n'
 
-    df = ta_util.cal_change_rate(df=df, target_col='pdi', add_prefix=True)
-    df = ta_util.cal_change_rate(df=df, target_col='mdi', add_prefix=True)
+    df = cal_change_rate(df=df, target_col='pdi', add_prefix=True)
+    df = cal_change_rate(df=df, target_col='mdi', add_prefix=True)
 
     pdi_periods = int(abs(df.iloc[-1]['pdi_acc_day']) + 1)
     pdi_slope = linear_fit(df=df, target_col='pdi', periods=pdi_periods)[0]
