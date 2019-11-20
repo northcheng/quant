@@ -615,15 +615,17 @@ def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low
     
     pdi_periods = int(abs(df.iloc[-1]['pdi_acc_day']) + 1)
     mdi_periods = int(abs(df.iloc[-1]['mdi_acc_day']) + 1)
-    print(pdi_periods, mdi_periods)
-    
-    pdi_slope = linear_fit(df=df, target_col='pdi', periods=pdi_periods)[0]
-    print(pdi_slope)
-    mdi_slope = linear_fit(df=df, target_col='mdi', periods=mdi_periods)[0]
-    print(mdi_slope)
 
-    df['pdi_slope'] = pdi_slope
-    df['mdi_slope'] = mdi_slope
+    try:
+      pdi_slope = linear_fit(df=df, target_col='pdi', periods=pdi_periods)
+      print(pdi_slope)
+      mdi_slope = linear_fit(df=df, target_col='mdi', periods=mdi_periods)
+      print(mdi_slope)
+    except Exception as e:
+      print(e)
+
+    # df['pdi_slope'] = pdi_slope
+    # df['mdi_slope'] = mdi_slope
 
 
   df.drop(['high_diff', 'low_diff', 'zero', 'pdm', 'mdm', 'atr', 'dx', 'pdi_rate', 'pdi_acc_rate', 'pdi_acc_day', 'mdi_rate', 'mdi_acc_rate', 'mdi_acc_day'], axis=1, inplace=True)
