@@ -544,7 +544,7 @@ def linear_fit(df, target_col, periods):
   y = df[target_col].tail(periods).values.tolist()
   lr = linregress(x, y)
 
-  return lr[0]
+  return {'slope': lr[0], 'intecept': lr[1]}
 
 
 
