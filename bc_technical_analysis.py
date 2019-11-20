@@ -617,6 +617,7 @@ def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low
     mdi_periods = int(abs(df.iloc[-1]['mdi_acc_day']) + 1)
     df['pdi_slope'] = linear_fit(df=df, target_col='pdi', periods=pdi_periods)['slope']
     df['mdi_slope'] = linear_fit(df=df, target_col='mdi', periods=mdi_periods)['slope']
+    df['adx_trend'] = df['pdi_slope'] - df['mdi_slope']
 
   df.drop(['high_diff', 'low_diff', 'zero', 'pdm', 'mdm', 'atr', 'dx', 'pdi_rate', 'pdi_acc_rate', 'pdi_acc_day', 'mdi_rate', 'mdi_acc_rate', 'mdi_acc_day'], axis=1, inplace=True)
 
