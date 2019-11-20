@@ -386,7 +386,7 @@ def cal_peak_trough(df, target_col, height=None, threshold=None, distance=None, 
     df.loc[troughs, result_col] = trough_signal
     
   except Exception as e:
-    print(e)
+    # print(e)
     
     further_filter=True
 
