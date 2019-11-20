@@ -615,6 +615,7 @@ def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low
     
     pdi_periods = int(abs(df.iloc[-1]['pdi_acc_day']) + 1)
     mdi_periods = int(abs(df.iloc[-1]['mdi_acc_day']) + 1)
+    print(pdi_periods, mdi_periods)
     
     pdi_slope = linear_fit(df=df, target_col='pdi', periods=pdi_periods)[0]
     print(pdi_slope)
