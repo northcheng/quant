@@ -199,7 +199,7 @@ def download_stock_data_from_yahoo(sec_code, file_path, interval='d', file_name=
   :returns: dataframe is is_return=True
   :raises: none
   """
-  # construct filename by sec_code, file_path and file_format
+  # construct file_name by sec_code, file_path and file_format
   if file_name is None:
     file_name = file_path + sec_code + '.csv'
   else:
@@ -248,7 +248,7 @@ def download_stock_data_from_yfinance(sec_code, file_path, interval='1d', file_n
   :returns: dataframe is is_return=True
   :raises: none
   """
-  # construct filename by sec_code, file_path and file_format
+  # construct file_name by sec_code, file_path and file_format
   if file_name is None:
     file_name = file_path + sec_code + '.csv'
   else:
@@ -300,7 +300,7 @@ def download_stock_data_from_tiger(sec_code, file_path, interval, file_name=None
   :returns: dataframe is is_return=True
   :raises: none
   """  
-  # construct filename by sec_code, file_path and file_format
+  # construct file_name by sec_code, file_path and file_format
   if file_name is None:
     file_name = file_path + sec_code + '.csv'
   else:
@@ -360,7 +360,7 @@ def download_stock_data_from_tiger(sec_code, file_path, interval, file_name=None
     return util.df_2_timeseries(data, time_col=time_col)
 
 
-def download_stock_data(sec_code, file_path, file_name=None, start_date=None, end_date=None, source='yahoo', time_col='Date', interval='d', quote_client=None, download_limit=1200, is_return=False, is_save=True, is_print=True):
+def download_stock_data(sec_code, start_date=None, end_date=None, source='yahoo', time_col='Date', interval='d', quote_client=None, download_limit=1200, is_print=False, is_return=False, is_save=False, file_path=None, file_name=None):
   """
   Download stock data from web sources
 
@@ -379,15 +379,36 @@ def download_stock_data(sec_code, file_path, file_name=None, start_date=None, en
   :returns: dataframe is is_return=True
   :raises: none
   """
-  # download stock data from yahoo finance api via pandas_datareader
-  if source == 'yahoo':
-    return download_stock_data_from_yahoo(sec_code=sec_code, file_path=file_path, file_name=file_name, start_date=start_date, end_date=end_date, time_col=time_col, interval=interval, is_return=is_return, is_save=is_save, is_print=is_print)
-  # download stock data from yahoo finance api via yfinance
-  elif source == 'yfinance':
-    return download_stock_data_from_yfinance(sec_code=sec_code, file_path=file_path, file_name=file_name, start_date=start_date, end_date=end_date, time_col=time_col, interval=interval, is_return=is_return, is_save=is_save, is_print=is_print)
-  # download stock data by using tiger open api
-  elif source == 'tiger':
-    return download_stock_data_from_tiger(sec_code=sec_code, file_path=file_path, file_name=file_name, start_date=start_date, end_date=end_date, time_col=time_col, interval=interval, is_return=is_return, is_save=is_save, is_print=is_print, quote_client=quote_client, download_limit=download_limit)
+  try:
+    # get data
+    data = pd.DataFrame()
+
+    # yahoo
+    if source == 'yahoo':
+      data = get_data_from_yahoo(sec_code=sec_code, interval=interval, start_date=start_date, end_date=end_date, time_col=time_col, is_print=is_print)
+    # yfinance
+    elif source == 'yfinance':
+      data = data = get_data_from_yfinance(sec_code=sec_code, interval=interval, start_date=start_date, end_date=end_date, time_col=time_col, is_print=is_print)
+    # download stock data by using tiger open api
+    elif source == 'tiger':
+      data = get_data_from_tiger(sec_code=sec_code, interval=interval, start_date=start_date, end_date=end_date, time_col=time_col, is_print=is_print, quote_client=quote_client ,download_limit=download_limit)
+
+    # save data
+    if is_save:
+      # construct file_name by sec_code, file_path and file_format
+      if file_name is None:
+        file_name = '{path}{name}.csv'.format(path=file_path, name=sec_code)
+      else:
+        file_name = '{path}{name}.csv'.format(path=file_path, name=file_name)
+      
+      data_length = len(data)
+      if data_length > 0:
+        data = data.reset_index().drop_duplicates(subset=time_col, keep='last')
+        data.to_csv(file_name, index=False)  
+
+  except Exception as e:
+    print(sec_code, e)
+
 
 
 def read_stock_data(sec_code, time_col, file_path, file_name=None, start_date=None, end_date=None, drop_na=False, sort_index=True):
@@ -405,7 +426,7 @@ def read_stock_data(sec_code, time_col, file_path, file_name=None, start_date=No
   :returns: timeseries-dataframe of stock data
   :raises: exception when error reading data
   """
-  # construct filename by sec_code, file_path and file_format
+  # construct file_name by sec_code, file_path and file_format
   stage = 'initialization'
   if file_name is None:
     file_name = file_path + sec_code + '.csv'
@@ -483,8 +504,8 @@ def download_nytimes(year, month, api_key, file_path, file_format='.json', is_pr
   url = "https://api.nytimes.com/svc/archive/v1/{year}/{month}.json?api-key={api_key}" 
   url = url.format(year=year, month=month, api_key=api_key)
 
-  # construct filename
-  filename = '{file_path}{year}-{month:02}{file_format}'.format(file_path=file_path, year=year, month=month, file_format=file_format)
+  # construct file_name
+  file_name = '{file_path}{year}-{month:02}{file_format}'.format(file_path=file_path, year=year, month=month, file_format=file_format)
 
   # get data
   items = requests.get(url)
@@ -515,7 +536,7 @@ def download_nytimes(year, month, api_key, file_path, file_format='.json', is_pr
       data['response']['meta']['hits'] = len(docs)
       
       # save
-      with open(filename, 'w') as f:
+      with open(file_name, 'w') as f:
         json.dump(data, f)
         
   except Exception as e:
@@ -543,11 +564,11 @@ def read_nytimes(year, month, file_path, file_format='.json'):
   :returns: dataframe
   :raises: None
   """
-  # construct filename
-  filename = '{file_path}{year}-{month:02}{file_format}'.format(file_path=file_path, year=year, month=month, file_format=file_format)
+  # construct file_name
+  file_name = '{file_path}{year}-{month:02}{file_format}'.format(file_path=file_path, year=year, month=month, file_format=file_format)
   
   # load json data
-  with open(filename) as data_file:    
+  with open(file_name) as data_file:    
     NYTimes_data = json.load(data_file)
   
   # convert json to dataframe
