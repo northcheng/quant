@@ -161,8 +161,7 @@ def get_data_from_tiger(sec_code, interval, start_date=None, end_date=None, time
     data_length = len(data)
     if data_length > 0:
       data.drop('symbol', axis=1, inplace=True)
-      data['Adj Close'] = data['Close']
-
+      
       # drop duplicated data
       data[time_col] = data[time_col].apply(lambda x: util.timestamp_2_time(x).date())
       data = data.drop_duplicates(subset=time_col, keep='last')
@@ -170,6 +169,7 @@ def get_data_from_tiger(sec_code, interval, start_date=None, end_date=None, time
       
       # change column names
       data.rename(columns={'open': 'Open', 'high': 'High', 'low': 'Low', 'close': 'Close', 'volume': 'Volume', 'time': 'Date'}, inplace=True)
+      data['Adj Close'] = data['Close']
       data = util.df_2_timeseries(data, time_col='Date')
       
     # print download result
