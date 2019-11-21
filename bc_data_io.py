@@ -389,7 +389,7 @@ def download_stock_data(sec_code, start_date=None, end_date=None, source='yahoo'
     # yfinance
     elif source == 'yfinance':
       data = data = get_data_from_yfinance(sec_code=sec_code, interval=interval, start_date=start_date, end_date=end_date, time_col=time_col, is_print=is_print)
-    # download stock data by using tiger open api
+    # dtigeropen
     elif source == 'tiger':
       data = get_data_from_tiger(sec_code=sec_code, interval=interval, start_date=start_date, end_date=end_date, time_col=time_col, is_print=is_print, quote_client=quote_client ,download_limit=download_limit)
 
@@ -401,13 +401,16 @@ def download_stock_data(sec_code, start_date=None, end_date=None, source='yahoo'
       else:
         file_name = '{path}{name}.csv'.format(path=file_path, name=file_name)
       
+      # if dataframe is not empty, save it into a csv file
       data_length = len(data)
       if data_length > 0:
-        data = data.reset_index().drop_duplicates(subset=time_col, keep='last')
-        data.to_csv(file_name, index=False)  
+        data.reset_index().drop_duplicates(subset=time_col, keep='last').to_csv(file_name, index=False)  
 
   except Exception as e:
     print(sec_code, e)
+
+  if is_return:
+    return data
 
 
 
