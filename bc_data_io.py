@@ -85,7 +85,7 @@ def get_data_from_yahoo(sec_code, interval='d', start_date=None, end_date=None, 
       
     # print download result
     if is_print:
-      print('[From Yahoo]{sec_code}}: {start} - {end}, 下载记录 {length}'.format(sec_code=sec_code, start=data.index.min().date(), end=data.index.max().date(), dlength=len(data)))
+      print('[From Yahoo]{sec_code}: {start} - {end}, 下载记录 {length}'.format(sec_code=sec_code, start=data.index.min().date(), end=data.index.max().date(), dlength=len(data)))
 
   except Exception as e:
       print(sec_code, e)
@@ -114,7 +114,7 @@ def get_data_from_yfinance(sec_code, interval='1d', start_date=None, end_date=No
           
     # print download result
     if is_print:
-      print('[From YFinance]{sec_code}}: {start} - {end}, 下载记录 {length}'.format(sec_code=sec_code, start=data.index.min().date(), end=data.index.max().date(), dlength=len(data)))
+      print('[From YFinance]{sec_code}: {start} - {end}, 下载记录 {length}'.format(sec_code=sec_code, start=data.index.min().date(), end=data.index.max().date(), dlength=len(data)))
 
   except Exception as e:
       print(sec_code, e)
@@ -174,7 +174,7 @@ def get_data_from_tiger(sec_code, interval, start_date=None, end_date=None, time
       
     # print download result
     if is_print:
-      print('[From tiger]{sec_code}}: {start} - {end}, 下载记录 {length}'.format(sec_code=sec_code, start=data.index.min().date(), end=data.index.max().date(), dlength=len(data)))
+      print('[From tiger]{sec_code}: {start} - {end}, 下载记录 {length}'.format(sec_code=sec_code, start=data.index.min().date(), end=data.index.max().date(), dlength=len(data)))
       
   except Exception as e:
     print(sec_code, e)   
