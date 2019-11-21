@@ -65,6 +65,124 @@ def get_symbols(remove_invalid=True, remove_not_fetched=False, not_fetched_list=
   return symbols.loc[sec_list, ]
 
 
+def get_data_from_yahoo(sec_code, interval='d', start_date=None, end_date=None, time_col='Date', is_print=False):
+  """
+  Download stock data from Yahoo finance api via pandas_datareader
+
+  :param sec_code: symbol of the stock to download
+  :param start_date: start date of the data
+  :param end_date: end date of the data
+  :param time_col: time column in that data
+  :param interval: period of data: d/w/m/v
+  :param is_print: whether to print the download information
+  :returns: dataframe 
+  :raises: none
+  """
+
+  try:
+    # download data
+    data = web.get_data_yahoo(sec_code, start_date, end_date, interval=interval)
+      
+    # print download result
+    if is_print:
+      print('[From Yahoo]{sec_code}}: {start} - {end}, 下载记录 {length}'.format(sec_code=sec_code, start=data.index.min().date(), end=data.index.max().date(), dlength=len(data)))
+
+  except Exception as e:
+      print(sec_code, e)
+
+  # return dataframe
+  return data
+
+
+def get_data_from_yfinance(sec_code, interval='1d', start_date=None, end_date=None, time_col='Date', is_print=False):
+  """
+  Download stock data from Yahoo finance api via yfinance
+
+  :param sec_code: symbol of the stock to download
+  :param start_date: start date of the data
+  :param end_date: end date of the data
+  :param time_col: time column in that data
+  :param interval: period of data: 1m,2m,5m,15m,30m,60m,90m,1h,1d,5d,1wk,1mo,3mo
+  :returns: dataframe
+  :raises: none
+  """
+  try:
+    # download data
+    ticker = yf.Ticker(sec_code)
+    data = ticker.history(start=start_date, end=end_date, interval=interval).drop(columns=['Dividends', 'Stock Splits'])
+    data['Adj Close'] = data['Close']
+          
+    # print download result
+    if is_print:
+      print('[From YFinance]{sec_code}}: {start} - {end}, 下载记录 {length}'.format(sec_code=sec_code, start=data.index.min().date(), end=data.index.max().date(), dlength=len(data)))
+
+  except Exception as e:
+      print(sec_code, e)
+
+  # return dataframe
+  return data 
+
+
+def get_data_from_tiger(sec_code, interval, start_date=None, end_date=None, time_col='time', quote_client=None, download_limit=1200, is_print=False):
+  """
+  Download stock data from Tiger Open API
+  :param sec_code: symbol of the stock to download
+  :param start_date: start date of the data
+  :param end_date: end date of the data 
+  :param time_col: time column in that data  
+  :param interval: period of data: day/week/month/year/1min/5min/15min/30min/60min
+  :param quote_client: quote_client used for querying data from API
+  :param download limit: the limit of number of records in each download
+  :param is_print: whether to print the download information
+  :returns: dataframe 
+  :raises: none
+  """  
+  try:     
+    # initialization
+    data = pd.DataFrame()
+    begin_time = 0
+    end_time = round(time.time() * 1000)
+
+    # transfer start/end date to timestamp instance
+    if start_date is not None:
+      begin_time = round(time.mktime(util.string_2_time(start_date).timetuple()) * 1000)
+    if end_date is not None:
+      end_time = round(time.mktime(util.string_2_time(end_date).timetuple()) * 1000)
+      
+    # start downloading data
+    tmp_len = download_limit
+    while tmp_len >= download_limit:  
+      tmp_data = quote_client.get_bars([sec_code], begin_time=begin_time, end_time=end_time, period=interval, limit=download_limit)
+      tmp_len = len(tmp_data)
+      data = tmp_data.append(data)
+      end_time = int(tmp_data.time.min())
+    
+    # process downloaded data
+    data_length = len(data)
+    if data_length > 0:
+      data.drop('symbol', axis=1, inplace=True)
+      data['Adj Close'] = data['Close']
+
+      # drop duplicated data
+      data[time_col] = data[time_col].apply(lambda x: util.timestamp_2_time(x).date())
+      data = data.drop_duplicates(subset=time_col, keep='last')
+      data.sort_values(by=time_col,  inplace=True)
+      
+      # change column names
+      data.rename(columns={'open': 'Open', 'high': 'High', 'low': 'Low', 'close': 'Close', 'volume': 'Volume', 'time': 'Date'}, inplace=True)
+      data = util.df_2_timeseries(data, time_col='Date')
+      
+    # print download result
+    if is_print:
+      print('[From tiger]{sec_code}}: {start} - {end}, 下载记录 {length}'.format(sec_code=sec_code, start=data.index.min().date(), end=data.index.max().date(), dlength=len(data)))
+      
+  except Exception as e:
+    print(sec_code, e)   
+    
+  # return dataframe
+  return data
+
+
 def download_stock_data_from_yahoo(sec_code, file_path, interval='d', file_name=None, start_date=None, end_date=None, time_col='Date', is_return=False, is_save=True, is_print=True):
   """
   Download stock data from Yahoo finance api via pandas_datareader
