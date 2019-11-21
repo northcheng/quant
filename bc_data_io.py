@@ -7,11 +7,12 @@ Utilities used for data IO
 
 import pandas as pd
 import numpy as np
-import datetime
-import time
-import os
 import requests
+import datetime
+import zipfile
+import time
 import json
+import os
 import pandas_datareader.data as web 
 from pandas_datareader.nasdaq_trader import get_nasdaq_symbols
 try:
@@ -550,3 +551,30 @@ def modify_config(config_key, config_value, file_path, file_name):
 
   except Exception as e:
     print(e)
+
+
+
+#----------------------------- Zip file ----------------------------------------#
+def zip_folder(folder_path, destination_path, zip_file_name):
+  """
+  Zip folder
+  :param folder_path: full path of the folder
+  :param destination_path: where you want the zip file to be
+  :param zip_file_name: name of the zip file
+  :returns: zip file name
+  :raises: none
+  """
+  # create zip file
+  start_dir = folder_path
+  zip_file_name = '{path}{name}.zip'.format(path=destination_path, name=zip_file_name)
+  zip_writer = zipfile.ZipFile(zip_file_name, 'w', zipfile.ZIP_DEFLATED)
+
+  # zip files in the folder into zip file
+  for dir_path, dir_names, file_names in os.walk(start_dir):
+    short_path = dir_path.replace(start_dir, '')
+    short_path = short_path + os.sep if short_path is not None else ''
+    for f in file_names:
+      zip_writer.write(os.path.join(dir_path, f),short_path+f)
+  zip_writer.close()
+  
+  return zip_file_name
