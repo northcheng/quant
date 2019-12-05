@@ -899,7 +899,7 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
   return df
 
 # KST(Know Sure Thing)
-def add_kst_features(df, r1=10, r2=15, r3=20, r4=30, n1=10, n2=10, n3=10, n4=15, nsign=9, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, signal_mode='mix'):
+def add_kst_features(df, r1=10, r2=15, r3=20, r4=30, n1=10, n2=10, n3=10, n4=15, nsign=9, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, signal_mode='default'):
   """
   Calculate KST(Know Sure Thing)
 
@@ -954,7 +954,7 @@ def add_kst_features(df, r1=10, r2=15, r3=20, r4=30, n1=10, n2=10, n3=10, n4=15,
       df['kst_signal'] = cal_crossover_signal(df=df, fast_line='kst', slow_line='zero')
       
     # kst-kst_sign crossovers
-    elif signal_mode == 'kst_sign':
+    elif signal_mode == 'default':
       df['kst_signal'] = cal_crossover_signal(df=df, fast_line='kst', slow_line='kst_sign')
 
     # buy with kst-0 crossover, sell with kst-kst_sign crossover
