@@ -362,13 +362,14 @@ def preprocess_stock_data(df, interval, print_error=True):
   
   return df
   
-def postprocess_stock_data(df, keep_columns, drop_columns):
+def postprocess_stock_data(df, keep_columns, drop_columns, en_2_cn):
   '''
   Postprocess downloaded data
 
   :param df: downloaded stock data
   :param keep_columns: columns to keep for the final result
   :param drop_columns: columns to drop for the final result
+  :param en_2_cn: convert en names to cn names
   :returns: postprocessed dataframe
   :raises: None
   '''     
@@ -382,7 +383,7 @@ def postprocess_stock_data(df, keep_columns, drop_columns):
   df['操作'] = ''
   df['分数'] = 0
 
-  # ================================ 趋势 ==========================================
+  # ================================ Trend ==========================================
   df['趋势'] += '['
 
   # KAMA 趋势
@@ -410,7 +411,7 @@ def postprocess_stock_data(df, keep_columns, drop_columns):
   df.loc[other_idx, '趋势'] += ' '
 
   df['趋势'] += ']'
-  # =============================== 超买超卖 =======================================
+  # =============================== Overbuy/Oversell ================================
   df['超买/超卖'] += '['
 
   # 布林线 超买/超卖
@@ -430,7 +431,7 @@ def postprocess_stock_data(df, keep_columns, drop_columns):
   df.loc[other_idx, '超买/超卖'] += ' '
 
   df['超买/超卖'] += ']'
-  # ================================ 信号/分数 =====================================
+  # ================================ Signal/Score ===================================
   df['信号'] += '['
 
   # KAMA 信号
@@ -464,7 +465,7 @@ def postprocess_stock_data(df, keep_columns, drop_columns):
   df.loc[sell_idx, '分数'] += -1
 
   df['信号'] += ']'       
-  # =============================== 列名处理 =======================================
+  # =============================== Others =======================================
 
   df = df[list(keep_columns.keys())].rename(columns=keep_columns)
   if set(['上穿', '下穿']) < set(df.columns):
