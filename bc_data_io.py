@@ -309,7 +309,61 @@ def remove_stock_data(sec_code, file_path, file_name=None):
   except Exception as e:
     print(sec_code, e) 
 
+    
 
+#----------------------------- Preprocess / Postprocess -------------------------#    
+# 预处理
+def preprocess_stock_data(df, interval, print_error=True):
+  '''
+  Preprocess downloaded data
+
+  :param df: downloaded stock data
+  :param interval: interval of the downloaded data
+  :param print_error: whether print error information or not
+  :returns: preprocessed dataframe
+  :raises: None
+  '''    
+  # initialization
+  na_cols = []
+  zero_cols = []
+  error_info = ''
+  max_idx = df.index.max()
+        
+  # check invalid records
+  for col in df.columns:
+    if df.loc[max_idx, col] == 0:
+      zero_cols.append(col)
+    if df[col].isna().sum() > 0:
+      na_cols.append(col)
+    
+  # delete NaN value records
+  if len(na_cols) > 0:
+    error_info = 'NaN values found in '
+    for col in na_cols:
+      error_info += '{col}, '.format(col=col)
+    df = df.dropna()
+    
+  # delete 0 value records
+  if len(zero_cols) > 0:
+    error_info += '0 values found in '
+    for col in zero_cols:
+      error_info += '{col}, '.format(col=col)
+    error_info += '数据出错.'
+    df = df[:-1].copy()
+
+  # if interval is week, keep data until the most recent monday
+  if interval == 'week':
+    df = df[~df.index.duplicated(keep='first')]
+    if df.index.max().weekday() != 0:
+      df = df[:-1].copy()
+      
+  # print error information
+  if print_error and len(error_info)>0:
+    print(error_info)
+  
+  return df
+  
+  
 #----------------------------- NYTimes Data -------------------------------------#
 
 def download_nytimes(year, month, api_key, file_path, file_format='.json', is_print=False, is_return=False):
