@@ -66,6 +66,7 @@ def get_min_max(x1, x2, f='min'):
     return np.nan    
     
 
+
 # ================================================================================== Preprocess / Postprocess ========================================================================== #   
 # remove invalid records from downloaded stock data
 def preprocess_stock_data(df, interval, print_error=True):
@@ -235,6 +236,7 @@ def postprocess_ta_result(df, keep_columns, drop_columns, en_2_cn):
   df = df.drop(drop_columns, axis=1)
 
   return df
+
 
 
 # ================================================================================== Rolling windows ==================================================================================== #
