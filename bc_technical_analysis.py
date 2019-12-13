@@ -66,6 +66,176 @@ def get_min_max(x1, x2, f='min'):
     return np.nan    
     
 
+# ================================================================================== Preprocess / Postprocess ========================================================================== #   
+# remove invalid records from downloaded stock data
+def preprocess_stock_data(df, interval, print_error=True):
+  '''
+  Preprocess downloaded data
+
+  :param df: downloaded stock data
+  :param interval: interval of the downloaded data
+  :param print_error: whether print error information or not
+  :returns: preprocessed dataframe
+  :raises: None
+  '''    
+  # initialization
+  na_cols = []
+  zero_cols = []
+  error_info = ''
+  max_idx = df.index.max()
+        
+  # check invalid records
+  for col in df.columns:
+    if df.loc[max_idx, col] == 0:
+      zero_cols.append(col)
+    if df[col].isna().sum() > 0:
+      na_cols.append(col)
+    
+  # delete NaN value records
+  if len(na_cols) > 0:
+    error_info = 'NaN values found in '
+    for col in na_cols:
+      error_info += '{col}, '.format(col=col)
+    df = df.dropna()
+    
+  # delete 0 value records
+  if len(zero_cols) > 0:
+    error_info += '0 values found in '
+    for col in zero_cols:
+      error_info += '{col}, '.format(col=col)
+    error_info += '数据出错.'
+    df = df[:-1].copy()
+
+  # if interval is week, keep data until the most recent monday
+  if interval == 'week':
+    df = df[~df.index.duplicated(keep='first')]
+    if df.index.max().weekday() != 0:
+      df = df[:-1].copy()
+      
+  # print error information
+  if print_error and len(error_info)>0:
+    print(error_info)
+  
+  return df
+  
+# post-process calculation results
+def postprocess_ta_result(df, keep_columns, drop_columns, en_2_cn):
+  '''
+  Postprocess downloaded data
+
+  :param df: downloaded stock data
+  :param keep_columns: columns to keep for the final result
+  :param drop_columns: columns to drop for the final result
+  :param en_2_cn: convert en names to cn names
+  :returns: postprocessed dataframe
+  :raises: None
+  '''     
+  # reset index, keep 3 digits for numbers
+  df = df.round(3).reset_index()
+
+  # analysis indicators
+  df['趋势'] = ''
+  df['超买/超卖'] = ''
+  df['信号'] = ''
+  df['操作'] = ''
+  df['分数'] = 0
+
+  # ================================ Trend ==========================================
+  df['趋势'] += '['
+
+  # KAMA 趋势
+  up_idx = df.query('Close > kama_fast and rate > 0').index
+  down_idx = df.query('Close < kama_fast and rate < 0').index
+  other_idx = [x for x in df.index if x not in up_idx and x not in down_idx]
+  df.loc[up_idx, '趋势'] += '+, '
+  df.loc[down_idx, '趋势'] += '-, '
+  df.loc[other_idx, '趋势'] += ' , '
+
+  # ICHIMOKU 趋势
+  up_idx = df.query('Close > cloud_top and cloud_height > 0').index
+  down_idx = df.query('Close < cloud_bottom and cloud_height < 0').index
+  other_idx = [x for x in df.index if x not in up_idx and x not in down_idx]
+  df.loc[up_idx, '趋势'] += '+, '
+  df.loc[down_idx, '趋势'] += '-, '
+  df.loc[other_idx, '趋势'] += ' , '
+
+  # KST 趋势
+  up_idx = df.query('kst > kst_sign').index
+  down_idx = df.query('kst < kst_sign').index
+  other_idx = [x for x in df.index if x not in up_idx and x not in down_idx]
+  df.loc[up_idx, '趋势'] += '+'
+  df.loc[down_idx, '趋势'] += '-'
+  df.loc[other_idx, '趋势'] += ' '
+
+  df['趋势'] += ']'
+  # =============================== Overbuy/Oversell ================================
+  df['超买/超卖'] += '['
+
+  # 布林线 超买/超卖
+  up_idx = df.query('bb_signal == "b"').index
+  down_idx = df.query('bb_signal == "s"').index
+  other_idx = [x for x in df.index if x not in up_idx and x not in down_idx]
+  df.loc[up_idx, '超买/超卖'] += '+, '
+  df.loc[down_idx, '超买/超卖'] += '-, '
+  df.loc[other_idx, '超买/超卖'] += ' , '
+
+  # RSI 超买/超卖
+  up_idx = df.query('rsi_signal == "b"').index
+  down_idx = df.query('rsi_signal == "s"').index
+  other_idx = [x for x in df.index if x not in up_idx and x not in down_idx]
+  df.loc[up_idx, '超买/超卖'] += '+'
+  df.loc[down_idx, '超买/超卖'] += '-'
+  df.loc[other_idx, '超买/超卖'] += ' '
+
+  df['超买/超卖'] += ']'
+  # ================================ Signal/Score ===================================
+  df['信号'] += '['
+
+  # KAMA 信号
+  buy_idx = df.query('kama_signal == "b"').index
+  sell_idx = df.query('kama_signal == "s"').index
+  other_idx = [x for x in df.index if x not in buy_idx and x not in sell_idx]
+  df.loc[buy_idx, '信号'] += 'KAMA+, '
+  df.loc[sell_idx, '信号'] += 'KAMA-, '
+  df.loc[other_idx, '信号'] += (df.loc[other_idx, 'kama_days'].astype(str) + ', ')
+  df.loc[buy_idx, '分数'] += 1
+  df.loc[sell_idx, '分数'] += -1
+
+  # Ichimoku 信号
+  buy_idx = df.query('break_up > ""').index
+  sell_idx = df.query('break_down > ""').index
+  other_idx = [x for x in df.index if x not in buy_idx and x not in sell_idx]
+  df.loc[buy_idx, '信号'] += 'ICHI+, '
+  df.loc[sell_idx, '信号'] += 'ICHI-, '
+  df.loc[other_idx, '信号'] += (df.loc[other_idx, 'ichimoku_days'].astype(str) + ', ')
+  df.loc[buy_idx, '分数'] += 1
+  df.loc[sell_idx, '分数'] += -1
+
+  # KST 信号
+  buy_idx = df.query('kst_signal == "b"').index
+  sell_idx = df.query('kst_signal == "s"').index
+  other_idx = [x for x in df.index if x not in buy_idx and x not in sell_idx]
+  df.loc[buy_idx, '信号'] += 'KST+'
+  df.loc[sell_idx, '信号'] += 'KST-'
+  df.loc[other_idx, '信号'] += df.loc[other_idx, 'kst_days'].astype(str)
+  df.loc[buy_idx, '分数'] += 1
+  df.loc[sell_idx, '分数'] += -1
+
+  df['信号'] += ']'    
+  # ============================== Others ===========================================
+  
+  df = df[list(keep_columns.keys())].rename(columns=keep_columns)
+  if set(['上穿', '下穿']) < set(df.columns):
+    for index, row in df.iterrows():
+      for i in en_2_cn.keys():
+        df.loc[index, '上穿'] = df.loc[index, '上穿'].replace(i, en_2_cn[i])
+        df.loc[index, '下穿'] = df.loc[index, '下穿'].replace(i, en_2_cn[i])
+    
+  # 删除冗余的列
+  df = df.drop(drop_columns, axis=1)
+
+  return df
+
 
 # ================================================================================== Rolling windows ==================================================================================== #
 # simple moving window
