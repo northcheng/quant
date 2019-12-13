@@ -201,6 +201,8 @@ def postprocess_ta_result(df, keep_columns, drop_columns, en_2_cn):
   df.loc[other_idx, '信号'] += (df.loc[other_idx, 'kama_days'].astype(str) + ', ')
   df.loc[buy_idx, '分数'] += 1
   df.loc[sell_idx, '分数'] += -1
+  df.loc[buy_idx, '操作'] = 'w'
+  df.loc[sell_idx, '操作'] = 'w'
 
   # Ichimoku 信号
   buy_idx = df.query('break_up > ""').index
@@ -211,6 +213,8 @@ def postprocess_ta_result(df, keep_columns, drop_columns, en_2_cn):
   df.loc[other_idx, '信号'] += (df.loc[other_idx, 'ichimoku_days'].astype(str) + ', ')
   df.loc[buy_idx, '分数'] += 1
   df.loc[sell_idx, '分数'] += -1
+  df.loc[buy_idx, '操作'] = 'w'
+  df.loc[sell_idx, '操作'] = 'w'
 
   # KST 信号
   buy_idx = df.query('kst_signal == "b"').index
@@ -221,6 +225,11 @@ def postprocess_ta_result(df, keep_columns, drop_columns, en_2_cn):
   df.loc[other_idx, '信号'] += df.loc[other_idx, 'kst_days'].astype(str)
   df.loc[buy_idx, '分数'] += 1
   df.loc[sell_idx, '分数'] += -1
+  df.loc[buy_idx, '操作'] = 'w'
+  df.loc[sell_idx, '操作'] = 'w'
+
+  recent_signal_idx = df.query('ichimoku_days < 3 or kama_days < 3 or kst_days < 3').index
+  df.loc[recent_signal_idx, '操作'] = 'w'
 
   df['信号'] += ']'    
   # ============================== Others ===========================================
