@@ -223,8 +223,8 @@ def postprocess_ta_result(df, keep_columns, drop_columns, en_2_cn):
   df.loc[buy_idx, '信号'] += 'KST+'
   df.loc[sell_idx, '信号'] += 'KST-'
   df.loc[other_idx, '信号'] += df.loc[other_idx, 'kst_days'].astype(str)
-  df.loc[buy_idx, '分数'] += 1
-  df.loc[sell_idx, '分数'] += -1
+  df.loc[buy_idx, '分数'] += 0.5
+  df.loc[sell_idx, '分数'] += -0.5
   df.loc[buy_idx, '操作'] = 'w/b'
   df.loc[sell_idx, '操作'] = 'w/s'
 
@@ -244,6 +244,9 @@ def postprocess_ta_result(df, keep_columns, drop_columns, en_2_cn):
   # 删除冗余的列
   df = df.drop(drop_columns, axis=1)
 
+  # 排序
+  df = df.sort_values(['分数', '代码'], ascending=[False, True])
+  
   return df
 
 
