@@ -245,7 +245,7 @@ def postprocess_ta_result(df, keep_columns, drop_columns, en_2_cn):
   df = df.drop(drop_columns, axis=1)
 
   # 排序
-  df = df.sort_values(['分数', '代码'], ascending=[False, True])
+  df = df.sort_values(['分数', '代码'], ascending=[False, False])
   
   return df
 
