@@ -132,6 +132,8 @@ def postprocess_ta_result(df, keep_columns, drop_columns, en_2_cn):
   :raises: None
   '''     
   # analysis indicators
+  df = df.reset_index()
+
   df['趋势'] = ''
   df['超买/超卖'] = ''
   df['信号'] = ''
@@ -141,118 +143,170 @@ def postprocess_ta_result(df, keep_columns, drop_columns, en_2_cn):
   # ================================ Trend ==========================================
   df['趋势'] += '['
 
+  trend_symbol = {'up': '+', 'down': '-', 'other': ' '}
+
   # KAMA 趋势
-  up_idx = df.query('Close > kama_fast and rate > 0').index
-  down_idx = df.query('Close < kama_fast and rate < 0').index
-  other_idx = [x for x in df.index if x not in up_idx and x not in down_idx]
-  df.loc[up_idx, '趋势'] += '+, '
-  df.loc[down_idx, '趋势'] += '-, '
-  df.loc[other_idx, '趋势'] += ' , '
+  trend_idx = {}
+  trend_idx['up'] = df.query('Close > kama_fast and rate > 0').index
+  trend_idx['down'] = df.query('Close < kama_fast and rate < 0').index
+  trend_idx['other'] = [x for x in df.index if x not in trend_idx['up'] and x not in trend_idx['down']]
+  for t in trend_idx.keys():
+    idx = trend_idx[t]
+    if len(idx) > 0:
+      df.loc[idx, '趋势'] += trend_symbol[t] + ', '
 
   # ICHIMOKU 趋势
-  up_idx = df.query('Close > cloud_top and cloud_height > 0').index
-  down_idx = df.query('Close < cloud_bottom and cloud_height < 0').index
-  other_idx = [x for x in df.index if x not in up_idx and x not in down_idx]
-  df.loc[up_idx, '趋势'] += '+, '
-  df.loc[down_idx, '趋势'] += '-, '
-  df.loc[other_idx, '趋势'] += ' , '
+  trend_idx = {}
+  trend_idx['up']  = df.query('Close > cloud_top and cloud_height > 0').index
+  trend_idx['down'] = df.query('Close < cloud_bottom and cloud_height < 0').index
+  trend_idx['other'] = [x for x in df.index if x not in trend_idx['up'] and x not in trend_idx['down']]
+  print(trend_idx)
+  for t in trend_idx.keys():
+    idx = trend_idx[t]
+    if len(idx) > 0:
+      df.loc[idx, '趋势'] += trend_symbol[t] + ', '
+
 
   # KST 趋势
-  up_idx = df.query('kst > kst_sign').index
-  down_idx = df.query('kst < kst_sign').index
-  other_idx = [x for x in df.index if x not in up_idx and x not in down_idx]
-  df.loc[up_idx, '趋势'] += '+, '
-  df.loc[down_idx, '趋势'] += '-, '
-  df.loc[other_idx, '趋势'] += ' , '
+  trend_idx = {}
+  trend_idx['up'] = df.query('kst > kst_sign').index
+  trend_idx['down'] = df.query('kst < kst_sign').index
+  trend_idx['other'] = [x for x in df.index if x not in trend_idx['up'] and x not in trend_idx['down']]
+  for t in trend_idx.keys():
+    idx = trend_idx[t]
+    if len(idx) > 0:
+      df.loc[idx, '趋势'] += trend_symbol[t] + ', '
 
   # EOM 趋势
-  up_idx = df.query('eom > eom_ma_14').index
-  down_idx = df.query('eom < eom_ma_14').index
-  other_idx = [x for x in df.index if x not in up_idx and x not in down_idx]
-  df.loc[up_idx, '趋势'] += '+'
-  df.loc[down_idx, '趋势'] += '-'
-  df.loc[other_idx, '趋势'] += ' '
+  trend_idx = {}
+  trend_idx['up'] = df.query('eom > eom_ma_14').index
+  trend_idx['down'] = df.query('eom < eom_ma_14').index
+  trend_idx['other'] = [x for x in df.index if x not in trend_idx['up'] and x not in trend_idx['down']]
+  for t in trend_idx.keys():
+    idx = trend_idx[t]
+    if len(idx) > 0:
+      df.loc[idx, '趋势'] += trend_symbol[t]
 
   df['趋势'] += ']'
+
+
   # =============================== Overbuy/Oversell ================================
   df['超买/超卖'] += '['
 
+  osob_symbol = {'up': 'ob', 'down': 'os', 'other': ' '}
+  
   # 布林线 超买/超卖
-  up_idx = df.query('bb_signal == "b"').index
-  down_idx = df.query('bb_signal == "s"').index
-  other_idx = [x for x in df.index if x not in up_idx and x not in down_idx]
-  df.loc[up_idx, '超买/超卖'] += 'os, '
-  df.loc[down_idx, '超买/超卖'] += 'ob, '
-  df.loc[other_idx, '超买/超卖'] += ' , '
+  osob_idx = {}
+  osob_idx['up'] = df.query('bb_signal == "s"').index
+  osob_idx['down'] = df.query('bb_signal == "b"').index
+  osob_idx['other'] = [x for x in df.index if x not in osob_idx['up'] and x not in osob_idx['down']]
+  for t in osob_idx.keys():
+    idx = osob_idx[t]
+    if len(idx) > 0:
+      df.loc[idx, '超买/超卖'] += osob_symbol[t] + ', '
 
   # RSI 超买/超卖
-  up_idx = df.query('rsi_signal == "b"').index
-  down_idx = df.query('rsi_signal == "s"').index
-  other_idx = [x for x in df.index if x not in up_idx and x not in down_idx]
-  df.loc[up_idx, '超买/超卖'] += 'os'
-  df.loc[down_idx, '超买/超卖'] += 'ob'
-  df.loc[other_idx, '超买/超卖'] += ' '
+  osob_idx = {}
+  osob_idx['up'] = df.query('rsi_signal == "s"').index
+  osob_idx['down'] = df.query('rsi_signal == "b"').index
+  osob_idx['other'] = [x for x in df.index if x not in osob_idx['up'] and x not in osob_idx['down']]
+  for t in osob_idx.keys():
+    idx = osob_idx[t]
+    if len(idx) > 0:
+      df.loc[idx, '超买/超卖'] += osob_symbol[t]
 
   df['超买/超卖'] += ']'
+
+
   # ================================ Signal/Score/Operation =========================
   df['信号'] += '['
 
+  # 近3天触发的信号
+  recent_signal_idx = df.query('ichimoku_days < 3 or kama_days < 3 or kst_days < 3 or eom_days < 3').index
+  if len(recent_signal_idx) > 0:
+    df.loc[recent_signal_idx, '操作'] += 'w'
+
+  signal_operation = {'up': 'b', 'down': 's'}
+
   # KAMA 信号
-  buy_idx = df.query('kama_signal == "b"').index
-  sell_idx = df.query('kama_signal == "s"').index
-  other_idx = [x for x in df.index if x not in buy_idx and x not in sell_idx]
-  df.loc[buy_idx, '信号'] += 'KAMA+, '
-  df.loc[sell_idx, '信号'] += 'KAMA-, '
-  df.loc[other_idx, '信号'] += (df.loc[other_idx, 'kama_days'].astype(str) + ', ')
-  df.loc[buy_idx, '分数'] += 1
-  df.loc[sell_idx, '分数'] += -1
-  df.loc[buy_idx, '操作'] = 'b/'
-  df.loc[sell_idx, '操作'] = 's/'
+  signal_symbol = {'up': 'KAMA+', 'down': 'KAMA-'}
+  signal_score = {'up': 1, 'down': -1}
+  signal_idx = {}
+
+  signal_idx['up'] = df.query('kama_signal == "b"').index
+  signal_idx['down'] = df.query('kama_signal == "s"').index
+  for t in signal_idx.keys():
+    idx = signal_idx[t]
+    if len(idx) > 0:
+      df.loc[idx, '信号'] += signal_symbol[t] + ', '
+      df.loc[idx, '分数'] += signal_score[t]
+      df.loc[idx, '操作'] += '/' + signal_operation[t]
+
+  other_idx = [x for x in df.index if x not in signal_idx['up'] and x not in signal_idx['down']]
+  if len(other_idx) > 0:
+    df.loc[other_idx, '信号'] += (df.loc[other_idx, 'kama_days'].astype(str) + ', ')
 
   # Ichimoku 信号
-  buy_idx = df.query('break_up > ""').index
-  sell_idx = df.query('break_down > ""').index
-  other_idx = [x for x in df.index if x not in buy_idx and x not in sell_idx]
-  df.loc[buy_idx, '信号'] += 'ICHI+, '
-  df.loc[sell_idx, '信号'] += 'ICHI-, '
-  df.loc[other_idx, '信号'] += (df.loc[other_idx, 'ichimoku_days'].astype(str) + ', ')
-  df.loc[buy_idx, '分数'] += 1
-  df.loc[sell_idx, '分数'] += -1
-  df.loc[buy_idx, '操作'] = 'b/'
-  df.loc[sell_idx, '操作'] = 's/'
+  signal_symbol = {'up': 'ICHI+', 'down': 'ICHI-'}
+  signal_score = {'up': 1, 'down': -1}
+  signal_idx = {}
+
+  signal_idx['up'] = df.query('break_up > ""').index
+  signal_idx['down'] = df.query('break_down > ""').index
+  for t in signal_idx.keys():
+    idx = signal_idx[t]
+    if len(idx) > 0:
+      df.loc[idx, '信号'] += signal_symbol[t] + ', '
+      df.loc[idx, '分数'] += signal_score[t]
+      df.loc[idx, '操作'] += '/' + signal_operation[t]
+
+  other_idx = [x for x in df.index if x not in signal_idx['up'] and x not in signal_idx['down']]
+  if len(other_idx) > 0:
+    df.loc[other_idx, '信号'] += (df.loc[other_idx, 'ichimoku_days'].astype(str) + ', ')
 
   # KST 信号
-  buy_idx = df.query('kst_signal == "b"').index
-  sell_idx = df.query('kst_signal == "s"').index
-  other_idx = [x for x in df.index if x not in buy_idx and x not in sell_idx]
-  df.loc[buy_idx, '信号'] += 'KST+, '
-  df.loc[sell_idx, '信号'] += 'KST-, '
-  df.loc[other_idx, '信号'] += (df.loc[other_idx, 'kst_days'].astype(str)  + ', ')
-  df.loc[buy_idx, '分数'] += 0.5
-  df.loc[sell_idx, '分数'] += -0.5
-  df.loc[buy_idx, '操作'] = 'b/'
-  df.loc[sell_idx, '操作'] = 's/'
+  signal_symbol = {'up': 'KST+', 'down': 'KST-'}
+  signal_score = {'up': 0.5, 'down': -0.5}
+  signal_idx = {}
+
+  signal_idx['up'] = df.query('kst_signal == "b"').index
+  signal_idx['down'] = df.query('kst_signal == "s"').index
+  for t in signal_idx.keys():
+    idx = signal_idx[t]
+    if len(idx) > 0:
+      df.loc[idx, '信号'] += signal_symbol[t] + ', '
+      df.loc[idx, '分数'] += signal_score[t]
+      df.loc[idx, '操作'] += '/' + signal_operation[t]
+
+  other_idx = [x for x in df.index if x not in signal_idx['up'] and x not in signal_idx['down']]
+  if len(other_idx) > 0:
+    df.loc[other_idx, '信号'] += (df.loc[other_idx, 'kst_days'].astype(str) + ', ')
 
   # EOM 信号
-  buy_idx = df.query('eom_signal == "b"').index
-  sell_idx = df.query('eom_signal == "s"').index
-  other_idx = [x for x in df.index if x not in buy_idx and x not in sell_idx]
-  df.loc[buy_idx, '信号'] += 'EOM+'
-  df.loc[sell_idx, '信号'] += 'EOM-'
-  df.loc[other_idx, '信号'] += df.loc[other_idx, 'eom_days'].astype(str)
-  df.loc[buy_idx, '分数'] += 0.5
-  df.loc[sell_idx, '分数'] += -0.5
-  df.loc[buy_idx, '操作'] = 'b/'
-  df.loc[sell_idx, '操作'] = 's/'
+  signal_symbol = {'up': 'EOM+', 'down': 'EOM-'}
+  signal_score = {'up': 0.5, 'down': -0.5}
+  signal_idx = {}
 
-  recent_signal_idx = df.query('ichimoku_days < 3 or kama_days < 3 or kst_days < 3 or eom_days < 3').index
-  df.loc[recent_signal_idx, '操作'] += 'w'
+  signal_idx['up'] = df.query('eom_signal == "b"').index
+  signal_idx['down'] = df.query('eom_signal == "s"').index
+  for t in signal_idx.keys():
+    idx = signal_idx[t]
+    if len(idx) > 0:
+      df.loc[idx, '信号'] += signal_symbol[t] + ', '
+      df.loc[idx, '分数'] += signal_score[t]
+      df.loc[idx, '操作'] += '/' + signal_operation[t]
+
+  other_idx = [x for x in df.index if x not in signal_idx['up'] and x not in signal_idx['down']]
+  if len(other_idx) > 0:
+    df.loc[other_idx, '信号'] += (df.loc[other_idx, 'eom_days'].astype(str) + ', ')
+
+  
 
   df['信号'] += ']'    
   # ============================== Others ===========================================
   
   # reset index, keep 3 digits for numbers
-  df = df.round(3).reset_index()
+  df = df.round(3)
 
   # rename columns
   df = df[list(keep_columns.keys())].rename(columns=keep_columns)
@@ -269,7 +323,6 @@ def postprocess_ta_result(df, keep_columns, drop_columns, en_2_cn):
   df = df.sort_values(['分数', '代码'], ascending=[False, False])
   
   return df
-
 
 
 # ================================================================================== Rolling windows ==================================================================================== #
