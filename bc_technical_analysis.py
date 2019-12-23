@@ -169,7 +169,6 @@ def postprocess_ta_result(df, keep_columns, drop_columns, en_2_cn):
   up_idx = df.query('eom > eom_ma_14').index
   down_idx = df.query('eom < eom_ma_14').index
   other_idx = [x for x in df.index if x not in up_idx and x not in down_idx]
-  print(up_idx, down_idx, other_idx)
   df.loc[up_idx, '趋势'] += '+'
   df.loc[down_idx, '趋势'] += '-'
   df.loc[other_idx, '趋势'] += ' '
