@@ -215,7 +215,7 @@ def postprocess_ta_result(df, keep_columns, drop_columns, en_2_cn):
   # 近3天触发的信号
   recent_signal_idx = df.query('ichimoku_days < 3 or kama_days < 3 or kst_days < 3 or eom_days < 3').index
   if len(recent_signal_idx) > 0:
-    df.loc[recent_signal_idx, '操作'] += 'w/'
+    df.loc[recent_signal_idx, '操作'] += 'w'
 
   signal_symbol = {'up': '+', 'down': '-'}
   signal_operation = {'up': 'b', 'down': 's'}
@@ -228,7 +228,7 @@ def postprocess_ta_result(df, keep_columns, drop_columns, en_2_cn):
   other_idx = signal_idx.pop('other')
   process(df=df, target_col='信号', idx=signal_idx, symbol=signal_symbol, end=', ')
   process(df=df, target_col='分数', idx=signal_idx, symbol=signal_score, end=0)
-  process(df=df, target_col='操作', idx=signal_idx, symbol=signal_operation, end='/')
+  process(df=df, target_col='操作', idx=signal_idx, symbol=signal_operation, end='')
   if len(other_idx) > 0:
     df.loc[other_idx, '信号'] += (df.loc[other_idx, 'kama_days'].astype(str) + ', ')
 
@@ -239,7 +239,7 @@ def postprocess_ta_result(df, keep_columns, drop_columns, en_2_cn):
   other_idx = signal_idx.pop('other')
   process(df=df, target_col='信号', idx=signal_idx, symbol=signal_symbol, end=', ')
   process(df=df, target_col='分数', idx=signal_idx, symbol=signal_score, end=0)
-  process(df=df, target_col='操作', idx=signal_idx, symbol=signal_operation, end='/')
+  process(df=df, target_col='操作', idx=signal_idx, symbol=signal_operation, end='')
   if len(other_idx) > 0:
     df.loc[other_idx, '信号'] += (df.loc[other_idx, 'ichimoku_days'].astype(str) + ', ')
 
@@ -252,7 +252,7 @@ def postprocess_ta_result(df, keep_columns, drop_columns, en_2_cn):
   other_idx = signal_idx.pop('other')
   process(df=df, target_col='信号', idx=signal_idx, symbol=signal_symbol, end=', ')
   process(df=df, target_col='分数', idx=signal_idx, symbol=signal_score, end=0)
-  process(df=df, target_col='操作', idx=signal_idx, symbol=signal_operation, end='/')
+  process(df=df, target_col='操作', idx=signal_idx, symbol=signal_operation, end='')
   if len(other_idx) > 0:
     df.loc[other_idx, '信号'] += (df.loc[other_idx, 'kst_days'].astype(str) + ', ')
 
