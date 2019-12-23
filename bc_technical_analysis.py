@@ -131,9 +131,6 @@ def postprocess_ta_result(df, keep_columns, drop_columns, en_2_cn):
   :returns: postprocessed dataframe
   :raises: None
   '''     
-  # reset index, keep 3 digits for numbers
-  df = df.round(3).reset_index()
-
   # analysis indicators
   df['趋势'] = ''
   df['超买/超卖'] = ''
@@ -164,6 +161,15 @@ def postprocess_ta_result(df, keep_columns, drop_columns, en_2_cn):
   up_idx = df.query('kst > kst_sign').index
   down_idx = df.query('kst < kst_sign').index
   other_idx = [x for x in df.index if x not in up_idx and x not in down_idx]
+  df.loc[up_idx, '趋势'] += '+, '
+  df.loc[down_idx, '趋势'] += '-, '
+  df.loc[other_idx, '趋势'] += ' , '
+
+  # EOM 趋势
+  up_idx = df.query('eom > eom_ma_14').index
+  down_idx = df.query('eom < eom_ma_14').index
+  other_idx = [x for x in df.index if x not in up_idx and x not in down_idx]
+  print(up_idx, down_idx, other_idx)
   df.loc[up_idx, '趋势'] += '+'
   df.loc[down_idx, '趋势'] += '-'
   df.loc[other_idx, '趋势'] += ' '
@@ -176,16 +182,16 @@ def postprocess_ta_result(df, keep_columns, drop_columns, en_2_cn):
   up_idx = df.query('bb_signal == "b"').index
   down_idx = df.query('bb_signal == "s"').index
   other_idx = [x for x in df.index if x not in up_idx and x not in down_idx]
-  df.loc[up_idx, '超买/超卖'] += '+, '
-  df.loc[down_idx, '超买/超卖'] += '-, '
+  df.loc[up_idx, '超买/超卖'] += 'os, '
+  df.loc[down_idx, '超买/超卖'] += 'ob, '
   df.loc[other_idx, '超买/超卖'] += ' , '
 
   # RSI 超买/超卖
   up_idx = df.query('rsi_signal == "b"').index
   down_idx = df.query('rsi_signal == "s"').index
   other_idx = [x for x in df.index if x not in up_idx and x not in down_idx]
-  df.loc[up_idx, '超买/超卖'] += '+'
-  df.loc[down_idx, '超买/超卖'] += '-'
+  df.loc[up_idx, '超买/超卖'] += 'os'
+  df.loc[down_idx, '超买/超卖'] += 'ob'
   df.loc[other_idx, '超买/超卖'] += ' '
 
   df['超买/超卖'] += ']'
@@ -201,8 +207,8 @@ def postprocess_ta_result(df, keep_columns, drop_columns, en_2_cn):
   df.loc[other_idx, '信号'] += (df.loc[other_idx, 'kama_days'].astype(str) + ', ')
   df.loc[buy_idx, '分数'] += 1
   df.loc[sell_idx, '分数'] += -1
-  df.loc[buy_idx, '操作'] = 'w/b'
-  df.loc[sell_idx, '操作'] = 'w/s'
+  df.loc[buy_idx, '操作'] = 'b/'
+  df.loc[sell_idx, '操作'] = 's/'
 
   # Ichimoku 信号
   buy_idx = df.query('break_up > ""').index
@@ -213,27 +219,43 @@ def postprocess_ta_result(df, keep_columns, drop_columns, en_2_cn):
   df.loc[other_idx, '信号'] += (df.loc[other_idx, 'ichimoku_days'].astype(str) + ', ')
   df.loc[buy_idx, '分数'] += 1
   df.loc[sell_idx, '分数'] += -1
-  df.loc[buy_idx, '操作'] = 'w/b'
-  df.loc[sell_idx, '操作'] = 'w/s'
+  df.loc[buy_idx, '操作'] = 'b/'
+  df.loc[sell_idx, '操作'] = 's/'
 
   # KST 信号
   buy_idx = df.query('kst_signal == "b"').index
   sell_idx = df.query('kst_signal == "s"').index
   other_idx = [x for x in df.index if x not in buy_idx and x not in sell_idx]
-  df.loc[buy_idx, '信号'] += 'KST+'
-  df.loc[sell_idx, '信号'] += 'KST-'
-  df.loc[other_idx, '信号'] += df.loc[other_idx, 'kst_days'].astype(str)
+  df.loc[buy_idx, '信号'] += 'KST+, '
+  df.loc[sell_idx, '信号'] += 'KST-, '
+  df.loc[other_idx, '信号'] += (df.loc[other_idx, 'kst_days'].astype(str)  + ', ')
   df.loc[buy_idx, '分数'] += 0.5
   df.loc[sell_idx, '分数'] += -0.5
-  df.loc[buy_idx, '操作'] = 'w/b'
-  df.loc[sell_idx, '操作'] = 'w/s'
+  df.loc[buy_idx, '操作'] = 'b/'
+  df.loc[sell_idx, '操作'] = 's/'
 
-  recent_signal_idx = df.query('ichimoku_days < 3 or kama_days < 3 or kst_days < 3').index
-  df.loc[recent_signal_idx, '操作'] = 'w'
+  # EOM 信号
+  buy_idx = df.query('eom_signal == "b"').index
+  sell_idx = df.query('eom_signal == "s"').index
+  other_idx = [x for x in df.index if x not in buy_idx and x not in sell_idx]
+  df.loc[buy_idx, '信号'] += 'EOM+'
+  df.loc[sell_idx, '信号'] += 'EOM-'
+  df.loc[other_idx, '信号'] += df.loc[other_idx, 'eom_days'].astype(str)
+  df.loc[buy_idx, '分数'] += 0.5
+  df.loc[sell_idx, '分数'] += -0.5
+  df.loc[buy_idx, '操作'] = 'b/'
+  df.loc[sell_idx, '操作'] = 's/'
+
+  recent_signal_idx = df.query('ichimoku_days < 3 or kama_days < 3 or kst_days < 3 or eom_days < 3').index
+  df.loc[recent_signal_idx, '操作'] += 'w'
 
   df['信号'] += ']'    
   # ============================== Others ===========================================
   
+  # reset index, keep 3 digits for numbers
+  df = df.round(3).reset_index()
+
+  # rename columns
   df = df[list(keep_columns.keys())].rename(columns=keep_columns)
   if set(['上穿', '下穿']) < set(df.columns):
     for index, row in df.iterrows():
@@ -1485,7 +1507,7 @@ def add_eom_features(df, n=20, close='Close', open='Open', high='High', low='Low
 
   # calculate signals
   if cal_signal:
-    df['eom_signal'] = 'n'
+    df['eom_signal'] = cal_crossover_signal(df=df, fast_line='eom', slow_line='eom_ma_14')
 
   return df
 
