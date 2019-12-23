@@ -217,12 +217,12 @@ def postprocess_ta_result(df, keep_columns, drop_columns, en_2_cn):
   if len(recent_signal_idx) > 0:
     df.loc[recent_signal_idx, '操作'] += 'w'
 
-  signal_symbol = {'up': '+', 'down': '-'}
+  # signal_symbol = {'up': '+', 'down': '-'}
   signal_operation = {'up': 'b', 'down': 's'}
   signal_score = {'up': 1, 'down': -1}
 
   # KAMA 信号
-  # signal_symbol = {'up': 'KAMA+', 'down': 'KAMA-'}
+  signal_symbol = {'up': 'KAMA+', 'down': 'KAMA-'}
   kama_condition = {'up': 'kama_signal == "b"', 'down': 'kama_signal == "s"'}
   signal_idx = filter_idx(df=df, condition=kama_condition)
   other_idx = signal_idx.pop('other')
@@ -233,7 +233,7 @@ def postprocess_ta_result(df, keep_columns, drop_columns, en_2_cn):
     df.loc[other_idx, '信号'] += (df.loc[other_idx, 'kama_days'].astype(str) + ', ')
 
   # Ichimoku 信号
-  # signal_symbol = {'up': 'ICHI+', 'down': 'ICHI-'}
+  signal_symbol = {'up': 'ICHI+', 'down': 'ICHI-'}
   ichimoku_condition = {'up': 'break_up > ""', 'down': 'break_down > ""'}
   signal_idx = filter_idx(df=df, condition=kama_condition)
   other_idx = signal_idx.pop('other')
@@ -246,7 +246,7 @@ def postprocess_ta_result(df, keep_columns, drop_columns, en_2_cn):
   signal_score = {'up': 0.5, 'down': -0.5}
   
   # KST 信号
-  # signal_symbol = {'up': 'KST+', 'down': 'KST-'}
+  signal_symbol = {'up': 'KST+', 'down': 'KST-'}
   kst_condition = {'up': 'kst_signal == "b"', 'down': 'kst_signal == "s"'}
   signal_idx = filter_idx(df=df, condition=kst_condition)
   other_idx = signal_idx.pop('other')
@@ -257,7 +257,7 @@ def postprocess_ta_result(df, keep_columns, drop_columns, en_2_cn):
     df.loc[other_idx, '信号'] += (df.loc[other_idx, 'kst_days'].astype(str) + ', ')
 
   # EOM 信号
-  # signal_symbol = {'up': 'EOM+', 'down': 'EOM-'}
+  signal_symbol = {'up': 'EOM+', 'down': 'EOM-'}
   eom_condition = {'up': 'eom_signal == "b"', 'down': 'eom_signal == "s"'}
   signal_idx = filter_idx(df=df, condition=eom_condition)
   other_idx = signal_idx.pop('other')
