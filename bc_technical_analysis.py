@@ -261,11 +261,11 @@ def postprocess_ta_result(df, keep_columns, drop_columns, en_2_cn):
   eom_condition = {'up': 'eom_signal == "b"', 'down': 'eom_signal == "s"'}
   signal_idx = filter_idx(df=df, condition=eom_condition)
   other_idx = signal_idx.pop('other')
-  process(df=df, target_col='信号', idx=signal_idx, symbol=signal_symbol, end=', ')
+  process(df=df, target_col='信号', idx=signal_idx, symbol=signal_symbol, end='')
   process(df=df, target_col='分数', idx=signal_idx, symbol=signal_score, end=0)
-  process(df=df, target_col='操作', idx=signal_idx, symbol=signal_operation, end='/')
+  process(df=df, target_col='操作', idx=signal_idx, symbol=signal_operation, end='')
   if len(other_idx) > 0:
-    df.loc[other_idx, '信号'] += (df.loc[other_idx, 'eom_days'].astype(str) + ', ')
+    df.loc[other_idx, '信号'] += (df.loc[other_idx, 'eom_days'].astype(str))
 
   df['信号'] += ']'    
 
