@@ -160,7 +160,6 @@ def postprocess_ta_result(df, keep_columns, drop_columns, en_2_cn):
   trend_idx['up']  = df.query('Close > cloud_top and cloud_height > 0').index
   trend_idx['down'] = df.query('Close < cloud_bottom and cloud_height < 0').index
   trend_idx['other'] = [x for x in df.index if x not in trend_idx['up'] and x not in trend_idx['down']]
-  print(trend_idx)
   for t in trend_idx.keys():
     idx = trend_idx[t]
     if len(idx) > 0:
