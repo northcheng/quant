@@ -79,6 +79,13 @@ def preprocess_stock_data(df, interval, print_error=True):
   :returns: preprocessed dataframe
   :raises: None
   '''    
+
+  # if interval is week, keep data until the most recent monday
+  if interval == 'week':
+    df = df[~df.index.duplicated(keep='first')].copy()
+    if df.index.max().weekday() != 0:
+      df = df[:-1].copy()
+
   # initialization
   na_cols = []
   zero_cols = []
@@ -106,12 +113,6 @@ def preprocess_stock_data(df, interval, print_error=True):
       error_info += '{col}, '.format(col=col)
     error_info += '数据出错.'
     df = df[:-1].copy()
-
-  # if interval is week, keep data until the most recent monday
-  if interval == 'week':
-    df = df[~df.index.duplicated(keep='first')]
-    if df.index.max().weekday() != 0:
-      df = df[:-1].copy()
       
   # print error information
   if print_error and len(error_info)>0:
