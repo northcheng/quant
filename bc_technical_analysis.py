@@ -79,6 +79,13 @@ def preprocess_stock_data(df, interval, print_error=True):
   :returns: preprocessed dataframe
   :raises: None
   '''    
+
+  # if interval is week, keep data until the most recent monday
+  if interval == 'week':
+    df = df[~df.index.duplicated(keep='first')].copy()
+    if df.index.max().weekday() != 0:
+      df = df[:-1].copy()
+
   # initialization
   na_cols = []
   zero_cols = []
@@ -106,12 +113,6 @@ def preprocess_stock_data(df, interval, print_error=True):
       error_info += '{col}, '.format(col=col)
     error_info += '数据出错.'
     df = df[:-1].copy()
-
-  # if interval is week, keep data until the most recent monday
-  if interval == 'week':
-    df = df[~df.index.duplicated(keep='first')]
-    if df.index.max().weekday() != 0:
-      df = df[:-1].copy()
       
   # print error information
   if print_error and len(error_info)>0:
@@ -131,109 +132,151 @@ def postprocess_ta_result(df, keep_columns, drop_columns, en_2_cn):
   :returns: postprocessed dataframe
   :raises: None
   '''     
-  # reset index, keep 3 digits for numbers
-  df = df.round(3).reset_index()
-
   # analysis indicators
+  df = df.reset_index()
+
   df['趋势'] = ''
   df['超买/超卖'] = ''
   df['信号'] = ''
   df['操作'] = ''
   df['分数'] = 0
 
+  # filter index that meet conditions
+  def filter_idx(df, condition):
+    idx = {}
+
+    # find index that meet condition
+    for c in condition.keys():
+      idx[c] = df.query(condition[c]).index
+
+    # find other index
+    other_idx = df.index
+    for i in idx.keys():
+      other_idx = [x for x in other_idx if x not in idx[i]]
+    idx['other'] = other_idx
+
+    return idx
+
+  # process index rows
+  def process(df, target_col, idx, symbol, end):
+    for t in idx.keys():
+      tmp_idx = idx[t]
+      if len(tmp_idx) > 0:
+        df.loc[tmp_idx, target_col] += symbol[t] + end
+
   # ================================ Trend ==========================================
   df['趋势'] += '['
 
+  trend_symbol = {'up': '+', 'down': '-', 'other': ' '}
+
   # KAMA 趋势
-  up_idx = df.query('Close > kama_fast and rate > 0').index
-  down_idx = df.query('Close < kama_fast and rate < 0').index
-  other_idx = [x for x in df.index if x not in up_idx and x not in down_idx]
-  df.loc[up_idx, '趋势'] += '+, '
-  df.loc[down_idx, '趋势'] += '-, '
-  df.loc[other_idx, '趋势'] += ' , '
+  kama_condition = {'up': 'Close > kama_fast and rate > 0', 'down': 'Close < kama_fast and rate < 0'}
+  trend_idx = filter_idx(df=df, condition=kama_condition)
+  process(df=df, target_col='趋势', idx=trend_idx, symbol=trend_symbol, end=', ')
 
   # ICHIMOKU 趋势
-  up_idx = df.query('Close > cloud_top and cloud_height > 0').index
-  down_idx = df.query('Close < cloud_bottom and cloud_height < 0').index
-  other_idx = [x for x in df.index if x not in up_idx and x not in down_idx]
-  df.loc[up_idx, '趋势'] += '+, '
-  df.loc[down_idx, '趋势'] += '-, '
-  df.loc[other_idx, '趋势'] += ' , '
+  ichimoku_condition = {'up': 'Close > cloud_top and cloud_height > 0', 'down': 'Close < cloud_bottom and cloud_height < 0'}
+  trend_idx = filter_idx(df=df, condition=ichimoku_condition)
+  process(df=df, target_col='趋势', idx=trend_idx, symbol=trend_symbol, end=', ')
 
   # KST 趋势
-  up_idx = df.query('kst > kst_sign').index
-  down_idx = df.query('kst < kst_sign').index
-  other_idx = [x for x in df.index if x not in up_idx and x not in down_idx]
-  df.loc[up_idx, '趋势'] += '+'
-  df.loc[down_idx, '趋势'] += '-'
-  df.loc[other_idx, '趋势'] += ' '
+  kst_condition = {'up': 'kst > kst_sign', 'down': 'kst < kst_sign'}
+  trend_idx = filter_idx(df=df, condition=kst_condition)
+  process(df=df, target_col='趋势', idx=trend_idx, symbol=trend_symbol, end=', ')
+
+  # EOM 趋势
+  eom_condition = {'up': 'eom > eom_ma_14', 'down': 'eom < eom_ma_14'}
+  trend_idx = filter_idx(df=df, condition=eom_condition)
+  process(df=df, target_col='趋势', idx=trend_idx, symbol=trend_symbol, end='')
 
   df['趋势'] += ']'
+
+
   # =============================== Overbuy/Oversell ================================
   df['超买/超卖'] += '['
 
+  osob_symbol = {'up': 'ob', 'down': 'os', 'other': ' '}
+  
   # 布林线 超买/超卖
-  up_idx = df.query('bb_signal == "b"').index
-  down_idx = df.query('bb_signal == "s"').index
-  other_idx = [x for x in df.index if x not in up_idx and x not in down_idx]
-  df.loc[up_idx, '超买/超卖'] += '+, '
-  df.loc[down_idx, '超买/超卖'] += '-, '
-  df.loc[other_idx, '超买/超卖'] += ' , '
+  bbl_condition = {'up': 'bb_signal == "s"', 'down': 'bb_signal == "b"'}
+  osob_idx = filter_idx(df=df, condition=bbl_condition)
+  process(df=df, target_col='超买/超卖', idx=osob_idx, symbol=osob_symbol, end=', ')
 
   # RSI 超买/超卖
-  up_idx = df.query('rsi_signal == "b"').index
-  down_idx = df.query('rsi_signal == "s"').index
-  other_idx = [x for x in df.index if x not in up_idx and x not in down_idx]
-  df.loc[up_idx, '超买/超卖'] += '+'
-  df.loc[down_idx, '超买/超卖'] += '-'
-  df.loc[other_idx, '超买/超卖'] += ' '
+  rsi_condition = {'up': 'rsi_signal == "s"', 'down': 'rsi_signal == "b"'}
+  osob_idx = filter_idx(df=df, condition=rsi_condition)
+  process(df=df, target_col='超买/超卖', idx=osob_idx, symbol=osob_symbol, end='')
 
   df['超买/超卖'] += ']'
+
+
   # ================================ Signal/Score/Operation =========================
   df['信号'] += '['
 
+  # 近3天触发的信号
+  recent_signal_idx = df.query('ichimoku_days < 3 or kama_days < 3 or kst_days < 3 or eom_days < 3').index
+  if len(recent_signal_idx) > 0:
+    df.loc[recent_signal_idx, '操作'] += 'w'
+
+  # signal_symbol = {'up': '+', 'down': '-'}
+  signal_operation = {'up': 'b', 'down': 's'}
+  signal_score = {'up': 1, 'down': -1}
+
   # KAMA 信号
-  buy_idx = df.query('kama_signal == "b"').index
-  sell_idx = df.query('kama_signal == "s"').index
-  other_idx = [x for x in df.index if x not in buy_idx and x not in sell_idx]
-  df.loc[buy_idx, '信号'] += 'KAMA+, '
-  df.loc[sell_idx, '信号'] += 'KAMA-, '
-  df.loc[other_idx, '信号'] += (df.loc[other_idx, 'kama_days'].astype(str) + ', ')
-  df.loc[buy_idx, '分数'] += 1
-  df.loc[sell_idx, '分数'] += -1
-  df.loc[buy_idx, '操作'] = 'w/b'
-  df.loc[sell_idx, '操作'] = 'w/s'
+  signal_symbol = {'up': 'KAMA+', 'down': 'KAMA-'}
+  kama_condition = {'up': 'kama_signal == "b"', 'down': 'kama_signal == "s"'}
+  signal_idx = filter_idx(df=df, condition=kama_condition)
+  other_idx = signal_idx.pop('other')
+  process(df=df, target_col='信号', idx=signal_idx, symbol=signal_symbol, end=', ')
+  process(df=df, target_col='分数', idx=signal_idx, symbol=signal_score, end=0)
+  process(df=df, target_col='操作', idx=signal_idx, symbol=signal_operation, end='')
+  if len(other_idx) > 0:
+    df.loc[other_idx, '信号'] += (df.loc[other_idx, 'kama_days'].astype(str) + ', ')
 
   # Ichimoku 信号
-  buy_idx = df.query('break_up > ""').index
-  sell_idx = df.query('break_down > ""').index
-  other_idx = [x for x in df.index if x not in buy_idx and x not in sell_idx]
-  df.loc[buy_idx, '信号'] += 'ICHI+, '
-  df.loc[sell_idx, '信号'] += 'ICHI-, '
-  df.loc[other_idx, '信号'] += (df.loc[other_idx, 'ichimoku_days'].astype(str) + ', ')
-  df.loc[buy_idx, '分数'] += 1
-  df.loc[sell_idx, '分数'] += -1
-  df.loc[buy_idx, '操作'] = 'w/b'
-  df.loc[sell_idx, '操作'] = 'w/s'
+  signal_symbol = {'up': 'ICHI+', 'down': 'ICHI-'}
+  ichimoku_condition = {'up': 'break_up > ""', 'down': 'break_down > ""'}
+  signal_idx = filter_idx(df=df, condition=kama_condition)
+  other_idx = signal_idx.pop('other')
+  process(df=df, target_col='信号', idx=signal_idx, symbol=signal_symbol, end=', ')
+  process(df=df, target_col='分数', idx=signal_idx, symbol=signal_score, end=0)
+  process(df=df, target_col='操作', idx=signal_idx, symbol=signal_operation, end='')
+  if len(other_idx) > 0:
+    df.loc[other_idx, '信号'] += (df.loc[other_idx, 'ichimoku_days'].astype(str) + ', ')
 
+  signal_score = {'up': 0.5, 'down': -0.5}
+  
   # KST 信号
-  buy_idx = df.query('kst_signal == "b"').index
-  sell_idx = df.query('kst_signal == "s"').index
-  other_idx = [x for x in df.index if x not in buy_idx and x not in sell_idx]
-  df.loc[buy_idx, '信号'] += 'KST+'
-  df.loc[sell_idx, '信号'] += 'KST-'
-  df.loc[other_idx, '信号'] += df.loc[other_idx, 'kst_days'].astype(str)
-  df.loc[buy_idx, '分数'] += 0.5
-  df.loc[sell_idx, '分数'] += -0.5
-  df.loc[buy_idx, '操作'] = 'w/b'
-  df.loc[sell_idx, '操作'] = 'w/s'
+  signal_symbol = {'up': 'KST+', 'down': 'KST-'}
+  kst_condition = {'up': 'kst_signal == "b"', 'down': 'kst_signal == "s"'}
+  signal_idx = filter_idx(df=df, condition=kst_condition)
+  other_idx = signal_idx.pop('other')
+  process(df=df, target_col='信号', idx=signal_idx, symbol=signal_symbol, end=', ')
+  process(df=df, target_col='分数', idx=signal_idx, symbol=signal_score, end=0)
+  process(df=df, target_col='操作', idx=signal_idx, symbol=signal_operation, end='')
+  if len(other_idx) > 0:
+    df.loc[other_idx, '信号'] += (df.loc[other_idx, 'kst_days'].astype(str) + ', ')
 
-  recent_signal_idx = df.query('ichimoku_days < 3 or kama_days < 3 or kst_days < 3').index
-  df.loc[recent_signal_idx, '操作'] = 'w'
+  # EOM 信号
+  signal_symbol = {'up': 'EOM+', 'down': 'EOM-'}
+  eom_condition = {'up': 'eom_signal == "b"', 'down': 'eom_signal == "s"'}
+  signal_idx = filter_idx(df=df, condition=eom_condition)
+  other_idx = signal_idx.pop('other')
+  process(df=df, target_col='信号', idx=signal_idx, symbol=signal_symbol, end='')
+  process(df=df, target_col='分数', idx=signal_idx, symbol=signal_score, end=0)
+  process(df=df, target_col='操作', idx=signal_idx, symbol=signal_operation, end='')
+  if len(other_idx) > 0:
+    df.loc[other_idx, '信号'] += (df.loc[other_idx, 'eom_days'].astype(str))
 
   df['信号'] += ']'    
+
+
   # ============================== Others ===========================================
   
+  # reset index, keep 3 digits for numbers
+  df = df.round(3)
+
+  # rename columns
   df = df[list(keep_columns.keys())].rename(columns=keep_columns)
   if set(['上穿', '下穿']) < set(df.columns):
     for index, row in df.iterrows():
@@ -248,7 +291,6 @@ def postprocess_ta_result(df, keep_columns, drop_columns, en_2_cn):
   df = df.sort_values(['分数', '代码'], ascending=[False, False])
   
   return df
-
 
 
 # ================================================================================== Rolling windows ==================================================================================== #
@@ -1481,10 +1523,11 @@ def add_eom_features(df, n=20, close='Close', open='Open', high='High', low='Low
 
   # assign eom to df
   df['eom'] = eom
+  df = cal_moving_average(df=df, target_col='eom', ma_windows=[14], window_type='sm')
 
   # calculate signals
   if cal_signal:
-    df['eom_signal'] = 'n'
+    df['eom_signal'] = cal_crossover_signal(df=df, fast_line='eom', slow_line='eom_ma_14')
 
   return df
 
@@ -1791,35 +1834,9 @@ def add_kama_features(df, n_param={'kama_fast': [10, 2, 30], 'kama_slow': [10, 5
   if cal_signal:
 
     if set(['kama_fast', 'kama_slow']) < set(df.columns):
-
-      # calculate kama signal
-      df['kama_signal'] = cal_crossover_signal(df=df, fast_line=close, slow_line='kama_fast', result_col='kama_signal', pos_signal='b', neg_signal='s', none_signal='n')
-    
-      # more easily to generate signals
-      if sensitive_mode:
-
-        # add signals generated by close-kama_slow, kama_fast-kama_slow
-        df['kama_signal_1'] = cal_crossover_signal(df=df, fast_line=close, slow_line='kama_slow', result_col='kama_signal', pos_signal='b', neg_signal='s', none_signal='n')
-        df['kama_signal_2'] = cal_crossover_signal(df=df, fast_line='kama_fast', slow_line='kama_slow', result_col='kama_signal', pos_signal='b', neg_signal='s', none_signal='n')
-
-        # when any fast line go up through any slow line, buy; 
-        # when any slow line go up through any fast line, sell;
-        buy_idx = df.query('kama_signal == "b" or kama_signal_1 == "b" or kama_signal_2 == "b"').index
-        sell_idx = df.query('kama_signal == "s" or kama_signal_1 == "s" or kama_signal_2 == "s"').index
-
-      # more strictly to generate signals
-      else:
-
-        # when kama fast > kama slow, price go up through kama fast, buy; 
-        # when kama fast < kama slow, price go down through kama fast, sell;
-        buy_idx = df.query('kama_signal == "b" and kama_fast > kama_slow').index
-        sell_idx = df.query('kama_signal == "s"  and kama_fast < kama_slow').index
-
-      # otherwise, do nothing
-      df['kama_signal'] = 'n'
-      df.loc[buy_idx, 'kama_signal'] = 'b'
-      df.loc[sell_idx, 'kama_signal'] = 's'
-      
+      # add signals generated by close-kama_slow, kama_fast-kama_slow
+      df['kama_signal'] = cal_crossover_signal(df=df, fast_line='kama_fast', slow_line='kama_slow', result_col='kama_signal', pos_signal='b', neg_signal='s', none_signal='n')
+         
     else:
       df['kama_signal'] = 'n'
       print('please specify kama_fast and kama_slow parameters in n_param')

@@ -1,0 +1,99 @@
+{
+	"time_col" : {
+		"yahoo": "Date", 
+		"yfinance": "Date", 
+		"tiger": "time"
+	},
+
+	"interval_val": {
+		"yahoo": {
+			"day": "d", "week": "w", "month": "m"
+		}, 
+		"yfinance": {
+			"day": "1d", "week": "1wk", "month": "1mo"
+		}
+	},
+
+	"look_back_window": {
+		"day": 300, "week": 1000
+	}, 
+	
+	"plot_window": {
+		"day": 150, "week": 500
+	}, 
+	
+	"candlestick_width": {
+		"day": 0.8, "week": 3
+	}, 
+	
+	"peak_width": {
+		"day": null, "week": null
+	}, 
+	
+	"peak_distance": {
+		"day": null, "week": null
+	}, 
+
+	"keep_columns": {
+		"Close":"收盘", "rate":"涨跌", "acc_rate":"累计", 
+		"break_up":"上穿", "break_down":"下穿",  
+		"adx_trend": "ADX_TREND", 
+		"超买/超卖": "BBL / RSI", 
+		"趋势": "趋势: KAMA/ICHI/KST/EOM", "信号": "信号: KAMA/ICHI/KST/EOM", 
+		"分数": "分数", "sec_code":"代码", "操作": "操作"
+	},
+	
+	"drop_columns": [],
+	
+	"en_2_cn": {
+		"kijun":"基准", "tankan":"转换", "cloud_top":"云顶", "cloud_bottom":"云底"
+	}, 
+	
+	"subplot_spacing": {"wide": 0, "heigh": 0.2}, 
+
+	"plot_args": {
+		"plot_ratio": { 
+			"candlestick": 1.5, 
+			"ichimoku": 1.5, 
+			"kst": 0.5,
+			"eom": 0.5, 
+			"volume": 0.5
+		}, 
+		"ichimoku": { 
+			"price_col": "Close" 
+		},  
+		"peak_trough": {
+			"price_col": "Close", 
+			"signal_col": "peak_trough", 
+			"pos_signal": "p", 
+			"neg_signal": "t", 
+			"none_signal": "n", 
+			"add_bbl": true
+		},  
+		"candlestick": {
+			"width": 1, 
+			"colorup": "green", 
+			"colordown": "red", 
+			"alpha": 0.8, 
+			"plot_kama": true
+		},
+		"eom": {
+			"target_col": ["eom", "eom_ma_14"], 
+			"benchmark": 0, 
+			"price_col": null
+		},  
+		"kst": {
+			"target_col": ["kst", "kst_sign"],
+			"price_col": null,
+			"benchmark": 0
+		},
+		"volume": {
+			"target_col": ["Volume"], 
+			"benchmark": null, 
+			"boundary": null, 
+			"signal_col": null, 
+			"price_col": null, 
+			"color_mode": "up_down"
+		}
+	}
+}
