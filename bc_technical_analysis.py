@@ -79,6 +79,8 @@ def preprocess_stock_data(df, interval, print_error=True):
   :returns: preprocessed dataframe
   :raises: None
   '''    
+  # copy df
+  df = df.copy()
 
   # if interval is week, keep data until the most recent monday
   if interval == 'week':
@@ -1034,6 +1036,9 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
     # calculate ichimoku signal
     if cal_signal:
 
+      # initialize
+      df['ichimoku_signal'] = 'n'
+
       # identify trend
       up_idx = df.query('%s > cloud_top' % close).index
       down_idx = df.query('%s < cloud_bottom' % close).index
@@ -1050,15 +1055,14 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
 
       # identify takan-kijun crossover
       df['tankan_kijun_crossover'] = cal_crossover_signal(df=df, fast_line='tankan', slow_line='kijun', pos_signal=1, neg_signal=-1, none_signal=0)   
-      df['breakthrough'] = df['breakthrough'].astype(int) +df['tankan_kijun_crossover'].astype(int)
+      df['breakthrough'] = df['breakthrough'].astype(int) + df['tankan_kijun_crossover'].astype(int)
 
       # sum up ichimoku index
       df['ichimoku_idx'] = df['trend'].astype(float) + df['cloud_color'].astype(float) + df['cloud_shift'].astype(float) + df['breakthrough'].astype(float) + df['tankan_kijun_crossover'].astype(float)
 
       # final signal
       buy_idx = df.query('breakthrough > 0').index
-      sell_idx = df.query('ichimoku_idx < 0').index
-      df['ichimoku_signal'] = 'n'
+      sell_idx = df.query('breakthrough < 0').index
       df.loc[buy_idx, 'ichimoku_signal'] = 'b'
       df.loc[sell_idx, 'ichimoku_signal'] = 's'
       col_to_drop += ['trend', 'cloud_color', 'tankan_kijun_crossover']
