@@ -49,6 +49,7 @@
 	"watch_columns": ["ichimoku", "kama", "kst", "eom"],
 
 	"signal_factor": {"b": 1, "s": -1},
+	
 	"interval_factor": {"day": 1.0, "week": 7.0},
 	
 	"en_2_cn": {
