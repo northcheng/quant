@@ -41,7 +41,7 @@
 		"t_kama": "KAMA", "t_ichimoku": "ICHI", "t_kst": "KST", "t_eom": "EOM", 
 		"osob_bbl": "BBL", "osob_rsi": "RSI",
 		"kama_days": "KAMA_S", "ichimoku_days": "ICHI_S", "kst_days": "KST_S", "eom_days": "EOM_S",
-		"score": "分数", "sec_code":"代码", "operation":"操作"
+		"sec_code":"代码", "operation":"操作"
 	},
 	
 	"drop_columns": [],
@@ -49,7 +49,7 @@
 	"watch_columns": ["ichimoku", "kama", "kst", "eom"],
 
 	"signal_factor": {"b": 1, "s": -1},
-	
+
 	"interval_factor": {"day": 1.0, "week": 7.0},
 	
 	"en_2_cn": {

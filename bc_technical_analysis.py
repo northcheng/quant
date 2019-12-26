@@ -134,7 +134,6 @@ def postprocess_ta_result(df, keep_columns, drop_columns, en_2_cn):
   '''     
   # analysis indicators
   df = df.reset_index()
-  df['score'] = 0
 
   # filter index that meet conditions
   def filter_idx(df, condition):
@@ -231,7 +230,7 @@ def postprocess_ta_result(df, keep_columns, drop_columns, en_2_cn):
   df = df.drop(drop_columns, axis=1)
 
   # 排序
-  df = df.sort_values(['分数', '代码'], ascending=[False, False])
+  df = df.sort_values(['操作', '代码'], ascending=[False, False])
   
   return df
 
