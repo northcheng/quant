@@ -37,13 +37,19 @@
 	"keep_columns": {
 		"Close":"收盘", "rate":"涨跌", "acc_rate":"累计", 
 		"break_up":"上穿", "break_down":"下穿",  
-		"adx_trend": "ADX_TREND", 
-		"超买/超卖": "BBL / RSI", 
-		"趋势": "趋势: KAMA/ICHI/KST/EOM", "信号": "信号: KAMA/ICHI/KST/EOM", 
-		"分数": "分数", "sec_code":"代码", "操作": "操作"
+		"adx_trend": "ADX", 
+		"t_kama": "KAMA", "t_ichimoku": "ICHI", "t_kst": "KST", "t_eom": "EOM", 
+		"osob_bbl": "BBL", "osob_rsi": "RSI",
+		"kama_days": "KAMA_S", "ichimoku_days": "ICHI_S", "kst_days": "KST_S", "eom_days": "EOM_S",
+		"score": "分数", "sec_code":"代码", "operation":"操作"
 	},
 	
 	"drop_columns": [],
+
+	"watch_columns": ["ichimoku", "kama", "kst", "eom"],
+
+	"signal_factor": {"b": 1, "s": -1},
+	"interval_factor": {"day": 1.0, "week": 7.0},
 	
 	"en_2_cn": {
 		"kijun":"基准", "tankan":"转换", "cloud_top":"云顶", "cloud_bottom":"云底"
