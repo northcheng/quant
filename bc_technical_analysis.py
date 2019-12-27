@@ -234,14 +234,20 @@ def postprocess_ta_result(df, keep_columns, drop_columns, en_2_cn):
     df.loc[recent_signal_idx, 'operation'] += 'w'
 
   # ============================== Others ===========================================
-  # keep 3 digits for numbers
-  df = df.round(3)
-
   # rename columns
   df = df[list(keep_columns.keys())].rename(columns=keep_columns)
     
   # drop columns
   df = df.drop(drop_columns, axis=1)
+
+  # keep 3 digits for numbers
+  df[['涨跌', '累计']] = (df[['涨跌', '累计']] * 100).round(1).astype(str) + '%'
+  df[['收盘']] = df[['收盘']].round(2)
+  df[['ADX']] = df[['ADX']].round(0).astype(int)
+  try:
+    df[['KAMA_S', 'ICHI_S', 'KST_S', 'EOM_S']] = df[['KAMA_S', 'ICHI_S', 'KST_S', 'EOM_S']].astype(int)
+  except Exception as e:
+    print(e)
 
   # sort by operation and sec_code
   df = df.sort_values(['操作', '代码'], ascending=[True, True])
