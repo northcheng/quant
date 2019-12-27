@@ -52,10 +52,6 @@
 
 	"interval_factor": {"day": 1.0, "week": 7.0},
 	
-	"en_2_cn": {
-		"kijun":"基准", "tankan":"转换", "cloud_top":"云顶", "cloud_bottom":"云底"
-	}, 
-	
 	"subplot_spacing": {"wide": 0, "heigh": 0.2}, 
 
 	"plot_args": {

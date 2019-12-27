@@ -79,52 +79,52 @@ def preprocess_stock_data(df, interval, print_error=True):
   :returns: preprocessed dataframe
   :raises: None
   '''    
-  # copy df
-  df = df.copy()
+  # drop duplicated rows, keep the first
+  duplicated = df.index.duplicated(keep='first')
+  df = df[~duplicated].copy()
 
   # if interval is week, keep data until the most recent monday
-  if interval == 'week':
-    df = df[~df.index.duplicated(keep='first')].copy()
-    if df.index.max().weekday() != 0:
-      df = df[:-1].copy()
+  max_idx = df.index.max()
+  if interval == 'week' and max_idx.weekday() != 0:
+    df = df[:-1].copy()
 
-  # initialization
+  # process NA and 0 values
+  max_idx = df.index.max()
   na_cols = []
   zero_cols = []
   error_info = ''
-  max_idx = df.index.max()
         
-  # check invalid records
+  # check whether 0 or NaN values exists in the latest record
   for col in df.columns:
     if df.loc[max_idx, col] == 0:
       zero_cols.append(col)
-    if df[col].isna().sum() > 0:
+    if np.isnan(df.loc[max_idx, col]):
       na_cols.append(col)
     
-  # delete NaN value records
+  # process NaN values
   if len(na_cols) > 0:
-    error_info = 'NaN values found in '
+    error_info += 'NaN values found in '
     for col in na_cols:
       error_info += '{col}, '.format(col=col)
-    df = df.dropna()
+  df = df.dropna()
     
-  # delete 0 value records
+  # process 0 values
   if len(zero_cols) > 0:
     error_info += '0 values found in '
     for col in zero_cols:
       error_info += '{col}, '.format(col=col)
-    error_info += '数据出错.'
     df = df[:-1].copy()
-      
+
   # print error information
-  if print_error and len(error_info)>0:
+  if print_error and len(error_info) > 0:
+    error_info += '[{date}]'.format(date=max_idx.date())
     print(error_info)
   
   return df
   
 # post-process calculation results
 def postprocess_ta_result(df, keep_columns, drop_columns, en_2_cn):
-  '''
+  """
   Postprocess downloaded data
 
   :param df: downloaded stock data
@@ -133,18 +133,25 @@ def postprocess_ta_result(df, keep_columns, drop_columns, en_2_cn):
   :param en_2_cn: convert en names to cn names
   :returns: postprocessed dataframe
   :raises: None
-  '''     
-  # analysis indicators
+  """     
+  # reset index(as the index(date) of rows are all the same)
   df = df.reset_index()
 
   # filter index that meet conditions
   def filter_idx(df, condition):
-    # find index that meet condition
+    """
+    # filter index that meet conditions
+    :param df: dataframe to search
+    :param condition: dictionary of conditions
+    :returns: dictionary of index that meet corresponding conditions
+    :raises: None
+    """
+    # target index
     idx = {}
     for c in condition.keys():
       idx[c] = df.query(condition[c]).index
 
-    # find other index
+    # other index
     other_idx = df.index
     for i in idx.keys():
       other_idx = [x for x in other_idx if x not in idx[i]]
@@ -152,8 +159,19 @@ def postprocess_ta_result(df, keep_columns, drop_columns, en_2_cn):
 
     return idx
 
-  # process index rows
+  # analyze rows, assign proper result in target column
   def process(df, target_col, init_value, idx, symbol, end):
+    """
+    # analyze rows, assign proper result in target column
+    :param df: result dataframe that contains full information
+    :param target_col: the column to store analysis result
+    :param init_value: initial value of target column
+    :param idx: dictionary of index of rows
+    :param symbol: dictionary of symbols that will be assigned to mapped index of rows
+    :param end: the value to be added onto the target column values at the end
+    :returns: None
+    :raises: None
+    """
     # initialize
     if target_col not in df.columns:
       df[target_col] = init_value
@@ -177,8 +195,8 @@ def postprocess_ta_result(df, keep_columns, drop_columns, en_2_cn):
 
   for indicator in condition.keys():
     target_col = indicator
-    process(df=df, target_col=target_col, init_value=init_value, idx=filter_idx(df=df, condition=condition[indicator]), symbol=trend_symbol, end=end_value)
-
+    idx = filter_idx(df=df, condition=condition[indicator])
+    process(df=df, target_col=target_col, init_value=init_value, idx=idx, symbol=trend_symbol, end=end_value)
 
   # =============================== Overbuy/Oversell ================================
   osob_symbol = {'up': 'ob', 'down': 'os', 'other': ' '}
@@ -191,9 +209,9 @@ def postprocess_ta_result(df, keep_columns, drop_columns, en_2_cn):
 
   for indicator in condition.keys():
     target_col = indicator
-    process(df=df, target_col=target_col, init_value=init_value, idx=filter_idx(df=df, condition=condition[indicator]), symbol=osob_symbol, end=end_value)
+    idx = filter_idx(df=df, condition=condition[indicator])
+    process(df=df, target_col=target_col, init_value=init_value, idx=idx, symbol=osob_symbol, end=end_value)
   
-
   # ================================ Signal/Score/Operation =========================
   signal_symbol = {'up': 'b', 'down': 's', 'other': ' '}
   init_value = ''
@@ -210,31 +228,26 @@ def postprocess_ta_result(df, keep_columns, drop_columns, en_2_cn):
     idx=filter_idx(df=df, condition=condition[indicator])
     process(df=df, target_col='operation', init_value=init_value, idx=idx, symbol=signal_symbol, end=end_value)
     
-  # 近3天触发的信号
-  recent_signal_idx = df.query('-3<ichimoku_days<3 or -3<kama_days<3 or -3<kst_days<3 or -3<eom_days<3').index
+  # Recently triggered signals: KAMA, Ichimoku - all; KST, EOM: downward signals only
+  recent_signal_idx = df.query('-3<ichimoku_days<3 or -3<kama_days<3 or -3<kst_days<0 or -3<eom_days<0').index
   if len(recent_signal_idx) > 0:
     df.loc[recent_signal_idx, 'operation'] += 'w'
 
-
   # ============================== Others ===========================================
-  # reset index, keep 3 digits for numbers
+  # keep 3 digits for numbers
   df = df.round(3)
 
   # rename columns
   df = df[list(keep_columns.keys())].rename(columns=keep_columns)
-  if set(['上穿', '下穿']) < set(df.columns):
-    for index, row in df.iterrows():
-      for i in en_2_cn.keys():
-        df.loc[index, '上穿'] = df.loc[index, '上穿'].replace(i, en_2_cn[i])
-        df.loc[index, '下穿'] = df.loc[index, '下穿'].replace(i, en_2_cn[i])
     
-  # 删除冗余的列
+  # drop columns
   df = df.drop(drop_columns, axis=1)
 
-  # 排序
+  # sort by operation and sec_code
   df = df.sort_values(['操作', '代码'], ascending=[True, True])
   
   return df
+
 
 
 # ================================================================================== Rolling windows ==================================================================================== #
@@ -294,39 +307,39 @@ def cal_change(df, target_col, periods=1, add_accumulation=True, add_prefix=Fals
     prefix = target_col + '_'
 
   # set result column names
-  change_dim = prefix + 'change'
-  acc_change_dim = prefix + 'acc_change'
-  acc_change_day_dim = prefix + 'acc_change_count'
+  change_col = prefix + 'change'
+  acc_change_col = prefix + 'acc_change'
+  acc_change_count_col = prefix + 'acc_change_count'
 
   # calculate change within the period
-  df[change_dim] = df[target_col].diff(periods=periods)
+  df[change_col] = df[target_col].diff(periods=periods)
   
   # calculate accumulative change in a same direction
   if add_accumulation:
-    df[acc_change_dim] = 0
-    df.loc[df[change_dim]>0, acc_change_day_dim] = 1
-    df.loc[df[change_dim]<0, acc_change_day_dim] = -1
+    df[acc_change_col] = 0
+    df.loc[df[change_col]>=0, acc_change_count_col] = 1
+    df.loc[df[change_col]<0, acc_change_count_col] = -1
   
     # go through each row, add values with same symbols (+/-)
     idx = df.index.tolist()
     for i in range(1, len(df)):
       current_idx = idx[i]
       previous_idx = idx[i-1]
-      current_change = df.loc[current_idx, change_dim]
-      previous_acc_change = df.loc[previous_idx, acc_change_dim]
-      previous_acc_change_days = df.loc[previous_idx, acc_change_day_dim]
+      current_change = df.loc[current_idx, change_col]
+      previous_acc_change = df.loc[previous_idx, acc_change_col]
+      previous_acc_change_days = df.loc[previous_idx, acc_change_count_col]
 
       if previous_acc_change * current_change > 0:
-        df.loc[current_idx, acc_change_dim] = current_change + previous_acc_change
-        df.loc[current_idx, acc_change_day_dim] += previous_acc_change_days
+        df.loc[current_idx, acc_change_col] = current_change + previous_acc_change
+        df.loc[current_idx, acc_change_count_col] += previous_acc_change_days
       else:
-        df.loc[current_idx, acc_change_dim] = current_change
+        df.loc[current_idx, acc_change_col] = current_change
 
   # drop NA values
   if drop_na:        
     df.dropna(inplace=True)
 
-  return df    
+  return df 
 
 # calculate change rate of a column in certain period
 def cal_change_rate(df, target_col, periods=1, add_accumulation=True, add_prefix=False, drop_na=False):
@@ -351,33 +364,33 @@ def cal_change_rate(df, target_col, periods=1, add_accumulation=True, add_prefix
     prefix = target_col + '_'
 
   # set result column names
-  rate_dim = prefix + 'rate'
-  acc_rate_dim = prefix + 'acc_rate'
-  acc_day_dim = prefix + 'acc_day'
+  rate_col = prefix + 'rate'
+  acc_rate_col = prefix + 'acc_rate'
+  acc_day_col = prefix + 'acc_day'
 
   # calculate change rate within the period
-  df[rate_dim] = df[target_col].pct_change(periods=periods)
+  df[rate_col] = df[target_col].pct_change(periods=periods)
   
   # calculate accumulative change rate in a same direction
   if add_accumulation:
-    df[acc_rate_dim] = 0
-    df.loc[df[rate_dim]>0, acc_day_dim] = 1
-    df.loc[df[rate_dim]<0, acc_day_dim] = -1
+    df[acc_rate_col] = 0
+    df.loc[df[rate_col]>=0, acc_day_col] = 1
+    df.loc[df[rate_col]<0, acc_day_col] = -1
   
     # go through each row, add values with same symbols (+/-)
     idx = df.index.tolist()
     for i in range(1, len(df)):
       current_idx = idx[i]
       previous_idx = idx[i-1]
-      current_rate = df.loc[current_idx, rate_dim]
-      previous_acc_rate = df.loc[previous_idx, acc_rate_dim]
-      previous_acc_days = df.loc[previous_idx, acc_day_dim]
+      current_rate = df.loc[current_idx, rate_col]
+      previous_acc_rate = df.loc[previous_idx, acc_rate_col]
+      previous_acc_days = df.loc[previous_idx, acc_day_col]
 
       if previous_acc_rate * current_rate > 0:
-        df.loc[current_idx, acc_rate_dim] = current_rate + previous_acc_rate
-        df.loc[current_idx, acc_day_dim] += previous_acc_days
+        df.loc[current_idx, acc_rate_col] = current_rate + previous_acc_rate
+        df.loc[current_idx, acc_day_col] += previous_acc_days
       else:
-        df.loc[current_idx, acc_rate_dim] = current_rate
+        df.loc[current_idx, acc_rate_col] = current_rate
 
   if drop_na:        
     df.dropna(inplace=True) 
@@ -971,15 +984,17 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
     df['senkou_a'] = df['senkou_a'].shift(n_medium)
     df['senkou_b'] = df['senkou_b'].shift(n_medium)
 
-  # calculate ichmoku status
+  
   if cal_status:
-    # cloud color change
+    
+    # ================================ Cloud status ===================================
+    # cloud color change, cloud height (how thick is the cloud)
     df['cloud_shift'] = cal_crossover_signal(df=df, fast_line='senkou_a', slow_line='senkou_b', pos_signal=1, neg_signal=-1, none_signal=0)
     df['cloud_height'] = round((df['senkou_a'] - df['senkou_b'])/df[close], ndigits=3)
     green_idx = df.query('cloud_height > 0').index
     red_idx = df.query('cloud_height <= 0').index
 
-    # cloud width (how long does it last)
+    # cloud width (how has it last)
     df['cloud_width'] = 0
     df.loc[green_idx, 'cloud_width'] = 1
     df.loc[red_idx, 'cloud_width'] = -1
@@ -988,7 +1003,6 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
     df['cloud_top'] = 0
     df.loc[green_idx, 'cloud_top'] = df['senkou_a']
     df.loc[red_idx, 'cloud_top'] = df['senkou_b']
-
     df['cloud_bottom'] = 0
     df.loc[green_idx, 'cloud_bottom'] = df['senkou_b']
     df.loc[red_idx, 'cloud_bottom'] = df['senkou_a']
@@ -1005,8 +1019,10 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
       if current_cloud_period * previous_cloud_period > 0:
         df.loc[current_idx, 'cloud_width'] += previous_cloud_period
 
+    # ================================ Close breakthrough =============================
     # calculate distance between Close and each ichimoku lines    
     line_weight = {'kijun':1, 'tankan':1, 'cloud_top':1, 'cloud_bottom':1}
+    line_name = {"kijun":"基准", "tankan":"转换", "cloud_top":"云顶", "cloud_bottom":"云底"} 
     df['break_up'] = ''
     df['break_down'] = ''
     df['breakthrough'] = 0
@@ -1018,22 +1034,24 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
 
       # calculate breakthrough
       line_signal_name = 'signal_%s' % line
-      col_to_drop.append(line_signal_name)
       df[line_signal_name] = cal_crossover_signal(df=df, fast_line=close, slow_line=line, pos_signal=weight, neg_signal=-weight, none_signal=0)
       
       # record breakthrough
       up_idx = df.query('%(name)s == %(value)s' % dict(name=line_signal_name, value=weight)).index
       down_idx = df.query('%(name)s == %(value)s' % dict(name=line_signal_name, value=-weight)).index      
-      df.loc[up_idx, 'break_up'] = df.loc[up_idx, 'break_up'] + line + ','
-      df.loc[down_idx, 'break_down'] = df.loc[down_idx, 'break_down'] + line + ','
+      df.loc[up_idx, 'break_up'] = df.loc[up_idx, 'break_up'] + line_name[line] + ','
+      df.loc[down_idx, 'break_down'] = df.loc[down_idx, 'break_down'] + line_name[line] + ','
       
       # accumulate breakthrough signals
       df['breakthrough'] = df['breakthrough'].astype(int) +df[line_signal_name].astype(int)
 
       # calculate distance between close price and indicator
-      df['close_to_' + line] = round((df['Close'] - df[line]) / df['Close'], ndigits=3)
+      df['close_to_' + line] = round((df[close] - df[line]) / df[close], ndigits=3)
 
-    # calculate ichimoku signal
+      # drop line signal columns
+      col_to_drop.append(line_signal_name)
+
+    # ================================ Signal =========================================
     if cal_signal:
 
       # initialize
@@ -1043,8 +1061,8 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
       up_idx = df.query('%s > cloud_top' % close).index
       down_idx = df.query('%s < cloud_bottom' % close).index
       df['trend'] = 0
-      df.loc[up_idx, 'trend'] = 2
-      df.loc[down_idx, 'trend'] = -2
+      df.loc[up_idx, 'trend'] = 1
+      df.loc[down_idx, 'trend'] = -1
 
       # cloud color
       up_idx = df.query('cloud_height > 0').index
@@ -1055,7 +1073,6 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
 
       # identify takan-kijun crossover
       df['tankan_kijun_crossover'] = cal_crossover_signal(df=df, fast_line='tankan', slow_line='kijun', pos_signal=1, neg_signal=-1, none_signal=0)   
-      df['breakthrough'] = df['breakthrough'].astype(int) + df['tankan_kijun_crossover'].astype(int)
 
       # sum up ichimoku index
       df['ichimoku_idx'] = df['trend'].astype(float) + df['cloud_color'].astype(float) + df['cloud_shift'].astype(float) + df['breakthrough'].astype(float) + df['tankan_kijun_crossover'].astype(float)
@@ -2355,6 +2372,7 @@ def add_kc_features(df, n=10, close='Close', open='Open', high='High', low='Low'
     df.loc[sell_idx, 'kc_signal'] = 's'
 
   return df
+
 
 
 # ================================================================================== Indicator visualization  =========================================================================== #
