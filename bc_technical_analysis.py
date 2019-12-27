@@ -123,7 +123,7 @@ def preprocess_stock_data(df, interval, print_error=True):
   return df
   
 # post-process calculation results
-def postprocess_ta_result(df, keep_columns, drop_columns, en_2_cn):
+def postprocess_ta_result(df, keep_columns, drop_columns):
   """
   Postprocess downloaded data
 
