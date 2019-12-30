@@ -40,8 +40,8 @@
 		"ichimoku_position": "Ichimoku", "close_to_tankan":"转换", "close_to_kijun":"基准",
 		"break_up":"上穿", "break_down":"下穿", 
 		"kama_position": "KAMA", "close_to_kama_fast": "快线", "close_to_kama_slow":"慢线", 
-		"kama_days": "kama信号", "ichimoku_days": "ichi信号", "kst_days": "KST信号", "eom_days": "EOM信号",
-		"sec_code":"代码", "operation":"操作"
+		"kama_days": "kama信号", "ichimoku_days": "ichi信号", "kst_days": "kst信号", "eom_days": "eom信号",
+		"sec_code":"代码", "operation":"操作", "watch":"关注"
 	},
 	
 	"drop_columns": [],

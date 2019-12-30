@@ -230,13 +230,6 @@ def postprocess_ta_result(df, keep_columns, drop_columns, watch_columns):
     idx=filter_idx(df=df, condition=condition[indicator])
     process(df=df, target_col='operation', init_value=init_value, idx=idx, symbol=signal_symbol, end=end_value)
 
-  # CLose nearby kama_fast and in a low or middle kama_position
-  for indicator in ['ichimoku', 'kama']:
-    idx = df.query('({indicator}_position=="低" or {indicator}_position=="中") and (t_eom == 1 or t_kst==1)'.format(indicator=indicator)).index
-    if len(idx) > 0:
-      df.loc[idx, 'operation'] += ', w-%s' % indicator[:4]
-
-
   # ================================ Watch Columns ==================================
   for indicator in watch_columns:
     day_col = '{indicator}_days'.format(indicator=indicator)
@@ -244,6 +237,14 @@ def postprocess_ta_result(df, keep_columns, drop_columns, watch_columns):
     idx = df.query('{day_col} == "0"'.format(day_col=day_col)).index
     df[day_col] = df[day_col].astype(int).astype(str)
     df.loc[idx, day_col] = df.loc[idx, signal_col]
+
+  # CLose nearby kama_fast and in a low or middle kama_position
+  df['watch'] = ''
+  end_value = {'ichimoku': ', ', 'kama': ''}
+  for indicator in ['ichimoku', 'kama']:
+    idx = df.query('({indicator}_position=="低" or {indicator}_position=="中") and (t_eom == 1 or t_kst==1)'.format(indicator=indicator)).index
+    if len(idx) > 0:
+      df.loc[idx, 'watch'] += indicator[:4] + end_value[indicator]
 
   # ============================== Others ===========================================
   # rename columns
