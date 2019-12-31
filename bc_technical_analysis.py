@@ -202,7 +202,7 @@ def postprocess_ta_result(df, keep_columns, drop_columns, watch_columns):
   df.loc[df.query('t < 0').index, 'overall_trend'] = '向下'
 
   # =============================== Overbuy/Oversell ================================
-  osob_symbol = {'up': 'ob', 'down': 'os', 'other': '-'}
+  osob_symbol = {'up': 'ob', 'down': 'os', 'other': ''}
   init_value = ''
   end_value = ''
   condition = {
@@ -256,7 +256,7 @@ def postprocess_ta_result(df, keep_columns, drop_columns, watch_columns):
   # keep 3 digits for numbers
   df[['涨跌', '累计']] = (df[['涨跌', '累计']] * 100).round(1).astype(str) + '%'
   df[['收盘']] = df[['收盘']].round(2)
-  df[['动量']] = df[['动量']].round(0).astype(int)
+  df[['动量']] = df[['动量']].round(0)
 
   # sort by operation and sec_code
   df = df.sort_values(['操作', '代码'], ascending=[True, True])
@@ -1090,7 +1090,7 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
       df['ichimoku_idx'] = df['trend'].astype(float) + df['cloud_color'].astype(float) + df['breakthrough'].astype(float) + df['tankan_kijun_crossover'].astype(float)
 
       # calculate Close position corresponding to kijun and tankan
-      df['ichimoku_position'] = 'n'
+      df['ichimoku_position'] = ''
       high_idx = df.query('{close} > tankan > kijun'.format(close=close)).index
       low_idx = df.query('{close} < tankan < kijun'.format(close=close)).index
       middle_idx = df.query('kijun> {close} > tankan'.format(close=close)).index
@@ -1151,7 +1151,7 @@ def add_kst_features(df, r1=10, r2=15, r3=20, r4=30, n1=10, n2=10, n3=10, n4=15,
   # fill na value
   if fillna:
     kst = kst.replace([np.inf, -np.inf], np.nan).fillna(0)
-    kst_sign = kst_sig.replace([np.inf, -np.inf], np.nan).fillna(0)
+    kst_sign = kst_sign.replace([np.inf, -np.inf], np.nan).fillna(0)
 
   # assign values to df
   df['kst'] = kst
@@ -1705,7 +1705,7 @@ def add_ao_features(df, n_short=5, n_long=34, close='Close', open='Open', high='
   :returns: dataframe with new features generated
   """
   # copy dataframe
-  df_original = df.copy()
+  df = df.copy()
 
   # calculate ao
   mp = 0.5 * (df[high] + df[low])
@@ -1746,7 +1746,7 @@ def cal_kama(df, n1=10, n2=2, n3=30, close='Close', open='Open', high='High', lo
   :returns: dataframe with new features generated
   """
   # copy dataframe
-  df_original = df.copy()
+  df = df.copy()
 
   # calculate kama
   close_values = df[close].values
@@ -1834,9 +1834,9 @@ def add_kama_features(df, n_param={'kama_fast': [10, 2, 30], 'kama_slow': [10, 5
       df.loc[s_idx, 'kama_signal'] = 's'
 
       # calculate position of Close, corresponding to kama_fast and kama_slow
-      df['kama_position'] = 'n'
-      high_idx = df.query('{close} < kama_fast < kama_slow'.format(close=close)).index
-      low_idx = df.query('{close} > kama_slow > kama_fast'.format(close=close)).index
+      df['kama_position'] = ''
+      high_idx = df.query('{close} > kama_fast > kama_slow'.format(close=close)).index
+      low_idx = df.query('{close} < kama_slow < kama_fast'.format(close=close)).index
       middle_idx = df.query('kama_slow > {close} > kama_fast'.format(close=close)).index
       df.loc[high_idx, 'kama_position'] = '高'
       df.loc[low_idx, 'kama_position'] = '低'
