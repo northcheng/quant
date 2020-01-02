@@ -1,8 +1,7 @@
 {
 	"time_col" : {
 		"yahoo": "Date", 
-		"yfinance": "Date", 
-		"tiger": "time"
+		"yfinance": "Date"
 	},
 
 	"interval_val": {
