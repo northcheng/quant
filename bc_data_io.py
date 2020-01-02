@@ -49,13 +49,11 @@ def get_symbols(remove_invalid=True, remove_not_fetched=False, not_fetched_list=
 
   # remove invalid symbols
   if remove_invalid:
-    original_len = len(sec_list)
     sec_list = [x for x in sec_list if '$' not in x]
     sec_list = [x for x in sec_list if '.' not in x]
 
   # remove not-fetched symbols
   if remove_not_fetched and not_fetched_list is not None:
-    original_len = len(sec_list)
     yahoo_not_fetched_list = []
     try: 
       yahoo_not_fetched_list = pd.read_csv(not_fetched_list).sec_code.tolist()
@@ -398,7 +396,6 @@ def read_nytimes(year, month, file_path, file_format='.json'):
     NYTimes_data = json.load(data_file)
   
   # convert json to dataframe
-  date_list = []
   df = pd.DataFrame()  
   df['News'] = None
   num_hits = NYTimes_data['response']['meta']['hits']

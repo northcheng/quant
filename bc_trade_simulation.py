@@ -142,7 +142,6 @@ def back_test(signal, buy_price='Open', sell_price='Close', money=0, stock=0, tr
 
       else: # others
         print('Invalid signal: ', action)
-        tmp_result = None
       
       # update assets      
       last_total = total
@@ -173,7 +172,7 @@ def back_test(signal, buy_price='Open', sell_price='Close', money=0, stock=0, tr
       buying_points = record.query('action == "b"')
       selling_points = record.query('action == "s"')
 
-      f, ax = plt.subplots(figsize = (20, 3))
+      plt.subplots(figsize = (20, 3))
       plt.plot(signal[['Close']])
       plt.scatter(buying_points.index,buying_points.price, c='green')
       plt.scatter(selling_points.index,selling_points.price, c='red')

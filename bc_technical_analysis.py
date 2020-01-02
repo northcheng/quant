@@ -84,8 +84,7 @@ def preprocess_stock_data(df, interval, print_error=True):
   df = df[~duplicated].copy()
 
   # if interval is week, keep data until the most recent monday
-  max_idx = df.index.max()
-  if interval == 'week' and max_idx.weekday() != 0:
+  if interval == 'week' and df.index.max().weekday() != 0:
     df = df[:-1].copy()
 
   # process NA and 0 values
@@ -130,7 +129,7 @@ def postprocess_ta_result(df, keep_columns, drop_columns, watch_columns):
   :param df: downloaded stock data
   :param keep_columns: columns to keep for the final result
   :param drop_columns: columns to drop for the final result
-  :param en_2_cn: convert en names to cn names
+  :param watch_columns: list of indicators to keep watching
   :returns: postprocessed dataframe
   :raises: None
   """     
@@ -160,7 +159,7 @@ def postprocess_ta_result(df, keep_columns, drop_columns, watch_columns):
     return idx
 
   # analyze rows, assign proper result in target column
-  def process(df, target_col, init_value, idx, symbol, end):
+  def process(df, target_col, init_value, idx, symbol, end_value):
     """
     # analyze rows, assign proper result in target column
     :param df: result dataframe that contains full information
@@ -168,7 +167,7 @@ def postprocess_ta_result(df, keep_columns, drop_columns, watch_columns):
     :param init_value: initial value of target column
     :param idx: dictionary of index of rows
     :param symbol: dictionary of symbols that will be assigned to mapped index of rows
-    :param end: the value to be added onto the target column values at the end
+    :param end_value: the value to be added onto the target column values at the end
     :returns: None
     :raises: None
     """
@@ -180,7 +179,7 @@ def postprocess_ta_result(df, keep_columns, drop_columns, watch_columns):
     for i in idx.keys():
       tmp_idx = idx[i]
       if len(tmp_idx) > 0:
-        df.loc[tmp_idx, target_col] += symbol[i] + end
+        df.loc[tmp_idx, target_col] += symbol[i] + end_value
 
   # ================================ Trend ==========================================
   trend_symbol = {'up': 1, 'down': -1, 'other': 0}
@@ -194,15 +193,22 @@ def postprocess_ta_result(df, keep_columns, drop_columns, watch_columns):
   for indicator in condition.keys():
     target_col = indicator
     idx = filter_idx(df=df, condition=condition[indicator])
-    process(df=df, target_col=target_col, init_value=init_value, idx=idx, symbol=trend_symbol, end=end_value)
+    process(df=df, target_col=target_col, init_value=init_value, idx=idx, symbol=trend_symbol, end_value=end_value)
 
+  # KST + EOM 大趋势
   df['t'] = df['t_kst'] + df['t_eom']
-  df.loc[df.query('t > 0').index, 'overall_trend'] = '向上'
-  df.loc[df.query('t == 0').index, 'overall_trend'] = '波动'
-  df.loc[df.query('t < 0').index, 'overall_trend'] = '向下'
+  df.loc[df.query('t > 0').index, 'trend'] = '上'
+  df.loc[df.query('t == 0').index, 'trend'] = '平'
+  df.loc[df.query('t < 0').index, 'trend'] = '下'
+
+  # ADX 动量
+  df[['adx_trend']] = df[['adx_trend']].round(1)
+  df.loc[df.query('adx_trend > 0').index, 'momentum'] = '上'
+  df.loc[df.query('adx_trend == 0').index, 'momentum'] = '平'
+  df.loc[df.query('adx_trend < 0').index, 'momentum'] = '下'
 
   # =============================== Overbuy/Oversell ================================
-  osob_symbol = {'up': 'ob', 'down': 'os', 'other': ''}
+  osob_symbol = {'up': '高', 'down': '低', 'other': ''}
   init_value = ''
   end_value = ''
   condition = {
@@ -213,7 +219,7 @@ def postprocess_ta_result(df, keep_columns, drop_columns, watch_columns):
   for indicator in condition.keys():
     target_col = indicator
     idx = filter_idx(df=df, condition=condition[indicator])
-    process(df=df, target_col='osob', init_value=init_value, idx=idx, symbol=osob_symbol, end=end_value)
+    process(df=df, target_col='osob', init_value=init_value, idx=idx, symbol=osob_symbol, end_value=end_value)
   
   # ================================ Signal =========================================
   signal_symbol = {'up': 'b', 'down': 's', 'other': '-'}
@@ -222,29 +228,24 @@ def postprocess_ta_result(df, keep_columns, drop_columns, watch_columns):
   condition = {
     's_kama': {'up': 'kama_signal == "b"', 'down': 'kama_signal == "s"'},
     's_ichimoku': {'up': 'ichimoku_signal =="b"', 'down': 'ichimoku_signal == "s"'},
-    's_kst': {'up': 'kst_signal == "b"', 'down': 'kst_signal == "s"'},
-    's_eom': {'up': 'eom_signal == "b"', 'down': 'eom_signal == "s"'}
+    's_kst': {'up': 'kst_signal == "it never happend"', 'down': 'kst_signal == "s"'},
+    's_eom': {'up': 'eom_signal == "it never happend"', 'down': 'eom_signal == "s"'}
   }
   for indicator in condition.keys():
     target_col = indicator
-    idx=filter_idx(df=df, condition=condition[indicator])
-    process(df=df, target_col='operation', init_value=init_value, idx=idx, symbol=signal_symbol, end=end_value)
+    idx = filter_idx(df=df, condition=condition[indicator])
+    process(df=df, target_col='operation', init_value=init_value, idx=idx, symbol=signal_symbol, end_value=end_value)
 
   # ================================ Watch Columns ==================================
-  for indicator in watch_columns:
-    day_col = '{indicator}_days'.format(indicator=indicator)
-    signal_col = '{indicator}_signal'.format(indicator=indicator)
-    idx = df.query('{day_col} == "0"'.format(day_col=day_col)).index
-    df[day_col] = df[day_col].astype(int).astype(str)
-    df.loc[idx, day_col] = df.loc[idx, signal_col]
-
-  # CLose nearby kama_fast and in a low or middle kama_position
-  df['watch'] = ''
-  end_value = {'ichimoku': ', ', 'kama': ''}
+  # Close nearby kama_fast and in a low or middle kama_position
   for indicator in ['ichimoku', 'kama']:
-    idx = df.query('({indicator}_position=="低" or {indicator}_position=="中") and (t_eom == 1 or t_kst==1)'.format(indicator=indicator)).index
-    if len(idx) > 0:
-      df.loc[idx, 'watch'] += indicator[:4] + end_value[indicator]
+    # replace position values
+    df = replace_signal(df=df, signal_col='{indicator}_position'.format(indicator=indicator), replacement={'h': '高', 'l': '低', 'mh': '中高', 'ml': '中低'})
+
+    # index to keep watching on
+    watch_idx = df.query('({indicator}_position=="低" or {indicator}_position=="中低") and (momentum == "上")'.format(indicator=indicator)).index
+    if len(watch_idx) > 0:
+      df.loc[watch_idx, 'operation'] += 'w'
 
   # ============================== Others ===========================================
   # rename columns
@@ -254,10 +255,8 @@ def postprocess_ta_result(df, keep_columns, drop_columns, watch_columns):
   df = df.drop(drop_columns, axis=1)
 
   # keep 3 digits for numbers
-  df[['涨跌', '累计']] = (df[['涨跌', '累计']] * 100).round(1).astype(str) + '%'
-  df[['收盘']] = df[['收盘']].round(2)
-  df[['动量']] = df[['动量']].round(0)
-
+  df[['涨跌', '累计', '收盘']] = (df[['涨跌', '累计', '收盘']]).round(2)
+  
   # sort by operation and sec_code
   df = df.sort_values(['操作', '代码'], ascending=[True, True])
   
@@ -601,7 +600,7 @@ def cal_peak_trough(df, target_col, height=None, threshold=None, distance=None, 
     df.loc[troughs, result_col] = trough_signal
     
   except Exception as e:
-    # print(e)
+    print(e, 'using self-defined method')
     
     further_filter=True
 
@@ -1090,13 +1089,18 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
       df['ichimoku_idx'] = df['trend'].astype(float) + df['cloud_color'].astype(float) + df['breakthrough'].astype(float) + df['tankan_kijun_crossover'].astype(float)
 
       # calculate Close position corresponding to kijun and tankan
+      # calculate position of Close, corresponding to kama_fast and kama_slow
       df['ichimoku_position'] = ''
-      high_idx = df.query('{close} > tankan > kijun'.format(close=close)).index
-      low_idx = df.query('{close} < tankan < kijun'.format(close=close)).index
-      middle_idx = df.query('kijun> {close} > tankan'.format(close=close)).index
-      df.loc[high_idx, 'ichimoku_position'] = '高'
-      df.loc[low_idx, 'ichimoku_position'] = '低'
-      df.loc[middle_idx, 'ichimoku_position'] = '中'
+      fast = 'tankan'
+      slow = 'kijun'
+      high_idx = df.query('{close} > {fast} > {slow}'.format(close=close, fast=fast, slow=slow)).index
+      mid_high_idx = df.query('{fast} > {close} > {slow}'.format(close=close, fast=fast, slow=slow)).index
+      mid_low_idx = df.query('{slow} > {close} > {fast}'.format(close=close, fast=fast, slow=slow)).index
+      low_idx = df.query('{slow} > {fast} > {close}'.format(close=close, fast=fast, slow=slow)).index
+      df.loc[high_idx, 'ichimoku_position'] = 'h'
+      df.loc[mid_high_idx, 'ichimoku_position'] = 'mh'
+      df.loc[mid_low_idx, 'ichimoku_position'] = 'ml'
+      df.loc[low_idx, 'ichimoku_position'] = 'l'
 
       # final signal
       df['ichimoku_signal'] = 'n'
@@ -1835,13 +1839,18 @@ def add_kama_features(df, n_param={'kama_fast': [10, 2, 30], 'kama_slow': [10, 5
 
       # calculate position of Close, corresponding to kama_fast and kama_slow
       df['kama_position'] = ''
-      high_idx = df.query('{close} > kama_fast > kama_slow'.format(close=close)).index
-      low_idx = df.query('{close} < kama_slow < kama_fast'.format(close=close)).index
-      middle_idx = df.query('kama_slow > {close} > kama_fast'.format(close=close)).index
-      df.loc[high_idx, 'kama_position'] = '高'
-      df.loc[low_idx, 'kama_position'] = '低'
-      df.loc[middle_idx, 'kama_position'] = '中'
-
+      fast = 'kama_fast'
+      slow = 'kama_slow'
+      high_idx = df.query('{close} > {fast} > {slow}'.format(close=close, fast=fast, slow=slow)).index
+      mid_high_idx = df.query('{fast} > {close} > {slow}'.format(close=close, fast=fast, slow=slow)).index
+      mid_low_idx = df.query('{slow} > {close} > {fast}'.format(close=close, fast=fast, slow=slow)).index
+      low_idx = df.query('{slow} > {fast} > {close}'.format(close=close, fast=fast, slow=slow)).index
+      
+      df.loc[high_idx, 'kama_position'] = 'h'
+      df.loc[mid_high_idx, 'kama_position'] = 'mh'
+      df.loc[mid_low_idx, 'kama_position'] = 'ml'
+      df.loc[low_idx, 'kama_position'] = 'l'
+      
     else:
       df['kama_signal'] = 'n'
       df['kama_position'] = 'n'
@@ -2439,7 +2448,7 @@ def plot_signal(df, start=None, end=None, price_col='Close', signal_col='signal'
   # create figure
   ax = use_ax
   if ax is None:
-    fig = plt.figure(figsize=figsize)
+    plt.figure(figsize=figsize)
     ax = plt.gca()
 
   # plot price and signal
@@ -2494,7 +2503,7 @@ def plot_peak_trough(df, start=None, end=None, price_col='Close', high_col='High
   # create figure
   ax = use_ax
   if ax is None:
-    fig = plt.figure(figsize=figsize)
+    plt.figure(figsize=figsize)
     ax = plt.gca()
 
   # get peaks and troughs
@@ -2571,7 +2580,7 @@ def plot_ichimoku(df, start=None, end=None, price_col='Close', signal_col='signa
   # create figure
   ax = use_ax
   if ax is None:
-    fig = plt.figure(figsize=figsize)
+    plt.figure(figsize=figsize)
     ax = plt.gca()
 
   # plot senkou lines
@@ -2723,7 +2732,7 @@ def plot_candlestick(df, start=None, end=None, open_col='Open', high_col='High',
   # create figure
   ax = use_ax
   if ax is None:
-    fig = plt.figure(figsize=figsize)
+    plt.figure(figsize=figsize)
     ax = plt.gca()
 
   # plot_kama

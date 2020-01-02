@@ -9,6 +9,7 @@ import numpy as np
 import datetime
 import math
 from quant import bc_util as util
+from quant import bc_technical_analysis as ta_util
 
 
 #----------------------------- Rate and Risk -----------------------------------#
@@ -141,7 +142,7 @@ def cal_period_rate_risk(data, dim='Close', by='month'):
   :raises: none
   """
   # calculate the change rate by day
-  data = cal_change_rate(df=data, dim=dim, period=1)
+  data = ta_util.cal_change_rate(df=data, target_col=dim, periods=1)
 
   # get start/end date, construct period list
   start_date = data.index.min().date()
