@@ -807,15 +807,22 @@ def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low
     none_idx = df.query('adx < %s' % adx_threshold).index
     df.loc[none_idx, 'adx_signal'] = 'n'
 
-    # calculate slope of dpi and mpi
-    df = cal_change_rate(df=df, target_col='pdi', add_prefix=True)
-    df = cal_change_rate(df=df, target_col='mdi', add_prefix=True)
-    pdi_periods = int(abs(df.iloc[-1]['pdi_acc_day']) + 1)
-    mdi_periods = int(abs(df.iloc[-1]['mdi_acc_day']) + 1)
-    df['pdi_slope'] = linear_fit(df=df, target_col='pdi', periods=pdi_periods)['slope']
-    df['mdi_slope'] = linear_fit(df=df, target_col='mdi', periods=mdi_periods)['slope']
-    df['di_slope'] = df['pdi_slope'] - df['mdi_slope']
-    df['adx_trend'] = df['di_slope'] * (df['adx']/adx_threshold)
+    try:
+      # calculate slope of dpi and mpi
+      df = cal_change_rate(df=df, target_col='pdi', add_prefix=True)
+      df = cal_change_rate(df=df, target_col='mdi', add_prefix=True)
+      pdi_periods = int(abs(df.iloc[-1]['pdi_acc_day']) + 1)
+      mdi_periods = int(abs(df.iloc[-1]['mdi_acc_day']) + 1)
+      df['pdi_slope'] = linear_fit(df=df, target_col='pdi', periods=pdi_periods)['slope']
+      df['mdi_slope'] = linear_fit(df=df, target_col='mdi', periods=mdi_periods)['slope']
+      df['di_slope'] = df['pdi_slope'] - df['mdi_slope']
+      df['adx_trend'] = df['di_slope'] * (df['adx']/adx_threshold)
+    except Exception as e:
+      print(e)
+      df['pdi_slope'] = 0
+      df['mdi_slope'] = 0
+      df['di_slope'] = 0
+      df['adx_trend'] = 0
 
   df.drop(['high_diff', 'low_diff', 'zero', 'pdm', 'mdm', 'atr', 'dx', 'pdi_rate', 'pdi_acc_rate', 'pdi_acc_day', 'mdi_rate', 'mdi_acc_rate', 'mdi_acc_day'], axis=1, inplace=True)
 
