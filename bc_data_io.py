@@ -182,7 +182,7 @@ def get_data_from_tiger(sec_code, interval, start_date=None, end_date=None, time
   return data
 
 
-def download_stock_data(sec_code, start_date=None, end_date=None, source='yahoo', time_col='Date', interval='d', quote_client=None, download_limit=1200, is_print=False, is_return=False, is_save=False, file_path=None, file_name=None):
+def download_stock_data(sec_code, start_date=None, end_date=None, source='yahoo', time_col='Date', interval='d', is_return=True, is_print=False, is_save=False, file_path=None, file_name=None):
   """
   Download stock data from web sources
 
@@ -211,9 +211,9 @@ def download_stock_data(sec_code, start_date=None, end_date=None, source='yahoo'
     # yfinance
     elif source == 'yfinance':
       data = data = get_data_from_yfinance(sec_code=sec_code, interval=interval, start_date=start_date, end_date=end_date, time_col=time_col, is_print=is_print)
-    # dtigeropen
-    elif source == 'tiger':
-      data = get_data_from_tiger(sec_code=sec_code, interval=interval, start_date=start_date, end_date=end_date, time_col=time_col, is_print=is_print, quote_client=quote_client ,download_limit=download_limit)
+    else:
+      print('data source %s not found' % source)
+      return None
 
     # save data
     if is_save:
@@ -495,7 +495,7 @@ def add_config(config_key, config_value, file_path, file_name):
     new_config = read_config(file_path, file_name)
     new_config[config_key] = config_value
 
-    with open(file_path + file_name, 'w') as f:
+    with open(file_path + file_name, 'w', encoding='UTF-8') as f:
       json.dump(new_config, f)
       print('Config added successfully')
 
@@ -518,7 +518,7 @@ def remove_config(config_key, file_path, file_name):
     new_config = read_config(file_path, file_name)
     new_config.pop(config_key)
 
-    with open(file_path + file_name, 'w') as f:
+    with open(file_path + file_name, 'w', encoding='UTF-8') as f:
       json.dump(new_config, f)
       print('Config removed successfully')
 
@@ -542,7 +542,7 @@ def modify_config(config_key, config_value, file_path, file_name):
     new_config = read_config(file_path, file_name)
     new_config[config_key] = config_value
 
-    with open(file_path + file_name, 'w') as f:
+    with open(file_path + file_name, 'w', encoding='UTF-8') as f:
       json.dump(new_config, f)
       print('Config modified successfully')
 

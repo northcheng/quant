@@ -121,6 +121,63 @@ def preprocess_stock_data(df, interval, print_error=True):
   
   return df
   
+# core ta calculation and visualization
+def calcul_and_visual(df, sec_code, visual_args={}):
+
+  try:
+    # price change rate
+    phase = 'cal_change_rate' 
+    df = cal_change_rate(df=df, target_col='Close')
+
+    # ichimoku
+    phase = 'cal_ichimoku' 
+    df = add_ichimoku_features(df=df)
+      
+    # KAMA
+    phase = 'cal_kama'  
+    df = add_kama_features(df=df)
+
+    # ADX
+    phase = 'cal_adx'  
+    df = add_adx_features(df=df)
+
+    # EOM
+    phase = 'cal_eom'  
+    df = add_eom_features(df=df)
+
+    # KST
+    phase = 'cal_kst'  
+    df = add_kst_features(df=df)
+    
+    # RSI
+    phase = 'cal_rsi'  
+    df = add_rsi_features(df=df)
+    
+    # BBL
+    phase = 'cal_bbl'  
+    df = add_bb_features(df=df)
+
+    # sec_code
+    phase = 'sec_code'
+    df['sec_code'] = sec_code
+
+    # visualize 
+    if visual_args.get('visualize'):
+      phase = 'visulize'
+      plot_multiple_indicators(
+        df=df, title=sec_code,
+        args=visual_args.get('args'), 
+        start=visual_args.get('start'), 
+        show_image=visual_args.get('show_image'), 
+        save_image=visual_args.get('save_image'), 
+        save_path=visual_args.get('save_path'))
+
+  except Exception as e:
+    print(phase, e)
+
+  return df
+
+
 # post-process calculation results
 def postprocess_ta_result(df, keep_columns, drop_columns, watch_columns):
   """

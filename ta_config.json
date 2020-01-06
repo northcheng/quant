@@ -22,7 +22,7 @@
 	}, 
 	
 	"candlestick_width": {
-		"day": 0.8, "week": 3
+		"day": 0.7, "week": 3.5
 	}, 
 	
 	"peak_width": {
@@ -48,8 +48,6 @@
 	"drop_columns": [],
 
 	"watch_columns": ["ichimoku", "kama", "kst", "eom"],
-	
-	"subplot_spacing": {"wide": 0, "heigh": 0.2}, 
 
 	"plot_args": {
 		"plot_ratio": { 
