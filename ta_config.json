@@ -41,7 +41,7 @@
 
 		"close_to_tankan":"转换", "close_to_kijun":"基准", "break_up":"上穿", "break_down":"下穿", 
 		
-		"adx_trend":"ADX", "osob":"超买/超卖", "trend":"趋势", "momentum":"动量", "kama_position":"KAMA", "ichimoku_position":"ICHI", 
+		"adx_trend":"ADX", "trend":"趋势", "momentum":"动量", "kama_position":"KAMA", "ichimoku_position":"ICHI", "osob":"价位", 
 
 		"sec_code":"代码",  "operation":"操作"
 	},
