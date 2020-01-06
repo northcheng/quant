@@ -469,7 +469,7 @@ def read_config(file_path, file_name):
   """
   try:
     # read existing config
-    with open(file_path + file_name, 'r') as f:
+    with open(file_path + file_name, 'r', encoding='UTF-8') as f:
       config_dict = json.loads(f.read())
 
   except Exception as e:

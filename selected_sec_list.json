@@ -1,0 +1,25 @@
+{
+	"etf": [
+		"TVIX","TQQQ","SQQQ","UPRO","SPXU","UDOW","SDOW","TECL","TECS","SOXL","SOXS","LABU","LABD","JNUG","JDST","FAS","FAZ","ERX","ERY","UGAZ","DGAZ",
+		"MCHI","CQQQ","KWEB","CHAU","CHAD","YINN","YANG","EWH","EWT"
+	],
+
+	"company": [
+		"AAPL","MSFT","GOOG","AMZN","FB",
+		"INTC","NVDA","AMD","QCOM","AVGO","TSM",
+		"NFLX","DIS",
+		"JPM","MS","GS","BAC","WFC","C",
+		"MRK","PFE","NVS"
+	],
+
+	"extra": [
+		"AAL","ADBE","ADI","ADP","ADSK","AGNC","ALXN","AMAT","AMGN","AMRN","AMTD","ARCC","ARWR","ATVI",
+		"BIDU","BIIB","BKNG","CHRW","CHTR","CMCSA","CME","COST","COUP","CRWD","CSCO","CSX","CTSH","CY","CZR",
+		"DBX","DDOG","DISCA","DISCK","DISH","DLTR","EA","EBAY","EQIX","ERIC","ETFC","EXAS","EXC","EXPE",
+		"FANG","FAST","FISV","FITB","FIVE","FLEX","FOXA","GILD","HBAN","IAC","ILMN","INCY","INTU","IQ","ISRG",
+		"JD","KHC","LBTYK","LK","LNT","LRCX","LULU","LYFT","MDCO","MDLZ","MELI","MKTX","MNST","MOMO","MRNA","MRVL","MTCH","MU","MYL",
+		"NLOK","NTAP","NTES","NTRS","NWL","NWSA","NXPI","OKTA","OLED","ON","ORLY","PBCT","PDD","PEP","PTON","PYPL","REGN","ROKU","ROST",
+		"SBUX","SIRI","SNY","SPLK","SRPT","STX","SWKS","TCOM","TMUS","TSCO","TSLA","TTD","TXN","UAL","ULTA","VOD","VRSK","VRTX",
+		"WBA","WDAY","WDC","WYNN","XEL","XLNX","YNDX","Z"
+	]
+}
