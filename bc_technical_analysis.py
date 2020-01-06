@@ -253,7 +253,7 @@ def postprocess_ta_result(df, keep_columns, drop_columns, watch_columns):
 
   # mark
   not_watch_idx = list(set(ob_idx).union(set(hp_idx)).union(set(dw_idx)))
-  df.loc[not_watch_idx, 'operation'] = 'ignore' + df.loc[not_watch_idx, 'operation']
+  df.loc[not_watch_idx, 'operation'] = 'x' + df.loc[not_watch_idx, 'operation']
 
 
   # ============================== Others ===========================================
