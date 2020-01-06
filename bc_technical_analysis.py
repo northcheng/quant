@@ -122,7 +122,7 @@ def preprocess_stock_data(df, interval, print_error=True):
   return df
   
 # core ta calculation and visualization
-def calcul_and_visual(df, sec_code, visual_args={}):
+def calculate_and_visualize(df, sec_code, visual_args={}):
 
   try:
     # price change rate
