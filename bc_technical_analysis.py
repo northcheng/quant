@@ -242,10 +242,19 @@ def postprocess_ta_result(df, keep_columns, drop_columns, watch_columns):
     # replace position values
     df = replace_signal(df=df, signal_col='{indicator}_position'.format(indicator=indicator), replacement={'h': '高', 'l': '低', 'mh': '中高', 'ml': '中低'})
 
-    # index to keep watching on
-    watch_idx = df.query('({indicator}_position=="低" or {indicator}_position=="中低") and (momentum == "上")'.format(indicator=indicator)).index
-    if len(watch_idx) > 0:
-      df.loc[watch_idx, 'operation'] += 'w'
+  # remove overbought 
+  ob_idx = df.query('osob == "高"').index
+
+  # remove high position
+  hp_idx = df.query('(kama_position == "高" or kama_position =="中高") and (ichimoku_position == "高" or ichimoku_position =="中高")').index
+
+  # remove downward
+  dw_idx = df.query('(trend == "下" or trend =="平") and (momentum == "下" or momentum =="平")').index
+
+  # mark
+  not_watch_idx = list(set(ob_idx).union(set(hp_idx)).union(set(dw_idx)))
+  df.loc[not_watch_idx, 'operation'] = 'ignore' + df.loc[not_watch_idx, 'operation']
+
 
   # ============================== Others ===========================================
   # rename columns
