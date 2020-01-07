@@ -177,7 +177,6 @@ def calculate_and_visualize(df, sec_code, visual_args={}):
 
   return df
 
-
 # post-process calculation results
 def postprocess_ta_result(df, keep_columns, drop_columns, watch_columns):
   """
@@ -308,8 +307,14 @@ def postprocess_ta_result(df, keep_columns, drop_columns, watch_columns):
   # remove downward
   dw_idx = df.query('(trend == "下" or trend =="平") and (momentum == "下" or momentum =="平")').index
 
-  # mark
-  not_watch_idx = list(set(ob_idx).union(set(hp_idx)).union(set(dw_idx)))
+  # idx with buy and sell signal
+  buy_idx = df.query('kama_signal=="b"').index
+  sell_idx = df.query('kama_signal=="s" or ichimoku_signal=="s" or kst_signal=="s" or eom_signal=="s"').index
+
+  # idx that no need to watch
+  not_watch_idx = list(set(ob_idx).union(set(hp_idx)).union(set(dw_idx)).union(set(sell_idx)))
+  not_watch_idx = [x for x in not_watch_idx if x not in buy_idx]
+
   df.loc[not_watch_idx, 'operation'] = 'x' + df.loc[not_watch_idx, 'operation']
 
 
@@ -321,7 +326,7 @@ def postprocess_ta_result(df, keep_columns, drop_columns, watch_columns):
   df = df.drop(drop_columns, axis=1)
 
   # keep 3 digits for numbers
-  df[['涨跌', '累计', '收盘']] = (df[['涨跌', '累计', '收盘']]).round(2)
+  df[['涨跌', '累计', '收盘']] = (df[['涨跌', '累计', '收盘']]).round(3)
   
   # sort by operation and sec_code
   df = df.sort_values(['操作', '代码'], ascending=[True, True])
@@ -362,7 +367,7 @@ def em(series, periods, fillna=False):
   return series.ewm(span=periods, min_periods=periods)  
 
 
-
+ 
 # ================================================================================== Change calculation ================================================================================= #
 # calculate change of a column in certain period
 def cal_change(df, target_col, periods=1, add_accumulation=True, add_prefix=False, drop_na=False):
