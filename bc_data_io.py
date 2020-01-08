@@ -550,6 +550,22 @@ def modify_config(config_key, config_value, file_path, file_name):
     print(e)
 
 
+
+#----------------------- Dictionary to Excel ---------------------# 
+def dict_2_excel(dictionary, file_path, file_name, keep_index=False):
+
+  # 打开文件
+  writer = pd.ExcelWriter('{path}{name}.xlsx'.format(path=file_path, name=file_name))
+
+  # 写入
+  for k in dictionary.keys():
+    dictionary[k].to_excel(writer, sheet_name=k, index=keep_index)
+
+  # 关闭文件并保存
+  writer.save()
+  writer.close()
+
+
 #----------------------------- Zip file ----------------------------------------#
 def zip_folder(folder_path, destination_path, zip_file_name):
   """
@@ -574,3 +590,5 @@ def zip_folder(folder_path, destination_path, zip_file_name):
   zip_writer.close()
   
   return zip_file_name
+
+

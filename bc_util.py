@@ -151,3 +151,7 @@ def plot_data(df, columns, start=None, end=None, figsize=(20, 5), colormap='tab1
   plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=5, mode="expand", borderaxespad=0.)
   plt.grid(True)
   plt.xticks(rotation=90)   
+
+
+
+

@@ -103,7 +103,7 @@ def back_test(signal, buy_price='Open', sell_price='Close', money=0, stock=0, tr
       
       # if force stop loss is triggered, sell all the stocks and stop trading today
       earning = (last_total - total)/last_total
-      if earning >= force_stop_loss:
+      if force_stop_loss is not None and earning >= force_stop_loss:
         print('stop loss at earning ', earning)
         price = signal.loc[next_date, sell_price]
         tmp_trading_result = sell(stock=stock, price=price, trading_fee=trading_fee)
@@ -122,7 +122,7 @@ def back_test(signal, buy_price='Open', sell_price='Close', money=0, stock=0, tr
         money = tmp_trading_result.get('left_money')
         stock += tmp_trading_result.get('new_stock')
         if print_trading:
-          print('%(date)s buy with price: %(price)s, stock: %(stock)s -> %(new_stock)s, money: %(money)s->%(new_money)s' % dict(
+          print('%(date)s buy with price: %(price)s, stock: %(stock)s -> %(new_stock)s, money: %(money)s -> %(new_money)s' % dict(
             date=date.date(), price=price, 
             stock=previous_stock, new_stock=stock, 
             money=round(previous_money), new_money=round(money)))
@@ -163,6 +163,10 @@ def back_test(signal, buy_price='Open', sell_price='Close', money=0, stock=0, tr
     record['money'].append(money)
     record['stock'].append(stock)
     record['total'].append(money+stock*signal.loc[last_date, 'Close'])
+    if print_trading:
+      print('%(date)s sell with price: %(price)s, stock: %(stock)s, money: %(money)s' % dict(
+        date=last_date, price=signal.loc[last_date, 'Close'], 
+        stock=stock, money=round(money)))
 
     # transfer trading records to timeseries dataframe
     record = util.df_2_timeseries(pd.DataFrame(record), time_col='date')
