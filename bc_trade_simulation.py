@@ -29,8 +29,7 @@ def buy(money, price, trading_fee):
   else:
     stock = 0
     # print('Not enough money to buy')
-
-  return {'left_money': money, 'new_stock': stock} 
+  return {'money': money, 'stock': stock} 
 
 
 def sell(stock, price, trading_fee):
@@ -49,11 +48,10 @@ def sell(stock, price, trading_fee):
   else:
     money = 0
     # print('Not enough stock to sell')
+  return {'money': money, 'stock': stock}
 
-  return {'new_money': money, 'left_stock': stock}
 
-
-def back_test(signal, buy_price='Open', sell_price='Close', money=0, stock=0, trading_fee=3, start_date=None, end_date=None, stop_profit=0.1, stop_loss=0.6, mode='signal', force_stop_loss=1, print_trading=True, plot_trading=True):  
+def back_test(df, signal_col='signal', buy_price='Open', sell_price='Close', start_money=0, start_stock=0, trading_fee=3, start_date=None, end_date=None, stop_loss=-0.03, stop_earning=0.05, print_trading=True, plot_trading=True):  
   """
   Trade simulation with historical data
 
@@ -65,128 +63,144 @@ def back_test(signal, buy_price='Open', sell_price='Close', money=0, stock=0, tr
   :param trading_fee: trading fee
   :param start_date: date start trading
   :param end_date: date trading stop
-  :param stop_profit: the earning rate to stop profit
-  :param stop_loss: the loss rate to stop loss
   :param mode: which mode to use: signal
-  :param force_stop_loss: the loss rate to force stop loss in all modes
+  :param stop_loss: the rate to force stop loss 
+  :param stop_earning: the rate to force stop earning
   :param print_trading: whether to print trading information
   :param plot_trading: whether to plot trading charts
   :returns: trading records in dataframe
   :raises: none
   """
   # get signal in specific period, and remove redundant(duplicated) signals
-  signal = ta_util.remove_redundant_signal(signal[start_date:end_date])
+  signal = ta_util.remove_redundant_signal(df[start_date:end_date])
+  date_list = signal.index.tolist()
 
   # initialization
-  original_money = money
-  last_total = total = money  
+  stock = start_stock
+  money = start_money 
+  last_total = total = money
+  holding_price = 0
+  holding_return = 0
+  record = {'date': [], 'action': [], 'stock': [], 'price': [], 'money': [], 'total': [], 'holding_price': [], 'holding_return': []}
 
-  # trading records
-  record = {
-    'date': [], 'action': [],
-    'stock': [], 'price': [],
-    'money': [], 'total': []
-  }
+  # print trading info
+  def print_trading_info(date, action, price, previous_stock, stock, previous_money, money, holding_price, holding_return):
+    action_name = {'b': 'buy', 's': 'sell', 'n': 'none'}[action]
+    trading_info = '[{d}] {a:<4}: {p:>7.2f}, stock: {ps:>5} -> {s:<5}, money: {pm:>8.1f} -> {m:<8.1f}, holding: {hp:>7.2f} | {hr:<4.2f} '
+    trading_info = trading_info.format(d=date, a=action_name, p=price, ps=previous_stock, s=stock, pm=previous_money, m=money, hp=holding_price, hr=holding_return)
+    print(trading_info)
 
-  # simulate trading according to signals
-  if mode == 'signal':
+  # go through all trading dates
+  for i in range(len(date_list)-1):
+    date = date_list[i]
+    next_date = date_list[i+1]
+    action = signal.loc[date, 'signal']
+    
+    # check whether to stop loss or earning if holding stock
+    if stock > 0 and holding_price > 0:
+      current_price = signal.loc[date, sell_price]
+      holding_return = (current_price - holding_price) / holding_price
 
-    # go through all trading dates
-    date_list = signal.index.tolist()
-    for i in range(len(date_list)-1):
-
-      # get current date
-      date = date_list[i]
+      # if triggered stop loss or stop earning, sell all the stocks
+      if ((stop_loss is not None) and (holding_return <= stop_loss)): 
+        action = 's'
+        print('stop loss at: {holding_return:.4f}'.format(holding_return=holding_return))
       
-      # trade in next day after the signal triggered
-      next_date = date_list[i+1]
-      
-      # if force stop loss is triggered, sell all the stocks and stop trading today
-      earning = (last_total - total)/last_total
-      if force_stop_loss is not None and earning >= force_stop_loss:
-        print('stop loss at earning ', earning)
+      elif ((stop_earning is not None) and (holding_return >= stop_earning)):
+        action = 's'
+        print('stop earning at: {holding_return:.4f}'.format(holding_return=holding_return))
+
+    # record money and stock
+    previous_money = money
+    previous_stock = stock
+
+    # buy signal
+    if action == 'b': 
+      price = signal.loc[next_date, buy_price]
+      tmp_record = buy(money=money, price=price, trading_fee=trading_fee)
+      money = tmp_record.get('money')
+      bought_stock = tmp_record.get('stock')
+      if bought_stock > 0:
+        holding_price = price
+        holding_return = 0
+      stock += bought_stock
+        
+    # sell single
+    elif action == 's': 
+      price = signal.loc[next_date, sell_price]
+      tmp_record = sell(stock=stock, price=price, trading_fee=trading_fee)
+      stock = tmp_record.get('stock')
+      got_money = tmp_record.get('money')
+      if got_money > 0:
+        holding_return = (price - holding_price) / holding_price
+        holding_price = 0
+      money += got_money
+        
+    # others
+    else: 
+      if  action == 'n':
         price = signal.loc[next_date, sell_price]
-        tmp_trading_result = sell(stock=stock, price=price, trading_fee=trading_fee)
-        continue
-
-      # trade according to today's signal
-      action = signal.loc[date, 'signal']
-      if action == 'n': # none
-        continue
-      
-      elif action == 'b': # buy
-        previous_money = money
-        previous_stock = stock
-        price = signal.loc[next_date, buy_price]
-        tmp_trading_result = buy(money=money, price=price, trading_fee=trading_fee)
-        money = tmp_trading_result.get('left_money')
-        stock += tmp_trading_result.get('new_stock')
-        if print_trading:
-          print('%(date)s buy with price: %(price)s, stock: %(stock)s -> %(new_stock)s, money: %(money)s -> %(new_money)s' % dict(
-            date=date.date(), price=price, 
-            stock=previous_stock, new_stock=stock, 
-            money=round(previous_money), new_money=round(money)))
-
-      elif action == 's': # sell
-        previous_money = money
-        previous_stock = stock
-        price = signal.loc[next_date, sell_price]
-        tmp_trading_result = sell(stock=stock, price=price, trading_fee=trading_fee)
-        money += tmp_trading_result.get('new_money')
-        stock = tmp_trading_result.get('left_stock')
-        if print_trading:
-          print('%(date)s sell with price: %(price)s, stock: %(stock)s -> %(new_stock)s, money: %(money)s->%(new_money)s' % dict(
-            date=date.date(), price=price, 
-            stock=previous_stock, new_stock=stock, 
-            money=round(previous_money), new_money=round(money)))
-
-      else: # others
+        
+      else:
         print('Invalid signal: ', action)
-      
-      # update assets      
-      last_total = total
-      total = money + stock*price
 
-      # record trading history
-      record['date'].append(next_date)
-      record['action'].append(action)
-      record['price'].append(price)
-      record['money'].append(money)
-      record['stock'].append(stock)
-      record['total'].append(total)
+    if print_trading and action!='n':
+      print_trading_info(
+        date=date.date(), action=action, price=price, 
+        previous_stock=previous_stock, stock=stock, previous_money=previous_money, money=money, 
+        holding_price=holding_price, holding_return=holding_return)    
+    
+    # update total value
+    last_total = total
+    total = money + stock * price
 
-    # calculate the latest assets
-    last_date = signal.index.max()
-    record['date'].append(last_date)
-    record['action'].append(signal.loc[last_date, 'signal'])
-    record['price'].append(signal.loc[last_date, 'Close'])
+    # record trading history
+    record['date'].append(next_date)
+    record['action'].append(action)
+    record['price'].append(price)
     record['money'].append(money)
     record['stock'].append(stock)
-    record['total'].append(money+stock*signal.loc[last_date, 'Close'])
-    if print_trading:
-      print('%(date)s sell with price: %(price)s, stock: %(stock)s, money: %(money)s' % dict(
-        date=last_date, price=signal.loc[last_date, 'Close'], 
-        stock=stock, money=round(money)))
+    record['total'].append(total)
+    record['holding_price'].append(holding_price)
+    record['holding_return'].append(holding_return)
 
-    # transfer trading records to timeseries dataframe
-    record = util.df_2_timeseries(pd.DataFrame(record), time_col='date')
+  # calculate final total value
+  last_date = signal.index.max()
+  last_action = signal.loc[last_date, 'signal']
+  last_price = signal.loc[last_date, 'Close']
+  record['date'].append(last_date)
+  record['action'].append(last_action)
+  record['price'].append(last_price)
+  record['money'].append(money)
+  record['stock'].append(stock)
+  record['total'].append(money+stock*last_price)
+  record['holding_price'].append(holding_price)
+  record['holding_return'].append(holding_return)
+  if print_trading:
+    print_trading_info(
+      date=last_date.date(), action=last_action, price=last_price, 
+      previous_stock=stock, stock=stock, previous_money=money, money=money, 
+      holding_price=holding_price, holding_return=holding_return)
 
-    # plot trading charts
-    if plot_trading:
-      buying_points = record.query('action == "b"')
-      selling_points = record.query('action == "s"')
+  # transfer trading records to timeseries dataframe
+  record = util.df_2_timeseries(pd.DataFrame(record), time_col='date')
 
-      plt.subplots(figsize = (20, 3))
-      plt.plot(signal[['Close']])
-      plt.scatter(buying_points.index,buying_points.price, c='green')
-      plt.scatter(selling_points.index,selling_points.price, c='red')
+  # plot trading charts
+  if plot_trading:
+    buying_points = record.query('action == "b"')
+    selling_points = record.query('action == "s"')
 
-      total_value_data = pd.merge(signal[['Close']], record[['money', 'stock', 'action']], how='left', left_index=True, right_index=True)
-      total_value_data.fillna(method='ffill', inplace=True)
-      total_value_data['original'] = original_money
-      total_value_data['total'] = total_value_data['Close'] * total_value_data['stock'] + total_value_data['money']
-      total_value_data[['total', 'original']].plot(figsize=(20, 3))
+    plt.subplots(figsize = (20, 3))
+    plt.plot(signal[['Close']])
+    plt.scatter(buying_points.index,buying_points.price, c='green')
+    plt.scatter(selling_points.index,selling_points.price, c='red')
 
-    return record
+    total_value_data = pd.merge(signal[['Close']], record[['money', 'stock', 'action']], how='left', left_index=True, right_index=True)
+    total_value_data.fillna(method='ffill', inplace=True)
+    total_value_data['original'] = start_money
+    total_value_data['total'] = total_value_data['Close'] * total_value_data['stock'] + total_value_data['money']
+    total_value_data[['total', 'original']].plot(figsize=(20, 3))
+
+  return record
 
 

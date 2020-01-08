@@ -212,7 +212,7 @@ def download_stock_data(sec_code, start_date=None, end_date=None, source='yahoo'
     elif source == 'yfinance':
       data = data = get_data_from_yfinance(sec_code=sec_code, interval=interval, start_date=start_date, end_date=end_date, time_col=time_col, is_print=is_print)
     else:
-      print('data source %s not found' % source)
+      print('data source {source} not found'.format(source=source))
       return None
 
     # save data
@@ -253,15 +253,15 @@ def read_stock_data(sec_code, time_col, file_path, file_name=None, start_date=No
   # construct file_name by sec_code, file_path and file_format
   stage = 'initialization'
   if file_name is None:
-    file_name = file_path + sec_code + '.csv'
+    file_name = '{path}{name}.csv'.format(path=file_path, name=sec_code) 
   else:
-    file_name = file_path + file_name + '.csv'
+    file_name = '{path}{name}.csv'.format(path=file_path, name=file_name)
 
   # read data from google drive
   try:
     # if the file not exists, print information, return an empty dataframe
     if not os.path.exists(file_name):
-      print(file_name, ' not exists')
+      print('{file} not exists'.format(file=file_name))
 
     else:
       # load file
@@ -297,9 +297,9 @@ def remove_stock_data(sec_code, file_path, file_name=None):
   :raises: None
   '''
   if file_name is None:
-    file_name = file_path + sec_code + '.csv'
+    file_name = '{path}{name}.csv'.format(path=file_path, name=sec_code) 
   else:
-    file_name = file_path + file_name + '.csv'
+    file_name = '{path}{name}.csv'.format(path=file_path, name=file_name)
   
   try:
     os.remove(file_name)
@@ -325,8 +325,7 @@ def download_nytimes(year, month, api_key, file_path, file_format='.json', is_pr
   :raises: None
   '''
   # construct URL
-  url = "https://api.nytimes.com/svc/archive/v1/{year}/{month}.json?api-key={api_key}" 
-  url = url.format(year=year, month=month, api_key=api_key)
+  url = "https://api.nytimes.com/svc/archive/v1/{year}/{month}.json?api-key={api_key}".format(year=year, month=month, api_key=api_key)
 
   # construct file_name
   file_name = '{file_path}{year}-{month:02}{file_format}'.format(file_path=file_path, year=year, month=month, file_format=file_format)
@@ -370,7 +369,7 @@ def download_nytimes(year, month, api_key, file_path, file_format='.json', is_pr
 
   # print info
   if is_print:
-    print("Finished downloading {}/{} ({}hints)".format(year, month, len(docs)))
+    print("Finished downloading {year}/{month} ({docs}hints)".format(year=year, month=month, docs=len(docs)))
 
   # return data
   if is_return:
