@@ -105,11 +105,13 @@ def back_test(df, signal_col='signal', buy_price='Open', sell_price='Close', sta
       # if triggered stop loss or stop earning, sell all the stocks
       if ((stop_loss is not None) and (holding_return <= stop_loss)): 
         action = 's'
-        print('stop loss at: {holding_return:.4f}'.format(holding_return=holding_return))
+        if print_trading:
+          print('stop loss at: {holding_return:.4f}'.format(holding_return=holding_return))
       
       elif ((stop_earning is not None) and (holding_return >= stop_earning)):
         action = 's'
-        print('stop earning at: {holding_return:.4f}'.format(holding_return=holding_return))
+        if print_trading:  
+          print('stop earning at: {holding_return:.4f}'.format(holding_return=holding_return))
 
     # record money and stock
     previous_money = money
@@ -141,11 +143,7 @@ def back_test(df, signal_col='signal', buy_price='Open', sell_price='Close', sta
         
     # others
     else: 
-      if  action == 'n':
-        price = signal.loc[next_date, sell_price]
-        
-      else:
-        print('Invalid signal: ', action)
+      price = signal.loc[next_date, sell_price]
 
     if print_trading and tmp_record is not None:
       print_trading_info(date=date.date(), action=action, price=price, 
@@ -165,24 +163,6 @@ def back_test(df, signal_col='signal', buy_price='Open', sell_price='Close', sta
     record['total'].append(total)
     record['holding_price'].append(holding_price)
     record['holding_return'].append(holding_return)
-
-  # calculate final total value
-  last_date = signal.index.max()
-  last_action = signal.loc[last_date, 'signal']
-  last_price = signal.loc[last_date, 'Close']
-  record['date'].append(last_date)
-  record['action'].append(last_action)
-  record['price'].append(last_price)
-  record['money'].append(money)
-  record['stock'].append(stock)
-  record['total'].append(money+stock*last_price)
-  record['holding_price'].append(holding_price)
-  record['holding_return'].append(holding_return)
-  if print_trading:
-    print_trading_info(
-      date=last_date.date(), action=last_action, price=last_price, 
-      previous_stock=stock, stock=stock, previous_money=money, money=money, 
-      holding_price=holding_price, holding_return=holding_return)
 
   # transfer trading records to timeseries dataframe
   record = util.df_2_timeseries(pd.DataFrame(record), time_col='date')

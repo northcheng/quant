@@ -274,10 +274,11 @@ def postprocess_ta_result(df, keep_columns, drop_columns, watch_columns):
   init_value = ''
   end_value = ''
   condition = {
-    's_kama': {'up': 'kama_signal == "b"', 'down': 'kama_signal == "s"'},
-    's_ichimoku': {'up': 'ichimoku_signal =="b"', 'down': 'ichimoku_signal == "s"'},
-    's_kst': {'up': 'kst_signal == "it never happend"', 'down': 'kst_signal == "s"'},
-    's_eom': {'up': 'eom_signal == "it never happend"', 'down': 'eom_signal == "s"'}
+    's_kama': {'up': 'kama_signal=="b"', 'down': 'kama_signal=="s"'},
+    's_ichimoku': {'up': 'ichimoku_signal=="b"', 'down': 'ichimoku_signal=="s"'},
+    's_adx': {'up': 'adx_signal=="b"', 'down': 'eom_signal=="s"'},
+    's_kst': {'up': 'kst_signal=="b"', 'down': 'kst_signal=="s"'},
+    's_eom': {'up': 'eom_signal=="b"', 'down': 'eom_signal=="s"'}
   }
   for indicator in condition.keys():
     target_col = indicator
@@ -297,7 +298,7 @@ def postprocess_ta_result(df, keep_columns, drop_columns, watch_columns):
   hp_idx = df.query('(kama_position == "高" or kama_position =="中高") and (ichimoku_position == "高" or ichimoku_position =="中高")').index
 
   # remove downward
-  dw_idx = df.query('(trend < 0 ) and (adx_trend < 0)').index
+  dw_idx = df.query('(trend < 0 )').index
 
   # idx with buy and sell signal
   buy_idx = df.query('kama_signal=="b"').index
