@@ -40,7 +40,7 @@
 
 		"close_to_tankan":"转换", "close_to_kijun":"基准", "break_up":"上穿", "break_down":"下穿", 
 		
-		"adx_trend":"ADX", "trend":"趋势", "momentum":"动量", "kama_position":"KAMA", "ichimoku_position":"ICHI", "osob":"价位", 
+		"trend":"趋势", "adx_trend":"动量", "kama_position":"KAMA", "ichimoku_position":"ICHI", "osob":"价位", 
 
 		"sec_code":"代码",  "operation":"操作"
 	},
@@ -51,23 +51,12 @@
 
 	"plot_args": {
 		"plot_ratio": { 
-			"candlestick": 1.5, 
-			"ichimoku": 1.5, 
-			"kst": 0.5,
-			"eom": 0.5, 
-			"volume": 0.5
+			"candlestick": 1, 
+			"ichimoku": 1, 
+			"adx": 0.5,
+			"eom": 0.5,
+			"kst": 0.5
 		}, 
-		"ichimoku": { 
-			"price_col": "Close" 
-		},  
-		"peak_trough": {
-			"price_col": "Close", 
-			"signal_col": "peak_trough", 
-			"pos_signal": "p", 
-			"neg_signal": "t", 
-			"none_signal": "n", 
-			"add_bbl": true
-		},  
 		"candlestick": {
 			"width": 1, 
 			"colorup": "green", 
@@ -75,15 +64,23 @@
 			"alpha": 0.8, 
 			"plot_kama": true
 		},
-		"eom": {
-			"target_col": ["eom", "eom_ma_14"], 
-			"benchmark": 0, 
-			"price_col": null
+		"ichimoku": { 
+			"price_col": "Close"
 		},  
+		"adx": {
+			"target_col": ["adx_trend"],
+			"benchmark": 0,
+			"color_mode": "benchmark"
+		},
+		"eom": {
+			"target_col": ["eom_diff"], 
+			"benchmark": 0, 
+			"color_mode": "benchmark"
+		}, 
 		"kst": {
-			"target_col": ["kst", "kst_sign"],
-			"price_col": null,
-			"benchmark": 0
+			"target_col": ["kst_diff"],
+			"benchmark": 0,
+			"color_mode": "benchmark"
 		},
 		"volume": {
 			"target_col": ["Volume"], 
@@ -92,6 +89,14 @@
 			"signal_col": null, 
 			"price_col": null, 
 			"color_mode": "up_down"
+		},
+		"peak_trough": {
+			"price_col": "Close", 
+			"signal_col": "peak_trough", 
+			"pos_signal": "p", 
+			"neg_signal": "t", 
+			"none_signal": "n", 
+			"add_bbl": true
 		}
 	}
 }

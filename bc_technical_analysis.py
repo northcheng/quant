@@ -242,8 +242,9 @@ def postprocess_ta_result(df, keep_columns, drop_columns, watch_columns):
   init_value = 0
   end_value = 0
   condition = {
-    't_kst': {'up': 'kst > kst_sign', 'down': 'kst < kst_sign'},
-    't_eom': {'up': 'eom > eom_ma_14', 'down': 'eom < eom_ma_14'}
+    't_kst': {'up': 'kst_diff > 0', 'down': 'kst_diff < 0'},
+    't_eom': {'up': 'eom_diff > 0', 'down': 'eom_diff < 0'},
+    't_adx': {'up': 'adx_trend > 0', 'down': 'adx_trend < 0'}
   }
 
   for indicator in condition.keys():
@@ -251,17 +252,8 @@ def postprocess_ta_result(df, keep_columns, drop_columns, watch_columns):
     idx = filter_idx(df=df, condition=condition[indicator])
     process(df=df, target_col=target_col, init_value=init_value, idx=idx, symbol=trend_symbol, end_value=end_value)
 
-  # KST + EOM 大趋势
-  df['t'] = df['t_kst'] + df['t_eom']
-  df.loc[df.query('t > 0').index, 'trend'] = '上'
-  df.loc[df.query('t == 0').index, 'trend'] = '平'
-  df.loc[df.query('t < 0').index, 'trend'] = '下'
-
-  # ADX 动量
-  df[['adx_trend']] = df[['adx_trend']].round(1)
-  df.loc[df.query('adx_trend > 0').index, 'momentum'] = '上'
-  df.loc[df.query('adx_trend == 0').index, 'momentum'] = '平'
-  df.loc[df.query('adx_trend < 0').index, 'momentum'] = '下'
+  # KST + EOM + ADX 大趋势
+  df['trend'] = df['t_kst'] + df['t_eom'] + df['t_adx']
 
   # =============================== Overbuy/Oversell ================================
   osob_symbol = {'up': '高', 'down': '低', 'other': ''}
@@ -305,7 +297,7 @@ def postprocess_ta_result(df, keep_columns, drop_columns, watch_columns):
   hp_idx = df.query('(kama_position == "高" or kama_position =="中高") and (ichimoku_position == "高" or ichimoku_position =="中高")').index
 
   # remove downward
-  dw_idx = df.query('(trend == "下" or trend =="平") and (momentum == "下" or momentum =="平")').index
+  dw_idx = df.query('(trend < 0 ) and (adx_trend < 0)').index
 
   # idx with buy and sell signal
   buy_idx = df.query('kama_signal=="b"').index
@@ -327,6 +319,7 @@ def postprocess_ta_result(df, keep_columns, drop_columns, watch_columns):
 
   # keep 3 digits for numbers
   df[['涨跌', '累计', '收盘']] = (df[['涨跌', '累计', '收盘']]).round(3)
+  df['动量'] = df['动量'].round()
   
   # sort by operation and sec_code
   df = df.sort_values(['操作', '代码'], ascending=[True, True])
@@ -820,6 +813,7 @@ def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low
   """
   # copy dataframe
   df = df.copy()
+  col_to_drop = []
 
   # calculate true range
   df = add_atr_features(df=df, n=n, cal_signal=False)
@@ -845,41 +839,20 @@ def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low
     current_idx = idx[i]
     previous_idx = idx[i-1]
     df.loc[current_idx, 'adx'] = (df.loc[previous_idx, 'adx'] * (n-1) + df.loc[current_idx, 'dx']) / n
- 
+
+  # adx trend
+  df['adx_trend'] = (df['pdi'] - df['mdi']) * (df['adx']/adx_threshold)
+
   # fill na values
   if fillna:
-    df['pdm'] = df['pdm'].replace([np.inf, -np.inf], np.nan).fillna(0)
-    df['mdm'] = df['mdm'].replace([np.inf, -np.inf], np.nan).fillna(0)
-    df['atr'] = df['atr'].replace([np.inf, -np.inf], np.nan).fillna(0)
-    df['pdi'] = df['pdi'].replace([np.inf, -np.inf], np.nan).fillna(0)
-    df['mdi'] = df['mdi'].replace([np.inf, -np.inf], np.nan).fillna(0)
-    df['dx'] = df['dx'].replace([np.inf, -np.inf], np.nan).fillna(0)
-    df['adx'] = df['adx'].replace([np.inf, -np.inf], np.nan).fillna(0)
+    for col in ['pdm', 'mdm', 'atr', 'pdi', 'mdi', 'dx', 'adx']:
+      df[col] = df[col].replace([np.inf, -np.inf], np.nan).fillna(0)
 
   # calculate signals
   if cal_signal:
-    df['adx_signal'] = cal_crossover_signal(df=df, fast_line='pdi', slow_line='mdi')
-    none_idx = df.query('adx < %s' % adx_threshold).index
-    df.loc[none_idx, 'adx_signal'] = 'n'
+    df['adx_signal'] = cal_crossover_signal(df=df, fast_line='adx_trend', slow_line='zero')
 
-    try:
-      # calculate slope of dpi and mpi
-      df = cal_change_rate(df=df, target_col='pdi', add_prefix=True)
-      df = cal_change_rate(df=df, target_col='mdi', add_prefix=True)
-      pdi_periods = int(abs(df.iloc[-1]['pdi_acc_day']) + 1)
-      mdi_periods = int(abs(df.iloc[-1]['mdi_acc_day']) + 1)
-      df['pdi_slope'] = linear_fit(df=df, target_col='pdi', periods=pdi_periods)['slope']
-      df['mdi_slope'] = linear_fit(df=df, target_col='mdi', periods=mdi_periods)['slope']
-      df['di_slope'] = df['pdi_slope'] - df['mdi_slope']
-      df['adx_trend'] = df['di_slope'] * (df['adx']/adx_threshold)
-    except Exception as e:
-      print(e)
-      df['pdi_slope'] = 0
-      df['mdi_slope'] = 0
-      df['di_slope'] = 0
-      df['adx_trend'] = 0
-
-  df.drop(['high_diff', 'low_diff', 'zero', 'pdm', 'mdm', 'atr', 'dx', 'pdi_rate', 'pdi_acc_rate', 'pdi_acc_day', 'mdi_rate', 'mdi_acc_rate', 'mdi_acc_day'], axis=1, inplace=True)
+  df.drop(['high_diff', 'low_diff', 'zero', 'pdm', 'mdm', 'atr'], axis=1, inplace=True)
 
   return df
 
@@ -1130,26 +1103,6 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
     # ================================ Signal =========================================
     if cal_signal:
 
-      # identify cloud position
-      up_idx = df.query('%s > cloud_top' % close).index
-      down_idx = df.query('%s < cloud_bottom' % close).index
-      df['trend'] = 0
-      df.loc[up_idx, 'trend'] = 1
-      df.loc[down_idx, 'trend'] = -1
-
-      # identify cloud color
-      up_idx = df.query('cloud_height > 0').index
-      down_idx = df.query('cloud_height <= 0').index
-      df['cloud_color'] = 0
-      df.loc[up_idx, 'cloud_color'] = 1
-      df.loc[down_idx, 'cloud_color'] = -1
-
-      # identify tankan-kijun crossover
-      df['tankan_kijun_crossover'] = cal_crossover_signal(df=df, fast_line='tankan', slow_line='kijun', pos_signal=1, neg_signal=-1, none_signal=0)   
-
-      # sum up ichimoku index
-      df['ichimoku_idx'] = df['trend'].astype(float) + df['cloud_color'].astype(float) + df['breakthrough'].astype(float) + df['tankan_kijun_crossover'].astype(float)
-
       # calculate Close position corresponding to kijun and tankan
       # calculate position of Close, corresponding to kama_fast and kama_slow
       df['ichimoku_position'] = ''
@@ -1165,12 +1118,8 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
       df.loc[low_idx, 'ichimoku_position'] = 'l'
 
       # final signal
-      df['ichimoku_signal'] = 'n'
-      buy_idx = df.query('breakthrough > 0').index
-      sell_idx = df.query('breakthrough < 0').index
-      df.loc[buy_idx, 'ichimoku_signal'] = 'b'
-      df.loc[sell_idx, 'ichimoku_signal'] = 's'
-      col_to_drop += ['trend', 'cloud_color', 'tankan_kijun_crossover']
+      df['ichimoku_signal'] =  df['signal_tankan']
+      df = replace_signal(df=df, signal_col='ichimoku_signal', replacement={line_weight['tankan']: 'b', -line_weight['tankan']: 's', 0: 'n'})
 
     # drop redundant columns  
     df.drop(col_to_drop, axis=1, inplace=True)
@@ -1222,42 +1171,13 @@ def add_kst_features(df, r1=10, r2=15, r3=20, r4=30, n1=10, n2=10, n3=10, n4=15,
   # assign values to df
   df['kst'] = kst
   df['kst_sign'] = kst_sign
+  df['kst_diff'] = df['kst'] - df['kst_sign']
 
   # calculate signal
   if cal_signal:
     df['zero'] = 0
     col_to_drop.append('zero')
-
-    # kst-0 crossover
-    if signal_mode == 'zero':  
-      df['kst_signal'] = cal_crossover_signal(df=df, fast_line='kst', slow_line='zero')
-      
-    # kst-kst_sign crossovers
-    elif signal_mode == 'default':
-      df['kst_signal'] = cal_crossover_signal(df=df, fast_line='kst', slow_line='kst_sign')
-
-    # buy with kst-0 crossover, sell with kst-kst_sign crossover
-    elif signal_mode == 'mix':
-      df['signal_kst'] = cal_crossover_signal(df=df, fast_line='kst', slow_line='zero', pos_signal=1, neg_signal=0, none_signal=0)
-      df['signal_kst_sign'] = cal_crossover_signal(df=df, fast_line='kst', slow_line='kst_sign', pos_signal=0, neg_signal=-1, none_signal=0)
-      col_to_drop += ['signal_kst', 'signal_kst_sign']
-
-      df['kst_signal'] = df['signal_kst'].astype(int) + df['signal_kst_sign'].astype(int)
-      buy_idx = df.query('kst_signal == 1').index
-      sell_idx = df.query('kst_signal == -1').index
-      
-      df['kst_signal'] = 'n'
-      df.loc[buy_idx, 'kst_signal'] = 'b'
-      df.loc[sell_idx, 'kst_signal'] = 's'
-    
-    else:
-      print('unknown signal mode')
-      df['kst_signal'] = 'n'
-
-  # calculate trend
-  df['kst_trend'] = 'n'
-  df.loc[df.query('kst > kst_sign').index, 'kst_trend'] = 'u'
-  df.loc[df.query('kst < kst_sign').index, 'kst_trend'] = 'd'
+    df['kst_signal'] = cal_crossover_signal(df=df, fast_line='kst_diff', slow_line='zero')
 
   df.drop('zero', axis=1, inplace=True)
   return df
@@ -1569,6 +1489,7 @@ def add_eom_features(df, n=20, close='Close', open='Open', high='High', low='Low
 
   # copy dataframe
   df = df.copy()
+  col_to_drop = []
 
   # calculate eom
   eom = (df[high].diff(periods=1) + df[low].diff(periods=1)) * (df[high] - df[low]) / (df[volume] * 2)
@@ -1581,16 +1502,15 @@ def add_eom_features(df, n=20, close='Close', open='Open', high='High', low='Low
   # assign eom to df
   df['eom'] = eom
   df = cal_moving_average(df=df, target_col='eom', ma_windows=[14], window_type='sm')
+  df['eom_diff'] = df['eom'] - df['eom_ma_14']
 
   # calculate signals
   if cal_signal:
-    df['eom_signal'] = cal_crossover_signal(df=df, fast_line='eom', slow_line='eom_ma_14')
+    df['zero'] = 0
+    col_to_drop.append('zero')
+    df['eom_signal'] = cal_crossover_signal(df=df, fast_line='eom_diff', slow_line='zero')
 
-  # calculate trend
-  df['eom_trend'] = 'n'
-  df.loc[df.query('eom > eom_ma_14').index, 'eom_trend'] = 'u'
-  df.loc[df.query('eom < eom_ma_14').index, 'eom_trend'] = 'd'
-
+  df.drop('zero', axis=1, inplace=True)
   return df
 
 # Force Index (FI)
@@ -2717,14 +2637,14 @@ def plot_indicator(df, target_col, start=None, end=None, price_col='Close', sign
   # plot benchmark
   if benchmark is not None:
     df['benchmark'] = benchmark
-    ax.plot(df.index, df['benchmark'], color='black', linestyle='--', label='%s'%benchmark)
+    ax.plot(df.index, df['benchmark'], color='black', linestyle='--', label='%s'%benchmark, alpha=0.5)
 
   if boundary is not None:
     if len(boundary) > 0:
       df['upper_boundary'] = max(boundary)
       df['lower_boundary'] = min(boundary)
-      ax.plot(df.index, df['upper_boundary'], color='green', linestyle='--', label='%s'% max(boundary))
-      ax.plot(df.index, df['lower_boundary'], color='red', linestyle='--', label='%s'% min(boundary))
+      ax.plot(df.index, df['upper_boundary'], color='green', linestyle='--', label='%s'% max(boundary), alpha=0.5)
+      ax.plot(df.index, df['lower_boundary'], color='red', linestyle='--', label='%s'% min(boundary), alpha=0.5)
 
   # plot indicator(s)
   unexpected_col = [x for x in target_col if x not in df.columns]
@@ -2752,7 +2672,7 @@ def plot_indicator(df, target_col, start=None, end=None, price_col='Close', sign
       
     # plot indicator
     if 'color' in df.columns:
-      ax.bar(df.index, height=df[tar], color=df.color, alpha=0.5)
+      ax.bar(df.index, height=df[tar], color=df.color, alpha=0.3)
 
   # plot close price
   if price_col in df.columns:

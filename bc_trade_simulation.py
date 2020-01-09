@@ -95,6 +95,7 @@ def back_test(df, signal_col='signal', buy_price='Open', sell_price='Close', sta
     date = date_list[i]
     next_date = date_list[i+1]
     action = signal.loc[date, 'signal']
+    tmp_record = None
     
     # check whether to stop loss or earning if holding stock
     if stock > 0 and holding_price > 0:
@@ -117,24 +118,26 @@ def back_test(df, signal_col='signal', buy_price='Open', sell_price='Close', sta
     # buy signal
     if action == 'b': 
       price = signal.loc[next_date, buy_price]
-      tmp_record = buy(money=money, price=price, trading_fee=trading_fee)
-      money = tmp_record.get('money')
-      bought_stock = tmp_record.get('stock')
-      if bought_stock > 0:
-        holding_price = price
-        holding_return = 0
-      stock += bought_stock
+      if money > price:
+        tmp_record = buy(money=money, price=price, trading_fee=trading_fee)
+        money = tmp_record.get('money')
+        bought_stock = tmp_record.get('stock')
+        if bought_stock > 0:
+          holding_price = price
+          holding_return = 0
+        stock += bought_stock
         
     # sell single
     elif action == 's': 
       price = signal.loc[next_date, sell_price]
-      tmp_record = sell(stock=stock, price=price, trading_fee=trading_fee)
-      stock = tmp_record.get('stock')
-      got_money = tmp_record.get('money')
-      if got_money > 0:
-        holding_return = (price - holding_price) / holding_price
-        holding_price = 0
-      money += got_money
+      if stock > 0:
+        tmp_record = sell(stock=stock, price=price, trading_fee=trading_fee)
+        stock = tmp_record.get('stock')
+        got_money = tmp_record.get('money')
+        if got_money > 0:
+          holding_return = (price - holding_price) / holding_price
+          holding_price = 0
+        money += got_money
         
     # others
     else: 
@@ -144,9 +147,8 @@ def back_test(df, signal_col='signal', buy_price='Open', sell_price='Close', sta
       else:
         print('Invalid signal: ', action)
 
-    if print_trading and action!='n':
-      print_trading_info(
-        date=date.date(), action=action, price=price, 
+    if print_trading and tmp_record is not None:
+      print_trading_info(date=date.date(), action=action, price=price, 
         previous_stock=previous_stock, stock=stock, previous_money=previous_money, money=money, 
         holding_price=holding_price, holding_return=holding_return)    
     
