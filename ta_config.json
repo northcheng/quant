@@ -36,13 +36,19 @@
 	"keep_columns": {
 		"Close":"收盘", "rate":"涨跌", "acc_rate":"累计", 
 
-		"close_to_kama_fast": "快线", "close_to_kama_slow":"慢线", 
+		"overall_trend": "趋势", "overall_momentum": "动量", "overall_signal_value": "信号值", 
 
-		"close_to_tankan":"转换", "close_to_kijun":"基准", "break_up":"上穿", "break_down":"下穿", 
+		"adx": "趋势强度(20)", "overall_momentum_value": "动量强度[±1]", "overall_signal": "总信号",
 		
-		"trend":"趋势", "adx_trend":"动量", "kama_position":"KAMA", "ichimoku_position":"ICHI", "osob":"价位", 
+		"sec_code":"代码", "signal":"操作",
 
-		"sec_code":"代码",  "operation":"操作"
+		"position":"价位", 
+
+		"kama_day": "KAMA", "ichimoku_day": "ICHI", "adx_day": "ADX", "eom_day": "EOM", "kst_day": "KST",
+
+		"adx_trend": "ADX_T", "eom_diff": "EOM_T", "kst_diff": "KST_T", 
+
+		"adx_slope": "ADX_S", "eom_slope": "EOM_S", "kst_slope": "kst_S"
 	},
 	
 	"drop_columns": [],
