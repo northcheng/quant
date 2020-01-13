@@ -65,7 +65,27 @@ def get_min_max(x1, x2, f='min'):
   else:
     return np.nan    
     
+# filter index that meet conditions
+def filter_idx(df, condition):
+  """
+  # filter index that meet conditions
+  :param df: dataframe to search
+  :param condition: dictionary of conditions
+  :returns: dictionary of index that meet corresponding conditions
+  :raises: None
+  """
+  # target index
+  result = {}
+  for c in condition.keys():
+    result[c] = df.query(condition[c]).index
 
+  # other index
+  other_idx = df.index
+  for i in result.keys():
+    other_idx = [x for x in other_idx if x not in result[i]]
+  result['other'] = other_idx
+
+  return result
 
 # ================================================================================== Preprocess / Postprocess ========================================================================== #   
 # remove invalid records from downloaded stock data
@@ -122,7 +142,7 @@ def preprocess_stock_data(df, interval, print_error=True):
   return df
   
 # core ta calculation and visualization
-def calculate_and_visualize(df, sec_code, visual_args={}):
+def calculate_and_visualize(df, sec_code, n_slope=3, visual_args={}):
 
   try:
     # price change rate
@@ -160,6 +180,96 @@ def calculate_and_visualize(df, sec_code, visual_args={}):
     # sec_code
     phase = 'sec_code'
     df['sec_code'] = sec_code
+    
+    # replace signal value [b/s/n] with [1/-1/0]
+    phase = 'cal_days_since_signal_triggered'
+    
+    for indicator in ['kama', 'ichimoku', 'adx', 'eom', 'kst']:
+      signal_col = '{i}_signal'.format(i=indicator)
+      day_col = '{i}_day'.format(i=indicator)
+      df[day_col] = df[signal_col].replace({'n':0, 'b':1, 's':-1})
+    
+    # calculate days since signal triggered
+    idx_list = df.index.tolist()
+    for i in range(1, len(idx_list)):
+      current_idx = idx_list[i]
+      previous_idx = idx_list[i-1]
+
+      for indicator in ['kama', 'ichimoku', 'adx', 'eom', 'kst']:
+        day_col = '{i}_day'.format(i=indicator)
+        current_day = df.loc[current_idx, day_col]
+        previous_day = df.loc[previous_idx, day_col]
+        
+        if previous_day>0 and current_day == 0:
+          df.loc[current_idx, day_col] = previous_day + 1
+        elif previous_day<0 and current_day == 0:
+          df.loc[current_idx, day_col] = previous_day - 1
+    
+    # summary of signal trigger
+    df['overall_signal'] = ''
+    df['overall_signal_value'] = 0
+    for indicator in ['kama', 'ichimoku', 'adx', 'eom', 'kst']:
+      day_col = '{indicator}_day'.format(indicator=indicator)
+      tmp_day = df[[day_col]].astype(float)
+
+      b_idx = tmp_day.query('{d} == 1'.format(d=day_col)).index
+      pb_idx = tmp_day.query('{d} > 1'.format(d=day_col)).index
+      s_idx = tmp_day.query('{d} == -1'.format(d=day_col)).index
+      ps_idx = tmp_day.query('{d} < -1'.format(d=day_col)).index
+      n_idx = tmp_day.query('{d} == 0'.format(d=day_col)).index
+      
+      if len(b_idx)> 0:
+        df.loc[b_idx, 'overall_signal'] += 'b'
+        df.loc[b_idx, 'overall_signal_value'] += 1
+
+      if len(pb_idx)> 0:        
+        df.loc[pb_idx, 'overall_signal'] += '+'
+        df.loc[pb_idx, 'overall_signal_value'] += 0.1
+
+      if len(s_idx)> 0:         
+        df.loc[s_idx, 'overall_signal'] += 's'
+        df.loc[s_idx, 'overall_signal_value'] += -1
+      
+      if len(ps_idx)> 0:
+        df.loc[ps_idx, 'overall_signal'] += '-'
+        df.loc[ps_idx, 'overall_signal_value'] += -0.1
+      
+      if len(n_idx)> 0:
+        df.loc[n_idx, 'overall_signal'] += ' '
+        df.loc[n_idx, 'overall_signal_value'] += 0
+    
+    # calculate trend slope
+    phase = 'cal_trend_slope'
+    for index, row in df.iterrows():
+      for i in ['adx_trend', 'eom_diff', 'kst_diff']:
+        slope_name = i.split('_')[0] + '_slope'
+        df.loc[index, slope_name] = linear_fit(df=df[: index], target_col=i, periods=n_slope)['slope']
+    
+    # calculate overall trend and momentum 
+    df['overall_trend'] = 0 # [-3, -1, 1, 3]
+    df['overall_momentum'] = 0 # [-3, -1, 1, 3]
+    df['overall_momentum_value'] = 0 # [-3, -1, 1, 3]
+    for i in ['adx_trend', 'eom_diff', 'kst_diff']:
+      slope_name = i.split('_')[0] + '_slope'
+
+      df['overall_trend'] +=  ((df[i] > 0).astype(int) + -1*(df[i] < 0).astype(int))
+      df['overall_momentum'] += ((df[slope_name] > 0).astype(int) + -1*(df[slope_name] < 0).astype(int))
+      df['overall_momentum_value'] += 0.333 * df[slope_name]
+
+    # calculate final signal
+    phase = 'cal_final_siganl'
+    df['signal'] = 'n'
+    buy_idx = df.query('(overall_signal_value >= 1) and (overall_trend >= 0) and (overall_momentum >= 0)').index
+    sell_idx = df.query('(overall_signal_value <= -1) and ((overall_trend <= 0) or (overall_momentum <= 0))').index
+    if len(buy_idx) > 0:
+      df.loc[buy_idx, 'signal'] = 'b'
+    if len(sell_idx) > 0:  
+      df.loc[sell_idx, 'signal'] = 's'
+
+    # filter senstive signals
+    none_trend_idx = df.query('adx < 20').index
+    if len(none_trend_idx) > 0:
+      df.loc[none_trend_idx, 'signal'] = 'n'
 
     # visualize 
     if visual_args.get('visualize'):
@@ -174,6 +284,7 @@ def calculate_and_visualize(df, sec_code, visual_args={}):
 
   except Exception as e:
     print(phase, e)
+    return df
 
   return df
 
@@ -192,135 +303,25 @@ def postprocess_ta_result(df, keep_columns, drop_columns, watch_columns):
   # reset index(as the index(date) of rows are all the same)
   df = df.reset_index()
 
-  # filter index that meet conditions
-  def filter_idx(df, condition):
-    """
-    # filter index that meet conditions
-    :param df: dataframe to search
-    :param condition: dictionary of conditions
-    :returns: dictionary of index that meet corresponding conditions
-    :raises: None
-    """
-    # target index
-    idx = {}
-    for c in condition.keys():
-      idx[c] = df.query(condition[c]).index
+  # overbuy/oversell
+  df['osob'] = df['bb_signal'] + df['rsi_signal']
+  df = replace_signal(df=df, signal_col='osob', replacement={'nn': '-', 'bb': '过低', 'ss': '过高', 'nb': '低', 'bn': '低', 'ns': '高', 'sn': '高'})
 
-    # other index
-    other_idx = df.index
-    for i in idx.keys():
-      other_idx = [x for x in other_idx if x not in idx[i]]
-    idx['other'] = other_idx
-
-    return idx
-
-  # analyze rows, assign proper result in target column
-  def process(df, target_col, init_value, idx, symbol, end_value):
-    """
-    # analyze rows, assign proper result in target column
-    :param df: result dataframe that contains full information
-    :param target_col: the column to store analysis result
-    :param init_value: initial value of target column
-    :param idx: dictionary of index of rows
-    :param symbol: dictionary of symbols that will be assigned to mapped index of rows
-    :param end_value: the value to be added onto the target column values at the end
-    :returns: None
-    :raises: None
-    """
-    # initialize
-    if target_col not in df.columns:
-      df[target_col] = init_value
-
-    # assign values
-    for i in idx.keys():
-      tmp_idx = idx[i]
-      if len(tmp_idx) > 0:
-        df.loc[tmp_idx, target_col] += symbol[i] + end_value
-
-  # ================================ Trend ==========================================
-  trend_symbol = {'up': 1, 'down': -1, 'other': 0}
-  init_value = 0
-  end_value = 0
-  condition = {
-    't_kst': {'up': 'kst_diff > 0', 'down': 'kst_diff < 0'},
-    't_eom': {'up': 'eom_diff > 0', 'down': 'eom_diff < 0'},
-    't_adx': {'up': 'adx_trend > 0', 'down': 'adx_trend < 0'}
-  }
-
-  for indicator in condition.keys():
-    target_col = indicator
-    idx = filter_idx(df=df, condition=condition[indicator])
-    process(df=df, target_col=target_col, init_value=init_value, idx=idx, symbol=trend_symbol, end_value=end_value)
-
-  # KST + EOM + ADX 大趋势
-  df['trend'] = df['t_kst'] + df['t_eom'] + df['t_adx']
-
-  # =============================== Overbuy/Oversell ================================
-  osob_symbol = {'up': '高', 'down': '低', 'other': ''}
-  init_value = ''
-  end_value = ''
-  condition = {
-    'osob_bbl': {'up': 'bb_signal == "s"', 'down': 'bb_signal == "b"'},
-    'osob_rsi': {'up': 'rsi_signal == "s"', 'down': 'rsi_signal == "b"'}
-  }
-
-  for indicator in condition.keys():
-    target_col = indicator
-    idx = filter_idx(df=df, condition=condition[indicator])
-    process(df=df, target_col='osob', init_value=init_value, idx=idx, symbol=osob_symbol, end_value=end_value)
-  
-  # ================================ Signal =========================================
-  signal_symbol = {'up': 'b', 'down': 's', 'other': '-'}
-  init_value = ''
-  end_value = ''
-  condition = {
-    's_kama': {'up': 'kama_signal=="b"', 'down': 'kama_signal=="s"'},
-    's_ichimoku': {'up': 'ichimoku_signal=="b"', 'down': 'ichimoku_signal=="s"'},
-    's_adx': {'up': 'adx_signal=="b"', 'down': 'eom_signal=="s"'},
-    's_kst': {'up': 'kst_signal=="b"', 'down': 'kst_signal=="s"'},
-    's_eom': {'up': 'eom_signal=="b"', 'down': 'eom_signal=="s"'}
-  }
-  for indicator in condition.keys():
-    target_col = indicator
-    idx = filter_idx(df=df, condition=condition[indicator])
-    process(df=df, target_col='operation', init_value=init_value, idx=idx, symbol=signal_symbol, end_value=end_value)
-
-  # ================================ Watch Columns ==================================
-  # Close nearby kama_fast and in a low or middle kama_position
+  # corresponding position of current price
   for indicator in ['ichimoku', 'kama']:
-    # replace position values
-    df = replace_signal(df=df, signal_col='{indicator}_position'.format(indicator=indicator), replacement={'h': '高', 'l': '低', 'mh': '中高', 'ml': '中低'})
+    df = replace_signal(df=df, signal_col='{indicator}_position'.format(indicator=indicator), replacement={'h': '高', 'l': '低', 'mh': '中高', 'ml': '中低', '':'-'})
 
-  # remove overbought 
-  ob_idx = df.query('osob == "高"').index
+  # summary of price position
+  df['position'] = ''
+  df['position'] += 'kama/ichi: ' + df['kama_position'] + ', ' + df['ichimoku_position'] + ', os/ob: ' + df['osob']
 
-  # remove high position
-  hp_idx = df.query('(kama_position == "高" or kama_position =="中高") and (ichimoku_position == "高" or ichimoku_position =="中高")').index
+  
 
-  # remove downward
-  dw_idx = df.query('(trend < 0 )').index
-
-  # idx with buy and sell signal
-  buy_idx = df.query('kama_signal=="b"').index
-  sell_idx = df.query('kama_signal=="s" or ichimoku_signal=="s" or kst_signal=="s" or eom_signal=="s"').index
-
-  # idx that no need to watch
-  not_watch_idx = list(set(ob_idx).union(set(hp_idx)).union(set(dw_idx)).union(set(sell_idx)))
-  not_watch_idx = [x for x in not_watch_idx if x not in buy_idx]
-
-  df.loc[not_watch_idx, 'operation'] = 'x' + df.loc[not_watch_idx, 'operation']
-
-
-  # ============================== Others ===========================================
-  # rename columns
-  df = df[list(keep_columns.keys())].rename(columns=keep_columns)
+  # rename columns, keep 3 digits
+  df = df[list(keep_columns.keys())].rename(columns=keep_columns).round(3)
     
   # drop columns
   df = df.drop(drop_columns, axis=1)
-
-  # keep 3 digits for numbers
-  df[['涨跌', '累计', '收盘']] = (df[['涨跌', '累计', '收盘']]).round(3)
-  df['动量'] = df['动量'].round()
   
   # sort by operation and sec_code
   df = df.sort_values(['操作', '代码'], ascending=[True, True])
@@ -611,11 +612,15 @@ def linear_fit(df, target_col, periods):
   :raises: none
   """
 
-  x = range(1, periods+1)
-  y = df[target_col].tail(periods).values.tolist()
-  lr = linregress(x, y)
+  if len(df) <= periods:
+    return {'slope': 0, 'intecept': 0}
+  
+  else:
+    x = range(1, periods+1)
+    y = df[target_col].fillna(0).tail(periods).values.tolist()
+    lr = linregress(x, y)
 
-  return {'slope': lr[0], 'intecept': lr[1]}
+    return {'slope': lr[0], 'intecept': lr[1]}
 
 # calculate peak / trough in price
 def cal_peak_trough(df, target_col, height=None, threshold=None, distance=None, width=None, result_col='signal', peak_signal='p', trough_signal='t', none_signal='n'):
@@ -843,6 +848,7 @@ def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low
 
   # adx trend
   df['adx_trend'] = (df['pdi'] - df['mdi']) * (df['adx']/adx_threshold)
+  df['adx_trend'] = (df['adx_trend'] - df['adx_trend'].mean()) / df['adx_trend'].std()
 
   # fill na values
   if fillna:
@@ -1173,6 +1179,7 @@ def add_kst_features(df, r1=10, r2=15, r3=20, r4=30, n1=10, n2=10, n3=10, n4=15,
   df['kst'] = kst
   df['kst_sign'] = kst_sign
   df['kst_diff'] = df['kst'] - df['kst_sign']
+  df['kst_diff'] = (df['kst_diff'] - df['kst_diff'].mean()) / df['kst_diff'].std()
 
   # calculate signal
   if cal_signal:
@@ -1502,8 +1509,12 @@ def add_eom_features(df, n=20, close='Close', open='Open', high='High', low='Low
 
   # assign eom to df
   df['eom'] = eom
+  
+  # calculate eom_ma_14 and eom - eom_ma_14
   df = cal_moving_average(df=df, target_col='eom', ma_windows=[14], window_type='sm')
   df['eom_diff'] = df['eom'] - df['eom_ma_14']
+  df['eom_diff'] = (df['eom_diff'] - df['eom_diff'].mean()) / df['eom_diff'].std()
+
 
   # calculate signals
   if cal_signal:
