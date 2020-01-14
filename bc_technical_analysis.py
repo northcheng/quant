@@ -17,7 +17,7 @@ except Exception as e:
 
 
 
-# ================================================================================== Basic calculation ================================================================================== #
+# ================================================ Basic calculation ================================================ #
 # drop na values for dataframe
 def dropna(df):
   """
@@ -87,7 +87,9 @@ def filter_idx(df, condition):
 
   return result
 
-# ================================================================================== Preprocess / Postprocess ========================================================================== #   
+
+
+# ================================================ Core calculation ================================================= #   
 # remove invalid records from downloaded stock data
 def preprocess_stock_data(df, interval, print_error=True):
   '''
@@ -141,9 +143,15 @@ def preprocess_stock_data(df, interval, print_error=True):
   
   return df
   
-# core ta calculation and visualization
-def calculate_and_visualize(df, sec_code, n_slope=3, visual_args={}):
-
+# calculate certain selected ta indicators
+def calculate_ta(df, sec_code):
+  """
+  calculate selected ta features for dataframe
+  :param df: original dataframe with hlocv features
+  :param sec_code: sec_code 
+  :returns: dataframe with ta features
+  :raises: None
+  """
   try:
     # price change rate
     phase = 'cal_change_rate' 
@@ -180,23 +188,39 @@ def calculate_and_visualize(df, sec_code, n_slope=3, visual_args={}):
     # sec_code
     phase = 'sec_code'
     df['sec_code'] = sec_code
-    
+
+  except Exception as e:
+    print(phase, e)
+
+  return df
+
+# analyze calculated ta indicators
+def analyze_ta(df, signal_indicators=['kama', 'ichimoku', 'adx', 'eom', 'kst'], trend_indicators=['adx_trend', 'eom_diff', 'kst_diff'], n_slope=3):
+  """
+  adding derived features such as trend, momentum, etc.
+  :param df: dataframe with several ta features
+  :param n_slope: period for calculating slopes
+  :returns: dataframe with extra fetures
+  :raises: Exception 
+  """
+  try:    
+    # calculate days since signal triggered
+    phase = 'cal_number_of_days_since_signal_triggered'
+
     # replace signal value [b/s/n] with [1/-1/0]
-    phase = 'cal_days_since_signal_triggered'
-    
-    for indicator in ['kama', 'ichimoku', 'adx', 'eom', 'kst']:
-      signal_col = '{i}_signal'.format(i=indicator)
-      day_col = '{i}_day'.format(i=indicator)
+    for indicator in signal_indicators:
+      signal_col = '{indicator}_signal'.format(indicator=indicator)
+      day_col = '{indicator}_day'.format(indicator=indicator)
       df[day_col] = df[signal_col].replace({'n':0, 'b':1, 's':-1})
     
-    # calculate days since signal triggered
+    # go through each signal
     idx_list = df.index.tolist()
     for i in range(1, len(idx_list)):
       current_idx = idx_list[i]
       previous_idx = idx_list[i-1]
 
-      for indicator in ['kama', 'ichimoku', 'adx', 'eom', 'kst']:
-        day_col = '{i}_day'.format(i=indicator)
+      for indicator in signal_indicators:
+        day_col = '{indicator}_day'.format(indicator=indicator)
         current_day = df.loc[current_idx, day_col]
         previous_day = df.loc[previous_idx, day_col]
         
@@ -206,34 +230,39 @@ def calculate_and_visualize(df, sec_code, n_slope=3, visual_args={}):
           df.loc[current_idx, day_col] = previous_day - 1
     
     # summary of signal trigger
+    phase = 'summarize_overall_signals'
     df['overall_signal'] = ''
     df['overall_signal_value'] = 0
-    for indicator in ['kama', 'ichimoku', 'adx', 'eom', 'kst']:
+    for indicator in signal_indicators:
       day_col = '{indicator}_day'.format(indicator=indicator)
       tmp_day = df[[day_col]].astype(float)
 
+      # buy signal just triggered
       b_idx = tmp_day.query('{d} == 1'.format(d=day_col)).index
-      pb_idx = tmp_day.query('{d} > 1'.format(d=day_col)).index
-      s_idx = tmp_day.query('{d} == -1'.format(d=day_col)).index
-      ps_idx = tmp_day.query('{d} < -1'.format(d=day_col)).index
-      n_idx = tmp_day.query('{d} == 0'.format(d=day_col)).index
-      
       if len(b_idx)> 0:
         df.loc[b_idx, 'overall_signal'] += 'b'
         df.loc[b_idx, 'overall_signal_value'] += 1
 
+      # buy signal triggered more than 2 days
+      pb_idx = tmp_day.query('{d} > 1'.format(d=day_col)).index
       if len(pb_idx)> 0:        
         df.loc[pb_idx, 'overall_signal'] += '+'
         df.loc[pb_idx, 'overall_signal_value'] += 0.1
 
+      # sell signal just triggered
+      s_idx = tmp_day.query('{d} == -1'.format(d=day_col)).index
       if len(s_idx)> 0:         
         df.loc[s_idx, 'overall_signal'] += 's'
         df.loc[s_idx, 'overall_signal_value'] += -1
-      
+
+      # sell signal triggered more than 2 days
+      ps_idx = tmp_day.query('{d} < -1'.format(d=day_col)).index
       if len(ps_idx)> 0:
         df.loc[ps_idx, 'overall_signal'] += '-'
         df.loc[ps_idx, 'overall_signal_value'] += -0.1
-      
+
+      # no signal triggered yet
+      n_idx = tmp_day.query('{d} == 0'.format(d=day_col)).index
       if len(n_idx)> 0:
         df.loc[n_idx, 'overall_signal'] += ' '
         df.loc[n_idx, 'overall_signal_value'] += 0
@@ -241,52 +270,76 @@ def calculate_and_visualize(df, sec_code, n_slope=3, visual_args={}):
     # calculate trend slope
     phase = 'cal_trend_slope'
     for index, row in df.iterrows():
-      for i in ['adx_trend', 'eom_diff', 'kst_diff']:
+      for i in trend_indicators:
         slope_name = i.split('_')[0] + '_slope'
         df.loc[index, slope_name] = linear_fit(df=df[: index], target_col=i, periods=n_slope)['slope']
     
     # calculate overall trend and momentum 
     df['overall_trend'] = 0 # [-3, -1, 1, 3]
     df['overall_momentum'] = 0 # [-3, -1, 1, 3]
-    df['overall_momentum_value'] = 0 # [-3, -1, 1, 3]
-    for i in ['adx_trend', 'eom_diff', 'kst_diff']:
+    df['overall_momentum_value'] = 0 
+    for i in trend_indicators:
       slope_name = i.split('_')[0] + '_slope'
-
       df['overall_trend'] +=  ((df[i] > 0).astype(int) + -1*(df[i] < 0).astype(int))
       df['overall_momentum'] += ((df[slope_name] > 0).astype(int) + -1*(df[slope_name] < 0).astype(int))
       df['overall_momentum_value'] += 0.333 * df[slope_name]
 
-    # calculate final signal
-    phase = 'cal_final_siganl'
-    df['signal'] = 'n'
-    buy_idx = df.query('(overall_signal_value >= 1) and (overall_trend >= 0) and (overall_momentum >= 0)').index
-    sell_idx = df.query('(overall_signal_value <= -1) and ((overall_trend <= 0) or (overall_momentum <= 0))').index
-    if len(buy_idx) > 0:
-      df.loc[buy_idx, 'signal'] = 'b'
-    if len(sell_idx) > 0:  
-      df.loc[sell_idx, 'signal'] = 's'
+  except Exception as e:
+    print(phase, e)
 
-    # filter senstive signals
-    none_trend_idx = df.query('adx < 20').index
-    if len(none_trend_idx) > 0:
-      df.loc[none_trend_idx, 'signal'] = 'n'
+  return df
 
+# calculate ta signal
+def calculate_signal(df):
+  """
+  :param df: dataframe with ta features and derived features for calculating signals
+  :raturns: dataframe with signal
+  :raises: None
+  """
+
+  df = df.copy()
+  df['signal'] = 'n'
+  
+  # buy signal
+  buy_idx = df.query('(overall_signal_value >= 1) and (overall_trend >= 0) and (overall_momentum >= 0)').index
+  if len(buy_idx) > 0:
+    df.loc[buy_idx, 'signal'] = 'b'
+
+  # sell signal
+  sell_idx = df.query('(overall_signal_value <= -1) and ((overall_trend <= 0) or (overall_momentum <= 0))').index
+  if len(sell_idx) > 0:  
+    df.loc[sell_idx, 'signal'] = 's'
+
+  # filter senstive signals
+  none_trend_idx = df.query('adx < 20').index
+  if len(none_trend_idx) > 0:
+    df.loc[none_trend_idx, 'signal'] = 'n'
+
+  return df
+
+# visualize ta indicators
+def visualize_ta(df, sec_code, args={}):
+  """
+  visualize ta indicators
+  :param df: dataframe with ta indicators
+  :param args: visualizing arguments
+  :returns: None
+  :raises: Exception
+  """
+  try:
     # visualize 
-    if visual_args.get('visualize'):
+    if args.get('visualize'):
       phase = 'visulize'
       plot_multiple_indicators(
         df=df, title=sec_code,
-        args=visual_args.get('args'), 
-        start=visual_args.get('start'), 
-        show_image=visual_args.get('show_image'), 
-        save_image=visual_args.get('save_image'), 
-        save_path=visual_args.get('save_path'))
+        args=args.get('args'), 
+        start=args.get('start'), 
+        show_image=args.get('show_image'), 
+        save_image=args.get('save_image'), 
+        save_path=args.get('save_path'))
 
   except Exception as e:
     print(phase, e)
-    return df
-
-  return df
 
 # post-process calculation results
 def postprocess_ta_result(df, keep_columns, drop_columns, watch_columns):
@@ -330,7 +383,7 @@ def postprocess_ta_result(df, keep_columns, drop_columns, watch_columns):
 
 
 
-# ================================================================================== Rolling windows ==================================================================================== #
+# ================================================ Rolling windows ================================================== #
 # simple moving window
 def sm(series, periods, fillna=False):
   """
@@ -363,7 +416,7 @@ def em(series, periods, fillna=False):
 
 
  
-# ================================================================================== Change calculation ================================================================================= #
+# ================================================ Change calculation =============================================== #
 # calculate change of a column in certain period
 def cal_change(df, target_col, periods=1, add_accumulation=True, add_prefix=False, drop_na=False):
   """
@@ -479,7 +532,7 @@ def cal_change_rate(df, target_col, periods=1, add_accumulation=True, add_prefix
 
 
 
-# ================================================================================== Signal processing ================================================================================== #
+# ================================================ Signal processing ================================================ #
 # calculate signal that generated from 2 lines crossover
 def cal_crossover_signal(df, fast_line, slow_line, result_col='signal', pos_signal='b', neg_signal='s', none_signal='n'):
   """
@@ -600,7 +653,7 @@ def remove_redundant_signal(df, signal_col='signal', pos_signal='b', neg_signal=
 
 
 
-# ================================================================================== Self-defined TA ================================================================================== #
+# ================================================ Self-defined TA ================================================== #
 # linear regression
 def linear_fit(df, target_col, periods):
   """
@@ -799,7 +852,7 @@ def add_candlestick_features(df, close='Close', open='Open', high='High', low='L
 
 
 
-# ================================================================================== Trend indicators =================================================================================== #
+# ================================================ Trend indicators ================================================= #
 # ADX(Average Directional Index) 
 def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, adx_threshold=25):
   """
@@ -1400,7 +1453,7 @@ def add_vortex_features(df, n=14, close='Close', open='Open', high='High', low='
 
 
 
-# ================================================================================== Volume indicators ================================================================================== #
+# ================================================ Volume indicators ================================================ #
 # Accumulation Distribution Index
 def add_adi_features(df, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
@@ -1694,7 +1747,7 @@ def add_vpt_features(df, close='Close', open='Open', high='High', low='Low', vol
 
 
 
-# ================================================================================== Momentum indicators ================================================================================ #
+# ================================================ Momentum indicators ============================================== #
 # Awesome Oscillator
 def add_ao_features(df, n_short=5, n_long=34, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
@@ -2142,7 +2195,7 @@ def add_wr_features(df, lbp=14, close='Close', open='Open', high='High', low='Lo
 
 
 
-# ================================================================================== Volatility indicators ============================================================================== #
+# ================================================ Volatility indicators ============================================ #
 # Average True Range
 def add_atr_features(df, n=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
   """
@@ -2422,7 +2475,7 @@ def add_kc_features(df, n=10, close='Close', open='Open', high='High', low='Low'
 
 
 
-# ================================================================================== Indicator visualization  =========================================================================== #
+# ================================================ Indicator visualization  ========================================= #
 # plot signals on price line
 def plot_signal(df, start=None, end=None, price_col='Close', signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', use_ax=None, figsize=(20, 5), title=None, title_rotation='vertical', title_x=-0.05, title_y=0.3):
   """
