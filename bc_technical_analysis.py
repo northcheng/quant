@@ -315,6 +315,8 @@ def calculate_signal(df):
   if len(none_trend_idx) > 0:
     df.loc[none_trend_idx, 'signal'] = 'n'
 
+  df = remove_redundant_signal(df=df)
+
   return df
 
 # visualize ta indicators
