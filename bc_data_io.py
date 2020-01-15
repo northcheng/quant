@@ -10,6 +10,7 @@ import numpy as np
 import requests
 import datetime
 import zipfile
+import pickle
 import time
 import json
 import os
@@ -550,11 +551,11 @@ def modify_config(config_key, config_value, file_path, file_name):
 
 
 
-#----------------------- Dictionary to Excel ---------------------# 
+#----------------------- Solidify data ---------------------# 
 def dict_2_excel(dictionary, file_path, file_name, keep_index=False):
 
   # 打开文件
-  writer = pd.ExcelWriter('{path}{name}.xlsx'.format(path=file_path, name=file_name))
+  writer = pd.ExcelWriter('{path}{name}'.format(path=file_path, name=file_name))
 
   # 写入
   for k in dictionary.keys():
@@ -565,8 +566,7 @@ def dict_2_excel(dictionary, file_path, file_name, keep_index=False):
   writer.close()
 
 
-#----------------------------- Zip file ----------------------------------------#
-def zip_folder(folder_path, destination_path, zip_file_name):
+def folder_2_zip(folder_path, destination_path, zip_file_name):
   """
   Zip folder
   :param folder_path: full path of the folder
@@ -577,7 +577,7 @@ def zip_folder(folder_path, destination_path, zip_file_name):
   """
   # create zip file
   start_dir = folder_path
-  zip_file_name = '{path}{name}.zip'.format(path=destination_path, name=zip_file_name)
+  zip_file_name = '{path}{name}'.format(path=destination_path, name=zip_file_name)
   zip_writer = zipfile.ZipFile(zip_file_name, 'w', zipfile.ZIP_DEFLATED)
 
   # zip files in the folder into zip file
@@ -591,3 +591,31 @@ def zip_folder(folder_path, destination_path, zip_file_name):
   return zip_file_name
 
 
+def pickle_dump_data(data, file_path, file_name):
+  """
+  pickle data into a file
+  :param data: data to dump
+  :param file_path: destination file path
+  :param file_name: destination file name
+  :raises: None
+  :returns: None
+  """
+  file_name = file_path + file_name
+  with open(file_name, 'wb') as f:
+    pickle.dump(data, f)
+
+
+def pickle_load_data(file_path, file_name):
+  """
+  load data from pickled file
+  :param file_path: source file path
+  :param file_name: source file name
+  :raises: None
+  :returns: pickled data
+  """
+  file_name = file_path + file_name
+  data = None
+  with open(file_name, 'rb') as f:
+    data = pickle.load(f)
+
+  return data

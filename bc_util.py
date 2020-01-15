@@ -101,7 +101,7 @@ def num_days_between(start_date, end_date, date_format='%Y-%m-%d'):
   return diff.days
 
 
-#----------------------- Timeseries dataframe --------------------#
+#----------------------- Dataframe manipulation --------------------#
 def df_2_timeseries(df, time_col='date'):
   """
   Convert dataframe to timeseries-dataframe
@@ -113,6 +113,24 @@ def df_2_timeseries(df, time_col='date'):
   """
   df = df.set_index(time_col)
   df.index = pd.DatetimeIndex(df.index)
+  return df
+
+
+def remove_duplicated_index(df, keep='first'):
+  """
+  remove duplicated index with its row from dataframe
+
+  :param df: dataframe
+  :param keep: first or last duplicated index to keep
+  :returns: dataframe without duplicated index
+  :raises: Exception
+  """
+  try:
+    df = df[~df.index.duplicated(keep=keep)].copy()
+
+  except Exception as e:
+    print(e)
+
   return df
 
 
@@ -153,5 +171,13 @@ def plot_data(df, columns, start=None, end=None, figsize=(20, 5), colormap='tab1
   plt.xticks(rotation=90)   
 
 
+#----------------------- Print assistence ----------------------#
+def print_when(condition, true_content='', false_content=None):
+  if condition:
+    if true_content is not None:
+      print(true_content)
 
+  else:
+    if false_content is not None:
+      print(false_content)
 

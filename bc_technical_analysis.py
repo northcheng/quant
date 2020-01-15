@@ -102,8 +102,7 @@ def preprocess_stock_data(df, interval, print_error=True):
   :raises: None
   '''    
   # drop duplicated rows, keep the first
-  duplicated = df.index.duplicated(keep='first')
-  df = df[~duplicated].copy()
+  df = util.remove_duplicated_index(df=df, keep='first')
 
   # if interval is week, keep data until the most recent monday
   if interval == 'week' and df.index.max().weekday() != 0:
