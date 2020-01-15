@@ -194,7 +194,7 @@ def calculate_ta(df, sec_code):
   return df
 
 # analyze calculated ta indicators
-def analyze_ta(df, signal_indicators=['kama', 'ichimoku', 'adx', 'eom', 'kst'], trend_indicators=['adx_trend', 'eom_diff', 'kst_diff'], n_slope=3):
+def calculate_ta_derivative(df, signal_indicators=['kama', 'ichimoku', 'adx', 'eom', 'kst'], trend_indicators=['adx_trend', 'eom_diff', 'kst_diff'], n_slope=3):
   """
   adding derived features such as trend, momentum, etc.
   :param df: dataframe with several ta features
@@ -289,7 +289,7 @@ def analyze_ta(df, signal_indicators=['kama', 'ichimoku', 'adx', 'eom', 'kst'], 
   return df
 
 # calculate ta signal
-def calculate_signal(df):
+def calculate_ta_signal(df):
   """
   :param df: dataframe with ta features and derived features for calculating signals
   :raturns: dataframe with signal
@@ -300,12 +300,12 @@ def calculate_signal(df):
   df['signal'] = 'n'
   
   # buy signal
-  buy_idx = df.query('(overall_signal_value >= 1) and (overall_trend >= 0) and (overall_momentum >= 0)').index
+  buy_idx = df.query('(kama_day == 1 or adx_day == 1) and (overall_trend == 3) or (overall_momentum == 3)').index
   if len(buy_idx) > 0:
     df.loc[buy_idx, 'signal'] = 'b'
 
   # sell signal
-  sell_idx = df.query('(overall_signal_value <= -1) and ((overall_trend <= 0) or (overall_momentum <= 0))').index
+  sell_idx = df.query('(overall_signal_value <= -1) and ((overall_trend == -3) or (overall_momentum == -3))').index
   if len(sell_idx) > 0:  
     df.loc[sell_idx, 'signal'] = 's'
 
@@ -343,11 +343,11 @@ def visualize_ta(df, sec_code, args={}):
     print(phase, e)
 
 # post-process calculation results
-def postprocess_ta_result(df, keep_columns, drop_columns, watch_columns):
+def postprocess_ta_result(df, keep_columns, drop_columns):
   """
   Postprocess downloaded data
 
-  :param df: downloaded stock data
+  :param df: dataframe with ta features and ta derived features
   :param keep_columns: columns to keep for the final result
   :param drop_columns: columns to drop for the final result
   :param watch_columns: list of indicators to keep watching
@@ -356,20 +356,39 @@ def postprocess_ta_result(df, keep_columns, drop_columns, watch_columns):
   """     
   # reset index(as the index(date) of rows are all the same)
   df = df.reset_index()
+  df['notes'] = ''
 
-  # overbuy/oversell
-  df['osob'] = df['bb_signal'] + df['rsi_signal']
-  df = replace_signal(df=df, signal_col='osob', replacement={'nn': '-', 'bb': '过低', 'ss': '过高', 'nb': '低', 'bn': '低', 'ns': '高', 'sn': '高'})
+  # whether the price is in a corresponding high position
+  high_idx = df.query('(Close > kama_fast > kama_slow) and kama_day > 5').index
+  df.loc[high_idx, 'notes'] += '高位'
 
-  # corresponding position of current price
-  for indicator in ['ichimoku', 'kama']:
-    df = replace_signal(df=df, signal_col='{indicator}_position'.format(indicator=indicator), replacement={'h': '高', 'l': '低', 'mh': '中高', 'ml': '中低', '':'-'})
+  # whether the trend or momentum is downwarding
+  down_idx = df.query('(overall_trend < 0 and overall_momentum < 0) or (overall_momentum_value < 0)').index
+  none_empty_idx = df.query('notes != ""').index
+  df.loc[[x for x in down_idx if x in none_empty_idx], 'notes'] += ','
+  df.loc[down_idx, 'notes'] += '向下'
 
-  # summary of price position
-  df['position'] = ''
-  df['position'] += 'kama/ichi: ' + df['kama_position'] + ', ' + df['ichimoku_position'] + ', os/ob: ' + df['osob']
-
+  # whether the momentum is very weak
+  weak_idx = df.query('0< overall_momentum_value < 0.1').index
+  none_empty_idx = df.query('notes != ""').index
+  df.loc[[x for x in weak_idx if x in none_empty_idx], 'notes'] += ','
+  df.loc[weak_idx, 'notes'] += '向上无力'
   
+  # overbuy
+  ob_idx = df.query('bb_signal == "s" or rsi_signal =="s"').index
+  none_empty_idx = df.query('notes != ""').index
+  df.loc[[x for x in ob_idx if x in none_empty_idx], 'notes'] += ','
+  df.loc[ob_idx, 'notes'] += '超买'
+  
+  # oversell
+  os_idx = df.query('bb_signal == "b" or rsi_signal =="b"').index
+  none_empty_idx = df.query('notes != ""').index
+  df.loc[[x for x in os_idx if x in none_empty_idx], 'notes'] += ','
+  df.loc[os_idx, 'notes'] += '超卖'
+
+  # sec_code that could be ignored
+  x_idx = df.query('notes != ""').index
+  df.loc[x_idx, 'overall_signal'] = 'x' + df.loc[x_idx, 'overall_signal']
 
   # rename columns, keep 3 digits
   df = df[list(keep_columns.keys())].rename(columns=keep_columns).round(3)
@@ -378,7 +397,7 @@ def postprocess_ta_result(df, keep_columns, drop_columns, watch_columns):
   df = df.drop(drop_columns, axis=1)
   
   # sort by operation and sec_code
-  df = df.sort_values(['操作', '代码'], ascending=[True, True])
+  df = df.sort_values(['信号', '代码'], ascending=[True, True])
   
   return df
 
@@ -2516,8 +2535,8 @@ def plot_signal(df, start=None, end=None, price_col='Close', signal_col='signal'
     if signal_col in df.columns:
       positive_signal = df.query('%(signal)s == "%(pos_signal)s"' % dict(signal=signal_col, pos_signal=pos_signal))
       negative_signal = df.query('%(signal)s == "%(neg_signal)s"' % dict(signal=signal_col, neg_signal=neg_signal))
-      ax.scatter(positive_signal.index, positive_signal[price_col], label='%s' % pos_signal, marker='^', color='green', alpha=0.5)
-      ax.scatter(negative_signal.index, negative_signal[price_col], label='%s' % neg_signal, marker='v', color='red', alpha=0.5)
+      ax.scatter(positive_signal.index, positive_signal[price_col], label='%s' % pos_signal, marker='^', color='green')
+      ax.scatter(negative_signal.index, negative_signal[price_col], label='%s' % neg_signal, marker='v', color='red')
   
   except Exception as e:
     print(e)
