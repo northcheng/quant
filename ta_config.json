@@ -71,7 +71,8 @@
 			"plot_kama": true
 		},
 		"ichimoku": { 
-			"price_col": "Close"
+			"price_col": "Close",
+			"signal_col": "signal"
 		},  
 		"adx": {
 			"target_col": ["adx_trend"],
