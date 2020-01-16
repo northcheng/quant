@@ -246,7 +246,7 @@ def calculate_ta_derivative(df, signal_indicators=['kama', 'ichimoku', 'adx', 'e
       pb_idx = tmp_day.query('{d} > 1'.format(d=day_col)).index
       if len(pb_idx)> 0:        
         df.loc[pb_idx, 'overall_signal'] += '+'
-        df.loc[pb_idx, 'overall_signal_value'] += 0.1
+        df.loc[pb_idx, 'overall_signal_value'] += -0.1
 
       # sell signal just triggered
       s_idx = tmp_day.query('{d} == -1'.format(d=day_col)).index
@@ -258,7 +258,7 @@ def calculate_ta_derivative(df, signal_indicators=['kama', 'ichimoku', 'adx', 'e
       ps_idx = tmp_day.query('{d} < -1'.format(d=day_col)).index
       if len(ps_idx)> 0:
         df.loc[ps_idx, 'overall_signal'] += '-'
-        df.loc[ps_idx, 'overall_signal_value'] += -0.1
+        df.loc[ps_idx, 'overall_signal_value'] += 0.1
 
       # no signal triggered yet
       n_idx = tmp_day.query('{d} == 0'.format(d=day_col)).index
