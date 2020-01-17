@@ -194,7 +194,7 @@ def calculate_ta(df, sec_code):
   return df
 
 # analyze calculated ta indicators
-def calculate_ta_derivative(df, signal_indicators=['kama', 'ichimoku', 'adx', 'eom', 'kst'], trend_indicators=['adx_trend', 'eom_diff', 'kst_diff'], n_slope=3):
+def calculate_ta_derivative(df, signal_indicators=['kama', 'ichimoku', 'adx', 'eom', 'kst'], trend_indicators=['adx_diff', 'eom_diff', 'kst_diff'], n_slope=3):
   """
   adding derived features such as trend, momentum, etc.
   :param df: dataframe with several ta features
@@ -205,6 +205,8 @@ def calculate_ta_derivative(df, signal_indicators=['kama', 'ichimoku', 'adx', 'e
   try:    
     # calculate days since signal triggered
     phase = 'cal_number_of_days_since_signal_triggered'
+    df['overall_signal'] = ''
+    df['overall_signal_value'] = 0
 
     # replace signal value [b/s/n] with [1/-1/0]
     for indicator in signal_indicators:
@@ -212,7 +214,7 @@ def calculate_ta_derivative(df, signal_indicators=['kama', 'ichimoku', 'adx', 'e
       day_col = '{indicator}_day'.format(indicator=indicator)
       df[day_col] = df[signal_col].replace({'n':0, 'b':1, 's':-1})
     
-    # go through each signal
+    # accumulate signal value
     idx_list = df.index.tolist()
     for i in range(1, len(idx_list)):
       current_idx = idx_list[i]
@@ -228,10 +230,8 @@ def calculate_ta_derivative(df, signal_indicators=['kama', 'ichimoku', 'adx', 'e
         elif previous_day<0 and current_day == 0:
           df.loc[current_idx, day_col] = previous_day - 1
     
-    # summary of signal trigger
+    # summary of signal value
     phase = 'summarize_overall_signals'
-    df['overall_signal'] = ''
-    df['overall_signal_value'] = 0
     for indicator in signal_indicators:
       day_col = '{indicator}_day'.format(indicator=indicator)
       tmp_day = df[[day_col]].astype(float)
@@ -266,22 +266,23 @@ def calculate_ta_derivative(df, signal_indicators=['kama', 'ichimoku', 'adx', 'e
         df.loc[n_idx, 'overall_signal'] += ' '
         df.loc[n_idx, 'overall_signal_value'] += 0
     
-    # calculate trend slope
-    phase = 'cal_trend_slope'
+    # calculate indicator slope
+    phase = 'cal_indicator_slope'
     for index, row in df.iterrows():
       for i in trend_indicators:
         slope_name = i.split('_')[0] + '_slope'
         df.loc[index, slope_name] = linear_fit(df=df[: index], target_col=i, periods=n_slope)['slope']
     
     # calculate overall trend and momentum 
-    df['overall_trend'] = 0 # [-3, -1, 1, 3]
-    df['overall_momentum'] = 0 # [-3, -1, 1, 3]
-    df['overall_momentum_value'] = 0 
+    phase = 'cal_trend_slope'
+    df['overall_trend'] = df['overall_trend_value'] = 0
+    df['overall_momentum'] = df['overall_momentum_value'] = 0 
     for i in trend_indicators:
       slope_name = i.split('_')[0] + '_slope'
       df['overall_trend'] +=  ((df[i] > 0).astype(int) + -1*(df[i] < 0).astype(int))
       df['overall_momentum'] += ((df[slope_name] > 0).astype(int) + -1*(df[slope_name] < 0).astype(int))
-      df['overall_momentum_value'] += 0.333 * df[slope_name]
+      # df['overall_trend_value'] += 0.333 * df[i]
+      df['overall_momentum_value'] += 0.333 * df[slope_name] 
 
   except Exception as e:
     print(phase, e)
@@ -366,13 +367,13 @@ def postprocess_ta_result(df, keep_columns, drop_columns):
   down_idx = df.query('(overall_trend < 0 and overall_momentum < 0) or (overall_momentum_value < 0)').index
   none_empty_idx = df.query('notes != ""').index
   df.loc[[x for x in down_idx if x in none_empty_idx], 'notes'] += ','
-  df.loc[down_idx, 'notes'] += '向下'
+  df.loc[down_idx, 'notes'] += '整体向下'
 
   # whether the momentum is very weak
   weak_idx = df.query('0< overall_momentum_value < 0.1').index
   none_empty_idx = df.query('notes != ""').index
   df.loc[[x for x in weak_idx if x in none_empty_idx], 'notes'] += ','
-  df.loc[weak_idx, 'notes'] += '向上无力'
+  df.loc[weak_idx, 'notes'] += '震荡行情'
   
   # overbuy
   ob_idx = df.query('bb_signal == "s" or rsi_signal =="s"').index
@@ -920,8 +921,8 @@ def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low
     df.loc[current_idx, 'adx'] = (df.loc[previous_idx, 'adx'] * (n-1) + df.loc[current_idx, 'dx']) / n
 
   # adx trend
-  df['adx_trend'] = (df['pdi'] - df['mdi']) * (df['adx']/adx_threshold)
-  df['adx_trend'] = (df['adx_trend'] - df['adx_trend'].mean()) / df['adx_trend'].std()
+  df['adx_diff'] = (df['pdi'] - df['mdi']) * (df['adx']/adx_threshold)
+  df['adx_diff'] = (df['adx_diff'] - df['adx_diff'].mean()) / df['adx_diff'].std()
 
   # fill na values
   if fillna:
@@ -930,7 +931,7 @@ def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low
 
   # calculate signals
   if cal_signal:
-    df['adx_signal'] = cal_crossover_signal(df=df, fast_line='adx_trend', slow_line='zero')
+    df['adx_signal'] = cal_crossover_signal(df=df, fast_line='adx_diff', slow_line='zero')
 
   df.drop(['high_diff', 'low_diff', 'zero', 'pdm', 'mdm', 'atr'], axis=1, inplace=True)
 
@@ -2754,7 +2755,7 @@ def plot_indicator(df, target_col, start=None, end=None, price_col='Close', sign
     elif color_mode == 'benchmark' and benchmark is not None:
       df['color'] = 'red'
       df.loc[df[tar] > benchmark, 'color'] = 'green'
-      
+
     # plot indicator
     if 'color' in df.columns:
       ax.bar(df.index, height=df[tar], color=df.color, alpha=0.3)

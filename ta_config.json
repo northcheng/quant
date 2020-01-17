@@ -34,19 +34,17 @@
 	}, 
 
 	"keep_columns": {
-		"Close":"收盘", "rate":"涨跌", "acc_rate":"累计", 
+		"sec_code":"代码", "overall_signal":"信号", "notes":"备注", 
 
-		"overall_trend": "趋势", "overall_momentum": "动量",  
-
-		"adx": "趋势强度", "overall_momentum_value": "动量强度", "overall_signal_value": "信号强度",
-		
-		"overall_signal":"信号", "sec_code":"代码", "notes":"备注", 
+		"adx": "趋势强度", "overall_trend": "趋势方向", "overall_momentum_value": "动量强度", "overall_momentum": "动量方向",  "overall_signal_value": "信号强度", 
 
 		"kama_day": "KAMA", "ichimoku_day": "ICHI", "adx_day": "ADX", "eom_day": "EOM", "kst_day": "KST",
+		
+		"adx_diff": "adx_diff", "eom_diff": "eom_diff", "kst_diff": "kst_diff", 
 
-		"adx_trend": "adx_trend", "eom_diff": "eom_diff", "kst_diff": "kst_diff", 
+		"adx_slope": "adx_slope", "eom_slope": "eom_slope", "kst_slope": "kst_slope",
 
-		"adx_slope": "adx_slope", "eom_slope": "eom_slope", "kst_slope": "kst_slope"
+		"Close":"收盘", "rate":"涨跌", "acc_rate":"累计"
 	},
 	
 	"drop_columns": [],
@@ -72,8 +70,13 @@
 			"price_col": "Close",
 			"signal_col": "signal"
 		},  
+		"trend": {
+			"target_col": ["trend"],
+			"color_mode": "up_down",
+			"boundary": [-1, 1]
+		},
 		"adx": {
-			"target_col": ["adx_trend"],
+			"target_col": ["adx_diff"],
 			"benchmark": 0,
 			"color_mode": "benchmark"
 		},
