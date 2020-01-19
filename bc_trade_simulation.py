@@ -85,12 +85,13 @@ def back_test(df, signal_col='signal', buy_price='Open', sell_price='Close', sta
 
   # print trading info
   def print_trading_info(date, action, price, previous_stock, stock, previous_money, money, holding_price, holding_return):
-    action_name = {'b': 'buy', 's': 'sell', 'n': 'none'}[action]
+    action_name = {'b': 'buy', 's': 'sell', 'n': 'none', 'stop_earning': 'stop_earning', 'stop_loss': 'stop_loss'}[action]
     trading_info = '[{d}] {a:<4}: {p:>7.2f}, stock: {ps:>5} -> {s:<5}, money: {pm:>8.1f} -> {m:<8.1f}, holding: {hp:>7.2f} | {hr:<4.2f} '
     trading_info = trading_info.format(d=date, a=action_name, p=price, ps=previous_stock, s=stock, pm=previous_money, m=money, hp=holding_price, hr=holding_return)
     print(trading_info)
 
   # go through all trading dates
+  slse_triggered = False
   for i in range(len(date_list)-1):
     date = date_list[i]
     next_date = date_list[i+1]
@@ -105,13 +106,15 @@ def back_test(df, signal_col='signal', buy_price='Open', sell_price='Close', sta
       # if triggered stop loss or stop earning, sell all the stocks
       if ((stop_loss is not None) and (holding_return <= stop_loss)): 
         action = 's'
+        slse_triggered = True
         if print_trading:
-          print('stop loss at: {holding_return:.4f}'.format(holding_return=holding_return))
+          print('[{date}]stop loss at: {holding_return:.4f}'.format(holding_return=holding_return, date=date))
       
       elif ((stop_earning is not None) and (holding_return >= stop_earning)):
         action = 's'
+        slse_triggered = True
         if print_trading:  
-          print('stop earning at: {holding_return:.4f}'.format(holding_return=holding_return))
+          print('[{date}]stop earning at: {holding_return:.4f}'.format(holding_return=holding_return, date=date))
 
     # record money and stock
     previous_money = money
@@ -149,6 +152,10 @@ def back_test(df, signal_col='signal', buy_price='Open', sell_price='Close', sta
       print_trading_info(date=date.date(), action=action, price=price, 
         previous_stock=previous_stock, stock=stock, previous_money=previous_money, money=money, 
         holding_price=holding_price, holding_return=holding_return)    
+
+    # stop earning or stop loss
+    if slse_triggered:
+      signal['signal'] = 'n'
     
     # update total value
     last_total = total

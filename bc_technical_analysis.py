@@ -1043,7 +1043,7 @@ def add_dpo_features(df, n=20, close='Close', open='Open', high='High', low='Low
   return df
 
 # Ichimoku 
-def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is_shift=True, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_status=True, cal_signal=True):
+def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is_shift=True, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_status=True, cal_signal=True, signal_threshold=0.01):
   """
   Calculate Ichimoku indicators
 
@@ -1174,13 +1174,13 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
       df['ichimoku_signal'] =  'n' 
 
       # close go up through tankan more than 1%
-      up_tankan_idx = df.query('close_to_tankan >= 0.01').index
+      up_tankan_idx = df.query('close_to_tankan >= {val}'.format(val=signal_threshold)).index
 
       # when tankan is below kijun, close go down through tankan more than 1% 
-      down_tankan_idx = df.query('close_to_tankan <= -0.01 and tankan < kijun').index
+      down_tankan_idx = df.query('close_to_tankan <= {val} and tankan < kijun'.format(val=-signal_threshold)).index
 
       # close is below tankan, and go down through kijun more than 1%
-      down_kijun_idx = df.query('close_to_kijun <= -0.01 and close_to_tankan < 0').index
+      down_kijun_idx = df.query('close_to_kijun <= {val} and close_to_tankan <= {val}'.format(val=-signal_threshold)).index
 
       # assign values, remove duplicated signals, keeps only the first one
       df.loc[up_tankan_idx, 'ichimoku_signal'] = 'b'
