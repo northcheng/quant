@@ -265,24 +265,22 @@ def calculate_ta_derivative(df, signal_indicators=['kama', 'ichimoku', 'adx', 'e
       if len(n_idx)> 0:
         df.loc[n_idx, 'overall_signal'] += ' '
         df.loc[n_idx, 'overall_signal_value'] += 0
-    
+
     # calculate indicator slope
-    phase = 'cal_indicator_slope'
+    phase = 'cal_slope'
     for index, row in df.iterrows():
       for i in trend_indicators:
         slope_name = i.split('_')[0] + '_slope'
         df.loc[index, slope_name] = linear_fit(df=df[: index], target_col=i, periods=n_slope)['slope']
     
     # calculate overall trend and momentum 
-    phase = 'cal_trend_slope'
-    df['overall_trend'] = df['overall_trend_value'] = 0
-    df['overall_momentum'] = df['overall_momentum_value'] = 0 
+    phase = 'cal_trend'
+    df['trend'] = 0 
+    df['slope'] = 0
     for i in trend_indicators:
       slope_name = i.split('_')[0] + '_slope'
-      df['overall_trend'] +=  ((df[i] > 0).astype(int) + -1*(df[i] < 0).astype(int))
-      df['overall_momentum'] += ((df[slope_name] > 0).astype(int) + -1*(df[slope_name] < 0).astype(int))
-      # df['overall_trend_value'] += 0.333 * df[i]
-      df['overall_momentum_value'] += 0.333 * df[slope_name] 
+      df['trend'] += df[i] * 0.333
+      df['slope'] += df[slope_name]
 
   except Exception as e:
     print(phase, e)
@@ -300,22 +298,22 @@ def calculate_ta_signal(df):
   df = df.copy()
   df['signal'] = 'n'
   
-  # buy signal
-  buy_idx = df.query('(kama_day == 1 or adx_day == 1) and (overall_trend == 3) or (overall_momentum == 3)').index
-  if len(buy_idx) > 0:
-    df.loc[buy_idx, 'signal'] = 'b'
+  # # buy signal
+  # buy_idx = df.query('(kama_day == 1 or adx_day == 1) and (overall_trend == 3) or (overall_momentum == 3)').index
+  # if len(buy_idx) > 0:
+  #   df.loc[buy_idx, 'signal'] = 'b'
 
-  # sell signal
-  sell_idx = df.query('(overall_signal_value <= -1) and ((overall_trend == -3) or (overall_momentum == -3))').index
-  if len(sell_idx) > 0:  
-    df.loc[sell_idx, 'signal'] = 's'
+  # # sell signal
+  # sell_idx = df.query('(overall_signal_value <= -1) and ((overall_trend == -3) or (overall_momentum == -3))').index
+  # if len(sell_idx) > 0:  
+  #   df.loc[sell_idx, 'signal'] = 's'
 
-  # filter senstive signals
-  none_trend_idx = df.query('adx < 20').index
-  if len(none_trend_idx) > 0:
-    df.loc[none_trend_idx, 'signal'] = 'n'
+  # # filter senstive signals
+  # none_trend_idx = df.query('adx < 20').index
+  # if len(none_trend_idx) > 0:
+  #   df.loc[none_trend_idx, 'signal'] = 'n'
 
-  df = remove_redundant_signal(df=df)
+  # df = remove_redundant_signal(df=df)
 
   return df
 
@@ -362,18 +360,6 @@ def postprocess_ta_result(df, keep_columns, drop_columns):
   # whether the price is in a corresponding high position
   high_idx = df.query('(Close > kama_fast > kama_slow) and kama_day > 5').index
   df.loc[high_idx, 'notes'] += '高位'
-
-  # whether the trend or momentum is downwarding
-  down_idx = df.query('(overall_trend < 0 and overall_momentum < 0) or (overall_momentum_value < 0)').index
-  none_empty_idx = df.query('notes != ""').index
-  df.loc[[x for x in down_idx if x in none_empty_idx], 'notes'] += ','
-  df.loc[down_idx, 'notes'] += '整体向下'
-
-  # whether the momentum is very weak
-  weak_idx = df.query('0< overall_momentum_value < 0.1').index
-  none_empty_idx = df.query('notes != ""').index
-  df.loc[[x for x in weak_idx if x in none_empty_idx], 'notes'] += ','
-  df.loc[weak_idx, 'notes'] += '震荡行情'
   
   # overbuy
   ob_idx = df.query('bb_signal == "s" or rsi_signal =="s"').index
@@ -1184,23 +1170,23 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
     # ================================ Signal =========================================
     if cal_signal:
 
-      # calculate Close position corresponding to kijun and tankan
-      # calculate position of Close, corresponding to kama_fast and kama_slow
-      df['ichimoku_position'] = ''
-      fast = 'tankan'
-      slow = 'kijun'
-      high_idx = df.query('{close} > {fast} > {slow}'.format(close=close, fast=fast, slow=slow)).index
-      mid_high_idx = df.query('{fast} > {close} > {slow}'.format(close=close, fast=fast, slow=slow)).index
-      mid_low_idx = df.query('{slow} > {close} > {fast}'.format(close=close, fast=fast, slow=slow)).index
-      low_idx = df.query('{slow} > {fast} > {close}'.format(close=close, fast=fast, slow=slow)).index
-      df.loc[high_idx, 'ichimoku_position'] = 'h'
-      df.loc[mid_high_idx, 'ichimoku_position'] = 'mh'
-      df.loc[mid_low_idx, 'ichimoku_position'] = 'ml'
-      df.loc[low_idx, 'ichimoku_position'] = 'l'
+      # initialize
+      df['ichimoku_signal'] =  'n' 
 
-      # final signal
-      df['ichimoku_signal'] =  df['signal_tankan']
-      df = replace_signal(df=df, signal_col='ichimoku_signal', replacement={line_weight['tankan']: 'b', -line_weight['tankan']: 's', 0: 'n'})
+      # close go up through tankan more than 1%
+      up_tankan_idx = df.query('close_to_tankan >= 0.01').index
+
+      # when tankan is below kijun, close go down through tankan more than 1% 
+      down_tankan_idx = df.query('close_to_tankan <= -0.01 and tankan < kijun').index
+
+      # close is below tankan, and go down through kijun more than 1%
+      down_kijun_idx = df.query('close_to_kijun <= -0.01 and close_to_tankan < 0').index
+
+      # assign values, remove duplicated signals, keeps only the first one
+      df.loc[up_tankan_idx, 'ichimoku_signal'] = 'b'
+      df.loc[down_tankan_idx, 'ichimoku_signal'] = 's'
+      df.loc[down_kijun_idx, 'ichimoku_signal'] = 's'
+      df = remove_redundant_signal(df=df, signal_col='ichimoku_signal', keep='first')
 
     # drop redundant columns  
     df.drop(col_to_drop, axis=1, inplace=True)
@@ -2749,7 +2735,7 @@ def plot_indicator(df, target_col, start=None, end=None, price_col='Close', sign
       df['color'] = 'red'
       previous_target_col = 'previous_' + tar
       df[previous_target_col] = df[tar].shift(1)
-      df.loc[df[tar] > df[previous_target_col], 'color'] = 'green'
+      df.loc[df[tar] >= df[previous_target_col], 'color'] = 'green'
 
     # plot in benchmark mode
     elif color_mode == 'benchmark' and benchmark is not None:
