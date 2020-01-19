@@ -34,19 +34,12 @@
 	}, 
 
 	"keep_columns": {
-		"Close":"收盘", "rate":"涨跌", "acc_rate":"累计", 
 
-		"overall_trend": "趋势", "overall_momentum": "动量",  
-
-		"adx": "趋势强度", "overall_momentum_value": "动量强度", "overall_signal_value": "信号强度",
+		"sec_code":"代码", "notes":"备注",  
 		
-		"overall_signal":"信号", "sec_code":"代码", "notes":"备注", 
+		"break_up": "上穿", "break_down": "下穿", "close_to_kijun": "基准", "close_to_tankan": "转换", "close_to_kama_fast": "快线", "close_to_kama_slow": "慢线",
 
-		"kama_day": "KAMA", "ichimoku_day": "ICHI", "adx_day": "ADX", "eom_day": "EOM", "kst_day": "KST",
-
-		"adx_trend": "adx_trend", "eom_diff": "eom_diff", "kst_diff": "kst_diff", 
-
-		"adx_slope": "adx_slope", "eom_slope": "eom_slope", "kst_slope": "kst_slope"
+		"kama_day": "KAMA", "ichimoku_day": "ICHI", "adx_day": "ADX", "eom_day": "EOM", "kst_day": "KST", "overall_signal":"信号"
 	},
 	
 	"drop_columns": [],
@@ -57,9 +50,8 @@
 		"plot_ratio": { 
 			"candlestick": 1, 
 			"ichimoku": 1, 
-			"adx": 0.5,
-			"eom": 0.5,
-			"kst": 0.5
+			"adx-eom-kst": 0.5,
+			"volume": 0.3
 		}, 
 		"candlestick": {
 			"width": 1, 
@@ -70,22 +62,17 @@
 		},
 		"ichimoku": { 
 			"price_col": "Close",
-			"signal_col": "signal"
+			"signal_col": "ichimoku_signal"
 		},  
-		"adx": {
-			"target_col": ["adx_trend"],
-			"benchmark": 0,
-			"color_mode": "benchmark"
+		"trend": {
+			"target_col": ["trend"],
+			"color_mode": "up_down",
+			"benchmark": 0
 		},
-		"eom": {
-			"target_col": ["eom_diff"], 
-			"benchmark": 0, 
-			"color_mode": "benchmark"
-		}, 
-		"kst": {
-			"target_col": ["kst_diff"],
+		"adx-eom-kst": {
+			"target_col": ["adx_diff", "eom_diff", "kst_diff"],
 			"benchmark": 0,
-			"color_mode": "benchmark"
+			"boundary": [-1, 1]
 		},
 		"volume": {
 			"target_col": ["Volume"], 
