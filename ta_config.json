@@ -48,9 +48,9 @@
 
 	"plot_args": {
 		"plot_ratio": { 
-			"candlestick": 1, 
 			"ichimoku": 1, 
-			"adx-eom-kst": 0.5,
+			"candlestick": 1, 
+			"signals": 0.5,
 			"volume": 0.3
 		}, 
 		"candlestick": {
@@ -62,12 +62,11 @@
 		},
 		"ichimoku": { 
 			"price_col": "Close",
-			"signal_col": "ichimoku_signal"
+			"plot_signal_on_price": null
 		},  
-		"trend": {
-			"target_col": ["trend"],
-			"color_mode": "up_down",
-			"benchmark": 0
+		"stoch": {
+			"target_col": ["stoch_k", "stoch_d"],
+			"boundary": [20, 80]
 		},
 		"adx-eom-kst": {
 			"target_col": ["adx_diff", "eom_diff", "kst_diff"],
@@ -82,13 +81,12 @@
 			"price_col": null, 
 			"color_mode": "up_down"
 		},
-		"peak_trough": {
-			"price_col": "Close", 
-			"signal_col": "peak_trough", 
-			"pos_signal": "p", 
-			"neg_signal": "t", 
-			"none_signal": "n", 
-			"add_bbl": true
+		"signals": {
+			"signal_list": ["kst_signal", "eom_signal", "adx_signal", "ichimoku_signal", "kama_signal"],
+			"pos_signal": "b",
+			"neg_signal": "s",
+			"none_signal": "n",
+			"plot_signal_on_price": true
 		}
 	}
 }

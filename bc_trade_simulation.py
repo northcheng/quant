@@ -86,8 +86,7 @@ def back_test(df, signal_col='signal', buy_price='Open', sell_price='Close', sta
   # print trading info
   def print_trading_info(date, action, price, previous_stock, stock, previous_money, money, holding_price, holding_return):
     action_name = {'b': 'buy', 's': 'sell', 'n': 'none', 'stop_earning': 'stop_earning', 'stop_loss': 'stop_loss'}[action]
-    trading_info = '[{d}] {a:<4}: {p:>7.2f}, stock: {ps:>5} -> {s:<5}, money: {pm:>8.1f} -> {m:<8.1f}, holding: {hp:>7.2f} | {hr:<4.2f} '
-    trading_info = trading_info.format(d=date, a=action_name, p=price, ps=previous_stock, s=stock, pm=previous_money, m=money, hp=holding_price, hr=holding_return)
+    trading_info = f'[{date}] {action_name:<4}: {price:>7.2f}, stock: {previous_stock:>5} -> {stock:<5}, money: {previous_money:>8.1f} -> {money:<8.1f}, holding: {holding_price:>7.2f} | {holding_return:<4.2f}'
     print(trading_info)
 
   # go through all trading dates

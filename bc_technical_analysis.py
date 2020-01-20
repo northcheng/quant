@@ -15,7 +15,8 @@ try:
 except Exception as e:
   print(e)
 
-
+default_ohlcv_col = {'close':'Close', 'open':'Open', 'high':'High', 'low':'Low', 'volume':'Volume'}
+default_signal_val = {'pos_signal':'b', 'neg_signal':'s', 'none_signal':'n'}
 
 # ================================================ Basic calculation ================================================ #
 # drop na values for dataframe
@@ -36,6 +37,7 @@ def dropna(df):
 def fillna(series, fill_value=0):
   """
   Fill na value for a series with specific value
+
   :param series: series to fillna
   :param fill_value: the value to replace na values
   :returns: series with na values filled
@@ -66,18 +68,19 @@ def get_min_max(x1, x2, f='min'):
     return np.nan    
     
 # filter index that meet conditions
-def filter_idx(df, condition):
+def filter_idx(df, condition_dict):
   """
-  # filter index that meet conditions
+  # Filter index that meet conditions
+
   :param df: dataframe to search
-  :param condition: dictionary of conditions
+  :param condition_dict: dictionary of conditions
   :returns: dictionary of index that meet corresponding conditions
   :raises: None
   """
   # target index
   result = {}
-  for c in condition.keys():
-    result[c] = df.query(condition[c]).index
+  for condition in condition_dict.keys():
+    result[condition] = df.query(condition_dict[condition]).index
 
   # other index
   other_idx = df.index
@@ -86,6 +89,30 @@ def filter_idx(df, condition):
   result['other'] = other_idx
 
   return result
+
+# set index-column with specific value
+def set_idx_col_value(df, idx, col, values, set_on_copy=True):
+  """
+  Set specific index-column with specific values
+
+  :param df: dataframe to search
+  :param idx: dictionary of index
+  :param col: target column
+  :param values: dictionary of values, with same keys as idx
+  :param set_on_copy: whether to set values on a copy of df
+  :returns: dataframe with value set
+  :raises: None
+  """
+  
+  # copy dataframe
+  if set_on_copy:
+    df = df.copy()
+
+  # set values to specific index, column
+  for i in idx.keys():
+    df.loc[idx[i], col] = values[i]
+
+  return df
 
 
 
@@ -125,19 +152,22 @@ def preprocess_stock_data(df, interval, print_error=True):
   if len(na_cols) > 0:
     error_info += 'NaN values found in '
     for col in na_cols:
-      error_info += '{col}, '.format(col=col)
+      error_info += f'{col}'
+      # error_info += '{col}, '.format(col=col)
   df = df.dropna()
     
   # process 0 values
   if len(zero_cols) > 0:
     error_info += '0 values found in '
     for col in zero_cols:
-      error_info += '{col}, '.format(col=col)
+      error_info += f'{col}'
+      # error_info += '{col}, '.format(col=col)
     df = df[:-1].copy()
 
   # print error information
   if print_error and len(error_info) > 0:
-    error_info += '[{date}]'.format(date=max_idx.date())
+    error_info += f'[{max_idx.date()}]'
+    # error_info += '[{date}]'.format(date=max_idx.date())
     print(error_info)
   
   return df
@@ -145,7 +175,8 @@ def preprocess_stock_data(df, interval, print_error=True):
 # calculate certain selected ta indicators
 def calculate_ta(df, sec_code):
   """
-  calculate selected ta features for dataframe
+  Calculate selected ta features for dataframe
+
   :param df: original dataframe with hlocv features
   :param sec_code: sec_code 
   :returns: dataframe with ta features
@@ -196,8 +227,11 @@ def calculate_ta(df, sec_code):
 # analyze calculated ta indicators
 def calculate_ta_derivative(df, signal_indicators=['kama', 'ichimoku', 'adx', 'eom', 'kst'], trend_indicators=['adx_diff', 'eom_diff', 'kst_diff'], n_slope=3):
   """
-  adding derived features such as trend, momentum, etc.
+  Adding derived features such as trend, momentum, etc.
+
   :param df: dataframe with several ta features
+  :param signal_indicators: selected ta indicators with their features and signals
+  :param trend_indicators: ta indicators used to calculate derived trend features
   :param n_slope: period for calculating slopes
   :returns: dataframe with extra fetures
   :raises: Exception 
@@ -210,8 +244,8 @@ def calculate_ta_derivative(df, signal_indicators=['kama', 'ichimoku', 'adx', 'e
 
     # replace signal value [b/s/n] with [1/-1/0]
     for indicator in signal_indicators:
-      signal_col = '{indicator}_signal'.format(indicator=indicator)
-      day_col = '{indicator}_day'.format(indicator=indicator)
+      signal_col = f'{indicator}_signal'
+      day_col = f'{indicator}_day'
       df[day_col] = df[signal_col].replace({'n':0, 'b':1, 's':-1})
     
     # accumulate signal value
@@ -221,47 +255,52 @@ def calculate_ta_derivative(df, signal_indicators=['kama', 'ichimoku', 'adx', 'e
       previous_idx = idx_list[i-1]
 
       for indicator in signal_indicators:
-        day_col = '{indicator}_day'.format(indicator=indicator)
+        day_col = f'{indicator}_day'
         current_day = df.loc[current_idx, day_col]
         previous_day = df.loc[previous_idx, day_col]
         
-        if previous_day>0 and current_day == 0:
-          df.loc[current_idx, day_col] = previous_day + 1
-        elif previous_day<0 and current_day == 0:
-          df.loc[current_idx, day_col] = previous_day - 1
+        if previous_day * current_day > 0:
+          df.loc[current_idx, day_col] = previous_day + current_day
+        elif previous_day * current_day < 0:
+          df.loc[current_idx, day_col] = current_day
+        else:
+          if previous_day < 0:
+            df.loc[current_idx, day_col] = previous_day - 1
+          elif previous_day > 0:
+            df.loc[current_idx, day_col] = previous_day + 1
     
     # summary of signal value
     phase = 'summarize_overall_signals'
     for indicator in signal_indicators:
-      day_col = '{indicator}_day'.format(indicator=indicator)
+      day_col = f'{indicator}_day'
       tmp_day = df[[day_col]].astype(float)
 
       # buy signal just triggered
-      b_idx = tmp_day.query('{d} == 1'.format(d=day_col)).index
+      b_idx = tmp_day.query(f'{day_col} == 1').index
       if len(b_idx)> 0:
         df.loc[b_idx, 'overall_signal'] += 'b'
         df.loc[b_idx, 'overall_signal_value'] += 1
 
       # buy signal triggered more than 2 days
-      pb_idx = tmp_day.query('{d} > 1'.format(d=day_col)).index
+      pb_idx = tmp_day.query(f'{day_col} > 1').index
       if len(pb_idx)> 0:        
         df.loc[pb_idx, 'overall_signal'] += '+'
         df.loc[pb_idx, 'overall_signal_value'] += -0.1
 
       # sell signal just triggered
-      s_idx = tmp_day.query('{d} == -1'.format(d=day_col)).index
+      s_idx = tmp_day.query(f'{day_col} == -1').index
       if len(s_idx)> 0:         
         df.loc[s_idx, 'overall_signal'] += 's'
         df.loc[s_idx, 'overall_signal_value'] += -1
 
       # sell signal triggered more than 2 days
-      ps_idx = tmp_day.query('{d} < -1'.format(d=day_col)).index
+      ps_idx = tmp_day.query(f'{day_col} < -1').index
       if len(ps_idx)> 0:
         df.loc[ps_idx, 'overall_signal'] += '-'
         df.loc[ps_idx, 'overall_signal_value'] += 0.1
 
       # no signal triggered yet
-      n_idx = tmp_day.query('{d} == 0'.format(d=day_col)).index
+      n_idx = tmp_day.query(f'{day_col} == 0').index
       if len(n_idx)> 0:
         df.loc[n_idx, 'overall_signal'] += ' '
         df.loc[n_idx, 'overall_signal_value'] += 0
@@ -290,13 +329,38 @@ def calculate_ta_derivative(df, signal_indicators=['kama', 'ichimoku', 'adx', 'e
 # calculate ta signal
 def calculate_ta_signal(df):
   """
+  Calculate signals from ta features
+
   :param df: dataframe with ta features and derived features for calculating signals
   :raturns: dataframe with signal
   :raises: None
   """
 
-  df = df.copy()
-  df['signal'] = 'n'
+  signal_df = df[['kama_signal', 'ichimoku_signal', 'adx_signal', 'eom_signal', 'kst_signal']].copy().replace({'b':1, 's':-1, 'n': 0}).fillna(0)
+  signal_df['signal'] = 0
+
+  for signal in ['kama_signal', 'ichimoku_signal', 'adx_signal', 'eom_signal', 'kst_signal']:
+    signal_df['signal'] += signal_df[signal]
+
+  condition_dict = {'b': 'signal >= 3 ', 's': 'signal <= -3'}
+  idx = filter_idx(df=signal_df, condition_dict=condition_dict)
+
+  value_dict = {'b':'b', 's':'s','other':'n'}
+  df = set_idx_col_value(df=df, idx=idx, col='signal', values=value_dict)
+  # df['signal'] = df['ichimoku_signal']
+  # df = remove_redundant_signal(df=df, signal_col='signal', keep='first')
+
+  # # 过滤敏感信号
+  # df['abs_ichimoku_day'] = (df['ichimoku_day'].abs() == 1)
+  # df['senstive'] =  (df['abs_ichimoku_day'].rolling(15).sum() >=3).astype(int)
+  # df.loc[df.query('senstive == 1 and signal=="b"').index, 'signal'] = 'n'
+
+  # 过滤波动信号
+  # df['wave'] = df['close_to_tankan'].rolling(3).mean()
+
+  # 结合kama信号
+
+
   
   # # buy signal
   # buy_idx = df.query('(kama_day == 1 or adx_day == 1) and (overall_trend == 3) or (overall_momentum == 3)').index
@@ -331,12 +395,8 @@ def visualize_ta(df, sec_code, args={}):
     if args.get('visualize'):
       phase = 'visulize'
       plot_multiple_indicators(
-        df=df, title=sec_code,
-        args=args.get('args'), 
-        start=args.get('start'), 
-        show_image=args.get('show_image'), 
-        save_image=args.get('save_image'), 
-        save_path=args.get('save_path'))
+        df=df, title=sec_code, args=args.get('args'),  start=args.get('start'), 
+        show_image=args.get('show_image'), save_image=args.get('save_image'), save_path=args.get('save_path'))
 
   except Exception as e:
     print(phase, e)
@@ -357,10 +417,16 @@ def postprocess_ta_result(df, keep_columns, drop_columns):
   df = df.reset_index()
   df['notes'] = ''
 
-  # whether the price is in a corresponding high position
+  # whether the price is in a corresponding high/low position
   high_idx = df.query('(Close > kama_fast > kama_slow) and kama_day > 5').index
   df.loc[high_idx, 'notes'] += '高位'
-  
+  low_idx = df.query('(Close < kama_fast < kama_slow) and kama_day < -5').index
+  df.loc[low_idx, 'notes'] += '低位'
+
+  # sell signal just triggered
+  sell_idx = df.query('(-5 <= kama_day < 0 and ichimoku_day< 0) or (-5<= ichimoku_day < 0 and kama_day<0)').index
+  df.loc[sell_idx, 'notes'] += '下行'
+
   # overbuy
   ob_idx = df.query('bb_signal == "s" or rsi_signal =="s"').index
   none_empty_idx = df.query('notes != ""').index
@@ -444,12 +510,12 @@ def cal_change(df, target_col, periods=1, add_accumulation=True, add_prefix=Fals
   # set prefix for result columns
   prefix = ''
   if add_prefix:
-    prefix = target_col + '_'
+    prefix = f'{target_col}_'
 
   # set result column names
-  change_col = prefix + 'change'
-  acc_change_col = prefix + 'acc_change'
-  acc_change_count_col = prefix + 'acc_change_count'
+  change_col = f'{prefix}change'
+  acc_change_col = f'{prefix}acc_change'
+  acc_change_count_col = f'{prefix}acc_change_count'
 
   # calculate change within the period
   df[change_col] = df[target_col].diff(periods=periods)
@@ -501,12 +567,12 @@ def cal_change_rate(df, target_col, periods=1, add_accumulation=True, add_prefix
   # set prefix for result columns
   prefix = ''
   if add_prefix:
-    prefix = target_col + '_'
+    prefix = f'{target_col}_'
 
   # set result column names
-  rate_col = prefix + 'rate'
-  acc_rate_col = prefix + 'acc_rate'
-  acc_day_col = prefix + 'acc_day'
+  rate_col = f'{prefix}rate'
+  acc_rate_col = f'{prefix}acc_rate'
+  acc_day_col = f'{prefix}acc_day'
 
   # calculate change rate within the period
   df[rate_col] = df[target_col].pct_change(periods=periods)
@@ -552,7 +618,7 @@ def cal_crossover_signal(df, fast_line, slow_line, result_col='signal', pos_sign
   :param slow_line: columnname of the slow line
   :param result_col: columnname of the result
   :param pos_signal: the value of positive signal
-  :param neg_siganl: the value of negative signal
+  :param neg_signal: the value of negative signal
   :param none_signal: the value of none signal
   :returns: series of the result column
   :raises: none
@@ -598,8 +664,8 @@ def cal_boundary_signal(df, upper_col, lower_col, upper_boundary, lower_boundary
   df = df.copy()
 
   # calculate signals
-  pos_idx = df.query('%(column)s > %(value)s' % dict(column=upper_col, value=upper_boundary)).index
-  neg_idx = df.query('%(column)s < %(value)s' % dict(column=lower_col, value=lower_boundary)).index
+  pos_idx = df.query(f'{upper_col} > {upper_boundary}').index
+  neg_idx = df.query(f'{lower_col} < {lower_boundary}').index
 
   # assign signal values
   df[result_col] = none_signal
@@ -645,13 +711,13 @@ def remove_redundant_signal(df, signal_col='signal', pos_signal='b', neg_signal=
   df = df.copy()
   
   # initialize
-  signals = df.query('{signal} != "{none_signal}"'.format(signal=signal_col, none_signal=none_signal)).copy()
+  signals = df.query(f'{signal_col} != "{none_signal}"').copy()
   movement = {'first': 1, 'last': -1}.get(keep)
 
   # find duplicated signals and set to none_signal
   if len(signals) > 0 and movement is not None:
     signals['is_dup'] = signals[signal_col] + signals[signal_col].shift(movement)
-    dup_idx = signals.query('is_dup == "{p}{p}" or is_dup == "{n}{n}"'.format(p=pos_signal, n=neg_signal)).index
+    dup_idx = signals.query(f'is_dup == "{pos_signal}{pos_signal}" or is_dup == "{neg_signal}{neg_signal}"').index
 
     if len(dup_idx) > 0:
       df.loc[dup_idx, signal_col] = none_signal
@@ -665,6 +731,7 @@ def remove_redundant_signal(df, signal_col='signal', pos_signal='b', neg_signal=
 def linear_fit(df, target_col, periods):
   """
   Calculate slope for selected piece of data
+
   :param df: dataframe
   :param target_col: target column name
   :param periods: input data length 
@@ -683,7 +750,7 @@ def linear_fit(df, target_col, periods):
     return {'slope': lr[0], 'intecept': lr[1]}
 
 # calculate peak / trough in price
-def cal_peak_trough(df, target_col, height=None, threshold=None, distance=None, width=None, result_col='signal', peak_signal='p', trough_signal='t', none_signal='n'):
+def cal_peak_trough(df, target_col, height=None, threshold=None, distance=None, width=None):
   """
   Calculate the position (signal) of the peak/trough of the target column
 
@@ -698,6 +765,12 @@ def cal_peak_trough(df, target_col, height=None, threshold=None, distance=None, 
   """
   # copy dataframe
   df = df.copy()
+
+  # set result values
+  result_col='signal'
+  peak_signal='p'
+  trough_signal='t'
+  none_signal='n'
   
   try:
     # find peaks 
@@ -723,9 +796,9 @@ def cal_peak_trough(df, target_col, height=None, threshold=None, distance=None, 
     df[previous_target_col] = df[target_col].shift(1)
 
     # when value goes down, it means it is currently at peak
-    peaks = df.query('%(t)s < %(pt)s' % dict(t=target_col, pt=previous_target_col)).index
+    peaks = df.query(f'{target_col} < {previous_target_col}').index
     # when value goes up, it means it is currently at trough
-    troughs = df.query('%(t)s > %(pt)s' % dict(t=target_col, pt=previous_target_col)).index
+    troughs = df.query(f'{target_col} > {previous_target_col}').index
   
     # set signal values
     df[result_col] = none_signal
@@ -742,8 +815,8 @@ def cal_peak_trough(df, target_col, height=None, threshold=None, distance=None, 
     if further_filter:
       
       # get all peak/trough signals
-      peak = df.query('%(r)s == "%(p)s"' % dict(r=result_col, p=peak_signal)).index.tolist()
-      trough = df.query('%(r)s == "%(t)s"' % dict(r=result_col, t=trough_signal)).index.tolist()
+      peak = df.query(f'{result_col}=="{peak_signal}"').index.tolist()
+      trough = df.query(f'{result_col}=="{trough_signal}"').index.tolist()
         
       # peak/trough that not qualified
       false_peak = []
@@ -755,7 +828,7 @@ def cal_peak_trough(df, target_col, height=None, threshold=None, distance=None, 
         benchmark = 0
       
         # the peak is not qualified if it is lower that the average of previous 2 troughs
-        previous_troughs = df[:current_idx].query('%(r)s == "%(t)s"' % dict(r=result_col, t=trough_signal)).tail(2)
+        previous_troughs = df[:current_idx].query(f'{result_col}=="{trough_signal}"').tail(2)
         if len(previous_troughs) > 0:
           benchmark = previous_troughs[target_col].mean()
         
@@ -768,7 +841,7 @@ def cal_peak_trough(df, target_col, height=None, threshold=None, distance=None, 
         benchmark = 0
 
         # the trough is not qualified if it is lower that the average of previous 2 peaks
-        previous_peaks = df[:current_idx].query('%(r)s == "%(p)s"' % dict(r=result_col, p=peak_signal)).tail(2)
+        previous_peaks = df[:current_idx].query(f'{result_col}=="{peak_signal}"').tail(2)
         if len(previous_peaks) > 0:
           benchmark = previous_peaks[target_col].mean()
       
@@ -808,27 +881,30 @@ def cal_moving_average(df, target_col, ma_windows=[50, 105], start=None, end=Non
 
   # calculate moving averages
   for mw in ma_windows:
-    ma_col = '%(target_col)s_ma_%(window_size)s' % dict(target_col=target_col, window_size=mw)
+    ma_col = f'{target_col}_ma_{mw}'
     df[ma_col] = mw_func(series=df[target_col], periods=mw).mean()
   
   return df
 
 # add candle stick features 
-def add_candlestick_features(df, close='Close', open='Open', high='High', low='Low', volume='Volume'):
+def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
   """
   Add candlestick dimentions for dataframe
 
   :param df: original OHLCV dataframe
-  :param close: column name of the close
-  :param open: column name of the open
-  :param high: column name of the high
-  :param low: column name of the low
-  :param volume: column name of the volume
+  :param ohlcv_col: column name of Open/High/Low/Close/Volume
   :returns: dataframe with candlestick columns
   :raises: none
   """
   # copy dataframe
   df = df.copy()
+
+  # set column names
+  open = ohlcv_col['open']
+  high = ohlcv_col['high']
+  low = ohlcv_col['low']
+  close = ohlcv_col['close']
+  volume = ohlcv_col['volume']
   
   # shadow
   df['shadow'] = (df[high] - df[low])    
@@ -861,17 +937,13 @@ def add_candlestick_features(df, close='Close', open='Open', high='High', low='L
 
 # ================================================ Trend indicators ================================================= #
 # ADX(Average Directional Index) 
-def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, adx_threshold=25):
+def add_adx_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True, adx_threshold=25):
   """
   Calculate ADX(Average Directional Index)
 
   :param df: original OHLCV dataframe
   :param n: look back window size
-  :param close: column name of the close
-  :param open: column name of the open
-  :param high: column name of the high
-  :param low: column name of the low
-  :param volume: column name of the volume
+  :param ohlcv_col: column name of Open/High/Low/Close/Volume
   :param fillna: whether to fill na with 0
   :param cal_signal: whether to calculate signal
   :param adx_threshold: the threshold to filter none-trending signals
@@ -880,6 +952,13 @@ def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low
   # copy dataframe
   df = df.copy()
   col_to_drop = []
+
+  # set column names
+  open = ohlcv_col['open']
+  high = ohlcv_col['high']
+  low = ohlcv_col['low']
+  close = ohlcv_col['close']
+  volume = ohlcv_col['volume']
 
   # calculate true range
   df = add_atr_features(df=df, n=n, cal_signal=False)
@@ -900,13 +979,14 @@ def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low
 
   # Average directional index
   df['adx'] = em(series=df['dx'], periods=n).mean()
+
   idx = df.index.tolist()
   for i in range(n*2, len(df)-1):
     current_idx = idx[i]
     previous_idx = idx[i-1]
     df.loc[current_idx, 'adx'] = (df.loc[previous_idx, 'adx'] * (n-1) + df.loc[current_idx, 'dx']) / n
 
-  # adx trend
+  # (pdi-mdi) / (adx/25)
   df['adx_diff'] = (df['pdi'] - df['mdi']) * (df['adx']/adx_threshold)
   df['adx_diff'] = (df['adx_diff'] - df['adx_diff'].mean()) / df['adx_diff'].std()
 
@@ -917,24 +997,21 @@ def add_adx_features(df, n=14, close='Close', open='Open', high='High', low='Low
 
   # calculate signals
   if cal_signal:
-    df['adx_signal'] = cal_crossover_signal(df=df, fast_line='adx_diff', slow_line='zero')
+    df['adx_signal'] = 'n'
+    df.loc[df['adx_diff'] > 0, 'adx_signal'] = 'b'
+    df.loc[df['adx_diff'] < 0, 'adx_signal'] = 's'    
 
   df.drop(['high_diff', 'low_diff', 'zero', 'pdm', 'mdm', 'atr'], axis=1, inplace=True)
-
   return df
 
 # Aroon
-def add_aroon_features(df, n=25, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, boundary=[50, 50]):
+def add_aroon_features(df, n=25, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True, boundary=[50, 50]):
   """
   Calculate Aroon
 
   :param df: original OHLCV dataframe
   :param n: look back window size
-  :param close: column name of the close
-  :param open: column name of the open
-  :param high: column name of the high
-  :param low: column name of the low
-  :param volume: column name of the volume
+  :param ohlcv_col: column name of Open/High/Low/Close/Volume
   :param fillna: whether to fill na with 0
   :param cal_signal: whether to calculate signal
   :param boundary: upper and lower boundary for calculating signal
@@ -942,6 +1019,13 @@ def add_aroon_features(df, n=25, close='Close', open='Open', high='High', low='L
   """
   # copy dataframe
   df = df.copy()
+
+  # set column names
+  open = ohlcv_col['open']
+  high = ohlcv_col['high']
+  low = ohlcv_col['low']
+  close = ohlcv_col['close']
+  volume = ohlcv_col['volume']
 
   # calculate aroon up and down indicators
   aroon_up = df[close].rolling(n, min_periods=0).apply(lambda x: float(np.argmax(x) + 1) / n * 100, raw=True)
@@ -961,8 +1045,8 @@ def add_aroon_features(df, n=25, close='Close', open='Open', high='High', low='L
   if cal_signal:
     upper_boundary = max(boundary)
     lower_boundary = min(boundary)
-    pos_idx = df.query('aroon_up > %(upper_boundary)s and aroon_down < %(lower_boundary)s' % dict(upper_boundary=upper_boundary, lower_boundary=lower_boundary)).index
-    neg_idx = df.query('aroon_up < %(upper_boundary)s and aroon_down > %(lower_boundary)s' % dict(upper_boundary=upper_boundary, lower_boundary=lower_boundary)).index
+    pos_idx = df.query(f'aroon_up > {upper_boundary} and aroon_down < {lower_boundary}').index
+    neg_idx = df.query(f'aroon_up < {upper_boundary} and aroon_down > {lower_boundary}').index
 
     df['aroon_signal'] = 'n'
     df.loc[pos_idx, 'aroon_signal'] = 'b'
@@ -971,18 +1055,14 @@ def add_aroon_features(df, n=25, close='Close', open='Open', high='High', low='L
   return df
 
 # CCI(Commidity Channel Indicator)
-def add_cci_features(df, n=20, c=0.015, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, boundary=[200, -200]):
+def add_cci_features(df, n=20, c=0.015, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True, boundary=[200, -200]):
   """
   Calculate CCI(Commidity Channel Indicator) 
 
   :param df: original OHLCV dataframe
   :param n: look back window size
   :param c: constant value used in cci calculation
-  :param close: column name of the close
-  :param open: column name of the open
-  :param high: column name of the high
-  :param low: column name of the low
-  :param volume: column name of the volume
+  :param ohlcv_col: column name of Open/High/Low/Close/Volume
   :param fillna: whether to fill na with 0
   :param cal_signal: whether to calculate signal
   :param boundary: upper and lower boundary for calculating signal
@@ -990,6 +1070,13 @@ def add_cci_features(df, n=20, c=0.015, close='Close', open='Open', high='High',
   """
   # copy dataframe
   df = df.copy()
+  
+  # set column names
+  open = ohlcv_col['open']
+  high = ohlcv_col['high']
+  low = ohlcv_col['low']
+  close = ohlcv_col['close']
+  volume = ohlcv_col['volume']
 
   # calculate cci
   pp = (df[high] + df[low] + df[close]) / 3.0
@@ -1008,23 +1095,26 @@ def add_cci_features(df, n=20, c=0.015, close='Close', open='Open', high='High',
   return df
 
 # DPO(Detrended Price Oscillator)
-def add_dpo_features(df, n=20, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+def add_dpo_features(df, n=20, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True):
   """
   Calculate DPO(Detrended Price Oscillator) 
 
   :param df: original OHLCV dataframe
   :param n: look back window size
-  :param close: column name of the close
-  :param open: column name of the open
-  :param high: column name of the high
-  :param low: column name of the low
-  :param volume: column name of the volume
+  :param ohlcv_col: column name of Open/High/Low/Close/Volume
   :param fillna: whether to fill na with 0
   :param cal_signal: whether to calculate signal
   :returns: dataframe with new features generated
   """
   # copy dataframe
   df = df.copy()
+  
+  # set column names
+  open = ohlcv_col['open']
+  high = ohlcv_col['high']
+  low = ohlcv_col['low']
+  close = ohlcv_col['close']
+  volume = ohlcv_col['volume']
 
   # calculate dpo
   dpo = df[close].shift(int((0.5 * n) + 1)) - df[close].rolling(n, min_periods=0).mean()
@@ -1043,7 +1133,7 @@ def add_dpo_features(df, n=20, close='Close', open='Open', high='High', low='Low
   return df
 
 # Ichimoku 
-def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is_shift=True, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_status=True, cal_signal=True, signal_threshold=0.01):
+def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is_shift=True, ohlcv_col=default_ohlcv_col, fillna=False, cal_status=True, cal_signal=True, signal_threshold=0.01):
   """
   Calculate Ichimoku indicators
 
@@ -1053,11 +1143,7 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
   :param n_long: long window size
   :param method: original/ta way to calculate ichimoku indicators
   :param is_shift: whether to shift senkou_a and senkou_b n_medium units
-  :param close: column name of the close
-  :param open: column name of the open
-  :param high: column name of the high
-  :param low: column name of the low
-  :param volume: column name of the volume
+  :param ohlcv_col: column name of Open/High/Low/Close/Volume
   :param fillna: whether to fill na with 0
   :param cal_signal: whether to calculate signal
   :returns: dataframe with new features generated
@@ -1066,18 +1152,25 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
   df = df.copy()
   col_to_drop = []
 
+  # set column names
+  open = ohlcv_col['open']
+  high = ohlcv_col['high']
+  low = ohlcv_col['low']
+  close = ohlcv_col['close']
+  volume = ohlcv_col['volume']
+
   # use original method to calculate ichimoku indicators
   if method == 'original':
     df = cal_moving_average(df=df, target_col=high, ma_windows=[n_short, n_medium, n_long], window_type='sm')
     df = cal_moving_average(df=df, target_col=low, ma_windows=[n_short, n_medium, n_long], window_type='sm')
 
     # generate column names
-    short_high = '%(col)s_ma_%(p)s' % dict(col=high, p=n_short)
-    short_low = '%(col)s_ma_%(p)s' % dict(col=low, p=n_short)
-    medium_high = '%(col)s_ma_%(p)s' % dict(col=high, p=n_medium)
-    medium_low = '%(col)s_ma_%(p)s' % dict(col=low, p=n_medium)
-    long_high = '%(col)s_ma_%(p)s' % dict(col=high, p=n_long)
-    long_low = '%(col)s_ma_%(p)s' % dict(col=low, p=n_long)
+    short_high = f'{high}_ma_{n_short}'
+    short_low = f'{low}_ma_{n_short}'
+    medium_high = f'{high}_ma_{n_medium}'
+    medium_low = f'{low}_ma_{n_medium}'
+    long_high = f'{high}_ma_{n_long}'
+    long_low = f'{low}_ma_{n_long}'
     col_to_drop += [short_high, medium_high, long_high, short_low, medium_low, long_low]
 
     # calculate ichimoku indicators
@@ -1102,7 +1195,6 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
 
   
   if cal_status:
-    
     # ================================ Cloud status ===================================
     # cloud color change, cloud height (how thick is the cloud)
     df['cloud_shift'] = cal_crossover_signal(df=df, fast_line='senkou_a', slow_line='senkou_b', pos_signal=1, neg_signal=-1, none_signal=0)
@@ -1153,8 +1245,8 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
       df[line_signal_name] = cal_crossover_signal(df=df, fast_line=close, slow_line=line, pos_signal=weight, neg_signal=-weight, none_signal=0)
       
       # record breakthrough
-      up_idx = df.query('%(name)s == %(value)s' % dict(name=line_signal_name, value=weight)).index
-      down_idx = df.query('%(name)s == %(value)s' % dict(name=line_signal_name, value=-weight)).index      
+      up_idx = df.query(f'{line_signal_name} == {weight}').index
+      down_idx = df.query(f'{line_signal_name} == {-weight}').index      
       df.loc[up_idx, 'break_up'] = df.loc[up_idx, 'break_up'] + line_name[line] + ','
       df.loc[down_idx, 'break_down'] = df.loc[down_idx, 'break_down'] + line_name[line] + ','
       
@@ -1173,20 +1265,16 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
       # initialize
       df['ichimoku_signal'] =  'n' 
 
-      # close go up through tankan more than 1%
-      up_tankan_idx = df.query('close_to_tankan >= {val}'.format(val=signal_threshold)).index
+      # close go up through tankan by more than 1%, and close is above tankan, tankan is above kijun
+      up_idx = df.query(f'close_to_tankan >= {signal_threshold} or close_to_kijun >= {signal_threshold}').index
 
-      # when tankan is below kijun, close go down through tankan more than 1% 
-      down_tankan_idx = df.query('close_to_tankan <= {val} and tankan < kijun'.format(val=-signal_threshold)).index
-
-      # close is below tankan, and go down through kijun more than 1%
-      down_kijun_idx = df.query('close_to_kijun <= {val} and close_to_tankan <= {val}'.format(val=-signal_threshold)).index
+      # close go down through tankan or kijun by more than 1%
+      down_idx = df.query(f'(close_to_tankan <= {-signal_threshold} and tankan<kijun) or (close_to_kijun <= {-signal_threshold} and tankan>kijun)').index
 
       # assign values, remove duplicated signals, keeps only the first one
-      df.loc[up_tankan_idx, 'ichimoku_signal'] = 'b'
-      df.loc[down_tankan_idx, 'ichimoku_signal'] = 's'
-      df.loc[down_kijun_idx, 'ichimoku_signal'] = 's'
-      df = remove_redundant_signal(df=df, signal_col='ichimoku_signal', keep='first')
+      
+      df.loc[down_idx, 'ichimoku_signal'] = 's'
+      df.loc[up_idx, 'ichimoku_signal'] = 'b'
 
     # drop redundant columns  
     df.drop(col_to_drop, axis=1, inplace=True)
@@ -1194,7 +1282,7 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
   return df
 
 # KST(Know Sure Thing)
-def add_kst_features(df, r1=10, r2=15, r3=20, r4=30, n1=10, n2=10, n3=10, n4=15, nsign=9, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, signal_mode='default'):
+def add_kst_features(df, r1=10, r2=15, r3=20, r4=30, n1=10, n2=10, n3=10, n4=15, nsign=9, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True):
   """
   Calculate KST(Know Sure Thing)
 
@@ -1208,11 +1296,7 @@ def add_kst_features(df, r1=10, r2=15, r3=20, r4=30, n1=10, n2=10, n3=10, n4=15,
   :param n_3: n3 window size
   :param n_4: n4 window size
   :param n_sign: kst signal window size
-  :param close: column name of the close
-  :param open: column name of the open
-  :param high: column name of the high
-  :param low: column name of the low
-  :param volume: column name of the volume
+  :param ohlcv_col: column name of Open/High/Low/Close/Volume
   :param fillna: whether to fill na with 0
   :param cal_signal: whether to calculate signal
   :returns: dataframe with new features generated
@@ -1220,6 +1304,13 @@ def add_kst_features(df, r1=10, r2=15, r3=20, r4=30, n1=10, n2=10, n3=10, n4=15,
   # copy dataframe
   df = df.copy()
   col_to_drop = []
+
+  # set column names
+  open = ohlcv_col['open']
+  high = ohlcv_col['high']
+  low = ohlcv_col['low']
+  close = ohlcv_col['close']
+  volume = ohlcv_col['volume']
 
   # calculate kst
   rocma1 = ((df[close] - df[close].shift(r1)) / df[close].shift(r1)).rolling(n1, min_periods=0).mean()
@@ -1243,15 +1334,14 @@ def add_kst_features(df, r1=10, r2=15, r3=20, r4=30, n1=10, n2=10, n3=10, n4=15,
 
   # calculate signal
   if cal_signal:
-    df['zero'] = 0
-    col_to_drop.append('zero')
-    df['kst_signal'] = cal_crossover_signal(df=df, fast_line='kst_diff', slow_line='zero')
+    df['kst_signal'] = 'n'
+    df.loc[df['kst_diff'] > 0, 'kst_signal'] = 'b'
+    df.loc[df['kst_diff'] < 0, 'kst_signal'] = 's'
 
-  df.drop('zero', axis=1, inplace=True)
   return df
 
 # MACD(Moving Average Convergence Divergence)
-def add_macd_features(df, n_fast=12, n_slow=26, n_sign=9, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+def add_macd_features(df, n_fast=12, n_slow=26, n_sign=9, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True):
   """
   Calculate MACD(Moving Average Convergence Divergence)
 
@@ -1259,17 +1349,20 @@ def add_macd_features(df, n_fast=12, n_slow=26, n_sign=9, close='Close', open='O
   :param n_fast: ma window of fast ma
   :param n_slow: ma window of slow ma
   :paran n_sign: ma window of macd signal line
-  :param close: column name of the close
-  :param open: column name of the open
-  :param high: column name of the high
-  :param low: column name of the low
-  :param volume: column name of the volume
+  :param ohlcv_col: column name of Open/High/Low/Close/Volume
   :param fillna: whether to fill na with 0
   :param cal_signal: whether to calculate signal
   :returns: dataframe with new features generated
   """
   # copy dataframe
   df = df.copy()
+  
+  # set column names
+  open = ohlcv_col['open']
+  high = ohlcv_col['high']
+  low = ohlcv_col['low']
+  close = ohlcv_col['close']
+  volume = ohlcv_col['volume']
 
   # calculate fast and slow ema of close price
   emafast = em(series=df[close], periods=n_fast, fillna=fillna).mean()
@@ -1300,24 +1393,27 @@ def add_macd_features(df, n_fast=12, n_slow=26, n_sign=9, close='Close', open='O
   return df
 
 # Mass Index
-def add_mi_features(df, n=9, n2=25, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+def add_mi_features(df, n=9, n2=25, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True):
   """
   Calculate Mass Index
 
   :param df: original OHLCV dataframe
   :param n: ema window of high-low difference
   :param n_2: window of cumsum of ema ratio
-  :param close: column name of the close
-  :param open: column name of the open
-  :param high: column name of the high
-  :param low: column name of the low
-  :param volume: column name of the volume
+  :param ohlcv_col: column name of Open/High/Low/Close/Volume
   :param fillna: whether to fill na with 0
   :param cal_signal: whether to calculate signal
   :returns: dataframe with new features generated
   """
   # copy dataframe
   df = df.copy()
+  
+  # set column names
+  open = ohlcv_col['open']
+  high = ohlcv_col['high']
+  low = ohlcv_col['low']
+  close = ohlcv_col['close']
+  volume = ohlcv_col['volume']
 
   amplitude = df[high] - df[low]
   ema1 = em(series=amplitude, periods=n, fillna=fillna).mean()
@@ -1350,24 +1446,27 @@ def add_mi_features(df, n=9, n2=25, close='Close', open='Open', high='High', low
   return df
 
 # TRIX
-def add_trix_features(df, n=15, n_sign=9, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, signal_mode='mix'):
+def add_trix_features(df, n=15, n_sign=9, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True, signal_mode='mix'):
   """
   Calculate TRIX
 
   :param df: original OHLCV dataframe
   :param n: ema window of close price
   :param n_sign: ema window of signal line (ema of trix)
-  :param close: column name of the close
-  :param open: column name of the open
-  :param high: column name of the high
-  :param low: column name of the low
-  :param volume: column name of the volume
+  :param ohlcv_col: column name of Open/High/Low/Close/Volume
   :param fillna: whether to fill na with 0
   :param cal_signal: whether to calculate signal
   :returns: dataframe with new features generated
   """
   # copy dataframe
   df = df.copy()
+  
+  # set column names
+  open = ohlcv_col['open']
+  high = ohlcv_col['high']
+  low = ohlcv_col['low']
+  close = ohlcv_col['close']
+  volume = ohlcv_col['volume']
 
   # calculate trix
   ema1 = em(series=df[close], periods=n, fillna=fillna).mean()
@@ -1416,23 +1515,26 @@ def add_trix_features(df, n=15, n_sign=9, close='Close', open='Open', high='High
   return df
 
 # Vortex
-def add_vortex_features(df, n=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+def add_vortex_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True):
   """
   Calculate Vortex indicator
 
   :param df: original OHLCV dataframe
   :param n: ema window of close price
-  :param close: column name of the close
-  :param open: column name of the open
-  :param high: column name of the high
-  :param low: column name of the low
-  :param volume: column name of the volume
+  :param ohlcv_col: column name of Open/High/Low/Close/Volume
   :param fillna: whether to fill na with 0
   :param cal_signal: whether to calculate signal
   :returns: dataframe with new features generated
   """
   # copy dataframe
   df = df.copy()
+  
+  # set column names
+  open = ohlcv_col['open']
+  high = ohlcv_col['high']
+  low = ohlcv_col['low']
+  close = ohlcv_col['close']
+  volume = ohlcv_col['volume']
 
   # calculate vortex
   tr = (df[high].combine(df[close].shift(1), max) - df[low].combine(df[close].shift(1), min))
@@ -1462,16 +1564,12 @@ def add_vortex_features(df, n=14, close='Close', open='Open', high='High', low='
 
 # ================================================ Volume indicators ================================================ #
 # Accumulation Distribution Index
-def add_adi_features(df, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+def add_adi_features(df, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True):
   """
   Calculate Accumulation Distribution Index
 
   :param df: original OHLCV dataframe
-  :param close: column name of the close
-  :param open: column name of the open
-  :param high: column name of the high
-  :param low: column name of the low
-  :param volume: column name of the volume
+  :param ohlcv_col: column name of Open/High/Low/Close/Volume
   :param fillna: whether to fill na with 0
   :param cal_signal: whether to calculate signal
   :returns: dataframe with new features generated
@@ -1479,6 +1577,13 @@ def add_adi_features(df, close='Close', open='Open', high='High', low='Low', vol
 
   # copy dataframe
   df = df.copy()
+
+  # set column names
+  open = ohlcv_col['open']
+  high = ohlcv_col['high']
+  low = ohlcv_col['low']
+  close = ohlcv_col['close']
+  volume = ohlcv_col['volume']
 
   # calculate ADI
   clv = ((df[close] - df[low]) - (df[high] - df[close])) / (df[high] - df[low])
@@ -1500,17 +1605,13 @@ def add_adi_features(df, close='Close', open='Open', high='High', low='Low', vol
   return df
 
 # *Chaikin Money Flow (CMF)
-def add_cmf_features(df, n=20, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+def add_cmf_features(df, n=20, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True):
   """
   Calculate Chaikin Money FLow
 
   :param df: original OHLCV dataframe
   :param n: ema window of close price
-  :param close: column name of the close
-  :param open: column name of the open
-  :param high: column name of the high
-  :param low: column name of the low
-  :param volume: column name of the volume
+  :param ohlcv_col: column name of Open/High/Low/Close/Volume
   :param fillna: whether to fill na with 0
   :param cal_signal: whether to calculate signal
   :returns: dataframe with new features generated
@@ -1518,6 +1619,13 @@ def add_cmf_features(df, n=20, close='Close', open='Open', high='High', low='Low
 
   # copy dataframe
   df = df.copy()
+
+  # set column names
+  open = ohlcv_col['open']
+  high = ohlcv_col['high']
+  low = ohlcv_col['low']
+  close = ohlcv_col['close']
+  volume = ohlcv_col['volume']
 
   # calculate cmf
   mfv = ((df[close] - df[low]) - (df[high] - df[close])) / (df[high] - df[low])
@@ -1534,22 +1642,18 @@ def add_cmf_features(df, n=20, close='Close', open='Open', high='High', low='Low
 
   # calculate signals
   if cal_signal:
-    df['cmf_signal'] = cal_boundary_signal(df=df, upper_col='cmf', lower_col='cmf', upper_boundary=0.05, lower_boundary=-0.05, result_col='signal', pos_signal='b', neg_signal='s', none_signal='n')
+    df['cmf_signal'] = cal_boundary_signal(df=df, upper_col='cmf', lower_col='cmf', upper_boundary=0.05, lower_boundary=-0.05)
 
   return df
 
 # Ease of movement (EoM, EMV)
-def add_eom_features(df, n=20, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+def add_eom_features(df, n=20, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True):
   """
   Calculate Vortex indicator
 
   :param df: original OHLCV dataframe
   :param n: ema window of close price
-  :param close: column name of the close
-  :param open: column name of the open
-  :param high: column name of the high
-  :param low: column name of the low
-  :param volume: column name of the volume
+  :param ohlcv_col: column name of Open/High/Low/Close/Volume
   :param fillna: whether to fill na with 0
   :param cal_signal: whether to calculate signal
   :returns: dataframe with new features generated
@@ -1558,6 +1662,13 @@ def add_eom_features(df, n=20, close='Close', open='Open', high='High', low='Low
   # copy dataframe
   df = df.copy()
   col_to_drop = []
+
+  # set column names
+  open = ohlcv_col['open']
+  high = ohlcv_col['high']
+  low = ohlcv_col['low']
+  close = ohlcv_col['close']
+  volume = ohlcv_col['volume']
 
   # calculate eom
   eom = (df[high].diff(periods=1) + df[low].diff(periods=1)) * (df[high] - df[low]) / (df[volume] * 2)
@@ -1575,28 +1686,22 @@ def add_eom_features(df, n=20, close='Close', open='Open', high='High', low='Low
   df['eom_diff'] = df['eom'] - df['eom_ma_14']
   df['eom_diff'] = (df['eom_diff'] - df['eom_diff'].mean()) / df['eom_diff'].std()
 
-
   # calculate signals
   if cal_signal:
-    df['zero'] = 0
-    col_to_drop.append('zero')
-    df['eom_signal'] = cal_crossover_signal(df=df, fast_line='eom_diff', slow_line='zero')
+    df['eom_signal'] = 'n'
+    df.loc[df['eom_diff'] > 0, 'eom_signal'] = 'b'
+    df.loc[df['eom_diff'] < 0, 'eom_signal'] = 's'
 
-  df.drop('zero', axis=1, inplace=True)
   return df
 
 # Force Index (FI)
-def add_fi_features(df, n1=2, n2=22, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+def add_fi_features(df, n1=2, n2=22, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True):
   """
   Calculate Force Index
 
   :param df: original OHLCV dataframe
   :param n: ema window of close price
-  :param close: column name of the close
-  :param open: column name of the open
-  :param high: column name of the high
-  :param low: column name of the low
-  :param volume: column name of the volume
+  :param ohlcv_col: column name of Open/High/Low/Close/Volume
   :param fillna: whether to fill na with 0
   :param cal_signal: whether to calculate signal
   :returns: dataframe with new features generated
@@ -1604,6 +1709,13 @@ def add_fi_features(df, n1=2, n2=22, close='Close', open='Open', high='High', lo
 
   # copy dataframe
   df = df.copy()
+
+  # set column names
+  open = ohlcv_col['open']
+  high = ohlcv_col['high']
+  low = ohlcv_col['low']
+  close = ohlcv_col['close']
+  volume = ohlcv_col['volume']
 
   # calculate fi
   fi = df[close].diff(n1) * df[volume]#.diff(n)
@@ -1624,23 +1736,26 @@ def add_fi_features(df, n1=2, n2=22, close='Close', open='Open', high='High', lo
   return df
 
 # *Negative Volume Index (NVI)
-def add_nvi_features(df, n=255, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+def add_nvi_features(df, n=255, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True):
   """
   Calculate Negative Volume Index (NVI)
 
   :param df: original OHLCV dataframe
   :param n: ema window of close price
-  :param close: column name of the close
-  :param open: column name of the open
-  :param high: column name of the high
-  :param low: column name of the low
-  :param volume: column name of the volume
+  :param ohlcv_col: column name of Open/High/Low/Close/Volume
   :param fillna: whether to fill na with 0
   :param cal_signal: whether to calculate signal
   :returns: dataframe with new features generated
   """
   # copy dataframe
   df = df.copy()
+
+  # set column names
+  open = ohlcv_col['open']
+  high = ohlcv_col['high']
+  low = ohlcv_col['low']
+  close = ohlcv_col['close']
+  volume = ohlcv_col['volume']
 
   # calculate nvi
   price_change = df[close].pct_change()*100
@@ -1670,22 +1785,25 @@ def add_nvi_features(df, n=255, close='Close', open='Open', high='High', low='Lo
   return df
 
 # *On-balance volume (OBV)
-def add_obv_features(df, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+def add_obv_features(df, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True):
   """
   Calculate Force Index
 
   :param df: original OHLCV dataframe
-  :param close: column name of the close
-  :param open: column name of the open
-  :param high: column name of the high
-  :param low: column name of the low
-  :param volume: column name of the volume
+  :param ohlcv_col: column name of Open/High/Low/Close/Volume
   :param fillna: whether to fill na with 0
   :param cal_signal: whether to calculate signal
   :returns: dataframe with new features generated
   """
   # copy dataframe
   df = df.copy()
+
+  # set column names
+  open = ohlcv_col['open']
+  high = ohlcv_col['high']
+  low = ohlcv_col['low']
+  close = ohlcv_col['close']
+  volume = ohlcv_col['volume']
 
   # calculate obv
   df['OBV'] = np.nan
@@ -1714,22 +1832,25 @@ def add_obv_features(df, close='Close', open='Open', high='High', low='Low', vol
   return df
 
 # *Volume-price trend (VPT)
-def add_vpt_features(df, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+def add_vpt_features(df, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True):
   """
   Calculate Vortex indicator
 
   :param df: original OHLCV dataframe
-  :param close: column name of the close
-  :param open: column name of the open
-  :param high: column name of the high
-  :param low: column name of the low
-  :param volume: column name of the volume
+  :param ohlcv_col: column name of Open/High/Low/Close/Volume
   :param fillna: whether to fill na with 0
   :param cal_signal: whether to calculate signal
   :returns: dataframe with new features generated
   """
   # copy dataframe
   df = df.copy()
+
+  # set column names
+  open = ohlcv_col['open']
+  high = ohlcv_col['high']
+  low = ohlcv_col['low']
+  close = ohlcv_col['close']
+  volume = ohlcv_col['volume']
 
   # calculate vpt
   df['close_change_rate'] = df[close].pct_change(periods=1)
@@ -1756,24 +1877,27 @@ def add_vpt_features(df, close='Close', open='Open', high='High', low='Low', vol
 
 # ================================================ Momentum indicators ============================================== #
 # Awesome Oscillator
-def add_ao_features(df, n_short=5, n_long=34, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+def add_ao_features(df, n_short=5, n_long=34, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True):
   """
   Calculate Awesome Oscillator
 
   :param df: original OHLCV dataframe
   :param n_short: short window size for calculating sma
   :param n_long: long window size for calculating sma
-  :param close: column name of the close
-  :param open: column name of the open
-  :param high: column name of the high
-  :param low: column name of the low
-  :param volume: column name of the volume
+  :param ohlcv_col: column name of Open/High/Low/Close/Volume
   :param fillna: whether to fill na with 0
   :param cal_signal: whether to calculate signal
   :returns: dataframe with new features generated
   """
   # copy dataframe
   df = df.copy()
+
+  # set column names
+  open = ohlcv_col['open']
+  high = ohlcv_col['high']
+  low = ohlcv_col['low']
+  close = ohlcv_col['close']
+  volume = ohlcv_col['volume']
 
   # calculate ao
   mp = 0.5 * (df[high] + df[low])
@@ -1797,7 +1921,7 @@ def add_ao_features(df, n_short=5, n_long=34, close='Close', open='Open', high='
   return df
 
 # Kaufman's Adaptive Moving Average (KAMA)
-def cal_kama(df, n1=10, n2=2, n3=30, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False):
+def cal_kama(df, n1=10, n2=2, n3=30, ohlcv_col=default_ohlcv_col, fillna=False):
   """
   Calculate Kaufman's Adaptive Moving Average
 
@@ -1805,16 +1929,19 @@ def cal_kama(df, n1=10, n2=2, n3=30, close='Close', open='Open', high='High', lo
   :param n1: number of periods for Efficiency Ratio(ER)
   :param n2: number of periods for the fastest EMA constant
   :param n3: number of periods for the slowest EMA constant
-  :param close: column name of the close
-  :param open: column name of the open
-  :param high: column name of the high
-  :param low: column name of the low
-  :param volume: column name of the volume
+  :param ohlcv_col: column name of Open/High/Low/Close/Volume
   :param fillna: whether to fill na with 0
   :returns: dataframe with new features generated
   """
   # copy dataframe
   df = df.copy()
+
+  # set column names
+  open = ohlcv_col['open']
+  high = ohlcv_col['high']
+  low = ohlcv_col['low']
+  close = ohlcv_col['close']
+  volume = ohlcv_col['volume']
 
   # calculate kama
   close_values = df[close].values
@@ -1852,23 +1979,26 @@ def cal_kama(df, n1=10, n2=2, n3=30, close='Close', open='Open', high='High', lo
   return df
 
 # Kaufman's Adaptive Moving Average (KAMA)
-def add_kama_features(df, n_param={'kama_fast': [10, 2, 30], 'kama_slow': [10, 5, 30]}, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, sensitive_mode=True):
+def add_kama_features(df, n_param={'kama_fast': [10, 2, 30], 'kama_slow': [10, 5, 30]}, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True, signal_threshold=0.01):
   """
   Calculate Kaufman's Adaptive Moving Average Signal
 
   :param df: original OHLCV dataframe
   :param n_param: series of n parameters fro calculating kama in different periods
-  :param close: column name of the close
-  :param open: column name of the open
-  :param high: column name of the high
-  :param low: column name of the low
-  :param volume: column name of the volume
+  :param ohlcv_col: column name of Open/High/Low/Close/Volume
   :param fillna: whether to fill na with 0
   :param cal_signal: whether to calculate signal
   :returns: dataframe with new features generated
   """
   # copy dataframe
   df = df.copy()
+
+  # set column names
+  open = ohlcv_col['open']
+  high = ohlcv_col['high']
+  low = ohlcv_col['low']
+  close = ohlcv_col['close']
+  volume = ohlcv_col['volume']
 
   # calculate fast and slow kama
   for k in n_param.keys():
@@ -1880,59 +2010,40 @@ def add_kama_features(df, n_param={'kama_fast': [10, 2, 30], 'kama_slow': [10, 5
       n1 = tmp_n[0]
       n2 = tmp_n[1]
       n3 = tmp_n[2]
-      df = cal_kama(df=df, n1=n1, n2=n2, n3=n3, close=close, open=open, high=high, low=low, volume=volume, fillna=fillna)
+      df = cal_kama(df=df, n1=n1, n2=n2, n3=n3, ohlcv_col=ohlcv_col)
       df.rename(columns={'kama': k}, inplace=True)
 
   # calculate distance between close price and indicator
   kama_lines = ['kama_fast', 'kama_slow'] 
   for line in kama_lines:
-    df['close_to_{line}'.format(line=line)] = round((df[close] - df[line]) / df[close], ndigits=3)
+    df[f'close_to_{line}'] = round((df[close] - df[line]) / df[close], ndigits=3)
 
   # calculate kama signals  
   if cal_signal:
     if set(['kama_fast', 'kama_slow']) < set(df.columns):
-      # add signals generated by close, kama_fast, kama_slow
-      df['kama_close_fast_signal'] = cal_crossover_signal(df=df, fast_line=close, slow_line='kama_fast', result_col='kama_close_fast_signal', pos_signal='b', neg_signal='s', none_signal='n')
-      df['kama_fast_slow_signal'] = cal_crossover_signal(df=df, fast_line='kama_fast', slow_line='kama_slow', result_col='kama_fast_slow_signal', pos_signal='b', neg_signal='s', none_signal='n')
-      buy_idx = df.query('kama_close_fast_signal=="b" or kama_fast_slow_signal=="b"').index
-      sell_idx = df.query('kama_close_fast_signal=="s" or kama_fast_slow_signal=="s"').index
-      df['kama_signal'] = 'n'   
-      df.loc[buy_idx, 'kama_signal'] = 'b'
-      df.loc[sell_idx, 'kama_signal'] = 's'
 
-      # calculate position of Close, corresponding to kama_fast and kama_slow
-      df['kama_position'] = ''
-      fast = 'kama_fast'
-      slow = 'kama_slow'
-      high_idx = df.query('{close} > {fast} > {slow}'.format(close=close, fast=fast, slow=slow)).index
-      mid_high_idx = df.query('{fast} > {close} > {slow}'.format(close=close, fast=fast, slow=slow)).index
-      mid_low_idx = df.query('{slow} > {close} > {fast}'.format(close=close, fast=fast, slow=slow)).index
-      low_idx = df.query('{slow} > {fast} > {close}'.format(close=close, fast=fast, slow=slow)).index
-      
-      df.loc[high_idx, 'kama_position'] = 'h'
-      df.loc[mid_high_idx, 'kama_position'] = 'mh'
-      df.loc[mid_low_idx, 'kama_position'] = 'ml'
-      df.loc[low_idx, 'kama_position'] = 'l'
-      
-    else:
       df['kama_signal'] = 'n'
-      df['kama_position'] = 'n'
-      print('please specify kama_fast and kama_slow parameters in n_param')
+
+      # close go up through tankan by more than 1%, and close is above tankan, tankan is above kijun
+      up_idx = df.query(f'(close_to_kama_fast >= {signal_threshold})').index
+
+      # close go down through tankan or kijun by more than 1%
+      down_idx = df.query(f'(close_to_kama_fast <= {-signal_threshold}) or (close_to_kama_slow <= {-signal_threshold}) and kama_fast>kama_slow').index
+
+      # assign values, remove duplicated signals, keeps only the first one
+      df.loc[up_idx, 'kama_signal'] = 'b'
+      df.loc[down_idx, 'kama_signal'] = 's'
 
   return df
 
 # Money Flow Index(MFI)
-def add_mfi_features(df, n=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, boundary=[20, 80]):
+def add_mfi_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True, boundary=[20, 80]):
   """
   Calculate Money Flow Index Signal
 
   :param df: original OHLCV dataframe
   :param n: ma window size
-  :param close: column name of the close
-  :param open: column name of the open
-  :param high: column name of the high
-  :param low: column name of the low
-  :param volume: column name of the volume
+  :param ohlcv_col: column name of Open/High/Low/Close/Volume
   :param fillna: whether to fill na with 0
   :param cal_signal: whether to calculate signal
   :param boundary: boundaries for overbuy/oversell
@@ -1940,6 +2051,13 @@ def add_mfi_features(df, n=14, close='Close', open='Open', high='High', low='Low
   """
   # copy dataframe
   df = df.copy()
+
+  # set column names
+  open = ohlcv_col['open']
+  high = ohlcv_col['high']
+  low = ohlcv_col['low']
+  close = ohlcv_col['close']
+  volume = ohlcv_col['volume']
 
   # calculate adi
   typical_price = (df[high] + df[low] + df[close])  / 3.0
@@ -1970,24 +2088,20 @@ def add_mfi_features(df, n=14, close='Close', open='Open', high='High', low='Low
 
   # calculate signals
   if cal_signal:
-    df['mfi_signal'] = cal_boundary_signal(df=df, upper_col='mfi', lower_col='mfi', upper_boundary=max(boundary), lower_boundary=min(boundary), result_col='signal', pos_signal='s', neg_signal='b', none_signal='n')
+    df['mfi_signal'] = cal_boundary_signal(df=df, upper_col='mfi', lower_col='mfi', upper_boundary=max(boundary), lower_boundary=min(boundary))
     df = remove_redundant_signal(df=df, signal_col='mfi_signal', pos_signal='s', neg_signal='b', none_signal='n', keep='first')
 
   df.drop('up_or_down', axis=1, inplace=True)
   return df
 
 # Relative Strength Index (RSI)
-def add_rsi_features(df, n=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, boundary=[30, 70]):
+def add_rsi_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True, boundary=[30, 70]):
   """
   Calculate Relative Strength Index
 
   :param df: original OHLCV dataframe
   :param n: ma window size
-  :param close: column name of the close
-  :param open: column name of the open
-  :param high: column name of the high
-  :param low: column name of the low
-  :param volume: column name of the volume
+  :param ohlcv_col: column name of Open/High/Low/Close/Volume
   :param fillna: whether to fill na with 0
   :param cal_signal: whether to calculate signal
   :param boundary: boundaries for overbuy/oversell
@@ -1995,6 +2109,13 @@ def add_rsi_features(df, n=14, close='Close', open='Open', high='High', low='Low
   """
   # copy dataframe
   df = df.copy()
+
+  # set column names
+  open = ohlcv_col['open']
+  high = ohlcv_col['high']
+  low = ohlcv_col['low']
+  close = ohlcv_col['close']
+  volume = ohlcv_col['volume']
 
   # calculate RSI
   diff = df[close].pct_change(1)
@@ -2019,24 +2140,20 @@ def add_rsi_features(df, n=14, close='Close', open='Open', high='High', low='Low
 
   # calculate signals
   if cal_signal:
-    df['rsi_signal'] = cal_boundary_signal(df=df, upper_col='rsi', lower_col='rsi', upper_boundary=max(boundary), lower_boundary=min(boundary), result_col='signal', pos_signal='s', neg_signal='b', none_signal='n')
+    df['rsi_signal'] = cal_boundary_signal(df=df, upper_col='rsi', lower_col='rsi', upper_boundary=max(boundary), lower_boundary=min(boundary))
     df = remove_redundant_signal(df=df, signal_col='rsi_signal', pos_signal='s', neg_signal='b', none_signal='n', keep='first')
 
   return df
 
 # Stochastic Oscillator
-def add_stoch_features(df, n=14, d_n=3, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, boundary=[20, 80]):
+def add_stoch_features(df, n=14, d_n=3, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True, boundary=[20, 80]):
   """
   Calculate Stochastic Oscillator
 
   :param df: original OHLCV dataframe
   :param n: ma window size
   :param d_n: ma window size for stoch
-  :param close: column name of the close
-  :param open: column name of the open
-  :param high: column name of the high
-  :param low: column name of the low
-  :param volume: column name of the volume
+  :param ohlcv_col: column name of Open/High/Low/Close/Volume
   :param fillna: whether to fill na with 0
   :param cal_signal: whether to calculate signal
   :param boundary: boundaries for overbuy/oversell
@@ -2044,6 +2161,13 @@ def add_stoch_features(df, n=14, d_n=3, close='Close', open='Open', high='High',
   """
   # copy dataframe
   df = df.copy()
+
+  # set column names
+  open = ohlcv_col['open']
+  high = ohlcv_col['high']
+  low = ohlcv_col['low']
+  close = ohlcv_col['close']
+  volume = ohlcv_col['volume']
 
   # calculate stochastic
   stoch_min = df[low].rolling(n, min_periods=0).min()
@@ -2069,24 +2193,27 @@ def add_stoch_features(df, n=14, d_n=3, close='Close', open='Open', high='High',
   return df
 
 # True strength index (TSI)
-def add_tsi_features(df, r=25, s=13, ema_period=7, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+def add_tsi_features(df, r=25, s=13, ema_period=7, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True):
   """
   Calculate True strength index
 
   :param df: original OHLCV dataframe
   :param r: ma window size for high
   :param s: ma window size for low
-  :param close: column name of the close
-  :param open: column name of the open
-  :param high: column name of the high
-  :param low: column name of the low
-  :param volume: column name of the volume
+  :param ohlcv_col: column name of Open/High/Low/Close/Volume
   :param fillna: whether to fill na with 0
   :param cal_signal: whether to calculate signal
   :returns: dataframe with new features generated
   """
   # copy dataframe
   df = df.copy()
+
+  # set column names
+  open = ohlcv_col['open']
+  high = ohlcv_col['high']
+  low = ohlcv_col['low']
+  close = ohlcv_col['close']
+  volume = ohlcv_col['volume']
 
   # calculate tsi
   m = df[close] - df[close].shift(1, fill_value=df[close].mean())
@@ -2113,7 +2240,7 @@ def add_tsi_features(df, r=25, s=13, ema_period=7, close='Close', open='Open', h
   return df
 
 # Ultimate Oscillator
-def add_uo_features(df, s=7, m=14, l=28, ws=4.0, wm=2.0, wl=1.0, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=False):
+def add_uo_features(df, s=7, m=14, l=28, ws=4.0, wm=2.0, wl=1.0, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=False):
   """
   Calculate Ultimate Oscillator
 
@@ -2124,17 +2251,20 @@ def add_uo_features(df, s=7, m=14, l=28, ws=4.0, wm=2.0, wl=1.0, close='Close', 
   :param ws: weight for short period
   :param wm: weight for medium period
   :param wl: weight for long period
-  :param close: column name of the close
-  :param open: column name of the open
-  :param high: column name of the high
-  :param low: column name of the low
-  :param volume: column name of the volume
+  :param ohlcv_col: column name of Open/High/Low/Close/Volume
   :param fillna: whether to fill na with 0
   :param cal_signal: whether to calculate signal
   :returns: dataframe with new features generated
   """
   # copy dataframe
   df = df.copy()
+
+  # set column names
+  open = ohlcv_col['open']
+  high = ohlcv_col['high']
+  low = ohlcv_col['low']
+  close = ohlcv_col['close']
+  volume = ohlcv_col['volume']
 
   # calculate uo
   min_l_or_pc = df[close].shift(1, fill_value=df[close].mean()).combine(df[low], min)
@@ -2163,23 +2293,26 @@ def add_uo_features(df, s=7, m=14, l=28, ws=4.0, wm=2.0, wl=1.0, close='Close', 
   return df
 
 # Williams %R
-def add_wr_features(df, lbp=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, boundary=[-20, -80]):
+def add_wr_features(df, lbp=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True, boundary=[-20, -80]):
   """
   Calculate Williams %R
 
   :param df: original OHLCV dataframe
   :param lbp: look back period
-  :param close: column name of the close
-  :param open: column name of the open
-  :param high: column name of the high
-  :param low: column name of the low
-  :param volume: column name of the volume
+  :param ohlcv_col: column name of Open/High/Low/Close/Volume
   :param fillna: whether to fill na with 0
   :param cal_signal: whether to calculate signal
   :returns: dataframe with new features generated
   """
   # copy dataframe
   df = df.copy()
+
+  # set column names
+  open = ohlcv_col['open']
+  high = ohlcv_col['high']
+  low = ohlcv_col['low']
+  close = ohlcv_col['close']
+  volume = ohlcv_col['volume']
 
   # calculate wr
   hh = df[high].rolling(lbp, min_periods=0).max()
@@ -2196,7 +2329,7 @@ def add_wr_features(df, lbp=14, close='Close', open='Open', high='High', low='Lo
 
   # calulate signal
   if cal_signal:
-    df['wr_signal'] = cal_boundary_signal(df=df, upper_col='wr', lower_col='wr', upper_boundary=max(boundary), lower_boundary=min(boundary), result_col='signal', pos_signal='s', neg_signal='b', none_signal='n')
+    df['wr_signal'] = cal_boundary_signal(df=df, upper_col='wr', lower_col='wr', upper_boundary=max(boundary), lower_boundary=min(boundary))
 
   return df
 
@@ -2204,23 +2337,26 @@ def add_wr_features(df, lbp=14, close='Close', open='Open', high='High', low='Lo
 
 # ================================================ Volatility indicators ============================================ #
 # Average True Range
-def add_atr_features(df, n=14, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+def add_atr_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True):
   """
   Calculate Average True Range
 
   :param df: original OHLCV dataframe
   :param n: ema window
-  :param close: column name of the close
-  :param open: column name of the open
-  :param high: column name of the high
-  :param low: column name of the low
-  :param volume: column name of the volume
+  :param ohlcv_col: column name of Open/High/Low/Close/Volume
   :param fillna: whether to fill na with 0
   :param cal_signal: whether to calculate signal
   :returns: dataframe with new features generated
   """
   # copy dataframe
   df = df.copy()
+
+  # set column names
+  open = ohlcv_col['open']
+  high = ohlcv_col['high']
+  low = ohlcv_col['low']
+  close = ohlcv_col['close']
+  volume = ohlcv_col['volume']
 
   # calculate true range
   df['h_l'] = df[low] - df[low]
@@ -2250,17 +2386,13 @@ def add_atr_features(df, n=14, close='Close', open='Open', high='High', low='Low
   return df
 
 # Mean Reversion
-def add_mean_reversion_features(df, n=100, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True, mr_threshold=2):
+def add_mean_reversion_features(df, n=100, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True, mr_threshold=2):
   """
   Calculate Mean Reversion
 
   :param df: original OHLCV dataframe
   :param n: look back window size
-  :param close: column name of the close
-  :param open: column name of the open
-  :param high: column name of the high
-  :param low: column name of the low
-  :param volume: column name of the volume
+  :param ohlcv_col: column name of Open/High/Low/Close/Volume
   :param fillna: whether to fill na with 0
   :param cal_signal: whether to calculate signal
   :param mr_threshold: the threshold to triger signal
@@ -2268,6 +2400,13 @@ def add_mean_reversion_features(df, n=100, close='Close', open='Open', high='Hig
   """
   # copy dataframe
   df = df.copy()
+
+  # set column names
+  open = ohlcv_col['open']
+  high = ohlcv_col['high']
+  low = ohlcv_col['low']
+  close = ohlcv_col['close']
+  volume = ohlcv_col['volume']
 
   # calculate change rate of close price
   df = cal_change_rate(df=df, target_col=close, periods=1, add_accumulation=True)
@@ -2297,7 +2436,7 @@ def add_mean_reversion_features(df, n=100, close='Close', open='Open', high='Hig
   down_price = round((1+down) * last_close, ndigits=2)
   up = round(up * 100, ndigits=0) 
   down = round(down * 100, ndigits=0) 
-  df['mr_price'] = '%(up_price)s(%(up)s%%), %(down_price)s(%(down)s%%)' % dict(up_price=up_price, up=up, down_price=down_price, down=down)
+  df['mr_price'] = f'{up_price}({up}%%),{down_price}({down}%%)'
 
   # calculate mr signal
   if cal_signal:
@@ -2331,24 +2470,27 @@ def cal_mean_reversion_expected_rate(df, rate_col, n=100, mr_threshold=2):
   return result
 
 # Bollinger Band
-def add_bb_features(df, n=20, ndev=2, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+def add_bb_features(df, n=20, ndev=2, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True):
   """
   Calculate Bollinger Band
 
   :param df: original OHLCV dataframe
   :param n: look back window size
   :param ndev: standard deviation factor
-  :param close: column name of the close
-  :param open: column name of the open
-  :param high: column name of the high
-  :param low: column name of the low
-  :param volume: column name of the volume
+  :param ohlcv_col: column name of Open/High/Low/Close/Volume
   :param fillna: whether to fill na with 0
   :param cal_signal: whether to calculate signal
   :returns: dataframe with new features generated
   """
   # copy dataframe
   df = df.copy()
+
+  # set column names
+  open = ohlcv_col['open']
+  high = ohlcv_col['high']
+  low = ohlcv_col['low']
+  close = ohlcv_col['close']
+  volume = ohlcv_col['volume']
 
   # calculate bollinger band 
   mavg = sm(series=df[close], periods=n).mean()
@@ -2371,31 +2513,34 @@ def add_bb_features(df, n=20, ndev=2, close='Close', open='Open', high='High', l
 
   if cal_signal:
     df['bb_signal'] = 'n'
-    buy_idx = df.query('%(column)s < bb_low_band' % dict(column=close)).index
-    sell_idx = df.query('%(column)s > bb_high_band' % dict(column=close)).index
+    buy_idx = df.query(f'{close} < bb_low_band').index
+    sell_idx = df.query(f'{close} > bb_high_band').index
     df.loc[buy_idx, 'bb_signal'] = 'b'
     df.loc[sell_idx, 'bb_signal'] = 's'
 
   return df
 
 # Donchian Channel
-def add_dc_features(df, n=20, close='Close', open='Open', high='High', low='Low', volume='Volume', fillna=False, cal_signal=True):
+def add_dc_features(df, n=20, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True):
   """
   Calculate Donchian Channel
 
   :param df: original OHLCV dataframe
   :param n: look back window size
-  :param close: column name of the close
-  :param open: column name of the open
-  :param high: column name of the high
-  :param low: column name of the low
-  :param volume: column name of the volume
+  :param ohlcv_col: column name of Open/High/Low/Close/Volume
   :param fillna: whether to fill na with 0
   :param cal_signal: whether to calculate signal
   :returns: dataframe with new features generated
   """
   # copy dataframe
   df = df.copy()
+
+  # set column names
+  open = ohlcv_col['open']
+  high = ohlcv_col['high']
+  low = ohlcv_col['low']
+  close = ohlcv_col['close']
+  volume = ohlcv_col['volume']
 
   # calculate dochian channel
   high_band = df[close].rolling(n, min_periods=0).max()
@@ -2416,25 +2561,21 @@ def add_dc_features(df, n=20, close='Close', open='Open', high='High', low='Low'
   # calculate signals
   if cal_signal:
     df['dc_signal'] = 'n'
-    buy_idx = df.query('%(column)s <= dc_low_band' % dict(column=close)).index
-    sell_idx = df.query('%(column)s >= dc_high_band' % dict(column=close)).index
+    buy_idx = df.query(f'{close} <= dc_low_band').index
+    sell_idx = df.query(f'{close} >= dc_high_band').index
     df.loc[buy_idx, 'dc_signal'] = 'b'
     df.loc[sell_idx, 'dc_signal'] = 's'
 
   return df
 
 # Keltner channel (KC)
-def add_kc_features(df, n=10, close='Close', open='Open', high='High', low='Low', volume='Volume', method='atr', fillna=False, cal_signal=True):
+def add_kc_features(df, n=10, ohlcv_col=default_ohlcv_col, method='atr', fillna=False, cal_signal=True):
   """
   Calculate Keltner channel (KC)
 
   :param df: original OHLCV dataframe
   :param n: look back window size
-  :param close: column name of the close
-  :param open: column name of the open
-  :param high: column name of the high
-  :param low: column name of the low
-  :param volume: column name of the volume
+  :param ohlcv_col: column name of Open/High/Low/Close/Volume
   :param method: 'atr' or 'ta'
   :param fillna: whether to fill na with 0
   :param cal_signal: whether to calculate signal
@@ -2442,6 +2583,13 @@ def add_kc_features(df, n=10, close='Close', open='Open', high='High', low='Low'
   """
   # copy dataframe
   df = df.copy()
+
+  # set column names
+  open = ohlcv_col['open']
+  high = ohlcv_col['high']
+  low = ohlcv_col['low']
+  close = ohlcv_col['close']
+  volume = ohlcv_col['volume']
 
   # calculate keltner channel
   typical_price = (df[high] +  df[low] + df[close]) / 3.0
@@ -2473,8 +2621,8 @@ def add_kc_features(df, n=10, close='Close', open='Open', high='High', low='Low'
   # calculate signals
   if cal_signal:
     df['kc_signal'] = 'n'
-    buy_idx = df.query('%(column)s < kc_low_band' % dict(column=close)).index
-    sell_idx = df.query('%(column)s > kc_high_band' % dict(column=close)).index
+    buy_idx = df.query(f'{close} < kc_low_band').index
+    sell_idx = df.query(f'{close} > kc_high_band').index
     df.loc[buy_idx, 'kc_signal'] = 'b'
     df.loc[sell_idx, 'kc_signal'] = 's'
 
@@ -2484,7 +2632,7 @@ def add_kc_features(df, n=10, close='Close', open='Open', high='High', low='Low'
 
 # ================================================ Indicator visualization  ========================================= #
 # plot signals on price line
-def plot_signal(df, start=None, end=None, price_col='Close', signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', use_ax=None, figsize=(20, 5), title=None, title_rotation='vertical', title_x=-0.05, title_y=0.3):
+def plot_signal(df, start=None, end=None, price_col='Close', signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', plot_on_price=True, use_ax=None, figsize=(20, 5), title=None, title_rotation='vertical', title_x=-0.05, title_y=0.3):
   """
   Plot signals along with the price
 
@@ -2496,6 +2644,7 @@ def plot_signal(df, start=None, end=None, price_col='Close', signal_col='signal'
   :param pos_signal: the value of positive signal
   :param neg_siganl: the value of negative signal
   :param none_signal: the value of none signal
+  :param plot_on_price: whether plot signal on price line
   :param use_ax: the already-created ax to draw on
   :param figsize: figsize
   :param title: plot title
@@ -2506,7 +2655,7 @@ def plot_signal(df, start=None, end=None, price_col='Close', signal_col='signal'
   :raises: none
   """
   # copy dataframe within the specific period
-  df = df[start:end]
+  df = df[start:end].copy()
 
   # create figure
   ax = use_ax
@@ -2514,20 +2663,24 @@ def plot_signal(df, start=None, end=None, price_col='Close', signal_col='signal'
     plt.figure(figsize=figsize)
     ax = plt.gca()
 
-  # plot price and signal
-  try:
-    ax.plot(df.index, df[price_col], color='black', label=price_col, alpha=0.5)
+  # plot price
+  if not plot_on_price:
+    df['signal_base'] = df[price_col].min() - 1
+    alpha = 0.1
+    label = None
+  else:
+    df['signal_base'] = df[price_col]
+    alpha = 0.1
+    label = price_col
+  ax.plot(df.index, df['signal_base'], color='black', label=label, alpha=alpha)
 
-    # plot signals
-    if signal_col in df.columns:
-      positive_signal = df.query('%(signal)s == "%(pos_signal)s"' % dict(signal=signal_col, pos_signal=pos_signal))
-      negative_signal = df.query('%(signal)s == "%(neg_signal)s"' % dict(signal=signal_col, neg_signal=neg_signal))
-      ax.scatter(positive_signal.index, positive_signal[price_col], label='%s' % pos_signal, marker='^', color='green')
-      ax.scatter(negative_signal.index, negative_signal[price_col], label='%s' % neg_signal, marker='v', color='red')
+  # plot signals
+  if signal_col in df.columns:
+    positive_signal = df.query(f'{signal_col} == "{pos_signal}"')
+    negative_signal = df.query(f'{signal_col} == "{neg_signal}"')
+    ax.scatter(positive_signal.index, positive_signal['signal_base'], label=None, marker='^', color='green')
+    ax.scatter(negative_signal.index, negative_signal['signal_base'], label=None, marker='v', color='red')
   
-  except Exception as e:
-    print(e)
-
   # legend and title
   ax.legend(loc='upper left')  
   ax.set_title(title, rotation=title_rotation, x=title_x, y=title_y)
@@ -2536,87 +2689,8 @@ def plot_signal(df, start=None, end=None, price_col='Close', signal_col='signal'
   if use_ax is not None:
     return ax
 
-# plot peack and trough on price line
-def plot_peak_trough(df, start=None, end=None, price_col='Close', high_col='High', low_col='Low', signal_col='signal', pos_signal='p', neg_signal='t', none_signal='n', trend_window=4, use_ax=None, figsize=(20, 5), title=None, title_rotation='vertical', title_x=-0.05, title_y=0.3):
-  """
-  Plot peaks and throughs
-
-  :param df: dataframe with price and signal columns
-  :param start: start row to plot
-  :param end: end row to stop
-  :param price_col: columnname of the price values
-  :param high_col: columnname of high vlaues
-  :param low_col: columnname of low values
-  :param signal_col: columnname of the signal values
-  :param pos_signal: the value of positive signal
-  :param neg_siganl: the value of negative signal
-  :param none_signal: the value of none signal
-  :param use_ax: the already-created ax to draw on
-  :param figsize: figsize
-  :param title: plot title
-  :param title_rotation: 'vertical' or 'horizontal'
-  :param title_x: title position x
-  :param title_y: title position y
-  :returns: a signal plotted price chart
-  :raises: none
-  """
-  # copy dataframe within the specific period
-  df = df[start:end]
-
-  # create figure
-  ax = use_ax
-  if ax is None:
-    plt.figure(figsize=figsize)
-    ax = plt.gca()
-
-  # get peaks and troughs
-  peaks = df.query('%(column)s == "%(value)s"' % dict(column=signal_col, value=pos_signal)).copy()
-  troughs = df.query('%(column)s == "%(value)s"' % dict(column=signal_col, value=neg_signal)).copy()
-
-  # plot high-low range
-  ax.fill_between(df.index, df[high_col], df[low_col], facecolor='blue', interpolate=True, alpha=0.2)
-
-  # plot price
-  ax.plot(df.index, df[price_col], label=price_col, color='black', alpha= 0.5)
-  
-  # plot peak and through
-  ax.scatter(peaks.index, peaks[price_col], label='peak', color='green', marker='^', alpha= 0.8)
-  ax.scatter(troughs.index, troughs[price_col], label='trough',color='red', marker='v', alpha=0.8)
-
-  # plot trend
-  if trend_window is not None and trend_window > 0:
-
-    # calculate slope and intercept for peaks and troughs by linear regression 
-    peaks['date'] = peaks.index.astype(str)
-    peaks['date_prev'] = peaks['date'].shift(1)
-    last_peak = peaks.tail(trend_window).copy()
-    last_peak['date_diff'] = last_peak.apply(lambda row: util.num_days_between(row['date_prev'], row['date']), axis=1)
-    last_peak['x'] = last_peak['date_diff'].cumsum()
-
-    troughs['date'] = troughs.index.astype(str)
-    troughs['date_prev'] = troughs['date'].shift(1)
-    last_trough = troughs.tail(trend_window).copy()
-    last_trough['date_diff'] = last_trough.apply(lambda row: util.num_days_between(row['date_prev'], row['date']), axis=1)
-    last_trough['x'] = last_trough['date_diff'].cumsum()
-
-    peak_lr = linregress(last_peak['x'], last_peak[price_col])
-    trough_lr = linregress(last_trough['x'], last_trough[price_col])
-
-    last_peak['y'] = last_peak['x'] * peak_lr[0] + peak_lr[1]
-    last_trough['y'] = last_trough['x'] * trough_lr[0] + trough_lr[1]
-
-    ax.plot(last_peak.index, last_peak['y'], label='peak_trend', color='green', linestyle='--', alpha= 0.8)
-    ax.plot(last_trough.index, last_trough['y'], label='trough_trend', color='red', linestyle='--', alpha=0.8)
-
-  # legend and title
-  ax.set_title(title, rotation=title_rotation, x=title_x, y=title_y)
-  ax.legend(loc='upper left')  
-  
-  if use_ax is not None:
-    return ax
-
 # plot ichimoku chart
-def plot_ichimoku(df, start=None, end=None, price_col='Close', signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', use_ax=None, figsize=(20, 5), title=None, title_rotation='vertical', title_x=-0.05, title_y=0.3):
+def plot_ichimoku(df, start=None, end=None, price_col='Close', signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', plot_signal_on_price=None, use_ax=None, figsize=(20, 5), title=None, title_rotation='vertical', title_x=-0.05, title_y=0.3):
   """
   Plot ichimoku chart
 
@@ -2628,6 +2702,7 @@ def plot_ichimoku(df, start=None, end=None, price_col='Close', signal_col='signa
   :param pos_signal: the value of positive signal
   :param neg_siganl: the value of negative signal
   :param none_signal: the value of none signal
+  :param plot_signal_on_price: if not None, plot signal on (true) or under (false) price line 
   :param use_ax: the already-created ax to draw on
   :param figsize: figsize
   :param title: plot title
@@ -2659,8 +2734,13 @@ def plot_ichimoku(df, start=None, end=None, price_col='Close', signal_col='signa
   ax.plot(df.index, df.kijun, label='kijun', color='blue', linestyle='--')
 
   # plot price and signal
-  ax = plot_signal(df, price_col=price_col, signal_col=signal_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, use_ax=ax)
-
+  if plot_signal_on_price is not None:
+    ax = plot_signal(
+      df, price_col=price_col, signal_col=signal_col, 
+      pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, plot_on_price=plot_signal_on_price, use_ax=ax)
+    
+  if plot_signal_on_price is None or not plot_signal_on_price:
+    ax.plot(df.index, df[price_col], label=price_col, color='black', alpha=0.5)
 
   # title and legend
   ax.legend(bbox_to_anchor=(1.02, 0.), loc=3, ncol=1, borderaxespad=0.) 
@@ -2669,8 +2749,79 @@ def plot_ichimoku(df, start=None, end=None, price_col='Close', signal_col='signa
   if use_ax is not None:
     return ax
 
+# plot candlestick charts
+def plot_candlestick(df, start=None, end=None, price_col='Close', signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n',  plot_signal_on_price=None, ohlcv_col=default_ohlcv_col, date_col='Date', plot_kama=True, use_ax=None, figsize=(20, 5), title=None, width=0.8, colorup='green', colordown='red', alpha=0.8, title_rotation='vertical', title_x=-0.05, title_y=0.8):
+  """
+  Plot candlestick data
+  :param df: dataframe with ichimoku and mean reversion columns
+  :param start: start of the data
+  :param end: end of the data
+  :param price_col: columnname of the price
+  :param signal_col: columnname of signal values
+  :param pos_signal: the value of positive signal
+  :param neg_siganl: the value of negative signal
+  :param none_signal: the value of none signal
+  :param plot_signal_on_price: if not None, plot signal on (true) or under (false) price line 
+  :param ohlcv_col: column name of Open/High/Low/Close/Volume
+  :param date_col: column name for date values
+  :param plot_kama: whether to plot kama with candlesticks
+  :param use_ax: the already-created ax to draw on
+  :param figsize: figure size
+  :param title: title of the figure
+  :param width: width of each candlestick
+  :param colorup: color for candlesticks which open > close
+  :param colordown: color for candlesticks which open < close
+  :param alpha: alpha for charts
+  :param title_rotation: 'vertical' or 'horizontal'
+  :param title_x: title position x
+  :param title_y: title position y
+  :returns: plot
+  :raises: none
+  """
+  # select plot data
+  df = df[start:end].copy()
+
+  # set column names
+  open = ohlcv_col['open']
+  high = ohlcv_col['high']
+  low = ohlcv_col['low']
+  close = ohlcv_col['close']
+  volume = ohlcv_col['volume']
+
+  # create figure
+  ax = use_ax
+  if ax is None:
+    plt.figure(figsize=figsize)
+    ax = plt.gca()
+
+  # plot_kama
+  if set(['kama_fast', 'kama_slow']) < set(df.columns) and plot_kama:
+    for k in ['kama_fast', 'kama_slow']:
+      ax.plot(df.index, df[k], label=k, alpha=alpha)
+
+  # plot signal and price
+  if plot_signal_on_price is not None:
+    if signal_col in df.columns:
+      ax = plot_signal(df, price_col=price_col, signal_col=signal_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, plot_on_price=plot_signal_on_price, use_ax=ax)
+
+  # transform date to numbers
+  df.reset_index(inplace=True)
+  df[date_col] = df[date_col].apply(mdates.date2num)
+  plot_data = df[[date_col, open, high, low, close]]
+  
+  # plot candlesticks
+  candlestick_ohlc(ax=ax, quotes=plot_data.values, width=width, colorup=colorup, colordown=colordown, alpha=alpha)
+  ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+
+  # legend and title
+  ax.legend(bbox_to_anchor=(1.02, 0.), loc=3, ncol=1, borderaxespad=0.)
+  ax.set_title(title, rotation=title_rotation, x=title_x, y=title_y)
+
+  if use_ax is not None:
+    return ax
+
 # plot general ta indicators
-def plot_indicator(df, target_col, start=None, end=None, price_col='Close', signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', benchmark=None, boundary=None, color_mode=None, use_ax=None, figsize=(20, 5),  title=None, plot_price_in_twin_ax=False, title_rotation='vertical', title_x=-0.05, title_y=0.3):
+def plot_indicator(df, target_col, start=None, end=None, price_col='Close', signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', plot_signal_on_price=None, benchmark=None, boundary=None, color_mode=None, use_ax=None, figsize=(20, 5),  title=None, plot_price_in_twin_ax=False, title_rotation='vertical', title_x=-0.05, title_y=0.3):
   """
   Plot indicators around a benchmark
 
@@ -2684,11 +2835,11 @@ def plot_indicator(df, target_col, start=None, end=None, price_col='Close', sign
   :param pos_signal: the value of positive signal
   :param neg_siganl: the value of negative signal
   :param none_signal: the value of none signal
+  :param plot_signal_on_price: if not None, plot signal on (true) or under (false) price line 
   :param benchmark: benchmark, a fixed value
   :param boundary: upper/lower boundaries, a list of fixed values
   :param color_mode: which color mode to use: benckmark/up_down
   :param use_ax: the already-created ax to draw on
-  
   :param title: title of the plot
   :param plot_price_in_twin_ax: whether plot price and signal in a same ax or in a twin ax
   :param title_rotation: 'vertical' or 'horizontal'
@@ -2755,67 +2906,15 @@ def plot_indicator(df, target_col, start=None, end=None, price_col='Close', sign
     else:
       plot_signal(df, price_col=price_col, signal_col=signal_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, use_ax=ax)
 
+  # plot price and signal
+  if plot_signal_on_price is not None:
+    ax = plot_signal(df, price_col=price_col, signal_col=signal_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, plot_on_price=plot_signal_on_price, use_ax=ax)
+
   # plot title and legend
   ax.legend(bbox_to_anchor=(1.02, 0.), loc=3, ncol=1, borderaxespad=0.) 
   ax.set_title(title, rotation=title_rotation, x=title_x, y=title_y)
 
   # return ax
-  if use_ax is not None:
-    return ax
-
-# plot candlestick charts
-def plot_candlestick(df, start=None, end=None, open_col='Open', high_col='High', low_col='Low', close_col='Close', date_col='Date', plot_kama=True, use_ax=None, figsize=(20, 5), title=None, width=0.8, colorup='green', colordown='red', alpha=0.8, title_rotation='vertical', title_x=-0.05, title_y=0.8):
-  """
-  Plot candlestick data
-  :param df: dataframe with ichimoku and mean reversion columns
-  :param start: start of the data
-  :param end: end of the data
-  :param open_col: column name for open values
-  :param high_col: column name for high values
-  :param low_col: column name for low values
-  :param close_col: column name for close values
-  :param date_col: column name for date values
-  :param plot_kama: whether to plot kama with candlesticks
-  :param use_ax: the already-created ax to draw on
-  :param figsize: figure size
-  :param title: title of the figure
-  :param width: width of each candlestick
-  :param colorup: color for candlesticks which open > close
-  :param colordown: color for candlesticks which open < close
-  :param alpha: alpha for charts
-  :param title_rotation: 'vertical' or 'horizontal'
-  :param title_x: title position x
-  :param title_y: title position y
-  :returns: plot
-  :raises: none
-  """
-  # select plot data
-  df = df[start:end].copy()
-
-  # create figure
-  ax = use_ax
-  if ax is None:
-    plt.figure(figsize=figsize)
-    ax = plt.gca()
-
-  # plot_kama
-  if set(['kama_fast', 'kama_slow']) < set(df.columns) and plot_kama:
-    for k in ['kama_fast', 'kama_slow']:
-      ax.plot(df.index, df[k], label=k, alpha=alpha)
-
-  # transform date to numbers
-  df.reset_index(inplace=True)
-  df[date_col] = df[date_col].apply(mdates.date2num)
-  plot_data = df[[date_col, open_col, high_col, low_col, close_col]]
-  
-  # plot candlesticks
-  candlestick_ohlc(ax=ax, quotes=plot_data.values, width=width, colorup=colorup, colordown=colordown, alpha=alpha)
-  ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
-
-  # legend and title
-  ax.legend(bbox_to_anchor=(1.02, 0.), loc=3, ncol=1, borderaxespad=0.)
-  ax.set_title(title, rotation=title_rotation, x=title_x, y=title_y)
-
   if use_ax is not None:
     return ax
 
@@ -2877,53 +2976,64 @@ def plot_multiple_indicators(df, args={'plot_ratio': {'ichimoku':1.5, 'mean_reve
     benchmark = tmp_args.get('benchmark')
     boundary = tmp_args.get('boundary')
     color_mode = tmp_args.get('color_mode')
+    plot_signal_on_price = tmp_args.get('plot_signal_on_price')
     plot_price_in_twin_ax = tmp_args.get('plot_price_in_twin_ax')
-    if plot_price_in_twin_ax is None:
-      plot_price_in_twin_ax = False
+    plot_price_in_twin_ax = plot_price_in_twin_ax if plot_price_in_twin_ax is not None else False
     
     # plot ichimoku
     if tmp_indicator == 'ichimoku':
-      plot_ichimoku(df=plot_data, signal_col=signal_col, title=tmp_indicator, use_ax=axes[tmp_indicator], title_rotation=subtitle_rotation, title_x=subtitle_x, title_y=subtitle_y)
-
-    # plot peak and trough with bollinger band
-    elif tmp_indicator == 'peak_trough':
-      plot_peak_trough(df=plot_data, signal_col=signal_col, title=tmp_indicator, use_ax=axes[tmp_indicator], title_rotation=subtitle_rotation, title_x=subtitle_x, title_y=subtitle_y)
-
-      add_bbl = tmp_args.get('add_bbl')
-      if add_bbl is not None:
-        plot_indicator(df=plot_data, target_col=['mavg', 'bb_high_band', 'bb_low_band'], color_mode=None, price_col=None, signal_col=None, use_ax=axes[tmp_indicator], title=tmp_indicator, title_rotation=subtitle_rotation, title_x=subtitle_x, title_y=subtitle_y)
-        axes[tmp_indicator].fill_between(plot_data.index, plot_data.mavg, plot_data.bb_high_band, facecolor='green', interpolate=True, alpha=0.1)
-        axes[tmp_indicator].fill_between(plot_data.index, plot_data.mavg, plot_data.bb_low_band, facecolor='red', interpolate=True, alpha=0.1)
+      plot_ichimoku(
+        df=plot_data, signal_col=signal_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, plot_signal_on_price=plot_signal_on_price, 
+        title=tmp_indicator, use_ax=axes[tmp_indicator], title_rotation=subtitle_rotation, title_x=subtitle_x, title_y=subtitle_y)
 
     elif tmp_indicator == 'candlestick':
       width = tmp_args.get('width')
-
-      if width is None: 
-        width = 1
+      width = width if width is not None else 1
       
       colorup = tmp_args.get('colorup')
-      if colorup is None: 
-        colorup = 'green'
+      colorup = colorup if colorup is not None else 'green'
       
       colordown = tmp_args.get('colordown')
-      if colordown is None: 
-        colordown = 'red'
+      colordown = colordown if colordown is not None else 'red'
       
       alpha = tmp_args.get('alpha')
-      if alpha is None:
-        alpha = 1
+      alpha = alpha if alpha is not None else 1
 
       plot_kama = tmp_args.get('plot_kama')
-      if plot_kama is None:
-        plot_kama=False
+      plot_kama = plot_kama if plot_kama is not None else False
       
-      plot_candlestick(df=plot_data, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_kama=plot_kama, width=width, colorup=colorup, colordown=colordown, alpha=alpha, title_rotation=subtitle_rotation, title_x=subtitle_x, title_y=subtitle_y)
+      plot_candlestick(
+        df=plot_data, price_col=price_col, signal_col=signal_col, 
+        pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, plot_signal_on_price=plot_signal_on_price, 
+        use_ax=axes[tmp_indicator], plot_kama=plot_kama, width=width, colorup=colorup, colordown=colordown, alpha=alpha, 
+        title=tmp_indicator, title_rotation=subtitle_rotation, title_x=subtitle_x, title_y=subtitle_y)
+
+    elif tmp_indicator == 'signals':
+      signals = tmp_args.get('signal_list')
+      signal_bases = []
+      signal_names = []
+      if signals is not None:
+        for i in range(len(signals)):
+          signal_name = signals[i]
+          signal_names.append(signal_name.split('_')[0][:4])
+
+          plot_data['signal_base_{s}'.format(s=signal_name)] = i
+          signal_bases.append(i)
+
+          plot_signal(
+            df=plot_data, price_col='signal_base_{s}'.format(s=signal_name), signal_col=signal_name, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, 
+            plot_on_price=plot_signal_on_price, title=tmp_indicator, use_ax=axes[tmp_indicator])
+
+      # legend and title
+      plt.ylim(ymin=min(signal_bases)-1 , ymax=max(signal_bases)+1)
+      plt.yticks(signal_bases, signal_names)
+      axes[tmp_indicator].legend(bbox_to_anchor=(1.02, 0.), loc=3, ncol=1, borderaxespad=0.).set_visible(False)
 
     # plot other indicators
     else:
       plot_indicator(
         df=plot_data, target_col=target_col, price_col=price_col, 
-        signal_col=signal_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, 
+        signal_col=signal_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, plot_signal_on_price=plot_signal_on_price, 
         benchmark=benchmark, boundary=boundary, color_mode=color_mode,
         title=tmp_indicator, use_ax=axes[tmp_indicator], plot_price_in_twin_ax=plot_price_in_twin_ax, title_rotation=subtitle_rotation, title_x=subtitle_x, title_y=subtitle_y)
 
