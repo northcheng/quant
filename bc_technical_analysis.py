@@ -237,16 +237,21 @@ def calculate_ta_derivative(df, signal_indicators=['kama', 'ichimoku', 'adx', 'e
   :raises: Exception 
   """
   try:    
-    # calculate days since signal triggered
-    phase = 'cal_number_of_days_since_signal_triggered'
+    # calculate signal_derivative
+    phase = 'cal_signal_derivative'
     df['overall_signal'] = ''
-    df['overall_signal_value'] = 0
+    df['psi'] = 0
+    df['nsi'] = 0
 
     # replace signal value [b/s/n] with [1/-1/0]
     for indicator in signal_indicators:
       signal_col = f'{indicator}_signal'
       day_col = f'{indicator}_day'
-      df[day_col] = df[signal_col].replace({'n':0, 'b':1, 's':-1})
+      df[day_col] = df[signal_col].replace({'n':0, 'b':1, 's':-1}).fillna(0)
+
+      # calculate positive/negative signal index
+      df['psi'] += (df[day_col] == 1).astype(int)
+      df['nsi'] -= (df[day_col] == -1).astype(int)
     
     # accumulate signal value
     idx_list = df.index.tolist()
@@ -254,15 +259,19 @@ def calculate_ta_derivative(df, signal_indicators=['kama', 'ichimoku', 'adx', 'e
       current_idx = idx_list[i]
       previous_idx = idx_list[i-1]
 
+      # go through each indicator
       for indicator in signal_indicators:
         day_col = f'{indicator}_day'
         current_day = df.loc[current_idx, day_col]
         previous_day = df.loc[previous_idx, day_col]
         
+        # signal unchanged
         if previous_day * current_day > 0:
           df.loc[current_idx, day_col] = previous_day + current_day
+        # signal changed
         elif previous_day * current_day < 0:
           df.loc[current_idx, day_col] = current_day
+        # none signal
         else:
           if previous_day < 0:
             df.loc[current_idx, day_col] = previous_day - 1
@@ -270,56 +279,30 @@ def calculate_ta_derivative(df, signal_indicators=['kama', 'ichimoku', 'adx', 'e
             df.loc[current_idx, day_col] = previous_day + 1
     
     # summary of signal value
-    phase = 'summarize_overall_signals'
+    phase = 'summarize_signals'
     for indicator in signal_indicators:
       day_col = f'{indicator}_day'
       tmp_day = df[[day_col]].astype(float)
 
       # buy signal just triggered
       b_idx = tmp_day.query(f'{day_col} == 1').index
-      if len(b_idx)> 0:
-        df.loc[b_idx, 'overall_signal'] += 'b'
-        df.loc[b_idx, 'overall_signal_value'] += 1
+      df.loc[b_idx, 'overall_signal'] += 'b'
 
       # buy signal triggered more than 2 days
       pb_idx = tmp_day.query(f'{day_col} > 1').index
-      if len(pb_idx)> 0:        
-        df.loc[pb_idx, 'overall_signal'] += '+'
-        df.loc[pb_idx, 'overall_signal_value'] += -0.1
+      df.loc[pb_idx, 'overall_signal'] += '+'
 
       # sell signal just triggered
       s_idx = tmp_day.query(f'{day_col} == -1').index
-      if len(s_idx)> 0:         
-        df.loc[s_idx, 'overall_signal'] += 's'
-        df.loc[s_idx, 'overall_signal_value'] += -1
+      df.loc[s_idx, 'overall_signal'] += 's'
 
       # sell signal triggered more than 2 days
       ps_idx = tmp_day.query(f'{day_col} < -1').index
-      if len(ps_idx)> 0:
-        df.loc[ps_idx, 'overall_signal'] += '-'
-        df.loc[ps_idx, 'overall_signal_value'] += 0.1
+      df.loc[ps_idx, 'overall_signal'] += '-'
 
       # no signal triggered yet
       n_idx = tmp_day.query(f'{day_col} == 0').index
-      if len(n_idx)> 0:
-        df.loc[n_idx, 'overall_signal'] += ' '
-        df.loc[n_idx, 'overall_signal_value'] += 0
-
-    # calculate indicator slope
-    phase = 'cal_slope'
-    for index, row in df.iterrows():
-      for i in trend_indicators:
-        slope_name = i.split('_')[0] + '_slope'
-        df.loc[index, slope_name] = linear_fit(df=df[: index], target_col=i, periods=n_slope)['slope']
-    
-    # calculate overall trend and momentum 
-    phase = 'cal_trend'
-    df['trend'] = 0 
-    df['slope'] = 0
-    for i in trend_indicators:
-      slope_name = i.split('_')[0] + '_slope'
-      df['trend'] += df[i] * 0.333
-      df['slope'] += df[slope_name]
+      df.loc[n_idx, 'overall_signal'] += ' '
 
   except Exception as e:
     print(phase, e)
@@ -2730,8 +2713,8 @@ def plot_ichimoku(df, start=None, end=None, price_col='Close', signal_col='signa
   ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a <= df.senkou_b, facecolor='red', interpolate=True, alpha=0.1)
 
   # plot kijun/tankan lines
-  ax.plot(df.index, df.tankan, label='tankan', color='magenta', linestyle='--')
-  ax.plot(df.index, df.kijun, label='kijun', color='blue', linestyle='--')
+  ax.plot(df.index, df.tankan, label='tankan', color='magenta', linestyle='dashed')
+  ax.plot(df.index, df.kijun, label='kijun', color='blue', linestyle='dashed')
 
   # plot price and signal
   if plot_signal_on_price is not None:
