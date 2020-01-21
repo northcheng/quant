@@ -2123,7 +2123,7 @@ def add_rsi_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_si
 
   # calculate signals
   if cal_signal:
-    df['rsi_signal'] = cal_boundary_signal(df=df, upper_col='rsi', lower_col='rsi', upper_boundary=max(boundary), lower_boundary=min(boundary))
+    df['rsi_signal'] = cal_boundary_signal(df=df, upper_col='rsi', lower_col='rsi', upper_boundary=max(boundary), lower_boundary=min(boundary), pos_signal='s', neg_signal='b', none_signal='n')
     df = remove_redundant_signal(df=df, signal_col='rsi_signal', pos_signal='s', neg_signal='b', none_signal='n', keep='first')
 
   return df
