@@ -252,6 +252,7 @@ def calculate_ta_derivative(df, signal_indicators=['kama', 'ichimoku', 'adx', 'e
       # calculate positive/negative signal index
       df['psi'] += (df[day_col] == 1).astype(int)
       df['nsi'] -= (df[day_col] == -1).astype(int)
+      df['si'] = df['psi'] + df['nsi']
     
     # accumulate signal value
     idx_list = df.index.tolist()
@@ -304,6 +305,13 @@ def calculate_ta_derivative(df, signal_indicators=['kama', 'ichimoku', 'adx', 'e
       n_idx = tmp_day.query(f'{day_col} == 0').index
       df.loc[n_idx, 'overall_signal'] += ' '
 
+    # summary of trend
+    phase = 'summarize_trend'
+    df['trend'] = ''
+    df.loc[((df['kama_signal'] == "b").rolling(10).sum() > 5), 'trend'] = '上行'
+    df.loc[((df['kama_signal'] == "s").rolling(10).sum() > 5), 'trend'] = '下行'
+    df.loc[((df['kama_signal'] == "n").rolling(10).sum() > 5), 'trend'] = '震荡'
+
   except Exception as e:
     print(phase, e)
 
@@ -319,17 +327,13 @@ def calculate_ta_signal(df):
   :raises: None
   """
 
-  signal_df = df[['kama_signal', 'ichimoku_signal', 'adx_signal', 'eom_signal', 'kst_signal']].copy().replace({'b':1, 's':-1, 'n': 0}).fillna(0)
-  signal_df['signal'] = 0
+  df = df.copy()
 
-  for signal in ['kama_signal', 'ichimoku_signal', 'adx_signal', 'eom_signal', 'kst_signal']:
-    signal_df['signal'] += signal_df[signal]
+  df['signal'] = 'n'
+  df.loc[df.query('si >=3').index, 'signal'] = 'b'
+  df.loc[df.query('nsi <= -2').index, 'signal'] = 's'
 
-  condition_dict = {'b': 'signal >= 3 ', 's': 'signal <= -3'}
-  idx = filter_idx(df=signal_df, condition_dict=condition_dict)
-
-  value_dict = {'b':'b', 's':'s','other':'n'}
-  df = set_idx_col_value(df=df, idx=idx, col='signal', values=value_dict)
+  df = remove_redundant_signal(df=df, signal_col='signal', keep='first')
   # df['signal'] = df['ichimoku_signal']
   # df = remove_redundant_signal(df=df, signal_col='signal', keep='first')
 
@@ -406,9 +410,8 @@ def postprocess_ta_result(df, keep_columns, drop_columns):
   low_idx = df.query('(Close < kama_fast < kama_slow) and kama_day < -5').index
   df.loc[low_idx, 'notes'] += '低位'
 
-  # sell signal just triggered
-  sell_idx = df.query('(-5 <= kama_day < 0 and ichimoku_day< 0) or (-5<= ichimoku_day < 0 and kama_day<0)').index
-  df.loc[sell_idx, 'notes'] += '下行'
+  # trending
+  df['notes'] += df['trend']
 
   # overbuy
   ob_idx = df.query('bb_signal == "s" or rsi_signal =="s"').index
@@ -423,8 +426,9 @@ def postprocess_ta_result(df, keep_columns, drop_columns):
   df.loc[os_idx, 'notes'] += '超卖'
 
   # sec_code that could be ignored
-  x_idx = df.query('notes != ""').index
-  df.loc[x_idx, 'overall_signal'] = 'x' + df.loc[x_idx, 'overall_signal']
+  df['to_watch'] = 1
+  ignore_idx = df.query('(notes != "" and trend != "向上") or (kama_day<0 and ichimoku_day<0) or (si < 0)').index
+  df.loc[ignore_idx, 'to_watch'] = 0
 
   # rename columns, keep 3 digits
   df = df[list(keep_columns.keys())].rename(columns=keep_columns).round(3)
@@ -433,7 +437,7 @@ def postprocess_ta_result(df, keep_columns, drop_columns):
   df = df.drop(drop_columns, axis=1)
   
   # sort by operation and sec_code
-  df = df.sort_values(['信号', '代码'], ascending=[True, True])
+  df = df.sort_values(['关注', '代码'], ascending=[False, True])
   
   return df
 
