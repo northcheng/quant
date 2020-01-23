@@ -330,7 +330,7 @@ def calculate_ta_signal(df):
   df = df.copy()
 
   df['signal'] = 'n'
-  df.loc[df.query('psi >= 4').index, 'signal'] = 'b'
+  df.loc[df.query('psi == 5').index, 'signal'] = 'b'
   df.loc[df.query('nsi < -1').index, 'signal'] = 's'
 
   df = remove_redundant_signal(df=df, signal_col='signal', keep='first')
