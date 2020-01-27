@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+"""
+Technical Analysis Calculation and Visualization functions
+
+:author: Beichen Chen
+"""
 import math
 import sympy
 import ta
