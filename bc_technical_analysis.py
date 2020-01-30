@@ -331,18 +331,27 @@ def calculate_ta_signal(df, n_msum=10):
   :raturns: dataframe with signal
   :raises: None
   """
-
+  # copy data
   df = df.copy()
+  
+  # initialize signal
   df['signal'] = 'n'
   
+  # calculate previous kama_day/ichimoku_day
   df['prev_kama'] = df['kama_day'].shift(1)
   df['prev_ichi'] = df['ichimoku_day'].shift(1)
+  
+  # calculate moving sum of previous psi, nsi for n_msum(10) days
   df['psi_msum'] = df['psi'].shift(1).rolling(n_msum).sum()
   df['nsi_msum'] = df['nsi'].shift(1).rolling(n_msum).sum()
 
+  # buy when:
+  # previous kama_day/ichimoku_day <= -15 or the ratio of moving_sum of previous psi/nsi <= -3
+  # and current kama_day/ichimoku_day == 1 or si>=4
   buy_idx = df.query('((prev_kama <=-15 or prev_ichi <=-15) or (prev_nsi/prev_psi <= -3)) and ((ichimoku_day==1 or kama_day==1 or si>=4))').index
   df.loc[buy_idx, 'signal'] = 'b'
-  df = remove_redundant_signal(df=df, signal_col='signal', keep='first')
+  
+  # df = remove_redundant_signal(df=df, signal_col='signal', keep='first')
   # df['signal'] = df['ichimoku_signal']
   # df = remove_redundant_signal(df=df, signal_col='signal', keep='first')
 
