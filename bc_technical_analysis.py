@@ -323,7 +323,7 @@ def calculate_ta_derivative(df, signal_indicators=['kama', 'ichimoku', 'adx', 'e
   return df
 
 # calculate ta signal
-def calculate_ta_signal(df):
+def calculate_ta_signal(df, n_msum=10):
   """
   Calculate signals from ta features
 
@@ -333,11 +333,15 @@ def calculate_ta_signal(df):
   """
 
   df = df.copy()
-
   df['signal'] = 'n'
-  df.loc[df.query('psi >= 4 and (psi-nsi >= 4)').index, 'signal'] = 'b'
-  df.loc[df.query('nsi <= -2 and (psi-nsi >= 4)').index, 'signal'] = 's'
+  
+  df['prev_kama'] = df['kama_day'].shift(1)
+  df['prev_ichi'] = df['ichimoku_day'].shift(1)
+  df['psi_msum'] = df['psi'].shift(1).rolling(n_msum).sum()
+  df['nsi_msum'] = df['nsi'].shift(1).rolling(n_msum).sum()
 
+  buy_idx = df.query('((prev_kama <=-15 or prev_ichi <=-15) or (prev_nsi/prev_psi <= -3)) and ((ichimoku_day==1 or kama_day==1 or si>=4))').index
+  df.loc[buy_idx, 'signal'] = 'b'
   df = remove_redundant_signal(df=df, signal_col='signal', keep='first')
   # df['signal'] = df['ichimoku_signal']
   # df = remove_redundant_signal(df=df, signal_col='signal', keep='first')
