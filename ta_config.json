@@ -18,11 +18,11 @@
 	}, 
 	
 	"plot_window": {
-		"day": 150, "week": 500
+		"day": 90, "week": 500
 	}, 
 	
 	"candlestick_width": {
-		"day": 0.7, "week": 3.5
+		"day": 0.75, "week": 3.5
 	}, 
 	
 	"peak_width": {
@@ -52,45 +52,25 @@
 
 	"plot_args": {
 		"plot_ratio": { 
-			"candlestick": 1, 
-			"ichimoku": 1, 
-			"signals": 0.5,
+			"ichimoku": 2, 
+			"signals": 0.7,
 			"volume": 0.3
 		}, 
-		"candlestick": {
-			"width": 1, 
-			"colorup": "green", 
-			"colordown": "red", 
-			"alpha": 0.8, 
-			"plot_kama": true
-		},
 		"ichimoku": { 
-			"price_col": "Close",
-			"plot_signal_on_price": null
-		},  
-		"stoch": {
-			"target_col": ["stoch_k", "stoch_d"],
-			"boundary": [20, 80]
+			"candlestick_width": 1, 
+			"candlestick_color": {
+				"colorup": "green", 
+				"colordown": "red", 
+				"alpha": 0.8
+			}
 		},
-		"adx-eom-kst": {
-			"target_col": ["adx_diff", "eom_diff", "kst_diff"],
-			"benchmark": 0,
-			"boundary": [-1, 1]
+		"signals": {
+			"signal_list": ["kst_signal", "eom_signal", "adx_signal", "ichimoku_signal", "kama_signal"],
+			"plot_signal_on_price": true
 		},
 		"volume": {
 			"target_col": ["Volume"], 
-			"benchmark": null, 
-			"boundary": null, 
-			"signal_col": null, 
-			"price_col": null, 
 			"color_mode": "up_down"
-		},
-		"signals": {
-			"signal_list": ["kst_signal", "eom_signal", "adx_signal", "ichimoku_signal", "kama_signal", "signal"],
-			"pos_signal": "b",
-			"neg_signal": "s",
-			"none_signal": "n",
-			"plot_signal_on_price": true
 		}
 	}
 }
