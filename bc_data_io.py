@@ -183,7 +183,7 @@ def get_data_from_tiger(sec_code, interval, start_date=None, end_date=None, time
   return data
 
 
-def download_stock_data(sec_code, start_date=None, end_date=None, source='yahoo', time_col='Date', interval='d', is_return=True, is_print=False, is_save=False, file_path=None, file_name=None):
+def download_stock_data(sec_code, start_date=None, end_date=None, source='yahoo', time_col='Date', interval='d', quote_client=None, is_return=True, is_print=False, is_save=False, file_path=None, file_name=None):
   """
   Download stock data from web sources
 
@@ -211,7 +211,10 @@ def download_stock_data(sec_code, start_date=None, end_date=None, source='yahoo'
       data = get_data_from_yahoo(sec_code=sec_code, interval=interval, start_date=start_date, end_date=end_date, time_col=time_col, is_print=is_print)
     # yfinance
     elif source == 'yfinance':
-      data = data = get_data_from_yfinance(sec_code=sec_code, interval=interval, start_date=start_date, end_date=end_date, time_col=time_col, is_print=is_print)
+      data = get_data_from_yfinance(sec_code=sec_code, interval=interval, start_date=start_date, end_date=end_date, time_col=time_col, is_print=is_print)
+    # tiger
+    elif source == 'tiger':
+      data = get_data_from_tiger(sec_code=sec_code, interval=interval, start_date=start_date, end_date=end_date, time_col=time_col, quote_client=quote_client, is_print=is_print)
     else:
       print('data source {source} not found'.format(source=source))
       return None

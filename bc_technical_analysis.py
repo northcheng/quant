@@ -2644,7 +2644,7 @@ def add_kc_features(df, n=10, ohlcv_col=default_ohlcv_col, method='atr', fillna=
 # ================================================ Indicator visualization  ========================================= #
 # plot signals on price line
 def plot_signal(
-  df, start=None, end=None, price_col='Close', 
+  df, start=None, end=None, price_col='Close', price_alpha=1,
   signal_col='signal', signal_val=default_signal_val, plot_on_price=True, 
   use_ax=None, title=None, plot_args=default_plot_args):
   """
@@ -2680,7 +2680,7 @@ def plot_signal(
   else:
     df['signal_base'] = df[price_col]
     label = price_col
-  ax.plot(df.index, df['signal_base'], color='black', label=label, alpha=0)
+  ax.plot(df.index, df['signal_base'], color='black', label=label, alpha=price_alpha)
 
   # get signal values
   pos_signal = signal_val['pos_signal']
@@ -2785,13 +2785,16 @@ def plot_ichimoku(
     plt.figure(figsize=plot_args['figsize'])
     ax = plt.gca()
 
+  # plot close price
+  ax.plot(df.index, df[default_ohlcv_col['close']], label='close', color='black', linestyle='--', alpha=0.2)
+
   # plot senkou lines
-  ax.plot(df.index, df.senkou_a, label='senkou_a', color='yellowgreen', alpha=0.2)
-  ax.plot(df.index, df.senkou_b, label='senkou_b', color='tomato', alpha=0.2)
+  ax.plot(df.index, df.senkou_a, label='senkou_a', color='green', alpha=0.2)
+  ax.plot(df.index, df.senkou_b, label='senkou_b', color='red', alpha=0.2)
 
   # plot clouds
-  ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a > df.senkou_b, facecolor='yellowgreen', interpolate=True, alpha=0.1)
-  ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a <= df.senkou_b, facecolor='tomato', interpolate=True, alpha=0.1)
+  ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a > df.senkou_b, facecolor='green', interpolate=True, alpha=0.1)
+  ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a <= df.senkou_b, facecolor='red', interpolate=True, alpha=0.1)
 
   # plot kijun/tankan lines 
   ax.plot(df.index, df.tankan, label='tankan', color='magenta', linestyle='dashed', alpha=0.8)
@@ -2809,8 +2812,9 @@ def plot_ichimoku(
 
 # plot general ta indicators
 def plot_indicator(
-  df, target_col, start=None, end=None, price_col='Close', plot_price_in_twin_ax=False,
-  signal_col='signal', signal_val=default_signal_val, plot_signal_on_price=None,  
+  df, target_col, start=None, end=None, price_col='Close', price_alpha=1,
+  signal_col='signal', signal_val=default_signal_val, 
+  plot_price_in_twin_ax=False, plot_signal_on_price=None,  
   benchmark=None, boundary=None, color_mode=None, 
   use_ax=None, title=None, plot_args=default_plot_args):
   """
@@ -2842,11 +2846,6 @@ def plot_indicator(
   if ax is None:
     fig = plt.figure(figsize=plot_args['figsize'])
     ax = fig.add_subplot(111)
-
-  # get signal values
-  pos_signal = signal_val['pos_signal']
-  neg_signal = signal_val['neg_signal']
-  none_signal = signal_val['none_signal']
 
   # plot benchmark
   if benchmark is not None:
@@ -2889,17 +2888,14 @@ def plot_indicator(
       ax.bar(df.index, height=df[tar], color=df.color, alpha=0.3)
 
   # plot close price
+  plot_on_price = plot_signal_on_price if plot_signal_on_price is not None else True
   if price_col in df.columns:
     if plot_price_in_twin_ax:
       ax2=ax.twinx()
-      plot_signal(df, price_col=price_col, signal_col=signal_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, use_ax=ax2)
+      plot_signal(df, price_col=price_col, price_alpha=price_alpha, signal_col=signal_col, signal_val=signal_val, plot_on_price=plot_on_price, use_ax=ax2)
       ax2.legend(loc='lower left')
     else:
-      plot_signal(df, price_col=price_col, signal_col=signal_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, use_ax=ax)
-
-  # plot price and signal
-  if plot_signal_on_price is not None:
-    ax = plot_signal(df, price_col=price_col, signal_col=signal_col, pos_signal=pos_signal, neg_signal=neg_signal, none_signal=none_signal, plot_on_price=plot_signal_on_price, use_ax=ax)
+      plot_signal(df, price_col=price_col, price_alpha=price_alpha, signal_col=signal_col, signal_val=signal_val, plot_on_price=plot_on_price, use_ax=ax)
 
   # plot title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
@@ -2957,6 +2953,7 @@ def plot_multiple_indicators(
     # get extra arguments
     target_col = tmp_args.get('target_col')
     price_col = tmp_args.get('price_col')
+    price_alpha = tmp_args.get('price_alpha')
     signal_col = tmp_args.get('signal_col')
     signal_val = tmp_args.get('signal_val')
     benchmark = tmp_args.get('benchmark')
@@ -2964,6 +2961,7 @@ def plot_multiple_indicators(
     color_mode = tmp_args.get('color_mode')
     plot_signal_on_price = tmp_args.get('plot_signal_on_price')
     plot_price_in_twin_ax = tmp_args.get('plot_price_in_twin_ax')
+    price_alpha = price_alpha if price_alpha is not None else 1
     signal_val = signal_val if signal_val is not None else default_signal_val
     plot_price_in_twin_ax = plot_price_in_twin_ax if plot_price_in_twin_ax is not None else False
     
@@ -2996,7 +2994,7 @@ def plot_multiple_indicators(
           signal_bases.append(i)
 
           plot_signal(
-            df=plot_data, price_col=f'signal_base_{signal_name}', 
+            df=plot_data, price_col=f'signal_base_{signal_name}', price_alpha=price_alpha,
             signal_col=signal_name, signal_val=signal_val, 
             title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=subplot_args)
 
@@ -3008,8 +3006,11 @@ def plot_multiple_indicators(
     # plot other indicators
     else:
       plot_indicator(
-        df=plot_data, target_col=target_col, price_col=price_col, plot_price_in_twin_ax=plot_price_in_twin_ax,
-        signal_col=signal_col, signal_val=signal_val, plot_signal_on_price=plot_signal_on_price, 
+        df=plot_data, target_col=target_col, 
+        price_col=price_col, price_alpha=price_alpha, 
+        signal_col=signal_col, signal_val=signal_val, 
+        plot_price_in_twin_ax=plot_price_in_twin_ax, 
+        plot_signal_on_price=plot_signal_on_price, 
         benchmark=benchmark, boundary=boundary, color_mode=color_mode,
         title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=subplot_args)
 
@@ -3023,74 +3024,3 @@ def plot_multiple_indicators(
   # close image
   if not show_image:
     plt.close(fig)
-
-
-# # plot multiple indicators on a same chart
-# def plot_multiple_period(
-#   df_day, df_week, start_day=None, end_day=None, start_week=None, end_week=None,
-#   args={}, save_path=None, save_image=False, show_image=False, 
-#   title=None, width=20, unit_size=3, wspace=0, hspace=0.2, subplot_args=default_plot_args):
-#   """
-#   Plot Ichimoku and mean reversion in a same plot
-#   :param df: dataframe with ichimoku and mean reversion columns
-#   :param args: dict of args for multiple plots
-#   :param start: start of the data
-#   :param end: end of the data
-#   :param save_path: path where the figure will be saved to, if set to None, then image will not be saved
-#   :param show_image: whether to display image
-#   :param title: title of the figure
-#   :param unit_size: height of each subplot
-#   :param ws: wide space 
-#   :param hs: heighe space between subplots
-#   :param subplot_args: plot args for subplots
-#   :returns: plot
-#   :raises: none
-#   """
-#   period_df = {
-#     'day': df_day,
-#     'week': df_week
-#   }
-
-#   start_end = {
-#     'day': [start_day, end_day],
-#     'week': [start_week, end_week]
-#   }
-
-#   candlestick_width = {
-#     'day': 0.75,
-#     'week': 3.5
-#   }
-
-#   periods = ['day', 'week']
-
-#   candlestick_color = default_candlestick_color
-  
-#   # create figures
-#   fig = plt.figure(figsize=(width, 2*unit_size))  
-#   gs = gridspec.GridSpec(len(periods), 1, height_ratios=[1,1])
-#   gs.update(wspace=wspace, hspace=hspace)
-
-#   for p in range(len(periods)):
-
-#     # select plot data
-#     period = periods[p]
-#     plot_data = period_df[period][start_end[period][0]:start_end[period][1]].copy()
-#     axes_day = plt.subplot(gs[p]) 
-#     axes_day.patch.set_alpha(0.5)
-
-#     # plot candlestick
-#     plot_ichimoku(
-#       df=plot_data, use_ax=axes_day, title='day', 
-#       candlestick_width=candlestick_width[period], candlestick_color=candlestick_color,
-#       plot_args=subplot_args)
-
-#   # adjust plot layout
-#   fig.suptitle(title, x=0.5, y=0.92, fontsize=20)
-
-#   # save image
-#   if save_image and (save_path is not None):
-#     plt.savefig(save_path + title + '.png')
-    
-#   # close image
-#   if not show_image:
-#     plt.close(fig)

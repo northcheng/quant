@@ -1,7 +1,8 @@
 {
 	"time_col" : {
 		"yahoo": "Date", 
-		"yfinance": "Date"
+		"yfinance": "Date",
+		"tiger": "time"
 	},
 
 	"interval_val": {
@@ -66,7 +67,8 @@
 		},
 		"signals": {
 			"signal_list": ["kst_signal", "eom_signal", "adx_signal", "ichimoku_signal", "kama_signal"],
-			"plot_signal_on_price": true
+			"plot_signal_on_price": true,
+			"price_alpha": 0
 		},
 		"volume": {
 			"target_col": ["Volume"], 
