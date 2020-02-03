@@ -2680,7 +2680,7 @@ def plot_signal(
   else:
     df['signal_base'] = df[price_col]
     label = price_col
-  ax.plot(df.index, df['signal_base'], color='black', label=label, alpha=price_alpha)
+  ax.plot(df.index, df['signal_base'], color='black', marker='.', label=label, alpha=price_alpha)
 
   # get signal values
   pos_signal = signal_val['pos_signal']
