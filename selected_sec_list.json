@@ -7,7 +7,7 @@
 	],
 
 	"company": [
-		"AAPL","MSFT","GOOG","AMZN","IBM","FB","ADBE","PYPL","NFLX","DIS",
+		"AAPL","MSFT","GOOG","AMZN","IBM","FB","ADBE","NFLX","DIS",
 		"INTC","NVDA","AMD","QCOM","AVGO","TXN","TSM",
 		"TSLA","LMT","GE","BA","HON","UTX",
 		"CHTR","T","VZ","CMCSA","AMT","CSCO",
@@ -17,7 +17,7 @@
 
 	"extra": [
 		"AAL","ADI","ADP","ADSK","AGNC","ALXN","AMAT","AMRN","AMTD","ARCC","ARWR","ATVI",
-		"BIDU","BIIB","BKNG","CHRW","CME","COST","COUP","CRWD","CSCO","CSX","CTSH","CY","CZR",
+		"BIDU","BIIB","BKNG","CHRW","CME","COST","COUP","CRWD","CSX","CTSH","CY","CZR",
 		"DBX","DDOG","DISCA","DISCK","DISH","DLTR","EA","EBAY","EQIX","ERIC","ETFC","EXAS","EXC","EXPE",
 		"FANG","FAST","FISV","FITB","FIVE","FLEX","FOXA","GILD","HBAN","IAC","ILMN","INCY","INTU","IQ","ISRG",
 		"JD","KHC","LBTYK","LK","LNT","LRCX","LULU","LYFT","MDCO","MDLZ","MELI","MKTX","MNST","MOMO","MRNA","MRVL","MTCH","MU","MYL",
