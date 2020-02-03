@@ -61,7 +61,7 @@
 		"kama":{
 			"target_col": ["kama_fast", "kama_slow"],
 			"price_col": "Close",
-			"price_alpha": 0.5
+			"price_alpha": 0.3
 		},
 		"ichimoku": { 
 			"candlestick_width": 1, 
