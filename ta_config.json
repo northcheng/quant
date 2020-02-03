@@ -53,10 +53,16 @@
 
 	"plot_args": {
 		"plot_ratio": { 
+			"kama": 0.5
 			"ichimoku": 2, 
 			"signals": 0.7,
 			"volume": 0.3
-		}, 
+		},
+		"kama":{
+			"target_col": ["kama_fast", "kama_slow"],
+			"price_col": "Close",
+			"price_alpha": 0.5
+		},
 		"ichimoku": { 
 			"candlestick_width": 1, 
 			"candlestick_color": {
