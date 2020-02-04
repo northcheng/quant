@@ -1286,7 +1286,7 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
       df.loc[up_idx, 'ichimoku_signal'] = 'b'
       
       # kijun >= close >= tankan
-      up_idx = df.query(f'close_to_tankan >= {signal_threshold} and close_to_kijun <= {-signal_threshold}').index
+      up_idx = df.query(f'(close_to_tankan >= {signal_threshold}) and (close_to_kijun <= {-signal_threshold})').index
       df.loc[up_idx, 'ichimoku_signal'] = 'b'
       
       # ----------------------
@@ -1300,7 +1300,7 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
       
       # ======================
       # tankan > close > kijun
-      none_idx = df.query(f'close_to_tankan <= {-signal_threshold} and close_to_kijun >= {signal_threshold}').index
+      none_idx = df.query(f'(close_to_tankan <= {-signal_threshold}) and (close_to_kijun >= {signal_threshold})').index
       df.loc[none_idx, 'ichimoku_signal'] = 'n'
 
     # drop redundant columns  
@@ -2051,16 +2051,32 @@ def add_kama_features(df, n_param={'kama_fast': [10, 2, 30], 'kama_slow': [10, 5
 
       df['kama_signal'] = 'n'
 
-      # close go up through tankan by more than 1%, and close is above tankan, tankan is above kijun
-      up_idx = df.query(f'(close_to_kama_fast > {signal_threshold}) or (close_to_kama_slow > {signal_threshold})').index
-
-      # close go down through tankan or kijun by more than 1%
-      down_idx = df.query(f'(close_to_kama_fast <= {-signal_threshold}) or (close_to_kama_slow <= {-signal_threshold}) and kama_fast>kama_slow').index
-
-      # assign values, remove duplicated signals, keeps only the first one
+      # +++++++++++++++++++++++++++++++
+      # close >= kama_fast >= kama_slow
+      up_idx = df.query(f'close_to_kama_fast >= close_to_kama_slow >= {signal_threshold}').index
       df.loc[up_idx, 'kama_signal'] = 'b'
+      
+      # close >= kama_slow >= kama_fast
+      up_idx = df.query(f'close_to_kama_slow >= close_to_kama_fast >= {signal_threshold}').index
+      df.loc[up_idx, 'kama_signal'] = 'b'
+      
+      # kama_slow >= close >= kama_fast
+      up_idx = df.query(f'(close_to_kama_slow <= {-signal_threshold}) and (close_to_kama_fast >= {signal_threshold})').index
+      df.loc[up_idx, 'kama_signal'] = 'b'
+      
+      # -----------------------------
+      # kama_fast > kama_slow > close
+      down_idx = df.query(f'close_to_kama_fast <= close_to_kama_slow <= {-signal_threshold}').index
       df.loc[down_idx, 'kama_signal'] = 's'
-
+      
+      # kama_fast > close > kama_slow
+      down_idx = df.query(f'(close_to_kama_fast <= {-signal_threshold}) and (close_to_kama_slow >= {signal_threshold})').index
+      df.loc[down_idx, 'kama_signal'] = 's'
+      
+      # kama_slow > kama_fast > close
+      down_idx = df.query(f'close_to_kama_slow <= close_to_kama_fast <= {-signal_threshold}').index
+      df.loc[down_idx, 'kama_signal'] = 's'
+      
   return df
 
 # Money Flow Index(MFI)
