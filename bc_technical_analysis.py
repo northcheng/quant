@@ -1276,16 +1276,32 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
       # initialize
       df['ichimoku_signal'] =  'n' 
 
-      # close go up through tankan by more than 1%, and close is above tankan, tankan is above kijun
-      up_idx = df.query(f'close_to_tankan >= {signal_threshold} or close_to_kijun >= {signal_threshold}').index
-
-      # close go down through tankan or kijun by more than 1%
-      down_idx = df.query(f'(close_to_tankan <= {-signal_threshold} and tankan<kijun) or (close_to_kijun <= {-signal_threshold} and tankan>kijun)').index
-
-      # assign values, remove duplicated signals, keeps only the first one
-      
-      df.loc[down_idx, 'ichimoku_signal'] = 's'
+      # ++++++++++++++++++++++++
+      # close >= tankan >= kijun
+      up_idx = df.query(f'close_to_tankan >= close_to_kijun >= {signal_threshold}').index
       df.loc[up_idx, 'ichimoku_signal'] = 'b'
+      
+      # close >= kijun >= tankan
+      up_idx = df.query(f'close_to_kijun >= close_to_tankan >= {signal_threshold}').index
+      df.loc[up_idx, 'ichimoku_signal'] = 'b'
+      
+      # kijun >= close >= tankan
+      up_idx = df.query(f'close_to_tankan >= {signal_threshold} and close_to_kijun <= {-signal_threshold}').index
+      df.loc[up_idx, 'ichimoku_signal'] = 'b'
+      
+      # ----------------------
+      # tankan > kijun > close
+      down_idx = df.query(f'close_to_tankan < close_to_kijun < {-signal_threshold}').index
+      df.loc[down_idx, 'ichimoku_signal'] = 's'
+      
+      # kijun > tankan > close
+      down_idx = df.query(f'close_to_kijun < close_to_tankan < {-signal_threshold}').index
+      df.loc[down_idx, 'ichimoku_signal'] = 's'
+      
+      # ======================
+      # tankan > close > kijun
+      none_idx = df.query(f'close_to_tankan <= {-signal_threshold} and close_to_kijun >= {signal_threshold}').index
+      df.loc[none_idx, 'ichimoku_signal'] = 'n'
 
     # drop redundant columns  
     df.drop(col_to_drop, axis=1, inplace=True)
