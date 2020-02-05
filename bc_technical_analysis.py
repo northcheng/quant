@@ -1272,7 +1272,7 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
       
     # ================================ Number days since breakthrough =================
     for line in ['tankan', 'kijun']:
-      df[f'{line}_day'] = df[f'signal_{line}'].replace{{'b':1, 's':-1, 'n':0}}.astype(int)
+      df[f'{line}_day'] = df[f'signal_{line}'].replace({'b':1, 's':-1, 'n':0}).astype(int)
     
     idx_list = df.index.tolist()
     for i in range(1, len(idx_list)):
