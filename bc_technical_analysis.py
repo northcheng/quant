@@ -351,15 +351,12 @@ def calculate_ta_signal(df, n_msum=10):
   df['prev_psi_msum'] = df['psi'].shift(1).rolling(n_msum).sum()
   df['prev_nsi_msum'] = df['nsi'].shift(1).rolling(n_msum).sum()
 
-  # buy when:
-  # previous kama_day/ichimoku_day <= -15 or the ratio of moving_sum of previous psi/nsi <= -3
-  # and current kama_day/ichimoku_day == 1 or si>=4
-  buy_idx = df.query('((prev_kama <=-15 or prev_ichi <=-15) or (prev_nsi_msum/prev_psi_msum <= -3)) and ((ichimoku_day==1 or kama_day==1 or si>=4))').index
-  df.loc[buy_idx, 'signal'] = 'b'
+  # conditions that could be ignored
+  ignore_idx = df.query(f'(psi==0 and nsi<=-3) or (kama_signal=="s" or ichimoku_signal=="s") or (kama_day>15 or ichimoku_day>15)').index
+  df.loc[ignore_idx, 'signal'] = 's'
   
-  # df = remove_redundant_signal(df=df, signal_col='signal', keep='first')
-  # df['signal'] = df['ichimoku_signal']
-  # df = remove_redundant_signal(df=df, signal_col='signal', keep='first')
+  # conditions that need to be watched
+  
 
   # # 过滤敏感信号
   # df['abs_ichimoku_day'] = (df['ichimoku_day'].abs() == 1)
