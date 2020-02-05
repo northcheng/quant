@@ -1308,7 +1308,11 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
       df.loc[up_idx, 'ichimoku_signal'] = 'b'
       
       # kijun >= close >= tankan
-      up_idx = df.query(f'(close_to_tankan >= {signal_threshold}) and (close_to_kijun <= {-signal_threshold})').index
+      up_idx = df.query(f'(close_to_tankan>={signal_threshold}) and (close_to_kijun<={-signal_threshold}) and (abs(tankan_day)<abs(kijun_day))').index
+      df.loc[up_idx, 'ichimoku_signal'] = 'b'
+      
+      # tankan >= close >= kijun
+      up_idx = df.query(f'(close_to_tankan<={-signal_threshold}) and (close_to_kijun>={signal_threshold}) and (abs(tankan_day)>abs(kijun_day))').index
       df.loc[up_idx, 'ichimoku_signal'] = 'b'
       
       # ----------------------
@@ -1320,10 +1324,14 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
       down_idx = df.query(f'close_to_kijun < close_to_tankan < {-signal_threshold}').index
       df.loc[down_idx, 'ichimoku_signal'] = 's'
       
-      # ======================
+      # kijun > close > tankan
+      down_idx = df.query(f'(close_to_kijun<{-signal_threshold}) and (close_to_tankan>{signal_threshold}) and (abs(tankan_day)>abs(kijun_day))').index
+      df.loc[down_idx, 'ichimoku_signal'] = 's'
+      
       # tankan > close > kijun
-      none_idx = df.query(f'(close_to_tankan <= {-signal_threshold}) and (close_to_kijun >= {signal_threshold})').index
-      df.loc[none_idx, 'ichimoku_signal'] = 'n'
+      down_idx = df.query(f'(close_to_kijun>{signal_threshold}) and (close_to_tankan<{-signal_threshold}) and (abs(tankan_day)<abs(kijun_day))').index
+      df.loc[down_idx, 'ichimoku_signal'] = 's'
+      
 
     # drop redundant columns  
     df.drop(col_to_drop, axis=1, inplace=True)
