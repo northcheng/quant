@@ -1268,14 +1268,14 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
       df['close_to_' + line] = round((df[close] - df[line]) / df[close], ndigits=3)
 
       # drop line signal columns
-      col_to_drop.append(line_signal_name)
+      #col_to_drop.append(line_signal_name)
       
     # ================================ Number days since breakthrough =================
-    for line in ['tankan', 'kijun']:
-      df[f'{line}_day'] = df[f'signal_{line}'].replace({'b':1, 's':-1, 'n':0})
-      df[f'{line}_day'] = df[f'{line}_day'].astype(int)
-    print(df[['tankan_day', 'kijun_day']].tail())
-    print(type(df['tankan_day'].values[0]))
+   # for line in ['tankan', 'kijun']:
+   #   df[f'{line}_day'] = df[f'signal_{line}'].replace({'b':1, 's':-1, 'n':0})
+   #   df[f'{line}_day'] = df[f'{line}_day'].astype(int)
+   # print(df[['tankan_day', 'kijun_day']].tail())
+   # print(type(df['tankan_day'].values[0]))
     
     #idx_list = df.index.tolist()
     #for i in range(1, len(idx_list)):
