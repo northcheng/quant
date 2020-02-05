@@ -204,7 +204,7 @@ def calculate_ta(df, sec_code):
       
     # KAMA
     phase = 'cal_kama'  
-    df = add_kama_features(df=df)
+    df = add_kama_features(df=df, signal_threshold=0.001)
 
     # ADX
     phase = 'cal_adx'  
