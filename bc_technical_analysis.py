@@ -200,7 +200,7 @@ def calculate_ta(df, sec_code):
 
     # ichimoku
     phase = 'cal_ichimoku' 
-    df = add_ichimoku_features(df=df)
+    df = add_ichimoku_features(df=df, signal_threshold=0.001)
       
     # KAMA
     phase = 'cal_kama'  
