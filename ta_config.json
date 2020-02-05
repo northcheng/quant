@@ -75,7 +75,7 @@
 			}
 		},
 		"signals": {
-			"signal_list": ["kst_signal", "eom_signal", "adx_signal", "ichimoku_signal", "kama_signal"],
+			"signal_list": ["kst_signal", "eom_signal", "adx_signal", "ichimoku_signal", "kama_signal", "signal"],
 			"plot_signal_on_price": true,
 			"price_alpha": 0
 		},
