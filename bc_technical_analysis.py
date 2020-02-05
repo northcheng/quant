@@ -2074,14 +2074,35 @@ def add_kama_features(df, n_param={'kama_fast': [10, 2, 30], 'kama_slow': [10, 5
   kama_lines = ['kama_fast', 'kama_slow'] 
   for line in kama_lines:
     df[f'close_to_{line}'] = round((df[close] - df[line]) / df[close], ndigits=3)
+    df[f'signal_{line}'] = cal_crossover_signal(df=df, fast_line=close, slow_line=line, pos_signal=1, neg_signal=-1, none_signal=0)
+    df[f'{line}_day'] = df[f'signal_{line}'].copy()
+  
+  # ================================ Number days since breakthrough =================
+  idx_list = df.index.tolist()
+  for i in range(1, len(idx_list)):
+    current_idx = idx_list[i]
+    previous_idx = idx_list[i-1]
 
-  # calculate kama signals  
-  if cal_signal:
-    if set(['kama_fast', 'kama_slow']) < set(df.columns):
+    # go through each indicator
+    for indicator in ['kama_fast', 'kama_slow']:
+      day_col = f'{indicator}_day'
+      current_day = df.loc[current_idx, day_col]
+      previous_day = df.loc[previous_idx, day_col]
 
-      df['kama_signal'] = 'n'
+      # signal unchanged
+      if current_day == 0:
+        if previous_day > 0:
+          df.loc[current_idx, day_col] = previous_day + 1
+        elif previous_day < 0:
+          df.loc[current_idx, day_col] = previous_day - 1
 
-      # +++++++++++++++++++++++++++++++
+    # ================================ Signal =========================================
+    if cal_signal:
+
+      # initialize
+      df['kama_signal'] =  'n' 
+
+      # ++++++++++++++++++++++++
       # close >= kama_fast >= kama_slow
       up_idx = df.query(f'close_to_kama_fast >= close_to_kama_slow >= {signal_threshold}').index
       df.loc[up_idx, 'kama_signal'] = 'b'
@@ -2091,20 +2112,28 @@ def add_kama_features(df, n_param={'kama_fast': [10, 2, 30], 'kama_slow': [10, 5
       df.loc[up_idx, 'kama_signal'] = 'b'
       
       # kama_slow >= close >= kama_fast
-      up_idx = df.query(f'(close_to_kama_slow <= {-signal_threshold}) and (close_to_kama_fast >= {signal_threshold})').index
+      up_idx = df.query(f'(close_to_kama_fast>={signal_threshold}) and (close_to_kama_slow<={-signal_threshold}) and (abs(kama_fast_day)<abs(kama_slow_day))').index
       df.loc[up_idx, 'kama_signal'] = 'b'
       
-      # -----------------------------
-      # kama_fast > kama_slow > close
-      down_idx = df.query(f'close_to_kama_fast <= close_to_kama_slow <= {-signal_threshold}').index
-      df.loc[down_idx, 'kama_signal'] = 's'
+      # kama_fast >= close >= kama_slow
+      up_idx = df.query(f'(close_to_kama_fast<={-signal_threshold}) and (close_to_kama_slow>={signal_threshold}) and (abs(kama_fast_day)>abs(kama_slow_day))').index
+      df.loc[up_idx, 'kama_signal'] = 'b'
       
-      # kama_fast > close > kama_slow
-      down_idx = df.query(f'(close_to_kama_fast <= {-signal_threshold}) and (close_to_kama_slow >= {signal_threshold})').index
+      # ----------------------
+      # kama_fast > kama_slow > close
+      down_idx = df.query(f'close_to_kama_fast < close_to_kama_slow < {-signal_threshold}').index
       df.loc[down_idx, 'kama_signal'] = 's'
       
       # kama_slow > kama_fast > close
-      down_idx = df.query(f'close_to_kama_slow <= close_to_kama_fast <= {-signal_threshold}').index
+      down_idx = df.query(f'close_to_kama_slow < close_to_kama_fast < {-signal_threshold}').index
+      df.loc[down_idx, 'kama_signal'] = 's'
+      
+      # kama_slow > close > kama_fast
+      down_idx = df.query(f'(close_to_kama_slow<{-signal_threshold}) and (close_to_kama_fast>{signal_threshold}) and (abs(kama_fast_day)>abs(kama_slow_day))').index
+      df.loc[down_idx, 'kama_signal'] = 's'
+      
+      # kama_fast > close > kama_slow
+      down_idx = df.query(f'(close_to_kama_slow>{signal_threshold}) and (close_to_kama_fast<{-signal_threshold}) and (abs(kama_fast_day)<abs(kama_slow_day))').index
       df.loc[down_idx, 'kama_signal'] = 's'
       
   return df
