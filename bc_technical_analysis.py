@@ -236,7 +236,7 @@ def calculate_ta(df, sec_code):
   return df
 
 # analyze calculated ta indicators
-def calculate_ta_derivative(df, signal_indicators=['kama', 'ichimoku', 'adx', 'eom', 'kst'], trend_indicators=['adx_diff', 'eom_diff', 'kst_diff'], n_slope=3):
+def calculate_ta_derivative(df, signal_indicators=['kama', 'ichimoku', 'adx', 'eom', 'kst'], trend_indicators=['adx_diff', 'eom_diff', 'kst_diff'], n_slope=3, signal_threshold=0.001):
   """
   Adding derived features such as trend, momentum, etc.
 
