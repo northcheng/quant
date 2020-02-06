@@ -1225,7 +1225,7 @@ def add_dpo_features(df, n=20, ohlcv_col=default_ohlcv_col, fillna=False, cal_si
   return df
 
 # Ichimoku 
-def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is_shift=True, ohlcv_col=default_ohlcv_col, fillna=False, cal_status=True, cal_signal=True, signal_threshold=0.01):
+def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is_shift=True, ohlcv_col=default_ohlcv_col, fillna=False, cal_status=True):
   """
   Calculate Ichimoku indicators
 
@@ -1284,7 +1284,6 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
   if is_shift:
     df['senkou_a'] = df['senkou_a'].shift(n_medium)
     df['senkou_b'] = df['senkou_b'].shift(n_medium)
-
   
   if cal_status:
     # ================================ Cloud status ===================================
@@ -1333,7 +1332,7 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
       weight = line_weight[line]
 
       # calculate breakthrough
-      line_signal_name = 'signal_%s' % line
+      line_signal_name = f'{line}_signal'
       df[line_signal_name] = cal_crossover_signal(df=df, fast_line=close, slow_line=line, pos_signal=weight, neg_signal=-weight, none_signal=0)
       
       # record breakthrough
@@ -1347,19 +1346,14 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
 
       # calculate distance between close price and indicator
       df['close_to_' + line] = round((df[close] - df[line]) / df[close], ndigits=3)
-
-      # drop line signal columns
-      # col_to_drop.append(line_signal_name)
       
-      
-
     # drop redundant columns  
     df.drop(col_to_drop, axis=1, inplace=True)
 
   return df
 
 # KST(Know Sure Thing)
-def add_kst_features(df, r1=10, r2=15, r3=20, r4=30, n1=10, n2=10, n3=10, n4=15, nsign=9, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True):
+def add_kst_features(df, r1=10, r2=15, r3=20, r4=30, n1=10, n2=10, n3=10, n4=15, nsign=9, ohlcv_col=default_ohlcv_col, fillna=False):
   """
   Calculate KST(Know Sure Thing)
 
@@ -1718,7 +1712,7 @@ def add_cmf_features(df, n=20, ohlcv_col=default_ohlcv_col, fillna=False, cal_si
   return df
 
 # Ease of movement (EoM, EMV)
-def add_eom_features(df, n=20, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True):
+def add_eom_features(df, n=20, ohlcv_col=default_ohlcv_col, fillna=False):
   """
   Calculate Vortex indicator
 
@@ -2044,7 +2038,7 @@ def cal_kama(df, n1=10, n2=2, n3=30, ohlcv_col=default_ohlcv_col, fillna=False):
   return df
 
 # Kaufman's Adaptive Moving Average (KAMA)
-def add_kama_features(df, n_param={'kama_fast': [10, 2, 30], 'kama_slow': [10, 5, 30]}, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True, signal_threshold=0.01):
+def add_kama_features(df, n_param={'kama_fast': [10, 2, 30], 'kama_slow': [10, 5, 30]}, ohlcv_col=default_ohlcv_col, fillna=False):
   """
   Calculate Kaufman's Adaptive Moving Average Signal
 
