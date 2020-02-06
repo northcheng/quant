@@ -329,7 +329,7 @@ def calculate_ta_derivative(df, signal_indicators=['kama', 'ichimoku', 'adx', 'e
   return df
 
 # calculate ta signal
-def calculate_ta_signal(df, n_msum=10):
+def calculate_ta_signal(df, cal_sinals=['adx'], n_msum=10):
   """
   Calculate signals from ta features
 
@@ -339,6 +339,14 @@ def calculate_ta_signal(df, n_msum=10):
   """
   # copy data
   df = df.copy()
+  
+  # calculate adx signal
+  if 'adx' in cal_signals:
+    df['adx_signal'] = 'n'
+    df.loc[df['adx_diff'] > 0, 'adx_signal'] = 'b'
+    df.loc[df['adx_diff'] < 0, 'adx_signal'] = 's'    
+    
+  
   
   # initialize signal
   df['signal'] = 'n'
@@ -357,35 +365,6 @@ def calculate_ta_signal(df, n_msum=10):
   
   # conditions that need to be watched
   
-
-  # # 过滤敏感信号
-  # df['abs_ichimoku_day'] = (df['ichimoku_day'].abs() == 1)
-  # df['senstive'] =  (df['abs_ichimoku_day'].rolling(15).sum() >=3).astype(int)
-  # df.loc[df.query('senstive == 1 and signal=="b"').index, 'signal'] = 'n'
-
-  # 过滤波动信号
-  # df['wave'] = df['close_to_tankan'].rolling(3).mean()
-
-  # 结合kama信号
-
-
-  
-  # # buy signal
-  # buy_idx = df.query('(kama_day == 1 or adx_day == 1) and (overall_trend == 3) or (overall_momentum == 3)').index
-  # if len(buy_idx) > 0:
-  #   df.loc[buy_idx, 'signal'] = 'b'
-
-  # # sell signal
-  # sell_idx = df.query('(overall_signal_value <= -1) and ((overall_trend == -3) or (overall_momentum == -3))').index
-  # if len(sell_idx) > 0:  
-  #   df.loc[sell_idx, 'signal'] = 's'
-
-  # # filter senstive signals
-  # none_trend_idx = df.query('adx < 20').index
-  # if len(none_trend_idx) > 0:
-  #   df.loc[none_trend_idx, 'signal'] = 'n'
-
-  # df = remove_redundant_signal(df=df)
 
   return df
 
@@ -945,7 +924,7 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
 
 # ================================================ Trend indicators ================================================= #
 # ADX(Average Directional Index) 
-def add_adx_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True, adx_threshold=25):
+def add_adx_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, adx_threshold=25):
   """
   Calculate ADX(Average Directional Index)
 
@@ -971,9 +950,11 @@ def add_adx_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_si
   # calculate true range
   df = add_atr_features(df=df, n=n, cal_signal=False)
 
-  # plus/minus directional movements
+  # difference of high/low between 2 continuouss days
   df['high_diff'] = df[high] - df[high].shift(1)
   df['low_diff'] = df[low].shift(1) - df[low]
+  
+  # plus/minus directional movements
   df['zero'] = 0
   df['pdm'] = df['high_diff'].combine(df['zero'], lambda x1, x2: get_min_max(x1, x2, 'max'))
   df['mdm'] = df['low_diff'].combine(df['zero'], lambda x1, x2: get_min_max(x1, x2, 'max'))
@@ -1002,14 +983,10 @@ def add_adx_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_si
   if fillna:
     for col in ['pdm', 'mdm', 'atr', 'pdi', 'mdi', 'dx', 'adx']:
       df[col] = df[col].replace([np.inf, -np.inf], np.nan).fillna(0)
-
-  # calculate signals
-  if cal_signal:
-    df['adx_signal'] = 'n'
-    df.loc[df['adx_diff'] > 0, 'adx_signal'] = 'b'
-    df.loc[df['adx_diff'] < 0, 'adx_signal'] = 's'    
-
+  
+  # drop redundant columns
   df.drop(['high_diff', 'low_diff', 'zero', 'pdm', 'mdm', 'atr'], axis=1, inplace=True)
+
   return df
 
 # Aroon
