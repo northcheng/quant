@@ -247,6 +247,11 @@ def calculate_ta_derivative(df, signal_indicators=['kama', 'ichimoku', 'adx', 'e
   :returns: dataframe with extra fetures
   :raises: Exception 
   """
+  # calculate adx signal
+  df['adx_signal'] = 'n'
+  df.loc[df['adx_diff'] > 0, 'adx_signal'] = 'b'
+  df.loc[df['adx_diff'] < 0, 'adx_signal'] = 's'    
+  
   try:    
     # calculate signal_derivative
     phase = 'cal_signal_derivative'
@@ -329,7 +334,7 @@ def calculate_ta_derivative(df, signal_indicators=['kama', 'ichimoku', 'adx', 'e
   return df
 
 # calculate ta signal
-def calculate_ta_signal(df, cal_sinals=['adx'], n_msum=10):
+def calculate_ta_signal(df, n_msum=10):
   """
   Calculate signals from ta features
 
@@ -340,11 +345,7 @@ def calculate_ta_signal(df, cal_sinals=['adx'], n_msum=10):
   # copy data
   df = df.copy()
   
-  # calculate adx signal
-  if 'adx' in cal_signals:
-    df['adx_signal'] = 'n'
-    df.loc[df['adx_diff'] > 0, 'adx_signal'] = 'b'
-    df.loc[df['adx_diff'] < 0, 'adx_signal'] = 's'    
+  
     
   
   
