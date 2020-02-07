@@ -460,7 +460,7 @@ def calculate_ta_signal(df, n_msum=10):
   df = df.copy()
   
   # initialize signal
-  df['signal'] = 'n'
+  df['signal'] = 'b'
   
   # calculate previous kama_day/ichimoku_day
   df['prev_kama'] = df['kama_day'].shift(1)
@@ -471,19 +471,29 @@ def calculate_ta_signal(df, n_msum=10):
   df['prev_nsi_msum'] = df['nsi'].shift(1).rolling(n_msum).sum()
 
   # conditions that could be ignored
-  ignore_idx = df.query(f'(psi==0 and nsi<=-3) or (kama_signal=="s" or ichimoku_signal=="s") or (kama_day>15 or ichimoku_day>15)').index
+  ignore_idx = df.query(f'(psi==0 and nsi<=-3) or (kama_signal=="s" or ichimoku_signal=="s")').index
   df.loc[ignore_idx, 'signal'] = 's'
   
+  # conditions that have been expired
+  expire_idx = df.query('(kama_day>15 or ichimoku_day>15)').index
+  df.loc[expire_idx, 'signal'] = 'n'
+  
+  # conditions that price are waving
+  # wave_idx = df.query('').index
+  
   # conditions that need to be watched
+  # watch_idx = df.query('').index
   
   # calculate number days since sinals shifted    
-  df['signal_day'] = df['signal'].replace({'n':0, 'b':1, 's':-1}).fillna(0)  
+  signal_col = 'signal'
+  day_col = 'signal_day'
+  df[day_col] = df[signal_col].replace({'n':0, 'b':1, 's':-1}).fillna(0)  
   idx_list = df.index.tolist()
   for i in range(1, len(idx_list)):
     current_idx = idx_list[i]
     previous_idx = idx_list[i-1]
-    current_day = df.loc[current_idx, 'signal_day']
-    previous_day = df.loc[previous_idx, 'signal_day']
+    current_day = df.loc[current_idx, day_col]
+    previous_day = df.loc[previous_idx, day_col]
         
     # signal unchanged
     if previous_day * current_day > 0:
@@ -491,13 +501,6 @@ def calculate_ta_signal(df, n_msum=10):
     # signal changed
     elif previous_day * current_day < 0:
       df.loc[current_idx, day_col] = current_day
-    # none signal
-    else:
-      if previous_day < 0:
-        df.loc[current_idx, day_col] = previous_day - 1
-      elif previous_day > 0:
-        df.loc[current_idx, day_col] = previous_day + 1
-
 
   return df
 
