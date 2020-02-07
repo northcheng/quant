@@ -247,124 +247,128 @@ def calculate_ta_derivative(df, signal_indicators=['kama', 'ichimoku', 'adx', 'e
   :returns: dataframe with extra fetures
   :raises: Exception 
   """
-  # calculate adx signal
-  df['adx_signal'] = 'n'
-  df.loc[df['adx_diff'] > 0, 'adx_signal'] = 'b'
-  df.loc[df['adx_diff'] < 0, 'adx_signal'] = 's'    
-    
-  # calculate kst signal
-  df['kst_signal'] = 'n'
-  df.loc[df['kst_diff'] > 0, 'kst_signal'] = 'b'
-  df.loc[df['kst_diff'] < 0, 'kst_signal'] = 's'
-  
-  # calculate eom signals
-  df['eom_signal'] = 'n'
-  df.loc[df['eom_diff'] > 0, 'eom_signal'] = 'b'
-  df.loc[df['eom_diff'] < 0, 'eom_signal'] = 's'
-    
-  # ================================ Number days of kamma/ichimoku breakthrough =======
-  for line in ['tankan', 'kijun', 'kama_fast', 'kama_slow']:
-    df[f'{line}_day'] = df[f'{line}_signal'].copy()
-    
-  idx_list = df.index.tolist()
-  for i in range(1, len(idx_list)):
-    current_idx = idx_list[i]
-    previous_idx = idx_list[i-1]
+  try:
+    # =============================== ADX, KST, EOM signals =========================
+    # calculate adx signal
+    phase = 'cal_adx/kst/eom_signals'
+    df['adx_signal'] = 'n'
+    df.loc[df['adx_diff'] > 0, 'adx_signal'] = 'b'
+    df.loc[df['adx_diff'] < 0, 'adx_signal'] = 's'    
 
-    # go through each indicator
-    for indicator in ['tankan', 'kijun', 'kama_fast', 'kama_slow']:
-      day_col = f'{indicator}_day'
-      current_day = df.loc[current_idx, day_col]
-      previous_day = df.loc[previous_idx, day_col]
+    # calculate kst signal
+    df['kst_signal'] = 'n'
+    df.loc[df['kst_diff'] > 0, 'kst_signal'] = 'b'
+    df.loc[df['kst_diff'] < 0, 'kst_signal'] = 's'
 
-      # signal unchanged
-      if current_day == 0:
-        if previous_day > 0:
-          df.loc[current_idx, day_col] = previous_day + 1
-        elif previous_day < 0:
-          df.loc[current_idx, day_col] = previous_day - 1
+    # calculate eom signals
+    df['eom_signal'] = 'n'
+    df.loc[df['eom_diff'] > 0, 'eom_signal'] = 'b'
+    df.loc[df['eom_diff'] < 0, 'eom_signal'] = 's'
 
-  # ================================ Ichimoku signal ================================
-  # initialize
-  df['ichimoku_signal'] =  'n' 
+    # ================================ Number days since kamma/ichimoku breakthrough =
+    phase = 'cal_num_day_tankan/kijun/kamma_fast/slow_triggered'
+    for line in ['tankan', 'kijun', 'kama_fast', 'kama_slow']:
+      df[f'{line}_day'] = df[f'{line}_signal'].copy()
 
-  # ++++++++++++++++++++++++
-  # close >= tankan >= kijun
-  up_idx = df.query(f'close_to_tankan >= close_to_kijun >= {signal_threshold}').index
-  df.loc[up_idx, 'ichimoku_signal'] = 'b'
+    idx_list = df.index.tolist()
+    for i in range(1, len(idx_list)):
+      current_idx = idx_list[i]
+      previous_idx = idx_list[i-1]
 
-  # close >= kijun >= tankan
-  up_idx = df.query(f'close_to_kijun >= close_to_tankan >= {signal_threshold}').index
-  df.loc[up_idx, 'ichimoku_signal'] = 'b'
+      # go through each indicator
+      for indicator in ['tankan', 'kijun', 'kama_fast', 'kama_slow']:
+        day_col = f'{indicator}_day'
+        current_day = df.loc[current_idx, day_col]
+        previous_day = df.loc[previous_idx, day_col]
 
-  # kijun >= close >= tankan
-  up_idx = df.query(f'(close_to_tankan>={signal_threshold}) and (close_to_kijun<={-signal_threshold}) and (abs(tankan_day)<abs(kijun_day))').index
-  df.loc[up_idx, 'ichimoku_signal'] = 'b'
+        # signal unchanged
+        if current_day == 0:
+          if previous_day > 0:
+            df.loc[current_idx, day_col] = previous_day + 1
+          elif previous_day < 0:
+            df.loc[current_idx, day_col] = previous_day - 1
 
-  # tankan >= close >= kijun
-  up_idx = df.query(f'(close_to_tankan<={-signal_threshold}) and (close_to_kijun>={signal_threshold}) and (abs(tankan_day)>abs(kijun_day))').index
-  df.loc[up_idx, 'ichimoku_signal'] = 'b'
+    # ================================ Ichimoku signal ================================
+    # initialize
+    phase = 'cal_ichimoku_signals'
+    df['ichimoku_signal'] =  'n' 
 
-  # ----------------------
-  # tankan > kijun > close
-  down_idx = df.query(f'close_to_tankan < close_to_kijun < {-signal_threshold}').index
-  df.loc[down_idx, 'ichimoku_signal'] = 's'
+    # + signals
+    # close >= tankan >= kijun
+    up_idx = df.query(f'close_to_tankan >= close_to_kijun >= {signal_threshold}').index
+    df.loc[up_idx, 'ichimoku_signal'] = 'b'
 
-  # kijun > tankan > close
-  down_idx = df.query(f'close_to_kijun < close_to_tankan < {-signal_threshold}').index
-  df.loc[down_idx, 'ichimoku_signal'] = 's'
+    # close >= kijun >= tankan
+    up_idx = df.query(f'close_to_kijun >= close_to_tankan >= {signal_threshold}').index
+    df.loc[up_idx, 'ichimoku_signal'] = 'b'
 
-  # kijun > close > tankan
-  down_idx = df.query(f'(close_to_kijun<{-signal_threshold}) and (close_to_tankan>{signal_threshold}) and (abs(tankan_day)>abs(kijun_day))').index
-  df.loc[down_idx, 'ichimoku_signal'] = 's'
+    # kijun >= close >= tankan
+    up_idx = df.query(f'(close_to_tankan>={signal_threshold}) and (close_to_kijun<={-signal_threshold}) and (abs(tankan_day)<abs(kijun_day))').index
+    df.loc[up_idx, 'ichimoku_signal'] = 'b'
 
-  # tankan > close > kijun
-  down_idx = df.query(f'(close_to_kijun>{signal_threshold}) and (close_to_tankan<{-signal_threshold}) and (abs(tankan_day)<abs(kijun_day))').index
-  df.loc[down_idx, 'ichimoku_signal'] = 's'
+    # tankan >= close >= kijun
+    up_idx = df.query(f'(close_to_tankan<={-signal_threshold}) and (close_to_kijun>={signal_threshold}) and (abs(tankan_day)>abs(kijun_day))').index
+    df.loc[up_idx, 'ichimoku_signal'] = 'b'
 
-  
-  # ================================ Kama signal ====================================
-  # initialize
-  df['kama_signal'] =  'n' 
+    # - signals
+    # tankan > kijun > close
+    down_idx = df.query(f'close_to_tankan < close_to_kijun < {-signal_threshold}').index
+    df.loc[down_idx, 'ichimoku_signal'] = 's'
 
-  # ++++++++++++++++++++++++
-  # close >= kama_fast >= kama_slow
-  up_idx = df.query(f'close_to_kama_fast >= close_to_kama_slow >= {signal_threshold}').index
-  df.loc[up_idx, 'kama_signal'] = 'b'
+    # kijun > tankan > close
+    down_idx = df.query(f'close_to_kijun < close_to_tankan < {-signal_threshold}').index
+    df.loc[down_idx, 'ichimoku_signal'] = 's'
 
-  # close >= kama_slow >= kama_fast
-  up_idx = df.query(f'close_to_kama_slow >= close_to_kama_fast >= {signal_threshold}').index
-  df.loc[up_idx, 'kama_signal'] = 'b'
+    # kijun > close > tankan
+    down_idx = df.query(f'(close_to_kijun<{-signal_threshold}) and (close_to_tankan>{signal_threshold}) and (abs(tankan_day)>abs(kijun_day))').index
+    df.loc[down_idx, 'ichimoku_signal'] = 's'
 
-  # kama_slow >= close >= kama_fast
-  up_idx = df.query(f'(close_to_kama_fast>={signal_threshold}) and (close_to_kama_slow<={-signal_threshold}) and (abs(kama_fast_day)<abs(kama_slow_day))').index
-  df.loc[up_idx, 'kama_signal'] = 'b'
+    # tankan > close > kijun
+    down_idx = df.query(f'(close_to_kijun>{signal_threshold}) and (close_to_tankan<{-signal_threshold}) and (abs(tankan_day)<abs(kijun_day))').index
+    df.loc[down_idx, 'ichimoku_signal'] = 's'
 
-  # kama_fast >= close >= kama_slow
-  up_idx = df.query(f'(close_to_kama_fast<={-signal_threshold}) and (close_to_kama_slow>={signal_threshold}) and (abs(kama_fast_day)>abs(kama_slow_day))').index
-  df.loc[up_idx, 'kama_signal'] = 'b'
 
-  # ----------------------
-  # kama_fast > kama_slow > close
-  down_idx = df.query(f'close_to_kama_fast < close_to_kama_slow < {-signal_threshold}').index
-  df.loc[down_idx, 'kama_signal'] = 's'
+    # ================================ Kama signal ====================================
+    # initialize
+    phase = 'cal_kama_signals'
+    df['kama_signal'] =  'n' 
 
-  # kama_slow > kama_fast > close
-  down_idx = df.query(f'close_to_kama_slow < close_to_kama_fast < {-signal_threshold}').index
-  df.loc[down_idx, 'kama_signal'] = 's'
+    # + signals
+    # close >= kama_fast >= kama_slow
+    up_idx = df.query(f'close_to_kama_fast >= close_to_kama_slow >= {signal_threshold}').index
+    df.loc[up_idx, 'kama_signal'] = 'b'
 
-  # kama_slow > close > kama_fast
-  down_idx = df.query(f'(close_to_kama_slow<{-signal_threshold}) and (close_to_kama_fast>{signal_threshold}) and (abs(kama_fast_day)>abs(kama_slow_day))').index
-  df.loc[down_idx, 'kama_signal'] = 's'
+    # close >= kama_slow >= kama_fast
+    up_idx = df.query(f'close_to_kama_slow >= close_to_kama_fast >= {signal_threshold}').index
+    df.loc[up_idx, 'kama_signal'] = 'b'
 
-  # kama_fast > close > kama_slow
-  down_idx = df.query(f'(close_to_kama_slow>{signal_threshold}) and (close_to_kama_fast<{-signal_threshold}) and (abs(kama_fast_day)<abs(kama_slow_day))').index
-  df.loc[down_idx, 'kama_signal'] = 's'
-  
-  
-  try:    
-    # calculate signal_derivative
-    phase = 'cal_signal_derivative'
+    # kama_slow >= close >= kama_fast
+    up_idx = df.query(f'(close_to_kama_fast>={signal_threshold}) and (close_to_kama_slow<={-signal_threshold}) and (abs(kama_fast_day)<abs(kama_slow_day))').index
+    df.loc[up_idx, 'kama_signal'] = 'b'
+
+    # kama_fast >= close >= kama_slow
+    up_idx = df.query(f'(close_to_kama_fast<={-signal_threshold}) and (close_to_kama_slow>={signal_threshold}) and (abs(kama_fast_day)>abs(kama_slow_day))').index
+    df.loc[up_idx, 'kama_signal'] = 'b'
+
+    # - signals
+    # kama_fast > kama_slow > close
+    down_idx = df.query(f'close_to_kama_fast < close_to_kama_slow < {-signal_threshold}').index
+    df.loc[down_idx, 'kama_signal'] = 's'
+
+    # kama_slow > kama_fast > close
+    down_idx = df.query(f'close_to_kama_slow < close_to_kama_fast < {-signal_threshold}').index
+    df.loc[down_idx, 'kama_signal'] = 's'
+
+    # kama_slow > close > kama_fast
+    down_idx = df.query(f'(close_to_kama_slow<{-signal_threshold}) and (close_to_kama_fast>{signal_threshold}) and (abs(kama_fast_day)>abs(kama_slow_day))').index
+    df.loc[down_idx, 'kama_signal'] = 's'
+
+    # kama_fast > close > kama_slow
+    down_idx = df.query(f'(close_to_kama_slow>{signal_threshold}) and (close_to_kama_fast<{-signal_threshold}) and (abs(kama_fast_day)<abs(kama_slow_day))').index
+    df.loc[down_idx, 'kama_signal'] = 's'
+
+    # ================================ Number days since signal triggered ============
+    phase = 'cal_num_day_signal_triggered'
     df['overall_signal'] = ''
     df['psi'] = 0
     df['nsi'] = 0
@@ -472,6 +476,28 @@ def calculate_ta_signal(df, n_msum=10):
   
   # conditions that need to be watched
   
+  # calculate number days since sinals shifted    
+  df['signal_day'] = df['signal'].replace({'n':0, 'b':1, 's':-1}).fillna(0)  
+  idx_list = df.index.tolist()
+  for i in range(1, len(idx_list)):
+    current_idx = idx_list[i]
+    previous_idx = idx_list[i-1]
+    current_day = df.loc[current_idx, 'signal_day']
+    previous_day = df.loc[previous_idx, 'signal_day']
+        
+    # signal unchanged
+    if previous_day * current_day > 0:
+      df.loc[current_idx, day_col] = previous_day + current_day
+    # signal changed
+    elif previous_day * current_day < 0:
+      df.loc[current_idx, day_col] = current_day
+    # none signal
+    else:
+      if previous_day < 0:
+        df.loc[current_idx, day_col] = previous_day - 1
+      elif previous_day > 0:
+        df.loc[current_idx, day_col] = previous_day + 1
+
 
   return df
 
