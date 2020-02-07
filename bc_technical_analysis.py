@@ -568,7 +568,7 @@ def postprocess_ta_result(df, keep_columns, drop_columns):
   df = df.drop(drop_columns, axis=1)
   
   # sort by operation and sec_code
-  df = df.sort_values(['关注', '代码'], ascending=[False, True])
+  df = df.sort_values(['触发天数', '代码'], ascending=[True, True])
   
   return df
 
