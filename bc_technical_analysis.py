@@ -561,11 +561,6 @@ def postprocess_ta_result(df, keep_columns, drop_columns):
   df.loc[[x for x in os_idx if x in none_empty_idx], 'notes'] += ','
   df.loc[os_idx, 'notes'] += '超卖'
 
-  # sec_code that could be ignored
-  df['to_watch'] = 1
-  ignore_idx = df.query('(notes != "" and trend != "向上") or (kama_day<0 and ichimoku_day<0) or (si < 0)').index
-  df.loc[ignore_idx, 'to_watch'] = 0
-
   # rename columns, keep 3 digits
   df = df[list(keep_columns.keys())].rename(columns=keep_columns).round(3)
     
