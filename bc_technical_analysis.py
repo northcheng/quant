@@ -129,11 +129,12 @@ def set_idx_col_value(df, idx, col, values, set_on_copy=True):
 
 # ================================================ Core calculation ================================================= #   
 # remove invalid records from downloaded stock data
-def preprocess_stock_data(df, interval, print_error=True):
+def preprocess_stock_data(df, sec_code, interval, print_error=True):
   '''
   Preprocess downloaded data
 
   :param df: downloaded stock data
+  :param sec_code: sec_code
   :param interval: interval of the downloaded data
   :param print_error: whether print error information or not
   :returns: preprocessed dataframe
@@ -164,7 +165,6 @@ def preprocess_stock_data(df, interval, print_error=True):
     error_info += 'NaN values found in '
     for col in na_cols:
       error_info += f'{col}'
-      # error_info += '{col}, '.format(col=col)
   df = df.dropna()
     
   # process 0 values
@@ -172,24 +172,24 @@ def preprocess_stock_data(df, interval, print_error=True):
     error_info += '0 values found in '
     for col in zero_cols:
       error_info += f'{col}'
-      # error_info += '{col}, '.format(col=col)
     df = df[:-1].copy()
 
   # print error information
   if print_error and len(error_info) > 0:
     error_info += f'[{max_idx.date()}]'
-    # error_info += '[{date}]'.format(date=max_idx.date())
     print(error_info)
+
+  # add sec_code
+  df['sec_code'] = sec_code
   
   return df
   
 # calculate certain selected ta indicators
-def calculate_ta(df, sec_code):
+def calculate_ta(df):
   """
   Calculate selected ta features for dataframe
 
   :param df: original dataframe with hlocv features
-  :param sec_code: sec_code 
   :returns: dataframe with ta features
   :raises: None
   """
@@ -226,24 +226,19 @@ def calculate_ta(df, sec_code):
     phase = 'cal_bbl'  
     df = add_bb_features(df=df)
 
-    # sec_code
-    phase = 'sec_code'
-    df['sec_code'] = sec_code
-
   except Exception as e:
     print(phase, e)
 
   return df
 
 # analyze calculated ta indicators
-def calculate_ta_derivative(df, signal_indicators=['kama', 'ichimoku', 'adx', 'eom', 'kst'], trend_indicators=['adx_diff', 'eom_diff', 'kst_diff'], n_slope=3, signal_threshold=0.001):
+def calculate_ta_derivative(df, signal_indicators=['kama', 'ichimoku', 'adx', 'eom', 'kst'], signal_threshold=0.001):
   """
   Adding derived features such as trend, momentum, etc.
 
   :param df: dataframe with several ta features
   :param signal_indicators: selected ta indicators with their features and signals
-  :param trend_indicators: ta indicators used to calculate derived trend features
-  :param n_slope: period for calculating slopes
+  :param signal_threshold: threshold for kama/ichimoku signal trigering
   :returns: dataframe with extra fetures
   :raises: Exception 
   """
