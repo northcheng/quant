@@ -505,7 +505,7 @@ def calculate_ta_signal(df, n_msum=10):
   return df
 
 # visualize ta indicators
-def visualize_ta(df, sec_code, args={}):
+def visualize_ta(df, title, args={}):
   """
   visualize ta indicators
   :param df: dataframe with ta indicators
@@ -517,8 +517,9 @@ def visualize_ta(df, sec_code, args={}):
     # visualize 
     if args.get('visualize'):
       phase = 'visulize'
+
       plot_multiple_indicators(
-        df=df, title=sec_code, args=args.get('args'),  start=args.get('start'), 
+        df=df, title=title, args=args.get('args'),  start=args.get('start'), 
         show_image=args.get('show_image'), save_image=args.get('save_image'), save_path=args.get('save_path'))
 
   except Exception as e:
