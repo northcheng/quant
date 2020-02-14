@@ -442,20 +442,23 @@ def read_nytimes(year, month, file_path, file_format='.json'):
 
 
 #----------------------------- Global Parameter Setting -------------------------#
-def create_config_file(config_dict, file_path, file_name):
+def create_config_file(config_dict, file_path, file_name, print=False):
   """
   Create a config file and save global parameters into the file
 
   :param config_dict: config parameter of keys and values
   :param file_path: the path to save the file
   :param file_name: the name of the file
+  :param print: whether to print result
   :returns: None
   :raises: save error
   """
   try:
     with open(file_path + file_name, 'w') as f:
       json.dump(config_dict, f)
-    print('Config saved successfully')
+    
+    if print:
+      print('Config saved successfully')
 
   except Exception as e:
     print(e)
@@ -481,7 +484,7 @@ def read_config(file_path, file_name):
   return config_dict
 
 
-def add_config(config_key, config_value, file_path, file_name):
+def add_config(config_key, config_value, file_path, file_name, print=False):
   """
   Add a new config in to the config file
 
@@ -489,6 +492,7 @@ def add_config(config_key, config_value, file_path, file_name):
   :param config_value: value of the config
   :param file_path: the path to save the file
   :param file_name: the name of the file
+  :param print: whether to print result
   :returns: None
   :raises: save error
   """
@@ -500,19 +504,21 @@ def add_config(config_key, config_value, file_path, file_name):
 
     with open(file_path + file_name, 'w', encoding='UTF-8') as f:
       json.dump(new_config, f)
-      print('Config added successfully')
+      if print:
+        print('Config added successfully')
 
   except Exception as e:
     print(e)
 
 
-def remove_config(config_key, file_path, file_name):
+def remove_config(config_key, file_path, file_name, print=False):
   """
   remove a config from the config file
 
   :param config_key: name of the new config
   :param file_path: the path to save the file
   :param file_name: the name of the file
+  :param print: whether to print result
   :returns: None
   :raises: save error
   """
@@ -523,13 +529,14 @@ def remove_config(config_key, file_path, file_name):
 
     with open(file_path + file_name, 'w', encoding='UTF-8') as f:
       json.dump(new_config, f)
-      print('Config removed successfully')
+      if print:
+        print('Config removed successfully')
 
   except Exception as e:
     print(e)
 
 
-def modify_config(config_key, config_value, file_path, file_name):
+def modify_config(config_key, config_value, file_path, file_name, print=False):
   """
   modify the value of a config with certain config_key
 
@@ -537,6 +544,7 @@ def modify_config(config_key, config_value, file_path, file_name):
   :param config_value: value of the config
   :param file_path: the path to save the file
   :param file_name: the name of the file
+  :param print: whether to print result
   :returns: None
   :raises: save error
   """
@@ -547,7 +555,8 @@ def modify_config(config_key, config_value, file_path, file_name):
 
     with open(file_path + file_name, 'w', encoding='UTF-8') as f:
       json.dump(new_config, f)
-      print('Config modified successfully')
+      if print:
+        print('Config modified successfully')
 
   except Exception as e:
     print(e)
