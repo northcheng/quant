@@ -1,7 +1,8 @@
 {
 	"time_col" : {
 		"yahoo": "Date", 
-		"yfinance": "Date"
+		"yfinance": "Date",
+		"tiger": "time"
 	},
 
 	"interval_val": {
@@ -18,11 +19,11 @@
 	}, 
 	
 	"plot_window": {
-		"day": 150, "week": 500
+		"day": 90, "week": 500
 	}, 
 	
 	"candlestick_width": {
-		"day": 0.7, "week": 3.5
+		"day": 0.75, "week": 3.5
 	}, 
 	
 	"peak_width": {
@@ -35,15 +36,18 @@
 
 	"keep_columns": {
 
-		"sec_code":"代码", "Close":"收盘", "rate":"涨跌", "acc_rate":"累计", "notes":"备注", "to_watch":"关注",
+		"sec_code":"代码", "Close":"收盘", "rate":"涨跌", "acc_rate":"累计", "notes":"备注",
 		
-		"break_up":"上穿", "break_down":"下穿", "close_to_kijun":"基准", "close_to_tankan":"转换", 
-
+		"break_up":"上穿", "break_down":"下穿", 
+		"close_to_kijun":"基准", "close_to_tankan":"转换", 
+		
 		"close_to_kama_fast":"快线", "close_to_kama_slow":"慢线",
+		
+		"kama_fast": "阈值K", "tankan": "阈值I",
 
 		"kama_day":"KAMA", "ichimoku_day":"ICHI", "adx_day":"ADX", "eom_day":"EOM", "kst_day":"KST", 
 
-		"overall_signal":"信号", "si":"信号值","psi":"正信号", "nsi":"负信号", "signal":"交易信号"
+		"overall_signal":"信号", "si":"信号值","psi":"正信号", "nsi":"负信号", "signal":"交易信号", "signal_day":"触发天数"
 	},
 	
 	"drop_columns": [],
@@ -52,45 +56,32 @@
 
 	"plot_args": {
 		"plot_ratio": { 
-			"candlestick": 1, 
-			"ichimoku": 1, 
-			"signals": 0.5,
+			"kama": 0.5,
+			"ichimoku": 2, 
+			"signals": 0.7,
 			"volume": 0.3
-		}, 
-		"candlestick": {
-			"width": 1, 
-			"colorup": "green", 
-			"colordown": "red", 
-			"alpha": 0.8, 
-			"plot_kama": true
+		},
+		"kama":{
+			"target_col": ["kama_fast", "kama_slow"],
+			"price_col": "Close",
+			"price_alpha": 0.3
 		},
 		"ichimoku": { 
-			"price_col": "Close",
-			"plot_signal_on_price": null
-		},  
-		"stoch": {
-			"target_col": ["stoch_k", "stoch_d"],
-			"boundary": [20, 80]
+			"candlestick_width": 1, 
+			"candlestick_color": {
+				"colorup": "green", 
+				"colordown": "red", 
+				"alpha": 0.8
+			}
 		},
-		"adx-eom-kst": {
-			"target_col": ["adx_diff", "eom_diff", "kst_diff"],
-			"benchmark": 0,
-			"boundary": [-1, 1]
+		"signals": {
+			"signal_list": ["kst_signal", "eom_signal", "adx_signal", "ichimoku_signal", "kama_signal", "signal"],
+			"plot_signal_on_price": true,
+			"price_alpha": 0
 		},
 		"volume": {
 			"target_col": ["Volume"], 
-			"benchmark": null, 
-			"boundary": null, 
-			"signal_col": null, 
-			"price_col": null, 
 			"color_mode": "up_down"
-		},
-		"signals": {
-			"signal_list": ["kst_signal", "eom_signal", "adx_signal", "ichimoku_signal", "kama_signal"],
-			"pos_signal": "b",
-			"neg_signal": "s",
-			"none_signal": "n",
-			"plot_signal_on_price": true
 		}
 	}
 }
