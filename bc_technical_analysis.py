@@ -3077,3 +3077,5 @@ def plot_multiple_indicators(
   # close image
   if not show_image:
     plt.close(fig)
+  else:
+    plt.show()
