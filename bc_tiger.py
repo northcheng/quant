@@ -86,8 +86,14 @@ def get_account_info(account='global_account', info_path='drive/My Drive/tiger_q
   :raises: none
   """
   user_info = get_user_info(info_path=info_path)
-  trade_client = get_trade_client(account=account, info_path='drive/My Drive/tiger_quant/')
-  managed_account = trade_client.get_managed_accounts()  
+  trade_client = get_trade_client(account=account, info_path=info_path)
+
+  try:
+    managed_account = trade_client.get_managed_accounts()
+  except Exception as e:
+    print(e)
+    managed_account = None  
+
   position = trade_client.get_positions(account=user_info[account])
   assets = trade_client.get_assets(account=user_info[account])
   
@@ -98,7 +104,7 @@ def get_account_info(account='global_account', info_path='drive/My Drive/tiger_q
   }  
 
 
-def get_asset_summary(trade_client, account, is_print=True):
+def get_asset_summary(trade_client, account, info_path, is_print=True):
   """
   Get asset summary for specific account
 
@@ -108,42 +114,25 @@ def get_asset_summary(trade_client, account, is_print=True):
   :returns: assets instance
   :raises: none
   """
-  # get assets instance
-  assets = trade_client.get_assets(account=account)
-  
-  # print asset information for each asset in assets
-  for asset in assets:
-    if is_print:
-      print(
-      '''
-      for account: %(account)s:
-      货币: %(currency)s
- 
-      总杠杆: %(leverage)s
-      净杠杆: %(net_leverage)s
 
-      总金额: %(cash)s
-      购买力: %(buying_power)s
-      可用资金: %(available_funds)s
-      持仓市值: %(gross_position_value)s
-      日内交易次数: %(day_trades_remaining)s
-      ''' % dict(
-        account=asset.account,
-        currency=asset.summary.currency,
-        leverage=asset.summary.leverage,
-        net_leverage=asset.summary.net_leverage,
-        cash=asset.summary.cash,
-        buying_power=asset.summary.buying_power,
-        available_funds=asset.summary.available_funds,
-        gross_position_value=asset.summary.gross_position_value,
-        day_trades_remaining=asset.summary.day_trades_remaining,
-        )
-      )
+  user_info = get_user_info(info_path=info_path)
+
+  # get assets instance
+  assets = trade_client.get_assets(account=user_info[account])
+  
+  try:
+    # print asset information for each asset in assets
+    for asset in assets:
+      if is_print:
+        print(
+        f'for {asset.account}:\n货币: {asset.summary.currency}\n\n总杠杆: {asset.summary.leverage}\n净杠杆: {asset.summary.net_leverage}\n总金额: {asset.summary.cash}\n购买力: {asset.summary.buying_power}\n可用资金: {asset.summary.available_funds}\n持仓市值: {asset.summary.gross_position_value}\n日内交易次数: {asset.summary.day_trades_remaining}')
+  except Exception as e:
+    print(e)
 
   return assets
 
 
-def get_position_summary(trade_client, account):
+def get_position_summary(trade_client, account, info_path):
   """
   Get position summary for specific account
 
@@ -152,8 +141,11 @@ def get_position_summary(trade_client, account):
   :returns: position instance
   :raises: none
   """
+
+  user_info = get_user_info(info_path=info_path)
+  
   # get positions
-  positions = trade_client.get_positions(account=account)
+  positions = trade_client.get_positions(account=user_info[account])
 
   # calculate earning for each position
   result = {
@@ -169,8 +161,8 @@ def get_position_summary(trade_client, account):
     result['market_price'].append(pos.market_price)
   
   result = pd.DataFrame(result)
-  result['earning'] = (result['market_price'] - result['average_cost']) * result['quantity']
-  result['earning_rate'] = round(((result['market_price'] - result['average_cost']) / result['average_cost']) * 100, ndigits=2)
+  # result['earning'] = (result['market_price'] - result['average_cost']) * result['quantity']
+  # result['earning_rate'] = round(((result['market_price'] - result['average_cost']) / result['average_cost']) * 100, ndigits=2)
   
   return result   
 
