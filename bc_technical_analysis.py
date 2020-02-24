@@ -14,6 +14,7 @@ import matplotlib.dates as mdates
 from matplotlib import gridspec
 from mpl_finance import candlestick_ohlc
 from quant import bc_util as util
+from quant import bc_data_io as io_util
 from scipy.stats import linregress
 try:
   from scipy.signal import find_peaks
@@ -29,107 +30,29 @@ default_plot_args = {
   'bbox_to_anchor':(1.02, 0.), 'loc':3, 'ncol':1, 'borderaxespad':0.0
 }
 
-# ================================================ Basic calculation ================================================ #
-# drop na values for dataframe
-def dropna(df):
-  """
-  Drop rows with "Nans" values
 
-  :param df: original dfframe
-  :returns: dfframe with Nans dropped
-  :raises: none
-  """
-  df = df[df < math.exp(709)]  # big number
-  df = df[df != 0.0]
-  df = df.dropna()
-  return df
-
-# fill na values for dataframe
-def fillna(series, fill_value=0):
-  """
-  Fill na value for a series with specific value
-
-  :param series: series to fillna
-  :param fill_value: the value to replace na values
-  :returns: series with na values filled
-  :raises: none
-  """
-  series.replace([np.inf, -np.inf], np.nan).fillna(fill_value)
-  return series
-
-# get max/min in 2 values
-def get_min_max(x1, x2, f='min'):
-  """
-  Get Max or Min value from 2 values
-
-  :param x1: value 1
-  :param x2: value 2
-  :param f: which one do you want: max/min
-  :returns: max or min value
-  :raises:
-  """    
-  if not np.isnan(x1) and not np.isnan(x2):
-    if f == 'max':
-      return max(x1, x2)
-    elif f == 'min':
-      return min(x1, x2)
-    else:
-      raise ValueError('"f" variable value should be "min" or "max"')
-  else:
-    return np.nan    
-    
-# filter index that meet conditions
-def filter_idx(df, condition_dict):
-  """
-  # Filter index that meet conditions
-
-  :param df: dataframe to search
-  :param condition_dict: dictionary of conditions
-  :returns: dictionary of index that meet corresponding conditions
-  :raises: None
-  """
-  # target index
-  result = {}
-  for condition in condition_dict.keys():
-    result[condition] = df.query(condition_dict[condition]).index
-
-  # other index
-  other_idx = df.index
-  for i in result.keys():
-    other_idx = [x for x in other_idx if x not in result[i]]
-  result['other'] = other_idx
-
-  return result
-
-# set index-column with specific value
-def set_idx_col_value(df, idx, col, values, set_on_copy=True):
-  """
-  Set specific index-column with specific values
-
-  :param df: dataframe to search
-  :param idx: dictionary of index
-  :param col: target column
-  :param values: dictionary of values, with same keys as idx
-  :param set_on_copy: whether to set values on a copy of df
-  :returns: dataframe with value set
-  :raises: None
-  """
+# ================================================ Core calculation ================================================= # 
+# load configuration
+def load_config(root_paths):
   
-  # copy dataframe
-  if set_on_copy:
-    df = df.copy()
+  # copy root paths
+  config = root_paths
 
-  # set values to specific index, column
-  for i in idx.keys():
-    df.loc[idx[i], col] = values[i]
+  # add derived paths
+  config['result_path'] = config['quant_path'] + 'ta_model/'
+  config['tiger_path'] = config['quant_path'] + 'tigeropen/'
 
-  return df
+  # selected sec lists
+  config['selected_sec_list'] = io_util.read_config(file_path=config['config_path'], file_name='selected_sec_list.json')
 
+  # load calculation and visulization config 
+  ta_config = io_util.read_config(file_path=config['config_path'], file_name='ta_config.json')
+  config.update(ta_config)
 
+  return config
 
-# ================================================ Core calculation ================================================= #   
 # calculate certain selected ta indicators
-def calculate_ta(df, sec_code, interval, signal_indicators=['kama', 'ichimoku', 'adx', 'eom', 'kst'], signal_threshold=0.001, n_msum=10):
+def calculate_ta_data(df, sec_code, interval, signal_indicators=['kama', 'ichimoku', 'adx', 'eom', 'kst'], signal_threshold=0.001, n_msum=10):
   """
   Calculate selected ta features for dataframe
 
@@ -137,10 +60,13 @@ def calculate_ta(df, sec_code, interval, signal_indicators=['kama', 'ichimoku', 
   :returns: dataframe with ta features
   :raises: None
   """
+  # copy dataframe
+  df = df.copy()
+  
   try:
     # preprocess sec_data
     phase = 'preprocess_sec_data'
-    df = preprocess_stock_data(df=df, sec_code=sec_code, interval=interval)
+    df = preprocess_sec_data(df=df, sec_code=sec_code, interval=interval)
 
     # calculate TA indicators
     phase = 'cal_ta_indicators' 
@@ -167,7 +93,7 @@ def calculate_ta(df, sec_code, interval, signal_indicators=['kama', 'ichimoku', 
   return df
 
 # remove invalid records from downloaded stock data
-def preprocess_stock_data(df, sec_code, interval, print_error=True):
+def preprocess_sec_data(df, sec_code, interval, print_error=True):
   '''
   Preprocess downloaded data
 
@@ -489,7 +415,7 @@ def calculate_ta_signal(df, n_msum=10):
   return df
 
 # visualize ta indicators
-def visualize_ta(df, title, args={}):
+def visualize_ta_data(df, start=None, end=None, title=None, save_path=None, visualization_args={}):
   """
   visualize ta indicators
   :param df: dataframe with ta indicators
@@ -499,12 +425,13 @@ def visualize_ta(df, title, args={}):
   """
   try:
     # visualize 
-    if args.get('visualize'):
-      phase = 'visulize'
-
-      plot_multiple_indicators(
-        df=df, title=title, args=args.get('args'),  start=args.get('start'), 
-        show_image=args.get('show_image'), save_image=args.get('save_image'), save_path=args.get('save_path'))
+    phase = 'visualization'
+    is_show = visualization_args.get('show_image')
+    is_save = visualization_args.get('save_image')
+    plot_args = visualization_args.get('plot_args')
+    plot_multiple_indicators(
+      df=df, title=title, args=plot_args,  start=start, end=end,
+      show_image=is_show, save_image=is_save, save_path=save_path)
 
   except Exception as e:
     print(phase, e)
@@ -522,7 +449,7 @@ def postprocess_ta_result(df, keep_columns, drop_columns):
   :raises: None
   """     
   # reset index(as the index(date) of rows are all the same)
-  df = df.reset_index()
+  df = df.reset_index().copy()
   df['notes'] = ''
 
   # whether the price is in a corresponding high/low position
@@ -555,6 +482,104 @@ def postprocess_ta_result(df, keep_columns, drop_columns):
   # sort by operation and sec_code
   df = df.sort_values(['触发天数', '代码'], ascending=[True, True])
   
+  return df
+
+
+
+# ================================================ Basic calculation ================================================ #
+# drop na values for dataframe
+def dropna(df):
+  """
+  Drop rows with "Nans" values
+
+  :param df: original dfframe
+  :returns: dfframe with Nans dropped
+  :raises: none
+  """
+  df = df[df < math.exp(709)]  # big number
+  df = df[df != 0.0]
+  df = df.dropna()
+  return df
+
+# fill na values for dataframe
+def fillna(series, fill_value=0):
+  """
+  Fill na value for a series with specific value
+
+  :param series: series to fillna
+  :param fill_value: the value to replace na values
+  :returns: series with na values filled
+  :raises: none
+  """
+  series.replace([np.inf, -np.inf], np.nan).fillna(fill_value)
+  return series
+
+# get max/min in 2 values
+def get_min_max(x1, x2, f='min'):
+  """
+  Get Max or Min value from 2 values
+
+  :param x1: value 1
+  :param x2: value 2
+  :param f: which one do you want: max/min
+  :returns: max or min value
+  :raises:
+  """    
+  if not np.isnan(x1) and not np.isnan(x2):
+    if f == 'max':
+      return max(x1, x2)
+    elif f == 'min':
+      return min(x1, x2)
+    else:
+      raise ValueError('"f" variable value should be "min" or "max"')
+  else:
+    return np.nan    
+    
+# filter index that meet conditions
+def filter_idx(df, condition_dict):
+  """
+  # Filter index that meet conditions
+
+  :param df: dataframe to search
+  :param condition_dict: dictionary of conditions
+  :returns: dictionary of index that meet corresponding conditions
+  :raises: None
+  """
+  # target index
+  result = {}
+  for condition in condition_dict.keys():
+    result[condition] = df.query(condition_dict[condition]).index
+
+  # other index
+  other_idx = df.index
+  for i in result.keys():
+    other_idx = [x for x in other_idx if x not in result[i]]
+  result['other'] = other_idx
+
+  return result
+
+# set index-column with specific value
+def set_idx_col_value(df, idx, col, values, set_on_copy=True):
+  """
+  Set specific index-column with specific values
+
+  :param df: dataframe to search
+  :param idx: dictionary of index
+  :param col: target column
+  :param values: dictionary of values, with same keys as idx
+  :param set_on_copy: whether to set values on a copy of df
+  :returns: dataframe with value set
+  :raises: None
+  """
+  
+  # copy dataframe
+  if set_on_copy:
+    df = df.copy()
+
+  # set values to specific index, column
+  for i in idx.keys():
+    df.loc[idx[i], col] = values[i]
+
   return df
 
 
