@@ -56,28 +56,27 @@
 
 	"plot_args": {
 		"plot_ratio": { 
-			"kama": 0.5,
-			"ichimoku": 2, 
-			"signals": 0.7,
-			"volume": 0.3
+			"ichimoku_kama": 2, 
+			"signal_index": 0.75,
+			"signals": 0.75
 		},
-		"kama":{
-			"target_col": ["kama_fast", "kama_slow"],
-			"price_col": "Close",
-			"price_alpha": 0.3
-		},
-		"ichimoku": { 
+		"ichimoku_kama": { 
 			"candlestick_width": 1, 
 			"candlestick_color": {
 				"colorup": "green", 
 				"colordown": "red", 
-				"alpha": 0.8
+				"alpha": 1
 			}
 		},
 		"signals": {
-			"signal_list": ["kst_signal", "eom_signal", "adx_signal", "ichimoku_signal", "kama_signal", "signal"],
+			"signal_list": ["eom_signal", "kst_signal", "adx_signal", "kama_signal", "ichimoku_signal", "signal"],
 			"plot_signal_on_price": true,
 			"price_alpha": 0
+		},
+		"signal_index":{
+			"signal_idx_col": "prev_si_msum",
+			"pos_signal_idx_col": "prev_psi_msum",
+			"neg_signal_idx_col": "prev_nsi_msum"
 		},
 		"volume": {
 			"target_col": ["Volume"], 
