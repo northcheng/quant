@@ -128,6 +128,44 @@ def set_idx_col_value(df, idx, col, values, set_on_copy=True):
 
 
 # ================================================ Core calculation ================================================= #   
+# calculate certain selected ta indicators
+def calculate_ta(df, sec_code, interval, signal_indicators=['kama', 'ichimoku', 'adx', 'eom', 'kst'], signal_threshold=0.001, n_msum=10):
+  """
+  Calculate selected ta features for dataframe
+
+  :param df: original dataframe with hlocv features
+  :returns: dataframe with ta features
+  :raises: None
+  """
+  try:
+    # preprocess sec_data
+    phase = 'preprocess_sec_data'
+    df = preprocess_stock_data(df=df, sec_code=sec_code, interval=interval)
+
+    # calculate TA indicators
+    phase = 'cal_ta_indicators' 
+    df = cal_change_rate(df=df, target_col='Close') # price change rate
+    df = add_ichimoku_features(df=df)               # ichimoku
+    df = add_kama_features(df=df)                   # KAMA
+    df = add_adx_features(df=df)                    # ADX
+    df = add_eom_features(df=df)                    # EOM
+    df = add_kst_features(df=df)                    # KST
+    df = add_rsi_features(df=df)                    # RSI
+    df = add_bb_features(df=df)                     # BBL
+
+    # calculate TA derivatives
+    phase = 'cal_ta_derivatives'
+    df = calculate_ta_derivative(df=df, signal_indicators=signal_indicators, signal_threshold=signal_threshold)
+
+    # calculate TA signals
+    phase = 'cal_ta_signals'
+    df = calculate_ta_signal(df=df, n_msum=n_msum)
+
+  except Exception as e:
+    print(phase, e)
+
+  return df
+
 # remove invalid records from downloaded stock data
 def preprocess_stock_data(df, sec_code, interval, print_error=True):
   '''
@@ -183,53 +221,6 @@ def preprocess_stock_data(df, sec_code, interval, print_error=True):
   df['sec_code'] = sec_code
   
   return df
-  
-# calculate certain selected ta indicators
-def calculate_ta(df):
-  """
-  Calculate selected ta features for dataframe
-
-  :param df: original dataframe with hlocv features
-  :returns: dataframe with ta features
-  :raises: None
-  """
-  try:
-    # price change rate
-    phase = 'cal_change_rate' 
-    df = cal_change_rate(df=df, target_col='Close')
-
-    # ichimoku
-    phase = 'cal_ichimoku' 
-    df = add_ichimoku_features(df=df)
-      
-    # KAMA
-    phase = 'cal_kama'  
-    df = add_kama_features(df=df)
-
-    # ADX
-    phase = 'cal_adx'  
-    df = add_adx_features(df=df)
-
-    # EOM
-    phase = 'cal_eom'  
-    df = add_eom_features(df=df)
-
-    # KST
-    phase = 'cal_kst'  
-    df = add_kst_features(df=df)
-    
-    # RSI
-    phase = 'cal_rsi'  
-    df = add_rsi_features(df=df)
-    
-    # BBL
-    phase = 'cal_bbl'  
-    df = add_bb_features(df=df)
-
-  except Exception as e:
-    print(phase, e)
-
-  return df
 
 # analyze calculated ta indicators
 def calculate_ta_derivative(df, signal_indicators=['kama', 'ichimoku', 'adx', 'eom', 'kst'], signal_threshold=0.001):
@@ -246,19 +237,12 @@ def calculate_ta_derivative(df, signal_indicators=['kama', 'ichimoku', 'adx', 'e
     # =============================== ADX, KST, EOM signals =========================
     # calculate adx signal
     phase = 'cal_adx/kst/eom_signals'
-    df['adx_signal'] = 'n'
-    df.loc[df['adx_diff'] > 0, 'adx_signal'] = 'b'
-    df.loc[df['adx_diff'] < 0, 'adx_signal'] = 's'    
-
-    # calculate kst signal
-    df['kst_signal'] = 'n'
-    df.loc[df['kst_diff'] > 0, 'kst_signal'] = 'b'
-    df.loc[df['kst_diff'] < 0, 'kst_signal'] = 's'
-
-    # calculate eom signals
-    df['eom_signal'] = 'n'
-    df.loc[df['eom_diff'] > 0, 'eom_signal'] = 'b'
-    df.loc[df['eom_diff'] < 0, 'eom_signal'] = 's'
+    for i in ['adx', 'kst', 'eom']:
+      signal_col = f'{i}_signal'
+      diff_col = f'{i}_diff'
+      df[signal_col] = 'n'
+      df.loc[df[diff_col] > 0, signal_col] = 'b'
+      df.loc[df[diff_col] < 0, signal_col] = 's'   
 
     # ================================ Number days since kamma/ichimoku breakthrough =
     phase = 'cal_num_day_tankan/kijun/kamma_fast/slow_triggered'
