@@ -39,6 +39,7 @@ def load_config(root_paths):
   config = root_paths
 
   # add derived paths
+  config['config_path'] = config['github_path'] + 'quant/'
   config['result_path'] = config['quant_path'] + 'ta_model/'
   config['tiger_path'] = config['quant_path'] + 'tigeropen/'
 
