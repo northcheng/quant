@@ -31,9 +31,10 @@
 
 		"plot_args": {
 			"plot_ratio": { 
-				"ichimoku_kama": 2, 
+				"ichimoku_kama": 3, 
 				"signal_index": 0.75,
-				"signals": 0.75
+				"signals": 0.75,
+				"volume": 0.5
 			},
 			"ichimoku_kama": { 
 				"candlestick_width": 1, 
@@ -44,14 +45,14 @@
 				}
 			},
 			"signals": {
-				"signal_list": ["eom_signal", "kst_signal", "adx_signal", "kama_signal", "ichimoku_signal", "signal"],
+				"signal_list": ["eom_signal", "kst_signal", "aroon_signal", "adx_signal", "ao_signal", "kama_signal", "ichimoku_signal", "signal"],
 				"plot_signal_on_price": true,
 				"price_alpha": 0
 			},
 			"signal_index":{
-				"signal_idx_col": "prev_si_msum",
-				"pos_signal_idx_col": "prev_psi_msum",
-				"neg_signal_idx_col": "prev_nsi_msum"
+				"signal_idx_col": "prev_si_ma",
+				"pos_signal_idx_col": "prev_psi_ma",
+				"neg_signal_idx_col": "prev_nsi_ma"
 			},
 			"volume": {
 				"target_col": ["Volume"], 
@@ -66,7 +67,7 @@
 			"break_up":"上穿", "break_down":"下穿", "close_to_kijun":"基准", "close_to_tankan":"转换", 
 			"close_to_kama_fast":"快线", "close_to_kama_slow":"慢线", "kama_fast": "阈值K", "tankan": "阈值I",
 			"kama_day":"KAMA", "ichimoku_day":"ICHI", "adx_day":"ADX", "eom_day":"EOM", "kst_day":"KST", 
-			"overall_signal":"信号", "si":"信号值","psi":"正信号", "nsi":"负信号", "signal":"交易信号", "signal_day":"触发天数"
+			"overall_signal":"信号", "si":"信号值","psi":"正信号", "nsi":"负信号", "signal":"交易信号"
 		},
 		"drop_columns": [],
 		"save_result": true,
