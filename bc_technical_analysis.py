@@ -59,7 +59,7 @@ def load_config(root_paths):
   return config
 
 # calculate certain selected ta indicators
-def calculate_ta_data(df, sec_code, interval, signal_indicators=['ichimoku', 'kama', 'ao', 'adx', 'aroon', 'kst', 'eom', 'bb'], signal_threshold=0.001, signal_day_threshold=1, n_ma=5):
+def calculate_ta_data(df, sec_code, interval, signal_indicators=['ichimoku', 'kama', 'adx', 'kst', 'eom', 'bb'], signal_threshold=0.001, signal_day_threshold=1, n_ma=5):
   """
   Calculate selected ta features for dataframe
 
@@ -184,13 +184,13 @@ def calculate_ta_derivative(df, main_indicators, diff_indicators, signal_thresho
       df[fast_line_day] = sda(series=df[f'{fast_line[indicator]}_signal'], zero_as=1)
       df[slow_line_day] = sda(series=df[f'{slow_line[indicator]}_signal'], zero_as=1)
 
-      # calculate signal
-      signal_col = f'{indicator}_signal'
-      df[signal_col] = 'n'
-      buy_idx = df.query(f'0<{fast_line_day}<={signal_day_threshold} or 0<{slow_line_day}<={signal_day_threshold}').index
-      df.loc[buy_idx, signal_col] = 'b'
-      sell_idx = df.query(f'0>{fast_line_day}>=-{signal_day_threshold} or 0>{slow_line_day}>=-{signal_day_threshold}').index
-      df.loc[sell_idx, signal_col] = 's'
+      # # calculate signal
+      # signal_col = f'{indicator}_signal'
+      # df[signal_col] = 'n'
+      # buy_idx = df.query(f'0<{fast_line_day}<={signal_day_threshold} or 0<{slow_line_day}<={signal_day_threshold}').index
+      # df.loc[buy_idx, signal_col] = 'b'
+      # sell_idx = df.query(f'0>{fast_line_day}>=-{signal_day_threshold} or 0>{slow_line_day}>=-{signal_day_threshold}').index
+      # df.loc[sell_idx, signal_col] = 's'
       
       # calculate trend
       trend_col = f'{indicator}_trend'
@@ -212,6 +212,11 @@ def calculate_ta_derivative(df, main_indicators, diff_indicators, signal_thresho
       down_idx = df.query(f'(close_to_{fast_line[indicator]} <= close_to_{slow_line[indicator]} < {-signal_threshold}) or (close_to_{slow_line[indicator]} <= close_to_{fast_line[indicator]} < {-signal_threshold}) or ((close_to_{slow_line[indicator]}<{-signal_threshold}) and (close_to_{fast_line[indicator]}>{signal_threshold}) and (abs({fast_line[indicator]}_day)>abs({slow_line[indicator]}_day))) or ((close_to_{slow_line[indicator]}>{signal_threshold}) and (close_to_{fast_line[indicator]}<{-signal_threshold}) and (abs({fast_line[indicator]}_day)<abs({slow_line[indicator]}_day)))').index
       df.loc[down_idx, trend_col] = 'd'
 
+      # calculate fast/slow line signal
+      signal_col = f'{indicator}_signal'
+      df[signal_col] = 'n'
+      df.loc[df[trend_col]=='u', signal_col] = 'b'
+      df.loc[df[trend_col]=='d', signal_col] = 's'
     # =============================== _diff indicator signals =========================
     phase = 'cal_signals_for_other_indicators'
     for indicator in diff_indicators:
@@ -272,6 +277,14 @@ def calculate_ta_derivative(df, main_indicators, diff_indicators, signal_thresho
     # df.loc[((df['kama_signal'] == "s").rolling(10).sum() > 5), 'trend'] = '下行'
     # df.loc[((df['kama_signal'] == "n").rolling(10).sum() > 5), 'trend'] = '震荡'
 
+    df['gap_signal'] = 'n'
+    df.loc[df['gap']==2, 'gap_signal'] = 'b'
+    df.loc[df['gap']==-2, 'gap_signal'] = 's'
+
+    df['gap_trend'] = 'n'
+    df.loc[df['gap']==1, 'gap_trend'] = 'u'
+    df.loc[df['gap']==-1, 'gap_trend'] = 'd'
+
   except Exception as e:
     print(phase, e)
 
@@ -293,11 +306,11 @@ def calculate_ta_signal(df, n_ma=5):
   df['signal'] = 'n'
 
   # conditions that would condider buying
-  buy_idx = df.query(f'((pti>=3) and (kama_signal =="b" or ichimoku_signal=="b")) or (kama_signal =="b" and ichimoku_signal=="b")').index
+  buy_idx = df.query(f'((kama_signal=="b" or ichimoku_signal=="b") and (psi+pti > abs(nsi+nti)) and (gap>1))').index
   df.loc[buy_idx, 'signal'] = 'b'
 
   # conditions that would condider selling
-  sell_idx = df.query(f'(nti<=-3) and (kama_signal=="s" or ichimoku_signal=="s")').index
+  sell_idx = df.query(f'(kama_signal=="s" or ichimoku_signal=="s") and (gap<0)').index
   df.loc[sell_idx, 'signal'] = 's'
 
   return df
@@ -966,7 +979,8 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
   close = ohlcv_col['close']
   volume = ohlcv_col['volume']
 
-  # up and down rows
+  # candle color
+  df['candle_color'] = 0
   up_idx = df[open] < df[close]
   down_idx = df[open] >= df[close]
   df.loc[up_idx, 'candle_color'] = 1
@@ -981,24 +995,33 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
   # upper/lower shadow
   df['upper_shadow'] = 0
   df['lower_shadow'] = 0
-  df['candle_color'] = 0
-  
-  # up
   df.loc[up_idx, 'upper_shadow'] = (df.loc[up_idx, high] - df.loc[up_idx, close])
   df.loc[up_idx, 'lower_shadow'] = (df.loc[up_idx, open] - df.loc[up_idx, low])
-  
-  # down
   df.loc[down_idx, 'upper_shadow'] = (df.loc[down_idx, high] - df.loc[down_idx, open])
   df.loc[down_idx, 'lower_shadow'] = (df.loc[down_idx, close] - df.loc[down_idx, low])
 
-  # for col in ['shadow', 'entity', 'upper_shadow', 'lower_shadow']:
-  #   df[col] = (df[col] - df[col].mean()) / df[col].std()
-
-  # # gap_up / gap_down
-  # df.query('candle_color==1 and ')
-  # df.loc[]
-  # df['gap_down'] = df
+  # gap_up / gap_down
+  col_to_drop = [] 
+  for col in [open, close, high, low, 'candle_color']:
+    prev_col = f'prev_{col}' 
+    df[prev_col] = df[col].shift(1)
+    col_to_drop.append(prev_col)
   
+  # gap up
+  df['gap'] = 0
+  gap_up_idx = df.query(f'({low}>prev_{close} and prev_candle_color==1) or ({low}>prev_{open} and prev_candle_color==-1)').index
+  strict_gap_up_idx = df.query(f'{low}>prev_{high}').index
+  df.loc[gap_up_idx, 'gap'] = 1
+  df.loc[strict_gap_up_idx, 'gap'] = 2
+
+  # gap down
+  gap_down_idx = df.query(f'({high}<prev_{open} and prev_candle_color==1) or ({high}<prev_{close} and prev_candle_color==-1)').index
+  strict_gap_down_idx = df.query(f'{high}<prev_{low}').index  
+  df.loc[gap_down_idx, 'gap'] = -1
+  df.loc[strict_gap_down_idx, 'gap'] = -2
+
+  df = df.drop(col_to_drop, axis=1)
+
   return df
 
 
@@ -2650,20 +2673,22 @@ def plot_signal(
 
   # plot signals
   if signal_col in df.columns:
+    
+    alpha = 1 if signal_col == "signal" else 0.2
     positive_signal = df.query(f'{signal_col} == "{pos_signal}"')
     negative_signal = df.query(f'{signal_col} == "{neg_signal}"')
     none_signal = df.query(f'{signal_col} == "{none_signal}"')
-    ax.scatter(positive_signal.index, positive_signal['signal_base'], label=None, marker='^', color='green')
-    ax.scatter(negative_signal.index, negative_signal['signal_base'], label=None, marker='v', color='red')
+    ax.scatter(positive_signal.index, positive_signal['signal_base'], label=None, marker='^', color='green', alpha=alpha)
+    ax.scatter(negative_signal.index, negative_signal['signal_base'], label=None, marker='v', color='red', alpha=alpha)
     # ax.scatter(none_signal.index, none_signal['signal_base'], label=None, marker='.', color='grey', alpha=0.1)
     
     if trend_col in df.columns:
       pos_trend = df.query(f'{trend_col} == "u" and {signal_col} =="n"')
       neg_trend = df.query(f'{trend_col} == "d" and {signal_col} =="n"') 
       none_trend = df.query(f'{trend_col} == "n" and {signal_col} =="n"')
-      ax.scatter(pos_trend.index, pos_trend['signal_base'], label=None, marker='o', color='green', alpha=0.2)
-      ax.scatter(neg_trend.index, neg_trend['signal_base'], label=None, marker='o', color='red', alpha=0.2)
-      ax.scatter(none_trend.index, none_trend['signal_base'], label=None, marker='o', color='grey', alpha=0.2)
+      ax.scatter(pos_trend.index, pos_trend['signal_base'], label=None, marker='o', color='green', alpha=alpha-0.1)
+      ax.scatter(neg_trend.index, neg_trend['signal_base'], label=None, marker='o', color='red', alpha=alpha-0.1)
+      # ax.scatter(none_trend.index, none_trend['signal_base'], label=None, marker='o', color='grey', alpha=0.2)
 
 
   # legend and title
@@ -3023,20 +3048,6 @@ def plot_multiple_indicators(
       plt.ylim(ymin=min(signal_bases)-1 , ymax=max(signal_bases)+1)
       plt.yticks(signal_bases, signal_names)
       axes[tmp_indicator].legend().set_visible(False)
-
-    # plot signal index
-    elif tmp_indicator == 'signal_index':
-      signal_idx_col = tmp_args.get('signal_idx_col')
-      pos_signal_idx_col = tmp_args.get('pos_signal_idx_col')
-      neg_signal_idx_col = tmp_args.get('neg_signal_idx_col')
-      
-      if signal_idx_col is not None and pos_signal_idx_col is not None and neg_signal_idx_col is not None:
-        plot_signal_index(
-          df=plot_data, start=None, end=None, 
-          signal_idx_col=signal_idx_col, pos_signal_idx_col=pos_signal_idx_col, neg_signal_idx_col=neg_signal_idx_col, 
-          title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=subplot_args)
-      else:
-        print('signal index columns not specified')
 
     # plot other indicators
     else:
