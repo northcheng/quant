@@ -59,7 +59,7 @@ def load_config(root_paths):
   return config
 
 # calculate certain selected ta indicators
-def calculate_ta_data(df, sec_code, interval, signal_indicators=['ichimoku', 'kama', 'ao', 'adx', 'aroon', 'kst', 'eom', 'bb'], signal_threshold=0.001, n_ma=5):
+def calculate_ta_data(df, sec_code, interval, signal_indicators=['ichimoku', 'kama', 'ao', 'adx', 'aroon', 'kst', 'eom', 'bb'], signal_threshold=0.001, signal_day_threshold=1, n_ma=5):
   """
   Calculate selected ta features for dataframe
 
@@ -89,7 +89,7 @@ def calculate_ta_data(df, sec_code, interval, signal_indicators=['ichimoku', 'ka
     main_id = ['ichimoku', 'kama']
     osob_id = ['bb']
     diff_id = [x for x in signal_indicators if x not in main_id and x not in osob_id]
-    df = calculate_ta_derivative(df=df, main_indicators=main_id, diff_indicators=diff_id, signal_threshold=signal_threshold, n_ma=n_ma)
+    df = calculate_ta_derivative(df=df, main_indicators=main_id, diff_indicators=diff_id, signal_threshold=signal_threshold, signal_day_threshold=signal_day_threshold, n_ma=n_ma)
 
     # calculate TA final signal
     df = calculate_ta_signal(df=df, n_ma=n_ma)
@@ -153,11 +153,12 @@ def preprocess_sec_data(df, sec_code, interval, print_error=True):
   # add sec_code and change rate of close price
   df['sec_code'] = sec_code
   df = cal_change_rate(df=df, target_col='Close') # price change rate
+  df = add_candlestick_features(df=df)
   
   return df
 
 # analyze calculated ta indicators
-def calculate_ta_derivative(df, main_indicators, diff_indicators, signal_threshold=0.001, n_ma=5):
+def calculate_ta_derivative(df, main_indicators, diff_indicators, signal_threshold=0.001, signal_day_threshold=1, n_ma=5):
   """
   Adding derived features such as trend, momentum, etc.
 
@@ -186,9 +187,9 @@ def calculate_ta_derivative(df, main_indicators, diff_indicators, signal_thresho
       # calculate signal
       signal_col = f'{indicator}_signal'
       df[signal_col] = 'n'
-      buy_idx = df.query(f'{fast_line_day}==1 or {slow_line_day}==1').index
+      buy_idx = df.query(f'0<{fast_line_day}<={signal_day_threshold} or 0<{slow_line_day}<={signal_day_threshold}').index
       df.loc[buy_idx, signal_col] = 'b'
-      sell_idx = df.query(f'{fast_line_day}==-1 or {slow_line_day}==-1').index
+      sell_idx = df.query(f'0>{fast_line_day}>=-{signal_day_threshold} or 0>{slow_line_day}>=-{signal_day_threshold}').index
       df.loc[sell_idx, signal_col] = 's'
       
       # calculate trend
@@ -228,8 +229,6 @@ def calculate_ta_derivative(df, main_indicators, diff_indicators, signal_thresho
 
     # ================================ Number days since signal triggered ============
     phase = 'cal_num_day_signal_triggered'
-    df['psi'] = 0
-    df['nsi'] = 0
     indicators = main_indicators + diff_indicators
     for indicator in indicators:
       signal_col = f'{indicator}_signal'
@@ -239,18 +238,32 @@ def calculate_ta_derivative(df, main_indicators, diff_indicators, signal_thresho
       df[day_col] = sda(series=df[signal_col].replace({'n':0, 'b':1, 's':-1}).fillna(0), zero_as=1)
 
       # set indicators as untriggered after 3 days
-      df.loc[df[day_col] >= 2, signal_col] = 'n'
-      df.loc[df[day_col] <= -2, signal_col] = 'n'   
+      df.loc[df[day_col] > signal_day_threshold, signal_col] = 'n'
+      df.loc[df[day_col] <-signal_day_threshold, signal_col] = 'n'   
+
+    # ================================ overall trend and signal ======================
+    df['psi'] = 0
+    df['nsi'] = 0
+    df['pti'] = 0
+    df['nti'] = 0
+    for indicator in indicators:
+      signal_col = f'{indicator}_signal'
+      trend_col = f'{indicator}_trend'
 
       # calculate summary of positive/negative signals
       df['psi'] += (df[signal_col] == 'b').astype(int)
       df['nsi'] -= (df[signal_col] == 's').astype(int)
-    df['si'] = df['psi'] + df['nsi']
 
-    # moving average of previous psi/nsi/si
-    df['prev_psi_ma'] = em(df['psi'].shift(1), n_ma).mean()
-    df['prev_nsi_ma'] = em(df['nsi'].shift(1), n_ma).mean()
-    df['prev_si_ma'] = em(df['si'].shift(1), n_ma).mean()
+      # calculate summary of positive/negative trend
+      df['pti'] += (df[trend_col] == 'u').astype(int)
+      df['nti'] -= (df[trend_col] == 'd').astype(int)
+
+    df['si'] = df['psi'] + df['nsi']
+    df['ti'] = df['pti'] + df['nti']
+
+    # moving average of previous psi/nsi/si, pti/nti/ti
+    for col in ['psi', 'nsi', 'si', 'pti', 'nti', 'ti']:
+      df[f'prev_{col}_ma'] = em(df[col].shift(1), n_ma).mean()
 
     # ================================ Summary of the trend ==========================
     phase = 'summarize_trend'
@@ -275,24 +288,16 @@ def calculate_ta_signal(df, n_ma=5):
   """
   # copy data, initialize signal
   df = df.copy()
-  df['signal'] = 'n'
-  
-  # # calculate previous kama_day/ichimoku_day
-  # df['prev_kama'] = df['kama_day'].shift(1)
-  # df['prev_ichi'] = df['ichimoku_day'].shift(1)
   
   # ================================ Calculate overall siganl ======================
   df['signal'] = 'n'
 
-  # calculate moving sum of previous psi, nsi for n_ma days
-  df['signal_diff'] = df['prev_si_ma'] - df['prev_si_ma'].shift(1)
-
   # conditions that would condider buying
-  buy_idx = df.query(f'(psi>=4) or (kama_signal =="b" or ichimoku_signal=="b")').index
+  buy_idx = df.query(f'((pti>=3) and (kama_signal =="b" or ichimoku_signal=="b")) or (kama_signal =="b" and ichimoku_signal=="b")').index
   df.loc[buy_idx, 'signal'] = 'b'
 
   # conditions that would condider selling
-  sell_idx = df.query(f'(nsi<=-3) or (kama_signal=="s" or ichimoku_signal=="s")').index
+  sell_idx = df.query(f'(nti<=-3) and (kama_signal=="s" or ichimoku_signal=="s")').index
   df.loc[sell_idx, 'signal'] = 's'
 
   return df
@@ -335,18 +340,18 @@ def postprocess_ta_result(df, keep_columns, drop_columns):
   df = df.reset_index().copy()
   df['notes'] = ''
 
-  # whether the price is in a corresponding high/low position
-  high_idx = df.query('(Close > kama_fast > kama_slow) and kama_day > 10').index
-  df.loc[high_idx, 'notes'] += '高位'
-  low_idx = df.query('(Close < kama_fast < kama_slow) and kama_day < -10').index
-  df.loc[low_idx, 'notes'] += '低位'
+  # # whether the price is in a corresponding high/low position
+  # high_idx = df.query('(Close > kama_fast > kama_slow) and kama_day > 10').index
+  # df.loc[high_idx, 'notes'] += '高位'
+  # low_idx = df.query('(Close < kama_fast < kama_slow) and kama_day < -10').index
+  # df.loc[low_idx, 'notes'] += '低位'
 
-  # trending
-  df['notes'] += df['trend']
-  up_idx = df.query('signal_diff > 0').index
-  df.loc[up_idx, 'notes'] += '上行'
-  down_idx = df.query('signal_diff < 0').index
-  df.loc[down_idx, 'notes'] += '下行'
+  # # trending
+  # df['notes'] += df['trend']
+  # up_idx = df.query('signal_diff > 0').index
+  # df.loc[up_idx, 'notes'] += '上行'
+  # down_idx = df.query('signal_diff < 0').index
+  # df.loc[down_idx, 'notes'] += '下行'
 
   # overbuy
   ob_idx = df.query('bb_signal == "s"').index
@@ -960,9 +965,15 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
   low = ohlcv_col['low']
   close = ohlcv_col['close']
   volume = ohlcv_col['volume']
+
+  # up and down rows
+  up_idx = df[open] < df[close]
+  down_idx = df[open] >= df[close]
+  df.loc[up_idx, 'candle_color'] = 1
+  df.loc[down_idx, 'candle_color'] = -1
   
   # shadow
-  df['shadow'] = (df[high] - df[low])    
+  df['shadow'] = (df[high] - df[low])
   
   # entity
   df['entity'] = abs(df[close] - df[open])
@@ -972,19 +983,21 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
   df['lower_shadow'] = 0
   df['candle_color'] = 0
   
-  # up and down rows
-  up_idx = df[open] < df[close]
-  down_idx = df[open] >= df[close]
-  
   # up
-  df.loc[up_idx, 'candle_color'] = 1
   df.loc[up_idx, 'upper_shadow'] = (df.loc[up_idx, high] - df.loc[up_idx, close])
   df.loc[up_idx, 'lower_shadow'] = (df.loc[up_idx, open] - df.loc[up_idx, low])
   
   # down
-  df.loc[down_idx, 'candle_color'] = -1
   df.loc[down_idx, 'upper_shadow'] = (df.loc[down_idx, high] - df.loc[down_idx, open])
   df.loc[down_idx, 'lower_shadow'] = (df.loc[down_idx, close] - df.loc[down_idx, low])
+
+  # for col in ['shadow', 'entity', 'upper_shadow', 'lower_shadow']:
+  #   df[col] = (df[col] - df[col].mean()) / df[col].std()
+
+  # # gap_up / gap_down
+  # df.query('candle_color==1 and ')
+  # df.loc[]
+  # df['gap_down'] = df
   
   return df
 
@@ -2643,11 +2656,11 @@ def plot_signal(
     ax.scatter(positive_signal.index, positive_signal['signal_base'], label=None, marker='^', color='green')
     ax.scatter(negative_signal.index, negative_signal['signal_base'], label=None, marker='v', color='red')
     # ax.scatter(none_signal.index, none_signal['signal_base'], label=None, marker='.', color='grey', alpha=0.1)
-  
+    
     if trend_col in df.columns:
-      pos_trend = df.query(f'{trend_col} == "u" and {signal_col} == "n"')
-      neg_trend = df.query(f'{trend_col} == "d" and {signal_col} == "n"') 
-      none_trend = df.query(f'{trend_col} == "n" and {signal_col} == "n"')
+      pos_trend = df.query(f'{trend_col} == "u" and {signal_col} =="n"')
+      neg_trend = df.query(f'{trend_col} == "d" and {signal_col} =="n"') 
+      none_trend = df.query(f'{trend_col} == "n" and {signal_col} =="n"')
       ax.scatter(pos_trend.index, pos_trend['signal_base'], label=None, marker='o', color='green', alpha=0.2)
       ax.scatter(neg_trend.index, neg_trend['signal_base'], label=None, marker='o', color='red', alpha=0.2)
       ax.scatter(none_trend.index, none_trend['signal_base'], label=None, marker='o', color='grey', alpha=0.2)
