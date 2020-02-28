@@ -170,72 +170,63 @@ def calculate_ta_derivative(df, main_indicators, diff_indicators, signal_thresho
   :raises: Exception 
   """
   try:
+    # ================================ gap_up / gap_down signals ======================
+    phase = 'cal_candlestick_gap'
+    if 'gap' in df.columns:
+      df['gap_signal'] = 'n'
+      df.loc[df['gap']==2, 'gap_signal'] = 'b'
+      df.loc[df['gap']==-2, 'gap_signal'] = 's'
+
+      df['gap_trend'] = 'n'
+      df.loc[df['gap']==1, 'gap_trend'] = 'u'
+      df.loc[df['gap']==-1, 'gap_trend'] = 'd'
+
     # ================================ main indicator signals =========================
     phase = 'cal_signals_for_main_indicators'
     fast_line = {'ichimoku': 'tankan', 'kama': 'kama_fast'}
     slow_line = {'ichimoku': 'kijun', 'kama': 'kama_slow'}
-
-    # calculate signals for main indicators
     for indicator in main_indicators:
 
       # calculate number of days since signal triggered
-      fast_line_day = f'{fast_line[indicator]}_day'
-      slow_line_day = f'{slow_line[indicator]}_day'
-      df[fast_line_day] = sda(series=df[f'{fast_line[indicator]}_signal'], zero_as=1)
-      df[slow_line_day] = sda(series=df[f'{slow_line[indicator]}_signal'], zero_as=1)
-
-      # # calculate signal
-      # signal_col = f'{indicator}_signal'
-      # df[signal_col] = 'n'
-      # buy_idx = df.query(f'0<{fast_line_day}<={signal_day_threshold} or 0<{slow_line_day}<={signal_day_threshold}').index
-      # df.loc[buy_idx, signal_col] = 'b'
-      # sell_idx = df.query(f'0>{fast_line_day}>=-{signal_day_threshold} or 0>{slow_line_day}>=-{signal_day_threshold}').index
-      # df.loc[sell_idx, signal_col] = 's'
+      fl = fast_line[indicator]
+      sl = slow_line[indicator]
+      fld = f'{fl}_day'
+      sld = f'{sl}_day'
+      df[fld] = sda(series=df[f'{fl}_signal'], zero_as=1)
+      df[sld] = sda(series=df[f'{sl}_signal'], zero_as=1)
       
       # calculate trend
+      # up trend: close above both fast/slow lines, or close between fast_line and slow_line and close break through from bottom
+      # down trend: close below both fast/slow lines, or close between fast_line and slow_line and close break through from top
       trend_col = f'{indicator}_trend'
       df[trend_col] = 'n'
-
-      # up trend
-      # close >= {fast_line[indicator]} >= {slow_line[indicator]}
-      # close >= {slow_line[indicator]} >= {fast_line[indicator]}
-      # {slow_line[indicator]} >= close >= {fast_line[indicator]}
-      # {fast_line[indicator]} >= close >= {slow_line[indicator]}
-      up_idx = df.query(f'(close_to_{fast_line[indicator]} >= close_to_{slow_line[indicator]} > {signal_threshold}) or (close_to_{slow_line[indicator]} >= close_to_{fast_line[indicator]} > {signal_threshold}) or ((close_to_{fast_line[indicator]}>={signal_threshold}) and (close_to_{slow_line[indicator]}<={-signal_threshold}) and (abs({fast_line[indicator]}_day)<abs({slow_line[indicator]}_day))) or ((close_to_{fast_line[indicator]}<={-signal_threshold}) and (close_to_{slow_line[indicator]}>={signal_threshold}) and (abs({fast_line[indicator]}_day)>abs({slow_line[indicator]}_day)))').index
+      up_idx = df.query(f'(close_to_{fl} >= close_to_{sl} > {signal_threshold}) or (close_to_{sl} >= close_to_{fl} > {signal_threshold}) or ((close_to_{fl}>={signal_threshold}) and (close_to_{sl}<={-signal_threshold}) and (abs({fld})<abs({sld}))) or ((close_to_{fl}<={-signal_threshold}) and (close_to_{sl}>={signal_threshold}) and (abs({fld})>abs({sld})))').index
       df.loc[up_idx, trend_col] = 'u'
-
-      # down trend
-      # {fast_line[indicator]} > {slow_line[indicator]} > close
-      # {slow_line[indicator]} > {fast_line[indicator]} > close
-      # {slow_line[indicator]} > close > {fast_line[indicator]}
-      # {fast_line[indicator]} > close > {slow_line[indicator]}
-      down_idx = df.query(f'(close_to_{fast_line[indicator]} <= close_to_{slow_line[indicator]} < {-signal_threshold}) or (close_to_{slow_line[indicator]} <= close_to_{fast_line[indicator]} < {-signal_threshold}) or ((close_to_{slow_line[indicator]}<{-signal_threshold}) and (close_to_{fast_line[indicator]}>{signal_threshold}) and (abs({fast_line[indicator]}_day)>abs({slow_line[indicator]}_day))) or ((close_to_{slow_line[indicator]}>{signal_threshold}) and (close_to_{fast_line[indicator]}<{-signal_threshold}) and (abs({fast_line[indicator]}_day)<abs({slow_line[indicator]}_day)))').index
+      down_idx = df.query(f'(close_to_{fl} <= close_to_{sl} < {-signal_threshold}) or (close_to_{sl} <= close_to_{fl} < {-signal_threshold}) or ((close_to_{sl}<{-signal_threshold}) and (close_to_{fl}>{signal_threshold}) and (abs({fld})>abs({sld}))) or ((close_to_{sl}>{signal_threshold}) and (close_to_{fl}<{-signal_threshold}) and (abs({fld})<abs({sld})))').index
       df.loc[down_idx, trend_col] = 'd'
 
-      # calculate fast/slow line signal
+      # calculate signal, which is the same as trend
       signal_col = f'{indicator}_signal'
-      df[signal_col] = 'n'
-      df.loc[df[trend_col]=='u', signal_col] = 'b'
-      df.loc[df[trend_col]=='d', signal_col] = 's'
+      df[signal_col] = df[trend_col].replace({'n':'n', 'u':'b', 'd':'s'})
+
     # =============================== _diff indicator signals =========================
     phase = 'cal_signals_for_other_indicators'
     for indicator in diff_indicators:
+
+      # calculate trend
       diff_col = f'{indicator}_diff'
-
-      signal_col = f'{indicator}_signal'
-      df[signal_col] = 'n'
-      df.loc[df[diff_col] > 0, signal_col] = 'b'
-      df.loc[df[diff_col] < 0, signal_col] = 's' 
-
       trend_col = f'{indicator}_trend'
       df[trend_col] = 'n'
       df.loc[df[diff_col] > 0, trend_col] = 'u'
-      df.loc[df[diff_col] < 0, trend_col] = 'd' 
+      df.loc[df[diff_col] < 0, trend_col] = 'd'
+
+      # calculate signal, which is the same as trend
+      signal_col = f'{indicator}_signal'
+      df[signal_col] = df[trend_col].replace({'n':'n', 'u':'b', 'd':'s'})
 
     # ================================ Number days since signal triggered ============
     phase = 'cal_num_day_signal_triggered'
-    indicators = main_indicators + diff_indicators
-    for indicator in indicators:
+    for indicator in (main_indicators + diff_indicators):
       signal_col = f'{indicator}_signal'
       day_col = f'{indicator}_day'
 
@@ -247,11 +238,12 @@ def calculate_ta_derivative(df, main_indicators, diff_indicators, signal_thresho
       df.loc[df[day_col] <-signal_day_threshold, signal_col] = 'n'   
 
     # ================================ overall trend and signal ======================
+    phase = 'cal_overall_signal_and_trend'
     df['psi'] = 0
     df['nsi'] = 0
     df['pti'] = 0
     df['nti'] = 0
-    for indicator in indicators:
+    for indicator in (main_indicators + diff_indicators + ['gap']):
       signal_col = f'{indicator}_signal'
       trend_col = f'{indicator}_trend'
 
@@ -259,16 +251,12 @@ def calculate_ta_derivative(df, main_indicators, diff_indicators, signal_thresho
       df['psi'] += (df[signal_col] == 'b').astype(int)
       df['nsi'] -= (df[signal_col] == 's').astype(int)
 
-      # calculate summary of positive/negative trend
+      # calculate summaray of positive/negative trend
       df['pti'] += (df[trend_col] == 'u').astype(int)
       df['nti'] -= (df[trend_col] == 'd').astype(int)
 
     df['si'] = df['psi'] + df['nsi']
     df['ti'] = df['pti'] + df['nti']
-
-    # moving average of previous psi/nsi/si, pti/nti/ti
-    for col in ['psi', 'nsi', 'si', 'pti', 'nti', 'ti']:
-      df[f'prev_{col}_ma'] = em(df[col].shift(1), n_ma).mean()
 
     # ================================ Summary of the trend ==========================
     phase = 'summarize_trend'
@@ -276,14 +264,6 @@ def calculate_ta_derivative(df, main_indicators, diff_indicators, signal_thresho
     # df.loc[((df['kama_signal'] == "b").rolling(10).sum() > 5), 'trend'] = '上行'
     # df.loc[((df['kama_signal'] == "s").rolling(10).sum() > 5), 'trend'] = '下行'
     # df.loc[((df['kama_signal'] == "n").rolling(10).sum() > 5), 'trend'] = '震荡'
-
-    df['gap_signal'] = 'n'
-    df.loc[df['gap']==2, 'gap_signal'] = 'b'
-    df.loc[df['gap']==-2, 'gap_signal'] = 's'
-
-    df['gap_trend'] = 'n'
-    df.loc[df['gap']==1, 'gap_trend'] = 'u'
-    df.loc[df['gap']==-1, 'gap_trend'] = 'd'
 
   except Exception as e:
     print(phase, e)
@@ -306,7 +286,7 @@ def calculate_ta_signal(df, n_ma=5):
   df['signal'] = 'n'
 
   # conditions that would condider buying
-  buy_idx = df.query(f'((kama_signal=="b" or ichimoku_signal=="b") and (psi+pti > abs(nsi+nti)) and (gap>1))').index
+  buy_idx = df.query(f'((ichimoku_signal=="b") and (psi+pti > abs(nsi+nti)) and (gap>1))').index
   df.loc[buy_idx, 'signal'] = 'b'
 
   # conditions that would condider selling
