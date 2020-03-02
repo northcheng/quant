@@ -286,11 +286,11 @@ def calculate_ta_signal(df, n_ma=5):
   df['signal'] = 'n'
 
   # conditions that would condider buying
-  buy_idx = df.query(f'((ichimoku_signal=="b") and (psi+pti > abs(nsi+nti)) and (gap>1))').index
+  buy_idx = df.query(f'(ichimoku_signal=="b") or (kama_signal == "b")').index # (kama_signal=="b") and (ichimoku_signal=="b") and  and (gap>0)  and (kijun_mstd>0.01) and (psi+pti > abs(nsi+nti))
   df.loc[buy_idx, 'signal'] = 'b'
 
   # conditions that would condider selling
-  sell_idx = df.query(f'(kama_signal=="s" or ichimoku_signal=="s") and (gap<0)').index
+  sell_idx = df.query(f'(ichimoku_signal=="s") or (kama_signal == "s")').index #(kama_signal=="s") or (ichimoku_signal=="s") kama_signal=="s" or   and (gap<0)
   df.loc[sell_idx, 'signal'] = 's'
 
   return df
@@ -1518,7 +1518,6 @@ def add_trix_features(df, n=15, n_sign=9, ohlcv_col=default_ohlcv_col, fillna=Fa
   df['trix'] = trix
   df['trix_sign'] = em(series=trix, periods=n_sign, fillna=fillna).mean()
   df['trix_diff'] = df['trix'] - df['trix_sign']
-  df['trix_diff'] = df['trix_diff'] - df['trix_diff'].shift(1)
 
   return df
 

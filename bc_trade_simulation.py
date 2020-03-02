@@ -51,7 +51,7 @@ def sell(stock, price, trading_fee):
   return {'money': money, 'stock': stock}
 
 
-def back_test(df, signal_col='signal', buy_price='Open', sell_price='Close', start_money=0, start_stock=0, trading_fee=3, start_date=None, end_date=None, stop_loss=-0.03, stop_earning=0.05, print_trading=True, plot_trading=True):  
+def back_test(df, signal_col='signal', start_date=None, end_date=None, start_money=0, start_stock=0, trading_fee=3, stop_loss=-0.03, stop_earning=0.05, trade_on_next_day=False, buy_price=None, sell_price=None, print_trading=True, plot_trading=True):  
   """
   Trade simulation with historical data
 
@@ -83,6 +83,14 @@ def back_test(df, signal_col='signal', buy_price='Open', sell_price='Close', sta
   holding_return = 0
   record = {'date': [], 'action': [], 'stock': [], 'price': [], 'money': [], 'total': [], 'holding_price': [], 'holding_return': []}
 
+  # set buy/sell price
+  if not trade_on_next_day:
+    buy_price = 'Close'
+    sell_price = 'Close'
+  else:
+    buy_price = 'Open'
+    sell_price = 'Open'
+
   # print trading info
   def print_trading_info(date, action, price, previous_stock, stock, previous_money, money, holding_price, holding_return):
     action_name = {'b': 'buy', 's': 'sell', 'n': 'none', 'stop_earning': 'stop_earning', 'stop_loss': 'stop_loss'}[action]
@@ -92,10 +100,16 @@ def back_test(df, signal_col='signal', buy_price='Open', sell_price='Close', sta
   # go through all trading dates
   slse_triggered = False
   for i in range(len(date_list)-1):
-    date = date_list[i]
-    next_date = date_list[i+1]
-    action = signal.loc[date, 'signal']
     tmp_record = None
+    date = date_list[i]
+    trade_date = date
+    action = signal.loc[date, 'signal']
+    if trade_on_next_day:
+      trade_date = date_list[i+1]
+      
+      # next_date = date_list[i+1]
+    
+    
     
     # check whether to stop loss or earning if holding stock
     if stock > 0 and holding_price > 0:
@@ -121,7 +135,7 @@ def back_test(df, signal_col='signal', buy_price='Open', sell_price='Close', sta
 
     # buy signal
     if action == 'b': 
-      price = signal.loc[next_date, buy_price]
+      price = signal.loc[trade_date, buy_price]
       if money > price:
         tmp_record = buy(money=money, price=price, trading_fee=trading_fee)
         money = tmp_record.get('money')
@@ -133,7 +147,7 @@ def back_test(df, signal_col='signal', buy_price='Open', sell_price='Close', sta
         
     # sell single
     elif action == 's': 
-      price = signal.loc[next_date, sell_price]
+      price = signal.loc[trade_date, sell_price]
       if stock > 0:
         tmp_record = sell(stock=stock, price=price, trading_fee=trading_fee)
         stock = tmp_record.get('stock')
@@ -145,7 +159,7 @@ def back_test(df, signal_col='signal', buy_price='Open', sell_price='Close', sta
         
     # others
     else: 
-      price = signal.loc[next_date, sell_price]
+      price = signal.loc[trade_date, sell_price]
 
     if print_trading and tmp_record is not None:
       print_trading_info(date=date.date(), action=action, price=price, 
@@ -161,7 +175,7 @@ def back_test(df, signal_col='signal', buy_price='Open', sell_price='Close', sta
     total = money + stock * price
 
     # record trading history
-    record['date'].append(next_date)
+    record['date'].append(trade_date)
     record['action'].append(action)
     record['price'].append(price)
     record['money'].append(money)
