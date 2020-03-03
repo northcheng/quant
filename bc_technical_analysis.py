@@ -286,11 +286,11 @@ def calculate_ta_signal(df, n_ma=5):
   df['signal'] = 'n'
 
   # conditions that would condider buying
-  buy_idx = df.query(f'(ichimoku_signal=="b") or (kama_signal == "b")').index # (kama_signal=="b") and (ichimoku_signal=="b") and  and (gap>0)  and (kijun_mstd>0.01) and (psi+pti > abs(nsi+nti))
+  buy_idx = df.query(f'(kama_signal == "b")').index # (kama_signal=="b") and (ichimoku_signal=="b") and  and (gap>0)  and (kijun_mstd>0.01) and (psi+pti > abs(nsi+nti))
   df.loc[buy_idx, 'signal'] = 'b'
 
   # conditions that would condider selling
-  sell_idx = df.query(f'(ichimoku_signal=="s") or (kama_signal == "s")').index #(kama_signal=="s") or (ichimoku_signal=="s") kama_signal=="s" or   and (gap<0)
+  sell_idx = df.query(f'(kama_signal == "s")').index #(kama_signal=="s") or (ichimoku_signal=="s") kama_signal=="s" or   and (gap<0)
   df.loc[sell_idx, 'signal'] = 's'
 
   return df
