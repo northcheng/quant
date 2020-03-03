@@ -33,7 +33,7 @@
 			"plot_ratio": { 
 				"ichimoku_kama": 3, 
 				"signals": 0.75,
-				"volume": 0.5
+				"obv": 0.5
 			},
 			"ichimoku_kama": { 
 				"candlestick_width": 1, 
@@ -44,10 +44,15 @@
 				}
 			},
 			"signals": {
-				"signal_list": ["eom_signal", "kst_signal", "adx_signal", "kama_signal", "ichimoku_signal", "signal"],
+				"signal_list": ["obv_signal", "eom_signal", "kst_signal", "adx_signal", "kama_signal", "ichimoku_signal", "signal"],
 				"plot_signal_on_price": true,
 				"price_alpha": 0
 			},
+			"obv":{
+				"target_col": ["obv"],
+				"benchmark": 0, 
+				"color_mode": "up_down"
+			}, 
 			"volume": {
 				"target_col": ["Volume"], 
 				"color_mode": "up_down"

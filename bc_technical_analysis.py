@@ -59,7 +59,7 @@ def load_config(root_paths):
   return config
 
 # calculate certain selected ta indicators
-def calculate_ta_data(df, sec_code, interval, signal_indicators=['ichimoku', 'kama', 'adx', 'kst', 'eom', 'bb'], signal_threshold=0.001, signal_day_threshold=1, n_ma=5):
+def calculate_ta_data(df, sec_code, interval, signal_indicators=['ichimoku', 'kama', 'adx', 'kst', 'eom', 'obv', 'bb'], signal_threshold=0.001, signal_day_threshold=1, n_ma=5):
   """
   Calculate selected ta features for dataframe
 
@@ -87,8 +87,8 @@ def calculate_ta_data(df, sec_code, interval, signal_indicators=['ichimoku', 'ka
     # calculate TA derivatives
     phase = 'cal_ta_derivatives'
     main_id = ['ichimoku', 'kama']
-    osob_id = ['bb']
-    diff_id = [x for x in signal_indicators if x not in main_id and x not in osob_id]
+    diff_id = ['adx', 'kst', 'eom', 'obv']
+    other_id = [x for x in signal_indicators if x not in main_id and x not in diff_id]
     df = calculate_ta_derivative(df=df, main_indicators=main_id, diff_indicators=diff_id, signal_threshold=signal_threshold, signal_day_threshold=signal_day_threshold, n_ma=n_ma)
 
     # calculate TA final signal
@@ -1823,13 +1823,11 @@ def add_obv_features(df, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=T
   if fillna:
     obv = obv.replace([np.inf, -np.inf], np.nan).fillna(0)
 
-
   # assign obv to df
   df['obv'] = obv
 
-  # calculate signals
-  if cal_signal:
-    df['obv_signal'] = 'n'
+  df['obv_diff'] = df['obv'] - df['obv'].shift(1)
+  df['obv_diff'] = (df['obv_diff'] - df['obv_diff'].mean()) / df['obv_diff'].std()
 
   df.drop('OBV', axis=1, inplace=True)
   return df
