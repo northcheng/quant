@@ -7,6 +7,7 @@ Generally used utilities
 import pandas as pd
 import numpy as np
 import datetime
+import time
 import pytz
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
@@ -100,6 +101,34 @@ def num_days_between(start_date, end_date, date_format='%Y-%m-%d'):
   diff = end_date - start_date
   return diff.days
 
+
+def sleep_until(target_time, check_frequency=3600):
+  """
+  Sleep with a fixed frequency, until the target time
+
+  :param target_time: the target time in datetime.datetime format
+  :param check_frequency: the fixed sleep_time 
+  :returns: none
+  :raises: none
+  """
+
+  # get current time
+  now = datetime.datetime.now()
+
+  while now < target_time:
+    # difference between current time and target time
+    diff_time = (target_time - now).seconds
+    sleep_time = diff_time+1
+
+    if diff_time > check_frequency:
+      sleep_time = check_frequency
+
+    print(f'{now}: sleep for {sleep_time} seconds', flush=True)
+    time.sleep(sleep_time)
+
+    now = datetime.datetime.now()
+
+  print(f'{now}: exceed target time({target_time})', flush=True)
 
 #----------------------- Dataframe manipulation --------------------#
 def df_2_timeseries(df, time_col='date'):

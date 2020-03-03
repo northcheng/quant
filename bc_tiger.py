@@ -5,8 +5,11 @@ Utilities used for Tiger Open API
 :author: Beichen Chen
 """
 import pandas as pd
-from tigeropen.common.consts import Language
-from tigeropen.common.consts import BarPeriod
+import datetime
+import pytz
+from tigeropen.common.consts import (Language,  Market, BarPeriod, QuoteRight) # 语言, 市场, k线周期, 复权类型
+from tigeropen.common.util.order_utils import (market_order, limit_order, stop_order, stop_limit_order, trail_order, order_leg) # 市价单, 限价单, 止损单, 限价止损单, 移动止损单, 附加订单
+from tigeropen.common.util.contract_utils import (stock_contract, option_contract, future_contract) # 股票合约, 期权合约, 期货合约
 from tigeropen.tiger_open_config import TigerOpenClientConfig
 from tigeropen.common.util.signature_utils import read_private_key
 from tigeropen.quote.quote_client import QuoteClient
@@ -165,4 +168,32 @@ def get_position_summary(trade_client, account, info_path):
   # result['earning_rate'] = round(((result['market_price'] - result['average_cost']) / result['average_cost']) * 100, ndigits=2)
   
   return result   
+
+
+def get_trading_time(quote_client, market=Market.US, tz='Asia/Shanghai'):
+
+  # get local timezone
+  tz = pytz.timezone(tz)
+
+  try:
+    # get market status
+    status = quote_client.get_market_status(market=market)[0]
+    open_time = status.open_time.astimezone(tz).replace(tzinfo=None)
+    close_time = open_time + datetime.timedelta(hours=6.5)
+    pre_open_time = open_time - datetime.timedelta(hours=5.5)
+    post_close_time = close_time + datetime.timedelta(hours=4)
+  except Exception as e:
+    print(e)
+    open_time = close_time = pre_open_time = post_close_time = None
+
+  return {
+    'pre_open_time': pre_open_time,
+    'open_time': open_time,
+    'close_time': close_time,
+    'post_close_time': post_close_time,
+    'tz': tz
+  }
+
+
+
 
