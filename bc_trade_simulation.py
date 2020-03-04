@@ -51,7 +51,7 @@ def sell(stock, price, trading_fee):
   return {'money': money, 'stock': stock}
 
 
-def back_test(df, signal_col='signal', start_date=None, end_date=None, start_money=0, start_stock=0, trading_fee=3, stop_loss=-0.03, stop_earning=0.05, trade_on_next_day=False, buy_price=None, sell_price=None, print_trading=True, plot_trading=True):  
+def back_test(df, signal_col='signal', start_date=None, end_date=None, start_money=0, start_stock=0, trading_fee=3, stop_loss=-0.03, stop_earning=0.05, trade_on_next_day=False, print_trading=True, plot_trading=True):  
   """
   Trade simulation with historical data
 

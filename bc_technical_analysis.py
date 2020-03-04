@@ -59,7 +59,7 @@ def load_config(root_paths):
   return config
 
 # calculate certain selected ta indicators
-def calculate_ta_data(df, sec_code, interval, signal_indicators=['ichimoku', 'kama', 'adx', 'kst', 'eom', 'obv', 'bb'], signal_threshold=0.001, signal_day_threshold=1, n_ma=5):
+def calculate_ta_data(df, sec_code, interval, signal_indicators=['ichimoku', 'kama', 'adx', 'kst', 'eom', 'aroon', 'bb'], signal_threshold=0.001, signal_day_threshold=1, n_ma=5):
   """
   Calculate selected ta features for dataframe
 
@@ -87,7 +87,7 @@ def calculate_ta_data(df, sec_code, interval, signal_indicators=['ichimoku', 'ka
     # calculate TA derivatives
     phase = 'cal_ta_derivatives'
     main_id = ['ichimoku', 'kama']
-    diff_id = ['adx', 'kst', 'eom', 'obv']
+    diff_id = ['adx', 'kst', 'eom', 'aroon']
     other_id = [x for x in signal_indicators if x not in main_id and x not in diff_id]
     df = calculate_ta_derivative(df=df, main_indicators=main_id, diff_indicators=diff_id, signal_threshold=signal_threshold, signal_day_threshold=signal_day_threshold, n_ma=n_ma)
 
@@ -281,16 +281,26 @@ def calculate_ta_signal(df, n_ma=5):
   """
   # copy data, initialize signal
   df = df.copy()
-  
+
+  df = cal_change(df=df, target_col='aroon_diff', add_prefix=True, add_accumulation=False)
+  df = cal_change(df=df, target_col='aroon_up', add_prefix=True, add_accumulation=False)
+  df = cal_change(df=df, target_col='aroon_down', add_prefix=True, add_accumulation=False)
+  df['aroon_diff_change'] =  df['aroon_diff_change'].round(0)
+
   # ================================ Calculate overall siganl ======================
   df['signal'] = 'n'
 
   # conditions that would condider buying
-  buy_idx = df.query(f'(kama_signal == "b")').index # (kama_signal=="b") and (ichimoku_signal=="b") and  and (gap>0)  and (kijun_mstd>0.01) and (psi+pti > abs(nsi+nti))
+  buy_idx = df.query(f'((kama_signal == "b") or (pti + nti > 1)) and candle_color==1').index
+  # or ((pti + nti >1) and (aroon_up_change >= 0 and aroon_up > 30))
+  # (kama_signal=="b") and (ichimoku_signal=="b") and  and (gap>0)  and (kijun_mstd>0.01) and (psi+pti > abs(nsi+nti))
+  # and (aroon_diff_change!=0 or aroon_up_change > 0)
   df.loc[buy_idx, 'signal'] = 'b'
 
   # conditions that would condider selling
-  sell_idx = df.query(f'(kama_signal == "s")').index #(kama_signal=="s") or (ichimoku_signal=="s") kama_signal=="s" or   and (gap<0)
+  sell_idx = df.query(f'(kama_signal == "s") or (pti + nti <= 0)').index 
+  #  or ((pti +  nti<=-1) and (aroon_down_change <= 0 and aroon_down >30))
+  # (kama_signal=="s") or (ichimoku_signal=="s") kama_signal=="s" or   and (gap<0)
   df.loc[sell_idx, 'signal'] = 's'
 
   return df
@@ -1111,7 +1121,7 @@ def add_aroon_features(df, n=25, ohlcv_col=default_ohlcv_col, fillna=False, cal_
 
   # calculate aroon diff
   df['aroon_diff'] = (df['aroon_up'] - df['aroon_down'])
-  df['aroon_diff'] = (df['aroon_diff'] - df['aroon_diff'].shift(1))
+  # df['aroon_diff'] = (df['aroon_diff'] - df['aroon_diff'].shift(1))
   # df['aroon_diff'] = (df['aroon_diff'] - df['aroon_diff'].mean()) / df['aroon_diff'].std()
 
   return df
