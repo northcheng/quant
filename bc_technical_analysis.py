@@ -147,7 +147,7 @@ def preprocess_sec_data(df, sec_code, interval, print_error=True):
 
   # print error information
   if print_error and len(error_info) > 0:
-    error_info += f'[{max_idx.date()}]'
+    error_info = f'[{sec_code}]: on {max_idx.date()}, {error_info}'
     print(error_info)
 
   # add sec_code and change rate of close price

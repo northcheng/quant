@@ -179,6 +179,9 @@ def get_trading_time(quote_client, market=Market.US, tz='Asia/Shanghai'):
     # get market status
     status = quote_client.get_market_status(market=market)[0]
     open_time = status.open_time.astimezone(tz).replace(tzinfo=None)
+    if status.status == 'Trading':
+      open_time = open_time - datetime.timedelta(days=1)
+
     close_time = open_time + datetime.timedelta(hours=6.5)
     pre_open_time = open_time - datetime.timedelta(hours=5.5)
     post_close_time = close_time + datetime.timedelta(hours=4)
