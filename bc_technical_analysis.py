@@ -282,26 +282,28 @@ def calculate_ta_signal(df, n_ma=5):
   # copy data, initialize signal
   df = df.copy()
 
-  df = cal_change(df=df, target_col='aroon_diff', add_prefix=True, add_accumulation=False)
-  df = cal_change(df=df, target_col='aroon_up', add_prefix=True, add_accumulation=False)
-  df = cal_change(df=df, target_col='aroon_down', add_prefix=True, add_accumulation=False)
-  df['aroon_diff_change'] =  df['aroon_diff_change'].round(0)
+  # ================================ Calculate overall trend =======================
+  df['trend'] = 'n'
+  up_idx = df.query('(pti + nti > 1)').index
+  down_idx = df.query('(pti + nti <= 0)').index
+  df.loc[up_idx, 'trend'] = 'u'
+  df.loc[down_idx, 'trend'] = 'd'
 
   # ================================ Calculate overall siganl ======================
   df['signal'] = 'n'
 
   # conditions that would condider buying
-  buy_idx = df.query(f'((kama_signal == "b") or (pti + nti > 1)) and candle_color==1').index
-  # or ((pti + nti >1) and (aroon_up_change >= 0 and aroon_up > 30))
-  # (kama_signal=="b") and (ichimoku_signal=="b") and  and (gap>0)  and (kijun_mstd>0.01) and (psi+pti > abs(nsi+nti))
-  # and (aroon_diff_change!=0 or aroon_up_change > 0)
+  buy_idx = df.query(f'(kama_signal == "b") or (trend=="u")').index
   df.loc[buy_idx, 'signal'] = 'b'
 
   # conditions that would condider selling
-  sell_idx = df.query(f'(kama_signal == "s") or (pti + nti <= 0)').index 
-  #  or ((pti +  nti<=-1) and (aroon_down_change <= 0 and aroon_down >30))
-  # (kama_signal=="s") or (ichimoku_signal=="s") kama_signal=="s" or   and (gap<0)
+  sell_idx = df.query(f'(kama_signal == "s") or (kijun_signal == -1) or trend=="d"').index 
   df.loc[sell_idx, 'signal'] = 's'
+
+  # post-process signal
+  df['signal_day'] = sda(series=df['signal'].replace({'n':0, 'b':1, 's':-1}).fillna(0), zero_as=1)
+  df.loc[df['signal_day'] > 1, 'signal'] = 'n'
+  df.loc[df['signal_day'] <-1, 'signal'] = 'n' 
 
   return df
 
@@ -2661,7 +2663,7 @@ def plot_signal(
   # plot signals
   if signal_col in df.columns:
     
-    alpha = 1 if signal_col == "signal" else 0.2
+    alpha = 1 if signal_col =='signal' else 0.1
     positive_signal = df.query(f'{signal_col} == "{pos_signal}"')
     negative_signal = df.query(f'{signal_col} == "{neg_signal}"')
     none_signal = df.query(f'{signal_col} == "{none_signal}"')
@@ -2673,8 +2675,8 @@ def plot_signal(
       pos_trend = df.query(f'{trend_col} == "u" and {signal_col} =="n"')
       neg_trend = df.query(f'{trend_col} == "d" and {signal_col} =="n"') 
       none_trend = df.query(f'{trend_col} == "n" and {signal_col} =="n"')
-      ax.scatter(pos_trend.index, pos_trend['signal_base'], label=None, marker='o', color='green', alpha=alpha-0.1)
-      ax.scatter(neg_trend.index, neg_trend['signal_base'], label=None, marker='o', color='red', alpha=alpha-0.1)
+      ax.scatter(pos_trend.index, pos_trend['signal_base'], label=None, marker='o', color='green', alpha=0.1)
+      ax.scatter(neg_trend.index, neg_trend['signal_base'], label=None, marker='o', color='red', alpha=0.1)
       # ax.scatter(none_trend.index, none_trend['signal_base'], label=None, marker='o', color='grey', alpha=0.2)
 
 
