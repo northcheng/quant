@@ -7,6 +7,7 @@ Utilities used for trade simulation
 import pandas as pd
 import math
 import matplotlib.pyplot as plt
+from matplotlib import gridspec
 from quant import bc_util as util
 from quant import bc_technical_analysis as ta_util
 
@@ -106,10 +107,6 @@ def back_test(df, signal_col='signal', start_date=None, end_date=None, start_mon
     action = signal.loc[date, 'signal']
     if trade_on_next_day:
       trade_date = date_list[i+1]
-      
-      # next_date = date_list[i+1]
-    
-    
     
     # check whether to stop loss or earning if holding stock
     if stock > 0 and holding_price > 0:
@@ -165,10 +162,6 @@ def back_test(df, signal_col='signal', start_date=None, end_date=None, start_mon
       print_trading_info(date=date.date(), action=action, price=price, 
         previous_stock=previous_stock, stock=stock, previous_money=previous_money, money=money, 
         holding_price=holding_price, holding_return=holding_return)    
-
-    # stop earning or stop loss
-    if slse_triggered:
-      signal['signal'] = 'n'
     
     # update total value
     last_total = total
@@ -189,19 +182,40 @@ def back_test(df, signal_col='signal', start_date=None, end_date=None, start_mon
 
   # plot trading charts
   if plot_trading:
+
+    # create image
+    fig = plt.figure(figsize=(20, 5))  
+    gs = gridspec.GridSpec(2, 1, height_ratios=[1, 1])
+    trade_plot = plt.subplot(gs[0])
+    money_plot = plt.subplot(gs[1], sharex=trade_plot)
+    plt.setp(trade_plot.get_xticklabels(), visible=False)
+    gs.update(wspace=0, hspace=0)
+    
+    # plot trade signals
     buying_points = record.query('action == "b"')
     selling_points = record.query('action == "s"')
+    trade_plot.plot(signal.index, signal[['Close']], label='Close')
+    trade_plot.scatter(buying_points.index,buying_points.price, c='green', label='Buy')
+    trade_plot.scatter(selling_points.index,selling_points.price, c='red', label='Sell')
 
-    plt.subplots(figsize = (20, 3))
-    plt.plot(signal[['Close']])
-    plt.scatter(buying_points.index,buying_points.price, c='green')
-    plt.scatter(selling_points.index,selling_points.price, c='red')
-
+    # plot money flow chart
     total_value_data = pd.merge(signal[['Close']], record[['money', 'stock', 'action']], how='left', left_index=True, right_index=True)
     total_value_data.fillna(method='ffill', inplace=True)
     total_value_data['original'] = start_money
     total_value_data['total'] = total_value_data['Close'] * total_value_data['stock'] + total_value_data['money']
-    total_value_data[['total', 'original']].plot(figsize=(20, 3))
+    money_plot.plot(total_value_data.index, total_value_data.total, label='Value')
+    money_plot.plot(total_value_data.index, total_value_data.original, label='Principal')
+
+    money_plot.fill_between(total_value_data.index, total_value_data.original, total_value_data.total, where=total_value_data.total > total_value_data.original, facecolor='green', interpolate=True, alpha=0.1)
+    money_plot.fill_between(total_value_data.index, total_value_data.original, total_value_data.total, where=total_value_data.total < total_value_data.original, facecolor='red', interpolate=True, alpha=0.1)
+
+    # set title and legend
+    trade_plot.legend(bbox_to_anchor=(1.02, 0.), loc=3, ncol=1, borderaxespad=0.0) 
+    trade_plot.set_title('Signals', rotation='vertical', x=-0.05, y=0.3)
+    money_plot.legend(bbox_to_anchor=(1.02, 0.), loc=3, ncol=1, borderaxespad=0.0) 
+    money_plot.set_title('Money', rotation='vertical', x=-0.05, y=0.3)
+
+    fig.suptitle('Trade Simulation', x=0.5, y=0.95, fontsize=20)
 
   return record
 

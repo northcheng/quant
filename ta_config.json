@@ -31,14 +31,11 @@
 
 		"plot_args": {
 			"plot_ratio": { 
+				
 				"ichimoku_kama": 3, 
 				"signals": 0.75,
-				"aroon": 0.75,
+				"wave": 0.75,
 				"volume": 0.5
-			},
-			"aroon":{
-				"target_col": ["aroon_up", "aroon_down"],
-				"benchmark": 0
 			},
 			"ichimoku_kama": { 
 				"candlestick_width": 1, 
@@ -47,6 +44,16 @@
 					"colordown": "red", 
 					"alpha": 1
 				}
+			},
+			"wave":{
+				"target_col": ["aroon_diff_acc_change"],
+				"benchmark": 0,
+				"color_mode": "benchmark"
+			},
+			"aroon":{
+				"target_col": ["aroon_up", "aroon_down", "aroon_diff_acc_change"],
+				"benchmark": 50,
+				"boundary": [20, 80]
 			},
 			"signals": {
 				"signal_list": ["aroon_signal", "eom_signal", "kst_signal", "adx_signal", "kama_signal", "ichimoku_signal", "signal"],

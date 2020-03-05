@@ -282,6 +282,9 @@ def calculate_ta_signal(df, n_ma=5):
   # copy data, initialize signal
   df = df.copy()
 
+  # ================================ Calculate waving area ========================= 
+  # df['wave_signal'] = 'n'
+
   # ================================ Calculate overall trend =======================
   df['trend'] = 'n'
   up_idx = df.query('(pti + nti > 1)').index
@@ -290,14 +293,44 @@ def calculate_ta_signal(df, n_ma=5):
   df.loc[down_idx, 'trend'] = 'd'
 
   # ================================ Calculate overall siganl ======================
-  df['signal'] = 'n'
 
-  # conditions that would condider buying
-  buy_idx = df.query(f'(kama_signal == "b") or (trend=="u")').index
+  df[['aroon_up', 'aroon_down', 'aroon_diff']] = df[['aroon_up', 'aroon_down', 'aroon_diff']].round(1)
+  df = cal_change(df=df, target_col='aroon_up', add_prefix=True, add_accumulation=True)
+  df = cal_change(df=df, target_col='aroon_down', add_prefix=True, add_accumulation=True)
+  df = cal_change(df=df, target_col='aroon_diff', add_prefix=True, add_accumulation=True)
+
+  df['signal'] = 'n'
+  
+  # aroon_up>aroon_down, 且差距逐步增大, 非下降趋势 
+  buy_idx = df.query(f'(aroon_diff_acc_change>0) and (aroon_diff_change!=0) and trend!="d"').index
   df.loc[buy_idx, 'signal'] = 'b'
 
-  # conditions that would condider selling
-  sell_idx = df.query(f'(kama_signal == "s") or (kijun_signal == -1) or trend=="d"').index 
+  # aroon_up<aroon_down, 且差距逐步增大或保持不变, 非上升趋势 
+  sell_idx = df.query(f'(aroon_diff_acc_change<=0) and (trend!="u")').index 
+  df.loc[sell_idx, 'signal'] = 's'
+
+  # aroon_up在中线之上, aroon_down在中线之下, 且aroon_up处于上升趋势中
+  buy_idx = df.query(f'(aroon_up>=50>aroon_down) and (aroon_up_change>=0)').index 
+  df.loc[buy_idx, 'signal'] = 'b'
+
+  # aroon_up在中线之下, aroon_down在中线之上, 且aroon_down处于上升趋势中
+  sell_idx = df.query(f'(aroon_down>=50>aroon_up) and (aroon_down_change>=0)').index 
+  df.loc[sell_idx, 'signal'] = 's'
+
+  # aroon_up 处于上80以上, aroon_down 处于20以下, 且差距逐步增大
+  buy_idx = df.query(f'aroon_up>=80 and aroon_down<=20 and aroon_diff_change>=0').index
+  df.loc[buy_idx, 'signal'] = 'b'
+
+  # aroon_up 处于上20以下, aroon_down 处于80以上, 且差距逐步增大
+  sell_idx = df.query(f'aroon_down>=80 and aroon_up<=20 and aroon_diff_change<=0').index 
+  df.loc[sell_idx, 'signal'] = 's'
+
+  # ichimoku 与 KAMA 其中有一个出现买入信号, 且另一个为上升趋势中
+  buy_idx = df.query(f'(ichimoku_signal =="b" and kama_trend=="u") or (kama_signal =="b" and ichimoku_trend=="u")').index #  trend=="d"
+  df.loc[buy_idx, 'signal'] = 'b'
+
+  # ichimoku 与 KAMA 其中有一个出现卖出信号, 且另一个为下降趋势中
+  sell_idx = df.query(f'(ichimoku_signal =="s" and kama_trend=="d") or (kama_signal =="s" and ichimoku_trend=="d")').index #  trend=="d"
   df.loc[sell_idx, 'signal'] = 's'
 
   # post-process signal
@@ -587,25 +620,14 @@ def cal_change(df, target_col, periods=1, add_accumulation=True, add_prefix=Fals
   
   # calculate accumulative change in a same direction
   if add_accumulation:
-    df[acc_change_col] = 0
-    df.loc[df[change_col]>=0, acc_change_count_col] = 1
+
+    df[acc_change_col] = sda(series=df[change_col], zero_as=0)
+
+    df[acc_change_count_col] = 0
+    df.loc[df[change_col]>0, acc_change_count_col] = 1
     df.loc[df[change_col]<0, acc_change_count_col] = -1
-  
-    # go through each row, add values with same symbols (+/-)
-    idx = df.index.tolist()
-    for i in range(1, len(df)):
-      current_idx = idx[i]
-      previous_idx = idx[i-1]
-      current_change = df.loc[current_idx, change_col]
-      previous_acc_change = df.loc[previous_idx, acc_change_col]
-      previous_acc_change_days = df.loc[previous_idx, acc_change_count_col]
-
-      if previous_acc_change * current_change > 0:
-        df.loc[current_idx, acc_change_col] = current_change + previous_acc_change
-        df.loc[current_idx, acc_change_count_col] += previous_acc_change_days
-      else:
-        df.loc[current_idx, acc_change_col] = current_change
-
+    df[acc_change_count_col] = sda(series=df[acc_change_count_col], zero_as=1)
+    
   # drop NA values
   if drop_na:        
     df.dropna(inplace=True)
@@ -2942,7 +2964,7 @@ def plot_indicator(
 # plot multiple indicators on a same chart
 def plot_multiple_indicators(
   df, args={}, start=None, end=None, save_path=None, save_image=False, show_image=False, 
-  title=None, width=20, unit_size=3, wspace=0, hspace=0.2, subplot_args=default_plot_args):
+  title=None, width=20, unit_size=3, wspace=0, hspace=0.15, subplot_args=default_plot_args):
   """
   Plot Ichimoku and mean reversion in a same plot
   :param df: dataframe with ichimoku and mean reversion columns
@@ -2981,7 +3003,11 @@ def plot_multiple_indicators(
   for i in range(num_indicators):
     tmp_indicator = indicators[i]
     tmp_args = args.get(tmp_indicator)
-    axes[tmp_indicator] = plt.subplot(gs[i]) 
+
+    axes[tmp_indicator] = plt.subplot(gs[i])
+    if i % 2> 0:
+      axes[tmp_indicator].xaxis.set_ticks_position("top")
+      plt.setp(axes[tmp_indicator].get_xticklabels(), visible=False)  
     axes[tmp_indicator].patch.set_alpha(0.5)
 
     # get extra arguments
