@@ -326,11 +326,11 @@ def calculate_ta_signal(df, n_ma=5):
   df.loc[sell_idx, 'signal'] = 's'
 
   # ichimoku 与 KAMA 其中有一个出现买入信号, 且另一个为上升趋势中
-  buy_idx = df.query(f'(ichimoku_signal =="b" and kama_trend=="u") or (kama_signal =="b" and ichimoku_trend=="u")').index #  trend=="d"
+  buy_idx = df.query(f'((ichimoku_signal =="b" and kama_trend=="u") or (kama_signal =="b" and ichimoku_trend=="u")) and (aroon_diff_acc_change>0)').index #  trend=="d"
   df.loc[buy_idx, 'signal'] = 'b'
 
   # ichimoku 与 KAMA 其中有一个出现卖出信号, 且另一个为下降趋势中
-  sell_idx = df.query(f'(ichimoku_signal =="s" and kama_trend=="d") or (kama_signal =="s" and ichimoku_trend=="d")').index #  trend=="d"
+  sell_idx = df.query(f'(ichimoku_signal =="s" and kama_trend=="d") or (kama_signal =="s" and ichimoku_trend=="d") ').index #  trend=="d"
   df.loc[sell_idx, 'signal'] = 's'
 
   # post-process signal
