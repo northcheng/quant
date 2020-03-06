@@ -34,8 +34,7 @@
 				
 				"ichimoku_kama": 3, 
 				"signals": 0.75,
-				"wave": 0.75,
-				"volume": 0.5
+				"volume": 0.75
 			},
 			"ichimoku_kama": { 
 				"candlestick_width": 1, 
@@ -46,7 +45,7 @@
 				}
 			},
 			"wave":{
-				"target_col": ["aroon_diff_acc_change"],
+				"target_col": ["aroon_diff"],
 				"benchmark": 0,
 				"color_mode": "benchmark"
 			},
@@ -55,10 +54,18 @@
 				"benchmark": 50,
 				"boundary": [20, 80]
 			},
+			"kc": {
+				"target_col": ["kc_high_band", "kc_middle_band", "kc_low_band", "Close"]
+			},
 			"signals": {
-				"signal_list": ["aroon_signal", "eom_signal", "kst_signal", "adx_signal", "kama_signal", "ichimoku_signal", "signal"],
+				"signal_list": ["kst_signal", "aroon_signal", "eom_signal", "adx_signal", "kama_signal", "ichimoku_signal", "signal"],
 				"plot_signal_on_price": true,
 				"price_alpha": 0
+			},
+			"obv": {
+				"target_col": ["cci_ma_3"], 
+				"benchmark": 0,
+				"color_mode": "up_down"
 			},
 			"volume": {
 				"target_col": ["Volume"], 

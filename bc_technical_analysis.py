@@ -59,7 +59,7 @@ def load_config(root_paths):
   return config
 
 # calculate certain selected ta indicators
-def calculate_ta_data(df, sec_code, interval, signal_indicators=['ichimoku', 'kama', 'adx', 'kst', 'eom', 'aroon', 'bb'], signal_threshold=0.001, signal_day_threshold=1, n_ma=5):
+def calculate_ta_data(df, sec_code, interval, signal_indicators=['ichimoku', 'kama', 'adx', 'eom', 'aroon', 'kst', 'bb'], signal_threshold=0.001, signal_day_threshold=1, n_ma=5):
   """
   Calculate selected ta features for dataframe
 
@@ -87,7 +87,7 @@ def calculate_ta_data(df, sec_code, interval, signal_indicators=['ichimoku', 'ka
     # calculate TA derivatives
     phase = 'cal_ta_derivatives'
     main_id = ['ichimoku', 'kama']
-    diff_id = ['adx', 'kst', 'eom', 'aroon']
+    diff_id = ['adx', 'eom', 'aroon', 'kst']
     other_id = [x for x in signal_indicators if x not in main_id and x not in diff_id]
     df = calculate_ta_derivative(df=df, main_indicators=main_id, diff_indicators=diff_id, signal_threshold=signal_threshold, signal_day_threshold=signal_day_threshold, n_ma=n_ma)
 
@@ -294,19 +294,14 @@ def calculate_ta_signal(df, n_ma=5):
 
   # ================================ Calculate overall siganl ======================
 
-  df[['aroon_up', 'aroon_down', 'aroon_diff']] = df[['aroon_up', 'aroon_down', 'aroon_diff']].round(1)
-  df = cal_change(df=df, target_col='aroon_up', add_prefix=True, add_accumulation=True)
-  df = cal_change(df=df, target_col='aroon_down', add_prefix=True, add_accumulation=True)
-  df = cal_change(df=df, target_col='aroon_diff', add_prefix=True, add_accumulation=True)
-
   df['signal'] = 'n'
   
   # aroon_up>aroon_down, 且差距逐步增大, 非下降趋势 
-  buy_idx = df.query(f'(aroon_diff_acc_change>0) and (aroon_diff_change!=0) and trend!="d"').index
+  buy_idx = df.query(f'(aroon_gap_acc_change>0) and (aroon_gap_change!=0) and (trend!="d")').index
   df.loc[buy_idx, 'signal'] = 'b'
 
   # aroon_up<aroon_down, 且差距逐步增大或保持不变, 非上升趋势 
-  sell_idx = df.query(f'(aroon_diff_acc_change<=0) and (trend!="u")').index 
+  sell_idx = df.query(f'(aroon_gap_acc_change<=0) and (trend!="u")').index 
   df.loc[sell_idx, 'signal'] = 's'
 
   # aroon_up在中线之上, aroon_down在中线之下, 且aroon_up处于上升趋势中
@@ -318,15 +313,15 @@ def calculate_ta_signal(df, n_ma=5):
   df.loc[sell_idx, 'signal'] = 's'
 
   # aroon_up 处于上80以上, aroon_down 处于20以下, 且差距逐步增大
-  buy_idx = df.query(f'aroon_up>=80 and aroon_down<=20 and aroon_diff_change>=0').index
+  buy_idx = df.query(f'aroon_up>=80 and aroon_down<=20 and aroon_gap_change>=0').index
   df.loc[buy_idx, 'signal'] = 'b'
 
   # aroon_up 处于上20以下, aroon_down 处于80以上, 且差距逐步增大
-  sell_idx = df.query(f'aroon_down>=80 and aroon_up<=20 and aroon_diff_change<=0').index 
+  sell_idx = df.query(f'aroon_down>=80 and aroon_up<=20 and aroon_gap_change<=0').index 
   df.loc[sell_idx, 'signal'] = 's'
 
   # ichimoku 与 KAMA 其中有一个出现买入信号, 且另一个为上升趋势中, 且aroon也在上升趋势中
-  buy_idx = df.query(f'((tankan_signal==1 and kama_trend=="u") or (kama_fast_signal==1 and ichimoku_trend=="u")) and (aroon_diff_acc_change>0)').index #  trend=="d"
+  buy_idx = df.query(f'((tankan_signal==1 and kama_trend=="u") or (kama_fast_signal==1 and ichimoku_trend=="u")) and (aroon_gap_acc_change>0)').index #  trend=="d"
   df.loc[buy_idx, 'signal'] = 'b'
 
   # ichimoku 与 KAMA 其中有一个出现卖出信号, 且另一个为下降趋势中
@@ -1143,10 +1138,16 @@ def add_aroon_features(df, n=25, ohlcv_col=default_ohlcv_col, fillna=False, cal_
   df['aroon_up'] = aroon_up
   df['aroon_down'] = aroon_down
 
-  # calculate aroon diff
-  df['aroon_diff'] = (df['aroon_up'] - df['aroon_down'])
-  # df['aroon_diff'] = (df['aroon_diff'] - df['aroon_diff'].shift(1))
-  # df['aroon_diff'] = (df['aroon_diff'] - df['aroon_diff'].mean()) / df['aroon_diff'].std()
+  # calculate gap between aroon_up and aroon_down
+  df['aroon_gap'] = (df['aroon_up'] - df['aroon_down'])
+
+  # calculate aroon_diff
+  aroon_col = ['aroon_up', 'aroon_down', 'aroon_gap']
+  df[aroon_col] = df[aroon_col].round(1)
+  for col in aroon_col:
+    df = cal_change(df=df, target_col=col, add_prefix=True, add_accumulation=True)
+
+  df['aroon_diff'] = em(series=df['aroon_gap_acc_change'], periods=3).mean()
 
   return df
 
@@ -1183,10 +1184,7 @@ def add_cci_features(df, n=20, c=0.015, ohlcv_col=default_ohlcv_col, fillna=Fals
   df['cci'] = cci
 
   # calculate siganl
-  if cal_signal:
-    upper_boundary = max(boundary)
-    lower_boundary = min(boundary)
-    df['cci_signal'] = cal_boundary_signal(df=df, upper_col='cci', lower_col='cci', upper_boundary=upper_boundary, lower_boundary=lower_boundary)
+  df = cal_moving_average(df=df, target_col='cci', ma_windows=[3, 5])
 
   return df
 
@@ -1859,9 +1857,6 @@ def add_obv_features(df, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=T
 
   # assign obv to df
   df['obv'] = obv
-
-  df['obv_diff'] = df['obv'] - df['obv'].shift(1)
-  df['obv_diff'] = (df['obv_diff'] - df['obv_diff'].mean()) / df['obv_diff'].std()
 
   df.drop('OBV', axis=1, inplace=True)
   return df
