@@ -31,10 +31,9 @@
 
 		"plot_args": {
 			"plot_ratio": { 
-				
+				"volume": 0.75,
 				"ichimoku_kama": 3, 
-				"signals": 0.75,
-				"volume": 0.75
+				"signals": 0.75				
 			},
 			"ichimoku_kama": { 
 				"candlestick_width": 1, 
