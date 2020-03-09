@@ -59,7 +59,7 @@ def load_config(root_paths):
   return config
 
 # calculate certain selected ta indicators
-def calculate_ta_data(df, sec_code, interval, signal_indicators=['ichimoku', 'kama', 'adx', 'eom', 'kst', 'bb', 'aroon'], signal_threshold=0, signal_day_threshold=1, n_ma=5):
+def calculate_ta_data(df, sec_code, interval, signal_indicators=['ichimoku', 'kama', 'bb', 'aroon'], signal_threshold=0, signal_day_threshold=1, n_ma=5):
   """
   Calculate selected ta features for dataframe
 
@@ -87,7 +87,7 @@ def calculate_ta_data(df, sec_code, interval, signal_indicators=['ichimoku', 'ka
     # calculate TA derivatives
     phase = 'cal_ta_derivatives'
     main_id = ['ichimoku', 'kama']
-    diff_id = ['adx', 'eom', 'kst']
+    diff_id = [] # ['adx', 'eom', 'kst']
     other_id = [x for x in signal_indicators if x not in main_id and x not in diff_id]
     df = calculate_ta_derivative(df=df, main_indicators=main_id, diff_indicators=diff_id, signal_threshold=signal_threshold, signal_day_threshold=signal_day_threshold, n_ma=n_ma)
 
@@ -284,17 +284,28 @@ def calculate_ta_signal(df, n_ma=5):
 
   # ================================ Calculate overall trend =======================
   df['trend'] = 'n'
-  up_idx = df.query('(ti + si> 0)').index
-  down_idx = df.query('(ti + si < 0)').index
+  up_idx = df.query('(ti> 0)').index
+  down_idx = df.query('(ti< 0)').index
   df.loc[up_idx, 'trend'] = 'u'
   df.loc[down_idx, 'trend'] = 'd'
 
   # ================================ Calculate overall siganl ======================
+  df['signal'] = 'n'
 
-  df['signal'] = df['trend'].replace({'u':'b', 'd':'s'})
-  df['signal_day'] = sda(series=df['signal'].replace({'n':0, 'b':1, 's':-1}).fillna(0), zero_as=1)
-  df.loc[df['signal_day'] > 1, 'signal'] = 'n'
-  df.loc[df['signal_day'] <-1, 'signal'] = 'n'
+  # buy signal
+  buy_idx = df.query('(ichimoku_signal=="b" and kama_trend=="u") or (kama_signal=="b" and ichimoku_trend=="u")').index
+  df.loc[buy_idx, 'signal'] = 'b'
+
+  # sell signal
+  sell_idx = df.query('(ichimoku_signal=="s" and kama_trend=="d") or (kama_signal=="s" and ichimoku_trend=="d")').index
+  df.loc[sell_idx, 'signal'] = 's'
+
+  # wave signal
+  wave_idx = df.query('(aroon_gap_change==0) and (aroon_up_change<0 and aroon_down_change<0) and (aroon_gap<=60) and (signal=="b")').index
+  df.loc[wave_idx, 'signal'] = 'n'
+
+  # wave_idx = df.query('(aroon_up<=20) and (signal=="b")').index
+  # df.loc[wave_idx, 'signal'] = 'n'
 
   return df
 
@@ -1103,14 +1114,13 @@ def add_aroon_features(df, n=25, ohlcv_col=default_ohlcv_col, fillna=False, cal_
 
   # calculate gap between aroon_up and aroon_down
   df['aroon_gap'] = (df['aroon_up'] - df['aroon_down'])
-  
-  # df['aroon_diff'] = (df['aroon_up'] - df['aroon_down']) / (df['aroon_up'] + df['aroon_down'])
-  # # calculate aroon_diff
-  # aroon_col = ['aroon_up', 'aroon_down', 'aroon_gap']
-  # df[aroon_col] = df[aroon_col].round(1)
-  # for col in aroon_col:
-  #   df = cal_change(df=df, target_col=col, add_prefix=True, add_accumulation=True)
-  # df['aroon_diff'] = em(series=df['aroon_gap_acc_change'], periods=3).mean()
+
+  # calculate aroon_diff
+  aroon_col = ['aroon_up', 'aroon_down', 'aroon_gap']
+  df[aroon_col] = df[aroon_col].round(1)
+  for col in aroon_col:
+    df = cal_change(df=df, target_col=col, add_prefix=True, add_accumulation=True)
+  df['aroon_diff'] = em(series=df['aroon_gap_acc_change'], periods=3).mean()
 
   # # calculate aroon signal
   # df['aroon_signal'] = 'n'
