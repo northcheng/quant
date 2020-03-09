@@ -26,15 +26,14 @@
 		"show_image": true,
 		"save_image": false,
 		
-		"plot_window": {"day": 120, "week": 500}, 
+		"plot_window": {"day": 150, "week": 500}, 
 		"candlestick_width": {"day": 0.75, "week": 3.5}, 
 
 		"plot_args": {
 			"plot_ratio": { 
 				
-				"ichimoku_kama": 2.5, 
+				"ichimoku_kama": 3, 
 				"signals": 0.5,
-				"aroon": 0.5,
 				"volume": 0.5
 			},
 			"ichimoku_kama": { 
@@ -59,7 +58,7 @@
 				"color_mode": "benchmark"
 			},
 			"signals": {
-				"signal_list": ["signal", "kama_signal", "ichimoku_signal"],
+				"signal_list": ["kama_signal", "ichimoku_signal", "signal"],
 				"plot_signal_on_price": true,
 				"price_alpha": 0
 			},
