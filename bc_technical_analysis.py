@@ -59,7 +59,7 @@ def load_config(root_paths):
   return config
 
 # calculate certain selected ta indicators
-def calculate_ta_data(df, sec_code, interval, signal_indicators=['ichimoku', 'kama', 'adx', 'bb'], signal_threshold=0, signal_day_threshold=1, n_ma=5):
+def calculate_ta_data(df, sec_code, interval, signal_indicators=['ichimoku', 'kama', 'adx', 'eom', 'kst', 'bb', 'aroon'], signal_threshold=0, signal_day_threshold=1, n_ma=5):
   """
   Calculate selected ta features for dataframe
 
@@ -87,7 +87,7 @@ def calculate_ta_data(df, sec_code, interval, signal_indicators=['ichimoku', 'ka
     # calculate TA derivatives
     phase = 'cal_ta_derivatives'
     main_id = ['ichimoku', 'kama']
-    diff_id = ['adx']
+    diff_id = ['adx', 'eom', 'kst']
     other_id = [x for x in signal_indicators if x not in main_id and x not in diff_id]
     df = calculate_ta_derivative(df=df, main_indicators=main_id, diff_indicators=diff_id, signal_threshold=signal_threshold, signal_day_threshold=signal_day_threshold, n_ma=n_ma)
 
@@ -243,7 +243,7 @@ def calculate_ta_derivative(df, main_indicators, diff_indicators, signal_thresho
     df['nsi'] = 0
     df['pti'] = 0
     df['nti'] = 0
-    for indicator in (main_indicators + diff_indicators + ['gap']):
+    for indicator in (main_indicators + diff_indicators):
       signal_col = f'{indicator}_signal'
       trend_col = f'{indicator}_trend'
 
@@ -1104,6 +1104,7 @@ def add_aroon_features(df, n=25, ohlcv_col=default_ohlcv_col, fillna=False, cal_
   # calculate gap between aroon_up and aroon_down
   df['aroon_gap'] = (df['aroon_up'] - df['aroon_down'])
   
+  # df['aroon_diff'] = (df['aroon_up'] - df['aroon_down']) / (df['aroon_up'] + df['aroon_down'])
   # # calculate aroon_diff
   # aroon_col = ['aroon_up', 'aroon_down', 'aroon_gap']
   # df[aroon_col] = df[aroon_col].round(1)
@@ -1111,8 +1112,14 @@ def add_aroon_features(df, n=25, ohlcv_col=default_ohlcv_col, fillna=False, cal_
   #   df = cal_change(df=df, target_col=col, add_prefix=True, add_accumulation=True)
   # df['aroon_diff'] = em(series=df['aroon_gap_acc_change'], periods=3).mean()
 
+  # # calculate aroon signal
   # df['aroon_signal'] = 'n'
-  # df['aroon_trend'] = 'n'
+
+  # # calculate aroon trend
+  # df['aroon_trend'] = None
+
+  # wave_idx = df.query('aroon_gap_change == 0').index
+  # df.loc[wave_idx, 'aroon_trend'] = 'n'
   # up_idx = df.query('aroon_up>90 or aroon_down<10').index
   # df.loc[up_idx, 'aroon_trend'] = 'u'
 
@@ -2679,8 +2686,8 @@ def plot_signal(
   # plot signals
   if signal_col in df.columns:
     
-    signal_alpha = 0.8
-    trend_alpha = 0.4
+    signal_alpha = 1 if signal_col == 'signal' else 0.3
+    trend_alpha = 0.3 if signal_col == 'signal' else 0.1
     positive_signal = df.query(f'{signal_col} == "{pos_signal}"')
     negative_signal = df.query(f'{signal_col} == "{neg_signal}"')
     none_signal = df.query(f'{signal_col} == "{none_signal}"')
@@ -2689,12 +2696,15 @@ def plot_signal(
     # ax.scatter(none_signal.index, none_signal['signal_base'], label=None, marker='.', color='grey', alpha=0.1)
     
     if trend_col in df.columns:
-      pos_trend = df.query(f'{trend_col} == "u" and {signal_col} =="n"')
-      neg_trend = df.query(f'{trend_col} == "d" and {signal_col} =="n"') 
-      none_trend = df.query(f'{trend_col} == "n" and {signal_col} =="n"')
-      ax.scatter(pos_trend.index, pos_trend['signal_base'], label=None, marker='o', color='green', alpha=trend_alpha)
-      ax.scatter(neg_trend.index, neg_trend['signal_base'], label=None, marker='o', color='red', alpha=trend_alpha)
-      ax.scatter(none_trend.index, none_trend['signal_base'], label=None, marker='o', color='orange', alpha=trend_alpha)
+      if trend_col == 'trend':
+        pass
+      else:
+        pos_trend = df.query(f'{trend_col} == "u" and {signal_col} =="n"')
+        neg_trend = df.query(f'{trend_col} == "d" and {signal_col} =="n"') 
+        none_trend = df.query(f'{trend_col} == "n" and {signal_col} =="n"')
+        ax.scatter(pos_trend.index, pos_trend['signal_base'], label=None, marker='o', color='green', alpha=trend_alpha)
+        ax.scatter(neg_trend.index, neg_trend['signal_base'], label=None, marker='o', color='red', alpha=trend_alpha)
+        ax.scatter(none_trend.index, none_trend['signal_base'], label=None, marker='o', color='orange', alpha=trend_alpha)
 
 
   # legend and title
