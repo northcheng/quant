@@ -59,7 +59,7 @@ def load_config(root_paths):
   return config
 
 # calculate certain selected ta indicators
-def calculate_ta_data(df, sec_code, interval, signal_indicators=['ichimoku', 'kama', 'adx', 'eom', 'aroon', 'kst', 'bb'], signal_threshold=0.001, signal_day_threshold=1, n_ma=5):
+def calculate_ta_data(df, sec_code, interval, signal_indicators=['ichimoku', 'kama', 'adx', 'bb'], signal_threshold=0, signal_day_threshold=1, n_ma=5):
   """
   Calculate selected ta features for dataframe
 
@@ -87,7 +87,7 @@ def calculate_ta_data(df, sec_code, interval, signal_indicators=['ichimoku', 'ka
     # calculate TA derivatives
     phase = 'cal_ta_derivatives'
     main_id = ['ichimoku', 'kama']
-    diff_id = ['adx', 'eom', 'aroon', 'kst']
+    diff_id = ['adx']
     other_id = [x for x in signal_indicators if x not in main_id and x not in diff_id]
     df = calculate_ta_derivative(df=df, main_indicators=main_id, diff_indicators=diff_id, signal_threshold=signal_threshold, signal_day_threshold=signal_day_threshold, n_ma=n_ma)
 
@@ -282,56 +282,19 @@ def calculate_ta_signal(df, n_ma=5):
   # copy data, initialize signal
   df = df.copy()
 
-  # ================================ Calculate waving area ========================= 
-  # df['wave_signal'] = 'n'
-
   # ================================ Calculate overall trend =======================
   df['trend'] = 'n'
-  up_idx = df.query('(pti + nti > 1)').index
-  down_idx = df.query('(pti + nti <= 0)').index
+  up_idx = df.query('(ti + si> 0)').index
+  down_idx = df.query('(ti + si < 0)').index
   df.loc[up_idx, 'trend'] = 'u'
   df.loc[down_idx, 'trend'] = 'd'
 
   # ================================ Calculate overall siganl ======================
 
-  df['signal'] = 'n'
-  
-  # aroon_up>aroon_down, 且差距逐步增大, 非下降趋势 
-  buy_idx = df.query(f'(aroon_gap_acc_change>0) and (aroon_gap_change!=0) and (trend!="d")').index
-  df.loc[buy_idx, 'signal'] = 'b'
-
-  # aroon_up<aroon_down, 且差距逐步增大或保持不变, 非上升趋势 
-  sell_idx = df.query(f'(aroon_gap_acc_change<=0) and (trend!="u")').index 
-  df.loc[sell_idx, 'signal'] = 's'
-
-  # aroon_up在中线之上, aroon_down在中线之下, 且aroon_up处于上升趋势中
-  buy_idx = df.query(f'(aroon_up>=50>aroon_down) and (aroon_up_change>=0)').index 
-  df.loc[buy_idx, 'signal'] = 'b'
-
-  # aroon_up在中线之下, aroon_down在中线之上, 且aroon_down处于上升趋势中
-  sell_idx = df.query(f'(aroon_down>=50>aroon_up) and (aroon_down_change>=0)').index 
-  df.loc[sell_idx, 'signal'] = 's'
-
-  # aroon_up 处于上80以上, aroon_down 处于20以下, 且差距逐步增大
-  buy_idx = df.query(f'aroon_up>=80 and aroon_down<=20 and aroon_gap_change>=0').index
-  df.loc[buy_idx, 'signal'] = 'b'
-
-  # aroon_up 处于上20以下, aroon_down 处于80以上, 且差距逐步增大
-  sell_idx = df.query(f'aroon_down>=80 and aroon_up<=20 and aroon_gap_change<=0').index 
-  df.loc[sell_idx, 'signal'] = 's'
-
-  # ichimoku 与 KAMA 其中有一个出现买入信号, 且另一个为上升趋势中, 且aroon也在上升趋势中
-  buy_idx = df.query(f'((tankan_signal==1 and kama_trend=="u") or (kama_fast_signal==1 and ichimoku_trend=="u")) and (aroon_gap_acc_change>0)').index #  trend=="d"
-  df.loc[buy_idx, 'signal'] = 'b'
-
-  # ichimoku 与 KAMA 其中有一个出现卖出信号, 且另一个为下降趋势中
-  sell_idx = df.query(f'(ichimoku_signal=="s" and kama_trend=="d") or (kama_signal=="s" and ichimoku_trend=="d") ').index #  trend=="d"
-  df.loc[sell_idx, 'signal'] = 's'
-
-  # post-process signal
+  df['signal'] = df['trend'].replace({'u':'b', 'd':'s'})
   df['signal_day'] = sda(series=df['signal'].replace({'n':0, 'b':1, 's':-1}).fillna(0), zero_as=1)
   df.loc[df['signal_day'] > 1, 'signal'] = 'n'
-  df.loc[df['signal_day'] <-1, 'signal'] = 'n' 
+  df.loc[df['signal_day'] <-1, 'signal'] = 'n'
 
   return df
 
@@ -1140,14 +1103,50 @@ def add_aroon_features(df, n=25, ohlcv_col=default_ohlcv_col, fillna=False, cal_
 
   # calculate gap between aroon_up and aroon_down
   df['aroon_gap'] = (df['aroon_up'] - df['aroon_down'])
+  
+  # # calculate aroon_diff
+  # aroon_col = ['aroon_up', 'aroon_down', 'aroon_gap']
+  # df[aroon_col] = df[aroon_col].round(1)
+  # for col in aroon_col:
+  #   df = cal_change(df=df, target_col=col, add_prefix=True, add_accumulation=True)
+  # df['aroon_diff'] = em(series=df['aroon_gap_acc_change'], periods=3).mean()
 
-  # calculate aroon_diff
-  aroon_col = ['aroon_up', 'aroon_down', 'aroon_gap']
-  df[aroon_col] = df[aroon_col].round(1)
-  for col in aroon_col:
-    df = cal_change(df=df, target_col=col, add_prefix=True, add_accumulation=True)
+  # df['aroon_signal'] = 'n'
+  # df['aroon_trend'] = 'n'
+  # up_idx = df.query('aroon_up>90 or aroon_down<10').index
+  # df.loc[up_idx, 'aroon_trend'] = 'u'
 
-  df['aroon_diff'] = em(series=df['aroon_gap_acc_change'], periods=3).mean()
+  # down_idx = df.query('aroon_up<10 or aroon_down>90').index
+  # df.loc[down_idx, 'aroon_trend'] = 'd'
+
+  # wave_idx = df.query('aroon_gap_change ==0').index
+  # df.loc[wave_idx, 'aroon_trend'] = 'n'
+
+  # # aroon_up>aroon_down, 且差距逐步增大, 非下降趋势 
+  # up_idx = df.query(f'(aroon_gap_acc_change>0) and (aroon_gap_change!=0)').index
+  # df.loc[up_idx, 'aroon_trend'] = 'u'
+
+  # # aroon_up<aroon_down, 且差距逐步增大或保持不变, 非上升趋势 
+  # down_idx = df.query(f'(aroon_gap_acc_change<=0) and (aroon_gap_change!=0)').index 
+  # df.loc[down_idx, 'aroon_trend'] = 'd'
+
+  # # aroon_up在中线之上, aroon_down在中线之下, 且aroon_up处于上升趋势中
+  # up_idx = df.query(f'(aroon_up>=50>aroon_down) and (aroon_up_change>=0)').index 
+  # df.loc[up_idx, 'aroon_trend'] = 'u'
+
+  # # aroon_up在中线之下, aroon_down在中线之上, 且aroon_down处于上升趋势中
+  # down_idx = df.query(f'(aroon_down>=50>aroon_up) and (aroon_down_change>=0)').index 
+  # df.loc[down_idx, 'aroon_trend'] = 'd'
+
+  # # aroon_up 处于上80以上, aroon_down 处于20以下, 且差距逐步增大
+  # up_idx = df.query(f'aroon_up>=80 and aroon_down<=20 and aroon_gap_change>=0').index
+  # df.loc[up_idx, 'aroon_trend'] = 'u'
+
+  # # aroon_up 处于上20以下, aroon_down 处于80以上, 且差距逐步增大
+  # down_idx = df.query(f'aroon_down>=80 and aroon_up<=20 and aroon_gap_change<=0').index 
+  # df.loc[down_idx, 'aroon_trend'] = 'd'
+
+  
 
   return df
 
@@ -2680,21 +2679,22 @@ def plot_signal(
   # plot signals
   if signal_col in df.columns:
     
-    alpha = 1 if signal_col =='signal' else 0.1
+    signal_alpha = 0.8
+    trend_alpha = 0.4
     positive_signal = df.query(f'{signal_col} == "{pos_signal}"')
     negative_signal = df.query(f'{signal_col} == "{neg_signal}"')
     none_signal = df.query(f'{signal_col} == "{none_signal}"')
-    ax.scatter(positive_signal.index, positive_signal['signal_base'], label=None, marker='^', color='green', alpha=alpha)
-    ax.scatter(negative_signal.index, negative_signal['signal_base'], label=None, marker='v', color='red', alpha=alpha)
+    ax.scatter(positive_signal.index, positive_signal['signal_base'], label=None, marker='^', color='green', alpha=signal_alpha)
+    ax.scatter(negative_signal.index, negative_signal['signal_base'], label=None, marker='v', color='red', alpha=signal_alpha)
     # ax.scatter(none_signal.index, none_signal['signal_base'], label=None, marker='.', color='grey', alpha=0.1)
     
     if trend_col in df.columns:
       pos_trend = df.query(f'{trend_col} == "u" and {signal_col} =="n"')
       neg_trend = df.query(f'{trend_col} == "d" and {signal_col} =="n"') 
       none_trend = df.query(f'{trend_col} == "n" and {signal_col} =="n"')
-      ax.scatter(pos_trend.index, pos_trend['signal_base'], label=None, marker='o', color='green', alpha=0.1)
-      ax.scatter(neg_trend.index, neg_trend['signal_base'], label=None, marker='o', color='red', alpha=0.1)
-      # ax.scatter(none_trend.index, none_trend['signal_base'], label=None, marker='o', color='grey', alpha=0.2)
+      ax.scatter(pos_trend.index, pos_trend['signal_base'], label=None, marker='o', color='green', alpha=trend_alpha)
+      ax.scatter(neg_trend.index, neg_trend['signal_base'], label=None, marker='o', color='red', alpha=trend_alpha)
+      ax.scatter(none_trend.index, none_trend['signal_base'], label=None, marker='o', color='orange', alpha=trend_alpha)
 
 
   # legend and title
