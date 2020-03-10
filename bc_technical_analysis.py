@@ -2849,12 +2849,12 @@ def plot_ichimoku_kama(
   ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a <= df.senkou_b, facecolor='red', interpolate=True, alpha=0.1)
 
   # plot kijun/tankan lines 
-  ax.plot(df.index, df.tankan, label='tankan', color='magenta', linestyle='dashed', alpha=0.3)
-  ax.plot(df.index, df.kijun, label='kijun', color='blue', linestyle='dashed', alpha=0.3)
+  ax.plot(df.index, df.tankan, label='tankan', color='magenta', linestyle='dashed', alpha=0.5)
+  ax.plot(df.index, df.kijun, label='kijun', color='blue', linestyle='dashed', alpha=0.5)
 
   # plot kama_fast/slow lines 
-  ax.plot(df.index, df.kama_fast, label='kama_fast', color='magenta', alpha=0.3)
-  ax.plot(df.index, df.kama_slow, label='kama_slow', color='blue', alpha=0.3)
+  ax.plot(df.index, df.kama_fast, label='kama_fast', color='magenta', alpha=0.5)
+  ax.plot(df.index, df.kama_slow, label='kama_slow', color='blue', alpha=0.5)
 
   # plot candlestick
   ax = plot_candlestick(df=df, start=start, end=end, date_col=date_col, ohlcv_col=ohlcv_col, width=candlestick_width, color=candlestick_color, use_ax=ax, plot_args=plot_args)
