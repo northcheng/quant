@@ -59,7 +59,7 @@ def load_config(root_paths):
   return config
 
 # calculate certain selected ta indicators
-def calculate_ta_data(df, sec_code, interval, signal_indicators=['ichimoku', 'kama', 'bb', 'aroon'], signal_threshold=0, signal_day_threshold=1, n_ma=5):
+def calculate_ta_data(df, sec_code, interval, signal_indicators=['ichimoku', 'kama', 'bb'], signal_threshold=0, signal_day_threshold=1, n_ma=5):
   """
   Calculate selected ta features for dataframe
 
@@ -284,28 +284,13 @@ def calculate_ta_signal(df, n_ma=5):
 
   # ================================ Calculate overall trend =======================
   df['trend'] = 'n'
-  up_idx = df.query('(ti> 0)').index
-  down_idx = df.query('(ti< 0)').index
-  df.loc[up_idx, 'trend'] = 'u'
-  df.loc[down_idx, 'trend'] = 'd'
+  # up_idx = df.query('(ti> 0)').index
+  # down_idx = df.query('(ti< 0)').index
+  # df.loc[up_idx, 'trend'] = 'u'
+  # df.loc[down_idx, 'trend'] = 'd'
 
   # ================================ Calculate overall siganl ======================
-  df['signal'] = 'n'
-
-  # buy signal
-  buy_idx = df.query('((ichimoku_signal=="b" and kama_signal=="b") or (kama_trend=="u" or ichimoku_trend=="u") and (aroon_gap_change>0 or aroon_up>80)) and (aroon_down<80)').index
-  df.loc[buy_idx, 'signal'] = 'b'
-
-  # sell signal
-  sell_idx = df.query('((ichimoku_signal=="s" or kama_signal=="s") or (kama_trend=="d" and ichimoku_trend=="d")) and (aroon_gap_change<=0 and aroon_gap<60)').index
-  df.loc[sell_idx, 'signal'] = 's'
-
-  # wave signal
-  wave_idx = df.query('(aroon_gap_change==0) and (aroon_up_change<0 and aroon_down_change<0) and (aroon_gap < 0) and (signal=="b")').index
-  df.loc[wave_idx, 'signal'] = 'n'
-
-  # sell_idx = df.query('(ichimoku_signal=="s" and kama_signal=="s")').index
-  # df.loc[sell_idx, 'signal'] = 's'
+  df['signal'] = df['kama_signal']
 
   return df
 
@@ -2864,12 +2849,12 @@ def plot_ichimoku_kama(
   ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a <= df.senkou_b, facecolor='red', interpolate=True, alpha=0.1)
 
   # plot kijun/tankan lines 
-  ax.plot(df.index, df.tankan, label='tankan', color='magenta', linestyle='dashed', alpha=0.8)
-  ax.plot(df.index, df.kijun, label='kijun', color='blue', linestyle='dashed', alpha=0.8)
+  ax.plot(df.index, df.tankan, label='tankan', color='magenta', linestyle='dashed', alpha=0.3)
+  ax.plot(df.index, df.kijun, label='kijun', color='blue', linestyle='dashed', alpha=0.3)
 
   # plot kama_fast/slow lines 
-  ax.plot(df.index, df.kama_fast, label='kama_fast', color='magenta', alpha=0.6)
-  ax.plot(df.index, df.kama_slow, label='kama_slow', color='blue', alpha=0.6)
+  ax.plot(df.index, df.kama_fast, label='kama_fast', color='magenta', alpha=0.3)
+  ax.plot(df.index, df.kama_slow, label='kama_slow', color='blue', alpha=0.3)
 
   # plot candlestick
   ax = plot_candlestick(df=df, start=start, end=end, date_col=date_col, ohlcv_col=ohlcv_col, width=candlestick_width, color=candlestick_color, use_ax=ax, plot_args=plot_args)
