@@ -960,7 +960,7 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
   # entity
   df['entity'] = abs(df[close] - df[open])
 
-  # upper/lower shadow
+  # ======================================= upper/lower shadow ======================================= #
   df['upper_shadow'] = 0
   df['lower_shadow'] = 0
   df.loc[up_idx, 'upper_shadow'] = (df.loc[up_idx, high] - df.loc[up_idx, close])
@@ -987,6 +987,15 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
   strict_gap_down_idx = df.query(f'{high}<prev_{low}').index  
   df.loc[gap_down_idx, 'gap'] = -1
   df.loc[strict_gap_down_idx, 'gap'] = -2
+
+  # ======================================= long entities ======================================= #
+  df['long_entity'] = 0
+  df['avg_entity_length'] = df['entity'].rolling(50).mean()
+  long_entity_idx = df.query(f'(entity >= 3*avg_entity_length)').index
+  df.loc[long_entity_idx, 'long_entity'] = df.loc[long_entity_idx, 'candle_color']
+  col_to_drop.append('avg_entity_length')
+
+  df['candlestick_signal'] = df['long_entity'].replace({0:'n', 1:'b', -1:'s'})
 
   df = df.drop(col_to_drop, axis=1)
 
@@ -1228,7 +1237,7 @@ def add_dpo_features(df, n=20, ohlcv_col=default_ohlcv_col, fillna=False, cal_si
   return df
 
 # Ichimoku 
-def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is_shift=True, ohlcv_col=default_ohlcv_col, fillna=False, cal_status=True):
+def add_ichimoku_features(df, n_short=7, n_medium=22, n_long=44, method='ta', is_shift=True, ohlcv_col=default_ohlcv_col, fillna=False, cal_status=True):
   """
   Calculate Ichimoku indicators
 

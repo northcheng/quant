@@ -58,7 +58,7 @@
 				"color_mode": "benchmark"
 			},
 			"signals": {
-				"signal_list": ["kama_signal", "ichimoku_signal", "signal"],
+				"signal_list": ["kama_signal", "ichimoku_signal"],
 				"plot_signal_on_price": true,
 				"price_alpha": 0
 			},
