@@ -293,19 +293,19 @@ def calculate_ta_signal(df, n_ma=5):
   df['signal'] = 'n'
 
   # buy signal
-  buy_idx = df.query('(ichimoku_signal=="b" and kama_trend=="u") or (kama_signal=="b" and ichimoku_trend=="u")').index
+  buy_idx = df.query('((ichimoku_signal=="b" and kama_signal=="b") or (kama_trend=="u" or ichimoku_trend=="u") and (aroon_gap_change>0 or aroon_up>80)) and (aroon_down<80)').index
   df.loc[buy_idx, 'signal'] = 'b'
 
   # sell signal
-  sell_idx = df.query('(ichimoku_signal=="s" and kama_trend=="d") or (kama_signal=="s" and ichimoku_trend=="d")').index
+  sell_idx = df.query('((ichimoku_signal=="s" or kama_signal=="s") or (kama_trend=="d" and ichimoku_trend=="d")) and (aroon_gap_change<=0 and aroon_gap<60)').index
   df.loc[sell_idx, 'signal'] = 's'
 
   # wave signal
-  wave_idx = df.query('(aroon_gap_change==0) and (aroon_up_change<0 and aroon_down_change<0) and (aroon_gap<=60) and (signal=="b")').index
+  wave_idx = df.query('(aroon_gap_change==0) and (aroon_up_change<0 and aroon_down_change<0) and (aroon_gap < 0) and (signal=="b")').index
   df.loc[wave_idx, 'signal'] = 'n'
 
-  # wave_idx = df.query('(aroon_up<=20) and (signal=="b")').index
-  # df.loc[wave_idx, 'signal'] = 'n'
+  # sell_idx = df.query('(ichimoku_signal=="s" and kama_signal=="s")').index
+  # df.loc[sell_idx, 'signal'] = 's'
 
   return df
 
