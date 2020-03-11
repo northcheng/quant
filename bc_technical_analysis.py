@@ -59,7 +59,7 @@ def load_config(root_paths):
   return config
 
 # calculate certain selected ta indicators
-def calculate_ta_data(df, sec_code, interval, signal_indicators=['ichimoku', 'kama', 'bb'], signal_threshold=0, signal_day_threshold=1, n_ma=5):
+def calculate_ta_data(df, sec_code, interval, signal_indicators=['ichimoku', 'kama', 'bb', 'aroon'], signal_threshold=0.001, signal_day_threshold=1, n_ma=5):
   """
   Calculate selected ta features for dataframe
 
@@ -170,17 +170,6 @@ def calculate_ta_derivative(df, main_indicators, diff_indicators, signal_thresho
   :raises: Exception 
   """
   try:
-    # ================================ gap_up / gap_down signals ======================
-    phase = 'cal_candlestick_gap'
-    if 'gap' in df.columns:
-      df['gap_signal'] = 'n'
-      df.loc[df['gap']==2, 'gap_signal'] = 'b'
-      df.loc[df['gap']==-2, 'gap_signal'] = 's'
-
-      df['gap_trend'] = 'n'
-      df.loc[df['gap']==1, 'gap_trend'] = 'u'
-      df.loc[df['gap']==-1, 'gap_trend'] = 'd'
-
     # ================================ main indicator signals =========================
     phase = 'cal_signals_for_main_indicators'
     fast_line = {'ichimoku': 'tankan', 'kama': 'kama_fast'}
@@ -194,35 +183,26 @@ def calculate_ta_derivative(df, main_indicators, diff_indicators, signal_thresho
       sld = f'{sl}_day'
       df[fld] = sda(series=df[f'{fl}_signal'], zero_as=1)
       df[sld] = sda(series=df[f'{sl}_signal'], zero_as=1)
+      df = cal_change(df=df, target_col=fl, add_prefix=True)
+      df = cal_change(df=df, target_col=sl, add_prefix=True)
+
       
-      # calculate trend
+      # calculate signal
       # up trend: close above both fast/slow lines, or close between fast_line and slow_line and close break through from bottom
       # down trend: close below both fast/slow lines, or close between fast_line and slow_line and close break through from top
+      signal_col = f'{indicator}_signal'
+      df[signal_col] = 'n'
+      buy_idx = df.query(f'(close_to_{fl} >= close_to_{sl} > {signal_threshold}) or (close_to_{sl} >= close_to_{fl} > {signal_threshold}) or ((close_to_{fl}>={signal_threshold}) and (close_to_{sl}<={-signal_threshold}) and (abs({fld})<abs({sld}))) or ((close_to_{fl}<={-signal_threshold}) and (close_to_{sl}>={signal_threshold}) and (abs({fld})>abs({sld})))').index
+      df.loc[buy_idx, signal_col] = 'b'
+      sell_idx = df.query(f'(close_to_{fl} <= close_to_{sl} < {-signal_threshold}) or (close_to_{sl} <= close_to_{fl} < {-signal_threshold}) or ((close_to_{sl}<{-signal_threshold}) and (close_to_{fl}>{signal_threshold}) and (abs({fld})>abs({sld}))) or ((close_to_{sl}>{signal_threshold}) and (close_to_{fl}<{-signal_threshold}) and (abs({fld})<abs({sld})))').index
+      df.loc[sell_idx, signal_col] = 's'
+
       trend_col = f'{indicator}_trend'
-      df[trend_col] = 'n'
-      up_idx = df.query(f'(close_to_{fl} >= close_to_{sl} > {signal_threshold}) or (close_to_{sl} >= close_to_{fl} > {signal_threshold}) or ((close_to_{fl}>={signal_threshold}) and (close_to_{sl}<={-signal_threshold}) and (abs({fld})<abs({sld}))) or ((close_to_{fl}<={-signal_threshold}) and (close_to_{sl}>={signal_threshold}) and (abs({fld})>abs({sld})))').index
+      df['trend_col'] = 'n'
+      up_idx = df.query(f'({fl} > {sl})').index # (cloud_height>0) and (tankan>kijun>cloud_top)
       df.loc[up_idx, trend_col] = 'u'
-      down_idx = df.query(f'(close_to_{fl} <= close_to_{sl} < {-signal_threshold}) or (close_to_{sl} <= close_to_{fl} < {-signal_threshold}) or ((close_to_{sl}<{-signal_threshold}) and (close_to_{fl}>{signal_threshold}) and (abs({fld})>abs({sld}))) or ((close_to_{sl}>{signal_threshold}) and (close_to_{fl}<{-signal_threshold}) and (abs({fld})<abs({sld})))').index
+      down_idx = df.query(f'({fl} <= {sl})').index # (cloud_height<0) or (cloud_height>0 and (kijun<cloud_top or tankan<cloud_top or Close<cloud_top))
       df.loc[down_idx, trend_col] = 'd'
-
-      # calculate signal, which is the same as trend
-      signal_col = f'{indicator}_signal'
-      df[signal_col] = df[trend_col].replace({'n':'n', 'u':'b', 'd':'s'})
-
-    # =============================== _diff indicator signals =========================
-    phase = 'cal_signals_for_other_indicators'
-    for indicator in diff_indicators:
-
-      # calculate trend
-      diff_col = f'{indicator}_diff'
-      trend_col = f'{indicator}_trend'
-      df[trend_col] = 'n'
-      df.loc[df[diff_col] > 0, trend_col] = 'u'
-      df.loc[df[diff_col] < 0, trend_col] = 'd'
-
-      # calculate signal, which is the same as trend
-      signal_col = f'{indicator}_signal'
-      df[signal_col] = df[trend_col].replace({'n':'n', 'u':'b', 'd':'s'})
 
     # ================================ Number days since signal triggered ============
     phase = 'cal_num_day_signal_triggered'
@@ -236,27 +216,6 @@ def calculate_ta_derivative(df, main_indicators, diff_indicators, signal_thresho
       # set indicators as untriggered after 3 days
       df.loc[df[day_col] > signal_day_threshold, signal_col] = 'n'
       df.loc[df[day_col] <-signal_day_threshold, signal_col] = 'n'   
-
-    # ================================ overall trend and signal ======================
-    phase = 'cal_overall_signal_and_trend'
-    df['psi'] = 0
-    df['nsi'] = 0
-    df['pti'] = 0
-    df['nti'] = 0
-    for indicator in (main_indicators + diff_indicators):
-      signal_col = f'{indicator}_signal'
-      trend_col = f'{indicator}_trend'
-
-      # calculate summary of positive/negative signals
-      df['psi'] += (df[signal_col] == 'b').astype(int)
-      df['nsi'] -= (df[signal_col] == 's').astype(int)
-
-      # calculate summaray of positive/negative trend
-      df['pti'] += (df[trend_col] == 'u').astype(int)
-      df['nti'] -= (df[trend_col] == 'd').astype(int)
-
-    df['si'] = df['psi'] + df['nsi']
-    df['ti'] = df['pti'] + df['nti']
 
     # ================================ Summary of the trend ==========================
     phase = 'summarize_trend'
@@ -283,14 +242,15 @@ def calculate_ta_signal(df, n_ma=5):
   df = df.copy()
 
   # ================================ Calculate overall trend =======================
-  df['trend'] = 'n'
+  df['trend'] = (df['tankan'] + df['kama_fast'])/2
+  df['momentum'] = (df['kijun'] + df['kama_slow'])/2
   # up_idx = df.query('(ti> 0)').index
   # down_idx = df.query('(ti< 0)').index
   # df.loc[up_idx, 'trend'] = 'u'
   # df.loc[down_idx, 'trend'] = 'd'
 
   # ================================ Calculate overall siganl ======================
-  df['signal'] = df['kama_signal']
+  df['signal'] = cal_crossover_signal(df=df, fast_line='trend', slow_line='momentum')
 
   return df
 
@@ -672,8 +632,8 @@ def cal_crossover_signal(df, fast_line, slow_line, result_col='signal', pos_sign
 
   # get signals from fast/slow lines cross over
   df[result_col] = none_signal
-  pos_idx = df.query('diff > 0 and diff_prev < 0').index
-  neg_idx = df.query('diff < 0 and diff_prev > 0').index
+  pos_idx = df.query('(diff >= 0 and diff_prev < 0) or (diff > 0 and diff_prev <= 0)').index
+  neg_idx = df.query('(diff <= 0 and diff_prev > 0) or (diff < 0 and diff_prev >= 0)').index
 
   # assign signal values
   df[result_col] = none_signal
@@ -1237,7 +1197,7 @@ def add_dpo_features(df, n=20, ohlcv_col=default_ohlcv_col, fillna=False, cal_si
   return df
 
 # Ichimoku 
-def add_ichimoku_features(df, n_short=7, n_medium=22, n_long=44, method='ta', is_shift=True, ohlcv_col=default_ohlcv_col, fillna=False, cal_status=True):
+def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is_shift=True, ohlcv_col=default_ohlcv_col, fillna=False, cal_status=True):
   """
   Calculate Ichimoku indicators
 
@@ -2690,8 +2650,8 @@ def plot_signal(
   # plot signals
   if signal_col in df.columns:
     
-    signal_alpha = 1 if signal_col == 'signal' else 0.3
-    trend_alpha = 0.3 if signal_col == 'signal' else 0.1
+    signal_alpha = 1 #if signal_col == 'signal' else 0.3
+    trend_alpha = 0.2 #if signal_col == 'signal' else 0.1
     positive_signal = df.query(f'{signal_col} == "{pos_signal}"')
     negative_signal = df.query(f'{signal_col} == "{neg_signal}"')
     none_signal = df.query(f'{signal_col} == "{none_signal}"')
@@ -2703,12 +2663,12 @@ def plot_signal(
       if trend_col == 'trend':
         pass
       else:
-        pos_trend = df.query(f'{trend_col} == "u" and {signal_col} =="n"')
-        neg_trend = df.query(f'{trend_col} == "d" and {signal_col} =="n"') 
-        none_trend = df.query(f'{trend_col} == "n" and {signal_col} =="n"')
-        ax.scatter(pos_trend.index, pos_trend['signal_base'], label=None, marker='o', color='green', alpha=trend_alpha)
-        ax.scatter(neg_trend.index, neg_trend['signal_base'], label=None, marker='o', color='red', alpha=trend_alpha)
-        ax.scatter(none_trend.index, none_trend['signal_base'], label=None, marker='o', color='orange', alpha=trend_alpha)
+        pos_trend = df.query(f'{trend_col} == "u"')
+        neg_trend = df.query(f'{trend_col} == "d"') 
+        none_trend = df.query(f'{trend_col} == "n"')
+        ax.scatter(pos_trend.index, pos_trend['signal_base'], label=None, marker='s', color='green', alpha=trend_alpha)
+        ax.scatter(neg_trend.index, neg_trend['signal_base'], label=None, marker='s', color='red', alpha=trend_alpha)
+        ax.scatter(none_trend.index, none_trend['signal_base'], label=None, marker='s', color='orange', alpha=trend_alpha)
 
 
   # legend and title
@@ -2817,7 +2777,7 @@ def plot_candlestick(
     return ax
 
 # plot ichimoku chart
-def plot_ichimoku_kama(
+def plot_ichimoku(
   df, start=None, end=None, date_col='Date', ohlcv_col=default_ohlcv_col, 
   candlestick_width=0.8, candlestick_color=default_candlestick_color, 
   use_ax=None, title=None, plot_args=default_plot_args):
@@ -2858,12 +2818,119 @@ def plot_ichimoku_kama(
   ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a <= df.senkou_b, facecolor='red', interpolate=True, alpha=0.1)
 
   # plot kijun/tankan lines 
-  ax.plot(df.index, df.tankan, label='tankan', color='magenta', linestyle='dashed', alpha=0.5)
-  ax.plot(df.index, df.kijun, label='kijun', color='blue', linestyle='dashed', alpha=0.5)
+  ax.plot(df.index, df.tankan, label='tankan', color='magenta', linestyle='dashed', alpha=0.8)
+  ax.plot(df.index, df.kijun, label='kijun', color='blue', linestyle='dashed', alpha=0.8)
+
+  # plot candlestick
+  ax = plot_candlestick(df=df, start=start, end=end, date_col=date_col, ohlcv_col=ohlcv_col, width=candlestick_width, color=candlestick_color, use_ax=ax, plot_args=plot_args)
+  
+  # title and legend
+  ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
+  ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
+
+  if use_ax is not None:
+    return ax
+
+# plot kama chart
+def plot_kama(
+  df, start=None, end=None, date_col='Date', ohlcv_col=default_ohlcv_col, 
+  candlestick_width=0.8, candlestick_color=default_candlestick_color, 
+  use_ax=None, title=None, plot_args=default_plot_args):
+  """
+  Plot ichimoku chart
+
+  :param df: dataframe with ichimoku indicator columns
+  :param start: start row to plot
+  :param end: end row to plot
+  :param date_col: column name of Date
+  :param ohlcv_col: columns names of Open/High/Low/Close/Volume
+  :param candlestick_width: width of candlestick
+  :param candlestick_color: up/down color of candlestick
+  :param use_ax: the already-created ax to draw on
+  :param title: plot title
+  :param plot_args: other plot arguments
+  :returns: ichimoku plot
+  :raises: none
+  """
+  # copy dataframe within a specific period
+  df = df[start:end].copy()
+
+  # create figure
+  ax = use_ax
+  if ax is None:
+    plt.figure(figsize=plot_args['figsize'])
+    ax = plt.gca()
+
+  # plot close price
+  ax.plot(df.index, df[default_ohlcv_col['close']], label='close', color='black', linestyle='--', alpha=0.2)
 
   # plot kama_fast/slow lines 
-  ax.plot(df.index, df.kama_fast, label='kama_fast', color='magenta', alpha=0.5)
-  ax.plot(df.index, df.kama_slow, label='kama_slow', color='blue', alpha=0.5)
+  ax.plot(df.index, df.kama_fast, label='kama_fast', color='magenta', alpha=0.8)
+  ax.plot(df.index, df.kama_slow, label='kama_slow', color='blue', alpha=0.8)
+
+  # plot candlestick
+  ax = plot_candlestick(df=df, start=start, end=end, date_col=date_col, ohlcv_col=ohlcv_col, width=candlestick_width, color=candlestick_color, use_ax=ax, plot_args=plot_args)
+  
+  # title and legend
+  ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
+  ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
+
+  if use_ax is not None:
+    return ax
+
+# plot ichimoku chart
+def plot_ichimoku_kama(
+  df, start=None, end=None, date_col='Date', ohlcv_col=default_ohlcv_col, 
+  candlestick_width=0.8, candlestick_color=default_candlestick_color, 
+  use_ax=None, title=None, plot_args=default_plot_args):
+  """
+  Plot ichimoku chart
+
+  :param df: dataframe with ichimoku indicator columns
+  :param start: start row to plot
+  :param end: end row to plot
+  :param date_col: column name of Date
+  :param ohlcv_col: columns names of Open/High/Low/Close/Volume
+  :param candlestick_width: width of candlestick
+  :param candlestick_color: up/down color of candlestick
+  :param use_ax: the already-created ax to draw on
+  :param title: plot title
+  :param plot_args: other plot arguments
+  :returns: ichimoku plot
+  :raises: none
+  """
+  # copy dataframe within a specific period
+  df = df[start:end].copy()
+
+  # create figure
+  ax = use_ax
+  if ax is None:
+    plt.figure(figsize=plot_args['figsize'])
+    ax = plt.gca()
+
+  alpha = 0.2
+  # plot close price
+  ax.plot(df.index, df[default_ohlcv_col['close']], label='close', color='black', linestyle='--', alpha=alpha)
+  
+  # plot senkou lines
+  # ax.plot(df.index, df.senkou_a, label='senkou_a', color='green', alpha=alpha)
+  # ax.plot(df.index, df.senkou_b, label='senkou_b', color='red', alpha=alpha)
+
+  # plot clouds
+  ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a > df.senkou_b, facecolor='green', interpolate=True, alpha=alpha)
+  ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a <= df.senkou_b, facecolor='red', interpolate=True, alpha=alpha)
+
+  alpha = 0.6
+  # plot kijun/tankan lines 
+  ax.plot(df.index, df.tankan, label='tankan', color='magenta', linestyle='--', alpha=alpha)
+  ax.plot(df.index, df.kijun, label='kijun', color='blue', linestyle='--', alpha=alpha)
+
+  # plot kama_fast/slow lines 
+  ax.plot(df.index, df.kama_fast, label='kama_fast', color='magenta', alpha=alpha)
+  ax.plot(df.index, df.kama_slow, label='kama_slow', color='blue', alpha=alpha)
+
+  # ax.fill_between(df.index, df.tankan, df.kama_fast, facecolor='magenta', interpolate=True, alpha=0.1)
+  # ax.fill_between(df.index, df.kijun, df.kama_slow, facecolor='blue', interpolate=True, alpha=0.1)
 
   # plot candlestick
   ax = plot_candlestick(df=df, start=start, end=end, date_col=date_col, ohlcv_col=ohlcv_col, width=candlestick_width, color=candlestick_color, use_ax=ax, plot_args=plot_args)
@@ -3035,7 +3102,7 @@ def plot_multiple_indicators(
     plot_price_in_twin_ax = plot_price_in_twin_ax if plot_price_in_twin_ax is not None else False
     
     # plot ichimoku with candlesticks
-    if tmp_indicator == 'ichimoku_kama':
+    if tmp_indicator == 'ichimoku' or tmp_indicator == 'kama' or tmp_indicator == 'ichimoku_kama':
 
       # get candlestick width and color
       candlestick_color = tmp_args.get('candlestick_color')
@@ -3043,11 +3110,21 @@ def plot_multiple_indicators(
       width = tmp_args.get('candlestick_width')
       width = width if width is not None else 1
 
-      # plot candlestick
-      plot_ichimoku_kama(
-        df=plot_data, use_ax=axes[tmp_indicator], title=tmp_indicator, 
-        candlestick_width=width, candlestick_color=candlestick_color,
-        plot_args=subplot_args)
+      if tmp_indicator == 'ichimoku':
+        plot_ichimoku(
+          df=plot_data, use_ax=axes[tmp_indicator], title=tmp_indicator, 
+          candlestick_width=width, candlestick_color=candlestick_color,
+          plot_args=subplot_args)
+      if tmp_indicator == 'kama':
+        plot_kama(
+          df=plot_data, use_ax=axes[tmp_indicator], title=tmp_indicator, 
+          candlestick_width=width, candlestick_color=candlestick_color,
+          plot_args=subplot_args)
+      if tmp_indicator == 'ichimoku_kama':
+        plot_ichimoku_kama(
+          df=plot_data, use_ax=axes[tmp_indicator], title=tmp_indicator, 
+          candlestick_width=width, candlestick_color=candlestick_color,
+          plot_args=subplot_args)
 
     # plot signals
     elif tmp_indicator == 'signals':
