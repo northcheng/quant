@@ -59,7 +59,7 @@ def load_config(root_paths):
   return config
 
 # calculate certain selected ta indicators
-def calculate_ta_data(df, sec_code, interval, signal_indicators=['ichimoku', 'kama', 'bb', 'aroon'], signal_threshold=0.001, signal_day_threshold=1, n_ma=5):
+def calculate_ta_data(df, sec_code, interval, signal_indicators=['ichimoku', 'kama', 'aroon', 'adx', 'bb'], signal_threshold=0.001, signal_day_threshold=1, n_ma=5):
   """
   Calculate selected ta features for dataframe
 
@@ -241,16 +241,80 @@ def calculate_ta_signal(df, n_ma=5):
   # copy data, initialize signal
   df = df.copy()
 
+  # ================================ Calculate aroon signal =======================
+  # calculate aroon_diff
+  aroon_col = ['aroon_up', 'aroon_down', 'aroon_gap']
+  df[aroon_col] = df[aroon_col].round(1)
+  for col in aroon_col:
+    df = cal_change(df=df, target_col=col, add_prefix=True, add_accumulation=True)
+  # df['aroon_diff'] = em(series=df['aroon_gap_acc_change'], periods=3).mean()
+
+  # calculate aroon signal
+  df['aroon_signal'] = 'n'
+
+  # calculate aroon trend
+  df['aroon_trend'] = None
+
+  # it is going up when:
+  # 1. aroon_up位于顶部时, aroon_down位于底部或正在下降
+  # 2. (aroon_gap>=64 and aroon_up_change>0 and aroon_down_change<0)
+  # 3. (aroon_down_change<0 and 0>aroon_down_acc_change_count>aroon_up_acc_change_count)
+  up_idx = df.query('(aroon_up>=88 and (aroon_down<=12 or aroon_down_change<0)) or (aroon_up>12 and aroon_down<88 and aroon_down>aroon_up and aroon_down_change<0)').index
+  df.loc[up_idx, 'aroon_trend'] = 'u'
+
+  # it is going down when
+  # 1. (aroon_gap <= -84)
+  # 2. (aroon_up<=52<=aroon_down)
+  # 3. (aroon_down_change>0 and aroon_up_change<0 and aroon_down>=52)
+  down_idx = df.query('(aroon_down>=88 and (aroon_up<=12 or aroon_up_change<0)) or (aroon_down>12 and aroon_up<88 and aroon_down<aroon_up and aroon_up_change<0)').index
+  df.loc[down_idx, 'aroon_trend'] = 'd'
+
+  # it is waving when:
+  # 1. aroon_up and aroon_down keep decreasing with the same speed, 
+  # wave_idx = df.query('(aroon_gap_change==0 and aroon_down_change<0 and aroon_up_change<0 and aroon_trend=="u")').index
+  # df.loc[wave_idx, 'aroon_trend'] = 'n'
+
+  df['aroon_signal'] = df['aroon_trend'].replace({'u':'b', 'd':'s', None:'n'})
+
+  # calculate number of days since indicator triggered
+  df['aroon_day'] = sda(series=df['aroon_signal'].replace({'n':0, 'b':1, 's':-1}).fillna(0), zero_as=1)
+
+  # set indicators as untriggered after 3 days
+  df.loc[df['aroon_day'] > 1, 'aroon_signal'] = 'n'
+  df.loc[df['aroon_day'] <-1, 'aroon_signal'] = 'n'
+  
+
+  # wave_idx = df.query('aroon_gap_change ==0').index
+  # df.loc[wave_idx, 'aroon_trend'] = 'n'
+
+  # # aroon_up>aroon_down, 且差距逐步增大, 非下降趋势 
+  # up_idx = df.query(f'(aroon_gap_acc_change>0) and (aroon_gap_change!=0)').index
+  # df.loc[up_idx, 'aroon_trend'] = 'u'
+
+  # # aroon_up<aroon_down, 且差距逐步增大或保持不变, 非上升趋势 
+  # down_idx = df.query(f'(aroon_gap_acc_change<=0) and (aroon_gap_change!=0)').index 
+  # df.loc[down_idx, 'aroon_trend'] = 'd'
+
+  # # aroon_up在中线之上, aroon_down在中线之下, 且aroon_up处于上升趋势中
+  # up_idx = df.query(f'(aroon_up>=50>aroon_down) and (aroon_up_change>=0)').index 
+  # df.loc[up_idx, 'aroon_trend'] = 'u'
+
+  # # aroon_up在中线之下, aroon_down在中线之上, 且aroon_down处于上升趋势中
+  # down_idx = df.query(f'(aroon_down>=50>aroon_up) and (aroon_down_change>=0)').index 
+  # df.loc[down_idx, 'aroon_trend'] = 'd'
+
+  # # aroon_up 处于上80以上, aroon_down 处于20以下, 且差距逐步增大
+  # up_idx = df.query(f'aroon_up>=80 and aroon_down<=20 and aroon_gap_change>=0').index
+  # df.loc[up_idx, 'aroon_trend'] = 'u'
+
+  # # aroon_up 处于上20以下, aroon_down 处于80以上, 且差距逐步增大
+  # down_idx = df.query(f'aroon_down>=80 and aroon_up<=20 and aroon_gap_change<=0').index 
+  # df.loc[down_idx, 'aroon_trend'] = 'd'
+
   # ================================ Calculate overall trend =======================
-  df['trend'] = (df['tankan'] + df['kama_fast'])/2
-  df['momentum'] = (df['kijun'] + df['kama_slow'])/2
-  # up_idx = df.query('(ti> 0)').index
-  # down_idx = df.query('(ti< 0)').index
-  # df.loc[up_idx, 'trend'] = 'u'
-  # df.loc[down_idx, 'trend'] = 'd'
 
   # ================================ Calculate overall siganl ======================
-  df['signal'] = cal_crossover_signal(df=df, fast_line='trend', slow_line='momentum')
+  df['signal'] = 'n'
 
   return df
 
@@ -1068,56 +1132,6 @@ def add_aroon_features(df, n=25, ohlcv_col=default_ohlcv_col, fillna=False, cal_
 
   # calculate gap between aroon_up and aroon_down
   df['aroon_gap'] = (df['aroon_up'] - df['aroon_down'])
-
-  # calculate aroon_diff
-  aroon_col = ['aroon_up', 'aroon_down', 'aroon_gap']
-  df[aroon_col] = df[aroon_col].round(1)
-  for col in aroon_col:
-    df = cal_change(df=df, target_col=col, add_prefix=True, add_accumulation=True)
-  df['aroon_diff'] = em(series=df['aroon_gap_acc_change'], periods=3).mean()
-
-  # # calculate aroon signal
-  # df['aroon_signal'] = 'n'
-
-  # # calculate aroon trend
-  # df['aroon_trend'] = None
-
-  # wave_idx = df.query('aroon_gap_change == 0').index
-  # df.loc[wave_idx, 'aroon_trend'] = 'n'
-  # up_idx = df.query('aroon_up>90 or aroon_down<10').index
-  # df.loc[up_idx, 'aroon_trend'] = 'u'
-
-  # down_idx = df.query('aroon_up<10 or aroon_down>90').index
-  # df.loc[down_idx, 'aroon_trend'] = 'd'
-
-  # wave_idx = df.query('aroon_gap_change ==0').index
-  # df.loc[wave_idx, 'aroon_trend'] = 'n'
-
-  # # aroon_up>aroon_down, 且差距逐步增大, 非下降趋势 
-  # up_idx = df.query(f'(aroon_gap_acc_change>0) and (aroon_gap_change!=0)').index
-  # df.loc[up_idx, 'aroon_trend'] = 'u'
-
-  # # aroon_up<aroon_down, 且差距逐步增大或保持不变, 非上升趋势 
-  # down_idx = df.query(f'(aroon_gap_acc_change<=0) and (aroon_gap_change!=0)').index 
-  # df.loc[down_idx, 'aroon_trend'] = 'd'
-
-  # # aroon_up在中线之上, aroon_down在中线之下, 且aroon_up处于上升趋势中
-  # up_idx = df.query(f'(aroon_up>=50>aroon_down) and (aroon_up_change>=0)').index 
-  # df.loc[up_idx, 'aroon_trend'] = 'u'
-
-  # # aroon_up在中线之下, aroon_down在中线之上, 且aroon_down处于上升趋势中
-  # down_idx = df.query(f'(aroon_down>=50>aroon_up) and (aroon_down_change>=0)').index 
-  # df.loc[down_idx, 'aroon_trend'] = 'd'
-
-  # # aroon_up 处于上80以上, aroon_down 处于20以下, 且差距逐步增大
-  # up_idx = df.query(f'aroon_up>=80 and aroon_down<=20 and aroon_gap_change>=0').index
-  # df.loc[up_idx, 'aroon_trend'] = 'u'
-
-  # # aroon_up 处于上20以下, aroon_down 处于80以上, 且差距逐步增大
-  # down_idx = df.query(f'aroon_down>=80 and aroon_up<=20 and aroon_gap_change<=0').index 
-  # df.loc[down_idx, 'aroon_trend'] = 'd'
-
-  
 
   return df
 
