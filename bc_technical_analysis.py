@@ -192,17 +192,13 @@ def calculate_ta_derivative(df, main_indicators, diff_indicators, signal_thresho
       # down trend: close below both fast/slow lines, or close between fast_line and slow_line and close break through from top
       trend_col = f'{indicator}_trend'
       df['trend_col'] = 'n'
-      up_idx = df.query(f'({fl} > {sl})').index # (cloud_height>0) and (tankan>kijun>cloud_top)
+      up_idx = df.query(f'(close_to_{fl} >= close_to_{sl} > {signal_threshold}) or (close_to_{sl} >= close_to_{fl} > {signal_threshold}) or ((close_to_{fl}>={signal_threshold}) and (close_to_{sl}<={-signal_threshold}) and (abs({fld})<abs({sld}))) or ((close_to_{fl}<={-signal_threshold}) and (close_to_{sl}>={signal_threshold}) and (abs({fld})>abs({sld})))').index
       df.loc[up_idx, trend_col] = 'u'
-      down_idx = df.query(f'({fl} <= {sl})').index # (cloud_height<0) or (cloud_height>0 and (kijun<cloud_top or tankan<cloud_top or Close<cloud_top))
+      down_idx = df.query(f'(close_to_{fl} <= close_to_{sl} < {-signal_threshold}) or (close_to_{sl} <= close_to_{fl} < {-signal_threshold}) or ((close_to_{sl}<{-signal_threshold}) and (close_to_{fl}>{signal_threshold}) and (abs({fld})>abs({sld}))) or ((close_to_{sl}>{signal_threshold}) and (close_to_{fl}<{-signal_threshold}) and (abs({fld})<abs({sld})))').index
       df.loc[down_idx, trend_col] = 'd'
 
       signal_col = f'{indicator}_signal'
       df[signal_col] = df[trend_col].replace({'u':'b', 'd':'s', 'n':'n'})
-      # buy_idx = df.query(f'(close_to_{fl} >= close_to_{sl} > {signal_threshold}) or (close_to_{sl} >= close_to_{fl} > {signal_threshold}) or ((close_to_{fl}>={signal_threshold}) and (close_to_{sl}<={-signal_threshold}) and (abs({fld})<abs({sld}))) or ((close_to_{fl}<={-signal_threshold}) and (close_to_{sl}>={signal_threshold}) and (abs({fld})>abs({sld})))').index
-      # df.loc[buy_idx, signal_col] = 'b'
-      # sell_idx = df.query(f'(close_to_{fl} <= close_to_{sl} < {-signal_threshold}) or (close_to_{sl} <= close_to_{fl} < {-signal_threshold}) or ((close_to_{sl}<{-signal_threshold}) and (close_to_{fl}>{signal_threshold}) and (abs({fld})>abs({sld}))) or ((close_to_{sl}>{signal_threshold}) and (close_to_{fl}<{-signal_threshold}) and (abs({fld})<abs({sld})))').index
-      # df.loc[sell_idx, signal_col] = 's'
 
     # ================================ Calculate aroon signal =======================
     # calculate aroon_diff
