@@ -69,7 +69,7 @@
 			"aroon":{
 				"target_col": ["aroon_up", "aroon_down"],
 				"benchmark": 50,
-				"boundary": [12, 88]
+				"boundary": [20, 80]
 			},
 			"adx": {
 				"target_col": ["pdi", "mdi", "adx"],
@@ -77,7 +77,7 @@
 				"color_mode": "benchmark"
 			},
 			"signals": {
-				"signal_list": ["kama_signal", "ichimoku_signal", "aroon_signal"],
+				"signal_list": ["kama_signal", "ichimoku_signal", "aroon_signal", "signal"],
 				"plot_signal_on_price": true,
 				"price_alpha": 0
 			},
