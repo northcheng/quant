@@ -31,10 +31,9 @@
 
 		"plot_args": {
 			"plot_ratio": { 
-				
+				"signals": 0.5,
 				"ichimoku_kama": 3,
 				"aroon": 1,
-				"signals": 0.5,
 				"volume": 0.5
 			},
 			"ichimoku_kama": { 
@@ -60,11 +59,6 @@
 					"colordown": "red", 
 					"alpha": 1
 				}
-			},
-			"simple_kama": {
-				"target_col": ["kama_fast", "kama_slow"],
-				"price_col": "Close",
-				"price_alpha": 0.5
 			},
 			"aroon":{
 				"target_col": ["aroon_up", "aroon_down"],

@@ -87,9 +87,9 @@ def calculate_ta_data(df, sec_code, interval, signal_indicators=['ichimoku', 'ka
     # calculate TA derivatives
     phase = 'cal_ta_derivatives'
     main_id = ['ichimoku', 'kama']
-    diff_id = [] # ['adx', 'eom', 'kst']
+    diff_id = ['aroon'] # ['adx', 'eom', 'kst']
     other_id = [x for x in signal_indicators if x not in main_id and x not in diff_id]
-    df = calculate_ta_derivative(df=df, main_indicators=main_id, diff_indicators=diff_id, signal_threshold=signal_threshold, signal_day_threshold=signal_day_threshold, n_ma=n_ma)
+    df = calculate_ta_derivative(df=df, main_indicators=main_id, diff_indicators=diff_id, other_indicators=other_id, signal_threshold=signal_threshold, signal_day_threshold=signal_day_threshold, n_ma=n_ma)
 
     # calculate TA final signal
     df = calculate_ta_signal(df=df, n_ma=n_ma)
@@ -158,7 +158,7 @@ def preprocess_sec_data(df, sec_code, interval, print_error=True):
   return df
 
 # analyze calculated ta indicators
-def calculate_ta_derivative(df, main_indicators, diff_indicators, signal_threshold=0.001, signal_day_threshold=1, n_ma=5):
+def calculate_ta_derivative(df, main_indicators, diff_indicators, other_indicators, signal_threshold=0.001, signal_day_threshold=1, n_ma=5):
   """
   Adding derived features such as trend, momentum, etc.
 
@@ -170,7 +170,7 @@ def calculate_ta_derivative(df, main_indicators, diff_indicators, signal_thresho
   :raises: Exception 
   """
   try:
-    # ================================ main indicator signals =========================
+    # ================================ main indicator trend =========================
     phase = 'cal_signals_for_main_indicators'
     fast_line = {'ichimoku': 'tankan', 'kama': 'kama_fast'}
     slow_line = {'ichimoku': 'kijun', 'kama': 'kama_slow'}
@@ -183,9 +183,6 @@ def calculate_ta_derivative(df, main_indicators, diff_indicators, signal_thresho
       sld = f'{sl}_day'
       df[fld] = sda(series=df[f'{fl}_signal'], zero_as=1)
       df[sld] = sda(series=df[f'{sl}_signal'], zero_as=1)
-      df = cal_change(df=df, target_col=fl, add_prefix=True)
-      df = cal_change(df=df, target_col=sl, add_prefix=True)
-
       
       # calculate trend
       # up trend: close above both fast/slow lines, or close between fast_line and slow_line and close break through from bottom
@@ -197,61 +194,58 @@ def calculate_ta_derivative(df, main_indicators, diff_indicators, signal_thresho
       down_idx = df.query(f'(close_to_{fl} <= close_to_{sl} < {-signal_threshold}) or (close_to_{sl} <= close_to_{fl} < {-signal_threshold}) or ((close_to_{sl}<{-signal_threshold}) and (close_to_{fl}>{signal_threshold}) and (abs({fld})>abs({sld}))) or ((close_to_{sl}>{signal_threshold}) and (close_to_{fl}<{-signal_threshold}) and (abs({fld})<abs({sld})))').index
       df.loc[down_idx, trend_col] = 'd'
 
-      signal_col = f'{indicator}_signal'
-      df[signal_col] = df[trend_col].replace({'u':'b', 'd':'s', 'n':'n'})
-
-    # ================================ Calculate aroon signal =======================
+    # ================================ diff indicator trend =========================
     # calculate aroon_diff
     aroon_col = ['aroon_up', 'aroon_down', 'aroon_gap']
     df[aroon_col] = df[aroon_col].round(1)
     for col in aroon_col:
       df = cal_change(df=df, target_col=col, add_prefix=True, add_accumulation=True)
-    # df['aroon_diff'] = em(series=df['aroon_gap_acc_change'], periods=3).mean()
-
-    # calculate aroon signal
-    df['aroon_signal'] = 'n'
 
     # calculate aroon trend
     df['aroon_trend'] = 'n'
 
     # it is going up when:
-    # 1. aroon_up处于极大值或aroon_down处于极小值
-    # 2. aroon_up位于顶部时, aroon_down位于底部
-    # 3. (aroon_down_change<0 and 0>aroon_down_acc_change_count>aroon_up_acc_change_count)
-    up_idx = df.query('(aroon_up==100 or aroon_down==0) or (aroon_up>=80 and aroon_down<=20) ').index #
+    # 1. aroon_up处于极大值(100)或aroon_down处于极小值(0)
+    # 2. aroon_up位于顶部时[80,100], aroon_down位于底部[0,20]
+    # 3. aroon_up位于中间(20,80), aroon_down位于顶部之下aroon_up之上, 且正在下降
+    up_idx = df.query('(aroon_up==100 or aroon_down==0) or (aroon_up>=80 and aroon_down<=20) or ((80>aroon_up>20) and (100>aroon_down>aroon_up) and (aroon_down_change<0))').index
     df.loc[up_idx, 'aroon_trend'] = 'u'
 
     # it is going down when
-    # 1. aroon_up处于极小值或aroon_down处于极大值
-    # 2. aroon_up位于底部时, aroon_down位于顶部
-    # 3. (aroon_down_change>0 and aroon_up_change<0 and aroon_down>=52)
-    down_idx = df.query('(aroon_down==100 or aroon_up==0) or (aroon_down>=80 and aroon_up<=20) ').index #
+    # 1. aroon_up处于极小值(0)或aroon_down处于极大值(100)
+    # 2. aroon_up位于底部时[0,20], aroon_down位于顶部[80,100]
+    # 3. aroon_down位于中间(20,80), aroon_up位于顶部之下aroon_down之上, 且正在下降
+    down_idx = df.query('(aroon_down==100 or aroon_up==0) or (aroon_down>=80 and aroon_up<=20) or ((80>aroon_down>20) and (100>aroon_up>aroon_down) and (aroon_up_change<0))').index
     df.loc[down_idx, 'aroon_trend'] = 'd'
 
-    # aroon signal
-    df['aroon_signal'] = df['aroon_trend'].replace({'u':'b', 'd':'s', None:'n'})
 
     # ================================ Number days since signal triggered ============
     phase = 'cal_num_day_signal_triggered'
-    for indicator in (main_indicators + diff_indicators + ['aroon']):
+    for indicator in (main_indicators + diff_indicators):
+      trend_col = f'{indicator}_trend'
       signal_col = f'{indicator}_signal'
       day_col = f'{indicator}_day'
 
-      # calculate number of days since indicator triggered
-      df[day_col] = sda(series=df[signal_col].replace({'n':0, 'b':1, 's':-1}).fillna(0), zero_as=1)
+      # calculate number of days since trend shifted
+      df[day_col] = sda(series=df[trend_col].replace({'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
 
-      # set indicators as untriggered after 3 days
-      df.loc[df[day_col] > signal_day_threshold, signal_col] = 'n'
-      df.loc[df[day_col] <-signal_day_threshold, signal_col] = 'n'   
+      # calculate signal
+      df[signal_col] = 'n'
+      # df.loc[df[day_col] == 1, signal_col] = 'b'
+      # df.loc[df[day_col] ==-1, signal_col] = 's'   
 
     # ================================ Summary of the trend ==========================
     phase = 'summarize_trend'
     df['ti'] = 0
-    df['si'] = 0
 
     for indicator in (main_indicators + diff_indicators + ['aroon']):
       df['ti'] += df[f'{indicator}_trend'].fillna(0).replace({'u':1, 'd':-1, 'n':0}).astype(int)
-      df['si'] += df[f'{indicator}_signal'].fillna(0).replace({'b':1, 's':-1, 'n':0}).astype(int)
+
+    df['ti_ma'] = df['ti'].rolling(2).mean()
+    df['trend'] = 'n'
+    df.loc[df['ti_ma'] > 0, 'trend'] = 'u'
+    df.loc[df['ti_ma'] < 0, 'trend'] = 'd'
+    df['signal_day'] = sda(series=df['trend'].replace({'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
 
   except Exception as e:
     print(phase, e)
@@ -272,12 +266,8 @@ def calculate_ta_signal(df, n_ma=5):
 
   # ================================ Calculate overall siganl ======================
   df['signal'] = 'n'
-
-  buy_idx = df.query('(aroon_trend!="d" and ti>=2 and si>=1) or (si ==2)').index
-  df.loc[buy_idx, 'signal'] = 'b'
-
-  sell_idx = df.query('(aroon_trend!="u" and ti<=-2 and si<=-1) or (si==-2)').index
-  df.loc[sell_idx, 'signal'] = 's'
+  df.loc[df['signal_day'] == 1, 'signal'] = 'b'
+  df.loc[df['signal_day'] ==-1, 'signal'] = 's'
 
   return df
 
@@ -333,13 +323,13 @@ def postprocess_ta_result(df, keep_columns, drop_columns):
   # df.loc[down_idx, 'notes'] += '下行'
 
   # overbuy
-  ob_idx = df.query('bb_signal == "s"').index
+  ob_idx = df.query('bb_trend == "d"').index
   none_empty_idx = df.query('notes != ""').index
   df.loc[[x for x in ob_idx if x in none_empty_idx], 'notes'] += ','
   df.loc[ob_idx, 'notes'] += '超买'
   
   # oversell
-  os_idx = df.query('bb_signal == "b"').index
+  os_idx = df.query('bb_trend == "u"').index
   none_empty_idx = df.query('notes != ""').index
   df.loc[[x for x in os_idx if x in none_empty_idx], 'notes'] += ','
   df.loc[os_idx, 'notes'] += '超卖'
@@ -2461,10 +2451,11 @@ def add_bb_features(df, n=20, ndev=2, ohlcv_col=default_ohlcv_col, fillna=False,
 
   if cal_signal:
     df['bb_signal'] = 'n'
+    df['bb_trend'] = 'n'
     buy_idx = df.query(f'{close} < bb_low_band').index
     sell_idx = df.query(f'{close} > bb_high_band').index
-    df.loc[buy_idx, 'bb_signal'] = 'b'
-    df.loc[sell_idx, 'bb_signal'] = 's'
+    df.loc[buy_idx, 'bb_trend'] = 'u'
+    df.loc[sell_idx, 'bb_trend'] = 'd'
 
   return df
 
@@ -2627,8 +2618,8 @@ def plot_signal(
   # plot signals
   if signal_col in df.columns:
     
-    signal_alpha = 1 #if signal_col == 'signal' else 0.3
-    trend_alpha = 0.3 #if signal_col == 'signal' else 0.1
+    signal_alpha = 1 if signal_col == 'signal' else 0.3
+    trend_alpha = 0.3 if signal_col == 'signal' else 0.1
     positive_signal = df.query(f'{signal_col} == "{pos_signal}"')
     negative_signal = df.query(f'{signal_col} == "{neg_signal}"')
     none_signal = df.query(f'{signal_col} == "{none_signal}"')
@@ -2637,9 +2628,9 @@ def plot_signal(
     # ax.scatter(none_signal.index, none_signal['signal_base'], label=None, marker='.', color='grey', alpha=0.1)
     
     if trend_col in df.columns:
-      if trend_col == 'trend':
-        pass
-      else:
+      # if trend_col == 'trend':
+      #   pass
+      # else:
         pos_trend = df.query(f'{trend_col} == "u"')
         neg_trend = df.query(f'{trend_col} == "d"') 
         none_trend = df.query(f'{trend_col} == "n"')
@@ -2855,74 +2846,6 @@ def plot_kama(
   if use_ax is not None:
     return ax
 
-# plot aroon chart
-def plot_aroon(
-  df, start=None, end=None, ohlcv_col=default_ohlcv_col, 
-  use_ax=None, title=None, plot_args=default_plot_args):
-  """
-  Plot ichimoku chart
-
-  :param df: dataframe with ichimoku indicator columns
-  :param start: start row to plot
-  :param end: end row to plot
-  :param date_col: column name of Date
-  :param ohlcv_col: columns names of Open/High/Low/Close/Volume
-  :param use_ax: the already-created ax to draw on
-  :param title: plot title
-  :param plot_args: other plot arguments
-  :returns: ichimoku plot
-  :raises: none
-  """
-  # copy dataframe within a specific period
-  df = df[start:end].copy()
-
-  # create figure
-  ax = use_ax
-  if ax is None:
-    plt.figure(figsize=plot_args['figsize'])
-    ax = plt.gca()
-
-  df['50'] = 50
-  df['80'] = 80
-  df['20'] = 20
-  df['96'] = 96
-  df['4'] = 4
-
-  # plot benchmark and boundaries
-  for col in ['96', '80', '50', '20', '4']:
-    ax.plot(df.index, df[col], label=col, color='black', linestyle='--', alpha=0.3, linewidth=1)
-
-  # ax.fill_between(df.index, df.bottom, df.lower, facecolor='red', interpolate=False, alpha=0.2)
-  # ax.fill_between(df.index, df.lower, df.center, facecolor='red', interpolate=False, alpha=0.1)
-  # ax.fill_between(df.index, df.center, df.upper, facecolor='green', interpolate=False, alpha=0.1)
-  # ax.fill_between(df.index, df.upper, df.top, facecolor='green', interpolate=False, alpha=0.2)
-
-  # plot aroon_up/aroon_down lines 
-  ax.plot(df.index, df.aroon_up, label='aroon_up', color='green', alpha=0.5)
-  ax.plot(df.index, df.aroon_down, label='aroon_down', color='red', alpha=0.5)
-
-  # fill between aroon_up/aroon_down
-  ax.fill_between(df.index, df.aroon_up, df.aroon_down, where=df.aroon_up > df.aroon_down, facecolor='green', interpolate=True, alpha=0.1)
-  ax.fill_between(df.index, df.aroon_up, df.aroon_down, where=df.aroon_up <= df.aroon_down, facecolor='red', interpolate=True, alpha=0.1)
- 
-  # plot waving areas
-  wave_idx = (df.aroon_gap_change==0)&(df.aroon_up_change<0)&(df.aroon_down_change<0)#&(df.aroon_up<96)&(df.aroon_down<96)
-  for i in range(len(wave_idx)):
-    try:
-      if wave_idx[i]:
-          wave_idx[i-1] = True
-    except Exception as e:
-      print(e)
-  ax.fill_between(df.index, df.aroon_up, df.aroon_down, facecolor='grey', where=wave_idx, interpolate=False, alpha=0.3)
-
-  # title and legend
-  ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
-  ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
-  # ax.grid(True)
-
-  if use_ax is not None:
-    return ax
-
 # plot ichimoku chart
 def plot_ichimoku_kama(
   df, start=None, end=None, date_col='Date', ohlcv_col=default_ohlcv_col, 
@@ -2984,6 +2907,74 @@ def plot_ichimoku_kama(
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
   ax.grid(True, axis='y', linestyle='--', linewidth=1)
+
+  if use_ax is not None:
+    return ax
+
+# plot aroon chart
+def plot_aroon(
+  df, start=None, end=None, ohlcv_col=default_ohlcv_col, 
+  use_ax=None, title=None, plot_args=default_plot_args):
+  """
+  Plot ichimoku chart
+
+  :param df: dataframe with ichimoku indicator columns
+  :param start: start row to plot
+  :param end: end row to plot
+  :param date_col: column name of Date
+  :param ohlcv_col: columns names of Open/High/Low/Close/Volume
+  :param use_ax: the already-created ax to draw on
+  :param title: plot title
+  :param plot_args: other plot arguments
+  :returns: ichimoku plot
+  :raises: none
+  """
+  # copy dataframe within a specific period
+  df = df[start:end].copy()
+
+  # create figure
+  ax = use_ax
+  if ax is None:
+    plt.figure(figsize=plot_args['figsize'])
+    ax = plt.gca()
+
+  df['50'] = 50
+  df['80'] = 80
+  df['20'] = 20
+  df['96'] = 96
+  df['4'] = 4
+
+  # plot benchmark and boundaries
+  for col in ['96', '80', '50', '20', '4']:
+    ax.plot(df.index, df[col], label=col, color='black', linestyle='--', alpha=0.3, linewidth=1)
+
+  # ax.fill_between(df.index, df.bottom, df.lower, facecolor='red', interpolate=False, alpha=0.2)
+  # ax.fill_between(df.index, df.lower, df.center, facecolor='red', interpolate=False, alpha=0.1)
+  # ax.fill_between(df.index, df.center, df.upper, facecolor='green', interpolate=False, alpha=0.1)
+  # ax.fill_between(df.index, df.upper, df.top, facecolor='green', interpolate=False, alpha=0.2)
+
+  # plot aroon_up/aroon_down lines 
+  ax.plot(df.index, df.aroon_up, label='aroon_up', color='green', marker='.', alpha=0.3)
+  ax.plot(df.index, df.aroon_down, label='aroon_down', color='red', marker='.', alpha=0.3)
+
+  # fill between aroon_up/aroon_down
+  ax.fill_between(df.index, df.aroon_up, df.aroon_down, where=df.aroon_up > df.aroon_down, facecolor='green', interpolate=True, alpha=0.1)
+  ax.fill_between(df.index, df.aroon_up, df.aroon_down, where=df.aroon_up <= df.aroon_down, facecolor='red', interpolate=True, alpha=0.1)
+ 
+  # plot waving areas
+  wave_idx = (df.aroon_gap_change==0)&(df.aroon_up_change<0)&(df.aroon_down_change<0)#&(df.aroon_up<96)&(df.aroon_down<96)
+  for i in range(len(wave_idx)):
+    try:
+      if wave_idx[i]:
+          wave_idx[i-1] = True
+    except Exception as e:
+      print(e)
+  ax.fill_between(df.index, df.aroon_up, df.aroon_down, facecolor='grey', where=wave_idx, interpolate=False, alpha=0.3)
+
+  # title and legend
+  ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
+  ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
+  # ax.grid(True)
 
   if use_ax is not None:
     return ax
