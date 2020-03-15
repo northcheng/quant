@@ -1,20 +1,31 @@
 {
 	"data_source":{
-		"yahoo": {
-			"time_col": "Date",
-			"interval": {"day": "d", "week": "w", "month": "m"}
+		"time_col": {
+			"yahoo": "Date",
+			"yfinance": "Date",
+			"tiger": "time"
 		},
-		"yfinance": {
-			"time_col": "Date",
-			"interval": {"day": "1d", "week": "1wk", "month": "1mo"}
-		},
-		"tiger": {
-			"time_col": "time",
-			"interval": {"day": null, "week": null, "month": null}
+		"interval_val":{
+			"day": {
+				"yahoo": "d",
+				"yfinance": "1d",
+				"tiger": null
+			},
+			"week": {
+				"yahoo": "w",
+				"yfinance": "1wk",
+				"tiger": null
+			}
 		}
 	},
 	
 	"calculation": {
+		"file_name":{
+			"sec_data": "sec_data.pkl",
+			"ta_data": "ta_data.pkl",
+			"result": "result.pkl",
+			"final_result": "final_result.pkl"
+		},
 		"update_sec_data": true,
 		"update_ta_data": true,
 		"target_ta_indator": ["ichimoku", "kama", "kst", "eom"],

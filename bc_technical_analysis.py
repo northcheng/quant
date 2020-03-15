@@ -4,6 +4,7 @@ Technical Analysis Calculation and Visualization functions
 
 :author: Beichen Chen
 """
+import os
 import math
 import sympy
 import ta
@@ -11,11 +12,11 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+from scipy.stats import linregress
 from matplotlib import gridspec
 from mpl_finance import candlestick_ohlc
 from quant import bc_util as util
 from quant import bc_data_io as io_util
-from scipy.stats import linregress
 try:
   from scipy.signal import find_peaks
 except Exception as e:
@@ -49,14 +50,72 @@ def load_config(root_paths):
   config['result_path'] = config['quant_path'] + 'ta_model/'
   config['tiger_path'] = config['quant_path'] + 'tigeropen/'
 
-  # selected sec lists
+  # sec lists
   config['selected_sec_list'] = io_util.read_config(file_path=config['config_path'], file_name='selected_sec_list.json')
 
   # load calculation and visulization config 
   ta_config = io_util.read_config(file_path=config['config_path'], file_name='ta_config.json')
+  
+  # merge global config(config) and ta config(ta_config)
   config.update(ta_config)
 
   return config
+
+# load data
+def load_data(config, current_date, data_date=None, only_load_lastest_data=True):
+  """ 
+  Load data from local files
+
+  :param config: config dictionary that contains file path and file name of local data files
+  :param current_date: current date, it is used to judge whether the local data is uptodate if data_date is not specified
+  :param data_date: if specified, it will be used to judge whether the local data is uptodate, and current_date will be ignored
+  :param only_load_latest_data: whether restrict to load latest data only
+  :returns: dictionary of data
+  :raises: None
+  """
+  file_path = config["quant_path"]
+  file_names = config["calculation"]["file_name"]
+  data = {'date': None}
+  data_exists = True
+  data_uptodate = True
+
+  # if data_date is not specified, calculate it using current_date
+  if data_date is None:
+    weekday = current_date.weekday()
+    today = util.time_2_string(current_date.date())
+    if weekday>0 and weekday<5:
+      data_date = util.string_plus_day(today, -1)
+    elif weekday==0:
+      data_date = util.string_plus_day(today, -3)
+    else:
+      data_date = util.string_plus_day(today, 4-weekday)
+  data_date = util.string_2_time(string=data_date)
+
+  # load data from local file
+  for f in file_names.keys():
+    file_name = file_names[f]
+    if os.path.exists(f'{file_path}{file_name}'):
+      data[f] = io_util.pickle_load_data(file_path=file_path, file_name=file_name)
+    else:
+      data[f] = {}
+      data_exists = False
+
+  # check whether local data is uptodate
+  if data_exists:     
+    local_data_date = data['sec_data']['TQQQ_day'].index.max()
+    if local_data_date >= data_date:
+      data['date'] = util.time_2_string(local_data_date)
+    else:
+      data_uptodate = False
+      
+  # if require latest data and local data is NOT uptodate, reset data
+  if only_load_lastest_data and not data_uptodate:
+    data['sec_data'] = {}
+    data['ta_data'] = {}
+    data['result'] = {}
+    data['final_result'] = {}
+
+  return data
 
 # calculate certain selected ta indicators
 def calculate_ta_data(df, sec_code, interval, signal_indicators=['ichimoku', 'kama', 'aroon', 'adx', 'bb'], signal_threshold=0.001, signal_day_threshold=1, n_ma=5):
