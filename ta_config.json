@@ -15,6 +15,11 @@
 				"yahoo": "w",
 				"yfinance": "1wk",
 				"tiger": null
+			},
+			"month":{
+				"yahoo": "m",
+				"yfinance": "1mo",
+				"tiger": null
 			}
 		}
 	},
@@ -28,8 +33,8 @@
 		},
 		"update_sec_data": true,
 		"update_ta_data": true,
-		"target_ta_indator": ["ichimoku", "kama", "kst", "eom"],
-		"look_back_window": {"day": 300, "week": 1000}
+		"target_ta_indator": ["ichimoku", "aroon", "bb"],
+		"look_back_window": {"day": 250, "week": 1260, "month": 5400}
 	},
 
 	"visualization":{
@@ -37,39 +42,20 @@
 		"show_image": true,
 		"save_image": false,
 		
-		"plot_window": {"day": 120, "week": 500}, 
-		"candlestick_width": {"day": 0.75, "week": 3.5}, 
+		"plot_window": {"day": 125, "week": 630, "month": 2700}, 
+		"candlestick_width": {"day": 0.75, "week": 3.5, "month":16}, 
 
 		"plot_args": {
 			"plot_ratio": { 
-				"ichimoku": 3,
+				"ichimoku_kama": 2.5,
 				"aroon": 1,
 				"signals": 0.5,
 				"volume": 0.5
 			},
 			"ichimoku_kama": { 
+				"target_indicator": ["candlestick", "ichimoku"],
 				"candlestick_width": 1, 
-				"candlestick_color": {
-					"colorup": "green", 
-					"colordown": "red", 
-					"alpha": 1
-				}
-			},
-			"ichimoku": { 
-				"candlestick_width": 1, 
-				"candlestick_color": {
-					"colorup": "green", 
-					"colordown": "red", 
-					"alpha": 1
-				}
-			},
-			"kama": { 
-				"candlestick_width": 1, 
-				"candlestick_color": {
-					"colorup": "green", 
-					"colordown": "red", 
-					"alpha": 1
-				}
+				"candlestick_color": {"colorup": "green", "colordown": "red", "alpha": 1}
 			},
 			"aroon":{
 				"target_col": ["aroon_up", "aroon_down"],
@@ -85,11 +71,6 @@
 				"signal_list": ["ichimoku_signal", "aroon_signal", "signal"],
 				"plot_signal_on_price": true,
 				"price_alpha": 0
-			},
-			"obv": {
-				"target_col": ["cci_ma_3"], 
-				"benchmark": 0,
-				"color_mode": "up_down"
 			},
 			"volume": {
 				"target_col": ["Volume"], 

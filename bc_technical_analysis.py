@@ -2664,8 +2664,8 @@ def plot_signal(
   # plot signals
   if signal_col in df.columns:
     
-    signal_alpha = 1 #if signal_col == 'signal' else 0.3
-    trend_alpha = 0.3 #if signal_col == 'signal' else 0.1
+    signal_alpha = 1 if signal_col == 'signal' else 0.3
+    trend_alpha = 0.3 if signal_col == 'signal' else 0.15
     positive_signal = df.query(f'{signal_col} == "{pos_signal}"')
     negative_signal = df.query(f'{signal_col} == "{neg_signal}"')
     none_signal = df.query(f'{signal_col} == "{none_signal}"')
@@ -2791,110 +2791,9 @@ def plot_candlestick(
     return ax
 
 # plot ichimoku chart
-def plot_ichimoku(
-  df, start=None, end=None, date_col='Date', ohlcv_col=default_ohlcv_col, 
-  candlestick_width=0.8, candlestick_color=default_candlestick_color, 
-  use_ax=None, title=None, plot_args=default_plot_args):
-  """
-  Plot ichimoku chart
-
-  :param df: dataframe with ichimoku indicator columns
-  :param start: start row to plot
-  :param end: end row to plot
-  :param date_col: column name of Date
-  :param ohlcv_col: columns names of Open/High/Low/Close/Volume
-  :param candlestick_width: width of candlestick
-  :param candlestick_color: up/down color of candlestick
-  :param use_ax: the already-created ax to draw on
-  :param title: plot title
-  :param plot_args: other plot arguments
-  :returns: ichimoku plot
-  :raises: none
-  """
-  # copy dataframe within a specific period
-  df = df[start:end].copy()
-
-  # create figure
-  ax = use_ax
-  if ax is None:
-    plt.figure(figsize=plot_args['figsize'])
-    ax = plt.gca()
-
-  # # plot close price
-  # ax.plot(df.index, df[default_ohlcv_col['close']], label='close', color='black', linestyle='--', alpha=0.2)
-
-  # plot senkou lines
-  ax.plot(df.index, df.senkou_a, label='senkou_a', color='green', alpha=0.1)
-  ax.plot(df.index, df.senkou_b, label='senkou_b', color='red', alpha=0.1)
-
-  # plot clouds
-  ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a > df.senkou_b, facecolor='green', interpolate=True, alpha=0.1)
-  ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a <= df.senkou_b, facecolor='red', interpolate=True, alpha=0.1)
-
-  # plot kijun/tankan lines 
-  ax.plot(df.index, df.tankan, label='tankan', color='magenta', linestyle='dashed', alpha=0.8)
-  ax.plot(df.index, df.kijun, label='kijun', color='blue', linestyle='dashed', alpha=0.8)
-
-  # plot candlestick
-  ax = plot_candlestick(df=df, start=start, end=end, date_col=date_col, ohlcv_col=ohlcv_col, width=candlestick_width, color=candlestick_color, use_ax=ax, plot_args=plot_args)
-  
-  # title and legend
-  ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
-  ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
-
-  if use_ax is not None:
-    return ax
-
-# plot kama chart
-def plot_kama(
-  df, start=None, end=None, date_col='Date', ohlcv_col=default_ohlcv_col, 
-  candlestick_width=0.8, candlestick_color=default_candlestick_color, 
-  use_ax=None, title=None, plot_args=default_plot_args):
-  """
-  Plot ichimoku chart
-
-  :param df: dataframe with ichimoku indicator columns
-  :param start: start row to plot
-  :param end: end row to plot
-  :param date_col: column name of Date
-  :param ohlcv_col: columns names of Open/High/Low/Close/Volume
-  :param candlestick_width: width of candlestick
-  :param candlestick_color: up/down color of candlestick
-  :param use_ax: the already-created ax to draw on
-  :param title: plot title
-  :param plot_args: other plot arguments
-  :returns: ichimoku plot
-  :raises: none
-  """
-  # copy dataframe within a specific period
-  df = df[start:end].copy()
-
-  # create figure
-  ax = use_ax
-  if ax is None:
-    plt.figure(figsize=plot_args['figsize'])
-    ax = plt.gca()
-
-  # plot close price
-  ax.plot(df.index, df[default_ohlcv_col['close']], label='close', color='black', linestyle='--', alpha=0.2)
-
-  # plot kama_fast/slow lines 
-  ax.plot(df.index, df.kama_fast, label='kama_fast', color='magenta', alpha=0.8)
-  ax.plot(df.index, df.kama_slow, label='kama_slow', color='blue', alpha=0.8)
-
-  # plot candlestick
-  ax = plot_candlestick(df=df, start=start, end=end, date_col=date_col, ohlcv_col=ohlcv_col, width=candlestick_width, color=candlestick_color, use_ax=ax, plot_args=plot_args)
-  
-  # title and legend
-  ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
-  ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
-
-  if use_ax is not None:
-    return ax
-
-# plot ichimoku chart
 def plot_ichimoku_kama(
   df, start=None, end=None, date_col='Date', ohlcv_col=default_ohlcv_col, 
+  target_indicator = ['price', 'ichimoku', 'kama', 'candlestick'],
   candlestick_width=0.8, candlestick_color=default_candlestick_color, 
   use_ax=None, title=None, plot_args=default_plot_args):
   """
@@ -2922,32 +2821,32 @@ def plot_ichimoku_kama(
     plt.figure(figsize=plot_args['figsize'])
     ax = plt.gca()
 
-  alpha = 0.2
   # plot close price
-  ax.plot(df.index, df[default_ohlcv_col['close']], label='close', color='black', linestyle='--', alpha=alpha)
+  if 'price' in target_indicator:
+    alpha = 0.2
+    ax.plot(df.index, df[default_ohlcv_col['close']], label='close', color='black', linestyle='--', alpha=alpha)
   
-  # plot senkou lines
-  # ax.plot(df.index, df.senkou_a, label='senkou_a', color='green', alpha=alpha)
-  # ax.plot(df.index, df.senkou_b, label='senkou_b', color='red', alpha=alpha)
+  # plot senkou lines, clouds, tankan and kijun
+  if 'ichimoku' in target_indicator:
+    alpha = 0.2
+    ax.plot(df.index, df.senkou_a, label='senkou_a', color='green', alpha=alpha)
+    ax.plot(df.index, df.senkou_b, label='senkou_b', color='red', alpha=alpha)
+    ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a > df.senkou_b, facecolor='green', interpolate=True, alpha=alpha)
+    ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a <= df.senkou_b, facecolor='red', interpolate=True, alpha=alpha)
 
-  # plot clouds
-  ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a > df.senkou_b, facecolor='green', interpolate=True, alpha=alpha)
-  ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a <= df.senkou_b, facecolor='red', interpolate=True, alpha=alpha)
-
-  alpha = 0.6
-  # plot kijun/tankan lines 
-  ax.plot(df.index, df.tankan, label='tankan', color='magenta', linestyle='--', alpha=alpha)
-  ax.plot(df.index, df.kijun, label='kijun', color='blue', linestyle='--', alpha=alpha)
+    alpha = 0.6
+    ax.plot(df.index, df.tankan, label='tankan', color='magenta', linestyle='--', alpha=alpha)
+    ax.plot(df.index, df.kijun, label='kijun', color='blue', linestyle='--', alpha=alpha)
 
   # plot kama_fast/slow lines 
-  ax.plot(df.index, df.kama_fast, label='kama_fast', color='magenta', alpha=alpha)
-  ax.plot(df.index, df.kama_slow, label='kama_slow', color='blue', alpha=alpha)
-
-  # ax.fill_between(df.index, df.tankan, df.kama_fast, facecolor='magenta', interpolate=True, alpha=0.1)
-  # ax.fill_between(df.index, df.kijun, df.kama_slow, facecolor='blue', interpolate=True, alpha=0.1)
+  if 'kama' in target_indicator:
+    alpha = 0.6
+    ax.plot(df.index, df.kama_fast, label='kama_fast', color='magenta', alpha=alpha)
+    ax.plot(df.index, df.kama_slow, label='kama_slow', color='blue', alpha=alpha)
 
   # plot candlestick
-  ax = plot_candlestick(df=df, start=start, end=end, date_col=date_col, ohlcv_col=ohlcv_col, width=candlestick_width, color=candlestick_color, use_ax=ax, plot_args=plot_args)
+  if 'candlestick' in target_indicator:
+    ax = plot_candlestick(df=df, start=start, end=end, date_col=date_col, ohlcv_col=ohlcv_col, width=candlestick_width, color=candlestick_color, use_ax=ax, plot_args=plot_args)
   
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
@@ -2984,19 +2883,6 @@ def plot_aroon(
     plt.figure(figsize=plot_args['figsize'])
     ax = plt.gca()
 
-  df['50'] = 50
-  df['80'] = 80
-  df['20'] = 20
-
-  # plot benchmark and boundaries
-  for col in ['80', '50', '20']:
-    ax.plot(df.index, df[col], label=col, color='black', linestyle='--', alpha=0.3, linewidth=1)
-
-  # ax.fill_between(df.index, df.bottom, df.lower, facecolor='red', interpolate=False, alpha=0.2)
-  # ax.fill_between(df.index, df.lower, df.center, facecolor='red', interpolate=False, alpha=0.1)
-  # ax.fill_between(df.index, df.center, df.upper, facecolor='green', interpolate=False, alpha=0.1)
-  # ax.fill_between(df.index, df.upper, df.top, facecolor='green', interpolate=False, alpha=0.2)
-
   # plot aroon_up/aroon_down lines 
   ax.plot(df.index, df.aroon_up, label='aroon_up', color='green', marker='.', alpha=0.3)
   ax.plot(df.index, df.aroon_down, label='aroon_down', color='red', marker='.', alpha=0.3)
@@ -3018,7 +2904,7 @@ def plot_aroon(
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
-  # ax.grid(True)
+  ax.grid(True, axis='y', linestyle='--', linewidth=1)
 
   if use_ax is not None:
     return ax
@@ -3183,29 +3069,16 @@ def plot_multiple_indicators(
     plot_price_in_twin_ax = plot_price_in_twin_ax if plot_price_in_twin_ax is not None else False
     
     # plot ichimoku with candlesticks
-    if tmp_indicator == 'ichimoku' or tmp_indicator == 'kama' or tmp_indicator == 'ichimoku_kama':
+    if tmp_indicator == 'ichimoku_kama':
 
       # get candlestick width and color
-      candlestick_color = tmp_args.get('candlestick_color')
-      candlestick_color = candlestick_color if candlestick_color is not None else default_candlestick_color
-      width = tmp_args.get('candlestick_width')
-      width = width if width is not None else 1
+      candlestick_color = tmp_args.get('candlestick_color') if tmp_args.get('candlestick_color') is not None else default_candlestick_color
+      width = tmp_args.get('candlestick_width') if tmp_args.get('candlestick_width') is not None else 1
+      target_indicator = tmp_args.get('target_indicator') if tmp_args.get('target_indicator') is not None else ['price']
 
-      if tmp_indicator == 'ichimoku':
-        plot_ichimoku(
-          df=plot_data, use_ax=axes[tmp_indicator], title=tmp_indicator, 
-          candlestick_width=width, candlestick_color=candlestick_color,
-          plot_args=subplot_args)
-      if tmp_indicator == 'kama':
-        plot_kama(
-          df=plot_data, use_ax=axes[tmp_indicator], title=tmp_indicator, 
-          candlestick_width=width, candlestick_color=candlestick_color,
-          plot_args=subplot_args)
-      if tmp_indicator == 'ichimoku_kama':
-        plot_ichimoku_kama(
-          df=plot_data, use_ax=axes[tmp_indicator], title=tmp_indicator, 
-          candlestick_width=width, candlestick_color=candlestick_color,
-          plot_args=subplot_args)
+      plot_ichimoku_kama(
+        df=plot_data, target_indicator=target_indicator, candlestick_width=width, candlestick_color=candlestick_color,
+        use_ax=axes[tmp_indicator], title=tmp_indicator, plot_args=subplot_args)
 
     # plot aroon
     elif tmp_indicator == 'aroon':
