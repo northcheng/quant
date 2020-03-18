@@ -220,3 +220,13 @@ def back_test(df, signal_col='signal', start_date=None, end_date=None, start_mon
   return record
 
 
+# class Trader:
+
+#   stock = 0
+#   cash = 0
+#   total_value = 0
+
+#   def __init__(self, stock, money):
+
+#     self.stock = stock
+#     self.money = money
