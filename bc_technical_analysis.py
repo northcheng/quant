@@ -47,8 +47,8 @@ def load_config(root_paths):
 
   # add derived paths
   config['desktop_path'] = config['home_path'] + 'Desktop/'
-  config['config_path'] = config['github_path'] + 'quant/'
-  confog['quant_path'] = config['home_path'] + 'quant/'
+  config['config_path'] = config['git_path'] + 'quant/'
+  config['quant_path'] = config['home_path'] + 'quant/'
   config['result_path'] = config['quant_path'] + 'ta_model/'
   config['tiger_path'] = config['quant_path'] + 'tigeropen/'
   

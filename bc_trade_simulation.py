@@ -220,15 +220,93 @@ def back_test(df, signal_col='signal', start_date=None, end_date=None, start_mon
   return record
 
 
-# class Trader:
+class Trader:
 
-#   positions = []
-#   cash = 0
-#   total_value = 0
+  sec_list = []
+  start_cash = 0
+  record = {}
 
-#   def __init__(self, stock, money):
+  cash = {}
+  stock = {}
+  holding_price = {}
+  value = {}
 
-#     self.stock = stock
-#     self.money = money
+  # init
+  def __init__(self, sec_list, start_cash, signals):
 
-#   def trade()
+    # initialize stock list and start cash
+    self.sec_list = sec_list
+    self.start_cash = start_cash
+
+    # initialize trading record
+    for k in signals.keys():
+      sec_code = k.split('_')[0]
+      self.record[sec_code] = signals[k][['signal', 'Close']].copy()
+      self.record[sec_code]['holding_price'] = 0
+      self.record[sec_code]['holding_return'] = 0
+ 
+  # trade
+  def trade_with_fixed_position(self, start_date, end_date, stop_profit=None, stop_loss=None):
+
+    # 平均分配仓位资金
+    avg_position = self.start_cash / len(self.sec_list)
+    for sec_code in self.sec_list:
+      self.stock[sec_code] = 0
+      self.cash[sec_code] = avg_position
+      self.value[sec_code] = avg_position
+
+    # 构造日期列表
+    dates = []
+    next_date = start_date
+    while next_date <= end_date:
+      dates.append(next_date)
+      next_date = util.string_plus_day(next_date, 1)
+
+    # 遍历日期列表
+    for date in dates:
+      date_signal = []
+
+      # 遍历每只股票的信号
+      for sec_code in self.record.keys():
+        signal_data = self.record[sec_code]
+        
+        # 如果是交易日
+        if date in signal_data.index:
+
+          # 获取交易信号与价格
+          tmp_signal = signal_data.loc[date, 'signal']
+          tmp_price = signal_data.loc[date, 'Close']
+
+          # 计算持有收益, 查看是否需要止盈/止损
+          if self.stock[sec_code] > 0:
+            signal_data.loc[date, 'holding_price'] = self.holding_price[sec_code]
+            signal_data.loc[date, 'holding_return'] = (tmp_price - signal_data.loc[date, 'holding_price']) / signal_data.loc[date, 'holding_price']
+            if (stop_profit is not None and signal_data.loc[date, 'holding_return'] >= stop_profit) or (stop_loss is not None and signal_data.loc[date, 'holding_return'] <= stop_loss):
+              tmp_signal = 's'
+
+          if tmp_signal == 'b':
+            trade_result = buy(money=self.cash[sec_code], price=tmp_price, trading_fee=3)
+            self.cash[sec_code] = trade_result['money']
+            self.stock[sec_code] += trade_result['stock']
+            self.holding_price[sec_code] = tmp_price
+
+          elif tmp_signal == 's':
+            trade_result = sell(stock=self.stock[sec_code], price=tmp_price, trading_fee=3)
+            self.cash[sec_code] += trade_result['money']
+            self.stock[sec_code] = trade_result['stock']
+            self.holding_price[sec_code] = 0
+
+          else:
+            pass
+
+          self.value[sec_code] = self.cash[sec_code] + self.stock[sec_code] * tmp_price
+          signal_data.loc[date, 'money'] = self.cash[sec_code]
+          signal_data.loc[date, 'stock'] = self.stock[sec_code]
+          signal_data.loc[date, 'value'] = self.value[sec_code]
+                  
+        # 跳过非交易日
+        else:
+          pass
+
+
+  def trade_with_dynamic_position(self, start_date, end_date, stop_profit=None, stop_loss=None, min_position=2000, max_position=10000):

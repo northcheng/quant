@@ -2,8 +2,7 @@
 	"etf": [
 		"TQQQ","SQQQ","UPRO","SPXU","UDOW","SDOW","FAS","FAZ","ERX","ERY",
 		"TECL","TECS","SOXL","SOXS","LABU","LABD","DZK","DPK","EDC","EDZ",
-		"UGLD","DGLD","UWT","DWT","UGAZ","DGAZ","CHAU","CHAD","YINN","YANG","CQQQ","TVIX"
-	],
+		"UGLD","DGLD","UWT","DWT","UGAZ","DGAZ","CHAU","CHAD","YINN","YANG","CQQQ","TVIX"],
 
 	"company": [
 		"AAPL","MSFT","IBM","FB","ADBE","NFLX","DIS",
@@ -11,17 +10,16 @@
 		"TSLA","LMT","GE","BA","HON","UTX",
 		"CHTR","T","VZ","CMCSA","AMT","CSCO",
 		"JPM","ACN","MS","GS","BAC","WFC","HSBC","C",
-		"MRK","PFE","NVO","GSK","AZN","ABBV","NVS","ABT","MDT","AMGN","DHR","JNJ","UNH","SNY"
-	],
+		"MRK","PFE","NVO","GSK","AZN","ABBV","NVS","ABT","MDT","AMGN","DHR","JNJ","UNH","SNY"],
 
-	"extra": [
+	"extra": [],
+
+	"auto": [
+		"TQQQ","SQQQ","UPRO","SPXU","FAS","FAZ","TECL","TECS","SOXL","SOXS","TVIX"
 		
 	],
 
 	"non_auto": [
-		"SQQQ","SPXU","SDOW","FAZ","ERX","ERY","TVIX",
-		"TECS","SOXS","LABD","DZK","DPK","EDC","EDZ",
-		"UGLD","DGLD","UWT","DWT","UGAZ","DGAZ",
-		"CHAU","CHAD","YINN","YANG"
-	]
+		"CHAU","CHAD","YINN","YANG",
+		"ERX","ERY","UGLD","DGLD","UWT","DWT","UGAZ","DGAZ"]
 }
