@@ -46,10 +46,12 @@ def load_config(root_paths):
   config = root_paths
 
   # add derived paths
+  config['desktop_path'] = config['home_path'] + 'Desktop/'
   config['config_path'] = config['github_path'] + 'quant/'
+  confog['quant_path'] = config['home_path'] + 'quant/'
   config['result_path'] = config['quant_path'] + 'ta_model/'
   config['tiger_path'] = config['quant_path'] + 'tigeropen/'
-
+  
   # sec lists
   config['selected_sec_list'] = io_util.read_config(file_path=config['config_path'], file_name='selected_sec_list.json')
 
