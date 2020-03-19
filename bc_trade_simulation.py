@@ -309,4 +309,4 @@ class Trader:
           pass
 
 
-  def trade_with_dynamic_position(self, start_date, end_date, stop_profit=None, stop_loss=None, min_position=2000, max_position=10000):
+  # def trade_with_dynamic_position(self, start_date, end_date, stop_profit=None, stop_loss=None, min_position=2000, max_position=10000):
