@@ -22,14 +22,11 @@ try:
 except Exception as e:
   print(e)
 
+# default values
 default_ohlcv_col = {'close':'Close', 'open':'Open', 'high':'High', 'low':'Low', 'volume':'Volume'}
 default_signal_val = {'pos_signal':'b', 'neg_signal':'s', 'none_signal':'n'}
 default_candlestick_color = {'colorup':'green', 'colordown':'red', 'alpha':0.8}
-default_plot_args = {
-  'figsize':(20, 5), 
-  'title_rotation':'vertical', 'title_x':-0.05, 'title_y':0.3, 
-  'bbox_to_anchor':(1.02, 0.), 'loc':3, 'ncol':1, 'borderaxespad':0.0
-}
+default_plot_args = {'figsize':(20, 5), 'title_rotation':'vertical', 'title_x':-0.05, 'title_y':0.3, 'bbox_to_anchor':(1.02, 0.), 'loc':3, 'ncol':1, 'borderaxespad':0.0}
 
 
 # ================================================ Core calculation ================================================= # 
@@ -38,7 +35,7 @@ def load_config(root_paths):
   """ 
   Load configuration from file
 
-  :param root_paths: root pathes of github, working directory, etc. differs by different platforms
+  :param root_paths: root pathes of home path and github path. differs by different platforms
   :returns: dictionary of config arguments
   :raises: None
   """
@@ -52,13 +49,11 @@ def load_config(root_paths):
   config['result_path'] = config['quant_path'] + 'ta_model/'
   config['tiger_path'] = config['quant_path'] + 'tigeropen/'
   
-  # sec lists
+  # load sec lists
   config['selected_sec_list'] = io_util.read_config(file_path=config['config_path'], file_name='selected_sec_list.json')
 
-  # load calculation and visulization config 
+  # load calculation and visulization parameters
   ta_config = io_util.read_config(file_path=config['config_path'], file_name='ta_config.json')
-  
-  # merge global config(config) and ta config(ta_config)
   config.update(ta_config)
 
   return config
