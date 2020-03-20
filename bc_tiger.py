@@ -6,6 +6,7 @@ Utilities used for Tiger Open API
 """
 import pandas as pd
 import datetime
+import math
 import pytz
 from tigeropen.common.consts import (Language,  Market, BarPeriod, QuoteRight) # 语言, 市场, k线周期, 复权类型
 from tigeropen.common.util.order_utils import (market_order, limit_order, stop_order, stop_limit_order, trail_order, order_leg) # 市价单, 限价单, 止损单, 限价止损单, 移动止损单, 附加订单
@@ -22,6 +23,7 @@ class Tiger:
   # user info
   user_info = {}
   client_config = None
+  account_type = None
   trade_client = None
   quote_client = None
   assets = None
@@ -36,6 +38,7 @@ class Tiger:
     self.user_info = pd.read_csv(info_path + 'user_info.csv').loc[0,:].astype('str').to_dict()
 
     # set client_config
+    self.account_type = account_type
     self.client_config = TigerOpenClientConfig(sandbox_debug=sandbox_debug)
     self.client_config.language = Language.en_US
     self.client_config.tiger_id = str(self.user_info['tiger_id'])
@@ -51,6 +54,7 @@ class Tiger:
   def update_account(self, account_type):
 
     # update config, trade_client, quote_client
+    self.account_type = account_type
     self.client_config.account = str(self.user_info[account_type])
     self.quote_client = QuoteClient(self.client_config)
     self.trade_client = TradeClient(self.client_config)
@@ -118,19 +122,32 @@ class Tiger:
     return result
 
   # get summary of assets
-  def get_asset_summary(self):
+  def get_asset_summary(self, print_summary=False):
 
     asset = self.assets[0]
-    summary = f'''
-    账户: {asset.account}({asset.summary.currency}):
-    总资产： {asset.summary.net_liquidation}
-    现金: {asset.summary.cash} (可用 {asset.summary.available_funds})
-    持仓市值: {asset.summary.gross_position_value}
-    日内交易次数: {asset.summary.day_trades_remaining}
-    已实现盈亏: {asset.summary.realized_pnl}
-    未实现盈亏: {asset.summary.unrealized_pnl}
-    '''
-    print(summary)
+    result = {
+      'account': [asset.account],
+      'net_value': [asset.summary.net_liquidation],
+      'holding_value': [asset.summary.gross_position_value],
+      'cash': [asset.summary.cash],
+      'available_casg': [asset.summary.available_funds],
+      'pnl': [asset.summary.realized_pnl],
+      'holding_pnl': [asset.summary.unrealized_pnl]
+    }
+
+    if print_summary:
+      summary = f'''
+      账户: {asset.account}({asset.summary.currency}):
+      总资产： {asset.summary.net_liquidation}
+      现金: {asset.summary.cash} (可用 {asset.summary.available_funds})
+      持仓市值: {asset.summary.gross_position_value}
+      日内交易次数: {asset.summary.day_trades_remaining}
+      已实现盈亏: {asset.summary.realized_pnl}
+      未实现盈亏: {asset.summary.unrealized_pnl}
+      '''
+      print(summary)
+
+    return pd.DataFrame(result)
 
   # get summary of orders
   def get_order_summary(self):
@@ -154,7 +171,6 @@ class Tiger:
         order_price = f'{price}'
         order = limit_order(account=self.client_config.account, contract=contract, action=action, quantity=quantity, limit_price=price)
 
-
       # attach order legs
       order_legs = []
       if stop_loss is not None:
@@ -166,12 +182,18 @@ class Tiger:
       if len(order_legs)>0:
         order.order_legs = order_legs
 
-      # place order
+      # construct trade summary
       trade_summary += f'[{action} {symbol} X {quantity} ({order_price})]\t'
-      self.trade_client.place_order(order)
-      self.orders.append(order.id)
-      trade_summary += f'SUCCEED: {order.id}'
-      print(trade_summary)
+
+      # place order if affordable
+      affordable_quantity = self.get_affordable_quantity(symbol=symbol)
+      if quantity <= affordable_quantity:
+        self.trade_client.place_order(order)
+        self.orders.append(order.id)
+        trade_summary += f'SUCCEED: {order.id}'
+        print(trade_summary)
+      else:
+        trade_summary += f'FAILED: Not affordable({affordable_quantity})'
       
     except Exception as e:
       trade_summary += f'FAILED: {e}'
@@ -179,4 +201,27 @@ class Tiger:
 
     return trade_summary
 
-  
+  # check whether it is affordable to buy certain amount of a stock
+  def get_affordable_quantity(self, symbol, cash=None, trading_fee=3):
+
+    quantity = 0
+    
+    # get available cash
+    available_cash = cash
+    if cash is None:
+      self.assets = self.trade_client.get_assets(account=self.client_config.account)
+      available_cash = self.assets[0].summary.available_funds
+      
+      # use cash rather than available_funds for simulation account
+      if self.client_config.account == self.user_info['simulation_account']:
+        available_cash = self.assets[0].summary.cash
+
+    # get latest price of stock
+    stock_brief = self.quote_client.get_stock_briefs(symbols=[symbol]).set_index('symbol')
+    latest_price = stock_brief.loc[symbol, 'latest_price']
+
+    # check if it is affordable
+    quantity = math.floor((available_cash-trading_fee)/latest_price)
+
+    return quantity
+

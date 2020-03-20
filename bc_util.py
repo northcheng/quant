@@ -211,3 +211,10 @@ def print_when(condition, true_content='', false_content=None):
     if false_content is not None:
       print(false_content)
 
+
+def print_and_log(info, file_name, mode='a'):
+
+  print(info)
+  file=open(file_name, mode, encoding='utf8')
+  file.write(f'{info}\n')
+  file.close()

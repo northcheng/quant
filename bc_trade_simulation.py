@@ -246,7 +246,7 @@ class Trader:
       self.record[sec_code]['holding_return'] = 0
  
   # trade
-  def trade_with_fixed_position(self, start_date, end_date, stop_profit=None, stop_loss=None):
+  def trade_with_average_position(self, start_date, end_date, stop_profit=None, stop_loss=None):
 
     # 平均分配仓位资金
     avg_position = self.start_cash / len(self.sec_list)
