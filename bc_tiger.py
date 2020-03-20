@@ -89,6 +89,7 @@ class Tiger:
       open_time = close_time = pre_open_time = post_close_time = None
 
     self.trade_time = {
+      'status': status.status,
       'pre_open_time': pre_open_time,
       'open_time': open_time,
       'close_time': close_time,
