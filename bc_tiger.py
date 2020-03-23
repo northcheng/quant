@@ -155,6 +155,30 @@ class Tiger:
     
     pass
 
+  # check whether it is affordable to buy certain amount of a stock
+  def get_affordable_quantity(self, symbol, cash=None, trading_fee=3):
+
+    quantity = 0
+    
+    # get available cash
+    available_cash = cash
+    if cash is None:
+      self.assets = self.trade_client.get_assets(account=self.client_config.account)
+      available_cash = self.assets[0].summary.available_funds
+      
+      # use cash rather than available_funds for simulation account
+      if self.client_config.account == self.user_info['simulation_account']:
+        available_cash = self.assets[0].summary.cash
+
+    # get latest price of stock
+    stock_brief = self.quote_client.get_stock_briefs(symbols=[symbol]).set_index('symbol')
+    latest_price = stock_brief.loc[symbol, 'latest_price']
+
+    # check if it is affordable
+    quantity = math.floor((available_cash-trading_fee)/latest_price)
+
+    return quantity
+
   # buy or sell stocks
   def trade(self, symbol, action, quantity, price=None, stop_loss=None, stop_profit=None, print_summary=True):
 
@@ -202,27 +226,37 @@ class Tiger:
 
     return trade_summary
 
-  # check whether it is affordable to buy certain amount of a stock
-  def get_affordable_quantity(self, symbol, cash=None, trading_fee=3):
+  # stop loss or stop profit or clear all positions
+  def cash_out(self, stop_loss_rate=None, stop_profit_rate=None, clear_all=False, print_summary=True):
 
-    quantity = 0
-    
-    # get available cash
-    available_cash = cash
-    if cash is None:
-      self.assets = self.trade_client.get_assets(account=self.client_config.account)
-      available_cash = self.assets[0].summary.available_funds
-      
-      # use cash rather than available_funds for simulation account
-      if self.client_config.account == self.user_info['simulation_account']:
-        available_cash = self.assets[0].summary.cash
+    # get current position with summary
+    position = self.get_position_summary(get_briefs=True)
+    if len(position) > 0:
 
-    # get latest price of stock
-    stock_brief = self.quote_client.get_stock_briefs(symbols=[symbol]).set_index('symbol')
-    latest_price = stock_brief.loc[symbol, 'latest_price']
+      # set symbol as index
+      position = position.set_index('symbol')
 
-    # check if it is affordable
-    quantity = math.floor((available_cash-trading_fee)/latest_price)
+      # if clear all positions
+      if clear_all:
+        cash_out_list = position.index.tolist()
+      else:
+        stop_loss_list = [] if stop_loss_rate is None else position.query(f'rate < {stop_loss_rate}').index.tolist() 
+        stop_profit_list = [] if stop_profit_rate is None else position.query(f'rate > {stop_profit_rate}').index.tolist() 
+        cash_out_list = list(set(stop_loss_list + stop_profit_list))
+        
+      # cash out
+      if len(cash_out_list) > 0:
+        cash_out_position =  position.loc[cash_out_list, ].copy()
+        for index, row in cash_out_position.iterrows():
+          self.trade(symbol=index, action='SELL', quantity=row['quantity'], print_summary=print_summary)
+      else:
+        print('empty cash out list')
 
-    return quantity
+    else:
+      print('empty position')
+
+
+
+
+
 
