@@ -285,7 +285,7 @@ def calculate_ta_derivative(df, main_indicators, diff_indicators, other_indicato
 
     # otherwise down trend
     # 3-. aroon_up正在下降， 且aroon_down正在上升或者aroon_up>aroon_down
-    down_idx = df.query('(aroon_trend!="u" and aroon_trend!="d") and ((aroon_up_change<0) and (aroon_up_change>=0 or aroon_up>aroon_down))').index
+    down_idx = df.query('(aroon_trend!="u" and aroon_trend!="d") and ((aroon_up_change<0) and (aroon_down_change>=0 or aroon_up>aroon_down))').index
     df.loc[down_idx, 'aroon_trend'] = 'd'
 
     # it is waving when
