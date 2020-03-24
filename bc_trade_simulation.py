@@ -322,5 +322,5 @@ class Trader:
         else:
           pass
 
-  # analysis
-  def trade_record_analysis(self):
+  # # analysis
+  # def trade_record_analysis(self):
