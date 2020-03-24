@@ -47,6 +47,7 @@ def load_config(root_paths):
   config['config_path'] = config['git_path'] + 'quant/'
   config['quant_path'] = config['home_path'] + 'quant/'
   config['result_path'] = config['quant_path'] + 'ta_model/'
+  config['signal_path'] = config['result_path'] + 'signal/'
   config['tiger_path'] = config['quant_path'] + 'tigeropen/'
   
   # load sec lists
