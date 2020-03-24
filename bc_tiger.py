@@ -115,7 +115,7 @@ class Tiger:
         status = self.quote_client.get_stock_briefs(symbols=[x.contract.symbol for x in self.positions])
         result = pd.merge(result, status, how='left', left_on='symbol', right_on='symbol')
         result['rate'] = round((result['latest_price'] - result['average_cost']) / result['average_cost'], 2)
-        result = result[['symbol', 'quantity', 'average_cost', 'latest_price', 'rate', 'status', 'latest_time']] #, 'pre_close', 'open', 'high', 'low', 'volume', 'ask_price', 'ask_size', 'bid_price', 'bid_size', 'market_price', ]]
+        result = result[['symbol', 'quantity', 'average_cost', 'latest_price', 'rate', 'status', 'ask_price', 'bid_price', 'latest_time']] #, 'pre_close', 'open', 'high', 'low', 'volume', 'ask_price', 'ask_size', 'bid_price', 'bid_size', 'market_price', ]]
         result['latest_time'] = result['latest_time'].apply(util.timestamp_2_time)
 
     else:
