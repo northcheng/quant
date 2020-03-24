@@ -7,6 +7,7 @@ Utilities used for Tiger Open API
 import pandas as pd
 import datetime
 import math
+import time
 import pytz
 from tigeropen.common.consts import (Language,  Market, BarPeriod, QuoteRight) # 语言, 市场, k线周期, 复权类型
 from tigeropen.common.util.order_utils import (market_order, limit_order, stop_order, stop_limit_order, trail_order, order_leg) # 市价单, 限价单, 止损单, 限价止损单, 移动止损单, 附加订单
@@ -255,6 +256,41 @@ class Tiger:
     else:
       print('empty position')
 
+  # sleep until specified time
+  def sleep_until(self, target_time, check_frequency=3600, print_position_summary=True):
+    """
+    Sleep with a fixed frequency, until the target time
+
+    :param target_time: the target time in datetime.datetime format
+    :param check_frequency: the fixed sleep_time 
+    :returns: none
+    :raises: none
+    """
+
+    # get current time
+    now = datetime.datetime.now()
+    while now < target_time:
+
+      # calculate sleeping time
+      diff_time = (target_time - now).seconds
+      sleep_time = diff_time+1
+      if diff_time > check_frequency:
+        sleep_time = check_frequency
+      print(f'{now.strftime(format="%Y-%m-%d %H:%M:%S")}: sleep for {sleep_time} seconds', flush=True)
+
+      # print position summary
+      if print_position_summary:
+        position = self.get_position_summary()
+        if len(position)>0:
+          print(position[['symbol', 'quantity', 'average_cost', 'latest_price', 'rate']], end='\n\n')
+
+      # sleep
+      time.sleep(sleep_time)
+
+      # update current time
+      now = datetime.datetime.now()
+
+    print(f'{now}: exceed target time({target_time})', flush=True)
 
 
 
