@@ -255,6 +255,20 @@ class Trader:
       self.cash[sec_code] = avg_position
       self.value[sec_code] = avg_position
 
+
+    start_dates = []
+    end_dates = []
+    for s in self.record.keys():
+      start_dates.append(self.record[s].index.min())
+      end_dates.append(self.record[s].index.max())
+
+    if start_date is None:
+      start_date = util.time_2_string(min(start_dates))
+
+    if end_date is None:
+      end_date =  util.time_2_string(max(end_dates))
+
+
     # 构造日期列表
     dates = []
     next_date = start_date
@@ -308,3 +322,5 @@ class Trader:
         else:
           pass
 
+  # analysis
+  def trade_record_analysis(self):
