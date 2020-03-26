@@ -21,29 +21,21 @@ from quant import bc_util as util
 
 class Tiger:
 
-  # user info
-  user_info = {}
-  client_config = None
-  account_type = None
-  trade_client = None
-  quote_client = None
-  assets = None
-  positions = None
-  trade_time = {}
-  orders = []
+  # user info: dict
+  __user_info = {}            
+
 
   # init
   def __init__(self, account_type, info_path, sandbox_debug=False):
 
     # read user info from local file
-    self.user_info = pd.read_csv(info_path + 'user_info.csv').loc[0,:].astype('str').to_dict()
+    self.__user_info = pd.read_csv(info_path + 'user_info.csv').loc[0,:].astype('str').to_dict()
 
     # set client_config
-    self.account_type = account_type
     self.client_config = TigerOpenClientConfig(sandbox_debug=sandbox_debug)
+    self.client_config.private_key = read_private_key(info_path + self.__user_info['private_key_name'])
     self.client_config.language = Language.en_US
-    self.client_config.tiger_id = str(self.user_info['tiger_id'])
-    self.client_config.private_key = read_private_key(info_path + self.user_info['private_key_name'])
+    self.client_config.tiger_id = str(self.__user_info['tiger_id'])
     
     # get quote/trade client, assets and positions
     self.update_account(account_type=account_type)
@@ -51,37 +43,38 @@ class Tiger:
     # get trade time
     self.get_trade_time()
 
+
   # get quote/trade client, assets and positions for specified account
   def update_account(self, account_type):
 
     # update config, trade_client, quote_client
-    self.account_type = account_type
-    self.client_config.account = str(self.user_info[account_type])
+    self.client_config.account = str(self.__user_info[account_type])
     self.quote_client = QuoteClient(self.client_config)
     self.trade_client = TradeClient(self.client_config)
 
     # update asset and position
-    self.assets = self.trade_client.get_assets(account=self.user_info[account_type])
-    self.positions = self.trade_client.get_positions(account=self.user_info[account_type])
+    self.positions = self.trade_client.get_positions(account=self.__user_info[account_type])
+    self.assets = self.trade_client.get_assets(account=self.__user_info[account_type])
+
+    # update trade time
+    self.get_trade_time()
+    
 
   # get trade time
   def get_trade_time(self, market=Market.US, tz='Asia/Shanghai'):
+
     # get local timezone
     tz = pytz.timezone(tz)
 
     try:
-      # get market status
+      # get open_time
       status = self.quote_client.get_market_status(market=market)[0]
-      
-      # get opentime
       open_time = status.open_time.astimezone(tz).replace(tzinfo=None)
-      if status.status == 'Trading':
+      if status.status in ['Trading', 'Post-Market Trading']:
         open_time = open_time - datetime.timedelta(days=1)
 
-      # get close time
+      # get close time, pre_open_time, post_close_time
       close_time = open_time + datetime.timedelta(hours=6.5)
-
-      # get pre-market opentime and post-market closetime 
       pre_open_time = open_time - datetime.timedelta(hours=5.5)
       post_close_time = close_time + datetime.timedelta(hours=4)
 
@@ -90,19 +83,20 @@ class Tiger:
       open_time = close_time = pre_open_time = post_close_time = None
 
     self.trade_time = {
-      'status': status.status,
-      'pre_open_time': pre_open_time,
-      'open_time': open_time,
-      'close_time': close_time,
-      'post_close_time': post_close_time,
-      'tz': tz
+      'status': status.status, 'tz': tz,
+      'pre_open_time': pre_open_time, 'open_time': open_time,
+      'close_time': close_time, 'post_close_time': post_close_time
     }
+
 
   # get summary of positions
   def get_position_summary(self, get_briefs=True):
 
+    # update positions
+    self.positions = self.trade_client.get_positions(account=self.client_config.account)
+
+    # convert positions(list) to dataframe
     if len(self.positions) > 0:
-      
       result = {'symbol': [], 'quantity': [], 'average_cost': [], 'market_price': []}
       for pos in self.positions:
         result['symbol'].append(pos.contract.symbol)
@@ -111,11 +105,12 @@ class Tiger:
         result['market_price'].append(pos.market_price)
       result = pd.DataFrame(result)
 
+      # get briefs for stocks in positions
       if get_briefs:
         status = self.quote_client.get_stock_briefs(symbols=[x.contract.symbol for x in self.positions])
         result = pd.merge(result, status, how='left', left_on='symbol', right_on='symbol')
         result['rate'] = round((result['latest_price'] - result['average_cost']) / result['average_cost'], 2)
-        result = result[['symbol', 'quantity', 'average_cost', 'latest_price', 'rate', 'status', 'ask_price', 'bid_price', 'latest_time']] #, 'pre_close', 'open', 'high', 'low', 'volume', 'ask_price', 'ask_size', 'bid_price', 'bid_size', 'market_price', ]]
+        result = result[['symbol', 'quantity', 'average_cost', 'latest_price', 'rate', 'status', 'latest_time']] #, 'pre_close', 'open', 'high', 'low', 'volume', 'ask_price', 'ask_size', 'bid_price', 'bid_size', 'market_price', ]]
         result['latest_time'] = result['latest_time'].apply(util.timestamp_2_time)
 
     else:
@@ -123,9 +118,12 @@ class Tiger:
 
     return result
 
+
   # get summary of assets
   def get_asset_summary(self, print_summary=False):
 
+    # update assets
+    self.assets = self.trade_client.get_assets(account=self.client_config.account)
     asset = self.assets[0]
     result = {
       'account': [asset.account],
@@ -151,25 +149,31 @@ class Tiger:
 
     return pd.DataFrame(result)
 
-  # get summary of orders
-  def get_order_summary(self):
+
+  # get available money
+  def get_available_cash(self):
+
+    # get available cash for real accounts
+    self.assets = self.trade_client.get_assets(account=self.client_config.account)
+    available_cash = self.assets[0].summary.available_funds
     
-    pass
+    # use cash rather than available_funds for simulation account
+    if self.client_config.account == self.__user_info['simulation_account']:
+      available_cash = self.assets[0].summary.cash
+
+    return available_cash
+
 
   # check whether it is affordable to buy certain amount of a stock
   def get_affordable_quantity(self, symbol, cash=None, trading_fee=3):
 
+    # initialize affordable quantity
     quantity = 0
     
     # get available cash
     available_cash = cash
     if cash is None:
-      self.assets = self.trade_client.get_assets(account=self.client_config.account)
-      available_cash = self.assets[0].summary.available_funds
-      
-      # use cash rather than available_funds for simulation account
-      if self.client_config.account == self.user_info['simulation_account']:
-        available_cash = self.assets[0].summary.cash
+      available_cash = self.get_available_cash()
 
     # get latest price of stock
     stock_brief = self.quote_client.get_stock_briefs(symbols=[symbol]).set_index('symbol')
@@ -180,12 +184,13 @@ class Tiger:
 
     return quantity
 
+
   # buy or sell stocks
   def trade(self, symbol, action, quantity, price=None, stop_loss=None, stop_profit=None, print_summary=True):
 
     trade_summary = ''
-
     try:
+
       # construct contract
       contract = stock_contract(symbol=symbol, currency='USD')
 
@@ -197,35 +202,37 @@ class Tiger:
         order_price = f'{price}'
         order = limit_order(account=self.client_config.account, contract=contract, action=action, quantity=quantity, limit_price=price)
 
+      # construct trade summary
+      trade_summary += f'[{action}] {symbol} X {quantity} ({order_price})\t'
+
       # attach order legs
       order_legs = []
       if stop_loss is not None:
         stop_loss_order_leg = order_leg('LOSS', stop_loss, time_in_force='GTC') # 附加止损单
         order_legs.append(stop_loss_order_leg)
       if stop_profit is not None:
-        stop_profit_order_leg = order_leg('PROFIT', 400.0, time_in_force='GTC') # 附加止盈单
+        stop_profit_order_leg = order_leg('PROFIT', stop_profit, time_in_force='GTC') # 附加止盈单
         orderlegs.append(stop_profit_order_leg)
       if len(order_legs)>0:
         order.order_legs = order_legs
-
-      # construct trade summary
-      trade_summary += f'[{action} {symbol} X {quantity} ({order_price})]\t'
 
       # place order if affordable
       affordable_quantity = self.get_affordable_quantity(symbol=symbol)
       if quantity <= affordable_quantity:
         self.trade_client.place_order(order)
-        self.orders.append(order.id)
         trade_summary += f'SUCCEED: {order.id}'
-        print(trade_summary)
       else:
         trade_summary += f'FAILED: Not affordable({affordable_quantity})'
       
     except Exception as e:
       trade_summary += f'FAILED: {e}'
+      
+    # print trade summary
+    if print_summary: 
       print(trade_summary)
 
     return trade_summary
+
 
   # stop loss or stop profit or clear all positions
   def cash_out(self, stop_loss_rate=None, stop_profit_rate=None, clear_all=False, print_summary=True):
@@ -256,6 +263,7 @@ class Tiger:
     else:
       print('empty position')
 
+
   # sleep until specified time
   def sleep_until(self, target_time, check_frequency=3600, print_position_summary=True):
     """
@@ -276,7 +284,7 @@ class Tiger:
       sleep_time = diff_time+1
       if diff_time > check_frequency:
         sleep_time = check_frequency
-      print(f'{now.strftime(format="%Y-%m-%d %H:%M:%S")}: sleep for {sleep_time} seconds', flush=True)
+      print(f'{now.strftime(format="%Y-%m-%d %H:%M:%S")}: sleep for {sleep_time} seconds')
 
       # print position summary
       if print_position_summary:
@@ -293,6 +301,87 @@ class Tiger:
     print(f'{now}: exceed target time({target_time})', flush=True)
 
 
+  # auto trade according to signals
+  def auto_trade_with_signal(self, signal, max_money_per_sec, min_money_per_sec, log_file_name=None):
+
+    # get latest price for signals
+    if len(signal) > 0:
+      signal = signal.rename(columns={'代码':'symbol', '交易信号':'action'})
+      signal = signal.set_index('symbol')
+      signal_brief = self.quote_client.get_stock_briefs(symbols=signal.index.tolist()).set_index('symbol')
+      signal = pd.merge(signal, signal_brief, how='left', left_index=True, right_index=True)
+
+      # sell
+      # get sell signals
+      sell_signal = signal.query('action == "s"')
+      num_sell_signal = len(sell_signal)
+      if num_sell_signal > 0:
+        
+        # get current positions
+        position = self.get_position_summary()
+        if len(position) > 0:
+          position = position.set_index('symbol')
+
+          # go through sell signals
+          for symbol in sell_signal.index:
+            action = signal.loc[symbol, 'action']
+
+            if symbol in position.index:
+              action = 'SELL'
+              quantity = int(position.loc[symbol, 'quantity'])
+              trade_summary = self.trade(symbol=symbol, action=action, quantity=quantity, price=None, print_summary=False)
+              util.print_and_log(info=trade_summary, file_name=log_file_name)
+            else:
+              util.print_and_log(info=f'[skip]: {symbol} {action} (not in positions)', file_name=log_file_name)
+        else: 
+          util.print_and_log(info=f'[skip]: no position to sell', file_name=log_file_name)
+      else:
+        util.print_and_log(info=f'[skip]: SELL (no signal)', file_name=log_file_name)
+
+      # buy
+      # get buy signals
+      buy_signal = signal.query('action == "b"')
+      num_buy_signal = len(buy_signal)
+      if num_buy_signal > 0:
+
+        # get current positions
+        position = self.get_position_summary()
+        if len(position) > 0:
+          position = position.set_index('symbol')
+
+        # get available cash and calculate money_per_sec
+        available_cash = self.get_available_cash() - (num_buy_signal * 3)
+        if available_cash > min_money_per_sec:
+          money_per_sec = available_cash / num_buy_signal
+
+          # if money_per_sec is larger than max limit, set it to max limit
+          if money_per_sec >= max_money_per_sec:
+            money_per_sec = max_money_per_sec
+
+          # if money_per_sec is lower than min limit, set it to min limit and cut buy signals
+          elif money_per_sec <= min_money_per_sec:
+            money_per_sec = min_money_per_sec
+            buy_signal = buy_signal[:math.floor(available_cash / money_per_sec)]
+
+          # go through buy signals
+          for symbol in buy_signal.index:
+            action = signal.loc[symbol, 'action']
+
+            if symbol not in position.index:
+              action = 'BUY'
+              quantity = math.floor(money_per_sec/signal.loc[symbol, 'latest_price'])
+              trade_summary = self.trade(symbol=symbol, action=action, quantity=quantity, price=None, print_summary=False)
+              util.print_and_log(info=trade_summary, file_name=log_file_name)
+            else:
+              util.print_and_log(info=f'[skip]: {symbol} {action} (already in positions)', file_name=log_file_name)
+        else:
+          util.print_and_log(info=f'[skip]: not enough money to buy', file_name=log_file_name)
+      else:
+        util.print_and_log(info=f'[skip]: BUY (no signal)', file_name=log_file_name)
+    
+          
+          
+      
 
 
 

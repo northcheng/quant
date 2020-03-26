@@ -215,6 +215,7 @@ def print_when(condition, true_content='', false_content=None):
 def print_and_log(info, file_name, mode='a'):
 
   print(info)
-  file=open(file_name, mode, encoding='utf8')
-  file.write(f'{info}\n')
-  file.close()
+  if file_name is not None:
+    file=open(file_name, mode, encoding='utf8')
+    file.write(f'{info}\n')
+    file.close()
