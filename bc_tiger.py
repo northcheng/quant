@@ -69,6 +69,7 @@ class Tiger:
     try:
       # get open_time
       status = self.quote_client.get_market_status(market=market)[0]
+      market_status = status.status
       open_time = status.open_time.astimezone(tz).replace(tzinfo=None)
       if status.status in ['Trading', 'Post-Market Trading']:
         open_time = open_time - datetime.timedelta(days=1)
@@ -80,7 +81,7 @@ class Tiger:
 
     except Exception as e:
       print(e)
-      open_time = close_time = pre_open_time = post_close_time = None
+      open_time = close_time = pre_open_time = post_close_time = market_status = None
 
     self.trade_time = {
       'status': status.status, 'tz': tz,
