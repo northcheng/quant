@@ -185,6 +185,43 @@ class Tiger:
     return quantity
 
 
+  # sleep until specified time
+  def sleep_until(self, target_time, check_frequency=3600, print_position_summary=True):
+    """
+    Sleep with a fixed frequency, until the target time
+
+    :param target_time: the target time in datetime.datetime format
+    :param check_frequency: the fixed sleep_time 
+    :returns: none
+    :raises: none
+    """
+
+    # get current time
+    now = datetime.datetime.now()
+    while now < target_time:
+
+      # calculate sleeping time
+      diff_time = (target_time - now).seconds
+      sleep_time = diff_time+1
+      if diff_time > check_frequency:
+        sleep_time = check_frequency
+      print(f'{now.strftime(format="%Y-%m-%d %H:%M:%S")}: sleep for {sleep_time} seconds')
+
+      # print position summary
+      if print_position_summary:
+        position = self.get_position_summary()
+        if len(position)>0:
+          print(position[['symbol', 'quantity', 'average_cost', 'latest_price', 'rate']], end='\n\n')
+
+      # sleep
+      time.sleep(sleep_time)
+
+      # update current time
+      now = datetime.datetime.now()
+
+    print(f'{now}: exceed target time({target_time})', flush=True)
+
+
   # buy or sell stocks
   def trade(self, symbol, action, quantity, price=None, stop_loss=None, stop_profit=None, print_summary=True):
 
@@ -234,75 +271,8 @@ class Tiger:
     return trade_summary
 
 
-  # stop loss or stop profit or clear all positions
-  def cash_out(self, stop_loss_rate=None, stop_profit_rate=None, clear_all=False, print_summary=True):
-
-    # get current position with summary
-    position = self.get_position_summary(get_briefs=True)
-    if len(position) > 0:
-
-      # set symbol as index
-      position = position.set_index('symbol')
-
-      # if clear all positions
-      if clear_all:
-        cash_out_list = position.index.tolist()
-      else:
-        stop_loss_list = [] if stop_loss_rate is None else position.query(f'rate < {stop_loss_rate}').index.tolist() 
-        stop_profit_list = [] if stop_profit_rate is None else position.query(f'rate > {stop_profit_rate}').index.tolist() 
-        cash_out_list = list(set(stop_loss_list + stop_profit_list))
-        
-      # cash out
-      if len(cash_out_list) > 0:
-        cash_out_position =  position.loc[cash_out_list, ].copy()
-        for index, row in cash_out_position.iterrows():
-          self.trade(symbol=index, action='SELL', quantity=row['quantity'], print_summary=print_summary)
-      else:
-        print('empty cash out list')
-
-    else:
-      print('empty position')
-
-
-  # sleep until specified time
-  def sleep_until(self, target_time, check_frequency=3600, print_position_summary=True):
-    """
-    Sleep with a fixed frequency, until the target time
-
-    :param target_time: the target time in datetime.datetime format
-    :param check_frequency: the fixed sleep_time 
-    :returns: none
-    :raises: none
-    """
-
-    # get current time
-    now = datetime.datetime.now()
-    while now < target_time:
-
-      # calculate sleeping time
-      diff_time = (target_time - now).seconds
-      sleep_time = diff_time+1
-      if diff_time > check_frequency:
-        sleep_time = check_frequency
-      print(f'{now.strftime(format="%Y-%m-%d %H:%M:%S")}: sleep for {sleep_time} seconds')
-
-      # print position summary
-      if print_position_summary:
-        position = self.get_position_summary()
-        if len(position)>0:
-          print(position[['symbol', 'quantity', 'average_cost', 'latest_price', 'rate']], end='\n\n')
-
-      # sleep
-      time.sleep(sleep_time)
-
-      # update current time
-      now = datetime.datetime.now()
-
-    print(f'{now}: exceed target time({target_time})', flush=True)
-
-
   # auto trade according to signals
-  def auto_trade_with_signal(self, signal, max_money_per_sec, min_money_per_sec, log_file_name=None):
+  def signal_trade(self, signal, max_money_per_sec, min_money_per_sec, log_file_name=None):
 
     # get latest price for signals
     if len(signal) > 0:
@@ -378,10 +348,36 @@ class Tiger:
           util.print_and_log(info=f'[skip]: not enough money to buy', file_name=log_file_name)
       else:
         util.print_and_log(info=f'[skip]: BUY (no signal)', file_name=log_file_name)
-    
+        
           
-          
-      
+  # stop loss or stop profit or clear all positions
+  def cash_out(self, stop_loss_rate=None, stop_profit_rate=None, clear_all=False, print_summary=True):
+
+    # get current position with summary
+    position = self.get_position_summary(get_briefs=True)
+    if len(position) > 0:
+
+      # set symbol as index
+      position = position.set_index('symbol')
+
+      # if clear all positions
+      if clear_all:
+        cash_out_list = position.index.tolist()
+      else:
+        stop_loss_list = [] if stop_loss_rate is None else position.query(f'rate < {stop_loss_rate}').index.tolist() 
+        stop_profit_list = [] if stop_profit_rate is None else position.query(f'rate > {stop_profit_rate}').index.tolist() 
+        cash_out_list = list(set(stop_loss_list + stop_profit_list))
+        
+      # cash out
+      if len(cash_out_list) > 0:
+        cash_out_position =  position.loc[cash_out_list, ].copy()
+        for index, row in cash_out_position.iterrows():
+          self.trade(symbol=index, action='SELL', quantity=row['quantity'], print_summary=print_summary)
+      else:
+        print('empty cash out list')
+
+    else:
+      print('empty position')      
 
 
 
