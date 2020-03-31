@@ -5,7 +5,6 @@ Utilities used for Tiger Open API
 :author: Beichen Chen
 """
 import math
-import time
 import pytz
 import datetime
 import logging
