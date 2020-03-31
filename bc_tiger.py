@@ -4,11 +4,13 @@ Utilities used for Tiger Open API
 
 :author: Beichen Chen
 """
-import pandas as pd
-import datetime
 import math
 import time
 import pytz
+import datetime
+import logging
+import pandas as pd
+from quant import bc_util as util
 from tigeropen.common.consts import (Language,  Market, BarPeriod, QuoteRight) # 语言, 市场, k线周期, 复权类型
 from tigeropen.common.util.order_utils import (market_order, limit_order, stop_order, stop_limit_order, trail_order, order_leg) # 市价单, 限价单, 止损单, 限价止损单, 移动止损单, 附加订单
 from tigeropen.common.util.contract_utils import (stock_contract, option_contract, future_contract) # 股票合约, 期权合约, 期货合约
@@ -17,7 +19,9 @@ from tigeropen.tiger_open_config import TigerOpenClientConfig
 from tigeropen.quote.quote_client import QuoteClient
 from tigeropen.trade.trade_client import TradeClient
 
-from quant import bc_util as util
+# get logger
+defualt_logger = logging.getLogger('bc_tiger_logger')
+
 
 class Tiger:
 
@@ -26,7 +30,7 @@ class Tiger:
 
 
   # init
-  def __init__(self, account_type, info_path, sandbox_debug=False):
+  def __init__(self, account_type, info_path, sandbox_debug=False, logger_name=None):
 
     # read user info from local file
     self.__user_info = pd.read_csv(info_path + 'user_info.csv').loc[0,:].astype('str').to_dict()
@@ -42,6 +46,14 @@ class Tiger:
 
     # get trade time
     self.get_trade_time()
+
+    # get logger
+    if logger_name is None:
+      self.logger = defualt_logger
+    else:
+      self.logger = logging.getLogger(logger_name)
+
+    self.logger.info(f'[init]: Tiger instance created: {logger_name}')
 
 
   # get quote/trade client, assets and positions for specified account
@@ -80,7 +92,7 @@ class Tiger:
       post_close_time = close_time + datetime.timedelta(hours=4)
 
     except Exception as e:
-      print(e)
+      self.logger.error(e)
       open_time = close_time = pre_open_time = post_close_time = market_status = None
 
     self.trade_time = {
@@ -186,41 +198,22 @@ class Tiger:
     return quantity
 
 
-  # sleep until specified time
-  def sleep_until(self, target_time, check_frequency=3600, print_position_summary=True):
-    """
-    Sleep with a fixed frequency, until the target time
+  # get quantity of symbol currently in the position
+  def get_in_position_quantity(self, symbol):
 
-    :param target_time: the target time in datetime.datetime format
-    :param check_frequency: the fixed sleep_time 
-    :returns: none
-    :raises: none
-    """
+    # initialize affordable quantity
+    quantity = 0
 
-    # get current time
-    now = datetime.datetime.now()
-    while now < target_time:
+    # get position summary
+    position = self.get_position_summary()
+    if len(position) > 0:
+      position = position.set_index('symbol')
 
-      # calculate sleeping time
-      diff_time = (target_time - now).seconds
-      sleep_time = diff_time+1
-      if diff_time > check_frequency:
-        sleep_time = check_frequency
-      print(f'{now.strftime(format="%Y-%m-%d %H:%M:%S")}: sleep for {sleep_time} seconds')
+      # if symbol in position, get the quantity
+      if symbol in position.index:
+        quantity = position.loc[symbol, 'quantity']
 
-      # print position summary
-      if print_position_summary:
-        position = self.get_position_summary()
-        if len(position)>0:
-          print(position[['symbol', 'quantity', 'average_cost', 'latest_price', 'rate']], end='\n\n')
-
-      # sleep
-      time.sleep(sleep_time)
-
-      # update current time
-      now = datetime.datetime.now()
-
-    print(f'{now}: exceed target time({target_time})', flush=True)
+    return quantity
 
 
   # buy or sell stocks
@@ -254,76 +247,88 @@ class Tiger:
       if len(order_legs)>0:
         order.order_legs = order_legs
 
-      # place order if affordable
-      affordable_quantity = self.get_affordable_quantity(symbol=symbol)
-      if quantity <= affordable_quantity:
-        self.trade_client.place_order(order)
-        trade_summary += f'SUCCEED: {order.id}'
+      # place buy order if affordable
+      if action == 'BUY':
+        affordable_quantity = self.get_affordable_quantity(symbol=symbol)
+        if quantity <= affordable_quantity:
+          self.trade_client.place_order(order)
+          trade_summary += f'SUCCEED: {order.id}'
+        else:
+          trade_summary += f'FAILED: Not affordable({affordable_quantity})'
+
+      # place sell order if holding enough stocks
+      elif action == 'SELL':    
+        in_position_quantity = self.get_in_position_quantity(symbol)
+        if in_position_quantity >= quantity:
+          self.trade_client.place_order(order)
+          trade_summary += f'SUCCEED: {order.id}'
+        else:
+          trade_summary += f'FAILED: Not enough stock to sell({in_position_quantity})'
+
+      # other actions
       else:
-        trade_summary += f'FAILED: Not affordable({affordable_quantity})'
+        trade_summary += f'FAILED: Unknown action({action})'
       
     except Exception as e:
       trade_summary += f'FAILED: {e}'
       
     # print trade summary
     if print_summary: 
-      print(trade_summary)
+      self.logger.info(trade_summary)
 
     return trade_summary
 
 
   # auto trade according to signals
-  def signal_trade(self, signal, max_money_per_sec, min_money_per_sec, log_file_name=None):
+  def signal_trade(self, signal, max_money_per_sec, min_money_per_sec):
 
-    # get latest price for signals
     if len(signal) > 0:
       signal = signal.rename(columns={'代码':'symbol', '交易信号':'action'})
       signal = signal.set_index('symbol')
+
+      # get latest price for signals
       signal_brief = self.quote_client.get_stock_briefs(symbols=signal.index.tolist()).set_index('symbol')
-      signal = pd.merge(signal, signal_brief, how='left', left_index=True, right_index=True)
+      signal = pd.merge(signal, signal_brief[['latest_price']], how='left', left_index=True, right_index=True)
+
+      # get in-position quantity for signals
+      position = self.get_position_summary()
+      if len(position) == 0:
+        position = pd.DataFrame({'symbol':[], 'quantity':[]})
+      position = position.set_index('symbol')
+      signal = pd.merge(signal, position[['quantity']], how='left', left_index=True, right_index=True).fillna(0)
 
       # sell
       # get sell signals
       sell_signal = signal.query('action == "s"')
-      num_sell_signal = len(sell_signal)
-      if num_sell_signal > 0:
-        
-        # get current positions
-        position = self.get_position_summary()
-        if len(position) > 0:
-          position = position.set_index('symbol')
+      if len(sell_signal) > 0:
 
-          # go through sell signals
-          for symbol in sell_signal.index:
-            action = signal.loc[symbol, 'action']
-
-            if symbol in position.index:
-              action = 'SELL'
-              quantity = int(position.loc[symbol, 'quantity'])
-              trade_summary = self.trade(symbol=symbol, action=action, quantity=quantity, price=None, print_summary=False)
-              util.print_and_log(info=trade_summary, file_name=log_file_name)
-            else:
-              util.print_and_log(info=f'[skip]: {symbol} {action} (not in positions)', file_name=log_file_name)
-        else: 
-          util.print_and_log(info=f'[skip]: no position to sell', file_name=log_file_name)
+        # go through sell signals
+        for symbol in sell_signal.index:
+          in_position_quantity = signal.loc[symbol, 'quantity']
+          if in_position_quantity > 0:
+            trade_summary = self.trade(symbol=symbol, action='SELL', quantity=in_position_quantity, price=None, print_summary=False)
+            self.logger.info(trade_summary)
+          else:
+            self.logger.info(f'[skip]: {symbol} SELL (not in positions)')
       else:
-        util.print_and_log(info=f'[skip]: SELL (no signal)', file_name=log_file_name)
+        self.logger.info(f'[skip]: SELL (no signal)')
 
       # buy
-      # get buy signals
+      # get buy signals which not in posiitons yet
       buy_signal = signal.query('action == "b"')
-      num_buy_signal = len(buy_signal)
-      if num_buy_signal > 0:
+      for symbol in buy_signal.index:
+        in_position_quantity = signal.loc[symbol, 'quantity']
+        if in_position_quantity > 0:
+          self.logger.info(f'[skip]: {symbol} BUY (already in positions:{in_position_quantity})')
 
-        # get current positions
-        position = self.get_position_summary()
-        if len(position) > 0:
-          position = position.set_index('symbol')
+      # re-filter buy signals, remove those already in positions
+      buy_signal = buy_signal.query('quantity == 0')
+      if len(buy_signal) > 0:
 
         # get available cash and calculate money_per_sec
-        available_cash = self.get_available_cash() - (num_buy_signal * 3)
+        available_cash = self.get_available_cash()
         if available_cash > min_money_per_sec:
-          money_per_sec = available_cash / num_buy_signal
+          money_per_sec = available_cash / len(buy_signal)
 
           # if money_per_sec is larger than max limit, set it to max limit
           if money_per_sec >= max_money_per_sec:
@@ -336,19 +341,14 @@ class Tiger:
 
           # go through buy signals
           for symbol in buy_signal.index:
-            action = signal.loc[symbol, 'action']
-
-            if symbol not in position.index:
-              action = 'BUY'
-              quantity = math.floor(money_per_sec/signal.loc[symbol, 'latest_price'])
-              trade_summary = self.trade(symbol=symbol, action=action, quantity=quantity, price=None, print_summary=False)
-              util.print_and_log(info=trade_summary, file_name=log_file_name)
-            else:
-              util.print_and_log(info=f'[skip]: {symbol} {action} (already in positions)', file_name=log_file_name)
+            quantity = math.floor((money_per_sec-3)/signal.loc[symbol, 'latest_price'])
+            trade_summary = self.trade(symbol=symbol, action='BUY', quantity=quantity, price=None, print_summary=False)
+            self.logger.info(trade_summary)
+            
         else:
-          util.print_and_log(info=f'[skip]: not enough money to buy', file_name=log_file_name)
+          self.logger.info(f'[skip]: not enough money to buy')
       else:
-        util.print_and_log(info=f'[skip]: BUY (no signal)', file_name=log_file_name)
+       self.logger.info(f'[skip]: BUY (no signal)')
         
           
   # stop loss or stop profit or clear all positions
