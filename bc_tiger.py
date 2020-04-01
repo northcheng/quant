@@ -233,7 +233,7 @@ class Tiger:
         order = limit_order(account=self.client_config.account, contract=contract, action=action, quantity=quantity, limit_price=price)
 
       # construct trade summary
-      trade_summary += f'[{action}] {symbol} X {quantity} ({order_price})\t'
+      trade_summary += f'[{action}]: {symbol} X {quantity} ({order_price})\t'
 
       # attach order legs
       order_legs = []
@@ -279,7 +279,7 @@ class Tiger:
 
 
   # auto trade according to signals
-  def signal_trade(self, signal, max_money_per_sec, min_money_per_sec):
+  def signal_trade(self, signal, money_per_sec, trading_fee=3):
 
     if len(signal) > 0:
       signal = signal.rename(columns={'代码':'symbol', '交易信号':'action'})
@@ -303,51 +303,45 @@ class Tiger:
 
         # go through sell signals
         for symbol in sell_signal.index:
+
+          # check whether symbol is in positions
           in_position_quantity = signal.loc[symbol, 'quantity']
           if in_position_quantity > 0:
             trade_summary = self.trade(symbol=symbol, action='SELL', quantity=in_position_quantity, price=None, print_summary=False)
             self.logger.info(trade_summary)
           else:
-            self.logger.info(f'[skip]: {symbol} SELL (not in positions)')
+            self.logger.info(f'[SELL]: {symbol} skipped (not in positions)')
       else:
-        self.logger.info(f'[skip]: SELL (no signal)')
+        self.logger.info(f'[SELL]: no signal')
 
       # buy
       # get buy signals which not in posiitons yet
       buy_signal = signal.query('action == "b"')
-      for symbol in buy_signal.index:
-        in_position_quantity = signal.loc[symbol, 'quantity']
-        if in_position_quantity > 0:
-          self.logger.info(f'[skip]: {symbol} BUY (already in positions:{in_position_quantity})')
-
-      # re-filter buy signals, remove those already in positions
-      buy_signal = buy_signal.query('quantity == 0')
       if len(buy_signal) > 0:
 
-        # get available cash and calculate money_per_sec
-        available_cash = self.get_available_cash()
-        if available_cash > min_money_per_sec:
-          money_per_sec = available_cash / len(buy_signal)
-
-          # if money_per_sec is larger than max limit, set it to max limit
-          if money_per_sec >= max_money_per_sec:
-            money_per_sec = max_money_per_sec
-
-          # if money_per_sec is lower than min limit, set it to min limit and cut buy signals
-          elif money_per_sec <= min_money_per_sec:
-            money_per_sec = min_money_per_sec
-            buy_signal = buy_signal[:math.floor(available_cash / money_per_sec)]
-
-          # go through buy signals
-          for symbol in buy_signal.index:
-            quantity = math.floor((money_per_sec-3)/signal.loc[symbol, 'latest_price'])
-            trade_summary = self.trade(symbol=symbol, action='BUY', quantity=quantity, price=None, print_summary=False)
-            self.logger.info(trade_summary)
+        # go through buy signals
+        for symbol in buy_signal.index:
+          
+          # check whether symbol is already in positions
+          in_position_quantity = signal.loc[symbol, 'quantity']
+          if in_position_quantity == 0:
             
-        else:
-          self.logger.info(f'[skip]: not enough money to buy')
+            # check whether there is enough money to establish a new position
+            available_cash = self.get_available_cash()
+            if available_cash >= (money_per_sec):
+              quantity = math.floor((money_per_sec-trading_fee)/signal.loc[symbol, 'latest_price'])
+              trade_summary = self.trade(symbol=symbol, action='BUY', quantity=quantity, price=None, print_summary=False)
+              self.logger.info(trade_summary)
+            else:
+              self.logger.info(f'[BUY]: not enough money')
+              break
+          else:
+            self.logger.info(f'[BUY]: {symbol} skipped (already in positions:{in_position_quantity})')
+            continue
       else:
-       self.logger.info(f'[skip]: BUY (no signal)')
+       self.logger.info(f'[BUY]: no signal')
+
+      
         
           
   # stop loss or stop profit or clear all positions
