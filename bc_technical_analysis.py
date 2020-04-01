@@ -144,7 +144,7 @@ def calculate_ta_data(df, sec_code, interval, signal_indicators=['ichimoku', 'ar
     # calculate TA derivatives
     phase = 'cal_ta_derivatives'
     main_id = ['ichimoku']
-    diff_id = ['aroon'] # ['adx', 'eom', 'kst']
+    diff_id = ['aroon', 'adx'] # ['adx', 'eom', 'kst']
     other_id = [x for x in signal_indicators if x not in main_id and x not in diff_id]
     df = calculate_ta_derivative(df=df, main_indicators=main_id, diff_indicators=diff_id, other_indicators=other_id, signal_threshold=signal_threshold, signal_day_threshold=signal_day_threshold, n_ma=n_ma)
 
@@ -227,8 +227,8 @@ def calculate_ta_derivative(df, main_indicators, diff_indicators, other_indicato
   :raises: Exception 
   """
   try:
-    # ================================ main indicator trend =========================
-    phase = 'cal_signals_for_main_indicators'     
+    # ================================ ichimoku trend =========================
+    phase = 'cal_trend_for_indicators'     
     signal_col = f'ichimoku_signal'
     trend_col = f'ichimoku_trend'
 
@@ -257,7 +257,7 @@ def calculate_ta_derivative(df, main_indicators, diff_indicators, other_indicato
     df.loc[up_idx, trend_col] = 'u'
     df.loc[down_idx, trend_col] = 'd'
 
-    # ================================ diff indicator trend =========================
+    # ================================ aroon trend =========================
     # calculate aroon_diff
     aroon_col = ['aroon_up', 'aroon_down', 'aroon_gap']
     df[aroon_col] = df[aroon_col].round(1)
@@ -294,12 +294,34 @@ def calculate_ta_derivative(df, main_indicators, diff_indicators, other_indicato
     wave_idx = df.query('-32<=aroon_gap<=32 and ((aroon_gap_change==0 and aroon_up_change==aroon_down_change<0) or ((aroon_up_change<0 and aroon_down==0) or (aroon_down_change<0 and aroon_up==0)))').index
     df.loc[wave_idx, 'aroon_trend'] = 'n'
 
+    # ================================ adx trend =========================
+    # initialize
+    df['adx_trend'] = 'n'
+
+    # it is going up when adx_diff>0
+    up_idx = df.query('adx_diff > 0').index
+    df.loc[up_idx ,'adx_trend'] = 'u'
+
+    # it is going down when adx_diff<0
+    down_idx = df.query('adx_diff <= 0').index
+    df.loc[down_idx ,'adx_trend'] = 'd'
+
+    # it is waving when adx below 25
+    wave_idx = df.query('adx < 25').index
+    df.loc[wave_idx, 'adx_trend'] = 'n'
+
     # ================================ Number days since signal triggered ============
     phase = 'cal_num_day_signal_triggered'
+    df['trend_idx'] = 0
     for indicator in (main_indicators + diff_indicators):
       trend_col = f'{indicator}_trend'
       signal_col = f'{indicator}_signal'
       day_col = f'{indicator}_day'
+
+      up_idx = df.query(f'{trend_col} == "u"').index
+      down_idx = df.query(f'{trend_col} == "d"').index
+      df.loc[up_idx, 'trend_idx'] += 1
+      df.loc[down_idx, 'trend_idx'] -= 1
 
       # calculate number of days since trend shifted
       df[day_col] = sda(series=df[trend_col].replace({'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1) 
@@ -334,6 +356,21 @@ def calculate_ta_signal(df, n_ma=5):
   df['signal_day'] = sda(series=df['trend'].replace({'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
   df.loc[df['signal_day'] == 1, 'signal'] = 'b'
   df.loc[df['signal_day'] ==-1, 'signal'] = 's'
+
+  # # copy data, initialize signal
+  # df = df.copy()
+
+  # df['trend'] = 'n'
+  # up_idx = df.query('trend_idx >= 1').index
+  # down_idx = df.query('trend_idx < 0').index
+  # df.loc[up_idx, 'trend'] = 'u'
+  # df.loc[down_idx, 'trend'] = 'd'
+
+  # # ================================ Calculate overall siganl ======================
+  # df['signal'] = 'n' 
+  # df['signal_day'] = sda(series=df['trend'].replace({'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
+  # df.loc[df['signal_day'] == 1, 'signal'] = 'b'
+  # df.loc[df['signal_day'] ==-1, 'signal'] = 's'
 
   return df
 
@@ -1079,7 +1116,7 @@ def add_adx_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, adx_th
 
   # (pdi-mdi) / (adx/25)
   df['adx_diff'] = (df['pdi'] - df['mdi']) * (df['adx']/adx_threshold)
-  df['adx_diff'] = (df['adx_diff'] - df['adx_diff'].mean()) / df['adx_diff'].std()
+  # df['adx_diff'] = (df['adx_diff'] - df['adx_diff'].mean()) / df['adx_diff'].std()
 
   # fill na values
   if fillna:
@@ -2859,7 +2896,7 @@ def plot_aroon(
   df, start=None, end=None, ohlcv_col=default_ohlcv_col, 
   use_ax=None, title=None, plot_args=default_plot_args):
   """
-  Plot ichimoku chart
+  Plot aroon chart
 
   :param df: dataframe with ichimoku indicator columns
   :param start: start row to plot
@@ -2888,6 +2925,62 @@ def plot_aroon(
   # fill between aroon_up/aroon_down
   ax.fill_between(df.index, df.aroon_up, df.aroon_down, where=df.aroon_up > df.aroon_down, facecolor='green', interpolate=True, alpha=0.1)
   ax.fill_between(df.index, df.aroon_up, df.aroon_down, where=df.aroon_up <= df.aroon_down, facecolor='red', interpolate=True, alpha=0.1)
+ 
+  # # plot waving areas
+  # wave_idx = (df.aroon_gap_change==0)&(df.aroon_up_change==df.aroon_down_change)#&(df.aroon_up<96)&(df.aroon_down<96)
+  # for i in range(len(wave_idx)):
+  #   try:
+  #     if wave_idx[i]:
+  #         wave_idx[i-1] = True
+  #   except Exception as e:
+  #     print(e)
+  # ax.fill_between(df.index, df.aroon_up, df.aroon_down, facecolor='grey', where=wave_idx, interpolate=False, alpha=0.3)
+
+  # title and legend
+  ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
+  ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
+  ax.grid(True, axis='y', linestyle='--', linewidth=1)
+
+  if use_ax is not None:
+    return ax
+
+# plot adx chart
+def plot_adx(
+  df, start=None, end=None, ohlcv_col=default_ohlcv_col, 
+  use_ax=None, title=None, plot_args=default_plot_args):
+  """
+  Plot adx chart
+
+  :param df: dataframe with ichimoku indicator columns
+  :param start: start row to plot
+  :param end: end row to plot
+  :param date_col: column name of Date
+  :param ohlcv_col: columns names of Open/High/Low/Close/Volume
+  :param use_ax: the already-created ax to draw on
+  :param title: plot title
+  :param plot_args: other plot arguments
+  :returns: ichimoku plot
+  :raises: none
+  """
+  # copy dataframe within a specific period
+  df = df[start:end].copy()
+
+  # create figure
+  ax = use_ax
+  if ax is None:
+    plt.figure(figsize=plot_args['figsize'])
+    ax = plt.gca()
+
+  # plot aroon_up/aroon_down lines 
+  # ax.plot(df.index, df.pdi, label='pdi', color='green', marker='.', alpha=0.3)
+  # ax.plot(df.index, df.mdi, label='mdi', color='red', marker='.', alpha=0.3)
+  ax.plot(df.index, df.adx_diff, label='adx_diff', color='black', linestyle='--', alpha=0.5)
+  ax.plot(df.index, df.adx, label='adx', color='black', marker='.', alpha=0.3)
+  # ax.plot(df.index, df.adx_diff, label='adx_diff', color='blue', marker='.', alpha=0.3)
+
+  # fill between aroon_up/aroon_down
+  ax.fill_between(df.index, df.pdi, df.mdi, where=df.pdi > df.mdi, facecolor='green', interpolate=True, alpha=0.1)
+  ax.fill_between(df.index, df.pdi, df.mdi, where=df.pdi <= df.mdi, facecolor='red', interpolate=True, alpha=0.1)
  
   # # plot waving areas
   # wave_idx = (df.aroon_gap_change==0)&(df.aroon_up_change==df.aroon_down_change)#&(df.aroon_up<96)&(df.aroon_down<96)
@@ -3081,6 +3174,10 @@ def plot_multiple_indicators(
     # plot aroon
     elif tmp_indicator == 'aroon':
       plot_aroon(df=plot_data, ohlcv_col=default_ohlcv_col, use_ax=axes[tmp_indicator], title=tmp_indicator, plot_args=subplot_args)
+
+    # plot adx
+    elif tmp_indicator == 'adx':
+      plot_adx(df=plot_data, ohlcv_col=default_ohlcv_col, use_ax=axes[tmp_indicator], title=tmp_indicator, plot_args=subplot_args)
 
     # plot signals
     elif tmp_indicator == 'signals':

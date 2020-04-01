@@ -48,7 +48,8 @@
 		"plot_args": {
 			"plot_ratio": { 
 				"ichimoku_kama": 2.5,
-				"aroon": 1,
+				"aroon": 0.75,
+				"adx": 0.75,
 				"signals": 0.5,
 				"volume": 0.5
 			},
@@ -68,7 +69,7 @@
 				"color_mode": "benchmark"
 			},
 			"signals": {
-				"signal_list": ["ichimoku_signal", "aroon_signal", "signal"],
+				"signal_list": ["ichimoku_signal", "aroon_signal", "adx_signal", "signal"],
 				"plot_signal_on_price": true,
 				"price_alpha": 0
 			},
