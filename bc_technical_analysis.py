@@ -306,10 +306,6 @@ def calculate_ta_derivative(df, main_indicators, diff_indicators, other_indicato
     down_idx = df.query('adx_diff <= 0').index
     df.loc[down_idx ,'adx_trend'] = 'd'
 
-    # it is waving when adx below 25
-    wave_idx = df.query('adx < 25').index
-    df.loc[wave_idx, 'adx_trend'] = 'n'
-
     # ================================ Number days since signal triggered ============
     phase = 'cal_num_day_signal_triggered'
     df['trend_idx'] = 0
@@ -345,9 +341,17 @@ def calculate_ta_signal(df, n_ma=5):
   # copy data, initialize signal
   df = df.copy()
 
+  # ================================ Trend with Ichimoku, aroon ======================
+  # df['trend'] = 'n'
+  # up_idx = df.query('ichimoku_trend=="u" and aroon_trend=="u"').index
+  # down_idx = df.query('(ichimoku_trend=="d" and aroon_trend!="u") or (ichimoku_trend!="u" and aroon_trend=="d")').index
+  # df.loc[up_idx, 'trend'] = 'u'
+  # df.loc[down_idx, 'trend'] = 'd'
+
+  # ================================ Trend with Ichimoku, aroon, adx ======================
   df['trend'] = 'n'
-  up_idx = df.query('ichimoku_trend=="u" and aroon_trend=="u"').index
-  down_idx = df.query('(ichimoku_trend=="d" and aroon_trend!="u") or (ichimoku_trend!="u" and aroon_trend=="d")').index
+  up_idx = df.query('trend_idx == 3').index
+  down_idx = df.query('(ichimoku_trend=="d" and aroon_trend!="u" and adx_trend!="u") or (aroon_trend=="d" and ichimoku_trend!="u" and adx_trend!="u") or (adx_trend=="d" and ichimoku_trend!="u" and aroon_trend!="u")').index # 
   df.loc[up_idx, 'trend'] = 'u'
   df.loc[down_idx, 'trend'] = 'd'
 
@@ -356,21 +360,6 @@ def calculate_ta_signal(df, n_ma=5):
   df['signal_day'] = sda(series=df['trend'].replace({'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
   df.loc[df['signal_day'] == 1, 'signal'] = 'b'
   df.loc[df['signal_day'] ==-1, 'signal'] = 's'
-
-  # # copy data, initialize signal
-  # df = df.copy()
-
-  # df['trend'] = 'n'
-  # up_idx = df.query('trend_idx >= 1').index
-  # down_idx = df.query('trend_idx < 0').index
-  # df.loc[up_idx, 'trend'] = 'u'
-  # df.loc[down_idx, 'trend'] = 'd'
-
-  # # ================================ Calculate overall siganl ======================
-  # df['signal'] = 'n' 
-  # df['signal_day'] = sda(series=df['trend'].replace({'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
-  # df.loc[df['signal_day'] == 1, 'signal'] = 'b'
-  # df.loc[df['signal_day'] ==-1, 'signal'] = 's'
 
   return df
 
@@ -2971,26 +2960,19 @@ def plot_adx(
     plt.figure(figsize=plot_args['figsize'])
     ax = plt.gca()
 
-  # plot aroon_up/aroon_down lines 
+  # plot pdi/mdi/adx 
   # ax.plot(df.index, df.pdi, label='pdi', color='green', marker='.', alpha=0.3)
   # ax.plot(df.index, df.mdi, label='mdi', color='red', marker='.', alpha=0.3)
-  ax.plot(df.index, df.adx_diff, label='adx_diff', color='black', linestyle='--', alpha=0.5)
-  ax.plot(df.index, df.adx, label='adx', color='black', marker='.', alpha=0.3)
-  # ax.plot(df.index, df.adx_diff, label='adx_diff', color='blue', marker='.', alpha=0.3)
+  # ax.plot(df.index, df.adx, label='adx', color='black', marker='.', alpha=0.3)
+  
+  # fill between pdi/mdi
+  # ax.fill_between(df.index, df.pdi, df.mdi, where=df.pdi > df.mdi, facecolor='green', interpolate=True, alpha=0.1)
+  # ax.fill_between(df.index, df.pdi, df.mdi, where=df.pdi <= df.mdi, facecolor='red', interpolate=True, alpha=0.1)
 
-  # fill between aroon_up/aroon_down
-  ax.fill_between(df.index, df.pdi, df.mdi, where=df.pdi > df.mdi, facecolor='green', interpolate=True, alpha=0.1)
-  ax.fill_between(df.index, df.pdi, df.mdi, where=df.pdi <= df.mdi, facecolor='red', interpolate=True, alpha=0.1)
- 
-  # # plot waving areas
-  # wave_idx = (df.aroon_gap_change==0)&(df.aroon_up_change==df.aroon_down_change)#&(df.aroon_up<96)&(df.aroon_down<96)
-  # for i in range(len(wave_idx)):
-  #   try:
-  #     if wave_idx[i]:
-  #         wave_idx[i-1] = True
-  #   except Exception as e:
-  #     print(e)
-  # ax.fill_between(df.index, df.aroon_up, df.aroon_down, facecolor='grey', where=wave_idx, interpolate=False, alpha=0.3)
+  ax.plot(df.index, df.adx_diff, label='adx_diff', color='black', linestyle='--', marker='.', alpha=0.5)
+  df['zero'] = 0
+  ax.fill_between(df.index, df.adx_diff, df.zero, where=df.adx_diff > df.zero, facecolor='green', interpolate=True, alpha=0.1)
+  ax.fill_between(df.index, df.adx_diff, df.zero, where=df.adx_diff <= df.zero, facecolor='red', interpolate=True, alpha=0.1)
 
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 

@@ -279,11 +279,15 @@ class Tiger:
 
 
   # auto trade according to signals
-  def signal_trade(self, signal, money_per_sec, trading_fee=3):
+  def signal_trade(self, signal, money_per_sec, trading_fee=3, pool=None):
 
     if len(signal) > 0:
       signal = signal.rename(columns={'代码':'symbol', '交易信号':'action'})
       signal = signal.set_index('symbol')
+
+      # filter sec with pool
+      if pool is not None:
+        signal = signal.loc[pool, signal.columns].copy()
 
       # get latest price for signals
       signal_brief = self.quote_client.get_stock_briefs(symbols=signal.index.tolist()).set_index('symbol')
