@@ -565,7 +565,6 @@ def modify_config(config_key, config_value, file_path, file_name, print=False):
     print(e)
 
 
-
 #----------------------- Solidify data ---------------------# 
 def dict_2_excel(dictionary, file_path, file_name, keep_index=False):
 
