@@ -1,0 +1,25 @@
+{
+	"simulation_account":{
+		"ABT": {"cash": 72.17999999999891, "position": 122},
+		"AMT": {"cash": 63.37999999999963, "position": 45},
+		"BA": {"cash": 74.93000000000073, "position": 55},
+		"CHTR": {"cash": -15.599999999999927, "position": 22},
+		"DGAZ": {"cash": 122.38719999999965, "position": 26},
+		"NVO": {"cash": 23.000000000000437, "position": 188},
+		"QCOM": {"cash": -24.300000000000654, "position": 146},
+		"SNY": {"cash": 11.939999999999127, "position": 233},
+		"SOXL": {"cash": 60.35930000000051, "position": 93},
+		"T": {"cash": 30.379999999999637, "position": 330},
+		"TQQQ": {"cash": -2.0799999999994907, "position": 202},
+		"TSM": {"cash": 1.1699999999986903, "position": 203},
+
+	},
+
+	"global_account": {
+		"DGAZ": {"cash": 150.45000000000005, "position": 4}
+	},
+
+	"standard_account": {
+
+	}
+}

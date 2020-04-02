@@ -345,8 +345,6 @@ class Tiger:
       else:
        self.logger.info(f'[BUY]: no signal')
 
-      
-        
           
   # stop loss or stop profit or clear all positions
   def cash_out(self, stop_loss_rate=None, stop_profit_rate=None, clear_all=False, print_summary=True):
