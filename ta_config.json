@@ -47,10 +47,10 @@
 
 		"plot_args": {
 			"plot_ratio": { 
+				"signals": 0.5,
 				"ichimoku_kama": 2.5,
 				"aroon": 0.75,
 				"adx": 0.75,
-				"signals": 0.5,
 				"volume": 0.5
 			},
 			"ichimoku_kama": { 
@@ -61,6 +61,9 @@
 			"aroon":{
 			},
 			"adx": {
+				"target_col": ["adx_diff"],
+				"benchmark": 0,
+				"color_mode": "up_down"
 			},
 			"signals": {
 				"signal_list": ["adx_signal", "aroon_signal", "ichimoku_signal", "signal"],
