@@ -89,5 +89,9 @@
 		"save_data": true,
 		"extract_signal_image": true,
 		"zip_ta_model_folder": false
+	},
+
+	"trade":{
+		"init_cash": {"simulation_account": 10000, "global_account": 1680, "standard_account": 1680}
 	}
 }
