@@ -10,6 +10,7 @@ import datetime
 import logging
 import pandas as pd
 from quant import bc_util as util
+from quant import bc_data_io as io_util
 from tigeropen.common.consts import (Language,  Market, BarPeriod, QuoteRight) # 语言, 市场, k线周期, 复权类型
 from tigeropen.common.util.order_utils import (market_order, limit_order, stop_order, stop_limit_order, trail_order, order_leg) # 市价单, 限价单, 止损单, 限价止损单, 移动止损单, 附加订单
 from tigeropen.common.util.contract_utils import (stock_contract, option_contract, future_contract) # 股票合约, 期权合约, 期货合约
@@ -26,25 +27,26 @@ class Tiger:
 
   # user info: dict
   __user_info = {}            
+  __position_record = {}
 
 
   # init
-  def __init__(self, account_type, info_path, sandbox_debug=False, logger_name=None):
+  def __init__(self, account_type, config, sandbox_debug=False, logger_name=None):
 
     # read user info from local file
-    self.__user_info = pd.read_csv(info_path + 'user_info.csv').loc[0,:].astype('str').to_dict()
+    self.__user_info = pd.read_csv(config['tiger_path'] + 'user_info.csv').loc[0,:].astype('str').to_dict()
+
+    # get position record
+    self.__position_record = io_util.read_config(file_path=config['config_path'], file_name='tiger_position_record.json')
 
     # set client_config
     self.client_config = TigerOpenClientConfig(sandbox_debug=sandbox_debug)
-    self.client_config.private_key = read_private_key(info_path + self.__user_info['private_key_name'])
+    self.client_config.private_key = read_private_key(config['tiger_path'] + self.__user_info['private_key_name'])
     self.client_config.language = Language.en_US
     self.client_config.tiger_id = str(self.__user_info['tiger_id'])
     
     # get quote/trade client, assets and positions
     self.update_account(account_type=account_type)
-
-    # get trade time
-    self.get_trade_time()
 
     # get logger
     if logger_name is None:
@@ -375,5 +377,43 @@ class Tiger:
     else:
       print('empty position')      
 
+
+  def update_position_record(self, account_type, config, init_cash, init_position, start_time=None, end_time=None):
+
+    try:
+      # get today filled orders
+      if start_time is None:
+        start_time = self.trade_time['pre_open_time'].strftime(format="%Y-%m-%d %H:%M:%S")
+      if end_time is None:
+        end_time = self.trade_time['post_close_time'].strftime(format="%Y-%m-%d %H:%M:%S")
+      orders = self.trade_client.get_filled_orders(start_time=start_time, end_time=end_time)
+
+      # update position records
+      for order in orders:
+        symbol = order.contract.symbol
+        action = order.action
+        
+        avg_fill_price = order.avg_fill_price
+        quantity = order.quantity - order.remaining
+        commission = order.commission
+        
+        if symbol not in self.__position_record[account_type].keys():
+          self.__position_record[account_type][symbol] = {'cash': init_cash, 'position': init_position}
+        
+        if action == 'BUY':
+          cost = avg_fill_price * quantity + commission
+          self.__position_record[account_type][symbol]['cash'] -= cost
+          self.__position_record[account_type][symbol]['position'] += quantity
+          
+        if action == 'SELL':
+          acquire = avg_fill_price * quantity - commission
+          self.__position_record[account_type][symbol]['cash'] += acquire
+          self.__position_record[account_type][symbol]['position'] -= quantity
+
+      # save updated config record
+      io_util.create_config_file(config_dict=self.__position_record, file_path=config['config_path'], file_name='tiger_position_record.json')
+      
+    except Exception as e:
+      self.logger.exception(f'[erro]: fail updating position records for {account_type}')
 
 
