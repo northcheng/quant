@@ -242,6 +242,28 @@ def download_stock_data(sec_code, start_date=None, end_date=None, source='yahoo'
     return data
 
 
+def get_stock_briefs(symbols, period='1d', interval='1m'):
+
+  # get minute data for recent 1 day
+  ticker_data = yf.download(tickers=symbols, period='1d', interval='1m', group_by='ticker')
+  
+  # process downloaded data
+  min_idx = ticker_data.index.min()
+  max_idx = ticker_data.index.max()
+  latest_data = pd.DataFrame()
+  for symbol in symbols:
+    tmp_data = ticker_data[symbol].tail(1).reset_index().copy()
+    tmp_data['symbol'] = symbol
+    tmp_data.loc[0, 'Open'] = ticker_data[symbol].loc[min_idx, 'Open']
+    tmp_data.loc[0, 'High'] = ticker_data[symbol]['High'].max()
+    tmp_data.loc[0, 'Low'] = ticker_data[symbol]['Low'].min()
+    latest_data = latest_data.append(tmp_data)
+  
+  latest_data = latest_data.rename(columns={'Datetime':'latest_time'})
+  
+  return latest_data
+
+
 def read_stock_data(sec_code, time_col, file_path, file_name=None, start_date=None, end_date=None, drop_na=False, sort_index=True):
   """
   Read stock data from Google Drive
