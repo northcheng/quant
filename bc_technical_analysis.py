@@ -60,7 +60,7 @@ def load_config(root_paths):
   return config
 
 # load data
-def load_data(config, current_date, data_date=None, only_load_lastest_data=True):
+def load_data(config, current_date, data_date=None, only_load_lastest_data=True, load_empty_data=False):
   """ 
   Load data from local files
 
@@ -107,7 +107,7 @@ def load_data(config, current_date, data_date=None, only_load_lastest_data=True)
       data_uptodate = False
       
   # if require latest data and local data is NOT uptodate, reset data
-  if only_load_lastest_data and not data_uptodate:
+  if load_empty_data or (only_load_lastest_data and not data_uptodate):
     data['sec_data'] = {}
     data['ta_data'] = {}
     data['result'] = {}

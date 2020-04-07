@@ -124,11 +124,11 @@ class Tiger:
 
       # get briefs for stocks in positions
       if get_briefs:
-        status = self.quote_client.get_stock_briefs(symbols=[x.contract.symbol for x in self.positions])
+        # status = self.quote_client.get_stock_briefs(symbols=[x.contract.symbol for x in self.positions])
+        status = io_util.get_stock_briefs(symbols=[x.contract.symbol for x in self.positions])
         result = pd.merge(result, status, how='left', left_on='symbol', right_on='symbol')
         result['rate'] = round((result['latest_price'] - result['average_cost']) / result['average_cost'], 2)
-        result = result[['symbol', 'quantity', 'average_cost', 'latest_price', 'rate', 'status', 'latest_time']] #, 'pre_close', 'open', 'high', 'low', 'volume', 'ask_price', 'ask_size', 'bid_price', 'bid_size', 'market_price', ]]
-        result['latest_time'] = result['latest_time'].apply(util.timestamp_2_time)
+        result = result[['symbol', 'quantity', 'average_cost', 'latest_price', 'rate', 'latest_time']]
 
     else:
       result = pd.DataFrame()
@@ -193,7 +193,8 @@ class Tiger:
       available_cash = self.get_available_cash()
 
     # get latest price of stock
-    stock_brief = self.quote_client.get_stock_briefs(symbols=[symbol]).set_index('symbol')
+    # stock_brief = self.quote_client.get_stock_briefs(symbols=[symbol]).set_index('symbol')
+    stock_brief = io_util.get_stock_briefs(symbols=[symbol]).set_index('symbol')
     latest_price = stock_brief.loc[symbol, 'latest_price']
 
     # check if it is affordable
@@ -296,7 +297,8 @@ class Tiger:
         signal = signal.loc[filtered_list, signal.columns].copy()
 
       # get latest price for signals
-      signal_brief = self.quote_client.get_stock_briefs(symbols=signal.index.tolist()).set_index('symbol')
+      # signal_brief = self.quote_client.get_stock_briefs(symbols=signal.index.tolist()).set_index('symbol')
+      signal_brief = io_util.get_stock_briefs(symbols=signal.index.tolist()).set_index('symbol')
       signal = pd.merge(signal, signal_brief[['latest_price']], how='left', left_index=True, right_index=True)
 
       # get in-position quantity for signals

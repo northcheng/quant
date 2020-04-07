@@ -1,4 +1,6 @@
 {
+	"alphavantage": "FXFCAY3KB1T1LGKM",
+	
 	"data_source":{
 		"time_col": {
 			"yahoo": "Date",

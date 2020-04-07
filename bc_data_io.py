@@ -14,12 +14,9 @@ import pickle
 import time
 import json
 import os
+import yfinance as yf
 import pandas_datareader.data as web 
 from pandas_datareader.nasdaq_trader import get_nasdaq_symbols
-try:
-  import yfinance as yf
-except Exception as e:
-  print(e)
 from quant import bc_util as util
 
 
@@ -243,24 +240,52 @@ def download_stock_data(sec_code, start_date=None, end_date=None, source='yahoo'
 
 
 def get_stock_briefs(symbols, period='1d', interval='1m'):
+  """
+  Get latest stock data for symbols
 
+  :param symbols: symbol list
+  :param period: how long the period to download
+  :param interval: in which interval to download
+  :returns: dataframe of latest stock data, per row each symbol
+  :raises: none
+  """
   # get minute data for recent 1 day
-  ticker_data = yf.download(tickers=symbols, period='1d', interval='1m', group_by='ticker')
-  
-  # process downloaded data
+  ticker_data = yf.download(tickers=symbols, period=period, interval=interval, group_by='ticker')
   min_idx = ticker_data.index.min()
   max_idx = ticker_data.index.max()
+
+  # gather latest data for each symbol
   latest_data = pd.DataFrame()
   for symbol in symbols:
-    tmp_data = ticker_data[symbol].tail(1).reset_index().copy()
+
+    tmp_ticker_data = ticker_data[symbol].dropna()
+
+    # get the latest row of the data
+    tmp_data = tmp_ticker_data.tail(1).reset_index().copy()
+    
+    # assign symbol to the row
     tmp_data['symbol'] = symbol
-    tmp_data.loc[0, 'Open'] = ticker_data[symbol].loc[min_idx, 'Open']
-    tmp_data.loc[0, 'High'] = ticker_data[symbol]['High'].max()
-    tmp_data.loc[0, 'Low'] = ticker_data[symbol]['Low'].min()
+
+    # update the Open/High/Low
+    tmp_data.loc[0, 'Open'] = tmp_ticker_data.loc[min_idx, 'Open'].round(2)
+    tmp_data.loc[0, 'High'] = tmp_ticker_data['High'].max().round(2)
+    tmp_data.loc[0, 'Low'] = tmp_ticker_data['Low'].min().round(2)
+    tmp_data.loc[0, 'Volume'] = tmp_ticker_data['Volume'].sum()
+    tmp_data['Close'] = tmp_data['Close'].round(2)
+    tmp_data['Adj Close'] = tmp_data['Close'] 
+    
+
+    # append the data into result
     latest_data = latest_data.append(tmp_data)
+
+  # process date of the data
+  latest_data = latest_data.rename(columns={'Datetime': 'latest_time'})
+  latest_data['latest_price'] = latest_data['Close'].copy()
+  latest_data['Date'] = latest_data['latest_time'].copy()
+  latest_data['Date'] = latest_data['Date'].apply(util.time_2_string, args=(0, '%Y-%m-%d',))
+  latest_data['Date'] = latest_data['Date'].apply(util.string_2_time,args=('%Y-%m-%d',))
   
-  latest_data = latest_data.rename(columns={'Datetime':'latest_time'})
-  
+
   return latest_data
 
 
