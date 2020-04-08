@@ -240,7 +240,7 @@ def download_stock_data(sec_code, start_date=None, end_date=None, source='yahoo'
     return data
 
 
-def get_stock_briefs(symbols, api_token, full_info=False):
+def get_stock_briefs(symbols, api_token, full_info=False, print_process=True):
   iex_client = iex.Client(api_token=api_token)
   
   target_columns = 'close, open, high, low, volume, iexRealtimePrice, delayedPrice, extendedPrice, latestPrice, latestTime'
@@ -249,6 +249,10 @@ def get_stock_briefs(symbols, api_token, full_info=False):
 
   briefs = pd.DataFrame()
   for symbol in symbols:
+
+    if print_process and symbols.index(symbol) % 10 == 0:
+      print(f'{symbols.index(symbol)}/{len(symbols)}', end=', ')
+
     tmp_brief = iex_client.quoteDF(symbol=symbol, filter=target_columns)
     tmp_brief['symbol'] = symbol
     briefs = briefs.append(tmp_brief)
