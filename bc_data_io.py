@@ -240,7 +240,7 @@ def download_stock_data(sec_code, start_date=None, end_date=None, source='yahoo'
     return data
 
 
-def get_stock_briefs(symbols, api_token, full_info=False, print_process=True):
+def get_stock_briefs_from_iex(symbols, api_token, full_info=False, print_process=True):
   iex_client = iex.Client(api_token=api_token)
   
   target_columns = 'close, open, high, low, volume, iexRealtimePrice, delayedPrice, extendedPrice, latestPrice, latestTime'
@@ -259,6 +259,8 @@ def get_stock_briefs(symbols, api_token, full_info=False, print_process=True):
 
   briefs = briefs.rename(columns={'close':'Close', 'open':'Open', 'high':'High', 'low':'Low', 'volume':'Volume', 'latestTime':'Date'})
   briefs['Adj Close'] = briefs['Close']
+  briefs['latest_price'] = briefs['Close']
+  briefs['latest_time'] = briefs['Date']
 
   return briefs
 
@@ -311,6 +313,24 @@ def get_stock_briefs_from_yfinance(symbols, period='1d', interval='1m'):
   
 
   return latest_data
+
+
+def get_stock_briefs(symbols, source='yfinance', period='1d', interval='1m', iex_api_token='', full_info=False, print_process=True):
+  
+  briefs = pd.DataFrame()
+
+  if source == 'yfinance':
+    briefs =  get_stock_briefs_from_yfinance(symbols=symbols, period=period, interval=interval)
+
+  elif source == 'iex':
+    if iex_api_token == '':
+      print('IEX API TOKEN required')
+    else:
+      briefs = get_stock_briefs_from_iex(symbols=symbols, api_token=iex_api_token, full_info=full_info, print_process=print_process)
+  else:
+    print(f'Unknown source {source}')
+
+  return briefs
 
 
 def read_stock_data(sec_code, time_col, file_path, file_name=None, start_date=None, end_date=None, drop_na=False, sort_index=True):

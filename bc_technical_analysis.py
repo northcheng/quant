@@ -115,6 +115,40 @@ def load_data(config, current_date, data_date=None, only_load_lastest_data=True,
 
   return data
 
+# # update data
+# def update_data(data, iex_api_token):
+#   symbols = []
+#   ohlcv = ['Open', 'High', 'Low', 'Close', 'Volume', 'Adj Close']
+
+#   for ti in data['sec_data'].keys():
+#     try:
+#       symbol, interval = ti.split('_')
+#     except Exception as e:
+#       continue
+
+#     if interval != 'day':
+#       continue
+#     else:
+#       symbols.append(symbol)
+
+#   latest_data = io_util.get_stock_briefs(symbols, api_token=IEX_TOKEN)  
+#   latest_data = latest_data.set_index('Date')
+
+#   ohlcv = ['Open', 'High', 'Low', 'Close', 'Volume', 'Adj Close']
+#   for symbol in symbols:
+#     ti = f'{symbol}_day'
+#     tmp_latest = latest_data.query(f'symbol == "{symbol}"')[ohlcv].copy()
+#     max_idx = tmp_latest.index.max()
+#     original_max_idx = data['sec_data'][ti].index.max()
+#     if max_idx in data['sec_data'][ti].index:
+#       print(symbol, ': already have')
+#     elif max_idx > original_max_idx:
+#       data['sec_data'][ti].loc[max_idx] = tmp_latest.loc[max_idx]
+#       print(symbol, ': updated')
+#     else:
+#       print('error', max_idx, original_max_idx)
+
+
 # calculate certain selected ta indicators
 def calculate_ta_data(df, sec_code, interval, signal_indicators=['ichimoku', 'aroon', 'adx', 'bb'], signal_threshold=0.001, signal_day_threshold=1, n_ma=5):
   """
