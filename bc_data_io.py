@@ -14,6 +14,7 @@ import pickle
 import time
 import json
 import os
+import pyEX as iex
 import yfinance as yf
 import pandas_datareader.data as web 
 from pandas_datareader.nasdaq_trader import get_nasdaq_symbols
@@ -239,7 +240,26 @@ def download_stock_data(sec_code, start_date=None, end_date=None, source='yahoo'
     return data
 
 
-def get_stock_briefs(symbols, period='1d', interval='1m'):
+def get_stock_briefs(symbols, api_token, full_info=False):
+  iex_client = iex.Client(api_token=api_token)
+  
+  target_columns = 'close, open, high, low, volume, iexRealtimePrice, delayedPrice, extendedPrice, latestPrice, latestTime'
+  if full_info:
+    target_columns = ''
+
+  briefs = pd.DataFrame()
+  for symbol in symbols:
+    tmp_brief = iex_client.quoteDF(symbol=symbol, filter=target_columns)
+    tmp_brief['symbol'] = symbol
+    briefs = briefs.append(tmp_brief)
+
+  briefs = briefs.rename(columns={'close':'Close', 'open':'Open', 'high':'High', 'low':'Low', 'volume':'Volume', 'latestTime':'Date'})
+  briefs['Adj Close'] = briefs['Close']
+
+  return briefs
+
+
+def get_stock_briefs_from_yfinance(symbols, period='1d', interval='1m'):
   """
   Get latest stock data for symbols
 

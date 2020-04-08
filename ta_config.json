@@ -1,5 +1,6 @@
 {
 	"alphavantage": "FXFCAY3KB1T1LGKM",
+	"iexcloud": "pk_1ea13c4758f042179a6a3ecef4f3ad3f",
 	
 	"data_source":{
 		"time_col": {
