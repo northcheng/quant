@@ -49,6 +49,7 @@ def load_config(root_paths):
   config['result_path'] = config['quant_path'] + 'ta_model/'
   config['signal_path'] = config['result_path'] + 'signal/'
   config['tiger_path'] = config['quant_path'] + 'tigeropen/'
+  config['data_path'] = config['quant_path'] + 'stock_data/'
   
   # load sec lists
   config['selected_sec_list'] = io_util.read_config(file_path=config['config_path'], file_name='selected_sec_list.json')

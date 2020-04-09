@@ -18,6 +18,7 @@ import pyEX as iex
 import yfinance as yf
 import pandas_datareader.data as web 
 from pandas_datareader.nasdaq_trader import get_nasdaq_symbols
+from alpha_vantage.timeseries import TimeSeries
 from quant import bc_util as util
 
 
@@ -331,6 +332,59 @@ def get_stock_briefs(symbols, source='yfinance', period='1d', interval='1m', iex
     print(f'Unknown source {source}')
 
   return briefs
+
+
+def get_historical_data_from_alphavantage(symbol, api_key, outputsize='compact', print_meta=False):
+  ts = TimeSeries(key=api_key, output_format='pandas', indexing_type='integer')
+  
+  data, meta_data = ts.get_daily_adjusted(symbol=symbol, outputsize=outputsize)
+  if print_meta:
+    print(meta_data)
+    
+  data.rename(columns={'index':'Date', '1. open':'Open', '2. high':'High', '3. low':'Low', '4. close':'Close', '5. adjusted close':'Adj Close', '6. volume':'Volume', '7. dividend amount':'Dividend', '8. split coefficient':'Split'}, inplace=True)
+  data = util.df_2_timeseries(df=data, time_col='Date')
+
+  return data
+
+
+def save_stock_data(df, file_path, file_name, file_format='.csv', reset_index=False, index=False):
+
+    file_name = f'{file_path}{file_name}{file_format}'
+
+    if reset_index:
+      df = df.reset_index()
+
+    if file_format == '.csv':
+      df.to_csv(file_name, index=index)
+    else:
+      print(f'Unknown format {file_format}')
+
+
+def load_stock_data(file_path, file_name, file_format='.csv', time_col='Date', standard_columns=False, sort_index=True):
+  
+  file_name = f'{file_path}{file_name}{file_format}'
+  
+  # read data from google drive
+  try:
+    # if the file not exists, print information, return an empty dataframe
+    if not os.path.exists(file_name):
+      print(f'{file_name} not exists')
+
+    else:
+      # load file
+      df = pd.read_csv(file_name, encoding='utf8', engine='python')
+      df = util.df_2_timeseries(df=df, time_col=time_col)
+      
+      if standard_columns:
+        df = df[['Open', 'High', 'Low', 'Close', 'Volume', 'Adj Close']].copy()
+      
+      if sort_index:
+        df.sort_index(inplace=True)
+
+  except Exception as e:
+    print(e)
+
+  return df
 
 
 def read_stock_data(sec_code, time_col, file_path, file_name=None, start_date=None, end_date=None, drop_na=False, sort_index=True):
