@@ -116,6 +116,7 @@ def load_data(config, current_date, data_date=None, only_load_lastest_data=True,
 
   return data
 
+
 # # update data
 # def update_data(data, iex_api_token):
 #   symbols = []

@@ -363,6 +363,7 @@ def save_stock_data(df, file_path, file_name, file_format='.csv', reset_index=Fa
 def load_stock_data(file_path, file_name, file_format='.csv', time_col='Date', standard_columns=False, sort_index=True):
   
   file_name = f'{file_path}{file_name}{file_format}'
+  df = None
   
   # read data from google drive
   try:
@@ -459,6 +460,159 @@ def remove_stock_data(sec_code, file_path, file_name=None):
   except Exception as e:
     print(sec_code, e) 
 
+
+def switch_data_interval(df, interval):
+
+  result = None
+
+  if df is not None:
+
+    result = df.copy()
+    if interval == 'day':
+      pass
+
+    elif interval == 'week':
+      result = create_week_data(result)
+
+    elif interval == 'month':
+      result = create_month_data(result)
+
+    else:
+      print(f'unknown interval {interval}')
+      
+  return result
+
+
+def create_week_data(df):
+  
+  # count weeks
+  index = df.index
+  df['week_day'] = [x.weekday() for x in index]
+  df['previous_week_day'] = df['week_day'].shift(1)
+  df.fillna(-1, inplace=True)
+
+  # if current week_day < previous week_day, means new week started
+  week_count = 0
+  df['week_count'] = 0
+  for index, row in df.iterrows():
+    if row['week_day'] < row['previous_week_day']:
+      week_count += 1
+    df.loc[index, 'week_count'] = week_count
+
+  # create an empty dict for storing result
+  week_data = {
+      'Date': [],
+      'Open': [],
+      'High': [],
+      'Low': [],
+      'Close': [],
+      'Volume': []
+    }
+
+  # go through weeks
+  for week in range(week_count+1):
+
+    tmp_data = df.query(f'week_count == {week}')
+    week_data['Date'].append(tmp_data.index.min())
+    week_data['Open'].append(tmp_data.loc[tmp_data.index.min(), 'Open'])
+    week_data['Close'].append(tmp_data.loc[tmp_data.index.max(), 'Close'])
+    week_data['High'].append(tmp_data['High'].max())
+    week_data['Low'].append(tmp_data['Low'].min())
+    week_data['Volume'].append(tmp_data['Volume'].sum())
+  
+  # convert result dict to timeseries dataframe
+  week_data = pd.DataFrame(week_data)
+  week_data['Adj Close'] = week_data['Close']
+  week_data = util.df_2_timeseries(df=week_data, time_col='Date')
+  
+  return week_data
+
+
+def create_month_data(df):
+  min_index = df.index.min()
+  max_index = df.index.max()
+
+  start_year = min_index.year
+  end_year = max_index.year
+
+  start_month = util.time_2_string(min_index)[:7]
+  end_month = util.time_2_string(max_index)[:7]
+
+  month_data = {
+    'Date': [],
+    'Open': [],
+    'High': [],
+    'Low': [],
+    'Close': [],
+    'Volume': []
+  }
+
+  for year in range(start_year, end_year+1):
+
+    for month in range(1, 12+1):
+
+      tmp_period = f'{year}-{month:02}'
+      if (tmp_period >= start_month ) and (tmp_period <= end_month):
+
+        tmp_data = df[tmp_period]
+        month_data['Date'].append(tmp_period)
+        month_data['Open'].append(tmp_data.loc[tmp_data.index.min(), 'Open'])
+        month_data['Close'].append(tmp_data.loc[tmp_data.index.max(), 'Close'])
+        month_data['High'].append(tmp_data['High'].max())
+        month_data['Low'].append(tmp_data['Low'].min())
+        month_data['Volume'].append(tmp_data['Volume'].sum())
+
+      else:
+        continue
+
+  month_data = pd.DataFrame(month_data)
+  month_data['Adj Close'] = month_data['Close']
+  month_data = util.df_2_timeseries(df=month_data, time_col='Date')
+
+  return month_data
+    
+
+def update_stock_data_from_alphavantage(symbols, stock_data_path, api_key, file_format='.csv'):
+  
+  # get current date
+  current_date = util.time_2_string(datetime.datetime.today())
+  
+  # go through symbols
+  for symbol in symbols:
+    print(symbol, end=': ')
+  
+    # if stock data file already exists, load existing data
+    if os.path.exists(f'{stock_data_path}{symbol}{file_format}'):
+      print('exists, ', end=' ')
+      old_data = load_stock_data(file_path=stock_data_path, file_name=symbol)
+      
+      # check period between existing data and current date, if small than 100 days, download in compact mode
+      old_data_date = util.time_2_string(old_data.index.max())
+      diff_days = util.num_days_between(old_data_date, current_date)
+      
+      if diff_days <= 100:
+        print(f'lastest date: {old_data_date}, updating...', end=' ')
+        outputsize='compact'
+      else:
+        print(f'lastest date: {old_data_date}, redownloading...', end=' ')
+        outputsize='compact'
+      
+    # else download in full mode
+    else:
+      print('not found, downloading...', end=' ')
+      outputsize='full'
+      old_data = pd.DataFrame()
+      
+    # download new data and append it to the old data
+    new_data = get_historical_data_from_alphavantage(symbol=symbol, api_key=api_key, outputsize=outputsize)
+    data = old_data.append(new_data, sort=True)
+
+    # remove duplicated index, keep the latest
+    data = util.remove_duplicated_index(df=data, keep='last')
+  
+    # save data to the specified path with <symbol>.<file_format>
+    save_stock_data(df=data, file_path=stock_data_path, file_name=symbol, file_format=file_format, reset_index=True)
+    print('done')
   
 #----------------------------- NYTimes Data -------------------------------------#
 
