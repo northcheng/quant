@@ -7,6 +7,7 @@ Technical Analysis Calculation and Visualization functions
 import os
 import math
 import sympy
+import datetime
 import ta
 import numpy as np
 import pandas as pd
@@ -60,96 +61,63 @@ def load_config(root_paths):
 
   return config
 
-# load data
-def load_data(config, current_date, data_date=None, only_load_lastest_data=True, load_empty_data=False):
-  """ 
-  Load data from local files
+# load local data
+def load_data(config, load_empty_data=False, update=False, required_date=None):
 
-  :param config: config dictionary that contains file path and file name of local data files
-  :param current_date: current date, it is used to judge whether the local data is uptodate if data_date is not specified
-  :param data_date: if specified, it will be used to judge whether the local data is uptodate, and current_date will be ignored
-  :param only_load_latest_data: whether restrict to load latest data only
-  :returns: dictionary of data
-  :raises: None
-  """
-  file_path = config["quant_path"]
-  file_names = config["calculation"]["file_name"]
-  data = {'date': None}
-  data_exists = True
-  data_uptodate = True
+  symbols = config['selected_sec_list']['company'] + config['selected_sec_list']['etf']
 
-  # if data_date is not specified, calculate it using current_date
-  if data_date is None:
-    weekday = current_date.weekday()
-    today = util.time_2_string(current_date.date())
-    if weekday>0 and weekday<5:
-      data_date = util.string_plus_day(today, -1)
-    elif weekday==0:
-      data_date = util.string_plus_day(today, -3)
-    else:
-      data_date = util.string_plus_day(today, 4-weekday)
-  data_date = util.string_2_time(string=data_date)
+  # update stock data
+  if update:
+    if required_date is None:
+      current_date = datetime.datetime.today()
+      weekday = current_date.weekday()
+      today = util.time_2_string(current_date.date())
+      if weekday>0 and weekday<5:
+        required_date = util.string_plus_day(today, -1)
+      elif weekday==0:
+        required_date = util.string_plus_day(today, -3)
+      else:
+        required_date = util.string_plus_day(today, 4-weekday)
 
-  # load data from local file
-  for f in file_names.keys():
-    file_name = file_names[f]
-    if os.path.exists(f'{file_path}{file_name}'):
-      data[f] = io_util.pickle_load_data(file_path=file_path, file_name=file_name)
-    else:
-      data[f] = {}
-      data_exists = False
-
-  # check whether local data is uptodate
-  if data_exists:     
-    local_data_date = data['sec_data']['TQQQ_day'].index.max()
-    if local_data_date >= data_date:
-      data['date'] = util.time_2_string(local_data_date)
-    else:
-      data_uptodate = False
+    tmp_api_call = 0
+    limit_per_minute = 5
+    for symbol in symbols:
       
-  # if require latest data and local data is NOT uptodate, reset data
-  if load_empty_data or (only_load_lastest_data and not data_uptodate):
-    data['sec_data'] = {}
-    data['ta_data'] = {}
-    data['result'] = {}
-    data['final_result'] = {}
+      # update data and count api usage in this minute
+      tmp_api_call += io_util.update_stock_data_from_alphavantage(symbols=[symbol], stock_data_path=config['data_path'], api_key=config['alphavantage'], required_date=required_date)
+      
+      # cool down when meet the limit
+      if tmp_api_call >= 5 :
+        print('cooling down:')
+        current_time = datetime.datetime.now()
+        next_minute = current_time + datetime.timedelta(seconds=(60-current_time.second))
+        util.sleep_until(target_time=next_minute, check_frequency=30)
+        tmp_api_call = 0
 
+  # init data
+  data = {
+    'sec_data': {},
+    'ta_data': {},
+    'result': {},
+    'final_result': {}
+  }
+
+  # load local data
+  if not load_empty_data:
+
+    # load stock data
+    for symbol in symbols:
+      data['sec_data'][f'{symbol}_day'] = io_util.load_stock_data(file_path=config['data_path'], file_name=symbol, standard_columns=True)
+
+    # load derived data
+    file_path = config["quant_path"]
+    file_names = config["calculation"]["file_name"]
+    for f in file_names.keys():
+      file_name = file_names[f]
+      if os.path.exists(f'{file_path}{file_name}'):
+        data[f] = io_util.pickle_load_data(file_path=file_path, file_name=file_name)
+      
   return data
-
-
-# # update data
-# def update_data(data, iex_api_token):
-#   symbols = []
-#   ohlcv = ['Open', 'High', 'Low', 'Close', 'Volume', 'Adj Close']
-
-#   for ti in data['sec_data'].keys():
-#     try:
-#       symbol, interval = ti.split('_')
-#     except Exception as e:
-#       continue
-
-#     if interval != 'day':
-#       continue
-#     else:
-#       symbols.append(symbol)
-
-#   latest_data = io_util.get_stock_briefs(symbols, api_token=IEX_TOKEN)  
-#   latest_data = latest_data.set_index('Date')
-
-#   ohlcv = ['Open', 'High', 'Low', 'Close', 'Volume', 'Adj Close']
-#   for symbol in symbols:
-#     ti = f'{symbol}_day'
-#     tmp_latest = latest_data.query(f'symbol == "{symbol}"')[ohlcv].copy()
-#     max_idx = tmp_latest.index.max()
-#     original_max_idx = data['sec_data'][ti].index.max()
-#     if max_idx in data['sec_data'][ti].index:
-#       print(symbol, ': already have')
-#     elif max_idx > original_max_idx:
-#       data['sec_data'][ti].loc[max_idx] = tmp_latest.loc[max_idx]
-#       print(symbol, ': updated')
-#     else:
-#       print('error', max_idx, original_max_idx)
-
 
 # calculate certain selected ta indicators
 def calculate_ta_data(df, sec_code, interval, signal_indicators=['ichimoku', 'aroon', 'adx', 'bb'], signal_threshold=0.001, signal_day_threshold=1, n_ma=5):
@@ -332,7 +300,7 @@ def calculate_ta_derivative(df, main_indicators, diff_indicators, other_indicato
 
     # ================================ adx trend =========================
     # initialize
-    df['adx_trend'] = 'n'
+    # df['adx_trend'] = 'n'
 
     # it is going up when adx_diff>0
     up_idx = df.query('adx_diff > 0').index
@@ -2951,6 +2919,13 @@ def plot_aroon(
   ax.fill_between(df.index, df.aroon_up, df.aroon_down, where=df.aroon_up > df.aroon_down, facecolor='green', interpolate=True, alpha=0.1)
   ax.fill_between(df.index, df.aroon_up, df.aroon_down, where=df.aroon_up <= df.aroon_down, facecolor='red', interpolate=True, alpha=0.1)
  
+  df['zero'] = 0
+  ax.plot(df.index, df['adx_diff'], label='adx_diff', color='black', marker='.', alpha=0.3)
+  # ax.plot(df.index, df['zero'], label='0', color='red', marker='.', alpha=0.3)
+
+
+  ax.fill_between(df.index, df.adx_diff, df.zero, where=df.adx_diff > df.zero, facecolor='green', interpolate=True, alpha=0.1)
+  ax.fill_between(df.index, df.adx_diff, df.zero, where=df.adx_diff <= df.zero, facecolor='red', interpolate=True, alpha=0.1)
   # # plot waving areas
   # wave_idx = (df.aroon_gap_change==0)&(df.aroon_up_change==df.aroon_down_change)#&(df.aroon_up<96)&(df.aroon_down<96)
   # for i in range(len(wave_idx)):
@@ -3005,7 +2980,7 @@ def plot_adx(
   # ax.fill_between(df.index, df.pdi, df.mdi, where=df.pdi > df.mdi, facecolor='green', interpolate=True, alpha=0.1)
   # ax.fill_between(df.index, df.pdi, df.mdi, where=df.pdi <= df.mdi, facecolor='red', interpolate=True, alpha=0.1)
 
-  ax.plot(df.index, df.adx_diff, label='adx_diff', color='black', linestyle='--', marker='.', alpha=0.5)
+  ax.plot(df.index, df['adx_diff'], label='adx_diff', color='black', linestyle='--', marker='.', alpha=0.5)
   df['zero'] = 0
   ax.fill_between(df.index, df.adx_diff, df.zero, where=df.adx_diff > df.zero, facecolor='green', interpolate=True, alpha=0.1)
   ax.fill_between(df.index, df.adx_diff, df.zero, where=df.adx_diff <= df.zero, facecolor='red', interpolate=True, alpha=0.1)
@@ -3047,7 +3022,7 @@ def plot_indicator(
   :raises: none
   """
   # select data
-  df = df[start:end].copy()
+  df = df[start:end].copy().fillna(0)
   
   # create figure
   ax = use_ax
@@ -3156,11 +3131,15 @@ def plot_multiple_indicators(
     tmp_indicator = indicators[i]
     tmp_args = args.get(tmp_indicator)
 
-    axes[tmp_indicator] = plt.subplot(gs[i])
-    if i % 2> 0:
+    if i == 0:
+      axes[tmp_indicator] = plt.subplot(gs[i])
+    else:
+      axes[tmp_indicator] = plt.subplot(gs[i], sharex=axes[indicators[0]])
+      
+    if i%2 > 0:
       axes[tmp_indicator].xaxis.set_ticks_position("top")
-      plt.setp(axes[tmp_indicator].get_xticklabels(), visible=False)  
-    axes[tmp_indicator].patch.set_alpha(0.5)
+      plt.setp(axes[tmp_indicator].get_xticklabels(), visible=False)
+      axes[tmp_indicator].patch.set_alpha(0.5)
 
     # get extra arguments
     target_col = tmp_args.get('target_col')

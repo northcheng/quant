@@ -13,6 +13,7 @@ import zipfile
 import pickle
 import time
 import json
+import math
 import os
 import pyEX as iex
 import yfinance as yf
@@ -64,11 +65,11 @@ def get_symbols(remove_invalid=True, remove_not_fetched=False, not_fetched_list=
   return symbols.loc[sec_list, ]
 
 
-def get_data_from_yahoo(sec_code, interval='d', start_date=None, end_date=None, time_col='Date', is_print=False):
+def get_data_from_yahoo(symbol, interval='d', start_date=None, end_date=None, time_col='Date', is_print=False):
   """
   Download stock data from Yahoo finance api via pandas_datareader
 
-  :param sec_code: symbol of the stock to download
+  :param symbol: symbol of the stock to download
   :param start_date: start date of the data
   :param end_date: end date of the data
   :param time_col: time column in that data
@@ -80,24 +81,24 @@ def get_data_from_yahoo(sec_code, interval='d', start_date=None, end_date=None, 
 
   try:
     # download data
-    data = web.get_data_yahoo(sec_code, start_date, end_date, interval=interval)
+    data = web.get_data_yahoo(symbol, start_date, end_date, interval=interval)
       
     # print download result
     if is_print:
-      print('[From Yahoo]{sec_code}: {start} - {end}, 下载记录 {data_length}'.format(sec_code=sec_code, start=data.index.min().date(), end=data.index.max().date(), data_length=len(data)))
+      print(f'[From Yahoo]{symbol}: {data.index.min().date()} - {data.index.max().date()}, 下载记录 {len(data)}')
 
   except Exception as e:
-      print(sec_code, e)
+      print(symbol, e)
 
   # return dataframe
   return data
 
 
-def get_data_from_yfinance(sec_code, interval='1d', start_date=None, end_date=None, time_col='Date', is_print=False):
+def get_data_from_yfinance(symbol, interval='1d', start_date=None, end_date=None, time_col='Date', is_print=False):
   """
   Download stock data from Yahoo finance api via yfinance
 
-  :param sec_code: symbol of the stock to download
+  :param symbol: symbol of the stock to download
   :param start_date: start date of the data
   :param end_date: end date of the data
   :param time_col: time column in that data
@@ -107,101 +108,81 @@ def get_data_from_yfinance(sec_code, interval='1d', start_date=None, end_date=No
   """
   try:
     # download data
-    ticker = yf.Ticker(sec_code)
+    ticker = yf.Ticker(symbol)
     data = ticker.history(start=start_date, end=end_date, interval=interval).drop(columns=['Dividends', 'Stock Splits'])
     data['Adj Close'] = data['Close']
           
     # print download result
     if is_print:
-      print('[From YFinance]{sec_code}: {start} - {end}, 下载记录 {data_length}'.format(sec_code=sec_code, start=data.index.min().date(), end=data.index.max().date(), data_length=len(data)))
+      print(f'[From YFinance]{symbol}: {data.index.min().date()} - {data.index.max().date()}, 下载记录 {len(data)}')
 
   except Exception as e:
-      print(sec_code, e)
+      print(symbol, e)
 
   # return dataframe
   return data 
 
 
-def get_data_from_tiger(sec_code, interval, start_date=None, end_date=None, time_col='time', minute_level=False, quote_client=None, download_limit=1200, is_print=False):
+def get_data_from_alphavantage(symbol, api_key, interval='d', start_date=None, end_date=None, time_col='Date', is_print=False, outputsize='compact'):
   """
-  Download stock data from Tiger Open API
-  :param sec_code: symbol of the stock to download
+  Download stock data from alpha vantage
+
+  :param symbol: symbol of the stock to download
+  :param api_key: alpha vantage api_key
   :param start_date: start date of the data
-  :param end_date: end date of the data 
-  :param time_col: time column in that data  
-  :param interval: period of data: day/week/month/year/1min/5min/15min/30min/60min
-  :param quote_client: quote_client used for querying data from API
-  :param download limit: the limit of number of records in each download
+  :param end_date: end date of the data
+  :param time_col: time column in that data
+  :param interval: period of data: d/w/m
   :param is_print: whether to print the download information
   :returns: dataframe 
   :raises: none
-  """  
-  try:     
-    # initialization
-    data = pd.DataFrame()
-    begin_time = 0
-    end_time = round(time.time() * 1000)
+  """
+  try:
+    # get timeseries instance
+    ts = TimeSeries(key=api_key, output_format='pandas', indexing_type='integer')
 
-    # transfer start/end date to timestamp instance
-    if start_date is not None:
-      begin_time = round(time.mktime(util.string_2_time(start_date).timetuple()) * 1000)
-    if end_date is not None:
-      end_time = round(time.mktime(util.string_2_time(end_date).timetuple()) * 1000)
-      
-    # start downloading data
-    tmp_len = download_limit
-    while tmp_len >= download_limit:  
-      tmp_data = quote_client.get_bars([sec_code], begin_time=begin_time, end_time=end_time, period=interval, limit=download_limit)
-      tmp_len = len(tmp_data)
-      data = tmp_data.append(data)
-      end_time = int(tmp_data.time.min())
+    # set output size
+    if start_date is not None and end_date is not None:
+      diff_days = util.num_days_between(start_date, end_date)
+      if diff_days > 100:
+        outputsize = 'full'
     
-    # process downloaded data
-    data_length = len(data)
-    if data_length > 0:
-      data.drop('symbol', axis=1, inplace=True)
-      
-      # drop duplicated data
-      if minute_level:
-        data[time_col] = data[time_col].apply(lambda x: util.timestamp_2_time(x))
-      else:
-        data[time_col] = data[time_col].apply(lambda x: util.timestamp_2_time(x).date())
-      data = data.drop_duplicates(subset=time_col, keep='last')
-      data.sort_values(by=time_col,  inplace=True)
-      
-      # change column names
-      data.rename(columns={'open': 'Open', 'high': 'High', 'low': 'Low', 'close': 'Close', 'volume': 'Volume', 'time': 'Date'}, inplace=True)
-      data['Adj Close'] = data['Close']
-      data = util.df_2_timeseries(data, time_col='Date')
-      
+    # download data
+    if interval == 'd':
+      data, meta_data = ts.get_daily(symbol=symbol, outputsize=outputsize)  
+    elif interval == 'w':
+      data, meta_data = ts.get_weekly(symbol=symbol)  
+    elif interval == 'm':
+      data, meta_data = ts.get_monthly(symbol=symbol)  
+
+    # post process data
+    data.rename(columns={'index':'Date', '1. open':'Open', '2. high':'High', '3. low':'Low', '4. close':'Close', '5. volume':'Volume'}, inplace=True)
+    data = util.df_2_timeseries(df=data, time_col=time_col)
+    data['Adj Close'] = data['Close']
+
     # print download result
     if is_print:
-      print('[From tiger]{sec_code}: {start} - {end}, 下载记录 {data_length}'.format(sec_code=sec_code, start=data.index.min().date(), end=data.index.max().date(), data_length=len(data)))
-      
+      print(f'[From AlphaVantage]{symbol}: {data.index.min().date()} - {data.index.max().date()}, 下载记录 {len(data)}')
+  
   except Exception as e:
-    print(sec_code, e)   
-    
-  # return dataframe
-  return data
+      print(symbol, e)
+
+  return data[start_date:end_date]
 
 
-def download_stock_data(sec_code, start_date=None, end_date=None, source='yahoo', time_col='Date', interval='d', quote_client=None, minute_level=False, is_return=True, is_print=False, is_save=False, file_path=None, file_name=None):
+def get_data(symbol, start_date=None, end_date=None, source='yahoo', time_col='Date', interval='d', alphavantage_api_key=None, is_print=False):
   """
   Download stock data from web sources
 
-  :param sec_code: symbol of the stock to download
-  :param file_path: path to store the download data
-  :param file_name: name of the stock data file
+  :param symbol: symbol of the stock to download
   :param start_date: start date of the data
   :param end_date: end date of the data
   :param source: the datasrouce to download data from
   :param time_col: time column in that data
-  :param interval: period of data, for yahoo: d/w/m/v; for tiger day/week/month/year/1min/5min/15min/30min/60min
-  :param quote_client: quote client when using tiger_open_api
-  :param download_limit: download_limit when using tiger_open_api
-  :param is_return: whether to return the download data in dataframe format
+  :param interval: period of data, for yahoo: d/w/m/v; for yfinance: 1d/1wk/1mo; for alpha vantage: d/w/m
+  :param alphavantage_api_key: api key for alphavantage
   :param is_print: whether to print the download information
-  :returns: dataframe is is_return=True
+  :returns: dataframe 
   :raises: none
   """
   try:
@@ -210,60 +191,21 @@ def download_stock_data(sec_code, start_date=None, end_date=None, source='yahoo'
 
     # yahoo
     if source == 'yahoo':
-      data = get_data_from_yahoo(sec_code=sec_code, interval=interval, start_date=start_date, end_date=end_date, time_col=time_col, is_print=is_print)
+      data = get_data_from_yahoo(symbol=symbol, interval=interval, start_date=start_date, end_date=end_date, time_col=time_col, is_print=is_print)
     # yfinance
     elif source == 'yfinance':
-      data = get_data_from_yfinance(sec_code=sec_code, interval=interval, start_date=start_date, end_date=end_date, time_col=time_col, is_print=is_print)
+      data = get_data_from_yfinance(symbol=symbol, interval=interval, start_date=start_date, end_date=end_date, time_col=time_col, is_print=is_print)
     # tiger
-    elif source == 'tiger':
-      data = get_data_from_tiger(sec_code=sec_code, interval=interval, start_date=start_date, end_date=end_date, time_col=time_col, quote_client=quote_client, minute_level=minute_level, is_print=is_print)
+    elif source == 'alphavantage':
+      data = get_data_from_alphavantage(symbol=symbol, api_key=alphavantage_api_key, interval=interval, start_date=start_date, end_date=end_date, time_col=time_col, is_print=is_print)
     else:
-      print('data source {source} not found'.format(source=source))
+      print(f'data source {source} not found')
       return None
 
-    # save data
-    if is_save:
-      # construct file_name by sec_code, file_path and file_format
-      if file_name is None:
-        file_name = '{path}{name}.csv'.format(path=file_path, name=sec_code)
-      else:
-        file_name = '{path}{name}.csv'.format(path=file_path, name=file_name)
-      
-      # if dataframe is not empty, save it into a csv file
-      data_length = len(data)
-      if data_length > 0:
-        data.reset_index().drop_duplicates(subset=time_col, keep='last').to_csv(file_name, index=False)  
-
   except Exception as e:
-    print(sec_code, e)
+    print(symbol, e)
 
-  if is_return:
-    return data
-
-
-def get_stock_briefs_from_iex(symbols, api_token, full_info=False, print_process=True):
-  iex_client = iex.Client(api_token=api_token)
-  
-  target_columns = 'close, open, high, low, volume, iexRealtimePrice, delayedPrice, extendedPrice, latestPrice, latestTime'
-  if full_info:
-    target_columns = ''
-
-  briefs = pd.DataFrame()
-  for symbol in symbols:
-
-    if print_process and symbols.index(symbol) % 10 == 0:
-      print(f'{symbols.index(symbol)}/{len(symbols)}', end=', ')
-
-    tmp_brief = iex_client.quoteDF(symbol=symbol, filter=target_columns)
-    tmp_brief['symbol'] = symbol
-    briefs = briefs.append(tmp_brief)
-
-  briefs = briefs.rename(columns={'close':'Close', 'open':'Open', 'high':'High', 'low':'Low', 'volume':'Volume', 'latestTime':'Date'})
-  briefs['Adj Close'] = briefs['Close']
-  briefs['latest_price'] = briefs['Close']
-  briefs['latest_time'] = briefs['Date']
-
-  return briefs
+  return data
 
 
 def get_stock_briefs_from_yfinance(symbols, period='1d', interval='1m'):
@@ -334,18 +276,61 @@ def get_stock_briefs(symbols, source='yfinance', period='1d', interval='1m', iex
   return briefs
 
 
-def get_historical_data_from_alphavantage(symbol, api_key, outputsize='compact', print_meta=False):
-  ts = TimeSeries(key=api_key, output_format='pandas', indexing_type='integer')
+def update_stock_data_from_alphavantage(symbols, stock_data_path, api_key, file_format='.csv', required_date=None):
   
-  data, meta_data = ts.get_daily_adjusted(symbol=symbol, outputsize=outputsize)
-  if print_meta:
-    print(meta_data)
+  # get current date
+  if required_date is None:
+    required_date = util.time_2_string(datetime.datetime.today())
+
+  api_call = 1
+  
+  # go through symbols
+  for symbol in symbols:
+    print(symbol, end=': ')
+  
+    # if stock data file already exists, load existing data
+    if os.path.exists(f'{stock_data_path}{symbol}{file_format}'):
+      print('exists, ', end=' ')
+      old_data = load_stock_data(file_path=stock_data_path, file_name=symbol)
+      
+      # check period between existing data and current date, if small than 100 days, download in compact mode
+      old_data_date = util.time_2_string(old_data.index.max())
+      diff_days = util.num_days_between(old_data_date, required_date)
+
+      if diff_days == 0:
+        print(f'{old_data_date}, up-to-date', end=' ')
+        api_call = 0
+      elif diff_days > 0 and diff_days <= 100:
+        print(f'{old_data_date}, updating...', end=' ')
+        outputsize='compact'
+      else:
+        print(f'{old_data_date}, redownloading...', end=' ')
+        outputsize='full'
+      
+    # else download in full mode
+    else:
+      print('not found, downloading...', end=' ')
+      old_data = pd.DataFrame()
+      outputsize='full'
+      
+    # download data
+    if api_call == 1:
+      new_data = get_data_from_alphavantage(symbol=symbol, api_key=api_key, outputsize=outputsize)
+    else:
+      new_data = pd.DataFrame()
+
+    # append new data to the old data
+    data = old_data.append(new_data, sort=True)
     
-  data.rename(columns={'index':'Date', '1. open':'Open', '2. high':'High', '3. low':'Low', '4. close':'Close', '5. adjusted close':'Adj Close', '6. volume':'Volume', '7. dividend amount':'Dividend', '8. split coefficient':'Split'}, inplace=True)
-  data = util.df_2_timeseries(df=data, time_col='Date')
+    # remove duplicated index, keep the latest
+    data = util.remove_duplicated_index(df=data, keep='last')
+  
+    # save data to the specified path with <symbol>.<file_format>
+    save_stock_data(df=data, file_path=stock_data_path, file_name=symbol, file_format=file_format, reset_index=True)
+    print(f'done, latest date {data.index.max().date()}')
 
-  return data
-
+    return api_call
+ 
 
 def save_stock_data(df, file_path, file_name, file_format='.csv', reset_index=False, index=False):
 
@@ -572,48 +557,7 @@ def create_month_data(df):
   return month_data
     
 
-def update_stock_data_from_alphavantage(symbols, stock_data_path, api_key, file_format='.csv'):
-  
-  # get current date
-  current_date = util.time_2_string(datetime.datetime.today())
-  
-  # go through symbols
-  for symbol in symbols:
-    print(symbol, end=': ')
-  
-    # if stock data file already exists, load existing data
-    if os.path.exists(f'{stock_data_path}{symbol}{file_format}'):
-      print('exists, ', end=' ')
-      old_data = load_stock_data(file_path=stock_data_path, file_name=symbol)
-      
-      # check period between existing data and current date, if small than 100 days, download in compact mode
-      old_data_date = util.time_2_string(old_data.index.max())
-      diff_days = util.num_days_between(old_data_date, current_date)
-      
-      if diff_days <= 100:
-        print(f'lastest date: {old_data_date}, updating...', end=' ')
-        outputsize='compact'
-      else:
-        print(f'lastest date: {old_data_date}, redownloading...', end=' ')
-        outputsize='compact'
-      
-    # else download in full mode
-    else:
-      print('not found, downloading...', end=' ')
-      outputsize='full'
-      old_data = pd.DataFrame()
-      
-    # download new data and append it to the old data
-    new_data = get_historical_data_from_alphavantage(symbol=symbol, api_key=api_key, outputsize=outputsize)
-    data = old_data.append(new_data, sort=True)
 
-    # remove duplicated index, keep the latest
-    data = util.remove_duplicated_index(df=data, keep='last')
-  
-    # save data to the specified path with <symbol>.<file_format>
-    save_stock_data(df=data, file_path=stock_data_path, file_name=symbol, file_format=file_format, reset_index=True)
-    print('done')
-  
 #----------------------------- NYTimes Data -------------------------------------#
 
 def download_nytimes(year, month, api_key, file_path, file_format='.json', is_print=False, is_return=False):
@@ -932,3 +876,68 @@ def pickle_load_data(file_path, file_name):
     data = pickle.load(f)
 
   return data
+
+
+
+# expired
+# def get_data_from_tiger(sec_code, interval, start_date=None, end_date=None, time_col='time', minute_level=False, quote_client=None, download_limit=1200, is_print=False):
+#   """
+#   Download stock data from Tiger Open API
+#   :param sec_code: symbol of the stock to download
+#   :param start_date: start date of the data
+#   :param end_date: end date of the data 
+#   :param time_col: time column in that data  
+#   :param interval: period of data: day/week/month/year/1min/5min/15min/30min/60min
+#   :param quote_client: quote_client used for querying data from API
+#   :param download limit: the limit of number of records in each download
+#   :param is_print: whether to print the download information
+#   :returns: dataframe 
+#   :raises: none
+#   """  
+#   try:     
+#     # initialization
+#     data = pd.DataFrame()
+#     begin_time = 0
+#     end_time = round(time.time() * 1000)
+
+#     # transfer start/end date to timestamp instance
+#     if start_date is not None:
+#       begin_time = round(time.mktime(util.string_2_time(start_date).timetuple()) * 1000)
+#     if end_date is not None:
+#       end_time = round(time.mktime(util.string_2_time(end_date).timetuple()) * 1000)
+      
+#     # start downloading data
+#     tmp_len = download_limit
+#     while tmp_len >= download_limit:  
+#       tmp_data = quote_client.get_bars([sec_code], begin_time=begin_time, end_time=end_time, period=interval, limit=download_limit)
+#       tmp_len = len(tmp_data)
+#       data = tmp_data.append(data)
+#       end_time = int(tmp_data.time.min())
+    
+#     # process downloaded data
+#     data_length = len(data)
+#     if data_length > 0:
+#       data.drop('symbol', axis=1, inplace=True)
+      
+#       # drop duplicated data
+#       if minute_level:
+#         data[time_col] = data[time_col].apply(lambda x: util.timestamp_2_time(x))
+#       else:
+#         data[time_col] = data[time_col].apply(lambda x: util.timestamp_2_time(x).date())
+#       data = data.drop_duplicates(subset=time_col, keep='last')
+#       data.sort_values(by=time_col,  inplace=True)
+      
+#       # change column names
+#       data.rename(columns={'open': 'Open', 'high': 'High', 'low': 'Low', 'close': 'Close', 'volume': 'Volume', 'time': 'Date'}, inplace=True)
+#       data['Adj Close'] = data['Close']
+#       data = util.df_2_timeseries(data, time_col='Date')
+      
+#     # print download result
+#     if is_print:
+#       print('[From tiger]{sec_code}: {start} - {end}, 下载记录 {data_length}'.format(sec_code=sec_code, start=data.index.min().date(), end=data.index.max().date(), data_length=len(data)))
+      
+#   except Exception as e:
+#     print(sec_code, e)   
+    
+#   # return dataframe
+#   return data

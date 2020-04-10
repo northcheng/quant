@@ -6,30 +6,29 @@
 		"time_col": {
 			"yahoo": "Date",
 			"yfinance": "Date",
-			"tiger": "time"
+			"alphavantage": "Date"
 		},
 		"interval_val":{
 			"day": {
 				"yahoo": "d",
 				"yfinance": "1d",
-				"tiger": null
+				"alphavantage": "d"
 			},
 			"week": {
 				"yahoo": "w",
 				"yfinance": "1wk",
-				"tiger": null
+				"alphavantage": "w"
 			},
 			"month":{
 				"yahoo": "m",
 				"yfinance": "1mo",
-				"tiger": null
+				"alphavantage": "m"
 			}
 		}
 	},
 	
 	"calculation": {
 		"file_name":{
-			"sec_data": "sec_data.pkl",
 			"ta_data": "ta_data.pkl",
 			"result": "result.pkl",
 			"final_result": "final_result.pkl"
@@ -53,8 +52,7 @@
 				"signals": 0.5,
 				"ichimoku_kama": 2.5,
 				"aroon": 0.75,
-				"adx": 0.75,
-				"volume": 0.5
+				"volume": 0.25
 			},
 			"ichimoku_kama": { 
 				"target_indicator": ["candlestick", "ichimoku"],
@@ -64,9 +62,6 @@
 			"aroon":{
 			},
 			"adx": {
-				"target_col": ["adx_diff"],
-				"benchmark": 0,
-				"color_mode": "up_down"
 			},
 			"signals": {
 				"signal_list": ["adx_signal", "aroon_signal", "ichimoku_signal", "signal"],
