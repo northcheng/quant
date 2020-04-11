@@ -15,7 +15,6 @@ import time
 import json
 import math
 import os
-import pyEX as iex
 import yfinance as yf
 import pandas_datareader.data as web 
 from pandas_datareader.nasdaq_trader import get_nasdaq_symbols
@@ -258,18 +257,13 @@ def get_stock_briefs_from_yfinance(symbols, period='1d', interval='1m'):
   return latest_data
 
 
-def get_stock_briefs(symbols, source='yfinance', period='1d', interval='1m', iex_api_token='', full_info=False, print_process=True):
+def get_stock_briefs(symbols, source='yfinance', period='1d', interval='1m'):
   
   briefs = pd.DataFrame()
 
   if source == 'yfinance':
     briefs =  get_stock_briefs_from_yfinance(symbols=symbols, period=period, interval=interval)
 
-  elif source == 'iex':
-    if iex_api_token == '':
-      print('IEX API TOKEN required')
-    else:
-      briefs = get_stock_briefs_from_iex(symbols=symbols, api_token=iex_api_token, full_info=full_info, print_process=print_process)
   else:
     print(f'Unknown source {source}')
 
