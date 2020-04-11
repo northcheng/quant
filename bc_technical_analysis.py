@@ -62,7 +62,7 @@ def load_config(root_paths):
   return config
 
 # load local data
-def load_data(config, load_empty_data=False, update=False, required_date=None):
+def load_data(config, load_empty_data=False, update=False, required_date=None, is_print=False):
 
   symbols = config['selected_sec_list']['company'] + config['selected_sec_list']['etf']
 
@@ -84,7 +84,7 @@ def load_data(config, load_empty_data=False, update=False, required_date=None):
     for symbol in symbols:
       
       # update data and count api usage in this minute
-      tmp_api_call += io_util.update_stock_data_from_alphavantage(symbols=[symbol], stock_data_path=config['data_path'], api_key=config['alphavantage'], required_date=required_date)
+      tmp_api_call += io_util.update_stock_data_from_alphavantage(symbols=[symbol], stock_data_path=config['data_path'], api_key=config['alphavantage'], required_date=required_date, is_print=is_print)
       
       # cool down when meet the limit
       if tmp_api_call >= 5 :

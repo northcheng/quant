@@ -69,10 +69,10 @@ def get_data_from_yahoo(symbol, interval='d', start_date=None, end_date=None, ti
   Download stock data from Yahoo finance api via pandas_datareader
 
   :param symbol: symbol of the stock to download
+  :param interval: period of data: d/w/m/v
   :param start_date: start date of the data
   :param end_date: end date of the data
   :param time_col: time column in that data
-  :param interval: period of data: d/w/m/v
   :param is_print: whether to print the download information
   :returns: dataframe 
   :raises: none
@@ -88,6 +88,7 @@ def get_data_from_yahoo(symbol, interval='d', start_date=None, end_date=None, ti
 
   except Exception as e:
       print(symbol, e)
+      data = None
 
   # return dataframe
   return data
@@ -98,10 +99,11 @@ def get_data_from_yfinance(symbol, interval='1d', start_date=None, end_date=None
   Download stock data from Yahoo finance api via yfinance
 
   :param symbol: symbol of the stock to download
+  :param interval: period of data: 1m,2m,5m,15m,30m,60m,90m,1h,1d,5d,1wk,1mo,3mo
   :param start_date: start date of the data
   :param end_date: end date of the data
   :param time_col: time column in that data
-  :param interval: period of data: 1m,2m,5m,15m,30m,60m,90m,1h,1d,5d,1wk,1mo,3mo
+  :param is_print: whether to print the download information
   :returns: dataframe
   :raises: none
   """
@@ -117,6 +119,7 @@ def get_data_from_yfinance(symbol, interval='1d', start_date=None, end_date=None
 
   except Exception as e:
       print(symbol, e)
+      data = None
 
   # return dataframe
   return data 
@@ -128,11 +131,12 @@ def get_data_from_alphavantage(symbol, api_key, interval='d', start_date=None, e
 
   :param symbol: symbol of the stock to download
   :param api_key: alpha vantage api_key
+  :param interval: period of data: d/w/m
   :param start_date: start date of the data
   :param end_date: end date of the data
   :param time_col: time column in that data
-  :param interval: period of data: d/w/m
   :param is_print: whether to print the download information
+  :param outputsize: either 'compact' for latest 100 records or 'full' for all records
   :returns: dataframe 
   :raises: none
   """
@@ -154,7 +158,7 @@ def get_data_from_alphavantage(symbol, api_key, interval='d', start_date=None, e
     elif interval == 'm':
       data, meta_data = ts.get_monthly(symbol=symbol)  
 
-    # post process data
+    # post process data: rename columns, transfer it to timeseries data
     data.rename(columns={'index':'Date', '1. open':'Open', '2. high':'High', '3. low':'Low', '4. close':'Close', '5. volume':'Volume'}, inplace=True)
     data = util.df_2_timeseries(df=data, time_col=time_col)
     data['Adj Close'] = data['Close']
@@ -164,8 +168,10 @@ def get_data_from_alphavantage(symbol, api_key, interval='d', start_date=None, e
       print(f'[From AlphaVantage]{symbol}: {data.index.min().date()} - {data.index.max().date()}, 下载记录 {len(data)}')
   
   except Exception as e:
-      print(symbol, e)
+    print(symbol, e)
+    data = None
 
+  # return dataframe for selected period
   return data[start_date:end_date]
 
 
@@ -194,12 +200,12 @@ def get_data(symbol, start_date=None, end_date=None, source='yahoo', time_col='D
     # yfinance
     elif source == 'yfinance':
       data = get_data_from_yfinance(symbol=symbol, interval=interval, start_date=start_date, end_date=end_date, time_col=time_col, is_print=is_print)
-    # tiger
+    # alpha vantage
     elif source == 'alphavantage':
       data = get_data_from_alphavantage(symbol=symbol, api_key=alphavantage_api_key, interval=interval, start_date=start_date, end_date=end_date, time_col=time_col, is_print=is_print)
     else:
       print(f'data source {source} not found')
-      return None
+      data = None
 
   except Exception as e:
     print(symbol, e)
@@ -258,52 +264,80 @@ def get_stock_briefs_from_yfinance(symbols, period='1d', interval='1m'):
 
 
 def get_stock_briefs(symbols, source='yfinance', period='1d', interval='1m'):
-  
+  """
+  Get latest stock data for symbols
+
+  :param symbols: symbol list
+  :param source: data source
+  :param period: how long the period to download
+  :param interval: in which interval to download
+  :returns: dataframe of latest stock data, per row each symbol
+  :raises: none
+  """
+  # initialize
   briefs = pd.DataFrame()
 
+  # currently only yfinance is available
   if source == 'yfinance':
     briefs =  get_stock_briefs_from_yfinance(symbols=symbols, period=period, interval=interval)
-
   else:
     print(f'Unknown source {source}')
 
   return briefs
 
 
-def update_stock_data_from_alphavantage(symbols, stock_data_path, api_key, file_format='.csv', required_date=None):
-  
-  # get current date
+def update_stock_data_from_alphavantage(symbols, stock_data_path, api_key, file_format='.csv', required_date=None, is_print=False):
+  """
+  update local stock data from alphavantage
+
+  :param symbols: symbol list
+  :param stock_data_path: in where the local stock data files(.csv) are stored
+  :param api_key: api key for accessing alphavantage
+  :param file_format: default is .csv
+  :param required_data: if the local data have already meet the required date, it won't be updated
+  :param is_print: whether to print info when downloading
+  :returns: dataframe of latest stock data, per row each symbol
+  :raises: none
+  """
+  # get current date if required date is not specified
   if required_date is None:
     required_date = util.time_2_string(datetime.datetime.today())
-
+  
+  # assume it will cost 1 api call (which is limitted to 5/min for free users)
   api_call = 1
   
   # go through symbols
+  download_info = ''
   for symbol in symbols:
-    print(symbol, end=': ')
+    download_info += f'{symbol}: '
   
     # if stock data file already exists, load existing data
     if os.path.exists(f'{stock_data_path}{symbol}{file_format}'):
-      print('exists, ', end=' ')
+      
+      # load existed data
       old_data = load_stock_data(file_path=stock_data_path, file_name=symbol)
       
       # check period between existing data and current date, if small than 100 days, download in compact mode
       old_data_date = util.time_2_string(old_data.index.max())
+      download_info += f'exists({old_data_date}), '
+      
+      # if existed data is uptodate, cancel the api call
       diff_days = util.num_days_between(old_data_date, required_date)
-
       if diff_days == 0:
-        print(f'{old_data_date}, up-to-date', end=' ')
+        download_info += f'up-to-date...'
         api_call = 0
+      # else if it is in 100 days from required date, download in compact mode
       elif diff_days > 0 and diff_days <= 100:
-        print(f'{old_data_date}, updating...', end=' ')
+        download_info += f'updating...'
         outputsize='compact'
+      # otherwise redownload the whole data
       else:
-        print(f'{old_data_date}, redownloading...', end=' ')
+        download_info += f'redownloading...'
         outputsize='full'
       
-    # else download in full mode
+    # else if the local data is not exist, download in full mode
     else:
-      print('not found, downloading...', end=' ')
+      download_info += 'not found, downloading...'
       old_data = pd.DataFrame()
       outputsize='full'
       
@@ -321,43 +355,79 @@ def update_stock_data_from_alphavantage(symbols, stock_data_path, api_key, file_
   
     # save data to the specified path with <symbol>.<file_format>
     save_stock_data(df=data, file_path=stock_data_path, file_name=symbol, file_format=file_format, reset_index=True)
-    print(f'done, latest date {data.index.max().date()}')
+    download_info += f'done, latest date({data.index.max().date()})'
+    
+    # print download info
+    if is_print:
+      print(download_info)
 
     return api_call
  
 
 def save_stock_data(df, file_path, file_name, file_format='.csv', reset_index=False, index=False):
+  """
+  save stock data (dataframe) to .csv file
 
-    file_name = f'{file_path}{file_name}{file_format}'
+  :param df: stock data to save
+  :param file_path: to where the file will be save to
+  :param file_name: name of the file to save
+  :param file_format: default is .csv
+  :param reset_index: whether to reset index
+  :param index: whether to save index in the .csv file
+  :returns: none
+  :raises: none
+  """
+  # construct filename
+  file_name = f'{file_path}{file_name}{file_format}'
 
-    if reset_index:
-      df = df.reset_index()
-
-    if file_format == '.csv':
-      df.to_csv(file_name, index=index)
-    else:
-      print(f'Unknown format {file_format}')
+  # reset index
+  if reset_index:
+    df = df.reset_index()
+  
+  # save file
+  if file_format == '.csv':
+    df.to_csv(file_name, index=index)
+  else:
+    print(f'Unknown format {file_format}')
 
 
 def load_stock_data(file_path, file_name, file_format='.csv', time_col='Date', standard_columns=False, sort_index=True):
-  
+  """
+  load stock data (dataframe) from .csv file
+
+  :param file_path: to where the file will be save to
+  :param file_name: name of the file to save
+  :param file_format: default is .csv
+  :param time_col: column name of the time col, default is Date
+  :param standard_columns: whether to return dataframe with standard columns (OHLCV, Adj Close)
+  :param sort_index: whether to sort index
+  :returns: none
+  :raises: none
+  """
+  # contruct filename
   file_name = f'{file_path}{file_name}{file_format}'
+  
+  # initialize data
   df = None
   
-  # read data from google drive
+  # read data from local file
   try:
-    # if the file not exists, print information, return an empty dataframe
+    # if the file not exists, print information
     if not os.path.exists(file_name):
       print(f'{file_name} not exists')
 
     else:
       # load file
       df = pd.read_csv(file_name, encoding='utf8', engine='python')
+      
+      # transform dataframe to timeseries
       df = util.df_2_timeseries(df=df, time_col=time_col)
       
+      # select standard columns
       if standard_columns:
         df = df[['Open', 'High', 'Low', 'Close', 'Volume', 'Adj Close']].copy()
       
+      # sort index
       if sort_index:
         df.sort_index(inplace=True)
 
@@ -367,85 +437,45 @@ def load_stock_data(file_path, file_name, file_format='.csv', time_col='Date', s
   return df
 
 
-def read_stock_data(sec_code, time_col, file_path, file_name=None, start_date=None, end_date=None, drop_na=False, sort_index=True):
-  """
-  Read stock data from Google Drive
-
-  :param sec_code: the target stock symbol
-  :param time_col: time column in the stock data
-  :param file_path: the path where stock file (.csv) stored
-  :param file_name: name of the stock data file
-  :param start_date: the start date to read
-  :param end_date: the end date to read
-  :param drop_na: whether to drop records that contains na values
-  :param sort_index: whether to sort the data by index
-  :returns: timeseries-dataframe of stock data
-  :raises: exception when error reading data
-  """
-  # construct file_name by sec_code, file_path and file_format
-  stage = 'initialization'
-  if file_name is None:
-    file_name = '{path}{name}.csv'.format(path=file_path, name=sec_code) 
-  else:
-    file_name = '{path}{name}.csv'.format(path=file_path, name=file_name)
-
-  # read data from google drive
-  try:
-    # if the file not exists, print information, return an empty dataframe
-    if not os.path.exists(file_name):
-      print('{file} not exists'.format(file=file_name))
-
-    else:
-      # load file
-      stage = 'reading_from_google_drive'
-      data = pd.read_csv(file_name, encoding='utf8', engine='python')
-
-      # convert dataframe to timeseries dataframe
-      stage = 'transforming_to_timeseries'
-      data = util.df_2_timeseries(df=data, time_col=time_col)
-      
-      # handle invalid data
-      stage = 'handling_invalid_data'
-      if drop_na:
-        data.dropna(axis=1, inplace=True)
-      
-      if sort_index:
-        data.sort_index(inplace=True)
-
-  except Exception as e:
-    print(sec_code, stage, e)
-
-  return data[start_date:end_date]
-
-
-def remove_stock_data(sec_code, file_path, file_name=None):
+def remove_stock_data(symbol, file_path, file_format='.csv'):
   '''
   Remove stock data file from drive
 
-  :param sec_code: symbol of the stock to download
+  :param symbol: symbol of the stock to download
   :param file_path: path to store the download data
   :param file_format: the format of file that data will be stored in
   :returns: None
   :raises: None
   '''
-  if file_name is None:
-    file_name = '{path}{name}.csv'.format(path=file_path, name=sec_code) 
-  else:
-    file_name = '{path}{name}.csv'.format(path=file_path, name=file_name)
+  # construct filename
+  file_name = f'{file_path}{symbol}{file_format}') 
   
+  # remove file
   try:
-    os.remove(file_name)
-  
+    if os.path.exists(file_name):
+      os.remove(file_name)
+    else:
+      print(f'{file_name} not exists')
+      
   except Exception as e:
-    print(sec_code, e) 
+    print(symbol, e) 
 
 
 def switch_data_interval(df, interval):
+  '''
+  convert day-interval data into week-interval or month-interval data
 
+  :param df: day-interval OHLCV data
+  :param interval: interval of target data week/month
+  :returns: None
+  :raises: None
+  '''
+  # initialize result
   result = None
 
+  # convert data
   if df is not None:
-
+    
     result = df.copy()
     if interval == 'day':
       pass
@@ -463,7 +493,13 @@ def switch_data_interval(df, interval):
 
 
 def create_week_data(df):
-  
+  '''
+  convert day-interval data into week-interval 
+
+  :param df: day-interval OHLCV data
+  :returns: None
+  :raises: None
+  '''
   # count weeks
   index = df.index
   df['week_day'] = [x.weekday() for x in index]
@@ -479,14 +515,7 @@ def create_week_data(df):
     df.loc[index, 'week_count'] = week_count
 
   # create an empty dict for storing result
-  week_data = {
-      'Date': [],
-      'Open': [],
-      'High': [],
-      'Low': [],
-      'Close': [],
-      'Volume': []
-    }
+  week_data = {'Date': [], 'Open': [], 'High': [], 'Low': [], 'Close': [], 'Volume': []}
 
   # go through weeks
   for week in range(week_count+1):
@@ -508,31 +537,35 @@ def create_week_data(df):
 
 
 def create_month_data(df):
+  '''
+  convert day-interval data into month-interval 
+
+  :param df: day-interval OHLCV data
+  :returns: None
+  :raises: None
+  '''
+  # get minimum and maximum index
   min_index = df.index.min()
   max_index = df.index.max()
-
+  
+  # get start year and end year
   start_year = min_index.year
   end_year = max_index.year
-
+  
+  # get start month and end month
   start_month = util.time_2_string(min_index)[:7]
   end_month = util.time_2_string(max_index)[:7]
+  
+  # create an empty dict for storing result
+  month_data = {'Date': [], 'Open': [], 'High': [], 'Low': [], 'Close': [], 'Volume': []}
 
-  month_data = {
-    'Date': [],
-    'Open': [],
-    'High': [],
-    'Low': [],
-    'Close': [],
-    'Volume': []
-  }
-
+  # go through each month
   for year in range(start_year, end_year+1):
-
     for month in range(1, 12+1):
-
+      
+      # get current month
       tmp_period = f'{year}-{month:02}'
       if (tmp_period >= start_month ) and (tmp_period <= end_month):
-
         tmp_data = df[tmp_period]
         month_data['Date'].append(tmp_period)
         month_data['Open'].append(tmp_data.loc[tmp_data.index.min(), 'Open'])
@@ -543,7 +576,8 @@ def create_month_data(df):
 
       else:
         continue
-
+  
+  # convert result dictionary to dataframe and post process
   month_data = pd.DataFrame(month_data)
   month_data['Adj Close'] = month_data['Close']
   month_data = util.df_2_timeseries(df=month_data, time_col='Date')
