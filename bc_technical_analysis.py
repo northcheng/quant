@@ -61,13 +61,27 @@ def load_config(root_paths):
 
   return config
 
+
 # load local data
 def load_data(config, load_empty_data=False, update=False, required_date=None, is_print=False):
-
+  """ 
+  Load data from local files
+  
+  :param config: dictionary of config arguments
+  :param load_empty_data: whether to load empyt data dict
+  :param update: whether to update local data
+  :param required_date: the required date to update
+  :param is_print: whether to print update information
+  :returns: dictionary of data load from local files
+  :raises: None
+  """
+  # list of symbols which data need to be load
   symbols = config['selected_sec_list']['company'] + config['selected_sec_list']['etf']
 
-  # update stock data
+  # if update stock data
   if update:
+    
+    # if required_date is not set, set it to the last working day
     if required_date is None:
       current_date = datetime.datetime.today()
       weekday = current_date.weekday()
@@ -78,9 +92,12 @@ def load_data(config, load_empty_data=False, update=False, required_date=None, i
         required_date = util.string_plus_day(today, -3)
       else:
         required_date = util.string_plus_day(today, 4-weekday)
-
+    
+    # count api calls (limit is 5/min for free users)
     tmp_api_call = 0
     limit_per_minute = 5
+    
+    # update data for each symbol
     for symbol in symbols:
       
       # update data and count api usage in this minute
@@ -119,13 +136,14 @@ def load_data(config, load_empty_data=False, update=False, required_date=None, i
       
   return data
 
+
 # calculate certain selected ta indicators
-def calculate_ta_data(df, sec_code, interval, signal_indicators=['ichimoku', 'aroon', 'adx', 'bb'], signal_threshold=0.001, signal_day_threshold=1, n_ma=5):
+def calculate_ta_data(df, symbol, interval, signal_indicators=['ichimoku', 'aroon', 'adx', 'bb'], signal_threshold=0.001):
   """
   Calculate selected ta features for dataframe
 
   :param df: original dataframe with hlocv features
-  :param sec_code: sec_code of the data
+  :param symbol: symbol of the data
   :param interval: interval of the data
   :param signal_indicators: list of technical-analysis indicators
   :param signal_threshold: threshold for kama/ichimoku trigerment
@@ -138,7 +156,7 @@ def calculate_ta_data(df, sec_code, interval, signal_indicators=['ichimoku', 'ar
   try:
     # preprocess sec_data
     phase = 'preprocess_sec_data'
-    df = preprocess_sec_data(df=df, sec_code=sec_code, interval=interval)
+    df = preprocess_sec_data(df=df, symbol=symbol, interval=interval)
 
     # calculate TA indicators
     phase = 'cal_ta_indicators' 
@@ -150,23 +168,24 @@ def calculate_ta_data(df, sec_code, interval, signal_indicators=['ichimoku', 'ar
     main_id = ['ichimoku']
     diff_id = ['aroon', 'adx'] # ['adx', 'eom', 'kst']
     other_id = [x for x in signal_indicators if x not in main_id and x not in diff_id]
-    df = calculate_ta_derivative(df=df, main_indicators=main_id, diff_indicators=diff_id, other_indicators=other_id, signal_threshold=signal_threshold, signal_day_threshold=signal_day_threshold, n_ma=n_ma)
+    df = calculate_ta_trend(df=df, main_indicators=main_id, diff_indicators=diff_id, other_indicators=other_id, signal_threshold=signal_threshold)
 
     # calculate TA final signal
-    df = calculate_ta_signal(df=df, n_ma=n_ma)
+    df = calculate_ta_signal(df=df)
 
   except Exception as e:
     print(phase, e)
 
   return df
 
+
 # remove invalid records from downloaded stock data
-def preprocess_sec_data(df, sec_code, interval, print_error=True):
+def preprocess_sec_data(df, symbol, interval, print_error=True):
   '''
   Preprocess downloaded data
 
   :param df: downloaded stock data
-  :param sec_code: sec_code
+  :param symbol: symbol
   :param interval: interval of the downloaded data
   :param print_error: whether print error information or not
   :returns: preprocessed dataframe
@@ -175,10 +194,16 @@ def preprocess_sec_data(df, sec_code, interval, print_error=True):
   # drop duplicated rows, keep the first
   df = util.remove_duplicated_index(df=df, keep='first')
 
-  # if interval is week, keep data until the most recent monday
-  if interval == 'week' and df.index.max().weekday() != 0:
-    df = df[:-1].copy()
+  # if interval is week, keep only one record in the latest week
+  if interval == 'week':
+    max_weekday = df.index[-1].weekday()
+    prev_weekday = df.index[-2].weekday()
 
+    while prev_weekday < max_weekday:
+      df = df[:df.index[-2]].copy()
+      max_weekday = df.index[-1].weekday()
+      prev_weekday = df.index[-2].weekday()
+      
   # process NA and 0 values
   max_idx = df.index.max()
   na_cols = []
@@ -208,24 +233,26 @@ def preprocess_sec_data(df, sec_code, interval, print_error=True):
 
   # print error information
   if print_error and len(error_info) > 0:
-    error_info = f'[{sec_code}]: on {max_idx.date()}, {error_info}'
+    error_info = f'[{symbol}]: on {max_idx.date()}, {error_info}'
     print(error_info)
 
-  # add sec_code and change rate of close price
-  df['sec_code'] = sec_code
+  # add symbol and change rate of close price
+  df['symbol'] = symbol
   df = cal_change_rate(df=df, target_col='Close') # price change rate
   df = add_candlestick_features(df=df)
   
   return df
 
-# analyze calculated ta indicators
-def calculate_ta_derivative(df, main_indicators, diff_indicators, other_indicators, signal_threshold=0.001, signal_day_threshold=1, n_ma=5):
+
+# calculate trends from ta indicators
+def calculate_ta_trend(df, main_indicators, diff_indicators, other_indicators, signal_threshold=0.001):
   """
   Adding derived features such as trend, momentum, etc.
 
   :param df: dataframe with several ta features
   :param main_indicators: basicly ichimoku and kama
-  :param diff_indicators: indicators that uses "_diff" values
+  :param diff_indicators: indicators that uses "_diff" values, such as adx, aroon
+  :param other_indicators: other indicators
   :param signal_threshold: threshold for main indicators trigerments
   :returns: dataframe with extra fetures
   :raises: Exception 
@@ -261,7 +288,7 @@ def calculate_ta_derivative(df, main_indicators, diff_indicators, other_indicato
     df.loc[up_idx, trend_col] = 'u'
     df.loc[down_idx, trend_col] = 'd'
 
-    # ================================ aroon trend =========================
+    # ================================ aroon trend ============================
     # calculate aroon_diff
     aroon_col = ['aroon_up', 'aroon_down', 'aroon_gap']
     df[aroon_col] = df[aroon_col].round(1)
@@ -298,7 +325,7 @@ def calculate_ta_derivative(df, main_indicators, diff_indicators, other_indicato
     wave_idx = df.query('-32<=aroon_gap<=32 and ((aroon_gap_change==0 and aroon_up_change==aroon_down_change<0) or ((aroon_up_change<0 and aroon_down==0) or (aroon_down_change<0 and aroon_up==0)))').index
     df.loc[wave_idx, 'aroon_trend'] = 'n'
 
-    # ================================ adx trend =========================
+    # ================================ adx trend ==============================
     # initialize
     # df['adx_trend'] = 'n'
 
@@ -310,31 +337,39 @@ def calculate_ta_derivative(df, main_indicators, diff_indicators, other_indicato
     down_idx = df.query('adx_diff <= 0').index
     df.loc[down_idx ,'adx_trend'] = 'd'
 
-    # ================================ Number days since signal triggered ============
-    phase = 'cal_num_day_signal_triggered'
+    # ================================ Number days since trend shifted ========
+    phase = 'cal_num_day_trend_shifted'
     df['trend_idx'] = 0
+    df['up_trend_idx'] = 0
+    df['down_trend_idx'] = 0
     for indicator in (main_indicators + diff_indicators):
       trend_col = f'{indicator}_trend'
       signal_col = f'{indicator}_signal'
       day_col = f'{indicator}_day'
 
+      # calculate up/down trend index
       up_idx = df.query(f'{trend_col} == "u"').index
       down_idx = df.query(f'{trend_col} == "d"').index
-      df.loc[up_idx, 'trend_idx'] += 1
-      df.loc[down_idx, 'trend_idx'] -= 1
+      df.loc[up_idx, 'up_trend_idx'] += 1
+      df.loc[down_idx, 'down_trend_idx'] -= 1
 
       # calculate number of days since trend shifted
       df[day_col] = sda(series=df[trend_col].replace({'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1) 
+      
+      # signal of individual indicators are set to 'n'
       df[signal_col] = 'n'
     
+    # calculate overall trend index
+    df['trend_idx'] = df['up_trend_idx'] + df['down_trend_idx']
 
   except Exception as e:
     print(phase, e)
 
   return df
 
+
 # calculate ta signal
-def calculate_ta_signal(df, n_ma=5):
+def calculate_ta_signal(df):
   """
   Calculate signals from ta features
 
@@ -367,12 +402,17 @@ def calculate_ta_signal(df, n_ma=5):
 
   return df
 
+
 # visualize ta indicators
 def visualize_ta_data(df, start=None, end=None, title=None, save_path=None, visualization_args={}):
   """
   visualize ta indicators
   :param df: dataframe with ta indicators
-  :param args: visualizing arguments
+  :param start: start date to draw
+  :param end: end date to draw
+  :param title: title of the plot
+  :param save_path: to where the plot will be saved
+  :param visualization_args: arguments for plotting
   :returns: None
   :raises: Exception
   """
@@ -388,6 +428,7 @@ def visualize_ta_data(df, start=None, end=None, title=None, save_path=None, visu
 
   except Exception as e:
     print(phase, e)
+
 
 # post-process calculation results
 def postprocess_ta_result(df, keep_columns, drop_columns):
@@ -414,7 +455,7 @@ def postprocess_ta_result(df, keep_columns, drop_columns):
   # drop columns
   df = df.drop(drop_columns, axis=1)
   
-  # sort by operation and sec_code
+  # sort by operation and symbol
   df = df.sort_values(['交易信号', '代码'], ascending=[True, True])
   
   return df

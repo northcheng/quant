@@ -448,7 +448,7 @@ def remove_stock_data(symbol, file_path, file_format='.csv'):
   :raises: None
   '''
   # construct filename
-  file_name = f'{file_path}{symbol}{file_format}') 
+  file_name = f'{file_path}{symbol}{file_format}'
   
   # remove file
   try:
@@ -836,7 +836,7 @@ def modify_config(config_key, config_value, file_path, file_name, print=False):
     print(e)
 
 
-#----------------------- Solidify data ---------------------# 
+#----------------------------- Solidify data ------------------------------------# 
 def dict_2_excel(dictionary, file_path, file_name, keep_index=False):
 
   # 打开文件
