@@ -233,6 +233,10 @@ def get_stock_briefs_from_yfinance(symbols, period='1d', interval='1m'):
   min_idx = ticker_data.index.min()
   max_idx = ticker_data.index.max()
 
+  # process if there is only one symbol in the list
+  if len(symbols) == 1:
+    ticker_data = {symbols[0]: ticker_data}
+
   # gather latest data for each symbol
   latest_data = pd.DataFrame()
   for symbol in symbols:

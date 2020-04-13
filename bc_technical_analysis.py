@@ -63,7 +63,7 @@ def load_config(root_paths):
 
 
 # load local data
-def load_data(config, load_empty_data=False, update=False, required_date=None, load_derived_data=True, is_print=False):
+def load_data(symbols, config, load_empty_data=False, update=False, required_date=None, load_derived_data=True, is_print=False):
   """ 
   Load data from local files
   
@@ -75,9 +75,6 @@ def load_data(config, load_empty_data=False, update=False, required_date=None, l
   :returns: dictionary of data load from local files
   :raises: None
   """
-  # list of symbols which data need to be load
-  symbols = config['selected_sec_list']['company'] + config['selected_sec_list']['etf']
-
   # if update stock data
   if update:
     
