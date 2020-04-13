@@ -295,6 +295,31 @@ def get_stock_briefs(symbols, source='yfinance', period='1d', interval='1m'):
   return briefs
 
 
+def get_realtime_stock_data_from_yfinance(symbol, data=None):
+  """
+  Get latest stock data for a symbol in current trading day
+
+  :param symbols: symbol
+  :param data: existed data
+  :returns: dataframe of latest stock data
+  :raises: none
+  """
+  if data is not None:
+    start = data.index.max()
+  else:
+    data = pd.DataFrame()
+    start = '1991-01-01'
+
+  # get the most recent data. append it to the original data
+  realtime_data = yf.download(tickers=symbol, start=start, interval='1d', group_by='ticker')
+  data = data.append(realtime_data, sort=True)
+
+  # remove the duplicated index
+  data = util.remove_duplicated_index(df=data, keep='last')
+
+  return data
+
+
 def update_stock_data_from_yfinance(symbols, stock_data_path, file_format='.csv', required_date=None, is_print=False):
   """
   update local stock data from alphavantage

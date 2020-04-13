@@ -189,7 +189,8 @@ def preprocess_sec_data(df, symbol, interval, print_error=True):
   error_info = ''
         
   # check whether 0 or NaN values exists in the latest record
-  cols = [x for x in df.columns if x != 'Dividend']
+  extra_cols = ['Split', 'Dividend']
+  cols = [x for x in df.columns if x not in extra_cols]
   for col in cols:
     if df.loc[max_idx, col] == 0:
       zero_cols.append(col)
@@ -201,6 +202,9 @@ def preprocess_sec_data(df, symbol, interval, print_error=True):
     error_info += 'NaN values found in '
     for col in na_cols:
       error_info += f'{col}'
+
+  df['Split'] = df['Split'].fillna(1)
+  df['Dividend'] = df['Dividend'].fillna(0)
   df = df.dropna()
     
   # process 0 values
