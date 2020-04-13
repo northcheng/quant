@@ -365,7 +365,19 @@ def update_stock_data_from_yfinance(symbols, stock_data_path, file_format='.csv'
     
 
 def update_stock_data(symbols, stock_data_path, file_format='.csv', source='yfinance', required_date=None, is_print=False, api_key=None):
-  
+  """
+  update local stock data
+
+  :param symbols: symbol list
+  :param stock_data_path: in where the local stock data files(.csv) are stored
+  :param source: data source to download latest stock data, yfinance or alphavantage
+  :param file_format: default is .csv
+  :param required_date: if the local data have already meet the required date, it won't be updated
+  :param is_print: whether to print info when downloading
+  :param api_key: api key for accessing alphavantage
+  :returns: dataframe of latest stock data, per row each symbol
+  :raises: none
+  """
   if source == 'yfinance':
     update_stock_data_from_yfinance(symbols=symbols, stock_data_path=stock_data_path, file_format=file_format, required_date=required_date, is_print=is_print)
   elif source == 'alphavantage':
@@ -409,7 +421,7 @@ def load_stock_data(file_path, file_name, file_format='.csv', time_col='Date', s
   :param file_name: name of the file to save
   :param file_format: default is .csv
   :param time_col: column name of the time col, default is Date
-  :param standard_columns: whether to return dataframe with standard columns (OHLCV, Adj Close)
+  :param standard_columns: whether to return dataframe with standard columns (OHLCV, Adj Close, Dividend, Split)
   :param sort_index: whether to sort index
   :returns: none
   :raises: none
