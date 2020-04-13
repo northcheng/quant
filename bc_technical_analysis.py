@@ -63,7 +63,7 @@ def load_config(root_paths):
 
 
 # load local data
-def load_data(config, load_empty_data=False, update=False, required_date=None, is_print=False):
+def load_data(config, load_empty_data=False, update=False, required_date=None, load_derived_data=True, is_print=False):
   """ 
   Load data from local files
   
@@ -93,31 +93,11 @@ def load_data(config, load_empty_data=False, update=False, required_date=None, i
       else:
         required_date = util.string_plus_day(today, 4-weekday)
     
-    # count api calls (limit is 5/min for free users)
-    tmp_api_call = 0
-    limit_per_minute = 5
-    
-    # update data for each symbol
-    for symbol in symbols:
-      
-      # update data and count api usage in this minute
-      tmp_api_call += io_util.update_stock_data_from_alphavantage(symbols=[symbol], stock_data_path=config['data_path'], api_key=config['alphavantage'], required_date=required_date, is_print=is_print)
-      
-      # cool down when meet the limit
-      if tmp_api_call >= 5 :
-        print('cooling down:')
-        current_time = datetime.datetime.now()
-        next_minute = current_time + datetime.timedelta(seconds=(60-current_time.second))
-        util.sleep_until(target_time=next_minute, check_frequency=30)
-        tmp_api_call = 0
+    # update data
+    io_util.update_stock_data(symbols=symbols, stock_data_path=config['data_path'], file_format='.csv', source='yfinance', required_date=required_date, is_print=is_print)
 
   # init data
-  data = {
-    'sec_data': {},
-    'ta_data': {},
-    'result': {},
-    'final_result': {}
-  }
+  data = { 'sec_data': {}, 'ta_data': {}, 'result': {}, 'final_result': {} }
 
   # load local data
   if not load_empty_data:
@@ -127,12 +107,13 @@ def load_data(config, load_empty_data=False, update=False, required_date=None, i
       data['sec_data'][f'{symbol}_day'] = io_util.load_stock_data(file_path=config['data_path'], file_name=symbol, standard_columns=True)
 
     # load derived data
-    file_path = config["quant_path"]
-    file_names = config["calculation"]["file_name"]
-    for f in file_names.keys():
-      file_name = file_names[f]
-      if os.path.exists(f'{file_path}{file_name}'):
-        data[f] = io_util.pickle_load_data(file_path=file_path, file_name=file_name)
+    if load_derived_data:
+      file_path = config["quant_path"]
+      file_names = config["calculation"]["file_name"]
+      for f in file_names.keys():
+        file_name = file_names[f]
+        if os.path.exists(f'{file_path}{file_name}'):
+          data[f] = io_util.pickle_load_data(file_path=file_path, file_name=file_name)
       
   return data
 
@@ -211,7 +192,8 @@ def preprocess_sec_data(df, symbol, interval, print_error=True):
   error_info = ''
         
   # check whether 0 or NaN values exists in the latest record
-  for col in df.columns:
+  cols = [x for x in df.columns if x != 'Dividend']
+  for col in cols:
     if df.loc[max_idx, col] == 0:
       zero_cols.append(col)
     if np.isnan(df.loc[max_idx, col]):
@@ -2844,6 +2826,19 @@ def plot_candlestick(
     plt.figure(figsize=plot_args['figsize'])
     ax = plt.gca()
 
+  # annotate split
+  if 'Split' in df.columns:
+    splited = df.query('Split != 1.0').index
+    all_idx = df.index.tolist()
+
+    for s in splited:
+      x = s
+      x_text = all_idx[all_idx.index(s)-2]
+      y = df.loc[s, 'High']
+      y_text = y + df.High.max()*0.1
+      sp = df.loc[s, 'Split']
+      plt.annotate(f'splited {sp}', xy=(x, y), xytext=(x_text,y_text), xycoords='data', textcoords='data', arrowprops=dict(arrowstyle='->', alpha=0.5), bbox=dict(boxstyle="round",fc="1.0", alpha=0.5))
+
   # transform date to numbers
   df.reset_index(inplace=True)
   df[date_col] = df[date_col].apply(mdates.date2num)
@@ -3025,6 +3020,49 @@ def plot_adx(
   df['zero'] = 0
   ax.fill_between(df.index, df.adx_diff, df.zero, where=df.adx_diff > df.zero, facecolor='green', interpolate=True, alpha=0.1)
   ax.fill_between(df.index, df.adx_diff, df.zero, where=df.adx_diff <= df.zero, facecolor='red', interpolate=True, alpha=0.1)
+
+  # title and legend
+  ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
+  ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
+  ax.grid(True, axis='y', linestyle='--', linewidth=1)
+
+  if use_ax is not None:
+    return ax
+
+# plot volume
+def plot_bar(
+  df, target_col, start=None, end=None, width=0.8, alpha=1, color_mode='up_down', benchmark=None, 
+  add_line=False, title=None, use_ax=None, plot_args=default_plot_args):
+
+  # copy dataframe within a specific period
+  df = df[start:end].copy()
+
+  # create figure
+  ax = use_ax
+  if ax is None:
+    plt.figure(figsize=plot_args['figsize'])
+    ax = plt.gca()
+
+  # plot bar
+  current = target_col
+  previous = 'previous_' + target_col
+  if color_mode == 'up_down':  
+    df['color'] = 'red'  
+    df[previous] = df[current].shift(1)
+    df.loc[df[current] >= df[previous], 'color'] = 'green'
+
+  # plot in benchmark mode
+  elif color_mode == 'benchmark' and benchmark is not None:
+    df['color'] = 'red'
+    df.loc[df[current] > benchmark, 'color'] = 'green'
+
+  # plot indicator
+  if 'color' in df.columns:
+    ax.bar(df.index, height=df[target_col], width=width,color=df.color, alpha=alpha, label=target_col)
+
+  if add_line:
+    ax.plot(df.index, df[target_col], color='black', linestyle='--', marker='.', alpha=alpha)
+
 
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
@@ -3241,6 +3279,12 @@ def plot_multiple_indicators(
       plt.yticks(signal_bases, signal_names)
       axes[tmp_indicator].legend().set_visible(False)
 
+    # plot Volume  
+    elif tmp_indicator == 'volume':
+      width = tmp_args.get('bar_width') if tmp_args.get('bar_width') is not None else 1
+      alpha = tmp_args.get('alpha') if tmp_args.get('alpha') is not None else 1
+      plot_bar(df=plot_data, target_col=target_col, width=width, alpha=alpha, color_mode=color_mode, benchmark=None, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
+    
     # plot other indicators
     else:
       plot_indicator(

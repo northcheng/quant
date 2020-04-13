@@ -11,9 +11,7 @@ import requests
 import datetime
 import zipfile
 import pickle
-import time
 import json
-import math
 import os
 import yfinance as yf
 import pandas_datareader.data as web 
@@ -81,6 +79,8 @@ def get_data_from_yahoo(symbol, interval='d', start_date=None, end_date=None, ti
   try:
     # download data
     data = web.get_data_yahoo(symbol, start_date, end_date, interval=interval)
+    data['Split'] = 0
+    data['Dividend'] = 0
       
     # print download result
     if is_print:
@@ -108,11 +108,17 @@ def get_data_from_yfinance(symbol, interval='1d', start_date=None, end_date=None
   :raises: none
   """
   try:
+    if end_date is not None:
+      end_date = util.string_plus_day(end_date, 1)
+
     # download data
     ticker = yf.Ticker(symbol)
-    data = ticker.history(start=start_date, end=end_date, interval=interval).drop(columns=['Dividends', 'Stock Splits'])
+    data = ticker.history(start=start_date, end=end_date, interval=interval)
+    
+    data.rename(columns={'Dividends': 'Dividend', 'Stock Splits':'Split'}, inplace=True)
+    data.Split.replace(0, 1, inplace=True)
     data['Adj Close'] = data['Close']
-          
+
     # print download result
     if is_print:
       print(f'[From YFinance]{symbol}: {data.index.min().date()} - {data.index.max().date()}, 下载记录 {len(data)}')
@@ -152,16 +158,15 @@ def get_data_from_alphavantage(symbol, api_key, interval='d', start_date=None, e
     
     # download data
     if interval == 'd':
-      data, meta_data = ts.get_daily(symbol=symbol, outputsize=outputsize)  
+      data, meta_data = ts.get_daily_adjusted(symbol=symbol, outputsize=outputsize)  
     elif interval == 'w':
-      data, meta_data = ts.get_weekly(symbol=symbol)  
+      data, meta_data = ts.get_weekly_adjusted(symbol=symbol)  
     elif interval == 'm':
-      data, meta_data = ts.get_monthly(symbol=symbol)  
+      data, meta_data = ts.get_monthly_adjusted(symbol=symbol)  
 
     # post process data: rename columns, transfer it to timeseries data
-    data.rename(columns={'index':'Date', '1. open':'Open', '2. high':'High', '3. low':'Low', '4. close':'Close', '5. volume':'Volume'}, inplace=True)
+    data.rename(columns={'index':'Date', '1. open':'Open', '2. high':'High', '3. low':'Low', '4. close':'Close', '5. adjusted close': 'Adj Close', '6. volume':'Volume', '7. dividend amount': 'Dividend', '8. split coefficient': 'Split'}, inplace=True)   
     data = util.df_2_timeseries(df=data, time_col=time_col)
-    data['Adj Close'] = data['Close']
 
     # print download result
     if is_print:
@@ -175,7 +180,7 @@ def get_data_from_alphavantage(symbol, api_key, interval='d', start_date=None, e
   return data[start_date:end_date]
 
 
-def get_data(symbol, start_date=None, end_date=None, source='yahoo', time_col='Date', interval='d', alphavantage_api_key=None, is_print=False):
+def get_data(symbol, start_date=None, end_date=None, source='yfinance', time_col='Date', interval='1d', alphavantage_api_key=None, is_print=False):
   """
   Download stock data from web sources
 
@@ -286,7 +291,7 @@ def get_stock_briefs(symbols, source='yfinance', period='1d', interval='1m'):
   return briefs
 
 
-def update_stock_data_from_alphavantage(symbols, stock_data_path, api_key, file_format='.csv', required_date=None, is_print=False):
+def update_stock_data_from_yfinance(symbols, stock_data_path, file_format='.csv', required_date=None, is_print=False):
   """
   update local stock data from alphavantage
 
@@ -294,7 +299,7 @@ def update_stock_data_from_alphavantage(symbols, stock_data_path, api_key, file_
   :param stock_data_path: in where the local stock data files(.csv) are stored
   :param api_key: api key for accessing alphavantage
   :param file_format: default is .csv
-  :param required_data: if the local data have already meet the required date, it won't be updated
+  :param required_date: if the local data have already meet the required date, it won't be updated
   :param is_print: whether to print info when downloading
   :returns: dataframe of latest stock data, per row each symbol
   :raises: none
@@ -302,22 +307,20 @@ def update_stock_data_from_alphavantage(symbols, stock_data_path, api_key, file_
   # get current date if required date is not specified
   if required_date is None:
     required_date = util.time_2_string(datetime.datetime.today())
-  
-  # assume it will cost 1 api call (which is limitted to 5/min for free users)
-  api_call = 1
-  
+
   # go through symbols
-  download_info = ''
   for symbol in symbols:
-    download_info += f'{symbol}: '
+
+    # init
+    old_data_date = '1991-01-01'
+    update_needed = True
+    download_info = f'{symbol}: '
   
-    # if stock data file already exists, load existing data
+    # load existed data
     if os.path.exists(f'{stock_data_path}{symbol}{file_format}'):
       
       # load existed data
       old_data = load_stock_data(file_path=stock_data_path, file_name=symbol)
-      
-      # check period between existing data and current date, if small than 100 days, download in compact mode
       old_data_date = util.time_2_string(old_data.index.max())
       download_info += f'exists({old_data_date}), '
       
@@ -325,27 +328,30 @@ def update_stock_data_from_alphavantage(symbols, stock_data_path, api_key, file_
       diff_days = util.num_days_between(old_data_date, required_date)
       if diff_days == 0:
         download_info += f'up-to-date...'
-        api_call = 0
-      # else if it is in 100 days from required date, download in compact mode
-      elif diff_days > 0 and diff_days <= 100:
-        download_info += f'updating...'
-        outputsize='compact'
-      # otherwise redownload the whole data
+        update_needed = False
       else:
-        download_info += f'redownloading...'
-        outputsize='full'
+        download_info += f'updating...'
       
-    # else if the local data is not exist, download in full mode
+    # if not exist, set download start date to 1991-01-01
     else:
       download_info += 'not found, downloading...'
       old_data = pd.DataFrame()
-      outputsize='full'
+
+    # print download info
+    if is_print:
+      print(download_info, end=' ')
       
-    # download data
-    if api_call == 1:
-      new_data = get_data_from_alphavantage(symbol=symbol, api_key=api_key, outputsize=outputsize)
+    # download new data
+    if update_needed:
+      new_data = get_data_from_yfinance(symbol, interval='1d', start_date=old_data_date, end_date=required_date, time_col='Date', is_print=is_print)
+      if new_data['Split'].product() != 1 and old_data_date != '1991-01-01':
+        if is_print:
+          print('Split action found, redownloading data...')
+        new_data = get_data_from_yfinance(symbol, interval='1d', start_date='1991-01-01', end_date=required_date, time_col='Date', is_print=is_print)
     else:
       new_data = pd.DataFrame()
+      if is_print:
+        print('')
 
     # append new data to the old data
     data = old_data.append(new_data, sort=True)
@@ -357,14 +363,18 @@ def update_stock_data_from_alphavantage(symbols, stock_data_path, api_key, file_
     save_stock_data(df=data, file_path=stock_data_path, file_name=symbol, file_format=file_format, reset_index=True)
     download_info += f'done, latest date({data.index.max().date()})'
     
-    # print download info
-    if is_print:
-      print(download_info)
 
-    return api_call
- 
+def update_stock_data(symbols, stock_data_path, file_format='.csv', source='yfinance', required_date=None, is_print=False, api_key=None):
+  
+  if source == 'yfinance':
+    update_stock_data_from_yfinance(symbols=symbols, stock_data_path=stock_data_path, file_format=file_format, required_date=required_date, is_print=is_print)
+  elif source == 'alphavantage':
+    update_stock_data_from_alphavantage(symbols=symbols, stock_data_path=stock_data_path, file_format=file_format, required_date=required_date, is_print=is_print, api_key=api_key)
+  else:
+    print(f'unknown source: {source}')
 
-def save_stock_data(df, file_path, file_name, file_format='.csv', reset_index=False, index=False):
+
+def save_stock_data(df, file_path, file_name, file_format='.csv', reset_index=True, index=False):
   """
   save stock data (dataframe) to .csv file
 
@@ -425,7 +435,7 @@ def load_stock_data(file_path, file_name, file_format='.csv', time_col='Date', s
       
       # select standard columns
       if standard_columns:
-        df = df[['Open', 'High', 'Low', 'Close', 'Volume', 'Adj Close']].copy()
+        df = df[['Open', 'High', 'Low', 'Close', 'Volume', 'Adj Close', 'Dividend', 'Split']].copy()
       
       # sort index
       if sort_index:
@@ -461,37 +471,6 @@ def remove_stock_data(symbol, file_path, file_format='.csv'):
     print(symbol, e) 
 
 
-def switch_data_interval(df, interval):
-  '''
-  convert day-interval data into week-interval or month-interval data
-
-  :param df: day-interval OHLCV data
-  :param interval: interval of target data week/month
-  :returns: None
-  :raises: None
-  '''
-  # initialize result
-  result = None
-
-  # convert data
-  if df is not None:
-    
-    result = df.copy()
-    if interval == 'day':
-      pass
-
-    elif interval == 'week':
-      result = create_week_data(result)
-
-    elif interval == 'month':
-      result = create_month_data(result)
-
-    else:
-      print(f'unknown interval {interval}')
-      
-  return result
-
-
 def create_week_data(df):
   '''
   convert day-interval data into week-interval 
@@ -515,7 +494,7 @@ def create_week_data(df):
     df.loc[index, 'week_count'] = week_count
 
   # create an empty dict for storing result
-  week_data = {'Date': [], 'Open': [], 'High': [], 'Low': [], 'Close': [], 'Volume': []}
+  week_data = {'Date': [], 'Open': [], 'High': [], 'Low': [], 'Close': [], 'Volume': [], 'Dividend':[], 'Split':[]}
 
   # go through weeks
   for week in range(week_count+1):
@@ -527,6 +506,16 @@ def create_week_data(df):
     week_data['High'].append(tmp_data['High'].max())
     week_data['Low'].append(tmp_data['Low'].min())
     week_data['Volume'].append(tmp_data['Volume'].sum())
+
+    if 'Dividend' in tmp_data.columns:
+      week_data['Dividend'].append(tmp_data['Dividend'].sum())
+    else:
+      week_data['Dividend'].append(0)
+
+    if 'Split' in tmp_data.columns:
+      week_data['Split'].append(tmp_data['Split'].product())
+    else:
+      week_data['Split'].append(1.0)
   
   # convert result dict to timeseries dataframe
   week_data = pd.DataFrame(week_data)
@@ -557,7 +546,7 @@ def create_month_data(df):
   end_month = util.time_2_string(max_index)[:7]
   
   # create an empty dict for storing result
-  month_data = {'Date': [], 'Open': [], 'High': [], 'Low': [], 'Close': [], 'Volume': []}
+  month_data = {'Date': [], 'Open': [], 'High': [], 'Low': [], 'Close': [], 'Volume': [], 'Dividend':[], 'Split':[]}
 
   # go through each month
   for year in range(start_year, end_year+1):
@@ -574,6 +563,16 @@ def create_month_data(df):
         month_data['Low'].append(tmp_data['Low'].min())
         month_data['Volume'].append(tmp_data['Volume'].sum())
 
+        if 'Dividend' in tmp_data.columns:
+          month_data['Dividend'].append(tmp_data['Dividend'].sum())
+        else:
+          month_data['Dividend'].append(0)
+
+        if 'Split' in tmp_data.columns:
+          month_data['Split'].append(tmp_data['Split'].product())
+        else:
+          month_data['Split'].append(1.0)
+
       else:
         continue
   
@@ -584,6 +583,36 @@ def create_month_data(df):
 
   return month_data
     
+
+def switch_data_interval(df, interval):
+  '''
+  convert day-interval data into week-interval or month-interval data
+
+  :param df: day-interval OHLCV data
+  :param interval: interval of target data week/month
+  :returns: None
+  :raises: None
+  '''
+  # initialize result
+  result = None
+
+  # convert data
+  if df is not None:
+    
+    result = df.copy()
+    if interval == 'day':
+      pass
+
+    elif interval == 'week':
+      result = create_week_data(result)
+
+    elif interval == 'month':
+      result = create_month_data(result)
+
+    else:
+      print(f'unknown interval {interval}')
+      
+  return result
 
 
 #----------------------------- NYTimes Data -------------------------------------#
@@ -969,3 +998,81 @@ def pickle_load_data(file_path, file_name):
     
 #   # return dataframe
 #   return data
+
+
+# def update_stock_data_from_alphavantage(symbols, stock_data_path, api_key, file_format='.csv', required_date=None, is_print=False):
+#   """
+#   update local stock data from alphavantage
+
+#   :param symbols: symbol list
+#   :param stock_data_path: in where the local stock data files(.csv) are stored
+#   :param api_key: api key for accessing alphavantage
+#   :param file_format: default is .csv
+#   :param required_date: if the local data have already meet the required date, it won't be updated
+#   :param is_print: whether to print info when downloading
+#   :returns: dataframe of latest stock data, per row each symbol
+#   :raises: none
+#   """
+#   # get current date if required date is not specified
+#   if required_date is None:
+#     required_date = util.time_2_string(datetime.datetime.today())
+  
+#   # assume it will cost 1 api call (which is limitted to 5/min for free users)
+#   api_call = 1
+  
+#   # go through symbols
+#   for symbol in symbols:
+#     download_info = f'{symbol}: '
+  
+#     # if stock data file already exists, load existing data
+#     if os.path.exists(f'{stock_data_path}{symbol}{file_format}'):
+      
+#       # load existed data
+#       old_data = load_stock_data(file_path=stock_data_path, file_name=symbol)
+      
+#       # check period between existing data and current date, if small than 100 days, download in compact mode
+#       old_data_date = util.time_2_string(old_data.index.max())
+#       download_info += f'exists({old_data_date}), '
+      
+#       # if existed data is uptodate, cancel the api call
+#       diff_days = util.num_days_between(old_data_date, required_date)
+#       if diff_days == 0:
+#         download_info += f'up-to-date...'
+#         api_call = 0
+#       # else if it is in 100 days from required date, download in compact mode
+#       elif diff_days > 0 and diff_days <= 100:
+#         download_info += f'updating...'
+#         outputsize='compact'
+#       # otherwise redownload the whole data
+#       else:
+#         download_info += f'redownloading...'
+#         outputsize='full'
+      
+#     # else if the local data is not exist, download in full mode
+#     else:
+#       download_info += 'not found, downloading...'
+#       old_data = pd.DataFrame()
+#       outputsize='full'
+      
+#     # download data
+#     if api_call == 1:
+#       new_data = get_data_from_alphavantage(symbol=symbol, api_key=api_key, outputsize=outputsize)
+#     else:
+#       new_data = pd.DataFrame()
+
+#     # append new data to the old data
+#     data = old_data.append(new_data, sort=True)
+    
+#     # remove duplicated index, keep the latest
+#     data = util.remove_duplicated_index(df=data, keep='last')
+  
+#     # save data to the specified path with <symbol>.<file_format>
+#     save_stock_data(df=data, file_path=stock_data_path, file_name=symbol, file_format=file_format, reset_index=True)
+#     download_info += f'done, latest date({data.index.max().date()})'
+    
+#     # print download info
+#     if is_print:
+#       print(download_info)
+
+#     return api_call
+#  

@@ -7,10 +7,9 @@
 	"company": [
 		"AAPL","MSFT","IBM","FB","ADBE","NFLX","DIS",
 		"INTC","NVDA","AMD","QCOM","AVGO","TXN","TSM",
-		"TSLA","LMT","GE","BA","HON","UTX",
-		"CHTR","T","VZ","CMCSA","AMT","CSCO",
+		"TSLA","LMT","GE","BA","HON",
 		"JPM","ACN","MS","GS","BAC","WFC","HSBC","C",
-		"MRK","PFE","NVO","GSK","AZN","ABBV","NVS","ABT","MDT","AMGN","DHR","JNJ","UNH","SNY"],
+		"MRK","PFE","NVO","GSK","AZN","ABBV","NVS","ABT","MDT","AMGN","DHR","JNJ","UNH"],
 
 	"extra": [],
 
@@ -18,7 +17,5 @@
 		"TVIX","TQQQ","SOXL","TECL","YINN"
 	],
 
-	"non_auto": [
-		"CHAU","CHAD","YINN","YANG",
-		"ERX","ERY","UGLD","DGLD","UWT","DWT","UGAZ","DGAZ"]
+	"non_auto": []
 }

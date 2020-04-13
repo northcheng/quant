@@ -33,7 +33,6 @@
 			"result": "result.pkl",
 			"final_result": "final_result.pkl"
 		},
-		"update_sec_data": true,
 		"update_ta_data": true,
 		"target_ta_indator": ["ichimoku", "aroon", "bb"],
 		"look_back_window": {"day": 250, "week": 1260, "month": 5400}
@@ -45,7 +44,7 @@
 		"save_image": false,
 		
 		"plot_window": {"day": 125, "week": 630, "month": 2700}, 
-		"candlestick_width": {"day": 0.75, "week": 3.5, "month":16}, 
+		"bar_width": {"day": 0.75, "week": 3.5, "month":16}, 
 
 		"plot_args": {
 			"plot_ratio": { 
@@ -69,8 +68,10 @@
 				"price_alpha": 0
 			},
 			"volume": {
-				"target_col": ["Volume"], 
-				"color_mode": "up_down"
+				"target_col": "Volume", 
+				"color_mode": "up_down",
+				"bar_width": 1,
+				"alpha": 0.8
 			}
 		}
 	},
