@@ -35,6 +35,7 @@
 		},
 		"update_sec_data": true,
 		"update_ta_data": true,
+		"save_sec_data": true,
 		"target_ta_indator": ["ichimoku", "aroon", "bb"],
 		"look_back_window": {"day": 250, "week": 1260, "month": 5400}
 	},

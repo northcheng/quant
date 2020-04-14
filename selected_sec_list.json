@@ -13,9 +13,19 @@
 
 	"extra": [],
 
-	"auto": [
-		"TVIX","TQQQ","SOXL","TECL","YINN"
-	],
+	"auto": ["TVIX","TQQQ","SOXL","TECL","YINN"],
 
-	"non_auto": []
+	"non_auto": [],
+
+	"all": [
+		"TQQQ","SQQQ","UPRO","SPXU","UDOW","SDOW","FAS","FAZ","ERX","ERY",
+		"TECL","TECS","SOXL","SOXS","LABU","LABD","DZK","DPK","EDC","EDZ",
+		"UGLD","DGLD","UGAZ","DGAZ","CHAU","CHAD","YINN","YANG","CQQQ","TVIX",
+		"AAPL","MSFT","IBM","FB","ADBE","NFLX","DIS",
+		"INTC","NVDA","AMD","QCOM","AVGO","TXN","TSM",
+		"TSLA","LMT","GE","BA","HON",
+		"JPM","ACN","MS","GS","BAC","WFC","HSBC","C",
+		"MRK","PFE","NVO","GSK","AZN","ABBV","NVS","ABT","MDT","AMGN","DHR","JNJ","UNH"
+	]
+
 }
