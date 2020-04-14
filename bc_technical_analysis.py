@@ -63,7 +63,7 @@ def load_config(root_paths):
 
 
 # load local data
-def load_data(symbols, config, load_empty_data=False, update=False, required_date=None, load_derived_data=True, is_print=False):
+def load_data(symbols, config, load_empty_data=False, load_derived_data=False):
   """ 
   Load data from local files
   
@@ -75,24 +75,6 @@ def load_data(symbols, config, load_empty_data=False, update=False, required_dat
   :returns: dictionary of data load from local files
   :raises: None
   """
-  # if update stock data
-  if update:
-    
-    # if required_date is not set, set it to the last working day
-    if required_date is None:
-      current_date = datetime.datetime.today()
-      weekday = current_date.weekday()
-      today = util.time_2_string(current_date.date())
-      if weekday>0 and weekday<5:
-        required_date = util.string_plus_day(today, -1)
-      elif weekday==0:
-        required_date = util.string_plus_day(today, -3)
-      else:
-        required_date = util.string_plus_day(today, 4-weekday)
-    
-    # update data
-    io_util.update_stock_data(symbols=symbols, stock_data_path=config['data_path'], file_format='.csv', source='yfinance', required_date=required_date, is_print=is_print)
-
   # init data
   data = { 'sec_data': {}, 'ta_data': {}, 'result': {}, 'final_result': {} }
 

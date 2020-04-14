@@ -62,6 +62,25 @@ def get_symbols(remove_invalid=True, remove_not_fetched=False, not_fetched_list=
   return symbols.loc[sec_list, ]
 
 
+def post_process(df, source):
+
+  df = df.copy()
+
+  if source == 'yfinance':
+    df = df.rename(columns={'Dividends':'Dividend', 'Stock Splits': 'Split'})
+    df.Split = df.Split.replace(0, 1)
+    df = df.dropna()
+
+    if 'Adj Close' not in df.columns:
+      df['Adj Close'] = df['Close']
+
+  elif source == 'yahoo':
+    df['Split'] = 1
+    df['Dividend'] = 0
+
+  return df
+
+
 def get_data_from_yahoo(symbol, interval='d', start_date=None, end_date=None, time_col='Date', is_print=False):
   """
   Download stock data from Yahoo finance api via pandas_datareader
@@ -79,8 +98,7 @@ def get_data_from_yahoo(symbol, interval='d', start_date=None, end_date=None, ti
   try:
     # download data
     data = web.get_data_yahoo(symbol, start_date, end_date, interval=interval)
-    data['Split'] = 0
-    data['Dividend'] = 0
+    data = post_process(df=data, source='yahoo')
       
     # print download result
     if is_print:
@@ -113,11 +131,8 @@ def get_data_from_yfinance(symbol, interval='1d', start_date=None, end_date=None
 
     # download data
     ticker = yf.Ticker(symbol)
-    data = ticker.history(start=start_date, end=end_date, interval=interval)
-    
-    data.rename(columns={'Dividends': 'Dividend', 'Stock Splits':'Split'}, inplace=True)
-    data.Split.replace(0, 1, inplace=True)
-    data['Adj Close'] = data['Close']
+    data = ticker.history(start=start_date, end=end_date, interval=interval, actions=True, auto_adjust=True, back_adjust=False)
+    data = post_process(df=data, source='yfinance')
 
     # print download result
     if is_print:
@@ -243,7 +258,7 @@ def get_stock_briefs(symbols, source='yfinance', period='1d', interval='1m'):
   return briefs
 
 
-def get_realtime_stock_data_from_yfinance(symbol, data=None):
+def update_stock_data_from_yfinance(symbol, data=None, is_print=True):
   """
   Get latest stock data for a symbol in current trading day
 
@@ -258,12 +273,13 @@ def get_realtime_stock_data_from_yfinance(symbol, data=None):
     data = pd.DataFrame()
     start = '1991-01-01'
 
-  # get the most recent data. append it to the original data
-  realtime_data = yf.download(tickers=symbol, start=start, interval='1d', group_by='ticker')
-  data = data.append(realtime_data, sort=True)
+  end = util.time_2_string(datetime.datetime.today().date())
 
-  # remove the duplicated index
-  data = util.remove_duplicated_index(df=data, keep='last')
+  # get the most recent data, append it to the original data
+  realtime_data = get_data_from_yfinance(symbol=symbol, interval='1d', start_date=start, end_date=end, is_print=is_print)
+  
+  data = data.append(realtime_data, sort=True)
+  data = util.remove_duplicated_index(df=data, keep='last').dropna()
 
   return data
 
@@ -319,8 +335,7 @@ def update_stock_data_from_yfinance_by_stock(symbols, stock_data_path, file_form
     
     # append new data to the old data, remove duplicated index, keep the latest
     tmp_data = old_data.append(new_data, sort=True)
-    tmp_data = util.remove_duplicated_index(df=tmp_data, keep='last')
-
+    tmp_data = util.remove_duplicated_index(df=tmp_data, keep='last').dropna()
     data[symbol] = tmp_data
 
   # save data to the specified path with <symbol>.<file_format>
@@ -363,37 +378,41 @@ def update_stock_data_from_yfinance_by_date(symbols, stock_data_path, file_forma
       tmp_data_date = util.time_2_string(tmp_data.index.max())
       data[symbol] = tmp_data.copy()
 
-      # get latest date of existed data
+      # group symbols by their latest date
       if data_date.get(tmp_data_date) is None:
         data_date[tmp_data_date] = [symbol]
       else:
         data_date[tmp_data_date].append(symbol)
+
+    # if local data not exists, download from 1991-01-01
     else:
       data[symbol] = pd.DataFrame()
       data_date['1991-01-01'].append(symbol)
 
-  # download and update by batch
+  # download and update by group(latest date)
   download_info = ''
   for d in data_date.keys():
+
+    # get symbols with same latest date, it symbols is empty, skip
     tmp_symbols = data_date[d]
     if len(tmp_symbols) == 0:
       continue
 
-    download_info += f'{tmp_symbols} updated from {d}\n'
-
+    # download, construct download information for printing
     tmp_batch_data = yf.download(tickers=tmp_symbols, start=d, interval='1d', group_by='ticker', actions=True)
+    download_info += f'{tmp_symbols} updated from {d}\n'
 
     if len(tmp_symbols) == 1:
       tmp_batch_data = {tmp_symbols[0]: tmp_batch_data}
 
-    # update data for current batch
+    # update data for current batch, rename, replace, append, dropna
     for symbol in tmp_symbols:
       new_data = tmp_batch_data[symbol].copy()
-      new_data.rename(columns={'Dividends': 'Dividend', 'Stock Splits':'Split'}, inplace=True)
-      new_data.Split.replace(0, 1, inplace=True)
+      new_data = post_process(df=new_data, source='yfinance')
       data[symbol] = data[symbol].append(new_data, sort=True)
-      data[symbol] = util.remove_duplicated_index(df=data[symbol], keep='last')
+      data[symbol] = util.remove_duplicated_index(df=data[symbol], keep='last').dropna()
 
+  # print
   if is_print:
     print(download_info)
 
@@ -423,14 +442,19 @@ def update_stock_data(symbols, stock_data_path, file_format='.csv', source='yfin
   :returns: dataframe of latest stock data, per row each symbol
   :raises: none
   """
+
+  result = None
+
   if source == 'yfinance':
     if by == 'date':
-      update_stock_data_from_yfinance_by_date(symbols=symbols, stock_data_path=stock_data_path, file_format=file_format, required_date=required_date, is_print=is_print, is_return=is_return, is_save=is_save)
+      result = update_stock_data_from_yfinance_by_date(symbols=symbols, stock_data_path=stock_data_path, file_format=file_format, required_date=required_date, is_print=is_print, is_return=is_return, is_save=is_save)
     elif by == 'stock':
-      update_stock_data_from_yfinance_by_stock(symbols=symbols, stock_data_path=stock_data_path, file_format=file_format, required_date=required_date, is_print=is_print, is_return=is_return, is_save=is_save)
-  
+      result = update_stock_data_from_yfinance_by_stock(symbols=symbols, stock_data_path=stock_data_path, file_format=file_format, required_date=required_date, is_print=is_print, is_return=is_return, is_save=is_save)
   else:
     print(f'unknown source: {source}')
+
+  if is_return:
+    return result
 
 
 def save_stock_data(df, file_path, file_name, file_format='.csv', reset_index=True, index=False):
@@ -451,7 +475,7 @@ def save_stock_data(df, file_path, file_name, file_format='.csv', reset_index=Tr
 
   # reset index
   if reset_index:
-    df = df.reset_index()
+    df = df.sort_index().reset_index()
   
   # save file
   if file_format == '.csv':
@@ -1134,7 +1158,8 @@ def pickle_load_data(file_path, file_name):
 #       print(download_info)
 
 #     return api_call
-# 
+
+
 # def get_data_from_alphavantage(symbol, api_key, interval='d', start_date=None, end_date=None, time_col='Date', is_print=False, outputsize='compact'):
 #   """
 #   Download stock data from alpha vantage
