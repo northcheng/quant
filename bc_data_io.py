@@ -191,46 +191,50 @@ def get_stock_briefs_from_yfinance(symbols, period='1d', interval='1m'):
   :returns: dataframe of latest stock data, per row each symbol
   :raises: none
   """
-  # get minute data for recent 1 day
-  ticker_data = yf.download(tickers=symbols, period=period, interval=interval, group_by='ticker')
-  min_idx = ticker_data.index.min()
-  max_idx = ticker_data.index.max()
+  if len(symbols) == 0:
+    latest_data = None
 
-  # process if there is only one symbol in the list
-  if len(symbols) == 1:
-    ticker_data = {symbols[0]: ticker_data}
+  else:
+    # get minute data for recent 1 day
+    ticker_data = yf.download(tickers=symbols, period=period, interval=interval, group_by='ticker')
+    min_idx = ticker_data.index.min()
+    max_idx = ticker_data.index.max()
 
-  # gather latest data for each symbol
-  latest_data = pd.DataFrame()
-  for symbol in symbols:
+    # process if there is only one symbol in the list
+    if len(symbols) == 1:
+      ticker_data = {symbols[0]: ticker_data}
 
-    tmp_ticker_data = ticker_data[symbol].dropna()
+    # gather latest data for each symbol
+    latest_data = pd.DataFrame()
+    for symbol in symbols:
 
-    # get the latest row of the data
-    tmp_data = tmp_ticker_data.tail(1).reset_index().copy()
+      tmp_ticker_data = ticker_data[symbol].dropna()
+
+      # get the latest row of the data
+      tmp_data = tmp_ticker_data.tail(1).reset_index().copy()
+      
+      # assign symbol to the row
+      tmp_data['symbol'] = symbol
+
+      # update the Open/High/Low
+      tmp_data.loc[0, 'Open'] = tmp_ticker_data.loc[min_idx, 'Open'].round(2)
+      tmp_data.loc[0, 'High'] = tmp_ticker_data['High'].max().round(2)
+      tmp_data.loc[0, 'Low'] = tmp_ticker_data['Low'].min().round(2)
+      tmp_data.loc[0, 'Volume'] = tmp_ticker_data['Volume'].sum()
+      tmp_data['Close'] = tmp_data['Close'].round(2)
+      tmp_data['Adj Close'] = tmp_data['Close'] 
+      
+
+      # append the data into result
+      latest_data = latest_data.append(tmp_data)
+
+    # process date of the data
+    latest_data = latest_data.rename(columns={'Datetime': 'latest_time'})
+    latest_data['latest_price'] = latest_data['Close'].copy()
+    latest_data['Date'] = latest_data['latest_time'].copy()
+    latest_data['Date'] = latest_data['Date'].apply(util.time_2_string, args=(0, '%Y-%m-%d',))
+    latest_data['Date'] = latest_data['Date'].apply(util.string_2_time,args=('%Y-%m-%d',))
     
-    # assign symbol to the row
-    tmp_data['symbol'] = symbol
-
-    # update the Open/High/Low
-    tmp_data.loc[0, 'Open'] = tmp_ticker_data.loc[min_idx, 'Open'].round(2)
-    tmp_data.loc[0, 'High'] = tmp_ticker_data['High'].max().round(2)
-    tmp_data.loc[0, 'Low'] = tmp_ticker_data['Low'].min().round(2)
-    tmp_data.loc[0, 'Volume'] = tmp_ticker_data['Volume'].sum()
-    tmp_data['Close'] = tmp_data['Close'].round(2)
-    tmp_data['Adj Close'] = tmp_data['Close'] 
-    
-
-    # append the data into result
-    latest_data = latest_data.append(tmp_data)
-
-  # process date of the data
-  latest_data = latest_data.rename(columns={'Datetime': 'latest_time'})
-  latest_data['latest_price'] = latest_data['Close'].copy()
-  latest_data['Date'] = latest_data['latest_time'].copy()
-  latest_data['Date'] = latest_data['Date'].apply(util.time_2_string, args=(0, '%Y-%m-%d',))
-  latest_data['Date'] = latest_data['Date'].apply(util.string_2_time,args=('%Y-%m-%d',))
-  
 
   return latest_data
 
