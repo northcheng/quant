@@ -6,6 +6,7 @@ Utilities used for Tiger Open API
 """
 import math
 import pytz
+import time
 import datetime
 import logging
 import pandas as pd
@@ -367,6 +368,7 @@ class Tiger:
     else:
       self.logger.info(f'[SKIP]: no signal')
           
+
   # stop loss or stop profit or clear all positions
   def cash_out(self, stop_loss_rate=None, stop_profit_rate=None, clear_all=False, print_summary=True):
 
@@ -443,5 +445,35 @@ class Tiger:
       
     except Exception as e:
       self.logger.exception(f'[erro]: fail updating position records for {account_type}')
+  
 
+  # idle for specified time and check position in certain frequency
+  def idle(self, target_time, check_frequency=600):
+    """
+    Sleep with a fixed frequency, until the target time
 
+    :param target_time: the target time in datetime.datetime format
+    :param check_frequency: the fixed sleep_time 
+    :returns: none
+    :raises: none
+    """
+    # get current time
+    now = datetime.datetime.now()
+    while now < target_time:
+
+      # # get position summary
+      # pos = self.get_position_summary()
+      # self.logger.info(f'[rate]:----------------------------------------------\n{pos}\n')
+
+      # get current time, calculate difference between current time and target time
+      diff_time = (target_time - now).seconds
+      sleep_time = (diff_time + 1) if (diff_time <= check_frequency) else check_frequency
+      
+      # sleep
+      self.logger.info(f'[idle]: {now.strftime(format="%Y-%m-%d %H:%M:%S")}: sleep for {sleep_time} seconds')
+      time.sleep(sleep_time)
+
+      # update current time
+      now = datetime.datetime.now()
+
+    self.logger.info(f'[wake]: {now.strftime(format="%Y-%m-%d %H:%M:%S")}: exceed target time({target_time})')

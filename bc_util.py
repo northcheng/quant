@@ -114,21 +114,18 @@ def sleep_until(target_time, check_frequency=3600):
 
   # get current time
   now = datetime.datetime.now()
-
   while now < target_time:
-    # difference between current time and target time
+
+    # calculate difference between current time and target time
     diff_time = (target_time - now).seconds
-    sleep_time = diff_time+1
+    sleep_time = (diff_time+1) if (diff_time <= check_frequency) else check_frequency
+    print(f'{now}: sleep for {sleep_time} seconds')
 
-    if diff_time > check_frequency:
-      sleep_time = check_frequency
-
-    print(f'{now}: sleep for {sleep_time} seconds', flush=True)
+    # sleep and update current time
     time.sleep(sleep_time)
-
     now = datetime.datetime.now()
 
-  print(f'{now}: exceed target time({target_time})', flush=True)
+  print(f'{now}: exceed target time({target_time})')
 
 
 #----------------------- Dataframe manipulation --------------------#

@@ -21,7 +21,7 @@ from quant import bc_util as util
 
 
 #----------------------------- Stock Data -------------------------------------#
-def get_symbols(remove_invalid=True, remove_not_fetched=False, not_fetched_list=None):
+def get_symbols(remove_invalid=True):
   """
   Get Nasdaq stock list
 
@@ -49,36 +49,8 @@ def get_symbols(remove_invalid=True, remove_not_fetched=False, not_fetched_list=
   if remove_invalid:
     sec_list = [x for x in sec_list if '$' not in x]
     sec_list = [x for x in sec_list if '.' not in x]
-
-  # remove not-fetched symbols
-  if remove_not_fetched and not_fetched_list is not None:
-    yahoo_not_fetched_list = []
-    try: 
-      yahoo_not_fetched_list = pd.read_csv(not_fetched_list).sec_code.tolist()
-    except Exception as e:
-      print(e)
-    sec_list = [x for x in sec_list if x not in yahoo_not_fetched_list]
   
   return symbols.loc[sec_list, ]
-
-
-def post_process(df, source):
-
-  df = df.copy()
-
-  if source == 'yfinance':
-    df = df.rename(columns={'Dividends':'Dividend', 'Stock Splits': 'Split'})
-    df.Split = df.Split.replace(0, 1)
-    df = df.dropna()
-
-    if 'Adj Close' not in df.columns:
-      df['Adj Close'] = df['Close']
-
-  elif source == 'yahoo':
-    df['Split'] = 1
-    df['Dividend'] = 0
-
-  return df
 
 
 def get_data_from_yahoo(symbol, interval='d', start_date=None, end_date=None, time_col='Date', is_print=False):
@@ -160,10 +132,9 @@ def get_data(symbol, start_date=None, end_date=None, source='yfinance', time_col
   :returns: dataframe 
   :raises: none
   """
-  try:
-    # get data
-    data = pd.DataFrame()
+  data = None
 
+  try:
     # yahoo
     if source == 'yahoo':
       data = get_data_from_yahoo(symbol=symbol, interval=interval, start_date=start_date, end_date=end_date, time_col=time_col, is_print=is_print)
@@ -173,7 +144,6 @@ def get_data(symbol, start_date=None, end_date=None, source='yfinance', time_col
     # otherwise
     else:
       print(f'data source {source} not found')
-      data = None
 
   except Exception as e:
     print(symbol, e)
@@ -193,47 +163,51 @@ def get_stock_briefs_from_yfinance(symbols, period='1d', interval='1m'):
   """
   if len(symbols) == 0:
     latest_data = None
+    print('symbols is empty')
 
   else:
     # get minute data for recent 1 day
     ticker_data = yf.download(tickers=symbols, period=period, interval=interval, group_by='ticker')
-    min_idx = ticker_data.index.min()
-    max_idx = ticker_data.index.max()
+    if len(ticker_data) > 0:
 
-    # process if there is only one symbol in the list
-    if len(symbols) == 1:
-      ticker_data = {symbols[0]: ticker_data}
+      # process if there is only one symbol in the list
+      if len(symbols) == 1:
+        ticker_data = {symbols[0]: ticker_data}
 
-    # gather latest data for each symbol
-    latest_data = pd.DataFrame()
-    for symbol in symbols:
+      # gather latest data for each symbol
+      latest_data = pd.DataFrame()
+      for symbol in symbols:
 
-      tmp_ticker_data = ticker_data[symbol].dropna()
+        # get data for current symbol and its first index, 
+        tmp_ticker_data = ticker_data[symbol].dropna()
+        min_idx = tmp_ticker_data.index.min()
+        
+        # get the last row and assign symbol to it
+        tmp_data = tmp_ticker_data.tail(1).reset_index().copy()
+        tmp_data['symbol'] = symbol
 
-      # get the latest row of the data
-      tmp_data = tmp_ticker_data.tail(1).reset_index().copy()
-      
-      # assign symbol to the row
-      tmp_data['symbol'] = symbol
+        # update the Open/High/Low
+        tmp_data.loc[0, 'Open'] = tmp_ticker_data.loc[min_idx, 'Open'].round(2)
+        tmp_data.loc[0, 'High'] = tmp_ticker_data['High'].max().round(2)
+        tmp_data.loc[0, 'Low'] = tmp_ticker_data['Low'].min().round(2)
+        tmp_data.loc[0, 'Volume'] = tmp_ticker_data['Volume'].sum()
+        tmp_data['Close'] = tmp_data['Close'].round(2)
+        tmp_data['Adj Close'] = tmp_data['Close'] 
 
-      # update the Open/High/Low
-      tmp_data.loc[0, 'Open'] = tmp_ticker_data.loc[min_idx, 'Open'].round(2)
-      tmp_data.loc[0, 'High'] = tmp_ticker_data['High'].max().round(2)
-      tmp_data.loc[0, 'Low'] = tmp_ticker_data['Low'].min().round(2)
-      tmp_data.loc[0, 'Volume'] = tmp_ticker_data['Volume'].sum()
-      tmp_data['Close'] = tmp_data['Close'].round(2)
-      tmp_data['Adj Close'] = tmp_data['Close'] 
-      
+        # append the data into result
+        latest_data = latest_data.append(tmp_data)
 
-      # append the data into result
-      latest_data = latest_data.append(tmp_data)
+      # process date of the data
+      latest_data = latest_data.rename(columns={'Datetime': 'latest_time'})
+      latest_data['latest_price'] = latest_data['Close'].copy()
+      latest_data['Date'] = latest_data['latest_time'].copy()
+      latest_data['Date'] = latest_data['Date'].apply(util.time_2_string, args=(0, '%Y-%m-%d',))
+      latest_data['Date'] = latest_data['Date'].apply(util.string_2_time,args=('%Y-%m-%d',))
 
-    # process date of the data
-    latest_data = latest_data.rename(columns={'Datetime': 'latest_time'})
-    latest_data['latest_price'] = latest_data['Close'].copy()
-    latest_data['Date'] = latest_data['latest_time'].copy()
-    latest_data['Date'] = latest_data['Date'].apply(util.time_2_string, args=(0, '%Y-%m-%d',))
-    latest_data['Date'] = latest_data['Date'].apply(util.string_2_time,args=('%Y-%m-%d',))
+    else:
+      latest_data = None
+      print('ticker_data is empty')
+
     
 
   return latest_data
@@ -253,13 +227,41 @@ def get_stock_briefs(symbols, source='yfinance', period='1d', interval='1m'):
   # initialize
   briefs = pd.DataFrame()
 
-  # currently only yfinance is available
-  if source == 'yfinance':
-    briefs =  get_stock_briefs_from_yfinance(symbols=symbols, period=period, interval=interval)
-  else:
-    print(f'Unknown source {source}')
+  if len(symbols) > 0:
+    # currently only yfinance is available
+    if source == 'yfinance':
+      briefs =  get_stock_briefs_from_yfinance(symbols=symbols, period=period, interval=interval)
+    else:
+      print(f'Unknown source {source}')
 
   return briefs
+
+
+def post_process(df, source):
+  """
+  Get post process data downloaded from certain source
+
+  :param df: stock data dataframe downloaded from source
+  :param source: data source
+  :returns: post processed data
+  :raises: none
+  """
+
+  df = df.copy()
+
+  if source == 'yfinance':
+    df = df.rename(columns={'Dividends':'Dividend', 'Stock Splits': 'Split'})
+    df.Split = df.Split.replace(0, 1)
+    df = df.dropna()
+
+    if 'Adj Close' not in df.columns:
+      df['Adj Close'] = df['Close']
+
+  elif source == 'yahoo':
+    df['Split'] = 1
+    df['Dividend'] = 0
+
+  return df
 
 
 def update_stock_data_from_yfinance(symbol, data=None, is_print=True):
