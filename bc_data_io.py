@@ -26,8 +26,6 @@ def get_symbols(remove_invalid=True):
   Get Nasdaq stock list
 
   :param remove_invalid: whether to remove invalid stock symbols
-  :param remove_not_fetched: whether to remove the not-fetched stock symbols
-  :param not_fetched_list: the not-fetched stock symbols list file
   :returns: dataframe of stock symbols
   :raises: exception when error reading not-fetched symbols list
   """
@@ -36,8 +34,7 @@ def get_symbols(remove_invalid=True):
     symbols = get_nasdaq_symbols()
     symbols = symbols.loc[symbols['Test Issue'] == False,]
   
-  # when the pandas datareader is not accessible
-  # download symbols from Nasdaq website directly
+  # when the pandas datareader is not accessible, download symbols from Nasdaq website directly
   except Exception as e:
     symbols = pd.read_table('ftp://ftp.nasdaqtrader.com/symboldirectory/nasdaqtraded.txt', sep='|', index_col='Symbol').drop(np.NaN)
     symbols = symbols.loc[symbols['Test Issue'] == 'N',]
@@ -63,14 +60,14 @@ def get_data_from_yahoo(symbol, interval='d', start_date=None, end_date=None, ti
   :param end_date: end date of the data
   :param time_col: time column in that data
   :param is_print: whether to print the download information
-  :returns: dataframe 
+  :returns: dataframe or None
   :raises: none
   """
 
   try:
     # download data
     data = web.get_data_yahoo(symbol, start_date, end_date, interval=interval)
-    data = post_process(df=data, source='yahoo')
+    data = post_download_process(df=data, source='yahoo')
       
     # print download result
     if is_print:
@@ -80,7 +77,6 @@ def get_data_from_yahoo(symbol, interval='d', start_date=None, end_date=None, ti
       print(symbol, e)
       data = None
 
-  # return dataframe
   return data
 
 
@@ -94,17 +90,18 @@ def get_data_from_yfinance(symbol, interval='1d', start_date=None, end_date=None
   :param end_date: end date of the data
   :param time_col: time column in that data
   :param is_print: whether to print the download information
-  :returns: dataframe
+  :returns: dataframe or None
   :raises: none
   """
   try:
+    # +1 day for end_date
     if end_date is not None:
       end_date = util.string_plus_day(end_date, 1)
 
     # download data
     ticker = yf.Ticker(symbol)
     data = ticker.history(start=start_date, end=end_date, interval=interval, actions=True, auto_adjust=True, back_adjust=False)
-    data = post_process(df=data, source='yfinance')
+    data = post_download_process(df=data, source='yfinance')
 
     # print download result
     if is_print:
@@ -114,7 +111,6 @@ def get_data_from_yfinance(symbol, interval='1d', start_date=None, end_date=None
       print(symbol, e)
       data = None
 
-  # return dataframe
   return data 
 
 
@@ -202,7 +198,7 @@ def get_stock_briefs_from_yfinance(symbols, period='1d', interval='1m'):
       latest_data['latest_price'] = latest_data['Close'].copy()
       latest_data['Date'] = latest_data['latest_time'].copy()
       latest_data['Date'] = latest_data['Date'].apply(util.time_2_string, args=(0, '%Y-%m-%d',))
-      latest_data['Date'] = latest_data['Date'].apply(util.string_2_time,args=('%Y-%m-%d',))
+      latest_data['Date'] = latest_data['Date'].apply(util.string_2_time,args=(0, '%Y-%m-%d',))
 
     else:
       latest_data = None
@@ -237,29 +233,33 @@ def get_stock_briefs(symbols, source='yfinance', period='1d', interval='1m'):
   return briefs
 
 
-def post_process(df, source):
+def post_download_process(df, source):
   """
-  Get post process data downloaded from certain source
+  Post process data downloaded from certain source
 
   :param df: stock data dataframe downloaded from source
   :param source: data source
   :returns: post processed data
   :raises: none
   """
+  if df is not None:
 
-  df = df.copy()
+    # copy dataframe
+    df = df.copy()
 
-  if source == 'yfinance':
-    df = df.rename(columns={'Dividends':'Dividend', 'Stock Splits': 'Split'})
-    df.Split = df.Split.replace(0, 1)
-    df = df.dropna()
+    # post process data downloaded from yfinance
+    if source == 'yfinance':
+      df = df.rename(columns={'Dividends':'Dividend', 'Stock Splits': 'Split'})
+      df.Split = df.Split.replace(0, 1)
+      df = df.dropna()
 
-    if 'Adj Close' not in df.columns:
-      df['Adj Close'] = df['Close']
+      if 'Adj Close' not in df.columns:
+        df['Adj Close'] = df['Close']
 
-  elif source == 'yahoo':
-    df['Split'] = 1
-    df['Dividend'] = 0
+    # post process data downloaded from yahoo
+    elif source == 'yahoo':
+      df['Split'] = 1
+      df['Dividend'] = 0
 
   return df
 
@@ -273,17 +273,18 @@ def update_stock_data_from_yfinance(symbol, data=None, is_print=True):
   :returns: dataframe of latest stock data
   :raises: none
   """
+  # calculate start_date, end_date
   if data is not None:
     start = data.index.max()
   else:
-    data = pd.DataFrame()
     start = '1991-01-01'
-
+    data = pd.DataFrame()
   end = util.time_2_string(datetime.datetime.today().date())
 
   # get the most recent data, append it to the original data
   realtime_data = get_data_from_yfinance(symbol=symbol, interval='1d', start_date=start, end_date=end, is_print=is_print)
   
+  # append new data to the existed data
   data = data.append(realtime_data, sort=True)
   data = util.remove_duplicated_index(df=data, keep='last').dropna()
 
@@ -296,7 +297,6 @@ def update_stock_data_from_yfinance_by_stock(symbols, stock_data_path, file_form
 
   :param symbols: symbol list
   :param stock_data_path: in where the local stock data files(.csv) are stored
-  :param api_key: api key for accessing alphavantage
   :param file_format: default is .csv
   :param required_date: if the local data have already meet the required date, it won't be updated
   :param is_print: whether to print info when downloading
@@ -360,7 +360,6 @@ def update_stock_data_from_yfinance_by_date(symbols, stock_data_path, file_forma
 
   :param symbols: symbol list
   :param stock_data_path: in where the local stock data files(.csv) are stored
-  :param api_key: api key for accessing alphavantage
   :param file_format: default is .csv
   :param required_date: if the local data have already meet the required date, it won't be updated
   :param is_print: whether to print info when downloading
@@ -414,7 +413,7 @@ def update_stock_data_from_yfinance_by_date(symbols, stock_data_path, file_forma
     # update data for current batch, rename, replace, append, dropna
     for symbol in tmp_symbols:
       new_data = tmp_batch_data[symbol].copy()
-      new_data = post_process(df=new_data, source='yfinance')
+      new_data = post_download_process(df=new_data, source='yfinance')
       data[symbol] = data[symbol].append(new_data, sort=True)
       data[symbol] = util.remove_duplicated_index(df=data[symbol], keep='last').dropna()
 
@@ -958,7 +957,7 @@ def modify_config(config_key, config_value, file_path, file_name, print=False):
 def dict_2_excel(dictionary, file_path, file_name, keep_index=False):
 
   # 打开文件
-  writer = pd.ExcelWriter('{path}{name}'.format(path=file_path, name=file_name))
+  writer = pd.ExcelWriter(f'{file_path}{file_name}')
 
   # 写入
   for k in dictionary.keys():

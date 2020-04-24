@@ -1258,6 +1258,9 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
   :param fillna: whether to fill na with 0
   :param cal_signal: whether to calculate signal
   :returns: dataframe with new features generated
+
+
+  # signal: 在tankan平移, kijun向下的时候应该卖出; 在tankan向上, kijun向上或平移的时候应该买入
   """
   # copy dataframe
   df = df.copy()

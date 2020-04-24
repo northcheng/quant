@@ -15,16 +15,18 @@ import matplotlib.cm as cmx
 
 
 #----------------------- Date manipulation -----------------------#
-def string_2_time(string, date_format='%Y-%m-%d'):
+def string_2_time(string, diff_days=0, date_format='%Y-%m-%d'):
   """
   Convert date string to datetime instance
 
   :param string: date string
+  :param diff_days: days need to be added or reduced
   :param date_format: the format of the date string
   :returns: datetime instance
   :raises: none
   """
   time_object = datetime.datetime.strptime(string, date_format)
+  time_object = time_object + datetime.timedelta(days=diff_days)
   return time_object
  
 
@@ -111,7 +113,6 @@ def sleep_until(target_time, check_frequency=3600):
   :returns: none
   :raises: none
   """
-
   # get current time
   now = datetime.datetime.now()
   while now < target_time:
@@ -200,6 +201,15 @@ def plot_data(df, columns, start=None, end=None, figsize=(20, 5), colormap='tab1
 
 #----------------------- Print assistence ----------------------#
 def print_when(condition, true_content='', false_content=None):
+  """
+  Print different content under different conditions
+
+  :param condition: condition sentence, the result is a boolean value
+  :param true_content: content to print when the condition is true
+  :param false_content: content to print when the condition is false
+  :returns: none
+  :raises: none
+  """
   if condition:
     if true_content is not None:
       print(true_content)
@@ -209,10 +219,3 @@ def print_when(condition, true_content='', false_content=None):
       print(false_content)
 
 
-def print_and_log(info, file_name, mode='a'):
-
-  print(info)
-  if file_name is not None:
-    file=open(file_name, mode, encoding='utf8')
-    file.write(f'{info}\n')
-    file.close()
