@@ -1,8 +1,8 @@
 {
 	"etf": [
-		"TQQQ","SQQQ","UPRO","SPXU","UDOW","SDOW","FAS","FAZ","ERX","ERY",
-		"TECL","TECS","SOXL","SOXS","LABU","LABD","DZK","DPK","EDC","EDZ",
-		"UGLD","DGLD","UGAZ","DGAZ","CHAU","CHAD","YINN","YANG","CQQQ","TVIX"],
+		"TQQQ","SQQQ","UPRO","SPXU","UDOW","SDOW","TECL","TECS","SOXL","SOXS",
+		"FAS","FAZ","UGLD","DGLD","ERX","ERY","UGAZ","DGAZ","LABU","LABD", 
+		"CHAU","CHAD","YINN","YANG","CQQQ","TVIX"],
 
 	"company": [
 		"AAPL","MSFT","IBM","FB","ADBE","NFLX","DIS",
@@ -18,9 +18,10 @@
 	"non_auto": [],
 
 	"all": [
-		"TQQQ","SQQQ","UPRO","SPXU","UDOW","SDOW","FAS","FAZ","ERX","ERY",
-		"TECL","TECS","SOXL","SOXS","LABU","LABD","DZK","DPK","EDC","EDZ",
-		"UGLD","DGLD","UGAZ","DGAZ","CHAU","CHAD","YINN","YANG","CQQQ","TVIX",
+		"TQQQ","SQQQ","UPRO","SPXU","UDOW","SDOW","TECL","TECS","SOXL","SOXS",
+		"FAS","FAZ","UGLD","DGLD","ERX","ERY","UGAZ","DGAZ","LABU","LABD", 
+		"CHAU","CHAD","YINN","YANG","CQQQ","TVIX",
+		
 		"AAPL","MSFT","IBM","FB","ADBE","NFLX","DIS",
 		"INTC","NVDA","AMD","QCOM","AVGO","TXN","TSM",
 		"TSLA","LMT","GE","BA","HON",
