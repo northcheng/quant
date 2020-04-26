@@ -346,18 +346,18 @@ def calculate_ta_signal(df):
   df = df.copy()
 
   # ================================ Trend with Ichimoku, aroon ======================
-  # df['trend'] = 'n'
-  # up_idx = df.query('ichimoku_trend=="u" and aroon_trend=="u"').index
-  # down_idx = df.query('(ichimoku_trend=="d" and aroon_trend!="u") or (ichimoku_trend!="u" and aroon_trend=="d")').index
-  # df.loc[up_idx, 'trend'] = 'u'
-  # df.loc[down_idx, 'trend'] = 'd'
-
-  # ================================ Trend with Ichimoku, aroon, adx ======================
   df['trend'] = 'n'
-  up_idx = df.query('trend_idx == 3').index
-  down_idx = df.query('(ichimoku_trend=="d" and aroon_trend!="u" and adx_trend!="u") or (aroon_trend=="d" and ichimoku_trend!="u" and adx_trend!="u") or (adx_trend=="d" and ichimoku_trend!="u" and aroon_trend!="u")').index # 
+  up_idx = df.query('ichimoku_trend=="u" and aroon_trend=="u"').index
+  down_idx = df.query('(ichimoku_trend=="d" and aroon_trend!="u") or (ichimoku_trend!="u" and aroon_trend=="d")').index
   df.loc[up_idx, 'trend'] = 'u'
   df.loc[down_idx, 'trend'] = 'd'
+
+  # # ================================ Trend with Ichimoku, aroon, adx ======================
+  # df['trend'] = 'n'
+  # up_idx = df.query('trend_idx == 3').index
+  # down_idx = df.query('(ichimoku_trend=="d" and aroon_trend!="u" and adx_trend!="u") or (aroon_trend=="d" and ichimoku_trend!="u" and adx_trend!="u") or (adx_trend=="d" and ichimoku_trend!="u" and aroon_trend!="u")').index # 
+  # df.loc[up_idx, 'trend'] = 'u'
+  # df.loc[down_idx, 'trend'] = 'd'
 
   # ================================ Calculate overall siganl ======================
   df['signal'] = 'n' 
