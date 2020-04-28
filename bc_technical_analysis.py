@@ -329,6 +329,30 @@ def calculate_ta_trend(df, main_indicators, diff_indicators, other_indicators, s
       down_idx = df.query('adx_diff <= 0').index
       df.loc[down_idx ,'adx_trend'] = 'd'
 
+    if 'eom' in diff_indicators:
+      # initialize
+      # df['eom_trend'] = 'n'
+
+      # it is going up when adx_diff>0
+      up_idx = df.query('eom_diff > 0').index
+      df.loc[up_idx ,'eom_trend'] = 'u'
+
+      # it is going down when adx_diff<0
+      down_idx = df.query('eom_diff <= 0').index
+      df.loc[down_idx ,'eom_trend'] = 'd'
+
+    if 'kst' in diff_indicators:
+      # initialize
+      # df['kst_trend'] = 'n'
+
+      # it is going up when adx_diff>0
+      up_idx = df.query('kst_diff > 0').index
+      df.loc[up_idx ,'kst_trend'] = 'u'
+
+      # it is going down when adx_diff<0
+      down_idx = df.query('kst_diff <= 0').index
+      df.loc[down_idx ,'kst_trend'] = 'd'
+
     # ================================ Number days since trend shifted ========
     phase = 'cal_num_day_trend_shifted'
     df['trend_idx'] = 0
@@ -372,19 +396,20 @@ def calculate_ta_signal(df):
   # copy data, initialize signal
   df = df.copy()
 
-  # ================================ Trend with Ichimoku, aroon ======================
+  # # ================================ Trend with Ichimoku, aroon ======================
+  # df['trend'] = 'n'
+  # up_idx = df.query('ichimoku_trend=="u" and aroon_trend=="u"').index
+  # down_idx = df.query('(ichimoku_trend=="d" and aroon_trend!="u") or (ichimoku_trend!="u" and aroon_trend=="d")').index
+  # df.loc[up_idx, 'trend'] = 'u'
+  # df.loc[down_idx, 'trend'] = 'd'
+
+  # ================================ Trend with Ichimoku, aroon, adx ======================
   df['trend'] = 'n'
-  up_idx = df.query('ichimoku_trend=="u" and aroon_trend=="u"').index
-  down_idx = df.query('(ichimoku_trend=="d" and aroon_trend!="u") or (ichimoku_trend!="u" and aroon_trend=="d")').index
+  up_idx = df.query('trend_idx == 3').index
+  down_idx = df.query('(ichimoku_trend=="d" and aroon_trend!="u" and adx_trend!="u") or (aroon_trend=="d" and ichimoku_trend!="u" and adx_trend!="u") or (adx_trend=="d" and ichimoku_trend!="u" and aroon_trend!="u")').index # 
   df.loc[up_idx, 'trend'] = 'u'
   df.loc[down_idx, 'trend'] = 'd'
 
-  # # ================================ Trend with Ichimoku, aroon, adx ======================
-  # df['trend'] = 'n'
-  # up_idx = df.query('trend_idx == 3').index
-  # down_idx = df.query('(ichimoku_trend=="d" and aroon_trend!="u" and adx_trend!="u") or (aroon_trend=="d" and ichimoku_trend!="u" and adx_trend!="u") or (adx_trend=="d" and ichimoku_trend!="u" and aroon_trend!="u")').index # 
-  # df.loc[up_idx, 'trend'] = 'u'
-  # df.loc[down_idx, 'trend'] = 'd'
 
   # ================================ Calculate overall siganl ======================
   df['signal'] = 'n' 
@@ -2729,7 +2754,7 @@ def plot_signal(
   if signal_col in df.columns:
     
     signal_alpha = 1 if signal_col == 'signal' else 0.3
-    trend_alpha = 0.3 if signal_col == 'signal' else 0.15
+    trend_alpha = 0.25 if signal_col == 'signal' else 0.25
     positive_signal = df.query(f'{signal_col} == "{pos_signal}"')
     negative_signal = df.query(f'{signal_col} == "{neg_signal}"')
     none_signal = df.query(f'{signal_col} == "{none_signal}"')
@@ -2738,20 +2763,18 @@ def plot_signal(
     # ax.scatter(none_signal.index, none_signal['signal_base'], label=None, marker='.', color='grey', alpha=0.1)
     
     if trend_col in df.columns:
-      # if trend_col == 'trend':
-      #   pass
-      # else:
-        pos_trend = df.query(f'{trend_col} == "u"')
-        neg_trend = df.query(f'{trend_col} == "d"') 
-        none_trend = df.query(f'{trend_col} == "n"')
-        ax.scatter(pos_trend.index, pos_trend['signal_base'], label=None, marker='o', color='green', alpha=trend_alpha)
-        ax.scatter(neg_trend.index, neg_trend['signal_base'], label=None, marker='o', color='red', alpha=trend_alpha)
-        ax.scatter(none_trend.index, none_trend['signal_base'], label=None, marker='o', color='orange', alpha=trend_alpha)
+      pos_trend = df.query(f'{trend_col} == "u"')
+      neg_trend = df.query(f'{trend_col} == "d"') 
+      none_trend = df.query(f'{trend_col} == "n"')
+      ax.scatter(pos_trend.index, pos_trend['signal_base'], label=None, marker='o', color='green', alpha=trend_alpha)
+      ax.scatter(neg_trend.index, neg_trend['signal_base'], label=None, marker='o', color='red', alpha=trend_alpha)
+      ax.scatter(none_trend.index, none_trend['signal_base'], label=None, marker='o', color='orange', alpha=trend_alpha)
 
 
   # legend and title
   ax.legend(loc='upper left')  
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
+  # ax.grid(True, axis='x', linestyle='--', linewidth=0.5)
 
   # return ax
   if use_ax is not None:
@@ -2928,7 +2951,7 @@ def plot_ichimoku_kama(
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
-  ax.grid(True, axis='y', linestyle='--', linewidth=1)
+  ax.grid(True, axis='both', linestyle='--', linewidth=0.5)
 
   if use_ax is not None:
     return ax
@@ -2968,13 +2991,13 @@ def plot_aroon(
   ax.fill_between(df.index, df.aroon_up, df.aroon_down, where=df.aroon_up > df.aroon_down, facecolor='green', interpolate=True, alpha=0.1)
   ax.fill_between(df.index, df.aroon_up, df.aroon_down, where=df.aroon_up <= df.aroon_down, facecolor='red', interpolate=True, alpha=0.1)
  
-  df['zero'] = 0
-  ax.plot(df.index, df['adx_diff'], label='adx_diff', color='black', marker='.', alpha=0.3)
-  # ax.plot(df.index, df['zero'], label='0', color='red', marker='.', alpha=0.3)
+  # df['zero'] = 0
+  # ax.plot(df.index, df['adx_diff'], label='adx_diff', color='black', marker='.', alpha=0.3)
+  # # ax.plot(df.index, df['zero'], label='0', color='red', marker='.', alpha=0.3)
 
 
-  ax.fill_between(df.index, df.adx_diff, df.zero, where=df.adx_diff > df.zero, facecolor='green', interpolate=True, alpha=0.1)
-  ax.fill_between(df.index, df.adx_diff, df.zero, where=df.adx_diff <= df.zero, facecolor='red', interpolate=True, alpha=0.1)
+  # ax.fill_between(df.index, df.adx_diff, df.zero, where=df.adx_diff > df.zero, facecolor='green', interpolate=True, alpha=0.1)
+  # ax.fill_between(df.index, df.adx_diff, df.zero, where=df.adx_diff <= df.zero, facecolor='red', interpolate=True, alpha=0.1)
   # # plot waving areas
   # wave_idx = (df.aroon_gap_change==0)&(df.aroon_up_change==df.aroon_down_change)#&(df.aroon_up<96)&(df.aroon_down<96)
   # for i in range(len(wave_idx)):
@@ -2988,7 +3011,7 @@ def plot_aroon(
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
-  ax.grid(True, axis='y', linestyle='--', linewidth=1)
+  ax.grid(True, axis='both', linestyle='--', linewidth=0.5)
 
   if use_ax is not None:
     return ax
@@ -3021,23 +3044,24 @@ def plot_adx(
     ax = plt.gca()
 
   # plot pdi/mdi/adx 
-  # ax.plot(df.index, df.pdi, label='pdi', color='green', marker='.', alpha=0.3)
-  # ax.plot(df.index, df.mdi, label='mdi', color='red', marker='.', alpha=0.3)
-  # ax.plot(df.index, df.adx, label='adx', color='black', marker='.', alpha=0.3)
+  ax.plot(df.index, df.pdi, label='pdi', color='green', marker='.', alpha=0.3)
+  ax.plot(df.index, df.mdi, label='mdi', color='red', marker='.', alpha=0.3)
+  ax.plot(df.index, df.adx, label='adx', color='black', marker='.', alpha=0.3)
   
   # fill between pdi/mdi
-  # ax.fill_between(df.index, df.pdi, df.mdi, where=df.pdi > df.mdi, facecolor='green', interpolate=True, alpha=0.1)
-  # ax.fill_between(df.index, df.pdi, df.mdi, where=df.pdi <= df.mdi, facecolor='red', interpolate=True, alpha=0.1)
+  ax.fill_between(df.index, df.pdi, df.mdi, where=df.pdi > df.mdi, facecolor='green', interpolate=True, alpha=0.1)
+  ax.fill_between(df.index, df.pdi, df.mdi, where=df.pdi <= df.mdi, facecolor='red', interpolate=True, alpha=0.1)
 
-  ax.plot(df.index, df['adx_diff'], label='adx_diff', color='black', linestyle='--', marker='.', alpha=0.5)
-  df['zero'] = 0
-  ax.fill_between(df.index, df.adx_diff, df.zero, where=df.adx_diff > df.zero, facecolor='green', interpolate=True, alpha=0.1)
-  ax.fill_between(df.index, df.adx_diff, df.zero, where=df.adx_diff <= df.zero, facecolor='red', interpolate=True, alpha=0.1)
+  # # plot adx_diff
+  # ax.plot(df.index, df['adx_diff'], label='adx_diff', color='black', linestyle='--', marker='.', alpha=0.5)
+  # df['zero'] = 0
+  # ax.fill_between(df.index, df.adx_diff, df.zero, where=df.adx_diff > df.zero, facecolor='green', interpolate=True, alpha=0.1)
+  # ax.fill_between(df.index, df.adx_diff, df.zero, where=df.adx_diff <= df.zero, facecolor='red', interpolate=True, alpha=0.1)
 
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
-  ax.grid(True, axis='y', linestyle='--', linewidth=1)
+  ax.grid(True, axis='both', linestyle='--', linewidth=0.5)
 
   if use_ax is not None:
     return ax

@@ -1,8 +1,7 @@
 {
 	"etf": [
 		"TQQQ","SQQQ","UPRO","SPXU","UDOW","SDOW","TECL","TECS","SOXL","SOXS",
-		"FAS","FAZ","UGLD","DGLD","ERX","ERY","UGAZ","DGAZ","LABU","LABD", 
-		"CHAU","CHAD","YINN","YANG","CQQQ","TVIX"],
+		"FAS","FAZ","LABU","LABD", "CHAU","CHAD","YINN","YANG","CQQQ","TVIX"],
 
 	"company": [
 		"AAPL","MSFT","IBM","FB","ADBE","NFLX","DIS",
