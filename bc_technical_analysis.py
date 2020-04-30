@@ -2893,7 +2893,7 @@ def plot_candlestick(
 # plot ichimoku chart
 def plot_ichimoku_kama(
   df, start=None, end=None, date_col='Date', ohlcv_col=default_ohlcv_col, 
-  target_indicator = ['price', 'ichimoku', 'kama', 'candlestick'],
+  target_indicator = ['price', 'ichimoku', 'kama', 'candlestick', 'bb'],
   candlestick_width=0.8, candlestick_color=default_candlestick_color, 
   use_ax=None, title=None, plot_args=default_plot_args):
   """
@@ -2943,6 +2943,14 @@ def plot_ichimoku_kama(
     alpha = 0.6
     ax.plot(df.index, df.kama_fast, label='kama_fast', color='magenta', alpha=alpha)
     ax.plot(df.index, df.kama_slow, label='kama_slow', color='blue', alpha=alpha)
+
+  if 'bb' in target_indicator:
+    alpha = 0.6
+    ax.plot(df.index, df.bb_high_band, label='bb_high_band', color='green', alpha=alpha)
+    ax.plot(df.index, df.bb_low_band, label='bb_low_band', color='red', alpha=alpha)
+    ax.plot(df.index, df.mavg, label='mavg', color='grey', alpha=alpha)
+    ax.fill_between(df.index, df.mavg, df.bb_high_band, facecolor='green', interpolate=True, alpha=0.1)
+    ax.fill_between(df.index, df.mavg, df.bb_low_band, facecolor='red', interpolate=True, alpha=0.2)
 
   # plot candlestick
   if 'candlestick' in target_indicator:
