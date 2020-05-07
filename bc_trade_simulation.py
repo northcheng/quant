@@ -5,10 +5,12 @@ Utilities used for trade simulation
 :authors: Beichen Chen
 """
 import pandas as pd
+import numpy as np
 import math
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
 from quant import bc_util as util
+from quant import bc_finance as finance_util
 from quant import bc_technical_analysis as ta_util
 
 
@@ -232,7 +234,7 @@ class FixedPositionTrader:
   value = {}
 
   # init
-  def __init__(self, sec_list, start_cash, signals):
+  def __init__(self, sec_list, start_cash, signals, recalculate_signal=False):
 
     # initialize stock list and start cash
     self.sec_list = sec_list
@@ -241,56 +243,64 @@ class FixedPositionTrader:
     # initialize trading record
     for k in signals.keys():
       sec_code = k.split('_')[0]
-      self.record[sec_code] = signals[k][['signal', 'Close']].copy()
+      
+      if recalculate_signal:
+        self.record[sec_code] = ta_util.calculate_ta_signal(df=signals[k])
+      else:
+        self.record[sec_code] = signals[k].copy()
+
+      # self.record[sec_code] = self.record[sec_code][['signal', 'Close']]
       self.record[sec_code]['holding_price'] = 0
       self.record[sec_code]['holding_return'] = 0
+      self.record[sec_code]['money'] = np.NaN
+      self.record[sec_code]['stock'] = np.NaN
+      self.record[sec_code]['value'] = np.NaN
  
   # trade
   def trade(self, start_date, end_date, stop_profit=None, stop_loss=None):
 
-    # 平均分配仓位资金
+    # evenly distribute money to each stock
     avg_position = self.start_cash / len(self.sec_list)
     for sec_code in self.sec_list:
       self.stock[sec_code] = 0
       self.cash[sec_code] = avg_position
       self.value[sec_code] = avg_position
 
+    # set target sec list
+    target_list = self.sec_list
+
+    # start/end date
     start_dates = []
     end_dates = []
-    for s in self.record.keys():
+    for s in target_list:
       start_dates.append(self.record[s].index.min())
       end_dates.append(self.record[s].index.max())
+    start_date = util.time_2_string(min(start_dates)) if start_date is None else start_date
+    end_date =  util.time_2_string(max(end_dates)) if end_date is None else end_date
 
-    if start_date is None:
-      start_date = util.time_2_string(min(start_dates))
-
-    if end_date is None:
-      end_date =  util.time_2_string(max(end_dates))
-
-
-    # 构造日期列表
+    # construct date list
     dates = []
     next_date = start_date
     while next_date <= end_date:
       dates.append(next_date)
       next_date = util.string_plus_day(next_date, 1)
 
-    # 遍历日期列表
+    # go through each day
     for date in dates:
       date_signal = []
 
-      # 遍历每只股票的信号
-      for sec_code in self.record.keys():
+      # go through each stock
+      for sec_code in target_list:
         signal_data = self.record[sec_code]
         
-        # 如果是交易日
+        # if current date is trading day
         if date in signal_data.index:
 
-          # 获取交易信号与价格
+          # get signal and price
           tmp_signal = signal_data.loc[date, 'signal']
           tmp_price = signal_data.loc[date, 'Close']
 
-          # 计算持有收益, 查看是否需要止盈/止损
+          # check if it is necessary to stop profit/loss
           if self.stock[sec_code] > 0:
             signal_data.loc[date, 'holding_price'] = self.holding_price[sec_code]
             signal_data.loc[date, 'holding_return'] = (tmp_price - signal_data.loc[date, 'holding_price']) / signal_data.loc[date, 'holding_price']
@@ -317,14 +327,101 @@ class FixedPositionTrader:
           signal_data.loc[date, 'stock'] = self.stock[sec_code]
           signal_data.loc[date, 'value'] = self.value[sec_code]
                   
-        # 跳过非交易日
+        # if current date is not trading day
         else:
           pass
 
+  # visualize
+  def visualize(self, sec_code, start_date=None, end_date=None):
 
+    # create image
+    fig = plt.figure(figsize=(20, 5))  
+    gs = gridspec.GridSpec(2, 1, height_ratios=[1, 1])
+    trade_plot = plt.subplot(gs[0])
+    money_plot = plt.subplot(gs[1], sharex=trade_plot)
+    plt.setp(trade_plot.get_xticklabels(), visible=False)
+    gs.update(wspace=0, hspace=0)
+    
+    record = self.record[sec_code].copy()
+    min_idx = record.index.min()
+    max_idx = record.index.max()
 
-  # # analysis
-  # def trade_record_analysis(self):
+    # plot trade signals
+    buying_points = record.query('signal == "b"')
+    selling_points = record.query('signal == "s"')
+    trade_plot.plot(record.index, record[['Close']], label='Close')
+    trade_plot.scatter(buying_points.index,buying_points.Close, c='green', label='Buy')
+    trade_plot.scatter(selling_points.index,selling_points.Close, c='red', label='Sell')
+
+    # plot money flow chart
+    record.fillna(method='ffill', inplace=True)
+    record['original'] = record.loc[min_idx, 'value']
+    money_plot.plot(record.index, record.value, label='Value')
+    money_plot.plot(record.index, record.original, label='Original')
+
+    money_plot.fill_between(record.index, record.original, record.value, where=record.value > record.original, facecolor='green', interpolate=True, alpha=0.1)
+    money_plot.fill_between(record.index, record.original, record.value, where=record.value < record.original, facecolor='red', interpolate=True, alpha=0.1)
+
+    # set title and legend
+    trade_plot.legend(bbox_to_anchor=(1.02, 0.), loc=3, ncol=1, borderaxespad=0.0) 
+    trade_plot.set_title('Signals', rotation='vertical', x=-0.05, y=0.3)
+    money_plot.legend(bbox_to_anchor=(1.02, 0.), loc=3, ncol=1, borderaxespad=0.0) 
+    money_plot.set_title('Money', rotation='vertical', x=-0.05, y=0.3)
+
+    ear = finance_util.cal_EAR(data=record, start=min_idx.date(), end=max_idx.date(), dim='value', dividends=0)
+    fig.suptitle(f'{sec_code}: {ear*100:.2f}%', x=0.5, y=0.95, fontsize=20)
+
+  # analysis
+  def analyze(self, sort=True):
+
+    # get records for self.sec_list
+    records = dict((key,value) for key,value in self.record.items() if key in self.sec_list)
+    
+    # init dict for storing results
+    analysis = {
+        'sec_code': [],
+        'start_date': [],
+        'end_date': [],
+        'start_money': [],
+        'end_money': [],
+        'EAR': []
+      }
+
+    # go through each stock
+    for sec_code in records.keys():
+        
+      # get record data
+      record_data = records[sec_code]
+      min_idx = record_data.index.min()
+      max_idx = record_data.index.max()
+      
+      # analysis profit, hpr, ear, etc.
+      analysis['sec_code'].append(sec_code)
+      analysis['start_date'].append(util.time_2_string(min_idx.date()))
+      analysis['end_date'].append(util.time_2_string(max_idx.date()))
+      analysis['start_money'].append(record_data.loc[min_idx, 'value'])
+      analysis['end_money'].append(record_data.loc[max_idx, 'value'])
+      analysis['EAR'].append(finance_util.cal_EAR(data=record_data, start=min_idx.date(), end=max_idx.date(), dim='value', dividends=0))
+    
+    # transform dict to dataframe
+    analysis = pd.DataFrame(analysis).set_index('sec_code')
+    if sort:
+      analysis = analysis.sort_values('EAR', ascending=False)
+
+    if len(records) > 1:
+      # calculate sum and mean
+      analysis_mean = analysis.mean()
+      analysis_sum = analysis.sum()
+      analysis = analysis.append(pd.DataFrame({'start_date': '', 'end_date': '', 'start_money': analysis_mean['start_money'], 'end_money':analysis_mean['end_money'], 'EAR':analysis_mean['EAR']}, index=['mean']))
+      analysis = analysis.append(pd.DataFrame({'start_date': '', 'end_date': '', 'start_money': analysis_sum['start_money'], 'end_money':analysis_sum['end_money'], 'EAR':analysis_sum['EAR']}, index=['total']))
+
+    # post process
+    analysis['profit'] = analysis['end_money'] - analysis['start_money']
+    analysis['HPR'] = analysis['profit'] / analysis['start_money']
+    analysis = analysis[['start_date', 'end_date', 'start_money', 'end_money', 'profit', 'HPR', 'EAR']].round(2)
+
+    return analysis
+
 # class AveragePositionTrader:
 
 #   sec_list = []

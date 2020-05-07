@@ -18,14 +18,17 @@
 
 	"all": [
 		"TQQQ","SQQQ","UPRO","SPXU","UDOW","SDOW","TECL","TECS","SOXL","SOXS",
-		"FAS","FAZ","UGLD","DGLD","ERX","ERY","UGAZ","DGAZ","LABU","LABD", 
-		"CHAU","CHAD","YINN","YANG","CQQQ","TVIX",
+		"FAS","FAZ","LABU","LABD", "CHAU","CHAD","YINN","YANG","CQQQ","TVIX",
 		
 		"AAPL","MSFT","IBM","FB","ADBE","NFLX","DIS",
 		"INTC","NVDA","AMD","QCOM","AVGO","TXN","TSM",
 		"TSLA","LMT","GE","BA","HON",
 		"JPM","ACN","MS","GS","BAC","WFC","HSBC","C",
 		"MRK","PFE","NVO","GSK","AZN","ABBV","NVS","ABT","MDT","AMGN","DHR","JNJ","UNH"
+	],
+
+	"a": [
+		"159990.SZ", "159991.SZ", "159992.SZ", "159993.SZ", "159994.SZ", "159995.SZ", "159996.SZ", "159997.SZ", "159998.SZ"
 	]
 
 }
