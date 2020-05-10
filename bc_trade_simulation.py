@@ -384,7 +384,9 @@ class FixedPositionTrader:
         'end_date': [],
         'start_money': [],
         'end_money': [],
-        'EAR': []
+        'EAR': [],
+        'sharp_ratio': [],
+        'max_drawndown': []
       }
 
     # go through each stock
@@ -401,8 +403,16 @@ class FixedPositionTrader:
       analysis['end_date'].append(util.time_2_string(max_idx.date()))
       analysis['start_money'].append(record_data.loc[min_idx, 'value'])
       analysis['end_money'].append(record_data.loc[max_idx, 'value'])
-      analysis['EAR'].append(finance_util.cal_EAR(data=record_data, start=min_idx.date(), end=max_idx.date(), dim='value', dividends=0))
-    
+
+      EAR = finance_util.cal_EAR(data=record_data, start=min_idx.date(), end=max_idx.date(), dim='value', dividends=0)
+      analysis['EAR'].append(EAR)
+
+      sharp_ratio = finance_util.cal_sharp_ratio(data=record_data, ear=EAR)
+      analysis['sharp_ratio'].append(sharp_ratio)
+
+      max_drawndown = finance_util.cal_max_drawndown(data=record_data)
+      analysis['max_drawndown'].append(max_drawndown)
+
     # transform dict to dataframe
     analysis = pd.DataFrame(analysis).set_index('sec_code')
     if sort:
@@ -412,13 +422,13 @@ class FixedPositionTrader:
       # calculate sum and mean
       analysis_mean = analysis.mean()
       analysis_sum = analysis.sum()
-      analysis = analysis.append(pd.DataFrame({'start_date': '', 'end_date': '', 'start_money': analysis_mean['start_money'], 'end_money':analysis_mean['end_money'], 'EAR':analysis_mean['EAR']}, index=['mean']))
-      analysis = analysis.append(pd.DataFrame({'start_date': '', 'end_date': '', 'start_money': analysis_sum['start_money'], 'end_money':analysis_sum['end_money'], 'EAR':analysis_sum['EAR']}, index=['total']))
+      analysis = analysis.append(pd.DataFrame({'start_date': '', 'end_date': '', 'start_money': analysis_mean['start_money'], 'end_money':analysis_mean['end_money'], 'EAR':analysis_mean['EAR'], 'sharp_ratio':analysis_mean['sharp_ratio'], 'max_drawndown':analysis_mean['max_drawndown']}, index=['mean']))
+      analysis = analysis.append(pd.DataFrame({'start_date': '', 'end_date': '', 'start_money': analysis_sum['start_money'], 'end_money':analysis_sum['end_money'], 'EAR':analysis_sum['EAR'], 'sharp_ratio':analysis_sum['sharp_ratio'], 'max_drawndown':analysis_sum['max_drawndown']}, index=['total']))
 
     # post process
     analysis['profit'] = analysis['end_money'] - analysis['start_money']
     analysis['HPR'] = analysis['profit'] / analysis['start_money']
-    analysis = analysis[['start_date', 'end_date', 'start_money', 'end_money', 'profit', 'HPR', 'EAR']].round(2)
+    analysis = analysis[['start_date', 'end_date', 'start_money', 'end_money', 'profit', 'HPR', 'EAR', 'sharp_ratio', 'max_drawndown']].round(2)
 
     return analysis
 

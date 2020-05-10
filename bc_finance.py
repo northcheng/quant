@@ -207,4 +207,21 @@ def cal_period_rate_risk(data, dim='Close', by='month'):
   return period_rate
 
 
+def cal_sharp_ratio(data, ear, rfr=0.04, rate_dim='rate', days_a_year=252):
+  sharp_ratio = (ear - rfr) / (data[rate_dim].std() * days_a_year**0.5)
+  return sharp_ratio
+
+def cal_max_drawndown(data, value_dim='value'):
+
+  data = data.copy()
+  data['drawndown'] = 0
+
+  for index, row in data.iterrows():
+    current_max = data[:index][value_dim].max()
+    current = data.loc[index, value_dim]
+    data.loc[index, 'drawndown'] = (current_max - current) / current_max
+
+  max_drawndown = data['drawndown'].max()
+
+  return max_drawndown
 
