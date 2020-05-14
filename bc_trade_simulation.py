@@ -275,8 +275,10 @@ class FixedPositionTrader:
     for s in target_list:
       start_dates.append(self.record[s].index.min())
       end_dates.append(self.record[s].index.max())
-    start_date = util.time_2_string(min(start_dates)) if start_date is None else start_date
-    end_date =  util.time_2_string(max(end_dates)) if end_date is None else end_date
+    if start_date is None:
+      start_date = util.time_2_string(min(start_dates)) if start_date is None else start_date
+    if end_date is None:
+      end_date =  util.time_2_string(max(end_dates)) if end_date is None else end_date
 
     # construct date list
     dates = []
@@ -330,6 +332,9 @@ class FixedPositionTrader:
         # if current date is not trading day
         else:
           pass
+
+    for sec_code in target_list:
+      self.record[sec_code][['money', 'stock', 'value']] = self.record[sec_code][['money', 'stock', 'value']].fillna(method='bfill')
 
   # visualize
   def visualize(self, sec_code, start_date=None, end_date=None):

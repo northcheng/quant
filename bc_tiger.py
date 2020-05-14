@@ -27,7 +27,7 @@ defualt_logger = logging.getLogger('bc_tiger_logger')
 class Tiger:
 
   # user info: dict
-  __user_info = {}            
+  __user_info = {}        
   __position_record = {}
 
 
@@ -37,9 +37,6 @@ class Tiger:
     # read user info from local file
     self.__user_info = pd.read_csv(config['tiger_path'] + 'user_info.csv').loc[0,:].astype('str').to_dict()
 
-    # get position record
-    self.__position_record = io_util.read_config(file_path=config['config_path'], file_name='tiger_position_record.json')
-
     # set client_config
     self.client_config = TigerOpenClientConfig(sandbox_debug=sandbox_debug)
     self.client_config.private_key = read_private_key(config['tiger_path'] + self.__user_info['private_key_name'])
@@ -47,7 +44,7 @@ class Tiger:
     self.client_config.tiger_id = str(self.__user_info['tiger_id'])
     
     # get quote/trade client, assets and positions
-    self.update_account(account_type=account_type)
+    self.update_account(account_type=account_type, config=config)
 
     # get logger
     if logger_name is None:
@@ -58,8 +55,17 @@ class Tiger:
     self.logger.info(f'[init]: Tiger instance created: {logger_name}')
 
 
+  # get user info
+  def get_user_info(self):
+    return self.__user_info
+
+  # get position record
+  def get_position_record(self):
+    return self.__position_record
+
+
   # get quote/trade client, assets and positions for specified account
-  def update_account(self, account_type):
+  def update_account(self, account_type, config):
 
     # update config, trade_client, quote_client
     self.client_config.account = str(self.__user_info[account_type])
@@ -69,6 +75,29 @@ class Tiger:
     # update asset and position
     self.positions = self.trade_client.get_positions(account=self.__user_info[account_type])
     self.assets = self.trade_client.get_assets(account=self.__user_info[account_type])
+
+    # initialize position record
+    self.__position_record[account_type] = {}
+    init_cash = config['trade']['init_cash'][account_type]
+    pool = config['selected_sec_list'][config['trade']['pool'][account_type]]
+    for symbol in pool:
+      self.__position_record[account_type][symbol] = {'cash': init_cash, 'position': 0}
+
+    # update position record from current positions
+    for pos in self.positions:
+      symbol = pos.contract.symbol
+      position = pos.quantity
+      self.__position_record[account_type][symbol] = {'cash': 0, 'position': position}
+
+    # update position record from historical position records
+    historical_position_record = io_util.read_config(file_path=config['config_path'], file_name='tiger_position_record.json')[account_type]
+    for symbol in historical_position_record.keys():
+      historical_cash = historical_position_record[symbol]['cash']
+      historical_position = historical_position_record[symbol]['position']
+
+      if symbol in self.__position_record[account_type].keys():
+        if self.__position_record[account_type][symbol]['position'] == historical_position and historical_position == 0:
+          self.__position_record[account_type][symbol]['cash'] = historical_cash
 
     # update position record
     self.record = self.__position_record[account_type]
@@ -125,8 +154,6 @@ class Tiger:
 
       # get briefs for stocks in positions
       if get_briefs:
-        # status = self.quote_client.get_stock_briefs(symbols=[x.contract.symbol for x in self.positions])
-
         status = io_util.get_stock_briefs(symbols=[x.contract.symbol for x in self.positions], source='yfinance', period='1d', interval='1m')
         result = pd.merge(result, status, how='left', left_on='symbol', right_on='symbol')
         result['rate'] = round((result['latest_price'] - result['average_cost']) / result['average_cost'], 2)
@@ -195,7 +222,6 @@ class Tiger:
       available_cash = self.get_available_cash()
 
     # get latest price of stock
-    # stock_brief = self.quote_client.get_stock_briefs(symbols=[symbol]).set_index('symbol')
     stock_brief = io_util.get_stock_briefs(symbols=[symbol], source='yfinance', period='1d', interval='1m').set_index('symbol')
     latest_price = stock_brief.loc[symbol, 'latest_price']
 
@@ -237,7 +263,7 @@ class Tiger:
         order_price = 'market'
         order = market_order(account=self.client_config.account, contract=contract, action=action, quantity=quantity)
       else:
-        order_price = f'{price}'
+        order_price = float(f'{price}')
         order = limit_order(account=self.client_config.account, contract=contract, action=action, quantity=quantity, limit_price=price)
 
       # construct trade summary
@@ -261,7 +287,7 @@ class Tiger:
           self.trade_client.place_order(order)
           trade_summary += f'SUCCEED: {order.id}'
         else:
-          trade_summary += f'FAILED: Not affordable({affordable_quantity})'
+          trade_summary += f'FAILED: Not affordable({affordable_quantity}/{quantity})'
 
       # place sell order if holding enough stocks
       elif action == 'SELL':    
@@ -270,7 +296,7 @@ class Tiger:
           self.trade_client.place_order(order)
           trade_summary += f'SUCCEED: {order.id}'
         else:
-          trade_summary += f'FAILED: Not enough stock to sell({in_position_quantity})'
+          trade_summary += f'FAILED: Not enough stock to sell({in_position_quantity}/{quantity})'
 
       # other actions
       else:
@@ -296,7 +322,7 @@ class Tiger:
 
       # filter sec with pool
       if pool is not None:
-        filtered_list = [x for x in signal.index if x in pool]
+        filtered_list = [x for x in signal.index if x in self.record.keys()]
         signal = signal.loc[filtered_list, signal.columns].copy()
 
     # if signal list is not empty
