@@ -347,7 +347,7 @@ class FixedPositionTrader:
     plt.setp(trade_plot.get_xticklabels(), visible=False)
     gs.update(wspace=0, hspace=0)
     
-    record = self.record[sec_code].copy()
+    record = self.record[sec_code][start_date:end_date].copy()
     min_idx = record.index.min()
     max_idx = record.index.max()
 
