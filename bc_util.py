@@ -17,16 +17,17 @@ import matplotlib.cm as cmx
 #----------------------- Date manipulation -----------------------#
 def string_2_time(string, diff_days=0, date_format='%Y-%m-%d'):
   """
-  Convert date string to datetime instance
+  Convert a date from string to datetime
 
-  :param string: date string
+  :param string: date in string format
   :param diff_days: days need to be added or reduced
   :param date_format: the format of the date string
-  :returns: datetime instance
+  :returns: date in datetime format
   :raises: none
   """
   time_object = datetime.datetime.strptime(string, date_format)
   time_object = time_object + datetime.timedelta(days=diff_days)
+
   return time_object
  
 
@@ -42,6 +43,7 @@ def time_2_string(time_object, diff_days=0, date_format='%Y-%m-%d'):
   """
   time_object = time_object + datetime.timedelta(days=diff_days)
   time_string = datetime.datetime.strftime(time_object, date_format)
+
   return time_string
 
 
@@ -66,6 +68,7 @@ def timestamp_2_time(timestamp, unit='ms', timezone='CN'):
     timestamp = int(timestamp/1000000)
 
   time_object = datetime.datetime.fromtimestamp(int(timestamp), tz)
+
   return time_object
 
 
@@ -79,9 +82,9 @@ def string_plus_day(string, diff_days, date_format='%Y-%m-%d'):
   :returns: date string
   :raises: none
   """
-  # 字符串转日期, 加减天数
   time_object = string_2_time(string, date_format=date_format)
   time_string = time_2_string(time_object, diff_days=diff_days, date_format=date_format)
+
   return time_string    
 
 
@@ -95,12 +98,10 @@ def num_days_between(start_date, end_date, date_format='%Y-%m-%d'):
   :returns: number of days between start/end date
   :raises: none
   """
-  # convert date strings to datetime instances
   start_date = string_2_time(start_date, date_format=date_format)
   end_date = string_2_time(end_date, date_format=date_format)
-  
-  # calculate the difference between 2 date
   diff = end_date - start_date
+
   return diff.days
 
 
@@ -113,23 +114,21 @@ def sleep_until(target_time, check_frequency=3600):
   :returns: none
   :raises: none
   """
-  # get current time
   now = datetime.datetime.now()
   while now < target_time:
 
-    # calculate difference between current time and target time
     diff_time = (target_time - now).seconds
     sleep_time = (diff_time+1) if (diff_time <= check_frequency) else check_frequency
-    print(f'{now}: sleep for {sleep_time} seconds')
 
-    # sleep and update current time
+    print(f'{now}: sleep for {sleep_time} seconds')
     time.sleep(sleep_time)
+
     now = datetime.datetime.now()
 
   print(f'{now}: exceed target time({target_time})')
 
 
-#----------------------- Dataframe manipulation --------------------#
+#----------------------- Dataframe manipulation ------------------#
 def df_2_timeseries(df, time_col='date'):
   """
   Convert dataframe to timeseries-dataframe
@@ -141,6 +140,7 @@ def df_2_timeseries(df, time_col='date'):
   """
   df = df.set_index(time_col)
   df.index = pd.DatetimeIndex(df.index)
+
   return df
 
 
@@ -155,7 +155,6 @@ def remove_duplicated_index(df, keep='first'):
   """
   try:
     df = df[~df.index.duplicated(keep=keep)].copy()
-
   except Exception as e:
     print(e)
 
@@ -199,7 +198,7 @@ def plot_data(df, columns, start=None, end=None, figsize=(20, 5), colormap='tab1
   plt.xticks(rotation=90)   
 
 
-#----------------------- Print assistence ----------------------#
+#----------------------- Print assistence ------------------------#
 def print_when(condition, true_content='', false_content=None):
   """
   Print different content under different conditions

@@ -218,7 +218,7 @@ def cal_max_drawndown(data, value_dim='value'):
 
   for index, row in data.iterrows():
     current_max = data[:index][value_dim].max()
-    current = data.loc[index, value_dim]
+    current = row[value_dim]
     data.loc[index, 'drawndown'] = (current_max - current) / current_max
 
   max_drawndown = data['drawndown'].max()

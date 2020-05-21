@@ -1055,7 +1055,7 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
   high = ohlcv_col['high']
   low = ohlcv_col['low']
   close = ohlcv_col['close']
-  volume = ohlcv_col['volume']
+  # volume = ohlcv_col['volume']
 
   # candle color
   df['candle_color'] = 0
@@ -1129,14 +1129,14 @@ def add_adx_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, adx_th
   """
   # copy dataframe
   df = df.copy()
-  col_to_drop = []
+  # col_to_drop = []
 
   # set column names
-  open = ohlcv_col['open']
+  # open = ohlcv_col['open']
   high = ohlcv_col['high']
   low = ohlcv_col['low']
-  close = ohlcv_col['close']
-  volume = ohlcv_col['volume']
+  # close = ohlcv_col['close']
+  # volume = ohlcv_col['volume']
 
   # calculate true range
   df = add_atr_features(df=df, n=n, cal_signal=False)
@@ -1197,11 +1197,11 @@ def add_aroon_features(df, n=25, ohlcv_col=default_ohlcv_col, fillna=False, cal_
   df = df.copy()
 
   # set column names
-  open = ohlcv_col['open']
-  high = ohlcv_col['high']
-  low = ohlcv_col['low']
+  # open = ohlcv_col['open']
+  # high = ohlcv_col['high']
+  # low = ohlcv_col['low']
   close = ohlcv_col['close']
-  volume = ohlcv_col['volume']
+  # volume = ohlcv_col['volume']
 
   # calculate aroon up and down indicators
   aroon_up = df[close].rolling(n, min_periods=0).apply(lambda x: float(np.argmax(x) + 1) / n * 100, raw=True)
@@ -1239,11 +1239,11 @@ def add_cci_features(df, n=20, c=0.015, ohlcv_col=default_ohlcv_col, fillna=Fals
   df = df.copy()
   
   # set column names
-  open = ohlcv_col['open']
+  # open = ohlcv_col['open']
   high = ohlcv_col['high']
   low = ohlcv_col['low']
   close = ohlcv_col['close']
-  volume = ohlcv_col['volume']
+  # volume = ohlcv_col['volume']
 
   # calculate cci
   pp = (df[high] + df[low] + df[close]) / 3.0
@@ -1274,11 +1274,11 @@ def add_dpo_features(df, n=20, ohlcv_col=default_ohlcv_col, fillna=False, cal_si
   df = df.copy()
   
   # set column names
-  open = ohlcv_col['open']
-  high = ohlcv_col['high']
-  low = ohlcv_col['low']
+  # open = ohlcv_col['open']
+  # high = ohlcv_col['high']
+  # low = ohlcv_col['low']
   close = ohlcv_col['close']
-  volume = ohlcv_col['volume']
+  # volume = ohlcv_col['volume']
 
   # calculate dpo
   dpo = df[close].shift(int((0.5 * n) + 1)) - df[close].rolling(n, min_periods=0).mean()
@@ -1320,11 +1320,11 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
   col_to_drop = []
 
   # set column names
-  open = ohlcv_col['open']
+  # open = ohlcv_col['open']
   high = ohlcv_col['high']
   low = ohlcv_col['low']
   close = ohlcv_col['close']
-  volume = ohlcv_col['volume']
+  # volume = ohlcv_col['volume']
 
   # use original method to calculate ichimoku indicators
   if method == 'original':
@@ -1449,14 +1449,14 @@ def add_kst_features(df, r1=10, r2=15, r3=20, r4=30, n1=10, n2=10, n3=10, n4=15,
   """
   # copy dataframe
   df = df.copy()
-  col_to_drop = []
+  # col_to_drop = []
 
   # set column names
-  open = ohlcv_col['open']
-  high = ohlcv_col['high']
-  low = ohlcv_col['low']
+  # open = ohlcv_col['open']
+  # high = ohlcv_col['high']
+  # low = ohlcv_col['low']
   close = ohlcv_col['close']
-  volume = ohlcv_col['volume']
+  # volume = ohlcv_col['volume']
 
   # calculate kst
   rocma1 = ((df[close] - df[close].shift(r1)) / df[close].shift(r1)).rolling(n1, min_periods=0).mean()
@@ -1498,11 +1498,11 @@ def add_macd_features(df, n_fast=12, n_slow=26, n_sign=9, ohlcv_col=default_ohlc
   df = df.copy()
   
   # set column names
-  open = ohlcv_col['open']
-  high = ohlcv_col['high']
-  low = ohlcv_col['low']
+  # open = ohlcv_col['open']
+  # high = ohlcv_col['high']
+  # low = ohlcv_col['low']
   close = ohlcv_col['close']
-  volume = ohlcv_col['volume']
+  # volume = ohlcv_col['volume']
 
   # calculate fast and slow ema of close price
   emafast = em(series=df[close], periods=n_fast, fillna=fillna).mean()
@@ -1549,11 +1549,11 @@ def add_mi_features(df, n=9, n2=25, ohlcv_col=default_ohlcv_col, fillna=False, c
   df = df.copy()
   
   # set column names
-  open = ohlcv_col['open']
+  # open = ohlcv_col['open']
   high = ohlcv_col['high']
   low = ohlcv_col['low']
-  close = ohlcv_col['close']
-  volume = ohlcv_col['volume']
+  # close = ohlcv_col['close']
+  # volume = ohlcv_col['volume']
 
   amplitude = df[high] - df[low]
   ema1 = em(series=amplitude, periods=n, fillna=fillna).mean()
@@ -1602,11 +1602,11 @@ def add_trix_features(df, n=15, n_sign=9, ohlcv_col=default_ohlcv_col, fillna=Fa
   df = df.copy()
   
   # set column names
-  open = ohlcv_col['open']
-  high = ohlcv_col['high']
-  low = ohlcv_col['low']
+  # open = ohlcv_col['open']
+  # high = ohlcv_col['high']
+  # low = ohlcv_col['low']
   close = ohlcv_col['close']
-  volume = ohlcv_col['volume']
+  # volume = ohlcv_col['volume']
 
   # calculate trix
   ema1 = em(series=df[close], periods=n, fillna=fillna).mean()
@@ -1642,11 +1642,11 @@ def add_vortex_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal
   df = df.copy()
   
   # set column names
-  open = ohlcv_col['open']
+  # open = ohlcv_col['open']
   high = ohlcv_col['high']
   low = ohlcv_col['low']
   close = ohlcv_col['close']
-  volume = ohlcv_col['volume']
+  # volume = ohlcv_col['volume']
 
   # calculate vortex
   tr = (df[high].combine(df[close].shift(1), max) - df[low].combine(df[close].shift(1), min))
@@ -1693,7 +1693,7 @@ def add_adi_features(df, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=T
   df = df.copy()
 
   # set column names
-  open = ohlcv_col['open']
+  # open = ohlcv_col['open']
   high = ohlcv_col['high']
   low = ohlcv_col['low']
   close = ohlcv_col['close']
@@ -1735,7 +1735,7 @@ def add_cmf_features(df, n=20, ohlcv_col=default_ohlcv_col, fillna=False, cal_si
   df = df.copy()
 
   # set column names
-  open = ohlcv_col['open']
+  # open = ohlcv_col['open']
   high = ohlcv_col['high']
   low = ohlcv_col['low']
   close = ohlcv_col['close']
@@ -1775,13 +1775,13 @@ def add_eom_features(df, n=20, ohlcv_col=default_ohlcv_col, fillna=False):
 
   # copy dataframe
   df = df.copy()
-  col_to_drop = []
+  # col_to_drop = []
 
   # set column names
-  open = ohlcv_col['open']
+  # open = ohlcv_col['open']
   high = ohlcv_col['high']
   low = ohlcv_col['low']
-  close = ohlcv_col['close']
+  # close = ohlcv_col['close']
   volume = ohlcv_col['volume']
 
   # calculate eom
@@ -1819,9 +1819,9 @@ def add_fi_features(df, n1=2, n2=22, ohlcv_col=default_ohlcv_col, fillna=False, 
   df = df.copy()
 
   # set column names
-  open = ohlcv_col['open']
-  high = ohlcv_col['high']
-  low = ohlcv_col['low']
+  # open = ohlcv_col['open']
+  # high = ohlcv_col['high']
+  # low = ohlcv_col['low']
   close = ohlcv_col['close']
   volume = ohlcv_col['volume']
 
@@ -1859,9 +1859,9 @@ def add_nvi_features(df, n=255, ohlcv_col=default_ohlcv_col, fillna=False, cal_s
   df = df.copy()
 
   # set column names
-  open = ohlcv_col['open']
-  high = ohlcv_col['high']
-  low = ohlcv_col['low']
+  # open = ohlcv_col['open']
+  # high = ohlcv_col['high']
+  # low = ohlcv_col['low']
   close = ohlcv_col['close']
   volume = ohlcv_col['volume']
 
@@ -1907,9 +1907,9 @@ def add_obv_features(df, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=T
   df = df.copy()
 
   # set column names
-  open = ohlcv_col['open']
-  high = ohlcv_col['high']
-  low = ohlcv_col['low']
+  # open = ohlcv_col['open']
+  # high = ohlcv_col['high']
+  # low = ohlcv_col['low']
   close = ohlcv_col['close']
   volume = ohlcv_col['volume']
 
@@ -1949,9 +1949,9 @@ def add_vpt_features(df, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=T
   df = df.copy()
 
   # set column names
-  open = ohlcv_col['open']
-  high = ohlcv_col['high']
-  low = ohlcv_col['low']
+  # open = ohlcv_col['open']
+  # high = ohlcv_col['high']
+  # low = ohlcv_col['low']
   close = ohlcv_col['close']
   volume = ohlcv_col['volume']
 
@@ -1996,11 +1996,11 @@ def add_ao_features(df, n_short=5, n_long=34, ohlcv_col=default_ohlcv_col, filln
   df = df.copy()
 
   # set column names
-  open = ohlcv_col['open']
+  # open = ohlcv_col['open']
   high = ohlcv_col['high']
   low = ohlcv_col['low']
-  close = ohlcv_col['close']
-  volume = ohlcv_col['volume']
+  # close = ohlcv_col['close']
+  # volume = ohlcv_col['volume']
 
   # calculate ao
   mp = 0.5 * (df[high] + df[low])
@@ -2033,11 +2033,11 @@ def cal_kama(df, n1=10, n2=2, n3=30, ohlcv_col=default_ohlcv_col, fillna=False):
   df = df.copy()
 
   # set column names
-  open = ohlcv_col['open']
-  high = ohlcv_col['high']
-  low = ohlcv_col['low']
+  # open = ohlcv_col['open']
+  # high = ohlcv_col['high']
+  # low = ohlcv_col['low']
   close = ohlcv_col['close']
-  volume = ohlcv_col['volume']
+  # volume = ohlcv_col['volume']
 
   # calculate kama
   close_values = df[close].values
@@ -2090,11 +2090,11 @@ def add_kama_features(df, n_param={'kama_fast': [10, 2, 30], 'kama_slow': [10, 5
   df = df.copy()
 
   # set column names
-  open = ohlcv_col['open']
-  high = ohlcv_col['high']
-  low = ohlcv_col['low']
+  # open = ohlcv_col['open']
+  # high = ohlcv_col['high']
+  # low = ohlcv_col['low']
   close = ohlcv_col['close']
-  volume = ohlcv_col['volume']
+  # volume = ohlcv_col['volume']
 
   # calculate fast and slow kama
   for k in n_param.keys():
@@ -2134,7 +2134,7 @@ def add_mfi_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_si
   df = df.copy()
 
   # set column names
-  open = ohlcv_col['open']
+  # open = ohlcv_col['open']
   high = ohlcv_col['high']
   low = ohlcv_col['low']
   close = ohlcv_col['close']
@@ -2192,11 +2192,11 @@ def add_rsi_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_si
   df = df.copy()
 
   # set column names
-  open = ohlcv_col['open']
-  high = ohlcv_col['high']
-  low = ohlcv_col['low']
+  # open = ohlcv_col['open']
+  # high = ohlcv_col['high']
+  # low = ohlcv_col['low']
   close = ohlcv_col['close']
-  volume = ohlcv_col['volume']
+  # volume = ohlcv_col['volume']
 
   # calculate RSI
   diff = df[close].pct_change(1)
@@ -2244,11 +2244,11 @@ def add_stoch_features(df, n=14, d_n=3, ohlcv_col=default_ohlcv_col, fillna=Fals
   df = df.copy()
 
   # set column names
-  open = ohlcv_col['open']
+  # open = ohlcv_col['open']
   high = ohlcv_col['high']
   low = ohlcv_col['low']
   close = ohlcv_col['close']
-  volume = ohlcv_col['volume']
+  # volume = ohlcv_col['volume']
 
   # calculate stochastic
   stoch_min = df[low].rolling(n, min_periods=0).min()
@@ -2286,11 +2286,11 @@ def add_tsi_features(df, r=25, s=13, ema_period=7, ohlcv_col=default_ohlcv_col, 
   df = df.copy()
 
   # set column names
-  open = ohlcv_col['open']
-  high = ohlcv_col['high']
-  low = ohlcv_col['low']
+  # open = ohlcv_col['open']
+  # high = ohlcv_col['high']
+  # low = ohlcv_col['low']
   close = ohlcv_col['close']
-  volume = ohlcv_col['volume']
+  # volume = ohlcv_col['volume']
 
   # calculate tsi
   m = df[close] - df[close].shift(1, fill_value=df[close].mean())
@@ -2337,11 +2337,11 @@ def add_uo_features(df, s=7, m=14, l=28, ws=4.0, wm=2.0, wl=1.0, ohlcv_col=defau
   df = df.copy()
 
   # set column names
-  open = ohlcv_col['open']
+  # open = ohlcv_col['open']
   high = ohlcv_col['high']
   low = ohlcv_col['low']
   close = ohlcv_col['close']
-  volume = ohlcv_col['volume']
+  # volume = ohlcv_col['volume']
 
   # calculate uo
   min_l_or_pc = df[close].shift(1, fill_value=df[close].mean()).combine(df[low], min)
@@ -2382,11 +2382,11 @@ def add_wr_features(df, lbp=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_s
   df = df.copy()
 
   # set column names
-  open = ohlcv_col['open']
+  # open = ohlcv_col['open']
   high = ohlcv_col['high']
   low = ohlcv_col['low']
   close = ohlcv_col['close']
-  volume = ohlcv_col['volume']
+  # volume = ohlcv_col['volume']
 
   # calculate wr
   hh = df[high].rolling(lbp, min_periods=0).max()
@@ -2426,11 +2426,11 @@ def add_atr_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_si
   df = df.copy()
 
   # set column names
-  open = ohlcv_col['open']
+  # open = ohlcv_col['open']
   high = ohlcv_col['high']
   low = ohlcv_col['low']
   close = ohlcv_col['close']
-  volume = ohlcv_col['volume']
+  # volume = ohlcv_col['volume']
 
   # calculate true range
   df['h_l'] = df[low] - df[low]
@@ -2476,11 +2476,11 @@ def add_mean_reversion_features(df, n=100, ohlcv_col=default_ohlcv_col, fillna=F
   df = df.copy()
 
   # set column names
-  open = ohlcv_col['open']
-  high = ohlcv_col['high']
-  low = ohlcv_col['low']
+  # open = ohlcv_col['open']
+  # high = ohlcv_col['high']
+  # low = ohlcv_col['low']
   close = ohlcv_col['close']
-  volume = ohlcv_col['volume']
+  # volume = ohlcv_col['volume']
 
   # calculate change rate of close price
   df = cal_change_rate(df=df, target_col=close, periods=1, add_accumulation=True)
@@ -2560,11 +2560,11 @@ def add_bb_features(df, n=20, ndev=2, ohlcv_col=default_ohlcv_col, fillna=False,
   df = df.copy()
 
   # set column names
-  open = ohlcv_col['open']
-  high = ohlcv_col['high']
-  low = ohlcv_col['low']
+  # open = ohlcv_col['open']
+  # high = ohlcv_col['high']
+  # low = ohlcv_col['low']
   close = ohlcv_col['close']
-  volume = ohlcv_col['volume']
+  # volume = ohlcv_col['volume']
 
   # calculate bollinger band 
   mavg = sm(series=df[close], periods=n).mean()
@@ -2611,11 +2611,11 @@ def add_dc_features(df, n=20, ohlcv_col=default_ohlcv_col, fillna=False, cal_sig
   df = df.copy()
 
   # set column names
-  open = ohlcv_col['open']
-  high = ohlcv_col['high']
-  low = ohlcv_col['low']
+  # open = ohlcv_col['open']
+  # high = ohlcv_col['high']
+  # low = ohlcv_col['low']
   close = ohlcv_col['close']
-  volume = ohlcv_col['volume']
+  # volume = ohlcv_col['volume']
 
   # calculate dochian channel
   high_band = df[close].rolling(n, min_periods=0).max()
@@ -2660,11 +2660,11 @@ def add_kc_features(df, n=10, ohlcv_col=default_ohlcv_col, method='atr', fillna=
   df = df.copy()
 
   # set column names
-  open = ohlcv_col['open']
+  # open = ohlcv_col['open']
   high = ohlcv_col['high']
   low = ohlcv_col['low']
   close = ohlcv_col['close']
-  volume = ohlcv_col['volume']
+  # volume = ohlcv_col['volume']
 
   # calculate keltner channel
   typical_price = (df[high] +  df[low] + df[close]) / 3.0
@@ -2855,7 +2855,7 @@ def plot_candlestick(
   high = ohlcv_col['high']
   low = ohlcv_col['low']
   close = ohlcv_col['close']
-  volume = ohlcv_col['volume']
+  # volume = ohlcv_col['volume']
 
   # create figure
   ax = use_ax

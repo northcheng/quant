@@ -81,7 +81,8 @@ def back_test(df, signal_col='signal', start_date=None, end_date=None, start_mon
   # initialization
   stock = start_stock
   money = start_money 
-  last_total = total = money
+  # last_total = 
+  total = money
   holding_price = 0
   holding_return = 0
   record = {'date': [], 'action': [], 'stock': [], 'price': [], 'money': [], 'total': [], 'holding_price': [], 'holding_return': []}
@@ -101,7 +102,7 @@ def back_test(df, signal_col='signal', start_date=None, end_date=None, start_mon
     print(trading_info)
 
   # go through all trading dates
-  slse_triggered = False
+  # slse_triggered = False
   for i in range(len(date_list)-1):
     tmp_record = None
     date = date_list[i]
@@ -118,15 +119,15 @@ def back_test(df, signal_col='signal', start_date=None, end_date=None, start_mon
       # if triggered stop loss or stop earning, sell all the stocks
       if ((stop_loss is not None) and (holding_return <= stop_loss)): 
         action = 's'
-        slse_triggered = True
+        # slse_triggered = True
         if print_trading:
-          print('[{date}]stop loss at: {holding_return:.4f}'.format(holding_return=holding_return, date=date))
+          print(f'[{date}]stop loss at: {holding_return:.4f}')
       
       elif ((stop_earning is not None) and (holding_return >= stop_earning)):
         action = 's'
-        slse_triggered = True
+        # slse_triggered = True
         if print_trading:  
-          print('[{date}]stop earning at: {holding_return:.4f}'.format(holding_return=holding_return, date=date))
+          print(f'[{date}]stop earning at: {holding_return:.4f}')
 
     # record money and stock
     previous_money = money
@@ -166,7 +167,7 @@ def back_test(df, signal_col='signal', start_date=None, end_date=None, start_mon
         holding_price=holding_price, holding_return=holding_return)    
     
     # update total value
-    last_total = total
+    # last_total = total
     total = money + stock * price
 
     # record trading history
@@ -289,7 +290,7 @@ class FixedPositionTrader:
 
     # go through each day
     for date in dates:
-      date_signal = []
+      # date_signal = []
 
       # go through each stock
       for sec_code in target_list:

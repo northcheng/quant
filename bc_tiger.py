@@ -115,7 +115,7 @@ class Tiger:
     try:
       # get open_time
       status = self.quote_client.get_market_status(market=market)[0]
-      market_status = status.status
+      # market_status = status.status
       open_time = status.open_time.astimezone(tz).replace(tzinfo=None)
       if status.status in ['Trading', 'Post-Market Trading']:
         open_time = open_time - datetime.timedelta(days=1)
@@ -127,7 +127,7 @@ class Tiger:
 
     except Exception as e:
       self.logger.error(e)
-      open_time = close_time = pre_open_time = post_close_time = market_status = None
+      open_time = close_time = pre_open_time = post_close_time = None
 
     self.trade_time = {
       'status': status.status, 'tz': tz,
@@ -276,7 +276,7 @@ class Tiger:
         order_legs.append(stop_loss_order_leg)
       if stop_profit is not None:
         stop_profit_order_leg = order_leg('PROFIT', stop_profit, time_in_force='GTC') # 附加止盈单
-        orderlegs.append(stop_profit_order_leg)
+        order_legs.append(stop_profit_order_leg)
       if len(order_legs)>0:
         order.order_legs = order_legs
 
@@ -470,7 +470,7 @@ class Tiger:
       io_util.create_config_file(config_dict=self.__position_record, file_path=config['config_path'], file_name='tiger_position_record.json')
       
     except Exception as e:
-      self.logger.exception(f'[erro]: fail updating position records for {account_type}')
+      self.logger.exception(f'[erro]: fail updating position records for {account_type}, {e}')
   
 
   # idle for specified time and check position in certain frequency
