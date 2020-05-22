@@ -455,13 +455,21 @@ class Tiger:
         
         if action == 'BUY':
           cost = avg_fill_price * quantity + commission
-          self.record[symbol]['cash'] -= cost
-          self.record[symbol]['position'] += quantity
+          new_cash = self.record[symbol]['cash'] - cost
+          new_position = self.record[symbol]['position'] + quantity
+
+          if new_cash >= 0 and new_position >= 0:
+            self.record[symbol]['cash'] = new_cash
+            self.record[symbol]['position'] = new_position
           
         if action == 'SELL':
           acquire = avg_fill_price * quantity - commission
-          self.record[symbol]['cash'] += acquire
-          self.record[symbol]['position'] -= quantity
+          new_cash = self.record[symbol]['cash'] + acquire
+          new_position = self.record[symbol]['position'] - quantity
+
+          if new_cash >= 0 and new_position >= 0:
+            self.record[symbol]['cash'] = new_cash
+            self.record[symbol]['position'] = new_position
 
       # update __position_record
       self.__position_record[account_type] = self.record
