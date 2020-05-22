@@ -75,7 +75,7 @@
 				"color_mode": "benchmark"
 			},
 			"signals": {
-				"signal_list": ["adx_signal", "aroon_signal", "ichimoku_signal", "signal"],
+				"signal_list": ["aroon_down_signal", "aroon_up_signal", "aroon_signal", "", "adx_signal",  "ichimoku_signal", "signal"],
 				"plot_signal_on_price": true,
 				"price_alpha": 0
 			},
