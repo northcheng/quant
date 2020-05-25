@@ -136,6 +136,19 @@ class Tiger:
     }
 
 
+  # update market status
+  def update_market_status(self, market=Market.US):
+
+    try:
+      # get market status
+      status = self.quote_client.get_market_status(market=market)[0]
+      self.trade_time['status'] = status
+
+    except Exception as e:
+      self.logger.error(e)
+
+
+
   # get summary of positions
   def get_position_summary(self, get_briefs=True):
 
