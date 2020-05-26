@@ -142,7 +142,7 @@ class Tiger:
     try:
       # get market status
       status = self.quote_client.get_market_status(market=market)[0]
-      self.trade_time['status'] = status
+      self.trade_time['status'] = status.status
 
     except Exception as e:
       self.logger.error(e)
@@ -513,7 +513,7 @@ class Tiger:
       # self.logger.info(f'[rate]:----------------------------------------------\n{pos}\n')
 
       # get current time, calculate difference between current time and target time
-      diff_time = (target_time - now).seconds
+      diff_time = round((target_time - now).total_seconds())
       sleep_time = (diff_time + 1) if (diff_time <= check_frequency) else check_frequency
       
       # sleep

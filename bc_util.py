@@ -117,7 +117,7 @@ def sleep_until(target_time, check_frequency=3600):
   now = datetime.datetime.now()
   while now < target_time:
 
-    diff_time = (target_time - now).seconds
+    diff_time = round((target_time - now).total_seconds())
     sleep_time = (diff_time+1) if (diff_time <= check_frequency) else check_frequency
 
     print(f'{now}: sleep for {sleep_time} seconds')

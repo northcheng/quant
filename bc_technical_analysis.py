@@ -303,12 +303,12 @@ def calculate_ta_trend(df, main_indicators, diff_indicators, other_indicators, s
 
       # otherwise up trend
       # 3+. aroon_down正在下降, 且aroon_up正在上升或者aroon_down>aroon_up, 
-      up_idx = df.query('(aroon_trend!="u" and aroon_trend!="d") and ((aroon_down_change<0) and (aroon_up_change>=0 or aroon_down>aroon_up))').index
+      up_idx = df.query('(aroon_trend!="u" and aroon_trend!="d") and ((aroon_down_change<0) and (aroon_up_change>=0 or aroon_down>aroon_up))').index # and (aroon_up_acc_change_count <= -2 or aroon_down_acc_change_count <= -2)
       df.loc[up_idx, 'aroon_trend'] = 'u'
 
       # otherwise down trend
       # 3-. aroon_up正在下降， 且aroon_down正在上升或者aroon_up>aroon_down
-      down_idx = df.query('(aroon_trend!="u" and aroon_trend!="d") and ((aroon_up_change<0) and (aroon_down_change>=0 or aroon_up>aroon_down))').index
+      down_idx = df.query('(aroon_trend!="u" and aroon_trend!="d") and ((aroon_up_change<0) and (aroon_down_change>=0 or aroon_up>aroon_down))').index #and (aroon_up_acc_change_count <= -2 or aroon_down_acc_change_count <= -2)
       df.loc[down_idx, 'aroon_trend'] = 'd'
 
       # it is waving when
@@ -317,36 +317,55 @@ def calculate_ta_trend(df, main_indicators, diff_indicators, other_indicators, s
       df.loc[wave_idx, 'aroon_trend'] = 'n'
 
       # # aroon_up/aroon_down 连续n天下降, 代表着下降/上升趋势
-      # # aroon_up/aroon_down 数值>75, 代表着上升/下降趋势
+      # # aroon_up/aroon_down 数值>80, 代表着上升/下降趋势
       # # aroon_up trend 
       # df['aroon_up_signal'] = 'n'
-      # up_idx = df.query('aroon_up >= 75').index
-      # # down_idx = df.query('aroon_up <= 12').index
+      # df['aroon_up_trend'] = 'n'
+
+      # down_idx = df.query('aroon_up_acc_change_count <= -2').index
+      # df.loc[down_idx, 'aroon_up_trend'] = 'd'
+
+      # up_idx = df.query('aroon_up >= 92').index
       # df.loc[up_idx, 'aroon_up_trend'] = 'u'
+
+      # # down_idx = df.query('aroon_up <= 12').index
       # # df.loc[down_idx, 'aroon_up_trend'] = 'd'
 
-      # df['previous_aroon_up'] = df['aroon_up'].shift(1)
-      # peak_idx = df.query('aroon_up_acc_change_count == -1').index
-      # df.loc[peak_idx, 'aroon_up_peak'] = df.loc[peak_idx, 'previous_aroon_up']
-      # df['aroon_up_peak'] = df['aroon_up_peak'].fillna(method='ffill')
+      # # df['previous_aroon_up'] = df['aroon_up'].shift(1)
+      # # peak_idx = df.query('aroon_up_acc_change_count == -1').index
+      # # df.loc[peak_idx, 'aroon_up_peak'] = df.loc[peak_idx, 'previous_aroon_up']
+      # # df['aroon_up_peak'] = df['aroon_up_peak'].fillna(method='ffill')
 
-      # down_idx = df.query('aroon_up_acc_change_count <= -2 and aroon_up_peak >= 96').index
-      # df.loc[down_idx, 'aroon_up_trend'] = 'd'
+      # # down_idx = df.query('aroon_up_acc_change_count <= -2 and aroon_up_peak >= 80').index
+      # # df.loc[down_idx, 'aroon_up_trend'] = 'd'
 
       # # aroon_down trend
       # df['aroon_down_signal'] = 'n'
-      # # up_idx = df.query('aroon_down <= 12').index
-      # down_idx = df.query('aroon_down >= 75').index
-      # # df.loc[up_idx, 'aroon_down_trend'] = 'u'
+      # df['aroon_down_trend'] = 'n'
+      
+      # up_idx = df.query('aroon_down_acc_change_count <= -2').index
+      # df.loc[up_idx, 'aroon_down_trend'] = 'u'
+
+      # down_idx = df.query('aroon_down >= 92').index
       # df.loc[down_idx, 'aroon_down_trend'] = 'd'
 
-      # df['previous_aroon_down'] = df['aroon_down'].shift(1)
-      # peak_idx = df.query('aroon_down_acc_change_count == -1').index
-      # df.loc[peak_idx, 'aroon_down_peak'] = df.loc[peak_idx, 'previous_aroon_down']
-      # df['aroon_down_peak'] = df['aroon_down_peak'].fillna(method='ffill')
+      # # up_idx = df.query('aroon_down <= 12').index
+      # # df.loc[up_idx, 'aroon_down_trend'] = 'u'
 
-      # up_idx = df.query('aroon_down_acc_change_count <= -2 and aroon_down_peak >= 96').index
-      # df.loc[up_idx, 'aroon_down_trend'] = 'u'
+      # # df['previous_aroon_down'] = df['aroon_down'].shift(1)
+      # # peak_idx = df.query('aroon_down_acc_change_count == -1').index
+      # # df.loc[peak_idx, 'aroon_down_peak'] = df.loc[peak_idx, 'previous_aroon_down']
+      # # df['aroon_down_peak'] = df['aroon_down_peak'].fillna(method='ffill')
+
+      # # up_idx = df.query('aroon_down_acc_change_count <= -2 and aroon_down_peak >= 80').index
+      # # df.loc[up_idx, 'aroon_down_trend'] = 'u'
+
+      # df['aroon_ud_signal'] = 'n'
+      # df['aroon_ud_trend'] = 'n'
+      # u_idx = df.query('aroon_up_trend == "u" and aroon_down_trend =="u"').index
+      # d_idx = df.query('aroon_up_trend == "d" and aroon_down_trend =="d"').index
+      # df.loc[u_idx, 'aroon_ud_trend'] = 'u'
+      # df.loc[d_idx, 'aroon_ud_trend'] = 'd'
 
     # ================================ adx trend ==============================
     if 'adx' in diff_indicators:
@@ -3342,7 +3361,7 @@ def plot_multiple_indicators(
         for i in range(len(signals)):
           signal_name = signals[i]
           trend_name = signal_name.replace('signal', 'trend')
-          signal_names.append(signal_name.split('_')[0][:4])
+          signal_names.append(signal_name.split('_')[0])
 
           plot_data[f'signal_base_{signal_name}'] = i
           signal_bases.append(i)
