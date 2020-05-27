@@ -41,11 +41,16 @@ def load_config(root_paths):
   :raises: None
   """
   # copy root paths
-  config = root_paths
+  config = root_paths.copy()
+
+  # validate root paths
+  for p in config.keys():
+    if not os.path.exists(config[p]):
+      print(f'{p} not exists!')
 
   # add derived paths
-  config['desktop_path'] = config['home_path'] + 'Desktop/'
   config['config_path'] = config['git_path'] + 'quant/'
+  config['desktop_path'] = config['home_path'] + 'Desktop/'
   config['quant_path'] = config['home_path'] + 'quant/'
   config['data_path'] = config['quant_path'] + 'stock_data/'
   config['tiger_path'] = config['quant_path'] + 'tigeropen/'
@@ -313,59 +318,26 @@ def calculate_ta_trend(df, main_indicators, diff_indicators, other_indicators, s
 
       # it is waving when
       # 1=. aroon_gap keep steady and aroon_up/aroon_down keep changing toward a same direction
-      wave_idx = df.query('-32<=aroon_gap<=32 and ((aroon_gap_change==0 and aroon_up_change==aroon_down_change<0) or ((aroon_up_change<0 and aroon_down==0) or (aroon_down_change<0 and aroon_up==0)))').index
+      wave_idx = df.query('-32<=aroon_gap<=32 and ((aroon_gap_change==0 and aroon_up_change==aroon_down_change<0) or ((aroon_up_change<0 and aroon_down<=4) or (aroon_down_change<0 and aroon_up<=4)))').index
       df.loc[wave_idx, 'aroon_trend'] = 'n'
 
-      # # aroon_up/aroon_down 连续n天下降, 代表着下降/上升趋势
-      # # aroon_up/aroon_down 数值>80, 代表着上升/下降趋势
-      # # aroon_up trend 
-      # df['aroon_up_signal'] = 'n'
-      # df['aroon_up_trend'] = 'n'
+      # notice when aroon_down falls from the peak
+      df['apf_signal'] = 'n'
 
-      # down_idx = df.query('aroon_up_acc_change_count <= -2').index
-      # df.loc[down_idx, 'aroon_up_trend'] = 'd'
+      df['previous_aroon_down'] = df['aroon_down'].shift(1)
+      peak_idx = df.query('aroon_down_acc_change_count == -1').index
+      df.loc[peak_idx, 'aroon_down_peak'] = df.loc[peak_idx, 'previous_aroon_down']
+      df['aroon_down_peak'] = df['aroon_down_peak'].fillna(method='ffill')
+      up_idx = df.query('aroon_down_peak==100 and aroon_down_acc_change_count<=-4 and aroon_up_acc_change_count<=-4 and aroon_gap<-32').index
+      df.loc[up_idx, 'apf_trend'] = 'u'
 
-      # up_idx = df.query('aroon_up >= 92').index
-      # df.loc[up_idx, 'aroon_up_trend'] = 'u'
+      # df['previous_aroon_up'] = df['aroon_up'].shift(1)
+      # peak_idx = df.query('aroon_up_acc_change_count == -1').index
+      # df.loc[peak_idx, 'aroon_up_peak'] = df.loc[peak_idx, 'previous_aroon_up']
+      # df['aroon_up_peak'] = df['aroon_up_peak'].fillna(method='ffill')
+      # down_idx = df.query('aroon_up_peak==100 and aroon_up_acc_change_count<=-2 and aroon_down_acc_change_count<=-2 and aroon_gap>32').index
+      # df.loc[down_idx, 'apf_trend'] = 'd'
 
-      # # down_idx = df.query('aroon_up <= 12').index
-      # # df.loc[down_idx, 'aroon_up_trend'] = 'd'
-
-      # # df['previous_aroon_up'] = df['aroon_up'].shift(1)
-      # # peak_idx = df.query('aroon_up_acc_change_count == -1').index
-      # # df.loc[peak_idx, 'aroon_up_peak'] = df.loc[peak_idx, 'previous_aroon_up']
-      # # df['aroon_up_peak'] = df['aroon_up_peak'].fillna(method='ffill')
-
-      # # down_idx = df.query('aroon_up_acc_change_count <= -2 and aroon_up_peak >= 80').index
-      # # df.loc[down_idx, 'aroon_up_trend'] = 'd'
-
-      # # aroon_down trend
-      # df['aroon_down_signal'] = 'n'
-      # df['aroon_down_trend'] = 'n'
-      
-      # up_idx = df.query('aroon_down_acc_change_count <= -2').index
-      # df.loc[up_idx, 'aroon_down_trend'] = 'u'
-
-      # down_idx = df.query('aroon_down >= 92').index
-      # df.loc[down_idx, 'aroon_down_trend'] = 'd'
-
-      # # up_idx = df.query('aroon_down <= 12').index
-      # # df.loc[up_idx, 'aroon_down_trend'] = 'u'
-
-      # # df['previous_aroon_down'] = df['aroon_down'].shift(1)
-      # # peak_idx = df.query('aroon_down_acc_change_count == -1').index
-      # # df.loc[peak_idx, 'aroon_down_peak'] = df.loc[peak_idx, 'previous_aroon_down']
-      # # df['aroon_down_peak'] = df['aroon_down_peak'].fillna(method='ffill')
-
-      # # up_idx = df.query('aroon_down_acc_change_count <= -2 and aroon_down_peak >= 80').index
-      # # df.loc[up_idx, 'aroon_down_trend'] = 'u'
-
-      # df['aroon_ud_signal'] = 'n'
-      # df['aroon_ud_trend'] = 'n'
-      # u_idx = df.query('aroon_up_trend == "u" and aroon_down_trend =="u"').index
-      # d_idx = df.query('aroon_up_trend == "d" and aroon_down_trend =="d"').index
-      # df.loc[u_idx, 'aroon_ud_trend'] = 'u'
-      # df.loc[d_idx, 'aroon_ud_trend'] = 'd'
 
     # ================================ adx trend ==============================
     if 'adx' in diff_indicators:
@@ -380,6 +352,7 @@ def calculate_ta_trend(df, main_indicators, diff_indicators, other_indicators, s
       down_idx = df.query('adx_diff <= 0').index
       df.loc[down_idx ,'adx_trend'] = 'd'
 
+    # ================================ eom trend ==============================
     if 'eom' in diff_indicators:
       # initialize
       # df['eom_trend'] = 'n'
@@ -392,6 +365,7 @@ def calculate_ta_trend(df, main_indicators, diff_indicators, other_indicators, s
       down_idx = df.query('eom_diff <= 0').index
       df.loc[down_idx ,'eom_trend'] = 'd'
 
+    # ================================ kst trend ==============================
     if 'kst' in diff_indicators:
       # initialize
       # df['kst_trend'] = 'n'

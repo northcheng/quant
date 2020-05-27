@@ -217,4 +217,3 @@ def print_when(condition, true_content='', false_content=None):
     if false_content is not None:
       print(false_content)
 
-
