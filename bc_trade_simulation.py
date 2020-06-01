@@ -374,8 +374,8 @@ class FixedPositionTrader:
     money_plot.legend(bbox_to_anchor=(1.02, 0.), loc=3, ncol=1, borderaxespad=0.0) 
     money_plot.set_title('Money', rotation='vertical', x=-0.05, y=0.3)
 
-    ear = finance_util.cal_EAR(data=record, start=min_idx.date(), end=max_idx.date(), dim='value', dividends=0)
-    fig.suptitle(f'{sec_code}: {ear*100:.2f}%', x=0.5, y=0.95, fontsize=20)
+    hpr = finance_util.cal_HPR(data=record, start=min_idx.date(), end=max_idx.date(), dim='value', dividends=0)
+    fig.suptitle(f'{sec_code}: {hpr*100:.2f}%', x=0.5, y=0.95, fontsize=20)
 
   # analysis
   def analyze(self, sort=True):
