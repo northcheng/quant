@@ -59,6 +59,7 @@ class Tiger:
   def get_user_info(self):
     return self.__user_info
 
+
   # get position record
   def get_position_record(self):
     return self.__position_record
