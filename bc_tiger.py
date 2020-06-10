@@ -34,30 +34,22 @@ class Tiger:
     # get logger
     self.logger = Tiger.defualt_logger if (logger_name is None) else logging.getLogger(logger_name)
 
-    # read user info from local file
+    # read user info, position record from local files
     self.__user_info = io_util.read_config(file_path=config['tiger_path'], file_name='user_info.json')
     self.__position_record = io_util.read_config(file_path=config['config_path'], file_name='tiger_position_record.json')
 
-    # get client_config
+    # set account, account type
+    self.account = self.__user_info[account_type]
+    self.account_type = account_type
+    
+    # initialize client_config
     self.client_config = TigerOpenClientConfig(sandbox_debug=sandbox_debug)
     self.client_config.private_key = read_private_key(config['tiger_path'] + self.__user_info['private_key_name'])
     self.client_config.tiger_id = str(self.__user_info['tiger_id'])
     self.client_config.language = Language.en_US
-    
-    # get quote/trade client, assets and positions
-    self.update_account(account_type=account_type, config=config)
-    self.logger.info(f'[init]: Tiger instance created: {logger_name}')
-    
-
-  # get quote/trade client, assets and positions for specified account
-  def update_account(self, account_type, config):
-
-    # update account and account type
-    self.account = self.__user_info[account_type]
-    self.account_type = account_type
-    
-    # update config, trade_client, quote_client, assets, positions, trade_time
     self.client_config.account = self.account 
+    
+    # get quote/trade clients, assets, positions, trade_time
     self.quote_client = QuoteClient(self.client_config)
     self.trade_client = TradeClient(self.client_config)
     self.positions = self.trade_client.get_positions(account=self.account)
@@ -87,7 +79,9 @@ class Tiger:
         else:
           self.record[symbol] = {'cash': init_cash, 'position': 0}
         self.logger.error(f'[{account_type[:4]}]: {symbol} position({current_position}) not match with record ({record_position}), reset position record')
-    
+
+    self.logger.info(f'[init]: Tiger instance created: {logger_name}')
+
 
   # get user info
   def get_user_info(self):
