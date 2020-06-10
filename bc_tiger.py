@@ -20,12 +20,13 @@ from tigeropen.tiger_open_config import TigerOpenClientConfig
 from tigeropen.quote.quote_client import QuoteClient
 from tigeropen.trade.trade_client import TradeClient
 
-# get logger
-defualt_logger = logging.getLogger('bc_tiger_logger')
-
 
 class Tiger:
 
+
+  # default logger
+  defualt_logger = logging.getLogger('bc_tiger_logger')
+  
   # user info: dict
   __user_info = {}        
   __position_record = {}
@@ -34,26 +35,63 @@ class Tiger:
   # init
   def __init__(self, account_type, config, sandbox_debug=False, logger_name=None):
 
-    # read user info from local file
-    self.__user_info = pd.read_csv(config['tiger_path'] + 'user_info.csv').loc[0,:].astype('str').to_dict()
+    # get logger
+    self.logger = Tiger.defualt_logger if (logger_name is None) else logging.getLogger(logger_name)
 
-    # set client_config
+    # read user info from local file
+    self.__user_info = io_util.read_config(file_path=config['tiger_path'], file_name='user_info.json')
+    self.__position_record = io_util.read_config(file_path=config['config_path'], file_name='tiger_position_record.json')
+
+    # get client_config
     self.client_config = TigerOpenClientConfig(sandbox_debug=sandbox_debug)
     self.client_config.private_key = read_private_key(config['tiger_path'] + self.__user_info['private_key_name'])
-    self.client_config.language = Language.en_US
     self.client_config.tiger_id = str(self.__user_info['tiger_id'])
+    self.client_config.language = Language.en_US
     
     # get quote/trade client, assets and positions
     self.update_account(account_type=account_type, config=config)
-
-    # get logger
-    if logger_name is None:
-      self.logger = defualt_logger
-    else:
-      self.logger = logging.getLogger(logger_name)
-
     self.logger.info(f'[init]: Tiger instance created: {logger_name}')
+    
 
+  # get quote/trade client, assets and positions for specified account
+  def update_account(self, account_type, config):
+
+    # update account and account type
+    self.account = self.__user_info[account_type]
+    self.account_type = account_type
+    
+    # update config, trade_client, quote_client, assets, positions, trade_time
+    self.client_config.account = self.account 
+    self.quote_client = QuoteClient(self.client_config)
+    self.trade_client = TradeClient(self.client_config)
+    self.positions = self.trade_client.get_positions(account=self.account)
+    self.assets = self.trade_client.get_assets(account=self.account)
+    self.get_trade_time()
+
+    # copy position record for current account
+    self.record = self.__position_record[account_type].copy()
+
+    # initialize position record for symbols that not in position record
+    init_cash = config['trade']['init_cash'][account_type]
+    pool = config['selected_sec_list'][config['trade']['pool'][account_type]]  
+    for symbol in pool:
+      if symbol not in self.record.keys():
+        self.record[symbol] = {'cash': init_cash, 'position': 0}
+
+    # check position record with current positions
+    position_dict = dict([(x.contract.symbol, x.quantity) for x in self.positions])
+    for symbol in self.record.keys():
+      
+      # get record position and real position then compare to each other
+      record_position = self.record[symbol]['position']
+      current_position = 0 if (symbol not in position_dict.keys()) else position_dict[symbol]
+      if current_position != record_position:
+        if current_position > 0:
+          self.record[symbol] = {'cash': 0, 'position': current_position}
+        else:
+          self.record[symbol] = {'cash': init_cash, 'position': 0}
+        self.logger.error(f'[{account_type[:4]}]: {symbol} position({current_position}) not match with record ({record_position}), reset position record')
+    
 
   # get user info
   def get_user_info(self):
@@ -63,91 +101,6 @@ class Tiger:
   # get position record
   def get_position_record(self):
     return self.__position_record
-
-
-  # get quote/trade client, assets and positions for specified account
-  def update_account(self, account_type, config):
-
-    # update config, trade_client, quote_client
-    self.client_config.account = str(self.__user_info[account_type])
-    self.quote_client = QuoteClient(self.client_config)
-    self.trade_client = TradeClient(self.client_config)
-
-    # update asset and position
-    self.positions = self.trade_client.get_positions(account=self.__user_info[account_type])
-    self.assets = self.trade_client.get_assets(account=self.__user_info[account_type])
-
-    # initialize position record
-    self.__position_record[account_type] = {}
-    init_cash = config['trade']['init_cash'][account_type]
-    pool = config['selected_sec_list'][config['trade']['pool'][account_type]]
-    for symbol in pool:
-      self.__position_record[account_type][symbol] = {'cash': init_cash, 'position': 0}
-
-    # update position record from current positions
-    for pos in self.positions:
-      symbol = pos.contract.symbol
-      position = pos.quantity
-      self.__position_record[account_type][symbol] = {'cash': 0, 'position': position}
-
-    # update position record from historical position records
-    historical_position_record = io_util.read_config(file_path=config['config_path'], file_name='tiger_position_record.json')[account_type]
-    for symbol in historical_position_record.keys():
-      historical_cash = historical_position_record[symbol]['cash']
-      historical_position = historical_position_record[symbol]['position']
-
-      if symbol in self.__position_record[account_type].keys():
-        if self.__position_record[account_type][symbol]['position'] == historical_position and historical_position == 0:
-          self.__position_record[account_type][symbol]['cash'] = historical_cash
-
-    # update position record
-    self.record = self.__position_record[account_type]
-
-    # update trade time
-    self.get_trade_time()
-    
-
-  # get trade time
-  def get_trade_time(self, market=Market.US, tz='Asia/Shanghai'):
-
-    # get local timezone
-    tz = pytz.timezone(tz)
-
-    try:
-      # get open_time
-      status = self.quote_client.get_market_status(market=market)[0]
-      # market_status = status.status
-      open_time = status.open_time.astimezone(tz).replace(tzinfo=None)
-      if status.status in ['Trading', 'Post-Market Trading']:
-        open_time = open_time - datetime.timedelta(days=1)
-
-      # get close time, pre_open_time, post_close_time
-      close_time = open_time + datetime.timedelta(hours=6.5)
-      pre_open_time = open_time - datetime.timedelta(hours=5.5)
-      post_close_time = close_time + datetime.timedelta(hours=4)
-
-    except Exception as e:
-      self.logger.error(e)
-      open_time = close_time = pre_open_time = post_close_time = None
-
-    self.trade_time = {
-      'status': status.status, 'tz': tz,
-      'pre_open_time': pre_open_time, 'open_time': open_time,
-      'close_time': close_time, 'post_close_time': post_close_time
-    }
-
-
-  # update market status
-  def update_market_status(self, market=Market.US):
-
-    try:
-      # get market status
-      status = self.quote_client.get_market_status(market=market)[0]
-      self.trade_time['status'] = status.status
-
-    except Exception as e:
-      self.logger.error(e)
-
 
 
   # get summary of positions
@@ -224,16 +177,28 @@ class Tiger:
     return available_cash
 
 
-  # check whether it is affordable to buy certain amount of a stock
-  def get_affordable_quantity(self, symbol, cash=None, trading_fee=3):
+  # get quantity of symbol currently in the position
+  def get_in_position_quantity(self, symbol, get_briefs=False):
 
     # initialize affordable quantity
     quantity = 0
-    
-    # get available cash
-    available_cash = cash
-    if cash is None:
-      available_cash = self.get_available_cash()
+
+    # get position summary
+    position = self.get_position_summary(get_briefs=get_briefs)
+    if len(position) > 0:
+      position = position.set_index('symbol')
+      if symbol in position.index:
+        quantity = position.loc[symbol, 'quantity']
+
+    return quantity
+
+
+  # check whether it is affordable to buy certain amount of a stock
+  def get_affordable_quantity(self, symbol, cash=None, trading_fee=3):
+
+    # initialize affordable quantity and available cash
+    quantity = 0
+    available_cash = self.get_available_cash() if (cash is None) else cash
 
     # get latest price of stock
     stock_brief = io_util.get_stock_briefs(symbols=[symbol], source='yfinance', period='1d', interval='1m').set_index('symbol')
@@ -245,22 +210,46 @@ class Tiger:
     return quantity
 
 
-  # get quantity of symbol currently in the position
-  def get_in_position_quantity(self, symbol):
+  # get trade time
+  def get_trade_time(self, market=Market.US, tz='Asia/Shanghai'):
 
-    # initialize affordable quantity
-    quantity = 0
+    # get local timezone
+    tz = pytz.timezone(tz)
 
-    # get position summary
-    position = self.get_position_summary()
-    if len(position) > 0:
-      position = position.set_index('symbol')
+    try:
+      # get open_time
+      status = self.quote_client.get_market_status(market=market)[0]
+      # market_status = status.status
+      open_time = status.open_time.astimezone(tz).replace(tzinfo=None)
+      if status.status in ['Trading', 'Post-Market Trading']:
+        open_time = open_time - datetime.timedelta(days=1)
 
-      # if symbol in position, get the quantity
-      if symbol in position.index:
-        quantity = position.loc[symbol, 'quantity']
+      # get close time, pre_open_time, post_close_time
+      close_time = open_time + datetime.timedelta(hours=6.5)
+      pre_open_time = open_time - datetime.timedelta(hours=5.5)
+      post_close_time = close_time + datetime.timedelta(hours=4)
 
-    return quantity
+    except Exception as e:
+      self.logger.error(e)
+      open_time = close_time = pre_open_time = post_close_time = None
+
+    self.trade_time = {
+      'status': status.status, 'tz': tz,
+      'pre_open_time': pre_open_time, 'open_time': open_time,
+      'close_time': close_time, 'post_close_time': post_close_time
+    }
+
+
+  # update market status
+  def update_market_status(self, market=Market.US):
+
+    try:
+      # get market status
+      status = self.quote_client.get_market_status(market=market)[0]
+      self.trade_time['status'] = status.status
+
+    except Exception as e:
+      self.logger.error(e)
 
 
   # buy or sell stocks
@@ -440,59 +429,56 @@ class Tiger:
 
 
   # update position for an account
-  def update_position_record(self, account_type, config, init_cash=None, init_position=None, start_time=None, end_time=None):
+  def update_position_record(self, config, init_cash=None, init_position=None, start_time=None, end_time=None):
 
-    if init_cash is None:
-      init_cash = config['trade']['init_cash'][account_type]
-    if init_position is None:
-      init_position = 0
-
+    # set default values
+    init_cash = config['trade']['init_cash'][self.account_type] if (init_cash is None) else init_cash
+    init_position = 0 if (init_position is None) else init_position
+    start_time = self.trade_time['pre_open_time'].strftime(format="%Y-%m-%d %H:%M:%S") if (start_time is None) else start_time
+    end_time = self.trade_time['post_close_time'].strftime(format="%Y-%m-%d %H:%M:%S") if (end_time is None) else end_time
+    
     try:
       # get today filled orders
-      if start_time is None:
-        start_time = self.trade_time['pre_open_time'].strftime(format="%Y-%m-%d %H:%M:%S")
-      if end_time is None:
-        end_time = self.trade_time['post_close_time'].strftime(format="%Y-%m-%d %H:%M:%S")
       orders = self.trade_client.get_filled_orders(start_time=start_time, end_time=end_time)
 
       # update position records
       for order in orders:
         symbol = order.contract.symbol
         action = order.action
-        
-        avg_fill_price = order.avg_fill_price
         quantity = order.quantity - order.remaining
         commission = order.commission
-        
+        avg_fill_price = order.avg_fill_price
+
+        # init record if not exist
         if symbol not in self.record.keys():
           self.record[symbol] = {'cash': init_cash, 'position': init_position}
         
+        # calculate new cash and position
         if action == 'BUY':
           cost = avg_fill_price * quantity + commission
           new_cash = self.record[symbol]['cash'] - cost
           new_position = self.record[symbol]['position'] + quantity
-
-          if new_cash >= 0 and new_position >= 0:
-            self.record[symbol]['cash'] = new_cash
-            self.record[symbol]['position'] = new_position
-          
-        if action == 'SELL':
+        
+        elif action == 'SELL':
           acquire = avg_fill_price * quantity - commission
           new_cash = self.record[symbol]['cash'] + acquire
           new_position = self.record[symbol]['position'] - quantity
 
-          if new_cash >= 0 and new_position >= 0:
-            self.record[symbol]['cash'] = new_cash
-            self.record[symbol]['position'] = new_position
+        else:
+          new_cash = self.record[symbol]['cash']
+          new_position = self.record[symbol]['position']
+
+        # update record
+        if new_cash >= 0 and new_position >= 0:
+          self.record[symbol]['cash'] = new_cash
+          self.record[symbol]['position'] = new_position
 
       # update __position_record
-      self.__position_record[account_type] = self.record
-
-      # save updated config record
+      self.__position_record[self.account_type] = self.record.copy()
       io_util.create_config_file(config_dict=self.__position_record, file_path=config['config_path'], file_name='tiger_position_record.json')
       
     except Exception as e:
-      self.logger.exception(f'[erro]: fail updating position records for {account_type}, {e}')
+      self.logger.exception(f'[erro]: fail updating position records for {self.account_type}, {e}')
   
 
   # idle for specified time and check position in certain frequency
