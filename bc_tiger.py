@@ -67,18 +67,20 @@ class Tiger:
         self.record[symbol] = {'cash': init_cash, 'position': 0}
 
     # check position record with current positions
-    position_dict = dict([(x.contract.symbol, x.quantity) for x in self.positions])
-    for symbol in self.record.keys():
+    if len(self.positions) > 0:
+      position_dict = dict([(x.contract.symbol, x.quantity) for x in self.positions])
       
-      # get record position and real position then compare to each other
-      record_position = self.record[symbol]['position']
-      current_position = 0 if (symbol not in position_dict.keys()) else position_dict[symbol]
-      if current_position != record_position:
-        if current_position > 0:
-          self.record[symbol] = {'cash': 0, 'position': current_position}
-        else:
-          self.record[symbol] = {'cash': init_cash, 'position': 0}
-        self.logger.error(f'[{account_type[:4]}]: {symbol} position({current_position}) not match with record ({record_position}), reset position record')
+      for symbol in self.record.keys():
+        
+        # get record position and real position then compare to each other
+        record_position = self.record[symbol]['position']
+        current_position = 0 if (symbol not in position_dict.keys()) else position_dict[symbol]
+        if current_position != record_position:
+          if current_position > 0:
+            self.record[symbol] = {'cash': 0, 'position': current_position}
+          else:
+            self.record[symbol] = {'cash': init_cash, 'position': 0}
+          self.logger.error(f'[{account_type[:4]}]: {symbol} position({current_position}) not match with record ({record_position}), reset position record')
 
     self.logger.info(f'[init]: Tiger instance created: {logger_name}')
 
