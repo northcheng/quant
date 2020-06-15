@@ -66,21 +66,24 @@ class Tiger:
       if symbol not in self.record.keys():
         self.record[symbol] = {'cash': init_cash, 'position': 0}
 
-    # check position record with current positions
-    if len(self.positions) > 0:
-      position_dict = dict([(x.contract.symbol, x.quantity) for x in self.positions])
-      
-      for symbol in self.record.keys():
-        
-        # get record position and real position then compare to each other
-        record_position = self.record[symbol]['position']
-        current_position = 0 if (symbol not in position_dict.keys()) else position_dict[symbol]
-        if current_position != record_position:
-          if current_position > 0:
-            self.record[symbol] = {'cash': 0, 'position': current_position}
-          else:
-            self.record[symbol] = {'cash': init_cash, 'position': 0}
-          self.logger.error(f'[{account_type[:4]}]: {symbol} position({current_position}) not match with record ({record_position}), reset position record')
+    # get record position and real position then compare to each other
+    record_conflicted = False
+    position_dict = dict([(x.contract.symbol, x.quantity) for x in self.positions])
+    for symbol in self.record.keys():
+      record_position = self.record[symbol]['position']
+      current_position = 0 if (symbol not in position_dict.keys()) else position_dict[symbol]
+      if current_position != record_position:
+        record_conflicted = True
+        if current_position > 0:
+          self.record[symbol] = {'cash': 0, 'position': current_position}
+        else:
+          self.record[symbol] = {'cash': init_cash, 'position': 0}
+        self.logger.error(f'[{account_type[:4]}]: {symbol} position({current_position}) not match with record ({record_position}), reset position record')
+
+    # update __position_record
+    if record_conflicted:
+      self.__position_record[self.account_type] = self.record.copy()
+      io_util.create_config_file(config_dict=self.__position_record, file_path=config['config_path'], file_name='tiger_position_record.json')
 
     self.logger.info(f'[init]: Tiger instance created: {logger_name}')
 
@@ -402,7 +405,7 @@ class Tiger:
 
       # filter sec with pool
       if pool is not None:
-        filtered_list = [x for x in signal.index if x in self.record.keys()]
+        filtered_list = [x for x in signal.index if x in pool]
         signal = signal.loc[filtered_list, signal.columns].copy()
 
     # if signal list is not empty
@@ -412,7 +415,7 @@ class Tiger:
       signal_brief = io_util.get_stock_briefs(symbols=signal.index.tolist(), source='yfinance', period='1d', interval='1m').set_index('symbol')
       signal = pd.merge(signal, signal_brief[['latest_price']], how='left', left_index=True, right_index=True)
 
-      # get in-position quantity for signals
+      # get in-position quantity and latest price for signals
       position = self.get_position_summary()
       if len(position) == 0:
         position = pd.DataFrame({'symbol':[], 'quantity':[]})
@@ -423,10 +426,8 @@ class Tiger:
       # get sell signals
       sell_signal = signal.query('action == "s"')
       if len(sell_signal) > 0:
-
         # go through sell signals
         for symbol in sell_signal.index:
-
           # check whether symbol is in positions
           in_position_quantity = signal.loc[symbol, 'quantity']
           if in_position_quantity > 0:
@@ -442,17 +443,14 @@ class Tiger:
       default_money_per_sec = money_per_sec
       buy_signal = signal.query('action == "b"')
       if len(buy_signal) > 0:
-
         # go through buy signals
         for symbol in buy_signal.index:
-          
           # check whether symbol is already in positions
           in_position_quantity = signal.loc[symbol, 'quantity']
           if in_position_quantity == 0:
-
             # set money used to establish a new position
             if according_to_record:
-              if (symbol in self.record.keys()) and (self.record[symbol]['position']) == 0:
+              if (symbol in self.record.keys()) and (self.record[symbol]['position']==0):
                 money_per_sec = self.record[symbol]['cash']
               else:
                 money_per_sec = default_money_per_sec
