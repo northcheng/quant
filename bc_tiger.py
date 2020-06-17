@@ -37,6 +37,7 @@ class Tiger:
     # read user info, position record from local files
     self.__user_info = io_util.read_config(file_path=config['tiger_path'], file_name='user_info.json')
     self.__position_record = io_util.read_config(file_path=config['config_path'], file_name='tiger_position_record.json')
+    self.record = self.__position_record[account_type].copy()
 
     # set account, account type
     self.account = self.__user_info[account_type]
@@ -55,9 +56,6 @@ class Tiger:
     self.positions = self.trade_client.get_positions(account=self.account)
     self.assets = self.trade_client.get_assets(account=self.account)
     self.get_trade_time()
-
-    # copy position record for current account
-    self.record = self.__position_record[account_type].copy()
 
     # initialize position record for symbols that not in position record
     init_cash = config['trade']['init_cash'][account_type]
@@ -280,7 +278,7 @@ class Tiger:
 
 
   # update position for an account
-  def update_position_record(self, config, init_cash=None, init_position=None, start_time=None, end_time=None):
+  def update_position_record(self, config, init_cash=None, init_position=None, start_time=None, end_time=None, is_print=True):
 
     # set default values
     init_cash = config['trade']['init_cash'][self.account_type] if (init_cash is None) else init_cash
@@ -303,28 +301,33 @@ class Tiger:
         # init record if not exist
         if symbol not in self.record.keys():
           self.record[symbol] = {'cash': init_cash, 'position': init_position}
+        record_cash = self.record[symbol]['cash']
+        record_position = self.record[symbol]['position']
         
         # calculate new cash and position
         if action == 'BUY':
           cost = avg_fill_price * quantity + commission
-          new_cash = self.record[symbol]['cash'] - cost
-          new_position = self.record[symbol]['position'] + quantity
+          new_cash = record_cash - cost
+          new_position = record_position + quantity
         
         elif action == 'SELL':
           acquire = avg_fill_price * quantity - commission
-          new_cash = self.record[symbol]['cash'] + acquire
-          new_position = self.record[symbol]['position'] - quantity
+          new_cash = record_cash + acquire
+          new_position = record_position - quantity
 
         else:
-          new_cash = self.record[symbol]['cash']
-          new_position = self.record[symbol]['position']
+          new_cash = record_cash
+          new_position = record_position
 
         # update record
         if new_cash >= 0 and new_position >= 0:
           self.record[symbol]['cash'] = new_cash
           self.record[symbol]['position'] = new_position
+          if is_print:
+            self.logger.info(f'[{self.account_type[:4]}]: updating position record for {symbol} {record_cash, record_position} -> {new_cash, new_position}')
 
       # update __position_record
+      self.__position_record = io_util.read_config(file_path=config['config_path'], file_name='tiger_position_record.json')
       self.__position_record[self.account_type] = self.record.copy()
       io_util.create_config_file(config_dict=self.__position_record, file_path=config['config_path'], file_name='tiger_position_record.json')
       
