@@ -59,6 +59,26 @@ def cal_EAR(data, start, end, dim='Close', dividends=0):
   return EAR
 
 
+def cal_AV(data, start, end, dim='rate'):
+  """
+  Calculate Annual-volatility
+
+  :param data: original OHLCV data
+  :param start: start date
+  :param end: end date
+  :param dim: daily return dim 
+  :returns: AV
+  :raises: none
+  """
+  # calculate the period 
+  start_date = util.time_2_string(data[start:end].index.min())
+  end_date = util.time_2_string(data[start:end].index.max())
+  num_days = util.num_days_between(start_date, end_date) - 1
+
+  AV = (data[dim].var() * (365 / num_days)) ** 0.5
+  return AV
+
+
 def cal_APR(data, start, end, dim='Close', dividends=0):
   """
   Calculate Annual-Percentile-Rate
@@ -207,21 +227,35 @@ def cal_period_rate_risk(data, dim='Close', by='month'):
   return period_rate
 
 
-def cal_sharp_ratio(data, ear, rfr=0.04, rate_dim='rate', days_a_year=252):
-  sharp_ratio = (ear - rfr) / (data[rate_dim].std() * days_a_year**0.5)
+def cal_sharp_ratio(data, start, end, rfr=0.04, price_dim='Close', rate_dim='rate'):
+  EAR = cal_EAR(data=data, start=start, end=end, dim=price_dim)
+  AV = cal_AV(data=data, start=start, end=end, dim=rate_dim)
+
+  sharp_ratio = (EAR - rfr) / AV
   return sharp_ratio
 
-def cal_max_drawndown(data, value_dim='value'):
 
+def cal_max_drawndown(data, dim='value'):
+  """
+  Calculate max drawn down in the specified period
+
+  :param data: original OHLCV data
+  :param start: start date
+  :param end: end date
+  :param dim: price dim to calculate
+  :param dividends: divndends to add
+  :returns: APR
+  :raises: none
+  """
   data = data.copy()
   data['drawndown'] = 0
 
   for index, row in data.iterrows():
-    current_max = data[:index][value_dim].max()
-    current = row[value_dim]
-    data.loc[index, 'drawndown'] = (current_max - current) / current_max
+    current_max = data[:index][dim].max()
+    future_min = data[index:][dim].min()
+    data.loc[index, 'drawndown'] = (future_min / current_max) - 1
 
-  max_drawndown = data['drawndown'].max()
+  max_drawndown = data['drawndown'].min()   
 
   return max_drawndown
 
