@@ -413,7 +413,7 @@ class FixedPositionTrader:
       EAR = finance_util.cal_EAR(data=record_data, start=min_idx.date(), end=max_idx.date(), dim='value', dividends=0)
       analysis['EAR'].append(EAR)
 
-      sharp_ratio = finance_util.cal_sharp_ratio(data=record_data, ear=EAR)
+      sharp_ratio = finance_util.cal_sharp_ratio(data=record_data, start=None, end=None, price_dim='value')
       analysis['sharp_ratio'].append(sharp_ratio)
 
       max_drawndown = finance_util.cal_max_drawndown(data=record_data)
@@ -437,21 +437,5 @@ class FixedPositionTrader:
     analysis = analysis[['start_date', 'end_date', 'start_money', 'end_money', 'profit', 'HPR', 'EAR', 'sharp_ratio', 'max_drawndown']].round(2)
 
     return analysis
-
-# class AveragePositionTrader:
-
-#   sec_list = []
-#   start_cash = 0
-#   num_positions = 0
-#   positions = {}
-#   record = {}
-
-#   cash = {}
-#   stock = {}
-#   holding_price = {}
-#   value = {}
-
-#   # init
-#   def __init__(self, sec_list, start_cash, signals, num_positions):
 
 

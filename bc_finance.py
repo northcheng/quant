@@ -15,7 +15,7 @@ from quant import bc_technical_analysis as ta_util
 #----------------------------- Rate and Risk -----------------------------------#
 # risk_premium = mean(excess_return)
 # risk = std(excess_return)
-def cal_HPR(data, start, end, dim='Close', dividends=0):
+def cal_HPR(data, start, end, dim='value', dividends=0):
   """
   Calculate Holding-Period-Rate
 
@@ -33,7 +33,7 @@ def cal_HPR(data, start, end, dim='Close', dividends=0):
   return HPR
 
 
-def cal_EAR(data, start, end, dim='Close', dividends=0):
+def cal_EAR(data, start, end, dim='value', dividends=0):
   """
   Calculate Effective-Annual-Rate
 
@@ -79,7 +79,7 @@ def cal_AV(data, start, end, dim='rate'):
   return AV
 
 
-def cal_APR(data, start, end, dim='Close', dividends=0):
+def cal_APR(data, start, end, dim='value', dividends=0):
   """
   Calculate Annual-Percentile-Rate
 
@@ -105,7 +105,7 @@ def cal_APR(data, start, end, dim='Close', dividends=0):
   return APR
 
 
-def cal_CCR(data, start, end, dim='Close', dividends=0):
+def cal_CCR(data, start, end, dim='value', dividends=0):
   """
   Calculate Continuous-Compouding-Rate
 
@@ -151,7 +151,7 @@ def cal_excess_raturn(expected_rate, real_rate):
   return ER
 
 
-def cal_period_rate_risk(data, dim='Close', by='month'):
+def cal_period_rate_risk(data, dim='value', by='month'):
   """
   Calculate rate and risk in a specfic period
 
@@ -227,7 +227,7 @@ def cal_period_rate_risk(data, dim='Close', by='month'):
   return period_rate
 
 
-def cal_sharp_ratio(data, start, end, rfr=0.04, price_dim='Close', rate_dim='rate'):
+def cal_sharp_ratio(data, start, end, rfr=0.04, price_dim='value', rate_dim='rate'):
   EAR = cal_EAR(data=data, start=start, end=end, dim=price_dim)
   AV = cal_AV(data=data, start=start, end=end, dim=rate_dim)
 
