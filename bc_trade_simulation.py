@@ -428,8 +428,21 @@ class FixedPositionTrader:
       # calculate sum and mean
       analysis_mean = analysis.mean()
       analysis_sum = analysis.sum()
-      analysis = analysis.append(pd.DataFrame({'start_date': '', 'end_date': '', 'start_money': analysis_mean['start_money'], 'end_money':analysis_mean['end_money'], 'EAR':analysis_mean['EAR'], 'sharp_ratio':analysis_mean['sharp_ratio'], 'max_drawndown':analysis_mean['max_drawndown']}, index=['mean']))
-      analysis = analysis.append(pd.DataFrame({'start_date': '', 'end_date': '', 'start_money': analysis_sum['start_money'], 'end_money':analysis_sum['end_money'], 'EAR':analysis_sum['EAR'], 'sharp_ratio':analysis_sum['sharp_ratio'], 'max_drawndown':analysis_sum['max_drawndown']}, index=['total']))
+      
+      # calculate sum of the whole portfilo
+      value_sum = None
+      for symbol in records.keys():
+        if value_sum is None:
+          value_sum = records[symbol][['value']].copy()
+        else:
+          value_sum = value_sum.add(records[symbol][['value']], fill_value=0)
+      value_sum['rate'] = value_sum.pct_change().fillna(0)
+      total_ear = finance_util.cal_EAR(data=value_sum, start=None, end=None)
+      total_max_drawndown = finance_util.cal_max_drawndown(data=value_sum)
+      total_sharp_ratio = finance_util.cal_sharp_ratio(data=value_sum, start=None, end=None)
+
+      analysis = analysis.append(pd.DataFrame({'start_date': '', 'end_date': '', 'start_money': analysis_mean['start_money'], 'end_money':analysis_mean['end_money'], 'EAR':total_ear, 'sharp_ratio':total_sharp_ratio, 'max_drawndown':total_max_drawndown}, index=['mean']))
+      analysis = analysis.append(pd.DataFrame({'start_date': '', 'end_date': '', 'start_money': analysis_sum['start_money'], 'end_money':analysis_sum['end_money'], 'EAR':total_ear, 'sharp_ratio':total_sharp_ratio, 'max_drawndown':total_max_drawndown}, index=['total']))
 
     # post process
     analysis['profit'] = analysis['end_money'] - analysis['start_money']
