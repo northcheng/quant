@@ -1,7 +1,7 @@
 {
 	"etf": [
 		"TQQQ","SQQQ","UPRO","SPXU","UDOW","SDOW","TECL","TECS","SOXL","SOXS",
-		"FAS","FAZ","LABU","LABD", "CHAU","CHAD","YINN","YANG","CQQQ"],
+		"SPY","FAS","FAZ","LABU","LABD", "CHAU","CHAD","YINN","YANG","CQQQ"],
 
 	"company": [
 		"AAPL","MSFT","IBM","FB","ADBE","NFLX","DIS",
@@ -18,7 +18,7 @@
 
 	"all": [
 		"TQQQ","SQQQ","UPRO","SPXU","UDOW","SDOW","TECL","TECS","SOXL","SOXS",
-		"FAS","FAZ","LABU","LABD", "CHAU","CHAD","YINN","YANG","CQQQ",
+		"SPY","FAS","FAZ","LABU","LABD", "CHAU","CHAD","YINN","YANG","CQQQ",
 		
 		"AAPL","MSFT","IBM","FB","ADBE","NFLX","DIS",
 		"INTC","NVDA","AMD","QCOM","AVGO","TXN","TSM",
