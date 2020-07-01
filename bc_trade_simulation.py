@@ -21,6 +21,7 @@ class FixedPositionTrader:
   start_cash = 0
   record = {}
   benchmark = None
+  benchmark_return = 0
 
   cash = {}
   stock = {}
@@ -51,8 +52,11 @@ class FixedPositionTrader:
       self.record[sec_code]['value'] = np.NaN
 
     # set benchmark
-    if benchmark in signals.keys():
+    if benchmark in self.record.keys():
       self.benchmark = benchmark
+      self.benchmark_return = finance_util.cal_HPR(data=self.record[benchmark], start=None, end=None, dim='Adj Close', dividends=0)
+    else:
+      print(f'{benchmark} not in signals')
  
   # trade
   def trade(self, start_date, end_date, stop_profit=None, stop_loss=None):
