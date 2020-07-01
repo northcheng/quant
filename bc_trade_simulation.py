@@ -54,7 +54,14 @@ class FixedPositionTrader:
     # set benchmark
     if benchmark in self.record.keys():
       self.benchmark = benchmark
+      self.record['benchmark'] = self.record[benchmark].copy()
+      self.record['benchmark']['signal'] = 'n'
+      max_idx = self.record['benchmark'].index.max()
+      min_idx = self.record['benchmark'].index.min()
+      self.record['benchmark'].loc[min_idx,'signal'] = 'b'
+      self.record['benchmark'].loc[max_idx,'signal'] = 's'
       self.benchmark_return = finance_util.cal_HPR(data=self.record[benchmark], start=None, end=None, dim='Adj Close', dividends=0)
+      self.sec_list = sec_list.append('benchmark')
     else:
       print(f'{benchmark} not in signals')
  
