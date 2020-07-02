@@ -14,6 +14,44 @@ from quant import bc_finance as finance_util
 from quant import bc_technical_analysis as ta_util
 
 
+def buy(money, price, trading_fee):
+  """
+  Buy stocks
+
+  :param money: money used for buying stocks
+  :param price: price of the stock
+  :param trading_fee: trading_fee
+  :returns: left money and bought stocks
+  :raises: none
+  """
+  # calculate how many stocks could be bought, and how much money would left
+  stock = math.floor((money-trading_fee) / price)
+  if stock > 0:
+    money = money - trading_fee - (price*stock) 
+  else:
+    stock = 0
+    # print('Not enough money to buy')
+  return {'money': money, 'stock': stock} 
+
+
+def sell(stock, price, trading_fee):
+  """
+  Sell stocks
+
+  :param stock: number of stock to sell
+  :param price: price of the stock
+  :param trading_fee: trading fee
+  :returns: left stock and money of sold stock
+  """
+  # calculate how much the stock worthes 
+  money = stock * price - trading_fee
+  if money > 0:
+    stock = 0
+  else:
+    money = 0
+    # print('Not enough stock to sell')
+  return {'money': money, 'stock': stock}
+
 
 class FixedPositionTrader:
 
@@ -32,7 +70,7 @@ class FixedPositionTrader:
   def __init__(self, sec_list, start_cash, signals, recalculate_signal=False, benchmark='SPY'):
 
     # initialize stock list and start cash
-    self.sec_list = sec_list
+    self.sec_list = sec_list.copy()
     self.start_cash = start_cash
 
     # initialize trading record
@@ -60,8 +98,10 @@ class FixedPositionTrader:
       min_idx = self.record['benchmark'].index.min()
       self.record['benchmark'].loc[min_idx,'signal'] = 'b'
       self.record['benchmark'].loc[max_idx,'signal'] = 's'
-      self.benchmark_return = finance_util.cal_HPR(data=self.record[benchmark], start=None, end=None, dim='Adj Close', dividends=0)
-      self.sec_list = sec_list.append('benchmark')
+
+      # add benchmark into trade list
+      self.sec_list.append('benchmark')
+      self.start_cash = start_cash/len(sec_list) * len(self.sec_list)
     else:
       print(f'{benchmark} not in signals')
  
@@ -163,18 +203,26 @@ class FixedPositionTrader:
     # plot trade signals
     buying_points = record.query('signal == "b"')
     selling_points = record.query('signal == "s"')
-    trade_plot.plot(record.index, record[['Close']], label='Close')
-    trade_plot.scatter(buying_points.index,buying_points.Close, c='green', label='Buy')
-    trade_plot.scatter(selling_points.index,selling_points.Close, c='red', label='Sell')
+    trade_plot.plot(record.index, record[['Close']], label='Close', alpha=0.5)
+    trade_plot.scatter(buying_points.index,buying_points.Close, c='green', marker='^', label='Buy')
+    trade_plot.scatter(selling_points.index,selling_points.Close, c='red', marker='v', label='Sell')
 
     # plot money flow chart
     record.fillna(method='ffill', inplace=True)
     record['original'] = record.loc[min_idx, 'value']
     money_plot.plot(record.index, record.value, label='Value')
     money_plot.plot(record.index, record.original, label='Original')
-
     money_plot.fill_between(record.index, record.original, record.value, where=record.value > record.original, facecolor='green', interpolate=True, alpha=0.1)
     money_plot.fill_between(record.index, record.original, record.value, where=record.value < record.original, facecolor='red', interpolate=True, alpha=0.1)
+
+    # plot benchmark money flowchart if benchmark exists
+    if self.benchmark is not None:
+      benchmark_record = self.record['benchmark'][start_date:end_date].copy()
+      benchmark_record.fillna(method='ffill', inplace=True)
+      benchmark_record['original'] = benchmark_record.loc[min_idx, 'value']
+      money_plot.plot(benchmark_record.index, benchmark_record.value, label='benckmark', color='black', linestyle='--',)
+      # money_plot.fill_between(benchmark_record.index, benchmark_record.original, benchmark_record.value, where=benchmark_record.value > benchmark_record.original, facecolor='green', interpolate=True, alpha=0.1)
+      # money_plot.fill_between(benchmark_record.index, benchmark_record.original, benchmark_record.value, where=benchmark_record.value < benchmark_record.original, facecolor='red', interpolate=True, alpha=0.1)
 
     # set title and legend
     trade_plot.legend(bbox_to_anchor=(1.02, 0.), loc=3, ncol=1, borderaxespad=0.0) 
@@ -232,14 +280,20 @@ class FixedPositionTrader:
     if sort:
       analysis = analysis.sort_values('EAR', ascending=False)
 
-    if len(records) > 1:
+    # calculate sum and mean for non benchmark stocks
+    non_benchmark_list = [x for x in analysis.index.tolist() if x != 'benchmark']
+    non_benchmark_analysis = analysis.loc[non_benchmark_list, analysis.columns].copy()
+    if len(non_benchmark_analysis) > 1:
+
       # calculate sum and mean
-      analysis_mean = analysis.mean()
-      analysis_sum = analysis.sum()
+      analysis_mean = non_benchmark_analysis.mean()
+      analysis_sum = non_benchmark_analysis.sum()
       
       # calculate sum of the whole portfilo
       value_sum = None
       for symbol in records.keys():
+        if symbol == 'benchmark':
+          continue
         if value_sum is None:
           value_sum = records[symbol][['value']].copy()
         else:
@@ -249,6 +303,11 @@ class FixedPositionTrader:
       total_max_drawndown = finance_util.cal_max_drawndown(data=value_sum)
       total_sharp_ratio = finance_util.cal_sharp_ratio(data=value_sum, start=None, end=None)
 
+      # resort dataframe
+      if self.benchmark is not None:
+        right_order = [x for x in analysis.index if x != 'benchmark'] + ['benchmark'] 
+        analysis = analysis.loc[right_order].copy()
+
       analysis = analysis.append(pd.DataFrame({'start_date': '', 'end_date': '', 'start_money': analysis_mean['start_money'], 'end_money':analysis_mean['end_money'], 'EAR':total_ear, 'sharp_ratio':total_sharp_ratio, 'max_drawndown':total_max_drawndown}, index=['mean']))
       analysis = analysis.append(pd.DataFrame({'start_date': '', 'end_date': '', 'start_money': analysis_sum['start_money'], 'end_money':analysis_sum['end_money'], 'EAR':total_ear, 'sharp_ratio':total_sharp_ratio, 'max_drawndown':total_max_drawndown}, index=['total']))
 
@@ -256,48 +315,14 @@ class FixedPositionTrader:
     analysis['profit'] = analysis['end_money'] - analysis['start_money']
     analysis['HPR'] = analysis['profit'] / analysis['start_money']
     analysis = analysis[['start_date', 'end_date', 'start_money', 'end_money', 'profit', 'HPR', 'EAR', 'sharp_ratio', 'max_drawndown']].round(2)
-
+    
+    
+    
     return analysis
 
 
-# #----------------------------- Buy/Sell -------------------------------------#
-# def buy(money, price, trading_fee):
-#   """
-#   Buy stocks
+#----------------------------- Buy/Sell -------------------------------------#
 
-#   :param money: money used for buying stocks
-#   :param price: price of the stock
-#   :param trading_fee: trading_fee
-#   :returns: left money and bought stocks
-#   :raises: none
-#   """
-#   # calculate how many stocks could be bought, and how much money would left
-#   stock = math.floor((money-trading_fee) / price)
-#   if stock > 0:
-#     money = money - trading_fee - (price*stock) 
-#   else:
-#     stock = 0
-#     # print('Not enough money to buy')
-#   return {'money': money, 'stock': stock} 
-
-
-# def sell(stock, price, trading_fee):
-#   """
-#   Sell stocks
-
-#   :param stock: number of stock to sell
-#   :param price: price of the stock
-#   :param trading_fee: trading fee
-#   :returns: left stock and money of sold stock
-#   """
-#   # calculate how much the stock worthes 
-#   money = stock * price - trading_fee
-#   if money > 0:
-#     stock = 0
-#   else:
-#     money = 0
-#     # print('Not enough stock to sell')
-#   return {'money': money, 'stock': stock}
 
 
 # def back_test(df, signal_col='signal', start_date=None, end_date=None, start_money=0, start_stock=0, trading_fee=3, stop_loss=-0.03, stop_earning=0.05, trade_on_next_day=False, print_trading=True, plot_trading=True):  
