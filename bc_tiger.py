@@ -161,11 +161,7 @@ class Tiger:
 
     # get available cash for real accounts
     self.assets = self.trade_client.get_assets(account=self.client_config.account)
-    available_cash = self.assets[0].summary.available_funds
-    
-    # use cash rather than available_funds for simulation account
-    if self.account_type == 'simulation_account':
-      available_cash = self.assets[0].summary.cash
+    available_cash = self.assets[0].summary.cash
 
     return available_cash
 
