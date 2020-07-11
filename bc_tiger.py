@@ -208,10 +208,12 @@ class Tiger:
     try:
       # get open_time
       status = self.quote_client.get_market_status(market=market)[0]
-      # market_status = status.status
       open_time = status.open_time.astimezone(tz).replace(tzinfo=None)
       if status.status in ['Trading', 'Post-Market Trading']:
-        open_time = open_time - datetime.timedelta(days=1)
+        if open_time.weekday() == 0:
+          open_time = open_time - datetime.timedelta(days=3)
+        else:
+          open_time = open_time - datetime.timedelta(days=1)
 
       # get close time, pre_open_time, post_close_time
       close_time = open_time + datetime.timedelta(hours=6.5)
