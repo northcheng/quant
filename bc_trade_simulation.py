@@ -68,22 +68,24 @@ class FixedPositionTrader:
   
 
   # init
-  def __init__(self, sec_list, start_cash, signals, recalculate_signal=False, benchmark='SPY'):
+  def __init__(self, sec_list, start_cash, data, recalculate_signal=False, start_date=None, end_date=None, benchmark='SPY'):
 
     # initialize stock list and start cash
     self.sec_list = sec_list.copy()
     self.start_cash = start_cash
 
     # initialize trading record
+    signals = data['ta_data'].copy()
     for k in signals.keys():
-      sec_code = k.split('_')[0]
-      
-      if recalculate_signal:
-        self.record[sec_code] = ta_util.calculate_ta_signal(df=signals[k])
+      sec_code, interval = k.split('_')
+
+      # recalculate ta trends and signals
+      if recalculate_signal and (sec_code in self.sec_list or sec_code == benchmark):
+        self.record[sec_code] = ta_util.calculate_ta_data(df=data['sec_data'][k][start_date:end_date], symbol=sec_code, interval=interval)
       else:
         self.record[sec_code] = signals[k].copy()
 
-      # self.record[sec_code] = self.record[sec_code][['signal', 'Close']]
+      # add extra columns 
       self.record[sec_code]['holding_price'] = 0
       self.record[sec_code]['holding_return'] = 0
       self.record[sec_code]['money'] = np.NaN
@@ -105,7 +107,7 @@ class FixedPositionTrader:
       self.start_cash = start_cash/len(sec_list) * len(self.sec_list)
     else:
       print(f'{benchmark} not in signals')
- 
+
   # trade
   def trade(self, start_date, end_date, stop_profit=None, stop_loss=None):
 
@@ -197,7 +199,21 @@ class FixedPositionTrader:
     plt.setp(trade_plot.get_xticklabels(), visible=False)
     gs.update(wspace=0, hspace=0)
     
-    record = self.record[sec_code][start_date:end_date].copy()
+    # get plot data
+    if sec_code == 'portfolio':
+      record = self.record['benchmark'][['value']].copy()
+      record['value'] = 0
+      for k in self.record.keys():
+        if k == 'benchmark':
+          continue
+        tmp_data = self.record[k][['value']].copy()
+        record = record.add(tmp_data, fill_value=0)
+      record['Close'] = np.NaN
+      record['signal'] = 'n'
+    else:
+      record = self.record[sec_code].copy()
+      
+    record = record[start_date:end_date].copy()
     min_idx = record.index.min()
     max_idx = record.index.max()
 
@@ -219,8 +235,12 @@ class FixedPositionTrader:
     # plot benchmark money flowchart if benchmark exists
     if self.benchmark is not None:
       benchmark_record = self.record['benchmark'][start_date:end_date].copy()
+      benchmark_min_idx = benchmark_record.index.min()
       benchmark_record.fillna(method='ffill', inplace=True)
-      benchmark_record['original'] = benchmark_record.loc[min_idx, 'value']
+
+      if sec_code == 'portfolio':
+        benchmark_record['value'] = benchmark_record['value'] * (len(self.sec_list)-1)
+      benchmark_record['original'] = benchmark_record.loc[benchmark_min_idx, 'value']
       money_plot.plot(benchmark_record.index, benchmark_record.value, label='benckmark', color='black', linestyle='--',)
       # money_plot.fill_between(benchmark_record.index, benchmark_record.original, benchmark_record.value, where=benchmark_record.value > benchmark_record.original, facecolor='green', interpolate=True, alpha=0.1)
       # money_plot.fill_between(benchmark_record.index, benchmark_record.original, benchmark_record.value, where=benchmark_record.value < benchmark_record.original, facecolor='red', interpolate=True, alpha=0.1)
