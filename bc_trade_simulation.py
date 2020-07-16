@@ -57,10 +57,9 @@ class FixedPositionTrader:
 
   sec_list = []
   start_cash = 0
-  record = {}
   benchmark = None
-  benchmark_return = 0
 
+  record = {}
   cash = {}
   stock = {}
   value = {}
@@ -68,84 +67,81 @@ class FixedPositionTrader:
   
 
   # init
-  def __init__(self, sec_list, start_cash, data, recalculate_signal=False, start_date=None, end_date=None, benchmark='SPY'):
+  def __init__(self, data, sec_list, start_cash, recalculate_signal=False, start_date=None, end_date=None, benchmark='SPY'):
 
     # initialize stock list and start cash
     self.sec_list = sec_list.copy()
     self.start_cash = start_cash
 
-    # initialize trading record
-    signals = data['ta_data'].copy()
+    # initialize record with ta_data
+    signals = data['ta_data']
     for k in signals.keys():
-      sec_code, interval = k.split('_')
+      symbol, interval = k.split('_')
 
-      # recalculate ta trends and signals
-      if recalculate_signal and (sec_code in self.sec_list or sec_code == benchmark):
-        self.record[sec_code] = ta_util.calculate_ta_data(df=data['sec_data'][k][start_date:end_date], symbol=sec_code, interval=interval)
+      # recalculate ta_data
+      if recalculate_signal and ((symbol in sec_list) or (symbol == benchmark)):
+        self.record[symbol] = ta_util.calculate_ta_data(df=data['sec_data'][k][start_date:end_date], symbol=symbol, interval=interval)
       else:
-        self.record[sec_code] = signals[k].copy()
+        self.record[symbol] = signals[k].copy()
 
       # add extra columns 
-      self.record[sec_code]['holding_price'] = 0
-      self.record[sec_code]['holding_return'] = 0
-      self.record[sec_code]['money'] = np.NaN
-      self.record[sec_code]['stock'] = np.NaN
-      self.record[sec_code]['value'] = np.NaN
+      self.record[symbol]['holding_price'] = 0
+      self.record[symbol]['holding_return'] = 0
+      self.record[symbol]['money'] = np.NaN
+      self.record[symbol]['stock'] = np.NaN
+      self.record[symbol]['value'] = np.NaN
 
     # set benchmark
     if benchmark in self.record.keys():
       self.benchmark = benchmark
       self.record['benchmark'] = self.record[benchmark].copy()
+      
+      # set benchmark trading signals
+      benchmark_idx = self.record['benchmark'].index
       self.record['benchmark']['signal'] = 'n'
-      max_idx = self.record['benchmark'].index.max()
-      min_idx = self.record['benchmark'].index.min()
-      self.record['benchmark'].loc[min_idx,'signal'] = 'b'
-      self.record['benchmark'].loc[max_idx,'signal'] = 's'
+      self.record['benchmark'].loc[benchmark_idx.min(),'signal'] = 'b'
+      self.record['benchmark'].loc[benchmark_idx.max(),'signal'] = 's'
 
       # add benchmark into trade list
       self.sec_list.append('benchmark')
       self.start_cash = start_cash/len(sec_list) * len(self.sec_list)
     else:
-      print(f'{benchmark} not in signals')
-
+      self.benchmark = None
+      print(f'{benchmark} data not found')
+      
   # trade
   def trade(self, start_date, end_date, stop_profit=None, stop_loss=None):
 
-    # evenly distribute money to each stock
+    # initialize portfolio
     avg_position = self.start_cash / len(self.sec_list)
-    for sec_code in self.sec_list:
-      self.stock[sec_code] = 0
-      self.cash[sec_code] = avg_position
-      self.value[sec_code] = avg_position
+    for symbol in self.sec_list:
+      self.stock[symbol] = 0
+      self.holding_price[symbol] = 0
+      self.cash[symbol] = avg_position
+      self.value[symbol] = avg_position
 
-    # set target sec list
-    target_list = self.sec_list
-
-    # start/end date
+    # set trading start/end date
     start_dates = []
     end_dates = []
-    for s in target_list:
+    for s in self.sec_list:
       start_dates.append(self.record[s].index.min())
       end_dates.append(self.record[s].index.max())
-    if start_date is None:
-      start_date = util.time_2_string(min(start_dates)) if start_date is None else start_date
-    if end_date is None:
-      end_date =  util.time_2_string(max(end_dates)) if end_date is None else end_date
+    start_date = util.time_2_string(min(start_dates)) if start_date is None else start_date
+    end_date =  util.time_2_string(max(end_dates)) if end_date is None else end_date
 
-    # construct date list
+    # construct trading date list
     dates = []
     next_date = start_date
     while next_date <= end_date:
       dates.append(next_date)
       next_date = util.string_plus_day(next_date, 1)
 
-    # go through each day
+    # go through each trading day
     for date in dates:
-      # date_signal = []
 
       # go through each stock
-      for sec_code in target_list:
-        signal_data = self.record[sec_code]
+      for symbol in self.sec_list:
+        signal_data = self.record[symbol]
         
         # if current date is trading day
         if date in signal_data.index:
@@ -155,41 +151,44 @@ class FixedPositionTrader:
           tmp_price = signal_data.loc[date, 'Close']
 
           # check if it is necessary to stop profit/loss
-          if self.stock[sec_code] > 0:
-            signal_data.loc[date, 'holding_price'] = self.holding_price[sec_code]
+          if self.stock[symbol] > 0:
+            signal_data.loc[date, 'holding_price'] = self.holding_price[symbol]
             signal_data.loc[date, 'holding_return'] = (tmp_price - signal_data.loc[date, 'holding_price']) / signal_data.loc[date, 'holding_price']
             if (stop_profit is not None and signal_data.loc[date, 'holding_return'] >= stop_profit) or (stop_loss is not None and signal_data.loc[date, 'holding_return'] <= stop_loss):
               tmp_signal = 's'
 
+          # buy stock
           if tmp_signal == 'b':
-            trade_result = buy(money=self.cash[sec_code], price=tmp_price, trading_fee=3)
-            self.cash[sec_code] = trade_result['money']
-            self.stock[sec_code] += trade_result['stock']
-            self.holding_price[sec_code] = tmp_price
+            trade_result = buy(money=self.cash[symbol], price=tmp_price, trading_fee=3)
+            self.cash[symbol] = trade_result['money']
+            self.stock[symbol] += trade_result['stock']
+            self.holding_price[symbol] = tmp_price
 
+          # sell stock
           elif tmp_signal == 's':
-            trade_result = sell(stock=self.stock[sec_code], price=tmp_price, trading_fee=3)
-            self.cash[sec_code] += trade_result['money']
-            self.stock[sec_code] = trade_result['stock']
-            self.holding_price[sec_code] = 0
+            trade_result = sell(stock=self.stock[symbol], price=tmp_price, trading_fee=3)
+            self.cash[symbol] += trade_result['money']
+            self.stock[symbol] = trade_result['stock']
+            self.holding_price[symbol] = 0
 
           else:
             pass
-
-          self.value[sec_code] = self.cash[sec_code] + self.stock[sec_code] * tmp_price
-          signal_data.loc[date, 'money'] = self.cash[sec_code]
-          signal_data.loc[date, 'stock'] = self.stock[sec_code]
-          signal_data.loc[date, 'value'] = self.value[sec_code]
-                  
+          
+          # update stock, money, value
+          self.value[symbol] = self.cash[symbol] + self.stock[symbol] * tmp_price
+          signal_data.loc[date, 'money'] = self.cash[symbol]
+          signal_data.loc[date, 'stock'] = self.stock[symbol]
+          signal_data.loc[date, 'value'] = self.value[symbol]
+          
         # if current date is not trading day
         else:
           pass
 
-    for sec_code in target_list:
-      self.record[sec_code][['money', 'stock', 'value']] = self.record[sec_code][['money', 'stock', 'value']].fillna(method='bfill')
+    for symbol in self.sec_list:
+      self.record[symbol][['money', 'stock', 'value']] = self.record[symbol][['money', 'stock', 'value']].fillna(method='bfill')
 
   # visualize
-  def visualize(self, sec_code, start_date=None, end_date=None):
+  def visualize(self, symbol, start_date=None, end_date=None):
 
     # create image
     fig = plt.figure(figsize=(20, 5))  
@@ -200,7 +199,7 @@ class FixedPositionTrader:
     gs.update(wspace=0, hspace=0)
     
     # get plot data
-    if sec_code == 'portfolio':
+    if symbol == 'portfolio':
       record = self.record['benchmark'][['value']].copy()
       record['value'] = 0
       for k in self.record.keys():
@@ -208,10 +207,11 @@ class FixedPositionTrader:
           continue
         tmp_data = self.record[k][['value']].copy()
         record = record.add(tmp_data, fill_value=0)
+      record['value'] = record['value'].replace(0, np.NaN).fillna(method='bfill')
       record['Close'] = np.NaN
       record['signal'] = 'n'
     else:
-      record = self.record[sec_code].copy()
+      record = self.record[symbol].copy()
       
     record = record[start_date:end_date].copy()
     min_idx = record.index.min()
@@ -238,21 +238,18 @@ class FixedPositionTrader:
       benchmark_min_idx = benchmark_record.index.min()
       benchmark_record.fillna(method='ffill', inplace=True)
 
-      if sec_code == 'portfolio':
+      if symbol == 'portfolio':
         benchmark_record['value'] = benchmark_record['value'] * (len(self.sec_list)-1)
       benchmark_record['original'] = benchmark_record.loc[benchmark_min_idx, 'value']
       money_plot.plot(benchmark_record.index, benchmark_record.value, label='benckmark', color='black', linestyle='--',)
-      # money_plot.fill_between(benchmark_record.index, benchmark_record.original, benchmark_record.value, where=benchmark_record.value > benchmark_record.original, facecolor='green', interpolate=True, alpha=0.1)
-      # money_plot.fill_between(benchmark_record.index, benchmark_record.original, benchmark_record.value, where=benchmark_record.value < benchmark_record.original, facecolor='red', interpolate=True, alpha=0.1)
-
+    
     # set title and legend
     trade_plot.legend(bbox_to_anchor=(1.02, 0.), loc=3, ncol=1, borderaxespad=0.0) 
     trade_plot.set_title('Signals', rotation='vertical', x=-0.05, y=0.3)
     money_plot.legend(bbox_to_anchor=(1.02, 0.), loc=3, ncol=1, borderaxespad=0.0) 
     money_plot.set_title('Money', rotation='vertical', x=-0.05, y=0.3)
-
     hpr = finance_util.cal_HPR(data=record, start=min_idx.date(), end=max_idx.date(), dim='value', dividends=0)
-    fig.suptitle(f'{sec_code}: {hpr*100:.2f}%', x=0.5, y=0.95, fontsize=20)
+    fig.suptitle(f'{symbol}: {hpr*100:.2f}%', x=0.5, y=0.95, fontsize=20)
 
   # analysis
   def analyze(self, sort=True):
@@ -262,7 +259,7 @@ class FixedPositionTrader:
     
     # init dict for storing results
     analysis = {
-        'sec_code': [],
+        'symbol': [],
         'start_date': [],
         'end_date': [],
         'start_money': [],
@@ -273,15 +270,15 @@ class FixedPositionTrader:
       }
 
     # go through each stock
-    for sec_code in records.keys():
+    for symbol in records.keys():
         
       # get record data
-      record_data = records[sec_code]
+      record_data = records[symbol]
       min_idx = record_data.index.min()
       max_idx = record_data.index.max()
       
       # analysis profit, hpr, ear, etc.
-      analysis['sec_code'].append(sec_code)
+      analysis['symbol'].append(symbol)
       analysis['start_date'].append(util.time_2_string(min_idx.date()))
       analysis['end_date'].append(util.time_2_string(max_idx.date()))
       analysis['start_money'].append(record_data.loc[min_idx, 'value'])
@@ -297,7 +294,7 @@ class FixedPositionTrader:
       analysis['max_drawndown'].append(max_drawndown)
 
     # transform dict to dataframe
-    analysis = pd.DataFrame(analysis).set_index('sec_code')
+    analysis = pd.DataFrame(analysis).set_index('symbol')
     if sort:
       analysis = analysis.sort_values('EAR', ascending=False)
 

@@ -27,9 +27,6 @@ def cal_HPR(data, start, end, dim='value', dividends=0):
   :returns: HPR
   :raises: none
   """
-  data = data.copy()
-  data[dim] = data[dim].replace(0, np.NaN)
-  data.fillna(method='bfill')
   data = data[start:end][dim].tolist()
   HPR = (data[-1] - data[0]) / data[0]
   
