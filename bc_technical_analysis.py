@@ -1201,7 +1201,7 @@ def add_adx_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, adx_th
       df[col] = df[col].replace([np.inf, -np.inf], np.nan).fillna(0)
   
   # drop redundant columns
-  df.drop(['high_diff', 'low_diff', 'zero', 'pdm', 'mdm', 'atr'], axis=1, inplace=True)
+  df.drop(['high_diff', 'low_diff', 'zero', 'pdm', 'mdm'], axis=1, inplace=True)
 
   return df
 

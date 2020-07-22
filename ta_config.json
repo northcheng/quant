@@ -49,24 +49,34 @@
 				"aroon": 0.75,
 				"volume": 0.25
 			},
-			"ichimoku_kama": { 
-				"target_indicator": ["candlestick", "ichimoku"],
-				"candlestick_width": 1, 
-				"candlestick_color": {"colorup": "green", "colordown": "red", "alpha": 1}
+			
+			"adx": {
+				"target_col": ["adx", "pdi", "mdi"],
+				"benchmark": 20
 			},
 			"aroon":{
 			},
-			"adx": {
+			"atr": {
+				"target_col": ["atr", "tr"]
 			},
 			"eom":{
 				"target_col": ["eom_diff"],
 				"benchmark": 0, 
 				"color_mode": "benchmark"
 			},
+			"ichimoku_kama": { 
+				"target_indicator": ["candlestick", "ichimoku"],
+				"candlestick_width": 1, 
+				"candlestick_color": {"colorup": "green", "colordown": "red", "alpha": 1}
+			},
 			"kst":{
 				"target_col": ["kst_diff"],
 				"benchmark": 0, 
 				"color_mode": "benchmark"
+			},
+			"rsi": {
+				"target_col": ["rsi"],
+				"boundary": [30, 70]
 			},
 			"signals": {
 				"signal_list": ["apf_signal", "aroon_signal", "adx_signal", "ichimoku_signal", "signal"],
