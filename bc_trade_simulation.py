@@ -187,6 +187,20 @@ class FixedPositionTrader:
     for symbol in self.sec_list:
       self.record[symbol][['money', 'stock', 'value']] = self.record[symbol][['money', 'stock', 'value']].fillna(method='bfill')
 
+    # calculate total value in portfolio
+    total = self.record['benchmark'][['value']].copy()
+    total['value'] = 0
+    for k in self.record.keys():
+      if k in ['benchmark', 'portfolio']:
+        continue
+      tmp_data = self.record[k][['value']].rename(columns={'value':k})
+      total = pd.merge(total, tmp_data, how='left', left_index=True, right_index=True)
+    total = total.fillna(method='bfill').fillna(0)
+    total['value'] = total.sum(axis=1)
+    total['Close'] = np.NaN
+    total['signal'] = 'n'
+    self.record['portfolio'] = total.copy()
+
   # visualize
   def visualize(self, symbol, start_date=None, end_date=None):
 
@@ -199,20 +213,7 @@ class FixedPositionTrader:
     gs.update(wspace=0, hspace=0)
     
     # get plot data
-    if symbol == 'portfolio':
-      record = self.record['benchmark'][['value']].copy()
-      record['value'] = 0
-      for k in self.record.keys():
-        if k == 'benchmark':
-          continue
-        tmp_data = self.record[k][['value']].copy()
-        record = record.add(tmp_data, fill_value=0)
-      record['value'] = record['value'].replace(0, np.NaN).fillna(method='bfill')
-      record['Close'] = np.NaN
-      record['signal'] = 'n'
-    else:
-      record = self.record[symbol].copy()
-      
+    record = self.record[symbol].copy()  
     record = record[start_date:end_date].copy()
     min_idx = record.index.min()
     max_idx = record.index.max()
@@ -250,6 +251,8 @@ class FixedPositionTrader:
     money_plot.set_title('Money', rotation='vertical', x=-0.05, y=0.3)
     hpr = finance_util.cal_HPR(data=record, start=min_idx.date(), end=max_idx.date(), dim='value', dividends=0)
     fig.suptitle(f'{symbol}: {hpr*100:.2f}%', x=0.5, y=0.95, fontsize=20)
+
+    return record
 
   # analysis
   def analyze(self, sort=True):
@@ -308,18 +311,11 @@ class FixedPositionTrader:
       analysis_sum = non_benchmark_analysis.sum()
       
       # calculate sum of the whole portfilo
-      value_sum = None
-      for symbol in records.keys():
-        if symbol == 'benchmark':
-          continue
-        if value_sum is None:
-          value_sum = records[symbol][['value']].copy()
-        else:
-          value_sum = value_sum.add(records[symbol][['value']], fill_value=0)
-      value_sum['rate'] = value_sum.pct_change().fillna(0)
-      total_ear = finance_util.cal_EAR(data=value_sum, start=None, end=None)
-      total_max_drawndown = finance_util.cal_max_drawndown(data=value_sum)
-      total_sharp_ratio = finance_util.cal_sharp_ratio(data=value_sum, start=None, end=None)
+      value_sum = self.record['portfolio'].copy()
+      value_sum['rate'] = value_sum['value'].pct_change().fillna(0)
+      total_ear = finance_util.cal_EAR(data=value_sum, dim='value', start=None, end=None)
+      total_max_drawndown = finance_util.cal_max_drawndown(data=value_sum, dim='value')
+      total_sharp_ratio = finance_util.cal_sharp_ratio(data=value_sum, price_dim='value', rate_dim='rate', start=None, end=None)
 
       # resort dataframe
       if self.benchmark is not None:

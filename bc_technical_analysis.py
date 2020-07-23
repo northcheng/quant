@@ -272,14 +272,15 @@ def calculate_ta_trend(df, main_indicators, diff_indicators, other_indicators, s
       # 2. (close_to_{sl} >= close_to_{fl} > {signal_threshold}) 
       # 3. ((close_to_{fl}>={signal_threshold}) and (close_to_{sl}<={-signal_threshold}) and (abs({fld})<abs({sld}))) 
       # 4. ((close_to_{fl}<={-signal_threshold}) and (close_to_{sl}>={signal_threshold}) and (abs({fld})>abs({sld})))
-      up_idx = df.query(f'(Close>cloud_bottom or cloud_height>0) and ((close_to_{fl} >= close_to_{sl} > {signal_threshold}) or (close_to_{sl} >= close_to_{fl} > {signal_threshold}) or ((close_to_{fl}>={signal_threshold}) and (close_to_{sl}<={-signal_threshold}) and (abs({fld})<abs({sld}))) or ((close_to_{fl}<={-signal_threshold}) and (close_to_{sl}>={signal_threshold}) and (abs({fld})>abs({sld}))))').index
+      # Close>cloud_bottom or cloud_height>0 or (Close>tankan) and 
+      up_idx = df.query(f'((close_to_{fl} >= close_to_{sl} > {signal_threshold}) or (close_to_{sl} >= close_to_{fl} > {signal_threshold}) or ((close_to_{fl}>={signal_threshold}) and (close_to_{sl}<={-signal_threshold}) and (abs({fld})<abs({sld}))) or ((close_to_{fl}<={-signal_threshold}) and (close_to_{sl}>={signal_threshold}) and (abs({fld})>abs({sld}))))').index
 
       # it is going down when
       # 1. (close_to_{fl} <= close_to_{sl} < {-signal_threshold})
       # 2. (close_to_{sl} <= close_to_{fl} < {-signal_threshold}) 
       # 3. ((close_to_{sl}<{-signal_threshold}) and (close_to_{fl}>{signal_threshold}) and (abs({fld})>abs({sld}))) 
       # 4. ((close_to_{sl}>{signal_threshold}) and (close_to_{fl}<{-signal_threshold}) and (abs({fld})<abs({sld})))
-      down_idx = df.query(f'(close_to_{fl} <= close_to_{sl} < {-signal_threshold}) or (close_to_{sl} <= close_to_{fl} < {-signal_threshold}) or ((close_to_{sl}<{-signal_threshold}) and (close_to_{fl}>{signal_threshold}) and (abs({fld})>abs({sld}))) or ((close_to_{sl}>{signal_threshold}) and (close_to_{fl}<{-signal_threshold}) and (abs({fld})<abs({sld})))').index
+      down_idx = df.query(f'(Close<kijun) and ((close_to_{fl} <= close_to_{sl} < {-signal_threshold}) or (close_to_{sl} <= close_to_{fl} < {-signal_threshold}) or ((close_to_{sl}<{-signal_threshold}) and (close_to_{fl}>{signal_threshold}) and (abs({fld})>abs({sld}))) or ((close_to_{sl}>{signal_threshold}) and (close_to_{fl}<{-signal_threshold}) and (abs({fld})<abs({sld}))))').index
       df.loc[up_idx, trend_col] = 'u'
       df.loc[down_idx, trend_col] = 'd'
 
@@ -328,15 +329,15 @@ def calculate_ta_trend(df, main_indicators, diff_indicators, other_indicators, s
       peak_idx = df.query('aroon_down_acc_change_count == -1').index
       df.loc[peak_idx, 'aroon_down_peak'] = df.loc[peak_idx, 'previous_aroon_down']
       df['aroon_down_peak'] = df['aroon_down_peak'].fillna(method='ffill')
-      up_idx = df.query('aroon_down_peak==100 and aroon_down_acc_change_count<=-4 and aroon_up_acc_change_count<=-4 and aroon_gap<-32').index
+      up_idx = df.query('(aroon_down_peak==100 and aroon_down_acc_change_count<=-4 and aroon_up_acc_change_count<=-4 and aroon_gap<-32)  or (aroon_up==100)').index
       df.loc[up_idx, 'apf_trend'] = 'u'
 
-      # df['previous_aroon_up'] = df['aroon_up'].shift(1)
-      # peak_idx = df.query('aroon_up_acc_change_count == -1').index
-      # df.loc[peak_idx, 'aroon_up_peak'] = df.loc[peak_idx, 'previous_aroon_up']
-      # df['aroon_up_peak'] = df['aroon_up_peak'].fillna(method='ffill')
-      # down_idx = df.query('aroon_up_peak==100 and aroon_up_acc_change_count<=-2 and aroon_down_acc_change_count<=-2 and aroon_gap>32').index
-      # df.loc[down_idx, 'apf_trend'] = 'd'
+      df['previous_aroon_up'] = df['aroon_up'].shift(1)
+      peak_idx = df.query('aroon_up_acc_change_count == -1').index
+      df.loc[peak_idx, 'aroon_up_peak'] = df.loc[peak_idx, 'previous_aroon_up']
+      df['aroon_up_peak'] = df['aroon_up_peak'].fillna(method='ffill')
+      down_idx = df.query('(aroon_up_peak==100 and aroon_up_acc_change_count<=-4 and aroon_down_acc_change_count<=-4 and aroon_gap>32) or (aroon_down==1001)').index
+      df.loc[down_idx, 'apf_trend'] = 'd'
 
 
     # ================================ adx trend ==============================
@@ -430,9 +431,9 @@ def calculate_ta_signal(df):
 
   # ================================ Trend with Ichimoku, aroon, adx ======================
   df['trend'] = 'n'
-  up_idx = df.query('trend_idx == 3').index 
+  up_idx = df.query('(trend_idx == 3)').index 
   # up_idx = df.query('ichimoku_trend!="d" and aroon_trend=="u" and adx_trend=="u"').index
-  down_idx = df.query('(ichimoku_trend=="d" and aroon_trend!="u" and adx_trend!="u") or (aroon_trend=="d" and ichimoku_trend!="u" and adx_trend!="u") or (adx_trend=="d" and ichimoku_trend!="u" and aroon_trend!="u")').index # 
+  down_idx = df.query('(Close < kijun) and ((ichimoku_trend=="d" and aroon_trend!="u" and adx_trend!="u") or (aroon_trend=="d" and ichimoku_trend!="u" and adx_trend!="u") or (adx_trend=="d" and ichimoku_trend!="u" and aroon_trend!="u"))').index # 
   df.loc[up_idx, 'trend'] = 'u'
   df.loc[down_idx, 'trend'] = 'd'
 

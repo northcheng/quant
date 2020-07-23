@@ -12,7 +12,7 @@
 
 	"extra": [],
 
-	"auto": ["TQQQ","SQQQ","SOXL","SOXS","TECL","FAS", "LABU"],
+	"auto": ["TQQQ","SOXL","TECL","FAS", "LABU", "SQQQ", "SPXU", "GLD"],
 
 	"non_auto": [],
 

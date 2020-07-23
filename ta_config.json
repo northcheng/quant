@@ -56,8 +56,15 @@
 			},
 			"aroon":{
 			},
-			"atr": {
-				"target_col": ["atr", "tr"]
+			"cci":{
+				"target_col": ["cci"],
+				"benchmark": 0,
+				"color_mode": "benchmark"
+			},
+			"dpo":{
+				"target_col": ["dpo"],
+				"benchmark": 0, 
+				"color_mode": "benchmark"
 			},
 			"eom":{
 				"target_col": ["eom_diff"],
@@ -72,7 +79,7 @@
 			"kst":{
 				"target_col": ["kst_diff"],
 				"benchmark": 0, 
-				"color_mode": "benchmark"
+				"color_mode": "up_down"
 			},
 			"rsi": {
 				"target_col": ["rsi"],
@@ -82,6 +89,9 @@
 				"signal_list": ["apf_signal", "aroon_signal", "adx_signal", "ichimoku_signal", "signal"],
 				"plot_signal_on_price": true,
 				"price_alpha": 0
+			},
+			"other": {
+				"target_col": ["rsi"]
 			},
 			"trend_idx":{
 				"target_col": ["up_trend_idx", "down_trend_idx", "trend_idx"],
