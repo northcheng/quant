@@ -10,12 +10,6 @@
 		"JPM","ACN","MS","GS","BAC","WFC","HSBC","C",
 		"MRK","PFE","NVO","GSK","AZN","ABBV","NVS","ABT","MDT","AMGN","DHR","JNJ","UNH"],
 
-	"extra": [],
-
-	"auto": ["TQQQ","SOXL","TECL","FAS", "LABU", "GLD"],
-
-	"non_auto": [],
-
 	"all": [
 		"TQQQ","SQQQ","UPRO","SPXU","UDOW","SDOW","TECL","TECS","SOXL","SOXS",
 		"FAS","FAZ","LABU","LABD", "CHAU","CHAD","YINN","YANG","CQQQ", "SPY", "GLD", 
@@ -24,8 +18,10 @@
 		"INTC","NVDA","AMD","QCOM","AVGO","TXN","TSM",
 		"TSLA","LMT","GE","BA","HON",
 		"JPM","ACN","MS","GS","BAC","WFC","HSBC","C",
-		"MRK","PFE","NVO","GSK","AZN","ABBV","NVS","ABT","MDT","AMGN","DHR","JNJ","UNH"
-	],
+		"MRK","PFE","NVO","GSK","AZN","ABBV","NVS","ABT","MDT","AMGN","DHR","JNJ","UNH"],
+
+	"auto": [
+		"TQQQ","SOXL","TECL","FAS", "LABU", "GLD"],
 
 	"a": []
 
