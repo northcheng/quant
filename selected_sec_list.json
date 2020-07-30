@@ -23,6 +23,8 @@
 	"auto": [
 		"TQQQ","SOXL","TECL","FAS", "LABU", "GLD"],
 
-	"a": []
+	"a": [],
+
+	"extra": []
 
 }
