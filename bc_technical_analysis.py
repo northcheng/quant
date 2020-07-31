@@ -272,7 +272,7 @@ def calculate_ta_trend(df, main_indicators, diff_indicators, other_indicators, s
       # 2. (close_to_{sl} >= close_to_{fl} > {signal_threshold}) 
       # 3. ((close_to_{fl}>={signal_threshold}) and (close_to_{sl}<={-signal_threshold}) and (abs({fld})<abs({sld}))) 
       # 4. ((close_to_{fl}<={-signal_threshold}) and (close_to_{sl}>={signal_threshold}) and (abs({fld})>abs({sld})))
-      # Close>cloud_bottom or cloud_height>0 or (Close>tankan) and 
+      # (Close>cloud_bottom or tankan>kijun) and 
       up_idx = df.query(f'((close_to_{fl} >= close_to_{sl} > {signal_threshold}) or (close_to_{sl} >= close_to_{fl} > {signal_threshold}) or ((close_to_{fl}>={signal_threshold}) and (close_to_{sl}<={-signal_threshold}) and (abs({fld})<abs({sld}))) or ((close_to_{fl}<={-signal_threshold}) and (close_to_{sl}>={signal_threshold}) and (abs({fld})>abs({sld}))))').index
 
       # it is going down when
@@ -339,6 +339,9 @@ def calculate_ta_trend(df, main_indicators, diff_indicators, other_indicators, s
       down_idx = df.query('(aroon_up_peak==100 and aroon_up_acc_change_count<=-4 and aroon_down_acc_change_count<=-4 and aroon_gap>32) or (aroon_down==1001)').index
       df.loc[down_idx, 'apf_trend'] = 'd'
 
+      # calculate aroon_gap same-direction-accumulation(sda)
+      df['aroon_sda'] = sda(series=df['aroon_gap'])
+      df['aroon_sda_trend'] = (df['aroon_sda'] > df['aroon_sda'].shift(1)).astype(int)
 
     # ================================ adx trend ==============================
     if 'adx' in diff_indicators:

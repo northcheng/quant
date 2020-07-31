@@ -47,6 +47,7 @@
 				"signals": 0.5,
 				"ichimoku_kama": 2.5,
 				"aroon": 0.75,
+				"aroon_gap_sda": 0.5,
 				"volume": 0.25
 			},
 			
@@ -55,6 +56,11 @@
 				"benchmark": 20
 			},
 			"aroon":{
+			},
+			"aroon_gap_sda":{
+				"target_col": ["aroon_sda"],
+				"benchmark": 0, 
+				"color_mode": "benchmark"
 			},
 			"cci":{
 				"target_col": ["cci"],
