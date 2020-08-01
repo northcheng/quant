@@ -397,7 +397,7 @@ class Tiger:
 
 
   # auto trade according to signals
-  def signal_trade(self, signal, money_per_sec, trading_fee=3, pool=None, according_to_record=True):
+  def signal_trade(self, signal, money_per_sec, trading_fee=5, pool=None, according_to_record=True):
 
     # set symbol to index
     if len(signal) > 0:
@@ -458,13 +458,16 @@ class Tiger:
 
             # check whether there is enough money 
             available_cash = self.get_available_cash()
-            if available_cash >= (money_per_sec):
-              quantity = math.floor((money_per_sec-trading_fee)/signal.loc[symbol, 'latest_price'])
+            money_per_sec = available_cash if (money_per_sec > available_cash) else money_per_sec
+
+            # calculate quantity to buy
+            quantity = math.floor((money_per_sec-trading_fee)/signal.loc[symbol, 'latest_price'])
+            if quantity > 0:
               trade_summary = self.trade(symbol=symbol, action='BUY', quantity=quantity, price=None, print_summary=False)
               self.logger.info(trade_summary)
             else:
               self.logger.info(f'[BUY]: not enough money')
-              break
+              continue
           else:
             self.logger.info(f'[BUY]: {symbol} skipped (already in positions:{in_position_quantity})')
             continue
