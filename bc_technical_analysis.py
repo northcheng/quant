@@ -341,7 +341,11 @@ def calculate_ta_trend(df, main_indicators, diff_indicators, other_indicators, s
 
       # calculate aroon_gap same-direction-accumulation(sda)
       df['aroon_sda'] = sda(series=df['aroon_gap'])
-      df['aroon_sda_trend'] = (df['aroon_sda'] > df['aroon_sda'].shift(1)).astype(int)
+      sell_idx = df.query('aroon_sda < -1000').index
+      buy_idx = df.query('aroon_sda > 1000').index
+      df.loc[buy_idx, 'aroon_sda_trend'] = 'u'
+      df.loc[sell_idx, 'aroon_sda_trend'] = 'd'
+      df['aroon_sda_signal'] = 'n'
 
     # ================================ adx trend ==============================
     if 'adx' in diff_indicators:
@@ -435,8 +439,9 @@ def calculate_ta_signal(df):
   # ================================ Trend with Ichimoku, aroon, adx ======================
   df['trend'] = 'n'
   up_idx = df.query('(trend_idx == 3)').index 
-  # up_idx = df.query('ichimoku_trend!="d" and aroon_trend=="u" and adx_trend=="u"').index
   down_idx = df.query('(Close < kijun) and ((ichimoku_trend=="d" and aroon_trend!="u" and adx_trend!="u") or (aroon_trend=="d" and ichimoku_trend!="u" and adx_trend!="u") or (adx_trend=="d" and ichimoku_trend!="u" and aroon_trend!="u"))').index # 
+  # up_idx = df.query('aroon_up > aroon_down').index
+  # down_idx = df.query('aroon_up < aroon_down').index
   df.loc[up_idx, 'trend'] = 'u'
   df.loc[down_idx, 'trend'] = 'd'
 

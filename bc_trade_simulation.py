@@ -58,6 +58,8 @@ class FixedPositionTrader:
   sec_list = []
   start_cash = 0
   benchmark = None
+  start_date = None
+  end_date = None
 
   record = {}
   cash = {}
@@ -110,7 +112,7 @@ class FixedPositionTrader:
       print(f'{benchmark} data not found')
       
   # trade
-  def trade(self, start_date, end_date, stop_profit=None, stop_loss=None):
+  def trade(self, start_date, end_date, num_days=365, stop_profit=None, stop_loss=None):
 
     # initialize portfolio
     avg_position = self.start_cash / len(self.sec_list)
@@ -120,14 +122,16 @@ class FixedPositionTrader:
       self.cash[symbol] = avg_position
       self.value[symbol] = avg_position
 
-    # set trading start/end date
-    start_dates = []
-    end_dates = []
-    for s in self.sec_list:
-      start_dates.append(self.record[s].index.min())
-      end_dates.append(self.record[s].index.max())
-    start_date = util.time_2_string(min(start_dates)) if start_date is None else start_date
-    end_date =  util.time_2_string(max(end_dates)) if end_date is None else end_date
+    # set start/end date
+    if (start_date is not None) and (end_date is None):
+      end_date = util.string_plus_day(string=start_date, diff_days=num_days)
+    elif (start_date is None) and (end_date is not None):
+      start_date = util.string_plus_day(string=end_date, diff_days=-num_days)
+    elif (start_date is None) and (end_date is None):
+      end_date = util.time_2_string(self.record['benchmark'].index.max().date())
+      start_date = util.string_plus_day(string=end_date, diff_days=-num_days)
+    self.start_date = start_date
+    self.end_date = end_date
 
     # construct trading date list
     dates = []
@@ -204,6 +208,10 @@ class FixedPositionTrader:
   # visualize
   def visualize(self, symbol, start_date=None, end_date=None):
 
+    # set start/end date
+    start_date = self.start_date if start_date is None else start_date
+    end_date = self.end_date if end_date is None else end_date
+
     # create image
     fig = plt.figure(figsize=(20, 5))  
     gs = gridspec.GridSpec(2, 1, height_ratios=[1, 1])
@@ -235,7 +243,7 @@ class FixedPositionTrader:
 
     # plot benchmark money flowchart if benchmark exists
     if self.benchmark is not None:
-      benchmark_record = self.record['benchmark'][start_date:end_date].copy()
+      benchmark_record = self.record['benchmark'][min_idx:max_idx].copy()
       benchmark_min_idx = benchmark_record.index.min()
       benchmark_record.fillna(method='ffill', inplace=True)
 
