@@ -105,7 +105,7 @@ def load_data(symbols, config, load_empty_data=False, load_derived_data=False):
 
 
 # calculate certain selected ta indicators
-def calculate_ta_data(df, symbol, interval, main_indicators=['ichimoku'], diff_indicators=['aroon', 'adx'], other_indicators=['bb'], signal_threshold=0.001):
+def calculate_ta_data(df, symbol, interval, main_indicators=['ichimoku'], diff_indicators=['aroon', 'adx'], other_indicators=['bb', 'psar'], signal_threshold=0.001):
   """
   Calculate selected ta features for dataframe
 
@@ -386,12 +386,26 @@ def calculate_ta_trend(df, main_indicators, diff_indicators, other_indicators, s
       down_idx = df.query('kst_diff <= 0').index
       df.loc[down_idx ,'kst_trend'] = 'd'
 
+    # ================================ other trend ============================
+    if 'psar' in other_indicators:
+      df['psar_trend'] = 'n'
+      up_idx = df.query('psar_up > 0').index
+      down_idx = df.query('psar_down > 0').index
+      df.loc[up_idx, 'psar_trend'] = 'u'
+      df.loc[down_idx, 'psar_trend'] = 'd'
+
+      df['psar_signal'] = 'n'
+      # buy_idx = df.query('psar_up_indicator == 1').index
+      # sell_idx = df.query('psar_down_indicator == 1').index
+      # df.loc[buy_idx, 'psar_signal']  = 'b'
+      # df.loc[sell_idx, 'psar_signal'] = 's'
+
     # ================================ Number days since trend shifted ========
     phase = 'cal_num_day_trend_shifted'
     df['trend_idx'] = 0
     df['up_trend_idx'] = 0
     df['down_trend_idx'] = 0
-    for indicator in (main_indicators + diff_indicators):
+    for indicator in (main_indicators + diff_indicators + ['psar']):
       trend_col = f'{indicator}_trend'
       signal_col = f'{indicator}_signal'
       day_col = f'{indicator}_day'
@@ -438,13 +452,10 @@ def calculate_ta_signal(df):
 
   # ================================ Trend with Ichimoku, aroon, adx ======================
   df['trend'] = 'n'
-  up_idx = df.query('(trend_idx == 3)').index 
-  down_idx = df.query('(Close < kijun) and ((ichimoku_trend=="d" and aroon_trend!="u" and adx_trend!="u") or (aroon_trend=="d" and ichimoku_trend!="u" and adx_trend!="u") or (adx_trend=="d" and ichimoku_trend!="u" and aroon_trend!="u"))').index # 
-  # up_idx = df.query('aroon_up > aroon_down').index
-  # down_idx = df.query('aroon_up < aroon_down').index
+  up_idx = df.query('(trend_idx == 4)').index 
+  down_idx = df.query('(Close < kijun) and ((ichimoku_trend=="d" and aroon_trend!="u" and adx_trend!="u") or (aroon_trend=="d" and ichimoku_trend!="u" and adx_trend!="u") or (adx_trend=="d" and ichimoku_trend!="u" and aroon_trend!="u"))').index 
   df.loc[up_idx, 'trend'] = 'u'
   df.loc[down_idx, 'trend'] = 'd'
-
 
   # ================================ Calculate overall siganl ======================
   df['signal'] = 'n' 
@@ -1708,6 +1719,101 @@ def add_vortex_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal
 
   return df
 
+# PSAR
+def add_psar_features(df, ohlcv_col=default_ohlcv_col, step=0.02, max_step=0.10, fillna=False):
+
+  # copy dataframe
+  df = df.copy()
+   
+  # set column names
+  # open = ohlcv_col['open']
+  high = ohlcv_col['high']
+  low = ohlcv_col['low']
+  close = ohlcv_col['close']
+  # volume = ohlcv_col['volume']
+
+  df['psar'] = df[close].copy()
+  df['psar_up'] = np.NaN
+  df['psar_down'] = np.NaN
+
+  up_trend = True
+  af = step
+  idx = df.index.tolist()
+  up_trend_high = df.loc[idx[0], high]
+  down_trend_low = df.loc[idx[0], low]
+  
+  
+  for i in range(2, len(df)):
+    current_idx = idx[i]
+    previous_idx = idx[i-1]
+    previous_previous_idx = idx[i-2]
+
+    reversal = False
+    max_high = df.loc[current_idx, high]
+    min_low = df.loc[current_idx, low]
+
+    if up_trend:
+      df.loc[current_idx, 'psar'] = df.loc[previous_idx, 'psar'] + (af * (up_trend_high - df.loc[previous_idx, 'psar']))
+
+      if min_low < df.loc[current_idx, 'psar']:
+        reversal = True
+        df.loc[current_idx, 'psar'] = up_trend_high
+        down_trend_low = min_low
+        af = step
+      else:
+        if max_high > up_trend_high:
+          up_trend_high = max_high
+          af = min(af+step, max_step)
+
+        l1 = df.loc[previous_idx, low]
+        l2 = df.loc[previous_previous_idx, low]
+        if l2 < df.loc[current_idx, 'psar']:
+          df.loc[current_idx, 'psar'] = l2
+        elif l1 < df.loc[current_idx, 'psar']:
+          df.loc[current_idx, 'psar'] = l1
+
+    else:
+      df.loc[current_idx, 'psar'] = df.loc[previous_idx, 'psar'] - (af * (df.loc[previous_idx, 'psar'] - down_trend_low))
+
+      if max_high > df.loc[current_idx, 'psar']:
+        reversal = True
+        df.loc[current_idx, 'psar'] = down_trend_low
+        up_trend_high = max_high
+        af = step
+      else:
+        if min_low < down_trend_low:
+          down_trend_low = min_low
+          af = min(af+step, max_step)
+
+        h1 = df.loc[previous_idx, high]
+        h2 = df.loc[previous_previous_idx, high]
+        if h2 > df.loc[current_idx, 'psar']:
+          df.loc[current_idx, 'psar'] = h2
+        elif h1 > df.loc[current_idx, 'psar']:
+          df.loc[current_idx, 'psar'] = h1
+
+    up_trend = (up_trend != reversal)
+
+    if up_trend:
+      df.loc[current_idx, 'psar_up'] = df.loc[current_idx, 'psar']
+    else:
+      df.loc[current_idx, 'psar_down'] = df.loc[current_idx, 'psar']
+
+  
+  # add psar up/down indicators
+  for col in ['psar_up', 'psar_down']:
+    indicator = df[col].where(df[col].notnull() & df[col].shift(1).isnull(), 0)
+    indicator = indicator.where(indicator == 0, 1)
+    df[f'{col}_indicator'] = indicator
+
+  # # fill na values
+  if fillna:
+    for col in ['psar', 'psar_up', 'psar_down', 'psar_up_indicator', 'psar_down_indicator']:
+      df[col] = df[col].fillna(method='ffill').fillna(-1)
+
+  return df
+
+
 
 
 # ================================================ Volume indicators ================================================ #
@@ -2928,7 +3034,7 @@ def plot_candlestick(
 # plot ichimoku chart
 def plot_ichimoku_kama(
   df, start=None, end=None, date_col='Date', ohlcv_col=default_ohlcv_col, 
-  target_indicator = ['price', 'ichimoku', 'kama', 'candlestick', 'bb'],
+  target_indicator = ['price', 'ichimoku', 'kama', 'candlestick', 'bb', 'psar'],
   candlestick_width=0.8, candlestick_color=default_candlestick_color, 
   use_ax=None, title=None, plot_args=default_plot_args):
   """
@@ -2986,6 +3092,11 @@ def plot_ichimoku_kama(
     ax.plot(df.index, df.mavg, label='mavg', color='grey', alpha=alpha)
     ax.fill_between(df.index, df.mavg, df.bb_high_band, facecolor='green', interpolate=True, alpha=0.1)
     ax.fill_between(df.index, df.mavg, df.bb_low_band, facecolor='red', interpolate=True, alpha=0.2)
+
+  if 'psar' in target_indicator:
+    alpha = 0.3
+    ax.scatter(df.index, df.psar_up, label='psar', color='green', alpha=alpha)
+    ax.scatter(df.index, df.psar_down, label='psar', color='red', alpha=alpha)
 
   # plot candlestick
   if 'candlestick' in target_indicator:
