@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from scipy.stats import linregress
 from matplotlib import gridspec
+from matplotlib.patches import Rectangle
 from mpl_finance import candlestick_ohlc
 from quant import bc_util as util
 from quant import bc_data_io as io_util
@@ -1813,6 +1814,87 @@ def add_psar_features(df, ohlcv_col=default_ohlcv_col, step=0.02, max_step=0.10,
 
   return df
 
+# Renko
+def add_renko_features(df, brick_size=2):
+
+  # setting parameters  
+  # period_close = 1
+  # price_movement = 2
+  # trend_change_diff = 2
+  
+  # reset index
+  df = df.reset_index()
+
+  # construct dataframe
+  columns = ['Date', 'Open', 'High', 'Low', 'Close']
+  cdf = pd.DataFrame(columns=columns, data=[], )
+
+  # set the first row
+  cdf.loc[0] = df.loc[0]
+  close = df.loc[0]['Close'] // brick_size * brick_size
+  cdf.loc[0, 1:] = [close - brick_size, close, close - brick_size, close]
+  cdf['uptrend'] = True
+  columns = ['Date', 'Open', 'High', 'Low', 'Close', 'uptrend']
+  
+  # go through the dataframe
+  for index, row in df.iterrows():
+    close = row['Close']
+    date = row['Date']
+    
+    # get previous row
+    row_p1 = cdf.iloc[-1]
+    uptrend = row_p1['uptrend']
+    close_p1 = row_p1['Close']
+
+    # calculate bricks    
+    bricks = int((close - close_p1) / brick_size)
+    data = []
+    
+    # if in a uptrend and close_diff is larger than 1 brick
+    if uptrend and bricks >=1 :
+      for i in range(bricks):
+        r = [date, close_p1, close_p1+brick_size, close_p1, close_p1+brick_size, uptrend]
+        data.append(r)
+        close_p1 += brick_size
+        
+    # if in a uptrend and closs_diff is larger than 2 bricks(in a negative way)
+    elif uptrend and bricks <= -2:
+      uptrend = not uptrend
+      bricks += 1
+      close_p1 -= brick_size
+      for i in range(abs(bricks)):
+        r = [date, close_p1, close_p1, close_p1-brick_size, close_p1-brick_size, uptrend]
+        data.append(r)
+        close_p1 -= brick_size
+    
+    # if in a downtrend and close_diff is larger than 1 brick(in a negative way)
+    elif not uptrend and bricks <= -1:
+      for i in range(abs(bricks)):
+        r = [date, close_p1, close_p1, close_p1-brick_size, close_p1-brick_size, uptrend]
+        data.append(r)
+        close_p1 -= brick_size
+        
+    # if in a downtrend and close_diff is larger than 2 bricks
+    elif not uptrend and bricks >= 2:
+      uptrend = not uptrend
+      bricks -= 1
+      close_p1 += brick_size
+      for i in range(abs(bricks)):
+        r = [date, close_p1, close_p1+brick_size, close_p1, close_p1+brick_size, uptrend]
+        data.append(r)
+        close_p1 += brick_size
+        
+    else:
+      continue
+      
+    # construct the [1:] rows and attach it to the first row
+    sdf = pd.DataFrame(data=data, columns=columns)
+    cdf = pd.concat([cdf, sdf])
+    
+  # reset index
+  cdf.reset_index(inplace=True, drop=True)
+
+  return cdf
 
 
 
@@ -3219,6 +3301,42 @@ def plot_adx(
 
   if use_ax is not None:
     return ax
+
+# plot renko chart
+def plot_renko(df, start=None, end=None, ohlcv_col=default_ohlcv_col, 
+  use_ax=None, title=None, brick_size=2, plot_in_date=False, plot_args=default_plot_args):
+
+  # copy data frame
+  df = df[start:end].copy()
+
+  # set colors
+  colors = {True: 'green', False:'red'}
+  
+  # create figure
+  ax = use_ax
+  if ax is None:
+    plt.figure(figsize=plot_args['figsize'])
+    ax = plt.gca()
+
+  # pre-process data
+  if not plot_in_date:
+    df = df.reset_index()
+    df['step'] = 1
+  else:
+    df['s'] = df.index
+    df['e'] = df['s'].shift(-1)
+    df.dropna(inplace=True)
+    df['step'] = df['e'] - df['s']
+
+  # plot close for displaying the figure
+  ax.plot(df.Close, alpha=0)
+
+  # plot renko
+  for index, row in df.iterrows():
+    renko = Rectangle((index, row['Open']), row['step'], brick_size, facecolor=colors[row['uptrend']], alpha=0.5)
+    ax.add_patch(renko)
+    
+  return ax
 
 # plot volume
 def plot_bar(
