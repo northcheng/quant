@@ -106,7 +106,7 @@ def load_data(symbols, config, load_empty_data=False, load_derived_data=False):
 
 
 # calculate certain selected ta indicators
-def calculate_ta_data(df, symbol, interval, main_indicators=['ichimoku'], diff_indicators=['aroon', 'adx'], other_indicators=['bb', 'psar'], signal_threshold=0.001):
+def calculate_ta_data(df, symbol, interval, main_indicators=['ichimoku'], diff_indicators=['aroon', 'adx'], other_indicators=['bb', 'psar', 'renko'], signal_threshold=0.001):
   """
   Calculate selected ta features for dataframe
 
@@ -400,6 +400,9 @@ def calculate_ta_trend(df, main_indicators, diff_indicators, other_indicators, s
       # sell_idx = df.query('psar_down_indicator == 1').index
       # df.loc[buy_idx, 'psar_signal']  = 'b'
       # df.loc[sell_idx, 'psar_signal'] = 's'
+
+    if 'renko' in other_indicators:
+      df['renko_signal'] = 'n'
 
     # ================================ Number days since trend shifted ========
     phase = 'cal_num_day_trend_shifted'
@@ -1721,8 +1724,18 @@ def add_vortex_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal
   return df
 
 # PSAR
-def add_psar_features(df, ohlcv_col=default_ohlcv_col, step=0.02, max_step=0.10, fillna=False):
+def add_psar_features(df, ohlcv_col=default_ohlcv_col, step=0.02, max_step=0.10, fillna=False, cal_signal=True):
+  """
+  Calculate Parabolic Stop and Reverse (Parabolic SAR) indicator
 
+  :param df: original OHLCV dataframe
+  :param step: unit of a step
+  :param max_step: up-limit of step
+  :param ohlcv_col: column name of Open/High/Low/Close/Volume
+  :param fillna: whether to fill na with 0
+  :param cal_signal: whether to calculate signal
+  :returns: dataframe with new features generated
+  """
   # copy dataframe
   df = df.copy()
    
@@ -1742,7 +1755,6 @@ def add_psar_features(df, ohlcv_col=default_ohlcv_col, step=0.02, max_step=0.10,
   idx = df.index.tolist()
   up_trend_high = df.loc[idx[0], high]
   down_trend_low = df.loc[idx[0], low]
-  
   
   for i in range(2, len(df)):
     current_idx = idx[i]
@@ -1807,23 +1819,44 @@ def add_psar_features(df, ohlcv_col=default_ohlcv_col, step=0.02, max_step=0.10,
     indicator = indicator.where(indicator == 0, 1)
     df[f'{col}_indicator'] = indicator
 
-  # # fill na values
+  # fill na values
   if fillna:
     for col in ['psar', 'psar_up', 'psar_down', 'psar_up_indicator', 'psar_down_indicator']:
       df[col] = df[col].fillna(method='ffill').fillna(-1)
 
+  if cal_signal:
+    df['psar_signal'] = 'n'
+
   return df
 
 # Renko
-def add_renko_features(df, brick_size=2):
+def add_renko_features(df, brick_size=None, use_atr=True, remove_duplicated_index=True, cal_signal=True):
+  """
+  Calculate Renko indicator
 
-  # setting parameters  
-  # period_close = 1
-  # price_movement = 2
-  # trend_change_diff = 2
-  
+  :param df: original OHLCV dataframe
+  :param brick_size: brick size, default is 1/3 of close.std
+  :param use_atr: whether to use the latest atr vaule as the brick size
+  :param remove_duplicated_index: whether to remove duplicated indexes from the final result
+  :param ohlcv_col: column name of Open/High/Low/Close/Volume
+  :param fillna: whether to fill na with 0
+  :param cal_signal: whether to calculate signal
+  :returns: dataframe with new features generated
+  """
+
   # reset index
-  df = df.reset_index()
+  original_df = util.remove_duplicated_index(df=df, keep='last')
+  for col in ['renko_o', 'renko_h', 'renko_l', 'renko_c', 'renko_color', 'renko_brick_size', 'renko_trend']:
+    if col in original_df.columns:
+      original_df.drop(col, axis=1, inplace=True)
+  df = original_df.reset_index()
+
+  if use_atr:
+    df = add_atr_features(df=df)
+    brick_size = df['atr'].values[-1]
+  
+  elif not use_atr and brick_size is None:  
+    brick_size = df['Close'].std()/3
 
   # construct dataframe
   columns = ['Date', 'Open', 'High', 'Low', 'Close']
@@ -1856,7 +1889,6 @@ def add_renko_features(df, brick_size=2):
         r = [date, close_p1, close_p1+brick_size, close_p1, close_p1+brick_size, uptrend]
         data.append(r)
         close_p1 += brick_size
-        
     # if in a uptrend and closs_diff is larger than 2 bricks(in a negative way)
     elif uptrend and bricks <= -2:
       uptrend = not uptrend
@@ -1866,14 +1898,12 @@ def add_renko_features(df, brick_size=2):
         r = [date, close_p1, close_p1, close_p1-brick_size, close_p1-brick_size, uptrend]
         data.append(r)
         close_p1 -= brick_size
-    
     # if in a downtrend and close_diff is larger than 1 brick(in a negative way)
     elif not uptrend and bricks <= -1:
       for i in range(abs(bricks)):
         r = [date, close_p1, close_p1, close_p1-brick_size, close_p1-brick_size, uptrend]
         data.append(r)
         close_p1 -= brick_size
-        
     # if in a downtrend and close_diff is larger than 2 bricks
     elif not uptrend and bricks >= 2:
       uptrend = not uptrend
@@ -1883,7 +1913,6 @@ def add_renko_features(df, brick_size=2):
         r = [date, close_p1, close_p1+brick_size, close_p1, close_p1+brick_size, uptrend]
         data.append(r)
         close_p1 += brick_size
-        
     else:
       continue
       
@@ -1891,10 +1920,56 @@ def add_renko_features(df, brick_size=2):
     sdf = pd.DataFrame(data=data, columns=columns)
     cdf = pd.concat([cdf, sdf])
     
-  # reset index
-  cdf.reset_index(inplace=True, drop=True)
+  # post process
+  cdf = util.df_2_timeseries(df=cdf, time_col='Date')
+  cdf.rename(columns={'Open':'renko_o', 'High': 'renko_h', 'High': 'renko_h', 'Low': 'renko_l', 'Close':'renko_c', 'uptrend': 'renko_color'}, inplace=True)
+  cdf['renko_color'] = cdf['renko_color'].replace({True: 'green', False:'red'})
+  cdf['renko_brick_size'] = brick_size
+  original_df = pd.merge(original_df, cdf, how='left', left_index=True, right_index=True)
+  original_df['renko_trend'] = original_df['renko_color'].replace({'green':'u', 'red':'d'})
+  original_df['renko_real'] = original_df['renko_color'].copy()
 
-  return cdf
+  # if to remove duplicated index
+  if remove_duplicated_index:
+    duplicated_idx = list(set(original_df.index[original_df.index.duplicated()]))
+
+    for idx in duplicated_idx:
+      tmp_rows = original_df.loc[idx, ].copy()
+
+      # make sure they are in same color
+      colors = tmp_rows['renko_color'].unique()
+      if len(colors) == 1:
+        color = colors[0]
+        if color == 'green':
+          original_df.loc[idx, 'renko_o'] = tmp_rows['renko_o'].min()
+          original_df.loc[idx, 'renko_l'] = tmp_rows['renko_l'].min()
+          original_df.loc[idx, 'renko_h'] = tmp_rows['renko_h'].max()
+          original_df.loc[idx, 'renko_c'] = tmp_rows['renko_c'].max()
+          original_df.loc[idx, 'renko_brick_size'] = tmp_rows['renko_brick_size'].sum()
+        elif color == 'red':
+          original_df.loc[idx, 'renko_o'] = tmp_rows['renko_o'].max()
+          original_df.loc[idx, 'renko_l'] = tmp_rows['renko_l'].min()
+          original_df.loc[idx, 'renko_h'] = tmp_rows['renko_h'].max()
+          original_df.loc[idx, 'renko_c'] = tmp_rows['renko_c'].min()
+          original_df.loc[idx, 'renko_brick_size'] = tmp_rows['renko_brick_size'].sum()
+        else:
+          print(f'unknown renko color {color}')
+          continue
+      else:
+        print('duplicated index with different renko colors!')
+        continue
+    original_df = util.remove_duplicated_index(df=original_df, keep='last')
+
+  red_idx = original_df.query('renko_color == "red"').index
+  original_df.loc[red_idx, 'renko_brick_size'] = -original_df.loc[red_idx, 'renko_brick_size']
+
+  # fill na values
+  original_df[['renko_o', 'renko_h','renko_l', 'renko_c', 'renko_color', 'renko_brick_size', 'renko_trend']] = original_df[['renko_o', 'renko_h','renko_l', 'renko_c', 'renko_color', 'renko_brick_size', 'renko_trend']].fillna(method='ffill')
+
+  if cal_signal:
+    original_df['renko_signal'] = original_df['renko_real'].replace({'green': 'b', 'red':'s'})
+
+  return original_df
 
 
 
@@ -3304,39 +3379,64 @@ def plot_adx(
 
 # plot renko chart
 def plot_renko(df, start=None, end=None, ohlcv_col=default_ohlcv_col, 
-  use_ax=None, title=None, brick_size=2, plot_in_date=False, plot_args=default_plot_args):
+  use_ax=None, title=None, plot_args=default_plot_args, plot_in_date=True):
 
   # copy data frame
   df = df[start:end].copy()
 
-  # set colors
-  colors = {True: 'green', False:'red'}
-  
   # create figure
   ax = use_ax
   if ax is None:
     plt.figure(figsize=plot_args['figsize'])
     ax = plt.gca()
-
+  
   # pre-process data
-  if not plot_in_date:
-    df = df.reset_index()
-    df['step'] = 1
-  else:
-    df['s'] = df.index
-    df['e'] = df['s'].shift(-1)
-    df.dropna(inplace=True)
+  min_idx = df.index.min()
+  max_idx = df.index.max()
+  if df.loc[min_idx, 'renko_real'] != 'green' or df.loc[min_idx, 'renko_real'] != 'red':
+    df.loc[min_idx, 'renko_real'] = df.loc[min_idx, 'renko_color'] 
+
+  # whether to plot in date axes
+  if plot_in_date:
+    df = df.query('renko_real == "green" or renko_real =="red"').copy()
+    df['s']  = df.index
+    df['e'] = df['s'].shift(-1).fillna(max_idx)
     df['step'] = df['e'] - df['s']
+  else:
+    df = df.query('renko_real == "green" or renko_real =="red"').reset_index().copy()
+    df['step'] = 1
 
   # plot close for displaying the figure
   ax.plot(df.Close, alpha=0)
 
   # plot renko
+  legends = {'u': 'u', 'd': 'd'}
   for index, row in df.iterrows():
-    renko = Rectangle((index, row['Open']), row['step'], brick_size, facecolor=colors[row['uptrend']], alpha=0.5)
+    renko = Rectangle((index, row['renko_o']), row['step'], row['renko_brick_size'], facecolor=row['renko_color'], alpha=0.5, label=legends[row['renko_trend']])
+    legends[row['renko_trend']] = "_nolegend_"
     ax.add_patch(renko)
-    
-  return ax
+
+  # title and legend
+  ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
+  ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
+  ax.grid(True, axis='both', linestyle='--', linewidth=0.5)
+
+  if not plot_in_date:
+    ax.get_figure().canvas.draw()
+    xlabels = [item.get_text() for item in ax.get_xticklabels()]
+    for i in range(len(xlabels)):  
+      try:
+        idx = int(xlabels[i])
+        if idx in df.index:
+          xlabels[i] = f'{df.loc[idx, "Date"].date()}'
+        else:
+          continue
+      except Exception as e:
+        continue
+    ax.set_xticklabels(xlabels)
+
+  if use_ax is not None:
+    return ax
 
 # plot volume
 def plot_bar(
@@ -3594,6 +3694,10 @@ def plot_multiple_indicators(
       alpha = tmp_args.get('alpha') if tmp_args.get('alpha') is not None else 1
       plot_bar(df=plot_data, target_col=target_col, width=width, alpha=alpha, color_mode=color_mode, benchmark=None, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
     
+    elif tmp_indicator == 'renko':
+      plot_in_date = tmp_args.get('plot_in_date') if tmp_args.get('plot_in_date') is not None else True
+      plot_renko(plot_data, use_ax=axes[tmp_indicator], title=tmp_indicator, plot_args=default_plot_args, plot_in_date=plot_in_date)
+
     # plot other indicators
     else:
       plot_indicator(
