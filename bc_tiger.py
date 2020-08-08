@@ -456,7 +456,7 @@ class Tiger:
               else:
                 money_per_sec = default_money_per_sec
 
-            # check whether there is enough money 
+            # check whether there is enough available money 
             available_cash = self.get_available_cash()
             money_per_sec = available_cash if (money_per_sec > available_cash) else money_per_sec
 
