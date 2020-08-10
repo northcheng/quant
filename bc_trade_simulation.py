@@ -7,6 +7,7 @@ Utilities used for trade simulation
 import pandas as pd
 import numpy as np
 import math
+import datetime
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
 from quant import bc_util as util
@@ -62,18 +63,29 @@ class FixedPositionTrader:
   end_date = None
 
   record = {}
-  cash = {}
+  cash = {} 
   stock = {}
   value = {}
   holding_price = {}
   
 
   # init
-  def __init__(self, data, sec_list, start_cash, recalculate_signal=False, start_date=None, end_date=None, benchmark='SPY'):
+  def __init__(self, data, sec_list, start_cash, recalculate_signal=False, start_date=None, end_date=None, num_days=365, benchmark='SPY'):
 
     # initialize stock list and start cash
     self.sec_list = sec_list.copy()
     self.start_cash = start_cash
+
+    # set start/end date
+    if (start_date is not None) and (end_date is None):
+      end_date = util.string_plus_day(string=start_date, diff_days=num_days)
+    elif (start_date is None) and (end_date is not None):
+      start_date = util.string_plus_day(string=end_date, diff_days=-num_days)
+    elif (start_date is None) and (end_date is None):
+      end_date = util.time_2_string(datetime.datetime.today().date())
+      start_date = util.string_plus_day(string=end_date, diff_days=-num_days)
+    self.start_date = start_date
+    self.end_date = end_date
 
     # initialize record with ta_data
     signals = data['ta_data']
@@ -82,9 +94,9 @@ class FixedPositionTrader:
 
       # recalculate ta_data
       if recalculate_signal and ((symbol in sec_list) or (symbol == benchmark)):
-        self.record[symbol] = ta_util.calculate_ta_data(df=data['sec_data'][k][start_date:end_date], symbol=symbol, interval=interval)
+        self.record[symbol] = ta_util.calculate_ta_data(df=data['sec_data'][k][self.start_date:self.end_date], symbol=symbol, interval=interval)
       else:
-        self.record[symbol] = signals[k].copy()
+        self.record[symbol] = signals[k][self.start_date:self.end_date].copy()
 
       # add extra columns 
       self.record[symbol]['holding_price'] = 0
@@ -112,7 +124,7 @@ class FixedPositionTrader:
       print(f'{benchmark} data not found')
       
   # trade
-  def trade(self, start_date, end_date, num_days=365, stop_profit=None, stop_loss=None):
+  def trade(self, start_date, end_date, stop_profit=None, stop_loss=None):
 
     # initialize portfolio
     avg_position = self.start_cash / len(self.sec_list)
@@ -123,15 +135,10 @@ class FixedPositionTrader:
       self.value[symbol] = avg_position
 
     # set start/end date
-    if (start_date is not None) and (end_date is None):
-      end_date = util.string_plus_day(string=start_date, diff_days=num_days)
-    elif (start_date is None) and (end_date is not None):
-      start_date = util.string_plus_day(string=end_date, diff_days=-num_days)
-    elif (start_date is None) and (end_date is None):
-      end_date = util.time_2_string(self.record['benchmark'].index.max().date())
-      start_date = util.string_plus_day(string=end_date, diff_days=-num_days)
-    self.start_date = start_date
-    self.end_date = end_date
+    if start_date is None:
+      start_date = self.start_date
+    if end_date is None:
+      end_date = self.end_date
 
     # construct trading date list
     dates = []
@@ -284,7 +291,7 @@ class FixedPositionTrader:
     for symbol in records.keys():
         
       # get record data
-      record_data = records[symbol]
+      record_data = records[symbol][self.start_date:self.end_date]
       min_idx = record_data.index.min()
       max_idx = record_data.index.max()
       

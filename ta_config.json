@@ -47,7 +47,6 @@
 				"signals": 0.5,
 				"ichimoku_kama": 2.5,
 				"aroon": 0.5,
-				"renko": 0.5,
 				"volume": 0.25
 			},
 			
@@ -78,7 +77,7 @@
 				"color_mode": "benchmark"
 			},
 			"ichimoku_kama": { 
-				"target_indicator": ["candlestick", "ichimoku"],
+				"target_indicator": ["candlestick", "ichimoku", "renko"],
 				"candlestick_width": 1, 
 				"candlestick_color": {"colorup": "green", "colordown": "red", "alpha": 1}
 			},
