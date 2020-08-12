@@ -1178,6 +1178,51 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
 
   return df
 
+# add heikin-ashi candlestick features
+def add_heikin_ashi_features(df, ohlcv_col=default_ohlcv_col, replace_ohlc=False, dropna=True):
+  """
+  Add heikin-ashi candlestick dimentions for dataframe
+
+  :param df: original OHLCV dataframe
+  :param ohlcv_col: column name of Open/High/Low/Close/Volume
+  :returns: dataframe with candlestick columns
+  :raises: none
+  """
+  # copy dataframe
+  df = df.copy()
+
+  # set column names
+  open = ohlcv_col['open']
+  high = ohlcv_col['high']
+  low = ohlcv_col['low']
+  close = ohlcv_col['close']
+  # volume = ohlcv_col['volume']
+
+  # add previous stick
+  for col in [open, high, low, close]:
+    df[f'prev_{col}'] = df[col].shift(1)
+
+  # calculate heikin-ashi ohlc
+  df['H_Close'] = (df[open] + df[high] + df[low] + df[close])/4
+  df['H_Open'] = (df[f'prev_{open}'] + df[f'prev_{close}'])/2
+  df['H_High'] = df[[f'prev_{high}', 'H_Open', 'H_Close']].max(axis=1)
+  df['H_Low'] = df[[f'prev_{low}', 'H_Open', 'H_Close']].min(axis=1)
+
+  # drop previous stick
+  for col in [open, high, low, close]:
+    df.drop(f'prev_{col}', axis=1, inplace=True)
+    
+  # replace original ohlc with heikin-ashi ohlc
+  if replace_ohlc:
+    for col in [open, high, low, close]:
+      df.drop(f'{col}', axis=1, inplace=True)
+    df.rename(columns={'H_Close': close, 'H_Open': open, 'H_High': high, 'H_Low': low}, inplace=True)
+
+  # dropna values
+  if dropna:
+    df.dropna(inplace=True)
+  
+  return df
 
 
 # ================================================ Trend indicators ================================================= #
