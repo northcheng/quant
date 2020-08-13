@@ -3507,12 +3507,14 @@ def plot_renko(df, start=None, end=None, ohlcv_col=default_ohlcv_col,
   if not plot_in_date:
     ax.get_figure().canvas.draw()
     xlabels = [item.get_text() for item in ax.get_xticklabels()]
+
     for i in range(len(xlabels)):  
       try:
         idx = int(xlabels[i])
         if idx in df.index:
           xlabels[i] = f'{df.loc[idx, "Date"].date()}'
         else:
+          xlabels[i] = f'{max_idx.date()}'
           continue
       except Exception as e:
         continue
