@@ -3487,8 +3487,10 @@ def plot_renko(df, start=None, end=None, ohlcv_col=default_ohlcv_col,
   if plot_in_date:
     df = df.query('renko_real == "green" or renko_real =="red"').copy()
     df['s']  = df.index
+    if df['s'].max() == max_idx:
+      max_idx = max_idx + datetime.timedelta(days=1)
     df['e'] = df['s'].shift(-1).fillna(max_idx)
-    df['step'] = df['e'] - df['s']
+    df['step'] = df['e'] - df['s'] 
   else:
     df = df.query('renko_real == "green" or renko_real =="red"').reset_index().copy()
     df['step'] = 1
