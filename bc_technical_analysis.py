@@ -676,7 +676,6 @@ def sda(series, zero_as=None):
   index_col = series.index.name
   new_series = series.reset_index()
 
-
   previous_idx = None
   current_idx = None
   for index, row in new_series.iterrows():
@@ -1893,7 +1892,7 @@ def add_psar_features(df, ohlcv_col=default_ohlcv_col, step=0.02, max_step=0.10,
   return df
 
 # Renko
-def add_renko_features(df, brick_size=None, use_atr=True, return_date_index=True, cal_signal=True):
+def add_renko_features(df, brick_size=None, use_atr=False, return_date_index=True, cal_signal=True):
   """
   Calculate Renko indicator
 
@@ -1909,15 +1908,20 @@ def add_renko_features(df, brick_size=None, use_atr=True, return_date_index=True
 
   # reset index and copy df
   original_df = util.remove_duplicated_index(df=df, keep='last')
-  df = original_df.reset_index()
+  df = original_df.copy()
 
   # set brick size
   if use_atr:
-    df = add_atr_features(df=df)
-    brick_size = df['atr'].values[-1] 
+    df = add_atr_features(df=df).query('tr >0 and atr>0').copy()
+    original_df = original_df.loc[df.index, ].copy()
+    brick_size = df['atr'].values[0]
+    df['bsz'] = df['atr']
   elif not use_atr and brick_size is None:  
     # brick_size = df['Close'].std()/4
     brick_size = df['Close'].mean()/10
+    df['bsz'] = df['Close']/10
+
+  df = df.reset_index()
 
   # construct dataframe
   columns = ['Date', 'Open', 'High', 'Low', 'Close']
@@ -1928,10 +1932,11 @@ def add_renko_features(df, brick_size=None, use_atr=True, return_date_index=True
   close = df.loc[0]['Close'] // brick_size * brick_size
   cdf.loc[0, 1:] = [close - brick_size, close, close - brick_size, close]
   cdf['uptrend'] = True
-  columns = ['Date', 'Open', 'High', 'Low', 'Close', 'uptrend']
-  
+  columns = ['Date', 'Open', 'High', 'Low', 'Close', 'uptrend', 'renko_brick_size']
+
   # go through the dataframe
   for index, row in df.iterrows():
+    # print(brick_size)
 
     # get current date and close price
     close = row['Close']
@@ -1949,40 +1954,44 @@ def add_renko_features(df, brick_size=None, use_atr=True, return_date_index=True
     # if in a uptrend and close_diff is larger than 1 brick
     if uptrend and bricks >=1 :
       for i in range(bricks):
-        r = [date, close_p1, close_p1+brick_size, close_p1, close_p1+brick_size, uptrend]
+        r = [date, close_p1, close_p1+brick_size, close_p1, close_p1+brick_size, uptrend, brick_size]
         data.append(r)
         close_p1 += brick_size
+      brick_size = row['bsz']
     # if in a uptrend and closs_diff is larger than 2 bricks(in a negative way)
     elif uptrend and bricks <= -2:
       uptrend = not uptrend
       bricks += 1
       close_p1 -= brick_size
       for i in range(abs(bricks)):
-        r = [date, close_p1, close_p1, close_p1-brick_size, close_p1-brick_size, uptrend]
+        r = [date, close_p1, close_p1, close_p1-brick_size, close_p1-brick_size, uptrend, brick_size]
         data.append(r)
         close_p1 -= brick_size
+      brick_size = row['bsz']
     # if in a downtrend and close_diff is larger than 1 brick(in a negative way)
     elif not uptrend and bricks <= -1:
       for i in range(abs(bricks)):
-        r = [date, close_p1, close_p1, close_p1-brick_size, close_p1-brick_size, uptrend]
+        r = [date, close_p1, close_p1, close_p1-brick_size, close_p1-brick_size, uptrend, brick_size]
         data.append(r)
         close_p1 -= brick_size
+      brick_size = row['bsz']
     # if in a downtrend and close_diff is larger than 2 bricks
     elif not uptrend and bricks >= 2:
       uptrend = not uptrend
       bricks -= 1
       close_p1 += brick_size
       for i in range(abs(bricks)):
-        r = [date, close_p1, close_p1+brick_size, close_p1, close_p1+brick_size, uptrend]
+        r = [date, close_p1, close_p1+brick_size, close_p1, close_p1+brick_size, uptrend, brick_size]
         data.append(r)
         close_p1 += brick_size
+      brick_size = row['bsz']
     else:
       continue
       
     # construct the [1:] rows and attach it to the first row
     sdf = pd.DataFrame(data=data, columns=columns)
-    cdf = pd.concat([cdf, sdf])
-    
+    cdf = pd.concat([cdf, sdf], sort=True)
+  
   # post process
   cdf = util.df_2_timeseries(df=cdf, time_col='Date')
   cdf.rename(columns={'Open':'renko_o', 'High': 'renko_h', 'High': 'renko_h', 'Low': 'renko_l', 'Close':'renko_c', 'uptrend': 'renko_color'}, inplace=True)
@@ -1991,17 +2000,14 @@ def add_renko_features(df, brick_size=None, use_atr=True, return_date_index=True
   cdf['renko_trend'] = cdf['renko_color'].replace({'green':'u', 'red':'d'})
   cdf['renko_sda'] = cdf['renko_color'].replace({'green':1, 'red':-1})
   cdf['renko_sda'] = sda(series=cdf['renko_sda'], zero_as=0)
-  cdf['renko_brick_size'] = brick_size
+  # cdf['renko_brick_size'] = 1
 
   # merge cdf with original df
   for col in ['renko_o', 'renko_h', 'renko_l', 'renko_c', 'renko_color', 'renko_trend', 'renko_real', 'renko_sda', 'renko_brick_size']:
     if col in original_df.columns:
       original_df.drop(col, axis=1, inplace=True)
   original_df = pd.merge(original_df, cdf, how='left', left_index=True, right_index=True)
-  # original_df['renko_trend'] = original_df['renko_color'].replace({'green':'u', 'red':'d'})
-  # original_df['renko_real'] = original_df['renko_color'].copy()
   
-
   # if to return date index
   if return_date_index:
     duplicated_idx = list(set(original_df.index[original_df.index.duplicated()]))
@@ -2045,11 +2051,160 @@ def add_renko_features(df, brick_size=None, use_atr=True, return_date_index=True
   if cal_signal:
     original_df['renko_signal'] = original_df['renko_real'].replace({'green': 'b', 'red':'s'})
 
-    # # calculate sda of bricks
-    # original_df['renko_sda'] = original_df['renko_real'].replace({'green':1, 'red':-1}).fillna(0)
-    # original_df['renko_sda'] = sda(series = original_df['renko_sda'], zero_as=0)
-
   return original_df
+
+
+# # Renko
+# def add_renko_features(df, brick_size=None, use_atr=True, return_date_index=True, cal_signal=True):
+#   """
+#   Calculate Renko indicator
+
+#   :param df: original OHLCV dataframe
+#   :param brick_size: brick size, default is 1/3 of close.std
+#   :param use_atr: whether to use the latest atr vaule as the brick size
+#   :param return_date_index: whether to remove duplicated indexes from the final result
+#   :param ohlcv_col: column name of Open/High/Low/Close/Volume
+#   :param fillna: whether to fill na with 0
+#   :param cal_signal: whether to calculate signal
+#   :returns: dataframe with new features generated
+#   """
+
+#   # reset index and copy df
+#   original_df = util.remove_duplicated_index(df=df, keep='last')
+#   df = original_df.reset_index()
+
+#   # set brick size
+#   if use_atr:
+#     df = add_atr_features(df=df)
+#     brick_size = df['atr'].values[-1]
+#   elif not use_atr and brick_size is None:  
+#     # brick_size = df['Close'].std()/4
+#     brick_size = df['Close'].mean()/10
+
+#   # construct dataframe
+#   columns = ['Date', 'Open', 'High', 'Low', 'Close']
+#   cdf = pd.DataFrame(columns=columns, data=[], )
+
+#   # set the first row
+#   cdf.loc[0] = df.loc[0]
+#   close = df.loc[0]['Close'] // brick_size * brick_size
+#   cdf.loc[0, 1:] = [close - brick_size, close, close - brick_size, close]
+#   cdf['uptrend'] = True
+#   columns = ['Date', 'Open', 'High', 'Low', 'Close', 'uptrend']
+
+#   # go through the dataframe
+#   for index, row in df.iterrows():
+
+#     # get current date and close price
+#     close = row['Close']
+#     date = row['Date']
+    
+#     # get previous row
+#     row_p1 = cdf.iloc[-1]
+#     uptrend = row_p1['uptrend']
+#     close_p1 = row_p1['Close']
+
+#     # calculate bricks    
+#     bricks = int((close - close_p1) / brick_size)
+#     data = []
+    
+#     # if in a uptrend and close_diff is larger than 1 brick
+#     if uptrend and bricks >=1 :
+#       for i in range(bricks):
+#         r = [date, close_p1, close_p1+brick_size, close_p1, close_p1+brick_size, uptrend]
+#         data.append(r)
+#         close_p1 += brick_size
+#     # if in a uptrend and closs_diff is larger than 2 bricks(in a negative way)
+#     elif uptrend and bricks <= -2:
+#       uptrend = not uptrend
+#       bricks += 1
+#       close_p1 -= brick_size
+#       for i in range(abs(bricks)):
+#         r = [date, close_p1, close_p1, close_p1-brick_size, close_p1-brick_size, uptrend]
+#         data.append(r)
+#         close_p1 -= brick_size
+#     # if in a downtrend and close_diff is larger than 1 brick(in a negative way)
+#     elif not uptrend and bricks <= -1:
+#       for i in range(abs(bricks)):
+#         r = [date, close_p1, close_p1, close_p1-brick_size, close_p1-brick_size, uptrend]
+#         data.append(r)
+#         close_p1 -= brick_size
+#     # if in a downtrend and close_diff is larger than 2 bricks
+#     elif not uptrend and bricks >= 2:
+#       uptrend = not uptrend
+#       bricks -= 1
+#       close_p1 += brick_size
+#       for i in range(abs(bricks)):
+#         r = [date, close_p1, close_p1+brick_size, close_p1, close_p1+brick_size, uptrend]
+#         data.append(r)
+#         close_p1 += brick_size
+#     else:
+#       continue
+      
+#     # construct the [1:] rows and attach it to the first row
+#     sdf = pd.DataFrame(data=data, columns=columns)
+#     cdf = pd.concat([cdf, sdf])
+  
+#   # post process
+#   cdf = util.df_2_timeseries(df=cdf, time_col='Date')
+#   cdf.rename(columns={'Open':'renko_o', 'High': 'renko_h', 'High': 'renko_h', 'Low': 'renko_l', 'Close':'renko_c', 'uptrend': 'renko_color'}, inplace=True)
+#   cdf['renko_color'] = cdf['renko_color'].replace({True: 'green', False:'red'})
+#   cdf['renko_real'] = cdf['renko_color'].copy()
+#   cdf['renko_trend'] = cdf['renko_color'].replace({'green':'u', 'red':'d'})
+#   cdf['renko_sda'] = cdf['renko_color'].replace({'green':1, 'red':-1})
+#   cdf['renko_sda'] = sda(series=cdf['renko_sda'], zero_as=0)
+#   cdf['renko_brick_size'] = brick_size
+
+#   # merge cdf with original df
+#   for col in ['renko_o', 'renko_h', 'renko_l', 'renko_c', 'renko_color', 'renko_trend', 'renko_real', 'renko_sda', 'renko_brick_size']:
+#     if col in original_df.columns:
+#       original_df.drop(col, axis=1, inplace=True)
+#   original_df = pd.merge(original_df, cdf, how='left', left_index=True, right_index=True)
+  
+#   # if to return date index
+#   if return_date_index:
+#     duplicated_idx = list(set(original_df.index[original_df.index.duplicated()]))
+
+#     # remove duplicated date index
+#     for idx in duplicated_idx:
+#       tmp_rows = original_df.loc[idx, ].copy()
+
+#       # make sure they are in same color
+#       colors = tmp_rows['renko_color'].unique()
+#       if len(colors) == 1:
+#         color = colors[0]
+#         if color == 'green':
+#           original_df.loc[idx, 'renko_o'] = tmp_rows['renko_o'].min()
+#           original_df.loc[idx, 'renko_l'] = tmp_rows['renko_l'].min()
+#           original_df.loc[idx, 'renko_h'] = tmp_rows['renko_h'].max()
+#           original_df.loc[idx, 'renko_c'] = tmp_rows['renko_c'].max()
+#           original_df.loc[idx, 'renko_brick_size'] = tmp_rows['renko_brick_size'].sum()
+#         elif color == 'red':
+#           original_df.loc[idx, 'renko_o'] = tmp_rows['renko_o'].max()
+#           original_df.loc[idx, 'renko_l'] = tmp_rows['renko_l'].min()
+#           original_df.loc[idx, 'renko_h'] = tmp_rows['renko_h'].max()
+#           original_df.loc[idx, 'renko_c'] = tmp_rows['renko_c'].min()
+#           original_df.loc[idx, 'renko_brick_size'] = tmp_rows['renko_brick_size'].sum()
+#         else:
+#           print(f'unknown renko color {color}')
+#           continue
+#       else:
+#         print('duplicated index with different renko colors!')
+#         continue
+#     original_df = util.remove_duplicated_index(df=original_df, keep='last')
+
+#   # change the value of downtrend bricks
+#   red_idx = original_df.query('renko_color == "red"').index
+#   original_df.loc[red_idx, 'renko_brick_size'] = -original_df.loc[red_idx, 'renko_brick_size']
+
+#   # fill na values
+#   original_df[['renko_o', 'renko_h','renko_l', 'renko_c', 'renko_color', 'renko_brick_size', 'renko_trend', 'renko_sda']] = original_df[['renko_o', 'renko_h','renko_l', 'renko_c', 'renko_color', 'renko_brick_size', 'renko_trend', 'renko_sda']].fillna(method='ffill')
+
+#   # calculate signals
+#   if cal_signal:
+#     original_df['renko_signal'] = original_df['renko_real'].replace({'green': 'b', 'red':'s'})
+
+#   return original_df  
 
 
 
@@ -3474,8 +3629,9 @@ def plot_renko(df, start=None, end=None, ohlcv_col=default_ohlcv_col,
   # create figure
   ax = use_ax
   if ax is None:
-    plt.figure(figsize=plot_args['figsize'])
-    ax = plt.gca()
+    fig = plt.figure(figsize=plot_args['figsize'])
+    ax = fig.add_subplot(111)#plt.gca()
+    
   
   # pre-process data
   min_idx = df.index.min()
@@ -3496,7 +3652,9 @@ def plot_renko(df, start=None, end=None, ohlcv_col=default_ohlcv_col,
     df['step'] = 1
 
   # plot close for displaying the figure
-  ax.plot(df.Close, alpha=0)
+  # ax.plot(df.renko_brick_size, alpha=0)
+  # ax.set_ylim([df.renko_l.min(), df.renko_h.max()])
+  # ax.set_xlim([df.index.min(), df.index.max()])
 
   # plot renko
   legends = {'u': 'u', 'd': 'd'}
@@ -3526,6 +3684,8 @@ def plot_renko(df, start=None, end=None, ohlcv_col=default_ohlcv_col,
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
   ax.grid(True, axis='both', linestyle='--', linewidth=0.5)
+
+  # print(ax is None)
 
   if use_ax is not None:
     return ax
