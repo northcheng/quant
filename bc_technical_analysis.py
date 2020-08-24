@@ -3252,7 +3252,7 @@ def plot_candlestick(
   if ax is None:
     plt.figure(figsize=plot_args['figsize'])
     ax = plt.gca()
-
+  
   # annotate split
   if 'Split' in df.columns:
     splited = df.query('Split != 1.0').index
@@ -3265,7 +3265,7 @@ def plot_candlestick(
       y_text = y + df.High.max()*0.1
       sp = df.loc[s, 'Split']
       plt.annotate(f'splited {sp}', xy=(x, y), xytext=(x_text,y_text), xycoords='data', textcoords='data', arrowprops=dict(arrowstyle='->', alpha=0.5), bbox=dict(boxstyle="round",fc="1.0", alpha=0.5))
-
+  
   # transform date to numbers
   df.reset_index(inplace=True)
   df[date_col] = df[date_col].apply(mdates.date2num)
@@ -3311,7 +3311,7 @@ def plot_ichimoku_kama(
   if ax is None:
     plt.figure(figsize=plot_args['figsize'])
     ax = plt.gca()
-
+  
   # plot close price
   if 'price' in target_indicator:
     alpha = 0.2
@@ -3328,13 +3328,13 @@ def plot_ichimoku_kama(
     alpha = 0.6
     ax.plot(df.index, df.tankan, label='tankan', color='magenta', linestyle='--', alpha=alpha)
     ax.plot(df.index, df.kijun, label='kijun', color='blue', linestyle='--', alpha=alpha)
-
+  
   # plot kama_fast/slow lines 
   if 'kama' in target_indicator:
     alpha = 0.6
     ax.plot(df.index, df.kama_fast, label='kama_fast', color='magenta', alpha=alpha)
     ax.plot(df.index, df.kama_slow, label='kama_slow', color='blue', alpha=alpha)
-
+  
   # plot bollinger bands
   if 'bb' in target_indicator:
     alpha = 0.6
@@ -3343,18 +3343,18 @@ def plot_ichimoku_kama(
     ax.plot(df.index, df.mavg, label='mavg', color='grey', alpha=alpha)
     ax.fill_between(df.index, df.mavg, df.bb_high_band, facecolor='green', interpolate=True, alpha=0.1)
     ax.fill_between(df.index, df.mavg, df.bb_low_band, facecolor='red', interpolate=True, alpha=0.2)
-
+  
   # plot psar dots
   if 'psar' in target_indicator:
     alpha = 0.6
     s = 10
     ax.scatter(df.index, df.psar_up, label='psar', color='green', alpha=alpha, s=s)
     ax.scatter(df.index, df.psar_down, label='psar', color='red', alpha=alpha, s=s)
-
+  
   # plot renko bricks
   if 'renko' in target_indicator:
     ax = plot_renko(df, use_ax=ax, plot_args=default_plot_args, plot_in_date=True)
-
+  
   # plot candlestick
   if 'candlestick' in target_indicator:
     ax = plot_candlestick(df=df, start=start, end=end, date_col=date_col, ohlcv_col=ohlcv_col, width=candlestick_width, color=candlestick_color, use_ax=ax, plot_args=plot_args)
@@ -3497,23 +3497,24 @@ def plot_renko(
   if df.loc[min_idx, 'renko_real'] != 'green' or df.loc[min_idx, 'renko_real'] != 'red':
     df.loc[min_idx, 'renko_real'] = df.loc[min_idx, 'renko_color'] 
     df.loc[min_idx, 'renko_step'] = df.loc[min_idx, 'renko_step'] 
-
+  
   if plot_in_date:
     df = df.query('renko_real == "green" or renko_real =="red"').copy()
   else:
     df = df.query('renko_real == "green" or renko_real =="red"').reset_index()
-
+  
   # plot close for displaying the figure
   ax.plot(df.Close, alpha=0)
-
+  
   # plot renko
   legends = {'u': 'u', 'd': 'd'}
   for index, row in df.iterrows():
+    #print(index, row[['renko_o', 'renko_step', 'renko_brick_size']])
     renko = Rectangle((index, row['renko_o']), row['renko_step'], row['renko_brick_size'], facecolor=row['renko_color'], fill=True, alpha=0.3, label=legends[row['renko_trend']]) # edgecolor=row['renko_color'], linestyle='-', linewidth=2, 
     legends[row['renko_trend']] = "_nolegend_"
     ax.add_patch(renko)
-
-  # modify axes 
+  
+  # modify axes   
   if not plot_in_date:
     ax.get_figure().canvas.draw()
     xlabels = [item.get_text() for item in ax.get_xticklabels()]
@@ -3528,7 +3529,7 @@ def plot_renko(
       except Exception as e:
         continue
     ax.set_xticklabels(xlabels)
-
+  
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
@@ -3719,6 +3720,8 @@ def plot_multiple_indicators(
   for i in range(num_indicators):
     tmp_indicator = indicators[i]
     tmp_args = args.get(tmp_indicator)
+    
+    #print(tmp_indicator)
 
     if i == 0:
       axes[tmp_indicator] = plt.subplot(gs[i])

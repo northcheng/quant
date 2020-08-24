@@ -634,7 +634,7 @@ def create_month_data(df):
   
   # create an empty dict for storing result
   month_data = {'Date': [], 'Open': [], 'High': [], 'Low': [], 'Close': [], 'Volume': [], 'Dividend':[], 'Split':[]}
-
+  
   # go through each month
   for year in range(start_year, end_year+1):
     for month in range(1, 12+1):
@@ -643,6 +643,11 @@ def create_month_data(df):
       tmp_period = f'{year}-{month:02}'
       if (tmp_period >= start_month ) and (tmp_period <= end_month):
         tmp_data = df[tmp_period]
+        
+        # skip current period if no data
+        if len(tmp_data) == 0:
+          continue
+          
         month_data['Date'].append(tmp_period)
         month_data['Open'].append(tmp_data.loc[tmp_data.index.min(), 'Open'])
         month_data['Close'].append(tmp_data.loc[tmp_data.index.max(), 'Close'])
