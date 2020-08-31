@@ -436,7 +436,7 @@ def update_stock_data(symbols, stock_data_path, file_format='.csv', source='yfin
 
   :param symbols: symbol list
   :param stock_data_path: in where the local stock data files(.csv) are stored
-  :param source: data source to download latest stock data, yfinance or alphavantage
+  :param source: data source to download latest stock data, yfinance only for now
   :param file_format: default is .csv
   :param required_date: if the local data have already meet the required date, it won't be updated
   :param by: 'stock'-update one by one; 'date'-update for batch of stocks which have same latest dates

@@ -297,13 +297,13 @@ def calculate_ta_trend(df, main_indicators, diff_indicators, other_indicators, s
       # df['aroon_trend'] = 'n'
 
       # it is going up when:
-      # 1+. aroon_up处于极大值(100)或aroon_down处于极小值(0)
+      # 1+. aroon_up处于极大值(96+)
       # 2+. aroon_up位于顶部时[88,100], aroon_down位于底部[0,12]
       up_idx = df.query('(aroon_up>=96) or (aroon_up>=88 and aroon_down<=12)').index
       df.loc[up_idx, 'aroon_trend'] = 'u'
 
       # it is going down when
-      # 1-. aroon_up处于极小值(0)或aroon_down处于极大值(100)
+      # 1-. aroon_down处于极大值(96+)
       # 2-. aroon_up位于底部时[0,12], aroon_down位于顶部[88,100]
       down_idx = df.query('(aroon_down>=96) or (aroon_down>=88 and aroon_up<=12)').index
       df.loc[down_idx, 'aroon_trend'] = 'd'
