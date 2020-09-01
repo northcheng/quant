@@ -403,7 +403,8 @@ def calculate_ta_trend(df, main_indicators, diff_indicators, other_indicators, s
 
     # ================================ renko trend ============================
     if 'renko' in other_indicators:
-      df['renko_signal'] = 'n'
+      # df['renko_signal'] = 'n'
+      pass
 
     # ================================ Number days since trend shifted ========
     phase = 'cal_num_day_trend_shifted'
@@ -445,22 +446,28 @@ def calculate_ta_signal(df):
   :raturns: dataframe with signal
   :raises: None
   """
-  # copy data, initialize signal
+  # copy data, initialize
   df = df.copy()
-
-  # # ================================ Trend with Ichimoku, aroon ======================
-  # df['trend'] = 'n'
-  # up_idx = df.query('ichimoku_trend=="u" and aroon_trend=="u"').index
-  # down_idx = df.query('(ichimoku_trend=="d" and aroon_trend!="u") or (ichimoku_trend!="u" and aroon_trend=="d")').index
-  # df.loc[up_idx, 'trend'] = 'u'
-  # df.loc[down_idx, 'trend'] = 'd'
-
-  # ================================ Trend with Ichimoku, aroon, adx ======================
   df['trend'] = 'n'
-  up_idx = df.query('(trend_idx == 4)').index 
-  # (Close < kijun) and 
-  down_idx = df.query('(Close < kijun) and ((ichimoku_trend=="d" and aroon_trend!="u" and adx_trend!="u") or (aroon_trend=="d" and ichimoku_trend!="u" and adx_trend!="u") or (adx_trend=="d" and ichimoku_trend!="u" and aroon_trend!="u"))').index 
+  
+  # buy conditions
+  buy_conditions = {
+    'ichimoku is up trending': '(ichimoku_trend == "u")',
+    'aroon is up trending': '(aroon_trend == "u")',
+    'adx is up trending': '(adx_trend == "u")',
+    'psar is up trending': '(psar_trend == "u")',
+    'renko is up trending': '((renko_color == "red" and Close > renko_h) or (renko_color == "green" and Close > renko_l))'
+  }
+  up_idx = df.query(' and '.join(buy_conditions.values())).index 
   df.loc[up_idx, 'trend'] = 'u'
+
+  # sell conditions
+  sell_conditions = {
+    'Close is below kijun line': '(Close < kijun)',
+    'one of ichimoku/aroon/adx/psar is down trending, other 2 are not up trending': '((ichimoku_trend=="d" and aroon_trend!="u" and adx_trend!="u" and psar_trend !="u") or (aroon_trend=="d" and ichimoku_trend!="u" and adx_trend!="u" and psar_trend !="u") or (adx_trend=="d" and ichimoku_trend!="u" and aroon_trend!="u" and psar_trend !="u") or (psar_trend=="d" and ichimoku_trend!="u" and aroon_trend!="u" and adx_trend !="u"))',
+    'price went down through brick': '(Close < renko_l)'
+  } 
+  down_idx = df.query(' and '.join(sell_conditions.values())).index 
   df.loc[down_idx, 'trend'] = 'd'
 
   # ================================ Calculate overall siganl ======================
@@ -2060,7 +2067,12 @@ def add_renko_features(df, use_atr=False, merge_duplicated=True, cal_signal=True
 
   # calculate signals
   if cal_signal:
-    original_df['renko_signal'] = original_df['renko_real'].replace({'green': 'b', 'red':'s'})
+    up_idx = original_df.query('Close > renko_h').index
+    down_idx = original_df.query('Close < renko_l').index
+    original_df.loc[up_idx, 'renko_signal'] = 'b'
+    original_df.loc[down_idx, 'renko_signal'] = 's'
+
+    
 
   return original_df
 

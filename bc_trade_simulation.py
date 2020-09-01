@@ -70,7 +70,7 @@ class FixedPositionTrader:
   
 
   # init
-  def __init__(self, data, sec_list, start_cash, recalculate_signal=False, start_date=None, end_date=None, num_days=365, benchmark='SPY'):
+  def __init__(self, data, sec_list, start_cash, recalculate=None, start_date=None, end_date=None, num_days=365, benchmark='SPY'):
 
     # initialize stock list and start cash
     self.sec_list = sec_list.copy()
@@ -93,8 +93,10 @@ class FixedPositionTrader:
       symbol, interval = k.split('_')
 
       # recalculate ta_data
-      if recalculate_signal and ((symbol in sec_list) or (symbol == benchmark)):
+      if (recalculate == 'trend') and ((symbol in sec_list) or (symbol == benchmark)):
         self.record[symbol] = ta_util.calculate_ta_data(df=data['sec_data'][k][self.start_date:self.end_date], symbol=symbol, interval=interval)
+      elif (recalculate == 'signal') and ((symbol in sec_list) or (symbol == benchmark)):
+        self.record[symbol] = ta_util.calculate_ta_signal(df=data['ta_data'][k][self.start_date:self.end_date])
       else:
         self.record[symbol] = signals[k][self.start_date:self.end_date].copy()
 
