@@ -106,15 +106,16 @@ def load_data(symbols, config, load_empty_data=False, load_derived_data=False):
 
 
 # calculate certain selected ta indicators
-def calculate_ta_data(df, symbol, interval, main_indicators=['ichimoku'], diff_indicators=['aroon', 'adx'], other_indicators=['bb', 'psar', 'renko'], signal_threshold=0.001):
+def calculate_ta_data(df, symbol, interval, trend_indicators=['ichimoku', 'aroon', 'adx', 'psar', 'renko'], volume_indicators=[], volatility_indicators=['bb'], other_indicators=[], signal_threshold=0.001):
   """
   Calculate selected ta features for dataframe
 
   :param df: original dataframe with hlocv features
   :param symbol: symbol of the data
   :param interval: interval of the data
-  :param main_indicators: basicly ichimoku and kama
-  :param diff_indicators: indicators that uses "_diff" values, such as adx, aroon
+  :param trend_indicators: trend indicators
+  :param volumn_indicators: volume indicators
+  :param volatility_indicators: volatility indicators
   :param other_indicators: other indicators
   :param signal_threshold: threshold for kama/ichimoku trigerment
   :returns: dataframe with ta features, derivatives, signals
@@ -130,13 +131,13 @@ def calculate_ta_data(df, symbol, interval, main_indicators=['ichimoku'], diff_i
 
     # calculate TA indicators
     phase = 'cal_ta_indicators' 
-    all_indicators = list(set(main_indicators + diff_indicators + other_indicators))
+    all_indicators = list(set(trend_indicators + volume_indicators + volatility_indicators + other_indicators))
     for indicator in all_indicators:
       df = eval(f'add_{indicator}_features(df=df)')
 
     # calculate TA derivatives
     phase = 'cal_ta_derivatives'
-    df = calculate_ta_trend(df=df, main_indicators=main_indicators, diff_indicators=diff_indicators, other_indicators=other_indicators, signal_threshold=signal_threshold)
+    df = calculate_ta_trend(df=df, trend_indicators=trend_indicators, volume_indicators=volume_indicators, volatility_indicators=volatility_indicators, other_indicators=other_indicators, signal_threshold=signal_threshold)
 
     # calculate TA final signal
     df = calculate_ta_signal(df=df)
@@ -218,13 +219,13 @@ def preprocess_sec_data(df, symbol, interval, print_error=True):
 
 
 # calculate trends from ta indicators
-def calculate_ta_trend(df, main_indicators, diff_indicators, other_indicators, signal_threshold=0.001):
+def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indicators, other_indicators, signal_threshold=0.001):
   """
   Adding derived features such as trend, momentum, etc.
 
   :param df: dataframe with several ta features
-  :param main_indicators: basicly ichimoku and kama
-  :param diff_indicators: indicators that uses "_diff" values, such as adx, aroon
+  :param trend_indicators: trend indicators such as ichimoku, kama, aroon, adx, psar, renko, etc
+  :param volatility_indicators: volatility indicators bollinger bands
   :param other_indicators: other indicators
   :param signal_threshold: threshold for main indicators trigerments
   :returns: dataframe with extra fetures
@@ -232,30 +233,10 @@ def calculate_ta_trend(df, main_indicators, diff_indicators, other_indicators, s
   """
   
   try:
-    phase = 'cal_trend_for_main_indicators'
+    phase = 'cal_trend_for_trend_indicators'
 
     # ================================ ichimoku trend =========================
-    # # fast / slow lines in each indicator
-    # fast_slow_lines = {
-    #   'kama': {'fast': 'kama_fast', 'slow': 'kama_slow'}, 
-    #   'ichimoku': {'fast': 'tankan', 'slow': 'kijun'}
-    # }
-
-    # for indicator in main_indicators:
-
-    #   # construct column names according to indicator name
-    #   signal_col = f'{indicator}_signal'
-    #   trend_col = f'{indicator}_trend'
-    #   fl = fast_slow_lines[indicator]['fast']
-    #   sl = fast_slow_lines[indicator]['slow']
-    #   fld = f'{fl}_day'
-    #   sld = f'{sl}_day'
-
-    #   # calculate number of days since fast/slow line triggered
-    #   for col in [fl, sl]:
-    #     df[f'{col}_day'] = sda(series=df[f'{col}_signal'], zero_as=1)
-
-    if 'ichimoku' in main_indicators:
+    if 'ichimoku' in trend_indicators:
       signal_col = f'ichimoku_signal'
       trend_col = f'ichimoku_trend'
 
@@ -287,7 +268,7 @@ def calculate_ta_trend(df, main_indicators, diff_indicators, other_indicators, s
 
     # ================================ aroon trend ============================
     # calculate aroon_diff
-    if 'aroon' in diff_indicators:
+    if 'aroon' in trend_indicators:
       aroon_col = ['aroon_up', 'aroon_down', 'aroon_gap']
       df[aroon_col] = df[aroon_col].round(1)
       for col in aroon_col:
@@ -323,33 +304,8 @@ def calculate_ta_trend(df, main_indicators, diff_indicators, other_indicators, s
       wave_idx = df.query('-32<=aroon_gap<=32 and ((aroon_gap_change==0 and aroon_up_change==aroon_down_change<0) or ((aroon_up_change<0 and aroon_down<=4) or (aroon_down_change<0 and aroon_up<=4)))').index
       df.loc[wave_idx, 'aroon_trend'] = 'n'
 
-      # notice when aroon_down falls from the peak
-      df['apf_signal'] = 'n'
-
-      df['previous_aroon_down'] = df['aroon_down'].shift(1)
-      peak_idx = df.query('aroon_down_acc_change_count == -1').index
-      df.loc[peak_idx, 'aroon_down_peak'] = df.loc[peak_idx, 'previous_aroon_down']
-      df['aroon_down_peak'] = df['aroon_down_peak'].fillna(method='ffill')
-      up_idx = df.query('(aroon_down_peak==100 and aroon_down_acc_change_count<=-4 and aroon_up_acc_change_count<=-4 and aroon_gap<-32)  or (aroon_up==100)').index
-      df.loc[up_idx, 'apf_trend'] = 'u'
-
-      df['previous_aroon_up'] = df['aroon_up'].shift(1)
-      peak_idx = df.query('aroon_up_acc_change_count == -1').index
-      df.loc[peak_idx, 'aroon_up_peak'] = df.loc[peak_idx, 'previous_aroon_up']
-      df['aroon_up_peak'] = df['aroon_up_peak'].fillna(method='ffill')
-      down_idx = df.query('(aroon_up_peak==100 and aroon_up_acc_change_count<=-4 and aroon_down_acc_change_count<=-4 and aroon_gap>32) or (aroon_down==1001)').index
-      df.loc[down_idx, 'apf_trend'] = 'd'
-
-      # calculate aroon_gap same-direction-accumulation(sda)
-      df['aroon_sda'] = sda(series=df['aroon_gap'])
-      sell_idx = df.query('aroon_sda < -1000').index
-      buy_idx = df.query('aroon_sda > 1000').index
-      df.loc[buy_idx, 'aroon_sda_trend'] = 'u'
-      df.loc[sell_idx, 'aroon_sda_trend'] = 'd'
-      df['aroon_sda_signal'] = 'n'
-
     # ================================ adx trend ==============================
-    if 'adx' in diff_indicators:
+    if 'adx' in trend_indicators:
       # initialize
       # df['adx_trend'] = 'n'
 
@@ -362,7 +318,7 @@ def calculate_ta_trend(df, main_indicators, diff_indicators, other_indicators, s
       df.loc[down_idx ,'adx_trend'] = 'd'
 
     # ================================ eom trend ==============================
-    if 'eom' in diff_indicators:
+    if 'eom' in volume_indicators:
       # initialize
       # df['eom_trend'] = 'n'
 
@@ -375,7 +331,7 @@ def calculate_ta_trend(df, main_indicators, diff_indicators, other_indicators, s
       df.loc[down_idx ,'eom_trend'] = 'd'
 
     # ================================ kst trend ==============================
-    if 'kst' in diff_indicators:
+    if 'kst' in trend_indicators:
       # initialize
       # df['kst_trend'] = 'n'
 
@@ -388,7 +344,7 @@ def calculate_ta_trend(df, main_indicators, diff_indicators, other_indicators, s
       df.loc[down_idx ,'kst_trend'] = 'd'
 
     # ================================ psar trend =============================
-    if 'psar' in other_indicators:
+    if 'psar' in trend_indicators:
       df['psar_trend'] = 'n'
       up_idx = df.query('psar_up > 0').index
       down_idx = df.query('psar_down > 0').index
@@ -402,31 +358,41 @@ def calculate_ta_trend(df, main_indicators, diff_indicators, other_indicators, s
       # df.loc[sell_idx, 'psar_signal'] = 's'
 
     # ================================ renko trend ============================
-    if 'renko' in other_indicators:
-      # df['renko_signal'] = 'n'
-      pass
+    if 'renko' in trend_indicators:
+      df['renko_trend'] = 'n'
+      up_idx = df.query('(renko_color=="red" and Close>renko_h) or (renko_color=="green" and Close>renko_l)').index
+      down_idx = df.query('(renko_color=="red" and Close<renko_h) or (renko_color=="green" and Close<renko_l)').index
+      wave_idx = df.query('(renko_day >= 30)').index
+      df.loc[up_idx, 'renko_trend'] = 'u'
+      df.loc[down_idx, 'renko_trend'] = 'd'
+      df.loc[wave_idx, 'renko_trend'] = 'n'
 
-    # ================================ Number days since trend shifted ========
-    phase = 'cal_num_day_trend_shifted'
+    # ================================ overall trend ========
+    phase = 'cal_overall_trend'
     df['trend_idx'] = 0
     df['up_trend_idx'] = 0
     df['down_trend_idx'] = 0
-    for indicator in (main_indicators + diff_indicators + ['psar']):
+
+    all_indicators = trend_indicators + volume_indicators + volatility_indicators + other_indicators
+    exclude_indicators = ['renko', 'bb']
+    for indicator in all_indicators:
       trend_col = f'{indicator}_trend'
       signal_col = f'{indicator}_signal'
       day_col = f'{indicator}_day'
-
-      # calculate up/down trend index
-      up_idx = df.query(f'{trend_col} == "u"').index
-      down_idx = df.query(f'{trend_col} == "d"').index
-      df.loc[up_idx, 'up_trend_idx'] += 1
-      df.loc[down_idx, 'down_trend_idx'] -= 1
 
       # calculate number of days since trend shifted
       df[day_col] = sda(series=df[trend_col].replace({'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1) 
       
       # signal of individual indicators are set to 'n'
-      df[signal_col] = 'n'
+      if signal_col not in df.columns:
+        df[signal_col] = 'n'
+
+      # calculate up/down trend index
+      if indicator not in exclude_indicators:
+        up_idx = df.query(f'{trend_col} == "u"').index
+        down_idx = df.query(f'{trend_col} == "d"').index
+        df.loc[up_idx, 'up_trend_idx'] += 1
+        df.loc[down_idx, 'down_trend_idx'] -= 1
     
     # calculate overall trend index
     df['trend_idx'] = df['up_trend_idx'] + df['down_trend_idx']
@@ -456,7 +422,8 @@ def calculate_ta_signal(df):
     'aroon is up trending': '(aroon_trend == "u")',
     'adx is up trending': '(adx_trend == "u")',
     'psar is up trending': '(psar_trend == "u")',
-    'renko is up trending': '((renko_color == "red" and Close > renko_h) or (renko_color == "green" and Close > renko_l))'
+    'renko is up trending': '(((renko_color == "red" and Low > renko_h) or (renko_color == "green" and Close > renko_l and renko_trend!="n") or (renko_color == "green" and Close > renko_h and renko_trend=="n")) and (renko_sda_p1 > -3))',
+    # 'not in a waving market': ''#'((renko_color == "red" and renko_day <=30) or (renko_color=="green"))'
   }
   up_idx = df.query(' and '.join(buy_conditions.values())).index 
   df.loc[up_idx, 'trend'] = 'u'
@@ -465,7 +432,7 @@ def calculate_ta_signal(df):
   sell_conditions = {
     'Close is below kijun line': '(Close < kijun)',
     'one of ichimoku/aroon/adx/psar is down trending, other 2 are not up trending': '((ichimoku_trend=="d" and aroon_trend!="u" and adx_trend!="u" and psar_trend !="u") or (aroon_trend=="d" and ichimoku_trend!="u" and adx_trend!="u" and psar_trend !="u") or (adx_trend=="d" and ichimoku_trend!="u" and aroon_trend!="u" and psar_trend !="u") or (psar_trend=="d" and ichimoku_trend!="u" and aroon_trend!="u" and adx_trend !="u"))',
-    'price went down through brick': '(Close < renko_l)'
+    'price went down through brick': '(Close < renko_l)'#'((renko_color=="red" and Close<renko_l) or (renko_color=="green" and High<renko_l))'
   } 
   down_idx = df.query(' and '.join(sell_conditions.values())).index 
   df.loc[down_idx, 'trend'] = 'd'
@@ -1899,12 +1866,13 @@ def add_psar_features(df, ohlcv_col=default_ohlcv_col, step=0.02, max_step=0.10,
   return df
 
 # Renko
-def add_renko_features(df, use_atr=False, merge_duplicated=True, cal_signal=True):
+def add_renko_features(df, use_atr=False, brick_size_factor=0.1, merge_duplicated=True, cal_signal=True):
   """
   Calculate Renko indicator
 
   :param df: original OHLCV dataframe
   :param use_atr: whether to use the latest atr vaule as the brick size
+  :param brick_size_factor: if not using atr, brick size will be set to Close*brick_size_factor
   :param merge_duplicated: whether to merge duplicated indexes in the final result
   :param ohlcv_col: column name of Open/High/Low/Close/Volume
   :param fillna: whether to fill na with 0
@@ -1921,18 +1889,17 @@ def add_renko_features(df, use_atr=False, merge_duplicated=True, cal_signal=True
   if use_atr:
     df['bsz'] = df['atr']
   else:  
-    df['bsz'] = df['Close']/10
+    df['bsz'] = df['Close']*brick_size_factor
   brick_size = df['bsz'].values[0]
 
-  # construct cdf, initialize values for first row 
+  # construct renko_df, initialize values for first row
   columns = ['Date', 'Open', 'High', 'Low', 'Close']
-  cdf = pd.DataFrame(columns=columns, data=[], )
-  for col in columns:
-    cdf.loc[0, col] = df.loc[0, col]
+  renko_df = pd.DataFrame(columns=columns, data=[], )
+  renko_df.loc[0, columns] = df.loc[0, columns]
   close = df.loc[0, 'Close'] // brick_size * brick_size
-  cdf.loc[0, 1:] = [close - brick_size, close, close - brick_size, close]
-  cdf['uptrend'] = True
-  cdf['renko_brick_size'] = brick_size
+  renko_df.loc[0, 1:] = [close-brick_size, close, close-brick_size, close]
+  renko_df['uptrend'] = True
+  renko_df['renko_brick_size'] = brick_size
   columns = ['Date', 'Open', 'High', 'Low', 'Close', 'uptrend', 'renko_brick_size']
 
   # go through the dataframe
@@ -1943,7 +1910,7 @@ def add_renko_features(df, use_atr=False, merge_duplicated=True, cal_signal=True
     close = row['Close']
     
     # get previous trend and close price
-    row_p1 = cdf.iloc[-1]
+    row_p1 = renko_df.iloc[-1]
     uptrend = row_p1['uptrend']
     close_p1 = row_p1['Close']
 
@@ -1993,88 +1960,92 @@ def add_renko_features(df, use_atr=False, merge_duplicated=True, cal_signal=True
       continue
       
     # construct the [1:] rows and attach it to the first row
-    sdf = pd.DataFrame(data=data, columns=columns)
-    cdf = pd.concat([cdf, sdf], sort=True)
+    tmp_row = pd.DataFrame(data=data, columns=columns)
+    renko_df = pd.concat([renko_df, tmp_row], sort=True)
   
-  # post process
-  cdf = util.df_2_timeseries(df=cdf, time_col='Date')
-  cdf.rename(columns={'Open':'renko_o', 'High': 'renko_h', 'High': 'renko_h', 'Low': 'renko_l', 'Close':'renko_c', 'uptrend': 'renko_color'}, inplace=True)
-  cdf['renko_color'] = cdf['renko_color'].replace({True: 'green', False:'red'})
-  cdf['renko_trend'] = cdf['renko_color'].replace({'green':'u', 'red':'d'})
-  cdf['renko_sda'] = cdf['renko_color'].replace({'green':1, 'red':-1})
-  cdf['renko_sda'] = sda(series=cdf['renko_sda'], zero_as=0)
-  cdf['renko_real'] = cdf['renko_color'].copy()
-  cdf['renko_date'] = cdf.index.copy()
-  cdf['renko_date'] = cdf['renko_date'].shift(-1).fillna(original_df.index.max())
+  # get back to original dataframe
+  df = original_df
 
-  # merge cdf with original df
-  for col in ['renko_o', 'renko_h', 'renko_l', 'renko_c', 'renko_color', 'renko_trend', 'renko_real', 'renko_sda', 'renko_brick_size', 'renko_date']:
-    if col in original_df.columns:
-      original_df.drop(col, axis=1, inplace=True)
-  original_df = pd.merge(original_df, cdf, how='left', left_index=True, right_index=True)
+  # post process
+  renko_df = util.df_2_timeseries(df=renko_df, time_col='Date')
+  renko_df.rename(columns={'Open':'renko_o', 'High': 'renko_h', 'High': 'renko_h', 'Low': 'renko_l', 'Close':'renko_c', 'uptrend': 'renko_color'}, inplace=True)
+  renko_df['renko_start'] = renko_df.index.copy()
+  renko_df['renko_end'] = renko_df['renko_start'].shift(-1).fillna(df.index.max())
+  renko_df['renko_color'] = renko_df['renko_color'].replace({True: 'green', False:'red'})
+  renko_df['renko_trend'] = renko_df['renko_color'].replace({'green':'u', 'red':'d'})
+  renko_df['renko_real'] = renko_df['renko_color'].copy()
+  renko_df['renko_sda'] = renko_df['renko_color'].replace({'green':1, 'red':-1})
+  renko_df['renko_sda'] = sda(series=renko_df['renko_sda'], zero_as=0)
+  renko_df['renko_sda_p1'] = renko_df['renko_sda'].shift(1)
+  renko_df['renko_brick_number'] = 1
+  
+  # merge renko_df with df
+  for col in ['renko_o', 'renko_h', 'renko_l', 'renko_c', 'renko_color', 'renko_trend', 'renko_real', 'renko_sda', 'renko_brick_size', 'renko_start', 'renko_end']:
+    if col in df.columns:
+      df.drop(col, axis=1, inplace=True)
+  df = pd.merge(df, renko_df, how='left', left_index=True, right_index=True)
 
   # if to return date index
   if merge_duplicated:
     
     # remove duplicated date index
-    duplicated_idx = list(set(original_df.index[original_df.index.duplicated()]))
+    duplicated_idx = list(set(df.index[df.index.duplicated()]))
     for idx in duplicated_idx:
-      tmp_rows = original_df.loc[idx, ].copy()
+      tmp_rows = df.loc[idx, ].copy()
 
       # make sure they are in same color
       colors = tmp_rows['renko_color'].unique()
       if len(colors) == 1:
         color = colors[0]
         if color == 'green':
-          original_df.loc[idx, 'renko_o'] = tmp_rows['renko_o'].min()
-          original_df.loc[idx, 'renko_l'] = tmp_rows['renko_l'].min()
-          original_df.loc[idx, 'renko_h'] = tmp_rows['renko_h'].max()
-          original_df.loc[idx, 'renko_c'] = tmp_rows['renko_c'].max()
-          original_df.loc[idx, 'renko_brick_size'] = tmp_rows['renko_brick_size'].sum()
+          df.loc[idx, 'renko_o'] = tmp_rows['renko_o'].min()
+          df.loc[idx, 'renko_l'] = tmp_rows['renko_l'].min()
+          df.loc[idx, 'renko_h'] = tmp_rows['renko_h'].max()
+          df.loc[idx, 'renko_c'] = tmp_rows['renko_c'].max()
+          df.loc[idx, 'renko_brick_size'] = tmp_rows['renko_brick_size'].sum()
+          df.loc[idx, 'renko_brick_number'] = tmp_rows['renko_brick_number'].sum()
         elif color == 'red':
-          original_df.loc[idx, 'renko_o'] = tmp_rows['renko_o'].max()
-          original_df.loc[idx, 'renko_l'] = tmp_rows['renko_l'].min()
-          original_df.loc[idx, 'renko_h'] = tmp_rows['renko_h'].max()
-          original_df.loc[idx, 'renko_c'] = tmp_rows['renko_c'].min()
-          original_df.loc[idx, 'renko_brick_size'] = tmp_rows['renko_brick_size'].sum()
+          df.loc[idx, 'renko_o'] = tmp_rows['renko_o'].max()
+          df.loc[idx, 'renko_l'] = tmp_rows['renko_l'].min()
+          df.loc[idx, 'renko_h'] = tmp_rows['renko_h'].max()
+          df.loc[idx, 'renko_c'] = tmp_rows['renko_c'].min()
+          df.loc[idx, 'renko_brick_size'] = tmp_rows['renko_brick_size'].sum()
+          df.loc[idx, 'renko_brick_number'] = tmp_rows['renko_brick_number'].sum() 
         else:
           print(f'unknown renko color {color}')
-          continue
+          continue 
       else:
         print('duplicated index with different renko colors!')
         continue
-    original_df = util.remove_duplicated_index(df=original_df, keep='last')
+    df = util.remove_duplicated_index(df=df, keep='last')
 
   # change the value of downtrend bricks
-  red_idx = original_df.query('renko_color == "red"').index
-  original_df.loc[red_idx, 'renko_brick_size'] = -original_df.loc[red_idx, 'renko_brick_size']
+  red_idx = df.query('renko_color == "red"').index
+  df.loc[red_idx, 'renko_brick_size'] = -df.loc[red_idx, 'renko_brick_size']
 
   # fill na values
-  renko_columns = ['renko_o', 'renko_h','renko_l', 'renko_c', 'renko_color', 'renko_trend', 'renko_sda', 'renko_brick_size', 'renko_date']
-  original_df[renko_columns] = original_df[renko_columns].fillna(method='ffill')
+  renko_columns = ['renko_o', 'renko_h','renko_l', 'renko_c', 'renko_color', 'renko_trend', 'renko_sda', 'renko_sda_p1', 'renko_brick_size', 'renko_brick_number','renko_start', 'renko_end']
+  df[renko_columns] = df[renko_columns].fillna(method='ffill')
 
   # calculate brick length
-  min_idx = original_df.index.min()
-  max_idx = original_df.index.max()
+  max_idx = df.index.max()
   if merge_duplicated:
-    original_df['s']  = original_df.index
-    if original_df['s'].max() == max_idx:
+    df['s']  = df.index
+    if df['s'].max() == max_idx:
       max_idx = max_idx + datetime.timedelta(days=1)
-    original_df['e'] = original_df['renko_date']
-    original_df['renko_step'] = original_df['e'] - original_df['s'] 
+    df['renko_length'] = df['renko_end'] - df['s'] 
+    renko_days = (df['s'] - df['renko_start']).tolist()
+    renko_days = [x.days+1 for x in renko_days]
+    df['renko_day'] = renko_days
   else:
-    original_df['renko_step'] = 1
+    df['renko_length'] = 1
+    df['renko_day'] = 1
 
   # calculate signals
   if cal_signal:
-    up_idx = original_df.query('Close > renko_h').index
-    down_idx = original_df.query('Close < renko_l').index
-    original_df.loc[up_idx, 'renko_signal'] = 'b'
-    original_df.loc[down_idx, 'renko_signal'] = 's'
+    df['renko_signal'] = 'n'
 
-    
-
-  return original_df
+  return df
 
 
 
@@ -3362,10 +3333,11 @@ def plot_ichimoku_kama(
     s = 10
     ax.scatter(df.index, df.psar_up, label='psar', color='green', alpha=alpha, s=s)
     ax.scatter(df.index, df.psar_down, label='psar', color='red', alpha=alpha, s=s)
-  
+
   # plot renko bricks
   if 'renko' in target_indicator:
     ax = plot_renko(df, use_ax=ax, plot_args=default_plot_args, plot_in_date=True)
+    
   
   # plot candlestick
   if 'candlestick' in target_indicator:
@@ -3508,7 +3480,7 @@ def plot_renko(
   max_idx = df.index.max()
   if df.loc[min_idx, 'renko_real'] != 'green' or df.loc[min_idx, 'renko_real'] != 'red':
     df.loc[min_idx, 'renko_real'] = df.loc[min_idx, 'renko_color'] 
-    df.loc[min_idx, 'renko_step'] = df.loc[min_idx, 'renko_step'] 
+    df.loc[min_idx, 'renko_length'] = df.loc[min_idx, 'renko_length'] 
   
   if plot_in_date:
     df = df.query('renko_real == "green" or renko_real =="red"').copy()
@@ -3519,10 +3491,9 @@ def plot_renko(
   ax.plot(df.Close, alpha=0)
   
   # plot renko
-  legends = {'u': 'u', 'd': 'd'}
+  legends = {'u': 'u', 'd': 'd', 'n':'n'}
   for index, row in df.iterrows():
-    #print(index, row[['renko_o', 'renko_step', 'renko_brick_size']])
-    renko = Rectangle((index, row['renko_o']), row['renko_step'], row['renko_brick_size'], facecolor=row['renko_color'], fill=True, alpha=0.3, label=legends[row['renko_trend']]) # edgecolor=row['renko_color'], linestyle='-', linewidth=2, 
+    renko = Rectangle((index, row['renko_o']), row['renko_length'], row['renko_brick_size'], facecolor=row['renko_color'], fill=True, alpha=0.3, label=legends[row['renko_trend']]) # edgecolor=row['renko_color'], linestyle='-', linewidth=2, 
     legends[row['renko_trend']] = "_nolegend_"
     ax.add_patch(renko)
   
@@ -3732,8 +3703,6 @@ def plot_multiple_indicators(
   for i in range(num_indicators):
     tmp_indicator = indicators[i]
     tmp_args = args.get(tmp_indicator)
-    
-    #print(tmp_indicator)
 
     if i == 0:
       axes[tmp_indicator] = plt.subplot(gs[i])

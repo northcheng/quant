@@ -39,7 +39,7 @@
 		"show_image": true,
 		"save_image": false,
 		
-		"plot_window": {"day": 125, "week": 630, "month": 2700}, 
+		"plot_window": {"day": 250, "week": 1260, "month": 5400}, 
 		"bar_width": {"day": 0.75, "week": 3.5, "month":16}, 
 
 		"plot_args": {
@@ -102,7 +102,7 @@
 				"boundary": [30, 70]
 			},
 			"signals": {
-				"signal_list": ["apf_signal", "renko_signal", "psar_signal", "aroon_signal", "adx_signal", "ichimoku_signal", "signal"],
+				"signal_list": ["renko_signal", "psar_signal", "aroon_signal", "adx_signal", "ichimoku_signal", "signal"],
 				"plot_signal_on_price": true,
 				"price_alpha": 0
 			},

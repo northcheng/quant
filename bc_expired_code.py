@@ -187,3 +187,51 @@
 
 #   # return dataframe for selected period
 #   return data[start_date:end_date]
+
+
+## ichimoku and kama fastline/slowlines
+# # fast / slow lines in each indicator
+    # fast_slow_lines = {
+    #   'kama': {'fast': 'kama_fast', 'slow': 'kama_slow'}, 
+    #   'ichimoku': {'fast': 'tankan', 'slow': 'kijun'}
+    # }
+
+    # for indicator in main_indicators:
+
+    #   # construct column names according to indicator name
+    #   signal_col = f'{indicator}_signal'
+    #   trend_col = f'{indicator}_trend'
+    #   fl = fast_slow_lines[indicator]['fast']
+    #   sl = fast_slow_lines[indicator]['slow']
+    #   fld = f'{fl}_day'
+    #   sld = f'{sl}_day'
+
+    #   # calculate number of days since fast/slow line triggered
+    #   for col in [fl, sl]:
+    #     df[f'{col}_day'] = sda(series=df[f'{col}_signal'], zero_as=1)
+
+## aroon peak falling signal
+# # notice when aroon_down falls from the peak
+      # df['apf_signal'] = 'n'
+
+      # df['previous_aroon_down'] = df['aroon_down'].shift(1)
+      # peak_idx = df.query('aroon_down_acc_change_count == -1').index
+      # df.loc[peak_idx, 'aroon_down_peak'] = df.loc[peak_idx, 'previous_aroon_down']
+      # df['aroon_down_peak'] = df['aroon_down_peak'].fillna(method='ffill')
+      # up_idx = df.query('(aroon_down_peak==100 and aroon_down_acc_change_count<=-4 and aroon_up_acc_change_count<=-4 and aroon_gap<-32)  or (aroon_up==100)').index
+      # df.loc[up_idx, 'apf_trend'] = 'u'
+
+      # df['previous_aroon_up'] = df['aroon_up'].shift(1)
+      # peak_idx = df.query('aroon_up_acc_change_count == -1').index
+      # df.loc[peak_idx, 'aroon_up_peak'] = df.loc[peak_idx, 'previous_aroon_up']
+      # df['aroon_up_peak'] = df['aroon_up_peak'].fillna(method='ffill')
+      # down_idx = df.query('(aroon_up_peak==100 and aroon_up_acc_change_count<=-4 and aroon_down_acc_change_count<=-4 and aroon_gap>32) or (aroon_down==1001)').index
+      # df.loc[down_idx, 'apf_trend'] = 'd'
+
+      # # calculate aroon_gap same-direction-accumulation(sda)
+      # df['aroon_sda'] = sda(series=df['aroon_gap'])
+      # sell_idx = df.query('aroon_sda < -1000').index
+      # buy_idx = df.query('aroon_sda > 1000').index
+      # df.loc[buy_idx, 'aroon_sda_trend'] = 'u'
+      # df.loc[sell_idx, 'aroon_sda_trend'] = 'd'
+      # df['aroon_sda_signal'] = 'n'
