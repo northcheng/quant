@@ -232,6 +232,9 @@ class FixedPositionTrader:
     # get plot data
     record = self.record[symbol].copy()  
     record = record[start_date:end_date].copy()
+    if len(record) == 0:
+      print(f'no record for {symbol}')
+      return None
     min_idx = record.index.min()
     max_idx = record.index.max()
 
@@ -293,7 +296,12 @@ class FixedPositionTrader:
     for symbol in records.keys():
         
       # get record data
-      record_data = records[symbol][self.start_date:self.end_date]
+      record_data = records[symbol][self.start_date:self.end_date]      
+
+      if len(record_data) == 0:
+        print(f'no record for {symbol}')
+        continue
+
       min_idx = record_data.index.min()
       max_idx = record_data.index.max()
       

@@ -105,49 +105,6 @@ def load_data(symbols, config, load_empty_data=False, load_derived_data=False):
   return data
 
 
-# calculate certain selected ta indicators
-def calculate_ta_data(df, symbol, interval, trend_indicators=['ichimoku', 'aroon', 'adx', 'psar', 'renko'], volume_indicators=[], volatility_indicators=['bb'], other_indicators=[], signal_threshold=0.001):
-  """
-  Calculate selected ta features for dataframe
-
-  :param df: original dataframe with hlocv features
-  :param symbol: symbol of the data
-  :param interval: interval of the data
-  :param trend_indicators: trend indicators
-  :param volumn_indicators: volume indicators
-  :param volatility_indicators: volatility indicators
-  :param other_indicators: other indicators
-  :param signal_threshold: threshold for kama/ichimoku trigerment
-  :returns: dataframe with ta features, derivatives, signals
-  :raises: None
-  """
-  # copy dataframe
-  df = df.copy()
-  
-  try:
-    # preprocess sec_data
-    phase = 'preprocess_sec_data'
-    df = preprocess_sec_data(df=df, symbol=symbol, interval=interval)
-
-    # calculate TA indicators
-    phase = 'cal_ta_indicators' 
-    all_indicators = list(set(trend_indicators + volume_indicators + volatility_indicators + other_indicators))
-    for indicator in all_indicators:
-      df = eval(f'add_{indicator}_features(df=df)')
-
-    # calculate TA derivatives
-    phase = 'cal_ta_derivatives'
-    df = calculate_ta_trend(df=df, trend_indicators=trend_indicators, volume_indicators=volume_indicators, volatility_indicators=volatility_indicators, other_indicators=other_indicators, signal_threshold=signal_threshold)
-
-    # calculate TA final signal
-    df = calculate_ta_signal(df=df)
-
-  except Exception as e:
-    print(phase, e)
-
-  return df
-
-
 # remove invalid records from downloaded stock data
 def preprocess_sec_data(df, symbol, interval, print_error=True):
   '''
@@ -360,12 +317,16 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
     # ================================ renko trend ============================
     if 'renko' in trend_indicators:
       df['renko_trend'] = 'n'
-      up_idx = df.query('(renko_color=="red" and Close>renko_h) or (renko_color=="green" and Close>renko_l)').index
-      down_idx = df.query('(renko_color=="red" and Close<renko_h) or (renko_color=="green" and Close<renko_l)').index
-      wave_idx = df.query('(renko_day >= 30)').index
+
+      up_idx = df.query('(Close > Open) and ((renko_color=="red" and Low>renko_h) or (renko_color=="green" and Low>renko_l))').index
       df.loc[up_idx, 'renko_trend'] = 'u'
+
+      down_idx = df.query('(renko_color=="red") or (renko_color=="green" and Close<renko_l)').index
       df.loc[down_idx, 'renko_trend'] = 'd'
+
+      wave_idx = df.query('(renko_trend != "u" and renko_trend != "d") and (renko_day >= 30)').index
       df.loc[wave_idx, 'renko_trend'] = 'n'
+      
 
     # ================================ overall trend ========
     phase = 'cal_overall_trend'
@@ -422,7 +383,7 @@ def calculate_ta_signal(df):
     'aroon is up trending': '(aroon_trend == "u")',
     'adx is up trending': '(adx_trend == "u")',
     'psar is up trending': '(psar_trend == "u")',
-    'renko is up trending': '(((renko_color == "red" and Low > renko_h) or (renko_color == "green" and Close > renko_l and renko_trend!="n") or (renko_color == "green" and Close > renko_h and renko_trend=="n")) and (renko_sda_p1 > -3))',
+    'renko is up trending': '(renko_trend == "u")' 
     # 'not in a waving market': ''#'((renko_color == "red" and renko_day <=30) or (renko_color=="green"))'
   }
   up_idx = df.query(' and '.join(buy_conditions.values())).index 
@@ -431,8 +392,8 @@ def calculate_ta_signal(df):
   # sell conditions
   sell_conditions = {
     'Close is below kijun line': '(Close < kijun)',
-    'one of ichimoku/aroon/adx/psar is down trending, other 2 are not up trending': '((ichimoku_trend=="d" and aroon_trend!="u" and adx_trend!="u" and psar_trend !="u") or (aroon_trend=="d" and ichimoku_trend!="u" and adx_trend!="u" and psar_trend !="u") or (adx_trend=="d" and ichimoku_trend!="u" and aroon_trend!="u" and psar_trend !="u") or (psar_trend=="d" and ichimoku_trend!="u" and aroon_trend!="u" and adx_trend !="u"))',
-    'price went down through brick': '(Close < renko_l)'#'((renko_color=="red" and Close<renko_l) or (renko_color=="green" and High<renko_l))'
+    'one of ichimoku/aroon/adx/psar is down trending, others are not up trending': '(down_trend_idx <= -1 and up_trend_idx == 0)',#'((ichimoku_trend=="d" and aroon_trend!="u" and adx_trend!="u" and psar_trend !="u") or (aroon_trend=="d" and ichimoku_trend!="u" and adx_trend!="u" and psar_trend !="u") or (adx_trend=="d" and ichimoku_trend!="u" and aroon_trend!="u" and psar_trend !="u") or (psar_trend=="d" and ichimoku_trend!="u" and aroon_trend!="u" and adx_trend !="u"))',
+    'price went down through brick': '(renko_trend == "d")'
   } 
   down_idx = df.query(' and '.join(sell_conditions.values())).index 
   df.loc[down_idx, 'trend'] = 'd'
@@ -442,6 +403,52 @@ def calculate_ta_signal(df):
   df['signal_day'] = sda(series=df['trend'].replace({'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
   df.loc[df['signal_day'] == 1, 'signal'] = 'b'
   df.loc[df['signal_day'] ==-1, 'signal'] = 's'
+
+  return df
+
+
+# calculate certain selected ta indicators
+def calculate_ta_data(df, symbol, interval, trend_indicators=['ichimoku', 'aroon', 'adx', 'psar', 'renko'], volume_indicators=[], volatility_indicators=['bb'], other_indicators=[], signal_threshold=0.001):
+  """
+  Calculate selected ta features for dataframe
+
+  :param df: original dataframe with hlocv features
+  :param symbol: symbol of the data
+  :param interval: interval of the data
+  :param trend_indicators: trend indicators
+  :param volumn_indicators: volume indicators
+  :param volatility_indicators: volatility indicators
+  :param other_indicators: other indicators
+  :param signal_threshold: threshold for kama/ichimoku trigerment
+  :returns: dataframe with ta features, derivatives, signals
+  :raises: None
+  """
+  # copy dataframe
+  df = df.copy()
+
+  if len(df) == 0:
+    print('Calculation: No data')
+  
+  try:
+    # preprocess sec_data
+    phase = 'preprocess_sec_data'
+    df = preprocess_sec_data(df=df, symbol=symbol, interval=interval)
+
+    # calculate TA indicators
+    phase = 'cal_ta_indicators' 
+    all_indicators = list(set(trend_indicators + volume_indicators + volatility_indicators + other_indicators))
+    for indicator in all_indicators:
+      df = eval(f'add_{indicator}_features(df=df)')
+
+    # calculate TA derivatives
+    phase = 'cal_ta_derivatives'
+    df = calculate_ta_trend(df=df, trend_indicators=trend_indicators, volume_indicators=volume_indicators, volatility_indicators=volatility_indicators, other_indicators=other_indicators, signal_threshold=signal_threshold)
+
+    # calculate TA final signal
+    df = calculate_ta_signal(df=df)
+
+  except Exception as e:
+    print(phase, e)
 
   return df
 
@@ -459,6 +466,9 @@ def visualize_ta_data(df, start=None, end=None, title=None, save_path=None, visu
   :returns: None
   :raises: Exception
   """
+  if len(df) == 0:
+    print(f'Visualization: No data')
+
   try:
     # visualize 
     phase = 'visualization'
@@ -468,7 +478,6 @@ def visualize_ta_data(df, start=None, end=None, title=None, save_path=None, visu
     plot_multiple_indicators(
       df=df, title=title, args=plot_args,  start=start, end=end,
       show_image=is_show, save_image=is_save, save_path=save_path)
-
   except Exception as e:
     print(phase, e)
 
@@ -1975,12 +1984,13 @@ def add_renko_features(df, use_atr=False, brick_size_factor=0.1, merge_duplicate
   renko_df['renko_trend'] = renko_df['renko_color'].replace({'green':'u', 'red':'d'})
   renko_df['renko_real'] = renko_df['renko_color'].copy()
   renko_df['renko_sda'] = renko_df['renko_color'].replace({'green':1, 'red':-1})
+  renko_df['renko_ms'] = renko_df['renko_sda'].rolling(2).sum()
   renko_df['renko_sda'] = sda(series=renko_df['renko_sda'], zero_as=0)
   renko_df['renko_sda_p1'] = renko_df['renko_sda'].shift(1)
   renko_df['renko_brick_number'] = 1
   
   # merge renko_df with df
-  for col in ['renko_o', 'renko_h', 'renko_l', 'renko_c', 'renko_color', 'renko_trend', 'renko_real', 'renko_sda', 'renko_brick_size', 'renko_start', 'renko_end']:
+  for col in ['renko_o', 'renko_h', 'renko_l', 'renko_c', 'renko_color', 'renko_trend', 'renko_real', 'renko_sda', 'renko_ms', 'renko_brick_size', 'renko_start', 'renko_end']:
     if col in df.columns:
       df.drop(col, axis=1, inplace=True)
   df = pd.merge(df, renko_df, how='left', left_index=True, right_index=True)
@@ -2024,7 +2034,7 @@ def add_renko_features(df, use_atr=False, brick_size_factor=0.1, merge_duplicate
   df.loc[red_idx, 'renko_brick_size'] = -df.loc[red_idx, 'renko_brick_size']
 
   # fill na values
-  renko_columns = ['renko_o', 'renko_h','renko_l', 'renko_c', 'renko_color', 'renko_trend', 'renko_sda', 'renko_sda_p1', 'renko_brick_size', 'renko_brick_number','renko_start', 'renko_end']
+  renko_columns = ['renko_o', 'renko_h','renko_l', 'renko_c', 'renko_color', 'renko_trend', 'renko_sda', 'renko_sda_p1', 'renko_ms', 'renko_brick_size', 'renko_brick_number','renko_start', 'renko_end']
   df[renko_columns] = df[renko_columns].fillna(method='ffill')
 
   # calculate brick length
