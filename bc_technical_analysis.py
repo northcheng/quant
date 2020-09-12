@@ -3256,7 +3256,7 @@ def plot_candlestick(
       x_text = all_idx[all_idx.index(s)-2]
       y = df.loc[s, 'High']
       y_text = y + df.High.max()*0.1
-      sp = df.loc[s, 'Split']
+      sp = round(df.loc[s, 'Split'], 4)
       plt.annotate(f'splited {sp}', xy=(x, y), xytext=(x_text,y_text), xycoords='data', textcoords='data', arrowprops=dict(arrowstyle='->', alpha=0.5), bbox=dict(boxstyle="round",fc="1.0", alpha=0.5))
   
   # transform date to numbers
