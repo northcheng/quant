@@ -62,6 +62,7 @@ class FixedPositionTrader:
   start_date = None
   end_date = None
 
+  data = {}
   record = {}
   cash = {} 
   stock = {}
@@ -70,13 +71,12 @@ class FixedPositionTrader:
   
 
   # init
-  def __init__(self, data, sec_list, start_cash, recalculate=None, start_date=None, end_date=None, num_days=365, benchmark='SPY'):
+  def __init__(self, data, start_date=None, end_date=None, num_days=365):
 
-    # initialize stock list and start cash
-    self.sec_list = sec_list.copy()
-    self.start_cash = start_cash
+    # copy data
+    self.data = data.copy()
 
-    # set start/end date
+    # set start_date/end_date
     if (start_date is not None) and (end_date is None):
       end_date = util.string_plus_day(string=start_date, diff_days=num_days)
     elif (start_date is None) and (end_date is not None):
@@ -87,30 +87,32 @@ class FixedPositionTrader:
     self.start_date = start_date
     self.end_date = end_date
 
-    # initialize record with ta_data
-    signals = data['ta_data']
-    for k in signals.keys():
-      symbol, interval = k.split('_')
+    # initialize record with sec_data
+    ta_data = data['ta_data']
+    for k in ta_data.keys():
+      symbol = k.split('_')[0]
+      self.record[symbol] = ta_data[k].copy()
+    
+    self.init_record()
 
-      # recalculate ta_data
-      if (recalculate == 'trend') and ((symbol in sec_list) or (symbol == benchmark)):
-        self.record[symbol] = ta_util.calculate_ta_data(df=data['sec_data'][k][self.start_date:self.end_date], symbol=symbol, interval=interval)
-      elif (recalculate == 'signal') and ((symbol in sec_list) or (symbol == benchmark)):
-        self.record[symbol] = ta_util.calculate_ta_signal(df=data['ta_data'][k][self.start_date:self.end_date])
-      else:
-        self.record[symbol] = signals[k][self.start_date:self.end_date].copy()
+  # set benchmark 
+  def set_benchmark(self, benchmark, start_date=None, end_date=None): 
+    
+    # set start_date/end_date
+    start_date = self.start_date if start_date is None else start_date
+    end_date = self.end_date if end_date is None else end_date   
 
-      # add extra columns 
-      self.record[symbol]['holding_price'] = 0
-      self.record[symbol]['holding_return'] = 0
-      self.record[symbol]['money'] = np.NaN
-      self.record[symbol]['stock'] = np.NaN
-      self.record[symbol]['value'] = np.NaN
-
-    # set benchmark
-    if benchmark in self.record.keys():
+    # find benchmark data from sec_data
+    benchmark_key = [x for x in self.data['sec_data'].keys() if benchmark in x]
+    benchmark_num = len(benchmark_key)
+    if (benchmark_num > 1) or (benchmark_num==0):
+      print(f'{benchmark_num} benchmark data found')
+      self.benchmark = None
+    
+    else:
+      # set benchmark data from sec_data
       self.benchmark = benchmark
-      self.record['benchmark'] = self.record[benchmark].copy()
+      self.record['benchmark'] = ta_util.cal_change_rate(df=self.data['sec_data'][benchmark_key[0]], target_col='Close').dropna()[start_date:end_date].copy()
       
       # set benchmark trading signals
       benchmark_idx = self.record['benchmark'].index
@@ -118,29 +120,97 @@ class FixedPositionTrader:
       self.record['benchmark'].loc[benchmark_idx.min(),'signal'] = 'b'
       self.record['benchmark'].loc[benchmark_idx.max(),'signal'] = 's'
 
-      # add benchmark into trade list
-      self.sec_list.append('benchmark')
-      self.start_cash = start_cash/len(sec_list) * len(self.sec_list)
-    else:
-      self.benchmark = None
-      print(f'{benchmark} data not found')
+  # recalculate data
+  def recalculate_data(self, sec_list, mode=None, start_date=None, end_date=None):
+
+    # set start_date/end_date
+    start_date = self.start_date if start_date is None else start_date
+    end_date = self.end_date if end_date is None else end_date
+
+    # copy sec_data, ta_data
+    sec_data = self.data['sec_data'].copy()
+    ta_data = self.data['ta_data'].copy()
+    
+    # recalculate lists
+    copy_ta_data = []
+    recalculate_trend = []
+    recalculate_signal = []
+
+    # set recalculate mode for each symbol
+    for k in ta_data.keys():
+
+      # skip symbols which not in sec_list
+      symbol = k.split('_')[0]
+      if symbol not in sec_list:
+        continue
+
+      # get data and its range
+      tmp_data = ta_data[k]
+      min_idx = util.time_2_string(tmp_data.index.min())
+      max_idx = util.time_2_string(tmp_data.index.max())
+
+      # for symbols which ta_data range covers start_date~end_date, process according to mode
+      if (min_idx <= start_date) and (max_idx >= end_idx):
+        if mode is None:
+          copy_ta_data.append(k)
+        elif mode == 'signal':
+          recalculate_signal.append(k)
+        elif mode == 'trend':
+          recalculate_trend.append(k)
+        else:
+          print(f'Unknown mode: {mode}')
+          copy_ta_data.append(k)
+
+      # for symbols which ta_data range not covers start_date~end_date, recalculate from trend
+      else:
+        recalculate_trend.append(k)
+
+    # for symbols just need to copy ta_data
+    for k in copy_ta_data:
+      symbol = k.split('_')[0]
+      self.record[symbol] = ta_data[k][start_date:end_date].copy()
+
+    # for symbols need to recalculate signals
+    for k in recalculate_signal:
+      symbol = k.split('_')[0]
+      self.record[symbol] = ta_util.calculate_ta_signal(df=ta_data[k][start_date:end_date])
+
+    # for symbols need to recalculate trend and signal
+    for k in recalculate_trend:
+      symbol, interval = k.split('_')
+      self.record[symbol] = ta_util.calculate_ta_data(df=sec_data[k][start_date:end_date], symbol=symbol, interval=interval)
+
+    # reset record
+    self.init_record()
+
+  # initialize record
+  def init_record(self):
+    # add extra columns for records
+    for symbol in self.record.keys():
+      self.record[symbol]['holding_price'] = 0
+      self.record[symbol]['holding_return'] = 0
+      self.record[symbol]['money'] = np.NaN
+      self.record[symbol]['stock'] = np.NaN
+      self.record[symbol]['value'] = np.NaN
       
   # trade
-  def trade(self, start_date, end_date, stop_profit=None, stop_loss=None):
-
+  def trade(self, sec_list, start_cash, start_date=None, end_date=None, stop_profit=None, stop_loss=None, benchmark='SPY'):
+    
+    # set start_date, end_date, sec_list, start_money, benchmark, record
+    start_date = self.start_date if start_date is None else start_date
+    end_date = self.end_date if end_date is None else end_date
+    self.set_benchmark(benchmark=benchmark, start_date=start_date, end_date=end_date)
+    self.sec_list = list(set(sec_list + ['benchmark']))
+    self.start_cash = start_cash
+    self.init_record()
+    
     # initialize portfolio
-    avg_position = self.start_cash / len(self.sec_list)
+    avg_position = start_cash #self.start_cash / len(self.sec_list)
     for symbol in self.sec_list:
       self.stock[symbol] = 0
       self.holding_price[symbol] = 0
       self.cash[symbol] = avg_position
       self.value[symbol] = avg_position
-
-    # set start/end date
-    if start_date is None:
-      start_date = self.start_date
-    if end_date is None:
-      end_date = self.end_date
 
     # construct trading date list
     dates = []
@@ -215,11 +285,7 @@ class FixedPositionTrader:
     self.record['portfolio'] = total.copy()
 
   # visualize
-  def visualize(self, symbol, start_date=None, end_date=None):
-
-    # set start/end date
-    start_date = self.start_date if start_date is None else start_date
-    end_date = self.end_date if end_date is None else end_date
+  def visualize(self, symbol, start_date=None, end_date=None, is_return=False):
 
     # create image
     fig = plt.figure(figsize=(20, 5))  
@@ -272,7 +338,8 @@ class FixedPositionTrader:
     hpr = finance_util.cal_HPR(data=record, start=min_idx.date(), end=max_idx.date(), dim='value', dividends=0)
     fig.suptitle(f'{symbol}: {hpr*100:.2f}%', x=0.5, y=0.95, fontsize=20)
 
-    return record
+    if is_return:
+      return record
 
   # analysis
   def analyze(self, sort=True):
