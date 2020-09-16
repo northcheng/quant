@@ -11,6 +11,7 @@ import datetime
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
 from quant import bc_util as util
+from quant import bc_data_io as io_util
 from quant import bc_finance as finance_util
 from quant import bc_technical_analysis as ta_util
 
@@ -57,7 +58,6 @@ def sell(stock, price, trading_fee):
 class FixedPositionTrader:
 
   sec_list = []
-  start_cash = 0
   benchmark = None
   start_date = None
   end_date = None
@@ -120,69 +120,6 @@ class FixedPositionTrader:
       self.record['benchmark'].loc[benchmark_idx.min(),'signal'] = 'b'
       self.record['benchmark'].loc[benchmark_idx.max(),'signal'] = 's'
 
-  # recalculate data
-  def recalculate_data(self, sec_list, mode=None, start_date=None, end_date=None):
-
-    # set start_date/end_date
-    start_date = self.start_date if start_date is None else start_date
-    end_date = self.end_date if end_date is None else end_date
-
-    # copy sec_data, ta_data
-    sec_data = self.data['sec_data'].copy()
-    ta_data = self.data['ta_data'].copy()
-    
-    # recalculate lists
-    copy_ta_data = []
-    recalculate_trend = []
-    recalculate_signal = []
-
-    # set recalculate mode for each symbol
-    for k in ta_data.keys():
-
-      # skip symbols which not in sec_list
-      symbol = k.split('_')[0]
-      if symbol not in sec_list:
-        continue
-
-      # get data and its range
-      tmp_data = ta_data[k]
-      min_idx = util.time_2_string(tmp_data.index.min())
-      max_idx = util.time_2_string(tmp_data.index.max())
-
-      # for symbols which ta_data range covers start_date~end_date, process according to mode
-      if (min_idx <= start_date) and (max_idx >= end_idx):
-        if mode is None:
-          copy_ta_data.append(k)
-        elif mode == 'signal':
-          recalculate_signal.append(k)
-        elif mode == 'trend':
-          recalculate_trend.append(k)
-        else:
-          print(f'Unknown mode: {mode}')
-          copy_ta_data.append(k)
-
-      # for symbols which ta_data range not covers start_date~end_date, recalculate from trend
-      else:
-        recalculate_trend.append(k)
-
-    # for symbols just need to copy ta_data
-    for k in copy_ta_data:
-      symbol = k.split('_')[0]
-      self.record[symbol] = ta_data[k][start_date:end_date].copy()
-
-    # for symbols need to recalculate signals
-    for k in recalculate_signal:
-      symbol = k.split('_')[0]
-      self.record[symbol] = ta_util.calculate_ta_signal(df=ta_data[k][start_date:end_date])
-
-    # for symbols need to recalculate trend and signal
-    for k in recalculate_trend:
-      symbol, interval = k.split('_')
-      self.record[symbol] = ta_util.calculate_ta_data(df=sec_data[k][start_date:end_date], symbol=symbol, interval=interval)
-
-    # reset record
-    self.init_record()
-
   # initialize record
   def init_record(self):
     # add extra columns for records
@@ -192,7 +129,105 @@ class FixedPositionTrader:
       self.record[symbol]['money'] = np.NaN
       self.record[symbol]['stock'] = np.NaN
       self.record[symbol]['value'] = np.NaN
-      
+
+  # save record
+  def save_record(self, file_name='', file_path=''):
+    
+    # if filename missing, set current time as filename
+    current_time = datetime.datetime.now().strftime('%Y-%m-%d_%H.%M.%S')
+    if len(file_name) == 0:
+      file_name = current_time
+    else:
+      file_name = f'simrecord_{current_time}_{file_name}'
+
+    io_util.pickle_dump_data(data=self.record, file_path=file_path, file_name=file_name)
+    print(f'saved record: {file_path}{file_name}')
+
+  # load saved record
+  def load_record(self, file_name, file_path=''):
+    
+    # load data and verify its type
+    loaded_data = io_util.pickle_load_data(file_path=file_path, file_name=file_name)
+    loaded_data_type = type(loaded_data)
+    if loaded_data_type == dict:
+      self.record = loaded_data
+      print(f'loaded record: {file_path}{file_name}')
+    else:
+      print(f'loaded data is {loaded_data_type} rather than a dict')
+
+  # recalculate data
+  def recalculate_data(self, sec_list, mode=None, start_date=None, end_date=None):
+
+    # verify value of mode
+    if mode not in ['trend', 'signal', None]:
+      print(f'Unknown mode: {mode}')
+      return None
+
+    # set start_date/end_date
+    start_date = self.start_date if start_date is None else start_date
+    end_date = self.end_date if end_date is None else end_date
+
+    # copy sec_data, ta_data
+    sec_data = self.data['sec_data'].copy()
+    ta_data = self.data['ta_data'].copy()
+    
+    # set recalculate mode for each symbol
+    cut_data = []
+    recalculate_trend = []
+    recalculate_signal = []
+    for symbol in self.record.keys():
+
+      # skip symbols which not in sec_list
+      if symbol not in sec_list:
+        continue
+
+      # get data and its range
+      tmp_data = self.record[symbol]
+      min_idx = util.time_2_string(tmp_data.index.min())
+      max_idx = util.time_2_string(tmp_data.index.max())
+
+      # for symbols which ta_data range covers start_date~end_date, process according to mode
+      if (min_idx <= start_date) and (max_idx >= end_date):
+        if mode is None:
+          cut_data.append(symbol)
+        elif mode == 'signal':
+          recalculate_signal.append(symbol)
+        elif mode == 'trend':
+          recalculate_trend.append(symbol)
+        else:
+          print(f'Unknown mode: {mode}')
+          continue
+
+      # for symbols which ta_data range not covers start_date~end_date, recalculate from trend
+      else:
+        recalculate_trend.append(symbol)
+
+    # for symbols just need to be cut
+    cut_data = list(set(cut_data))
+    for symbol in cut_data:
+      self.record[symbol] = self.record[symbol][start_date:end_date].copy()
+
+    # for symbols need to recalculate signals
+    recalculate_signal = list(set(recalculate_signal))
+    for symbol in recalculate_signal:
+      self.record[symbol] = ta_util.calculate_ta_signal(df=self.record[symbol])[start_date:end_date]
+
+    # for symbols need to recalculate trend and signal
+    recalculate_trend += [x for x in sec_list if x not in self.record.keys()]
+    recalculate_trend = list(set(recalculate_trend))
+    for symbol in recalculate_trend:
+      symbol_interval = [x for x in sec_data.keys() if symbol in x]
+      if len(symbol_interval) == 1:
+        symbol_interval = symbol_interval[0]
+        symbol, interval = symbol_interval.split('_')
+        self.record[symbol] = ta_util.calculate_ta_data(df=sec_data[symbol_interval][start_date:end_date], symbol=symbol, interval=interval)
+      else:
+        print(f'{len(symbol_interval)} data found for {symbol}')
+        continue
+
+    # reset record
+    self.init_record()
+
   # trade
   def trade(self, sec_list, start_cash, start_date=None, end_date=None, stop_profit=None, stop_loss=None, benchmark='SPY'):
     
@@ -201,11 +236,10 @@ class FixedPositionTrader:
     end_date = self.end_date if end_date is None else end_date
     self.set_benchmark(benchmark=benchmark, start_date=start_date, end_date=end_date)
     self.sec_list = list(set(sec_list + ['benchmark']))
-    self.start_cash = start_cash
     self.init_record()
     
     # initialize portfolio
-    avg_position = start_cash #self.start_cash / len(self.sec_list)
+    avg_position = start_cash
     for symbol in self.sec_list:
       self.stock[symbol] = 0
       self.holding_price[symbol] = 0
