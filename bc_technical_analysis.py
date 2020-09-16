@@ -1898,7 +1898,7 @@ def add_renko_features(df, use_atr=False, brick_size_factor=0.1, merge_duplicate
   if use_atr:
     df['bsz'] = df['atr']
   else:  
-    df['bsz'] = df['Close']*brick_size_factor
+    df['bsz'] = (df['Close'].mean()*brick_size_factor)
   brick_size = df['bsz'].values[0]
 
   # construct renko_df, initialize values for first row

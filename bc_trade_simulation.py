@@ -397,7 +397,7 @@ class FixedPositionTrader:
     for symbol in records.keys():
         
       # get record data
-      record_data = records[symbol][self.start_date:self.end_date]      
+      record_data = records[symbol]#[self.start_date:self.end_date]      
 
       if len(record_data) == 0:
         print(f'no record for {symbol}')
