@@ -437,6 +437,7 @@ def calculate_ta_data(df, symbol, interval, trend_indicators=['ichimoku', 'aroon
     # calculate TA indicators
     phase = 'cal_ta_indicators' 
     all_indicators = list(set(trend_indicators + volume_indicators + volatility_indicators + other_indicators))
+    indicator = None
     for indicator in all_indicators:
       df = eval(f'add_{indicator}_features(df=df)')
 
@@ -448,7 +449,7 @@ def calculate_ta_data(df, symbol, interval, trend_indicators=['ichimoku', 'aroon
     df = calculate_ta_signal(df=df)
 
   except Exception as e:
-    print(phase, e)
+    print(phase, indicator, e)
 
   return df
 
@@ -1875,7 +1876,7 @@ def add_psar_features(df, ohlcv_col=default_ohlcv_col, step=0.02, max_step=0.10,
   return df
 
 # Renko
-def add_renko_features(df, use_atr=False, brick_size_factor=0.1, merge_duplicated=True, cal_signal=True):
+def add_renko_features(df, use_atr=False, brick_size_factor=0.08, merge_duplicated=True, cal_signal=True):
   """
   Calculate Renko indicator
 
@@ -1892,13 +1893,15 @@ def add_renko_features(df, use_atr=False, brick_size_factor=0.1, merge_duplicate
   # reset index and copy df
   original_df = util.remove_duplicated_index(df=df, keep='last')
   original_df = add_atr_features(df=original_df).query('tr >0 and atr>0').copy()
-  df = original_df.reset_index()
+  df = original_df.copy()
 
   # set brick size
   if use_atr:
     df['bsz'] = df['atr']
   else:  
-    df['bsz'] = (df['Close'].mean()*brick_size_factor)
+    df['bsz'] = df['Close'] * brick_size_factor #((df['Close'].rolling(10).mean() // 10) + (df['Close'].rolling(10).mean() / 10) )
+  df = df.dropna()
+  df = df.reset_index()
   brick_size = df['bsz'].values[0]
 
   # construct renko_df, initialize values for first row
@@ -1922,6 +1925,7 @@ def add_renko_features(df, use_atr=False, brick_size_factor=0.1, merge_duplicate
     row_p1 = renko_df.iloc[-1]
     uptrend = row_p1['uptrend']
     close_p1 = row_p1['Close']
+    brick_size_p1 = row_p1['renko_brick_size']
 
     # calculate bricks    
     bricks = int((close - close_p1) / brick_size)
@@ -1939,7 +1943,7 @@ def add_renko_features(df, use_atr=False, brick_size_factor=0.1, merge_duplicate
     elif uptrend and bricks <= -2:
       uptrend = not uptrend
       bricks += 1
-      close_p1 -= brick_size
+      close_p1 -= brick_size_p1
       for i in range(abs(bricks)):
         r = [date, close_p1, close_p1, close_p1-brick_size, close_p1-brick_size, uptrend, brick_size]
         data.append(r)
@@ -1967,10 +1971,18 @@ def add_renko_features(df, use_atr=False, brick_size_factor=0.1, merge_duplicate
 
     else:
       continue
+
+    # if abs(bricks) > 0:
+    #   brick_size = row['bsz']
+    # d = util.time_2_string(date)
+    # if d in ['2020-07-30', '2020-07-31']:
+    #   print(d, bricks, close_p1, brick_size, uptrend)
       
     # construct the [1:] rows and attach it to the first row
     tmp_row = pd.DataFrame(data=data, columns=columns)
-    renko_df = pd.concat([renko_df, tmp_row], sort=True)
+    renko_df = pd.concat([renko_df, tmp_row], sort=False)
+
+  
   
   # get back to original dataframe
   df = original_df
