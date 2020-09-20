@@ -1900,8 +1900,8 @@ def add_renko_features(df, use_atr=False, brick_size_factor=0.08, merge_duplicat
     df['bsz'] = df['atr']
   else:  
     df['bsz'] = df['Close'] * brick_size_factor #((df['Close'].rolling(10).mean() // 10) + (df['Close'].rolling(10).mean() / 10) )
-  df = df.dropna()
-  df = df.reset_index()
+  na_bsz = df.query('bsz != bsz').index
+  df = df.drop(index=na_bsz).reset_index()
   brick_size = df['bsz'].values[0]
 
   # construct renko_df, initialize values for first row
@@ -1971,19 +1971,11 @@ def add_renko_features(df, use_atr=False, brick_size_factor=0.08, merge_duplicat
 
     else:
       continue
-
-    # if abs(bricks) > 0:
-    #   brick_size = row['bsz']
-    # d = util.time_2_string(date)
-    # if d in ['2020-07-30', '2020-07-31']:
-    #   print(d, bricks, close_p1, brick_size, uptrend)
       
     # construct the [1:] rows and attach it to the first row
     tmp_row = pd.DataFrame(data=data, columns=columns)
     renko_df = pd.concat([renko_df, tmp_row], sort=False)
 
-  
-  
   # get back to original dataframe
   df = original_df
 
