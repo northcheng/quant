@@ -215,14 +215,11 @@ class FixedPositionTrader:
     # for symbols need to recalculate trend and signal
     recalculate_trend += [x for x in sec_list if x not in self.record.keys()]
     recalculate_trend = list(set(recalculate_trend))
-    for symbol in recalculate_trend:
-      symbol_interval = [x for x in sec_data.keys() if symbol in x]
-      if len(symbol_interval) == 1:
-        symbol_interval = symbol_interval[0]
-        symbol, interval = symbol_interval.split('_')
+    for symbol_interval in sec_data.keys():
+      symbol, interval = symbol_interval.split('_')
+      if symbol in recalculate_trend:
         self.record[symbol] = ta_util.calculate_ta_data(df=sec_data[symbol_interval][start_date:end_date], symbol=symbol, interval=interval)
       else:
-        print(f'{len(symbol_interval)} data found for {symbol}')
         continue
 
     # reset record
