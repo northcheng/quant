@@ -279,11 +279,11 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       # initialize
       # df['eom_trend'] = 'n'
 
-      # it is going up when adx_diff>0
+      # it is going up when eom_diff>0
       up_idx = df.query('eom_diff > 0').index
       df.loc[up_idx ,'eom_trend'] = 'u'
 
-      # it is going down when adx_diff<0
+      # it is going down when eom_diff<0
       down_idx = df.query('eom_diff <= 0').index
       df.loc[down_idx ,'eom_trend'] = 'd'
 
@@ -292,11 +292,11 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       # initialize
       # df['kst_trend'] = 'n'
 
-      # it is going up when adx_diff>0
+      # it is going up when kst_diff>0
       up_idx = df.query('kst_diff > 0').index
       df.loc[up_idx ,'kst_trend'] = 'u'
 
-      # it is going down when adx_diff<0
+      # it is going down when kst_diff<0
       down_idx = df.query('kst_diff <= 0').index
       df.loc[down_idx ,'kst_trend'] = 'd'
 
@@ -318,7 +318,7 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
     if 'renko' in trend_indicators:
       df['renko_trend'] = 'n'
 
-      up_idx = df.query('(Close > Open) and ((renko_color=="red" and Low>renko_h) or (renko_color=="green" and Low>renko_l))').index
+      up_idx = df.query('(Close > Open) and ((renko_color=="red" and Low>renko_h) or (renko_color=="green"))').index
       df.loc[up_idx, 'renko_trend'] = 'u'
 
       down_idx = df.query('(renko_color=="red") or (renko_color=="green" and Close<renko_l)').index
@@ -326,7 +326,6 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
 
       wave_idx = df.query('(renko_trend != "u" and renko_trend != "d") and (renko_day >= 30)').index
       df.loc[wave_idx, 'renko_trend'] = 'n'
-      
 
     # ================================ overall trend ========
     phase = 'cal_overall_trend'
@@ -383,16 +382,16 @@ def calculate_ta_signal(df):
     'aroon is up trending': '(aroon_trend == "u")',
     'adx is up trending': '(adx_trend == "u")',
     'psar is up trending': '(psar_trend == "u")',
-    'renko is up trending': '(renko_trend == "u")' 
-    # 'not in a waving market': ''#'((renko_color == "red" and renko_day <=30) or (renko_color=="green"))'
+    'renko is up trending': '(renko_trend == "u")'
   }
   up_idx = df.query(' and '.join(buy_conditions.values())).index 
   df.loc[up_idx, 'trend'] = 'u'
 
   # sell conditions
   sell_conditions = {
-    'Close is below kijun line': '(Close < kijun)',
-    'one of ichimoku/aroon/adx/psar is down trending, others are not up trending': '(down_trend_idx <= -1 and up_trend_idx == 0)',#'((ichimoku_trend=="d" and aroon_trend!="u" and adx_trend!="u" and psar_trend !="u") or (aroon_trend=="d" and ichimoku_trend!="u" and adx_trend!="u" and psar_trend !="u") or (adx_trend=="d" and ichimoku_trend!="u" and aroon_trend!="u" and psar_trend !="u") or (psar_trend=="d" and ichimoku_trend!="u" and aroon_trend!="u" and adx_trend !="u"))',
+    'High is below kijun line': '(High < kijun)',
+    'overall trend is down': '(trend_idx < -1)',
+    # 'one of ichimoku/aroon/adx/psar is down trending, others are not up trending': '(down_trend_idx <= -1 and up_trend_idx == 0)',#'((ichimoku_trend=="d" and aroon_trend!="u" and adx_trend!="u" and psar_trend !="u") or (aroon_trend=="d" and ichimoku_trend!="u" and adx_trend!="u" and psar_trend !="u") or (adx_trend=="d" and ichimoku_trend!="u" and aroon_trend!="u" and psar_trend !="u") or (psar_trend=="d" and ichimoku_trend!="u" and aroon_trend!="u" and adx_trend !="u"))',
     'price went down through brick': '(renko_trend == "d")'
   } 
   down_idx = df.query(' and '.join(sell_conditions.values())).index 
@@ -1262,7 +1261,7 @@ def add_adx_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, adx_th
     df.loc[current_idx, 'adx'] = (df.loc[previous_idx, 'adx'] * (n-1) + df.loc[current_idx, 'dx']) / n
 
   # (pdi-mdi) / (adx/25)
-  df['adx_diff'] = (df['pdi'] - df['mdi']) * (df['adx']/adx_threshold)
+  df['adx_diff'] = (df['pdi'] - df['mdi'])# * (df['adx']/adx_threshold)
   # df['adx_diff'] = (df['adx_diff'] - df['adx_diff'].mean()) / df['adx_diff'].std()
 
   # fill na values
@@ -1876,7 +1875,7 @@ def add_psar_features(df, ohlcv_col=default_ohlcv_col, step=0.02, max_step=0.10,
   return df
 
 # Renko
-def add_renko_features(df, use_atr=False, brick_size_factor=0.08, merge_duplicated=True, cal_signal=True):
+def add_renko_features(df, use_atr=False, brick_size_factor=0.1, merge_duplicated=True, cal_signal=True):
   """
   Calculate Renko indicator
 
@@ -1962,7 +1961,7 @@ def add_renko_features(df, use_atr=False, brick_size_factor=0.08, merge_duplicat
     elif not uptrend and bricks >= 2:
       uptrend = not uptrend
       bricks -= 1
-      close_p1 += brick_size
+      close_p1 += brick_size_p1
       for i in range(abs(bricks)):
         r = [date, close_p1, close_p1+brick_size, close_p1, close_p1+brick_size, uptrend, brick_size]
         data.append(r)
@@ -1988,8 +1987,8 @@ def add_renko_features(df, use_atr=False, brick_size_factor=0.08, merge_duplicat
   renko_df['renko_trend'] = renko_df['renko_color'].replace({'green':'u', 'red':'d'})
   renko_df['renko_real'] = renko_df['renko_color'].copy()
   renko_df['renko_sda'] = renko_df['renko_color'].replace({'green':1, 'red':-1})
-  renko_df['renko_ms'] = renko_df['renko_sda'].rolling(2).sum()
   renko_df['renko_sda'] = sda(series=renko_df['renko_sda'], zero_as=0)
+  renko_df['renko_ms'] = renko_df['renko_sda'].rolling(4).sum()
   renko_df['renko_sda_p1'] = renko_df['renko_sda'].shift(1)
   renko_df['renko_brick_number'] = 1
   
@@ -3142,7 +3141,7 @@ def plot_signal(
   if signal_col in df.columns:
     
     signal_alpha = 1 if signal_col == 'signal' else 0.3
-    trend_alpha = 0.25 if signal_col == 'signal' else 0.25
+    trend_alpha = 0.25 if signal_col == 'signal' else 0.15
     positive_signal = df.query(f'{signal_col} == "{pos_signal}"')
     negative_signal = df.query(f'{signal_col} == "{neg_signal}"')
     none_signal = df.query(f'{signal_col} == "{none_signal}"')
@@ -3350,7 +3349,7 @@ def plot_ichimoku_kama(
 
   # plot renko bricks
   if 'renko' in target_indicator:
-    ax = plot_renko(df, use_ax=ax, plot_args=default_plot_args, plot_in_date=True)
+    ax = plot_renko(df, use_ax=ax, plot_args=default_plot_args, plot_in_date=True, close_alpha=0)
     
   
   # plot candlestick
@@ -3399,14 +3398,7 @@ def plot_aroon(
   # fill between aroon_up/aroon_down
   ax.fill_between(df.index, df.aroon_up, df.aroon_down, where=df.aroon_up > df.aroon_down, facecolor='green', interpolate=True, alpha=0.1)
   ax.fill_between(df.index, df.aroon_up, df.aroon_down, where=df.aroon_up <= df.aroon_down, facecolor='red', interpolate=True, alpha=0.1)
- 
-  # df['zero'] = 0
-  # ax.plot(df.index, df['adx_diff'], label='adx_diff', color='black', marker='.', alpha=0.3)
-  # # ax.plot(df.index, df['zero'], label='0', color='red', marker='.', alpha=0.3)
 
-
-  # ax.fill_between(df.index, df.adx_diff, df.zero, where=df.adx_diff > df.zero, facecolor='green', interpolate=True, alpha=0.1)
-  # ax.fill_between(df.index, df.adx_diff, df.zero, where=df.adx_diff <= df.zero, facecolor='red', interpolate=True, alpha=0.1)
   # # plot waving areas
   # wave_idx = (df.aroon_gap_change==0)&(df.aroon_up_change==df.aroon_down_change)#&(df.aroon_up<96)&(df.aroon_down<96)
   # for i in range(len(wave_idx)):
@@ -3452,20 +3444,20 @@ def plot_adx(
     plt.figure(figsize=plot_args['figsize'])
     ax = plt.gca()
 
-  # plot pdi/mdi/adx 
-  ax.plot(df.index, df.pdi, label='pdi', color='green', marker='.', alpha=0.3)
-  ax.plot(df.index, df.mdi, label='mdi', color='red', marker='.', alpha=0.3)
-  ax.plot(df.index, df.adx, label='adx', color='black', marker='.', alpha=0.3)
+  # # plot pdi/mdi/adx 
+  # ax.plot(df.index, df.pdi, label='pdi', color='green', marker='.', alpha=0.3)
+  # ax.plot(df.index, df.mdi, label='mdi', color='red', marker='.', alpha=0.3)
+  # ax.plot(df.index, df.adx, label='adx', color='black', marker='.', alpha=0.3)
   
-  # fill between pdi/mdi
-  ax.fill_between(df.index, df.pdi, df.mdi, where=df.pdi > df.mdi, facecolor='green', interpolate=True, alpha=0.1)
-  ax.fill_between(df.index, df.pdi, df.mdi, where=df.pdi <= df.mdi, facecolor='red', interpolate=True, alpha=0.1)
+  # # fill between pdi/mdi
+  # ax.fill_between(df.index, df.pdi, df.mdi, where=df.pdi > df.mdi, facecolor='green', interpolate=True, alpha=0.1)
+  # ax.fill_between(df.index, df.pdi, df.mdi, where=df.pdi <= df.mdi, facecolor='red', interpolate=True, alpha=0.1)
 
-  # # plot adx_diff
-  # ax.plot(df.index, df['adx_diff'], label='adx_diff', color='black', linestyle='--', marker='.', alpha=0.5)
-  # df['zero'] = 0
-  # ax.fill_between(df.index, df.adx_diff, df.zero, where=df.adx_diff > df.zero, facecolor='green', interpolate=True, alpha=0.1)
-  # ax.fill_between(df.index, df.adx_diff, df.zero, where=df.adx_diff <= df.zero, facecolor='red', interpolate=True, alpha=0.1)
+  # plot adx_diff
+  ax.plot(df.index, df['adx_diff'], label='adx_diff', color='black', linestyle='--', marker='.', alpha=0.5)
+  df['zero'] = 0
+  ax.fill_between(df.index, df.adx_diff, df.zero, where=df.adx_diff > df.zero, facecolor='green', interpolate=True, alpha=0.1)
+  ax.fill_between(df.index, df.adx_diff, df.zero, where=df.adx_diff <= df.zero, facecolor='red', interpolate=True, alpha=0.1)
 
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
@@ -3478,7 +3470,7 @@ def plot_adx(
 # plot renko chart
 def plot_renko(
   df, start=None, end=None, ohlcv_col=default_ohlcv_col, 
-  use_ax=None, title=None, plot_args=default_plot_args, plot_in_date=True):
+  use_ax=None, title=None, plot_args=default_plot_args, plot_in_date=True, close_alpha=0.5):
 
   # copy data frame
   df = df[start:end].copy()
@@ -3489,6 +3481,9 @@ def plot_renko(
     fig = plt.figure(figsize=plot_args['figsize'])
     ax = fig.add_subplot(111)#plt.gca()
     
+  # plot close for displaying the figure
+  ax.plot(df.Close, alpha=close_alpha)
+
   # whether to plot in date axes
   min_idx = df.index.min()
   max_idx = df.index.max()
@@ -3501,13 +3496,10 @@ def plot_renko(
   else:
     df = df.query('renko_real == "green" or renko_real =="red"').reset_index()
   
-  # plot close for displaying the figure
-  ax.plot(df.Close, alpha=0)
-  
   # plot renko
   legends = {'u': 'u', 'd': 'd', 'n':'n'}
   for index, row in df.iterrows():
-    renko = Rectangle((index, row['renko_o']), row['renko_length'], row['renko_brick_size'], facecolor=row['renko_color'], fill=True, alpha=0.3, label=legends[row['renko_trend']]) # edgecolor=row['renko_color'], linestyle='-', linewidth=2, 
+    renko = Rectangle((index, row['renko_o']), row['renko_length'], row['renko_brick_size'], facecolor=row['renko_color'], fill=True, alpha=0.25, label=legends[row['renko_trend']]) #  edgecolor=row['renko_color'], linestyle='-', linewidth=5, 
     legends[row['renko_trend']] = "_nolegend_"
     ax.add_patch(renko)
   
@@ -3609,7 +3601,8 @@ def plot_indicator(
   :raises: none
   """
   # select data
-  df = df[start:end].copy().fillna(0)
+  df = df[start:end].copy()
+  df = df.fillna(0)
   
   # create figure
   ax = use_ax
@@ -3762,6 +3755,10 @@ def plot_multiple_indicators(
     # plot adx
     elif tmp_indicator == 'adx':
       plot_adx(df=plot_data, ohlcv_col=default_ohlcv_col, use_ax=axes[tmp_indicator], title=tmp_indicator, plot_args=subplot_args)
+
+    # plot renko
+    elif tmp_indicator == 'renko':
+      plot_renko(df=plot_data, ohlcv_col=default_ohlcv_col, use_ax=axes[tmp_indicator], title=tmp_indicator, plot_args=subplot_args)
 
     # plot signals
     elif tmp_indicator == 'signals':
