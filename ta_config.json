@@ -45,7 +45,7 @@
 		"plot_args": {
 			"plot_ratio": { 
 				"signals": 0.5,
-				"ichimoku_kama": 2.5,
+				"ichimoku_kama": 2.25,
 				"aroon": 0.5,
 				"volume": 0.25
 			},
@@ -77,7 +77,7 @@
 				"color_mode": "benchmark"
 			},
 			"ichimoku_kama": { 
-				"target_indicator": ["candlestick", "ichimoku", "renko"],
+				"target_indicator": ["candlestick", "renko", "ichimoku"],
 				"candlestick_width": 1, 
 				"candlestick_color": {"colorup": "green", "colordown": "red", "alpha": 1}
 			},
@@ -102,7 +102,7 @@
 				"boundary": [30, 70]
 			},
 			"signals": {
-				"signal_list": ["renko_signal", "psar_signal", "aroon_signal", "adx_signal", "ichimoku_signal", "signal"],
+				"signal_list": ["bb_signal", "renko_signal", "psar_signal", "aroon_signal", "adx_signal", "ichimoku_signal", "signal"],
 				"plot_signal_on_price": true,
 				"price_alpha": 0
 			},
