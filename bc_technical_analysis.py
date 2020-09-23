@@ -391,8 +391,9 @@ def calculate_ta_signal(df):
   sell_conditions = {
     'High is below kijun line': '(High < kijun)',
     'overall trend is down': '(trend_idx < -1)',
-    # 'one of ichimoku/aroon/adx/psar is down trending, others are not up trending': '(down_trend_idx <= -1 and up_trend_idx == 0)',#'((ichimoku_trend=="d" and aroon_trend!="u" and adx_trend!="u" and psar_trend !="u") or (aroon_trend=="d" and ichimoku_trend!="u" and adx_trend!="u" and psar_trend !="u") or (adx_trend=="d" and ichimoku_trend!="u" and aroon_trend!="u" and psar_trend !="u") or (psar_trend=="d" and ichimoku_trend!="u" and aroon_trend!="u" and adx_trend !="u"))',
     'price went down through brick': '(renko_trend == "d")'
+    # 'one of ichimoku/aroon/adx/psar is down trending, others are not up trending': '(down_trend_idx <= -1 and up_trend_idx == 0)',#'((ichimoku_trend=="d" and aroon_trend!="u" and adx_trend!="u" and psar_trend !="u") or (aroon_trend=="d" and ichimoku_trend!="u" and adx_trend!="u" and psar_trend !="u") or (adx_trend=="d" and ichimoku_trend!="u" and aroon_trend!="u" and psar_trend !="u") or (psar_trend=="d" and ichimoku_trend!="u" and aroon_trend!="u" and adx_trend !="u"))',
+    
   } 
   down_idx = df.query(' and '.join(sell_conditions.values())).index 
   df.loc[down_idx, 'trend'] = 'd'
