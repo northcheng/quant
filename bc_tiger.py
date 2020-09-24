@@ -423,7 +423,7 @@ class Tiger:
       signal = pd.merge(signal, signal_brief[['latest_price']], how='left', left_index=True, right_index=True)
 
       # get in-position quantity and latest price for signals
-      position = self.get_position_summary()
+      position = self.get_position_summary(get_briefs=False)
       if len(position) == 0:
         position = pd.DataFrame({'symbol':[], 'quantity':[]})
       position = position.set_index('symbol')

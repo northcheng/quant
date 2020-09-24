@@ -18,29 +18,27 @@ class Futu:
   # get logger
   defualt_logger = logging.getLogger('bc_futu_logger')
 
-  # accont_type translate
-  account_types = {'simulation_account': 'SIMULATE', 'global_account': 'REAL'}
-
 
   # init
-  def __init__(self, account_type, config, market='US', host='127.0.0.1', port=11111, is_encrypt=False, logger_name=None):
+  def __init__(self, account_type, config, market='US', is_encrypt=False, logger_name=None):
         
     # get logger
     self.logger = Futu.defualt_logger if (logger_name is None) else logging.getLogger(logger_name)
         
-    # read position record from local files
-    self.account_type = account_type
-    self.trd_env = Futu.account_types[account_type]
+    # read user info, position record from local files
+    self.__user_info = io_util.read_config(file_path=config['futu_path'], file_name='user_info.json')
     self.__position_record = io_util.read_config(file_path=config['config_path'], file_name='futu_position_record.json')
-
-    # get quote and trade context, assets, positions
-    self.open_quote_context(host=host, port=port, is_encrypt=is_encrypt)
-    self.open_trade_context(market=market, host=host, port=port, is_encrypt=is_encrypt)
-    ret_positions, self.positions = self.trade_context.position_list_query(trd_env=self.trd_env)
-    ret_assets,self.assets = self.trade_context.accinfo_query(trd_env=self.trd_env)
-
-    # copy position record for current account
     self.record = self.__position_record[account_type].copy()
+
+    # set account type
+    self.account_type = account_type
+    
+    # get quote and trade context, assets, positions
+    self.open_quote_context(host=self.__user_info['host'], port=self.__user_info['port'], is_encrypt=is_encrypt)
+    self.open_trade_context(market=market, host=self.__user_info['host'], port=self.__user_info['port'], is_encrypt=is_encrypt)
+    self.trade_context.unlock_trade(self.__user_info['unlock_pwd'])
+    ret_positions, self.positions = self.trade_context.position_list_query(trd_env=account_type)
+    ret_assets,self.assets = self.trade_context.accinfo_query(trd_env=account_type)
 
     # initialize position record for symbols that not in position record
     init_cash = config['trade']['init_cash'][account_type]
@@ -49,29 +47,39 @@ class Futu:
       if symbol not in self.record.keys():
         self.record[symbol] = {'cash': init_cash, 'position': 0}
 
-    # check position record with current positions
-    if len(self.positions) > 0:
-      code = [x.split('.')[1] for x in self.positions['code'].tolist()]
-      qty = self.positions['qty'].tolist()
-      position_dict = dict(zip(code, qty))
-      
-      for symbol in self.record.keys():
-        
-        # get record position and real position then compare to each other
-        record_position = self.record[symbol]['position']
-        current_position = 0 if (symbol not in position_dict.keys()) else position_dict[symbol]
-        if current_position != record_position:
-          if current_position > 0:
-            self.record[symbol] = {'cash': 0, 'position': current_position}
-          else:
-            self.record[symbol] = {'cash': init_cash, 'position': 0}
-          self.logger.error(f'[{account_type[:4]}]: {symbol} position({current_position}) not match with record ({record_position}), reset position record')
+    # get record position and real position then compare to each other
+    record_conflicted = False
+    position_dict = dict([(x[0].split('.')[1], x[1]) for x in self.positions[['code', 'qty']].values])
+    for symbol in self.record.keys():
+      record_position = self.record[symbol]['position']
+      current_position = 0 if (symbol not in position_dict.keys()) else position_dict[symbol]
+      if current_position != record_position:
+        record_conflicted = True
+        if current_position > 0:
+          self.record[symbol] = {'cash': 0, 'position': current_position}
+        else:
+          self.record[symbol] = {'cash': init_cash, 'position': 0}
+        self.logger.error(f'[{account_type[:4]}]: {symbol} position({current_position}) not match with record ({record_position}), reset position record')
+
+    # add record for symbol in position but not recorded
+    for symbol in [x for x in position_dict.keys() if x not in self.record.keys()]:
+      record_conflicted = True
+      self.record[symbol] = {'cash': 0, 'position': position_dict[symbol]}
+      self.logger.error(f'[{account_type[:4]}]: {symbol} position({position_dict[symbol]}) not in record, reset position record')
+
+    # update __position_record
+    if record_conflicted:
+      self.__position_record[self.account_type] = self.record.copy()
+      io_util.create_config_file(config_dict=self.__position_record, file_path=config['config_path'], file_name='futu_position_record.json')
 
     self.logger.info(f'[init]: Futu instance created: {logger_name}')
 
 
   # initialize quote context
-  def open_quote_context(self, host='127.0.0.1', port=11111, is_encrypt=False):
+  def open_quote_context(self, host=None, port=None, is_encrypt=None):
+    host = self.__user_info['host'] if host is None else host
+    port = self.__user_info['port'] if port is None else port
+    is_encrypt = self.__user_info['is_encrypt'] if is_encrypt is None else is_encrypt
     self.quote_context = OpenQuoteContext(host=host, port=port, is_encrypt=is_encrypt)
 
 
@@ -82,8 +90,12 @@ class Futu:
 
 
   # initialize trade context
-  def open_trade_context(self, market='US', host='127.0.0.1', port=11111, is_encrypt=False):
+  def open_trade_context(self, market='US', host=None, port=None, is_encrypt=None):
     self.market = market
+    host = self.__user_info['host'] if host is None else host
+    port = self.__user_info['port'] if port is None else port
+    is_encrypt = self.__user_info['is_encrypt'] if is_encrypt is None else is_encrypt
+
     if market == 'US':
       self.trade_context = OpenUSTradeContext(host=host, port=port, is_encrypt=is_encrypt)
     elif market == 'HK':    
@@ -102,6 +114,7 @@ class Futu:
   def finalize(self):
     self.close_quote_context()
     self.close_trade_context()
+    self.logger.info(f'[fin]: Futu instance finalized: {self.logger.name}')
 
 
   # get user info
@@ -118,23 +131,23 @@ class Futu:
   # get summary of positions
   def get_position_summary(self, get_briefs=True):
 
-    ret_positions, self.positions = self.trade_context.position_list_query(trd_env=self.trd_env)
+    ret_positions, self.positions = self.trade_context.position_list_query(trd_env=self.account_type)
     result = self.positions.copy()
 
     if get_briefs and len(result) > 0:
       status = io_util.get_stock_briefs(symbols=[x.split('.')[1] for x in result.code.tolist()], source='yfinance', period='1d', interval='1m')
       status['symbol'] = f'{self.market}.' + status['symbol']
-      result = pd.merge(result, status, how='left', left_on='code', right_on='symbol')
-      result['rate'] = round((result['latest_price'] - result['cost_price']) / result['cost_price'], 2)
-      result = result[['symbol', 'qty', 'cost_price', 'latest_price', 'rate', 'latest_time']]
-
+      status.rename(columns={'symbol':'code'}, inplace=True)
+      result = pd.merge(result, status, how='left', left_on='code', right_on='code')
+      result['rate'] = round((result['latest_price'] - result['cost_price']) / result['cost_price'], 2) * 100
+    
     return result
 
 
   # get summary of assets
   def get_asset_summary(self, print_summary=False):
 
-    ret_assets, self.assets = self.trade_context.accinfo_query(trd_env=self.trd_env)
+    ret_assets, self.assets = self.trade_context.accinfo_query(trd_env=self.account_type)
 
     if print_summary:
       print(self.assets)
@@ -194,7 +207,7 @@ class Futu:
 
     try:
       # get today filled orders
-      ret_orders, orders = self.trade_context.history_order_list_query(trd_env=self.trd_env, status_filter_list=[OrderStatus.FILLED_PART, OrderStatus.FILLED_ALL], start=start_time, end=end_time)
+      ret_orders, orders = self.trade_context.history_order_list_query(trd_env=self.account_type, status_filter_list=[OrderStatus.FILLED_PART, OrderStatus.FILLED_ALL], start=start_time, end=end_time)
 
       # update position records
       for index, row in orders.iterrows():
@@ -229,9 +242,161 @@ class Futu:
           self.record[symbol]['position'] = new_position
 
       # update __position_record
+      self.__position_record = io_util.read_config(file_path=config['config_path'], file_name='futu_position_record.json')
       self.__position_record[self.account_type] = self.record.copy()
       io_util.create_config_file(config_dict=self.__position_record, file_path=config['config_path'], file_name='futu_position_record.json')
       
     except Exception as e:
       self.logger.exception(f'[erro]: fail updating position records for {self.account_type}, {e}')
   
+
+  # buy or sell stocks
+  def trade(self, symbol, action, quantity, price=None, stop_loss=None, stop_profit=None, print_summary=True):
+
+    trade_summary = ''
+    try:
+
+      # order type
+      if price is None:
+        order_type = OrderType.MARKET
+        if action == 'BUY':
+          price =  0.1
+        elif action == 'SELL':
+          price = 1000000
+
+      else:
+        order_type = OrderType.NORMAL
+
+      # construct trade summary
+      trade_summary += f'[{action}]: {symbol} X {quantity} ({order_type}-{price})\t'
+
+      # place buy order if possible
+      if action == 'BUY':
+        trade_side = TrdSide.BUY
+        affordable_quantity = self.get_affordable_quantity(symbol=symbol)
+        if quantity <= affordable_quantity:
+          ret_place_order, order_info = self.trade_context.place_order(price=price, qty=quantity, code=f'{self.market}.{symbol}', trd_side=trade_side, order_type=order_type, trd_env=self.account_type, remark=None)
+          if ret_place_order == RET_OK:
+            trade_summary += f'SUCCEED: {order_info.loc[0, "order_id"]}'
+          else:
+            trade_summary += f'FAILED: {order_info}'
+        else:
+          trade_summary += f'FAILED: Not affordable({affordable_quantity}/{quantity})'
+
+      # place sell order if holding enough stocks
+      elif action == 'SELL':
+        trade_side = TrdSide.SELL
+        in_position_quantity = self.get_in_position_quantity(symbol)
+        if in_position_quantity >= quantity:
+          ret_place_order, order_info = self.trade_context.place_order(price=price, qty=quantity, code=f'{self.market}.{symbol}', trd_side=trade_side, order_type=order_type, trd_env=self.account_type, remark=None)
+          if ret_place_order == RET_OK:
+            trade_summary += f'SUCCEED: {order_info.loc[0, "order_id"]}'
+          else:
+            trade_summary += f'FAILED: {order_info}'
+        else:
+          trade_summary += f'FAILED: Not enough stock to sell({in_position_quantity}/{quantity})'
+
+      # other actions
+      else:
+        trade_summary += f'FAILED: Unknown action {action}'
+
+    except Exception as e:
+      trade_summary += f'FAILED: {e}'
+
+    # print trade summary
+    if print_summary: 
+      self.logger.info(trade_summary)
+
+    return trade_summary
+
+
+# auto trade according to signals
+  def signal_trade(self, signal, money_per_sec, trading_fee=5, pool=None, according_to_record=True):    
+    
+    # set symbol to index
+    if len(signal) > 0:
+      signal = signal.rename(columns={'代码':'symbol', '交易信号':'action'})
+      signal = signal.set_index('symbol')
+
+      # filter sec with pool
+      if pool is not None:
+        filtered_list = [x for x in signal.index if x in pool]
+        signal = signal.loc[filtered_list, signal.columns].copy()
+
+    print(signal)
+
+    # if signal list is not empty
+    if len(signal) > 0:
+      # get latest price for signals
+      # signal_brief = self.quote_client.get_stock_briefs(symbols=signal.index.tolist()).set_index('symbol')
+      signal_brief = io_util.get_stock_briefs(symbols=signal.index.tolist(), source='yfinance', period='1d', interval='1m').set_index('symbol')
+      signal = pd.merge(signal, signal_brief[['latest_price']], how='left', left_index=True, right_index=True)
+
+      # get in-position quantity and latest price for signals
+      position = self.get_position_summary(get_briefs=False)
+      if len(position) == 0:
+        position = pd.DataFrame({'symbol':[], 'quantity':[]})
+      else:
+        position = position[['code', 'qty']].copy()
+        position = position.rename(columns={'code':'symbol', 'qty':'quantity'})
+
+      position['symbol'] = position['symbol'].apply(lambda x: x.split('.')[1])
+      position = position.set_index('symbol')
+      signal = pd.merge(signal, position[['quantity']], how='left', left_index=True, right_index=True).fillna(0)
+
+      # sell
+      # get sell signals
+      sell_signal = signal.query('action == "s"')
+      if len(sell_signal) > 0:
+        # go through sell signals
+        for symbol in sell_signal.index:
+          # check whether symbol is in positions
+          in_position_quantity = signal.loc[symbol, 'quantity']
+          if in_position_quantity > 0:
+            trade_summary = self.trade(symbol=symbol, action='SELL', quantity=in_position_quantity, price=None, print_summary=False)
+            self.logger.info(trade_summary)
+          else:
+            self.logger.info(f'[SELL]: {symbol} skipped (not in positions)')
+      else:
+        self.logger.info(f'[SELL]: no signal')
+
+      # buy
+      # get buy signals which not in posiitons yet
+      default_money_per_sec = money_per_sec
+      buy_signal = signal.query('action == "b"')
+      if len(buy_signal) > 0:
+        # go through buy signals
+        for symbol in buy_signal.index:
+          # check whether symbol is already in positions
+          in_position_quantity = signal.loc[symbol, 'quantity']
+          if in_position_quantity == 0:
+            # set money used to establish a new position
+            if according_to_record:
+              if (symbol in self.record.keys()) and (self.record[symbol]['position']==0):
+                money_per_sec = self.record[symbol]['cash']
+              else:
+                money_per_sec = default_money_per_sec
+
+            # check whether there is enough available money 
+            available_cash = self.get_available_cash()
+            money_per_sec = available_cash if (money_per_sec > available_cash) else money_per_sec
+
+            # calculate quantity to buy
+            quantity = math.floor((money_per_sec-trading_fee)/signal.loc[symbol, 'latest_price'])
+            if quantity > 0:
+              trade_summary = self.trade(symbol=symbol, action='BUY', quantity=quantity, price=None, print_summary=False)
+              self.logger.info(trade_summary)
+            else:
+              self.logger.info(f'[BUY]: not enough money')
+              continue
+          else:
+            self.logger.info(f'[BUY]: {symbol} skipped (already in positions:{in_position_quantity})')
+            continue
+      else:
+       self.logger.info(f'[BUY]: no signal')
+    else:
+      self.logger.info(f'[SKIP]: no signal')
+             
+
+  def cash_out(self, stop_loss_rate=None, stop_profit_rate=None, clear_all=False, print_summary=True):
+    pass
