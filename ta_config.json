@@ -140,11 +140,15 @@
 		"init_cash": {
 			"simulation_account": 10000, 
 			"global_account": 2000, 
-			"standard_account": 2000},
+			"standard_account": 2000,
+			"SIMULATE": 10000,
+			"REAL": 2000},
 
 		"pool": {
 			"simulation_account": "all", 
 			"global_account": "auto", 
-			"standard_account": "auto"}
+			"standard_account": "auto",
+			"SIMULATE": "all",
+			"REAL": "auto"}
 	}
 }

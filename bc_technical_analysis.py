@@ -55,6 +55,7 @@ def load_config(root_paths):
   config['quant_path'] = config['home_path'] + 'quant/'
   config['data_path'] = config['quant_path'] + 'stock_data/'
   config['tiger_path'] = config['quant_path'] + 'tigeropen/'
+  config['futu_path'] = config['quant_path'] + 'futuopen/'
   config['result_path'] = config['quant_path'] + 'ta_model/'
   config['signal_path'] = config['result_path'] + 'signal/'
   

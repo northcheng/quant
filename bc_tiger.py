@@ -78,6 +78,12 @@ class Tiger:
           self.record[symbol] = {'cash': init_cash, 'position': 0}
         self.logger.error(f'[{account_type[:4]}]: {symbol} position({current_position}) not match with record ({record_position}), reset position record')
 
+    # add record for symbol in position but not recorded
+    for symbol in [x for x in position_dict.keys() if x not in self.record.keys()]:
+      record_conflicted = True
+      self.record[symbol] = {'cash': 0, 'position': position_dict[symbol]}
+      self.logger.error(f'[{account_type[:4]}]: {symbol} position({position_dict[symbol]}) not in record, reset position record')
+
     # update __position_record
     if record_conflicted:
       self.__position_record[self.account_type] = self.record.copy()
