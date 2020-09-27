@@ -270,13 +270,26 @@ class Tiger:
 
 
   # update market status
-  def update_market_status(self, market=Market.US):
+  def update_market_status(self, market=Market.US, return_str=False):
 
     try:
       # get market status
       status = self.quote_client.get_market_status(market=market)[0]
       self.trade_time['status'] = status.status
 
+      if return_str:
+        time_format = '%Y-%m-%d %H:%M'
+        pre_open_time = self.trade_time['pre_open_time'].strftime(time_format)
+        post_close_time = self.trade_time['post_close_time'].strftime(time_format)
+        
+        time_format = '%H:%M'
+        open_time = self.trade_time['open_time'].strftime(time_format)
+        close_time = self.trade_time['close_time'].strftime(time_format)
+        
+        time_str = f'<({pre_open_time}){open_time} -- {close_time}({post_close_time})>'
+
+        return time_str
+        
     except Exception as e:
       self.logger.error(e)
 

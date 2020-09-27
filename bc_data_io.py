@@ -874,6 +874,7 @@ def read_config(file_path, file_name):
       config_dict = json.loads(f.read())
 
   except Exception as e:
+    config_dict = {}
     print(e)
 
   return config_dict

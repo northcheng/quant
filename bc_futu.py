@@ -36,10 +36,15 @@ class Futu:
     # get quote and trade context, assets, positions
     self.open_quote_context(host=self.__user_info['host'], port=self.__user_info['port'], is_encrypt=is_encrypt)
     self.open_trade_context(market=market, host=self.__user_info['host'], port=self.__user_info['port'], is_encrypt=is_encrypt)
-    self.trade_context.unlock_trade(self.__user_info['unlock_pwd'])
-    ret_positions, self.positions = self.trade_context.position_list_query(trd_env=account_type)
-    ret_assets,self.assets = self.trade_context.accinfo_query(trd_env=account_type)
-
+    if self.trade_context is not None:
+      self.trade_context.unlock_trade(self.__user_info['unlock_pwd'])
+      ret_positions, self.positions = self.trade_context.position_list_query(trd_env=account_type)
+      ret_assets,self.assets = self.trade_context.accinfo_query(trd_env=account_type)
+    else:
+      self.positions = None
+      self.assets = None
+      self.logger.error('trade_context not available')
+    
     # initialize position record for symbols that not in position record
     init_cash = config['trade']['init_cash'][account_type]
     pool = config['selected_sec_list'][config['trade']['pool'][account_type]]  
@@ -61,7 +66,7 @@ class Futu:
           self.record[symbol] = {'cash': init_cash, 'position': 0}
         self.logger.error(f'[{account_type[:4]}]: {symbol} position({current_position}) not match with record ({record_position}), reset position record')
 
-    # add record for symbol in position but not recorded
+    # add record for symbol in position but not in record
     for symbol in [x for x in position_dict.keys() if x not in self.record.keys()]:
       record_conflicted = True
       self.record[symbol] = {'cash': 0, 'position': position_dict[symbol]}
@@ -77,37 +82,48 @@ class Futu:
 
   # initialize quote context
   def open_quote_context(self, host=None, port=None, is_encrypt=None):
-    host = self.__user_info['host'] if host is None else host
-    port = self.__user_info['port'] if port is None else port
-    is_encrypt = self.__user_info['is_encrypt'] if is_encrypt is None else is_encrypt
-    self.quote_context = OpenQuoteContext(host=host, port=port, is_encrypt=is_encrypt)
+    try:
+      host = self.__user_info['host'] if host is None else host
+      port = self.__user_info['port'] if port is None else port
+      is_encrypt = self.__user_info['is_encrypt'] if is_encrypt is None else is_encrypt
+      self.quote_context = OpenQuoteContext(host=host, port=port, is_encrypt=is_encrypt)
+    except Exception as e:
+      self.quote_context = None
+      self.logger.exception(f'[erro]: can not create quote context:{e}')
 
 
   # exit current quote context
   def close_quote_context(self):
-    self.quote_context.close()
-    self.quote_context = None
+    if self.quote_context is not None:
+      self.quote_context.close()
+      self.quote_context = None
 
 
   # initialize trade context
   def open_trade_context(self, market='US', host=None, port=None, is_encrypt=None):
-    self.market = market
-    host = self.__user_info['host'] if host is None else host
-    port = self.__user_info['port'] if port is None else port
-    is_encrypt = self.__user_info['is_encrypt'] if is_encrypt is None else is_encrypt
+    try:
+      self.market = market
+      host = self.__user_info['host'] if host is None else host
+      port = self.__user_info['port'] if port is None else port
+      is_encrypt = self.__user_info['is_encrypt'] if is_encrypt is None else is_encrypt
 
-    if market == 'US':
-      self.trade_context = OpenUSTradeContext(host=host, port=port, is_encrypt=is_encrypt)
-    elif market == 'HK':    
-      self.trade_context = OpenHKTradeContext(host=host, port=port, is_encrypt=is_encrypt)
-    else:
-      print(f'Unknown market {market}')
+      if market == 'US':
+        self.trade_context = OpenUSTradeContext(host=host, port=port, is_encrypt=is_encrypt)
+      elif market == 'HK':    
+        self.trade_context = OpenHKTradeContext(host=host, port=port, is_encrypt=is_encrypt)
+      else:
+        print(f'Unknown market {market}')
+        self.trade_context = None
+    except Exception as e:
+      self.trade_context = None
+      self.logger.exception(f'[erro]: can not create trade context:{e}')
 
 
   # exit current trade context
   def close_trade_context(self):
-    self.trade_context.close()
-    self.trade_context = None
+    if self.trade_context is not None:
+      self.trade_context.close()
+      self.trade_context = None
 
 
   # finalize
@@ -119,7 +135,12 @@ class Futu:
 
   # get user info
   def get_user_info(self):
-    ret_acc_list, acc_list = self.trade_context.get_acc_list()
+    try:
+      ret_acc_list, acc_list = self.trade_context.get_acc_list()
+    except Exception as e:
+      acc_list = None
+      self.logger.exception(f'[erro]: can not get user_info:{e}')
+
     return acc_list
 
 
@@ -129,37 +150,48 @@ class Futu:
 
 
   # get summary of positions
-  def get_position_summary(self, get_briefs=True):
+  def get_position_summary(self, get_briefs=False):
 
-    ret_positions, self.positions = self.trade_context.position_list_query(trd_env=self.account_type)
-    result = self.positions.copy()
+    try:
+      ret_positions, self.positions = self.trade_context.position_list_query(trd_env=self.account_type)
+      result = self.positions.copy()
 
-    if get_briefs and len(result) > 0:
-      status = io_util.get_stock_briefs(symbols=[x.split('.')[1] for x in result.code.tolist()], source='yfinance', period='1d', interval='1m')
-      status['symbol'] = f'{self.market}.' + status['symbol']
-      status.rename(columns={'symbol':'code'}, inplace=True)
-      result = pd.merge(result, status, how='left', left_on='code', right_on='code')
-      result['rate'] = round((result['latest_price'] - result['cost_price']) / result['cost_price'], 2) * 100
-    
+      if get_briefs and len(result) > 0:
+        status = io_util.get_stock_briefs(symbols=[x.split('.')[1] for x in result.code.tolist()], source='yfinance', period='1d', interval='1m')
+        status['symbol'] = f'{self.market}.' + status['symbol']
+        status.rename(columns={'symbol':'code'}, inplace=True)
+        result = pd.merge(result, status, how='left', left_on='code', right_on='code')
+        result['rate'] = round((result['latest_price'] - result['cost_price']) / result['cost_price'], 2) * 100
+    except Exception as e:
+      result = None
+      self.logger.exception(f'[erro]: can not get position summary: {e}')
+
     return result
 
 
   # get summary of assets
   def get_asset_summary(self, print_summary=False):
-
-    ret_assets, self.assets = self.trade_context.accinfo_query(trd_env=self.account_type)
-
-    if print_summary:
-      print(self.assets)
+    try:
+      ret_assets, self.assets = self.trade_context.accinfo_query(trd_env=self.account_type)
+      if print_summary:
+        print(self.assets)
+    except Exception as e:
+      self.assets = None
+      self.logger.exception(f'[erro]: can not gett asset summary: {e}')
 
     return self.assets
 
 
   # get available money
   def get_available_cash(self):
-
-    self.get_asset_summary()
-    return self.assets.loc[0, 'cash']
+    try:
+      self.get_asset_summary()
+      avalialbe_cash = self.assets.loc[0, 'cash']
+    except Exception as e:
+      avalialbe_cash = 0
+      self.logger.exception(f'[erro]: can not get available cash: {e}')
+    
+    return avalialbe_cash
 
 
   # get quantity of symbol currently in the position
@@ -170,11 +202,14 @@ class Futu:
     symbol = f'{self.market}.{symbol}'
 
     # get position summary
-    position = self.get_position_summary(get_briefs=get_briefs)
-    if len(position) > 0:
-      position = position.set_index('code')
-      if symbol in position.index:
-        quantity = position.loc[symbol, 'qty']
+    try:
+      position = self.get_position_summary(get_briefs=get_briefs)
+      if len(position) > 0:
+        position = position.set_index('code')
+        if symbol in position.index:
+          quantity = position.loc[symbol, 'qty']
+    except Exception as e:
+      self.logger.exception(f'[erro]: can not get in position quantity for {symbol}: {e}')
 
     return quantity
 
@@ -182,16 +217,21 @@ class Futu:
   # check whether it is affordable to buy certain amount of a stock
   def get_affordable_quantity(self, symbol, cash=None, trading_fee=3):
 
-    # initialize affordable quantity and available cash
+    # initialize affordable quantity 
     quantity = 0
-    available_cash = self.get_available_cash() if (cash is None) else cash
 
-    # get latest price of stock
-    stock_brief = io_util.get_stock_briefs(symbols=[symbol], source='yfinance', period='1d', interval='1m').set_index('symbol')
-    latest_price = stock_brief.loc[symbol, 'latest_price']
+    try:
+      # get available cash
+      available_cash = self.get_available_cash() if (cash is None) else cash
 
-    # check if it is affordable
-    quantity = math.floor((available_cash-trading_fee)/latest_price)
+      # get latest price of stock
+      stock_brief = io_util.get_stock_briefs(symbols=[symbol], source='yfinance', period='1d', interval='1m').set_index('symbol')
+      latest_price = stock_brief.loc[symbol, 'latest_price']
+
+      # check if it is affordable
+      quantity = math.floor((available_cash-trading_fee)/latest_price)
+    except Exception as e:
+      self.logger.exception(f'[erro]: can not get affordable quantity: {e}')
 
     return quantity
 
@@ -251,7 +291,7 @@ class Futu:
   
 
   # buy or sell stocks
-  def trade(self, symbol, action, quantity, price=None, stop_loss=None, stop_profit=None, print_summary=True):
+  def trade(self, symbol, action, quantity, price=None, print_summary=True):
 
     trade_summary = ''
     try:
@@ -310,7 +350,7 @@ class Futu:
     return trade_summary
 
 
-# auto trade according to signals
+  # auto trade according to signals
   def signal_trade(self, signal, money_per_sec, trading_fee=5, pool=None, according_to_record=True):    
     
     # set symbol to index
@@ -323,12 +363,9 @@ class Futu:
         filtered_list = [x for x in signal.index if x in pool]
         signal = signal.loc[filtered_list, signal.columns].copy()
 
-    print(signal)
-
     # if signal list is not empty
     if len(signal) > 0:
       # get latest price for signals
-      # signal_brief = self.quote_client.get_stock_briefs(symbols=signal.index.tolist()).set_index('symbol')
       signal_brief = io_util.get_stock_briefs(symbols=signal.index.tolist(), source='yfinance', period='1d', interval='1m').set_index('symbol')
       signal = pd.merge(signal, signal_brief[['latest_price']], how='left', left_index=True, right_index=True)
 
@@ -399,4 +436,26 @@ class Futu:
              
 
   def cash_out(self, stop_loss_rate=None, stop_profit_rate=None, clear_all=False, print_summary=True):
-    pass
+    
+    # get current position with summary
+    position = self.get_position_summary()
+    
+    if len(position) > 0:
+
+      # set symbol as index
+      position = position.set_index('code')
+      position['pl_ratio'] = position['pl_ratio'] / 100
+
+      # if clear all positions
+      if clear_all:
+        cash_out_list = position.index.tolist()
+      else:
+        stop_loss_list = [] if stop_loss_rate is None else position.query(f'pl_ratio < {stop_loss_rate}').index.tolist() 
+        stop_profit_list = [] if stop_profit_rate is None else position.query(f'pl_ratio > {stop_profit_rate}').index.tolist() 
+        cash_out_list = list(set(stop_loss_list + stop_profit_list))
+        
+      # cash out
+      if len(cash_out_list) > 0:
+        cash_out_position =  position.loc[cash_out_list, ].copy()
+        for index, row in cash_out_position.iterrows():
+          self.trade(symbol=index, action='SELL', quantity=row['can_sell_qty'], print_summary=print_summary)
