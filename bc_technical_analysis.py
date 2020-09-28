@@ -11,12 +11,13 @@ import datetime
 import ta
 import numpy as np
 import pandas as pd
+import mplfinance as mpf
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from scipy.stats import linregress
 from matplotlib import gridspec
 from matplotlib.patches import Rectangle
-from mpl_finance import candlestick_ohlc
+from mplfinance.original_flavor import candlestick_ohlc
 from quant import bc_util as util
 from quant import bc_data_io as io_util
 try:
@@ -28,7 +29,7 @@ except Exception as e:
 default_signal_val = {'pos_signal':'b', 'neg_signal':'s', 'none_signal':'n'}
 default_candlestick_color = {'colorup':'green', 'colordown':'red', 'alpha':0.8}
 default_ohlcv_col = {'close':'Close', 'open':'Open', 'high':'High', 'low':'Low', 'volume':'Volume'} 
-default_plot_args = {'figsize':(20, 5), 'title_rotation':'vertical', 'title_x':-0.05, 'title_y':0.3, 'bbox_to_anchor':(1.02, 0.), 'loc':3, 'ncol':1, 'borderaxespad':0.0}
+default_plot_args = {'figsize':(25, 5), 'title_rotation':'vertical', 'title_x':-0.05, 'title_y':0.3, 'bbox_to_anchor':(1.02, 0.), 'loc':3, 'ncol':1, 'borderaxespad':0.0}
 
 
 # ================================================ Core calculation ================================================= # 
@@ -3121,8 +3122,8 @@ def plot_signal(
   # create figure
   ax = use_ax
   if ax is None:
-    plt.figure(figsize=plot_args['figsize'])
-    ax = plt.gca()
+    fig = mpf.figure(figsize=plot_args['figsize'])
+    ax = fig.add_subplot(1,1,1, style='yahoo')
 
   # plot price
   if not plot_on_price:
@@ -3163,7 +3164,7 @@ def plot_signal(
   # legend and title
   ax.legend(loc='upper left')  
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
-  # ax.grid(True, axis='x', linestyle='--', linewidth=0.5)
+  ax.grid(True, axis='x', linestyle='--', linewidth=0.5)
 
   # return ax
   if use_ax is not None:
@@ -3195,8 +3196,8 @@ def plot_signal_index(
   # create figure
   ax = use_ax
   if ax is None:
-    plt.figure(figsize=plot_args['figsize'])
-    ax = plt.gca()
+    fig = mpf.figure(figsize=plot_args['figsize'])
+    ax = fig.add_subplot(1,1,1, style='yahoo')
 
   # plot signal indexes
   ax.plot(df.index, df[signal_idx_col], color='black', label=signal_idx_col, alpha=0.2)
@@ -3243,13 +3244,13 @@ def plot_candlestick(
   high = ohlcv_col['high']
   low = ohlcv_col['low']
   close = ohlcv_col['close']
-  # volume = ohlcv_col['volume']
+  volume = ohlcv_col['volume']
 
   # create figure
   ax = use_ax
   if ax is None:
-    plt.figure(figsize=plot_args['figsize'])
-    ax = plt.gca()
+    fig = mpf.figure(figsize=plot_args['figsize'])
+    ax = fig.add_subplot(1,1,1, style='yahoo')
   
   # annotate split
   if 'Split' in df.columns:
@@ -3307,8 +3308,8 @@ def plot_ichimoku_kama(
   # create figure
   ax = use_ax
   if ax is None:
-    plt.figure(figsize=plot_args['figsize'])
-    ax = plt.gca()
+    fig = mpf.figure(figsize=plot_args['figsize'])
+    ax = fig.add_subplot(1,1,1, style='yahoo')
   
   # plot close price
   if 'price' in target_indicator:
@@ -3390,16 +3391,16 @@ def plot_aroon(
   # create figure
   ax = use_ax
   if ax is None:
-    plt.figure(figsize=plot_args['figsize'])
-    ax = plt.gca()
+    fig = mpf.figure(figsize=plot_args['figsize'])
+    ax = fig.add_subplot(1,1,1, style='yahoo')
 
   # plot aroon_up/aroon_down lines 
-  ax.plot(df.index, df.aroon_up, label='aroon_up', color='green', marker='.', alpha=0.3)
-  ax.plot(df.index, df.aroon_down, label='aroon_down', color='red', marker='.', alpha=0.3)
+  ax.plot(df.index, df.aroon_up, label='aroon_up', color='green', marker='.', alpha=0.2)
+  ax.plot(df.index, df.aroon_down, label='aroon_down', color='red', marker='.', alpha=0.2)
 
   # fill between aroon_up/aroon_down
-  ax.fill_between(df.index, df.aroon_up, df.aroon_down, where=df.aroon_up > df.aroon_down, facecolor='green', interpolate=True, alpha=0.1)
-  ax.fill_between(df.index, df.aroon_up, df.aroon_down, where=df.aroon_up <= df.aroon_down, facecolor='red', interpolate=True, alpha=0.1)
+  ax.fill_between(df.index, df.aroon_up, df.aroon_down, where=df.aroon_up > df.aroon_down, facecolor='green', interpolate=True, alpha=0.2)
+  ax.fill_between(df.index, df.aroon_up, df.aroon_down, where=df.aroon_up <= df.aroon_down, facecolor='red', interpolate=True, alpha=0.2)
 
   # # plot waving areas
   # wave_idx = (df.aroon_gap_change==0)&(df.aroon_up_change==df.aroon_down_change)#&(df.aroon_up<96)&(df.aroon_down<96)
@@ -3443,8 +3444,8 @@ def plot_adx(
   # create figure
   ax = use_ax
   if ax is None:
-    plt.figure(figsize=plot_args['figsize'])
-    ax = plt.gca()
+    fig = mpf.figure(figsize=plot_args['figsize'])
+    ax = fig.add_subplot(1,1,1, style='yahoo')
 
   # # plot pdi/mdi/adx 
   # ax.plot(df.index, df.pdi, label='pdi', color='green', marker='.', alpha=0.3)
@@ -3480,8 +3481,8 @@ def plot_renko(
   # create figure
   ax = use_ax
   if ax is None:
-    fig = plt.figure(figsize=plot_args['figsize'])
-    ax = fig.add_subplot(111)#plt.gca()
+    fig = mpf.figure(figsize=plot_args['figsize'])
+    ax = fig.add_subplot(1,1,1, style='yahoo')
     
   # plot close for displaying the figure
   ax.plot(df.Close, alpha=close_alpha)
@@ -3501,7 +3502,7 @@ def plot_renko(
   # plot renko
   legends = {'u': 'u', 'd': 'd', 'n':'n'}
   for index, row in df.iterrows():
-    renko = Rectangle((index, row['renko_o']), row['renko_length'], row['renko_brick_size'], facecolor=row['renko_color'], fill=True, alpha=0.25, label=legends[row['renko_trend']]) #  edgecolor=row['renko_color'], linestyle='-', linewidth=5, 
+    renko = Rectangle((index, row['renko_o']), row['renko_length'], row['renko_brick_size'], facecolor=row['renko_color'], edgecolor=row['renko_color'], linestyle='-', linewidth=1, fill=True, alpha=0.25, label=legends[row['renko_trend']]) #  edgecolor=row['renko_color'], linestyle='-', linewidth=5, 
     legends[row['renko_trend']] = "_nolegend_"
     ax.add_patch(renko)
   
@@ -3542,8 +3543,8 @@ def plot_bar(
   # create figure
   ax = use_ax
   if ax is None:
-    plt.figure(figsize=plot_args['figsize'])
-    ax = plt.gca()
+    fig = mpf.figure(figsize=plot_args['figsize'])
+    ax = fig.add_subplot(1,1,1, style='yahoo')
 
   # plot bar
   current = target_col
@@ -3609,8 +3610,8 @@ def plot_indicator(
   # create figure
   ax = use_ax
   if ax is None:
-    fig = plt.figure(figsize=plot_args['figsize'])
-    ax = fig.add_subplot(111)
+    fig = mpf.figure(figsize=plot_args['figsize'])
+    ax = fig.add_subplot(1,1,1, style='yahoo')
 
   # plot benchmark
   if benchmark is not None:
@@ -3673,7 +3674,7 @@ def plot_indicator(
 # plot multiple indicators on a same chart
 def plot_multiple_indicators(
   df, args={}, start=None, end=None, save_path=None, save_image=False, show_image=False, 
-  title=None, width=20, unit_size=3, wspace=0, hspace=0.15, subplot_args=default_plot_args):
+  title=None, width=25, unit_size=3, wspace=0, hspace=0.15, subplot_args=default_plot_args):
   """
   Plot Ichimoku and mean reversion in a same plot
   :param df: dataframe with ichimoku and mean reversion columns
@@ -3714,14 +3715,19 @@ def plot_multiple_indicators(
     tmp_args = args.get(tmp_indicator)
 
     if i == 0:
-      axes[tmp_indicator] = plt.subplot(gs[i])
+      axes[tmp_indicator] = plt.subplot(gs[i])     
     else:
       axes[tmp_indicator] = plt.subplot(gs[i], sharex=axes[indicators[0]])
       
-    if i%2 > 0:
+    if i%2 != 0:
       axes[tmp_indicator].xaxis.set_ticks_position("top")
       plt.setp(axes[tmp_indicator].get_xticklabels(), visible=False)
       axes[tmp_indicator].patch.set_alpha(0.5)
+
+    axes[tmp_indicator].spines['top'].set_alpha(0.2)
+    axes[tmp_indicator].spines['bottom'].set_alpha(0.2)
+    axes[tmp_indicator].spines['left'].set_alpha(0.2)
+    axes[tmp_indicator].spines['right'].set_alpha(0.2)
 
     # get extra arguments
     target_col = tmp_args.get('target_col')
