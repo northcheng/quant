@@ -1,6 +1,9 @@
 {
 	
 	"data_source":{
+		"api_key":{
+			"alpha_vantage": "FXFCAY3KB1T1LGKM"
+		},
 		"time_col": {
 			"yahoo": "Date",
 			"yfinance": "Date"
