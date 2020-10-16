@@ -1139,13 +1139,13 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
   
   # gap up
   df['gap'] = 0
-  gap_up_idx = df.query(f'({low}>prev_{close} and prev_candle_color==1) or ({low}>prev_{open} and prev_candle_color==-1)').index
+  gap_up_idx = df.query(f'(({low}>prev_{close} and prev_candle_color==1) or ({low}>prev_{open} and prev_candle_color==-1))').index
   strict_gap_up_idx = df.query(f'{low}>prev_{high}').index
   df.loc[gap_up_idx, 'gap'] = 1
   df.loc[strict_gap_up_idx, 'gap'] = 2
 
   # gap down
-  gap_down_idx = df.query(f'({high}<prev_{open} and prev_candle_color==1) or ({high}<prev_{close} and prev_candle_color==-1)').index
+  gap_down_idx = df.query(f'(({high}<prev_{open} and prev_candle_color==1) or ({high}<prev_{close} and prev_candle_color==-1))').index
   strict_gap_down_idx = df.query(f'{high}<prev_{low}').index  
   df.loc[gap_down_idx, 'gap'] = -1
   df.loc[strict_gap_down_idx, 'gap'] = -2
