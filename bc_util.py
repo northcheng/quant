@@ -230,12 +230,6 @@ def print_when(condition, true_content='', false_content=None):
 #----------------------- Email sending ---------------------------#
 def send_email(MIME_content, to_addr, from_addr, smtp_server, password):
   # ============================================== send result email ============================================
-  # set smtp server, authorization code, email addresses
-  # smtp_server = 'smtp.qq.com'
-  # password = 'uuhxiadondbmbfbb'
-  # from_addr = 'northcheng@qq.com'
-  # to_addr = 'northcheng@me.com'
-
   # # initialize mail framework
   # m = MIMEMultipart()
   # m['Subject'] = f'[auto_trade] {now.strftime(format="%Y-%m-%d")}'

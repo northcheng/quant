@@ -304,6 +304,15 @@ class Tiger:
     end_time = self.trade_time['post_close_time'].strftime(format="%Y-%m-%d %H:%M:%S") if (end_time is None) else end_time
     
     try:
+
+      # get today net value
+      assets = self.get_asset_summary()
+      if len(assets) > 0:
+        net_value = assets.loc[0, 'net_value']
+      else:
+        net_value = -1
+      self.record['net_value'] = net_value
+
       # get today filled orders
       orders = self.trade_client.get_filled_orders(start_time=start_time, end_time=end_time)
 

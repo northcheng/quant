@@ -246,6 +246,13 @@ class Futu:
     end_time = start_time if (end_time is None) else end_time
 
     try:
+      assets = self.get_asset_summary()
+      if len(assets) > 0:
+        net_value = assets.loc[0, 'total_assets']
+      else:
+        net_value = -1
+      self.record['net_value'] = net_value
+
       # get today filled orders
       ret_orders, orders = self.trade_context.history_order_list_query(trd_env=self.account_type, status_filter_list=[OrderStatus.FILLED_PART, OrderStatus.FILLED_ALL], start=start_time, end=end_time)
 
