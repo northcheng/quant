@@ -195,9 +195,9 @@ def get_stock_briefs_from_yfinance(symbols, period='1d', interval='1m'):
         tmp_data = tmp_ticker_data.tail(1).reset_index().copy()
         
         # update the Open/High/Low/Close/Volume/Adj Close/symbol
-        tmp_data.loc[0, 'Open'] = tmp_ticker_data.loc[min_idx, 'Open'].round(2)
-        tmp_data.loc[0, 'High'] = tmp_ticker_data['High'].max().round(2)
-        tmp_data.loc[0, 'Low'] = tmp_ticker_data['Low'].min().round(2)
+        tmp_data.loc[0, 'Open'] = round(tmp_ticker_data.loc[min_idx, 'Open'], 2)
+        tmp_data.loc[0, 'High'] = round(tmp_ticker_data['High'].max(), 2)
+        tmp_data.loc[0, 'Low'] = round(tmp_ticker_data['Low'].min(), 2)
         tmp_data.loc[0, 'Volume'] = tmp_ticker_data['Volume'].sum()
         tmp_data['Close'] = tmp_data['Close'].round(2)
         tmp_data['Adj Close'] = tmp_data['Close'] 
