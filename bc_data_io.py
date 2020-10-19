@@ -5,6 +5,7 @@ Utilities used for data IO
 :author: Beichen Chen
 """
 
+# regular
 import pandas as pd
 import numpy as np
 import requests
@@ -13,9 +14,20 @@ import zipfile
 import pickle
 import json
 import os
+
+# data source
 import yfinance as yf
 import pandas_datareader.data as web 
 from pandas_datareader.nasdaq_trader import get_nasdaq_symbols
+
+# mail modules
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.image import MIMEImage
+from email.mime.multipart import MIMEMultipart
+from email.mime.application import MIMEApplication
+
+# self defined
 from quant import bc_util as util
 
 
@@ -1028,4 +1040,113 @@ def pickle_load_data(file_path, file_name):
   return data
 
 
+#----------------------- Email sending ---------------------------#
+def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subject=None, platform=['tiger'], signal_file_date=None, log_file_date=None):
 
+  # construct email 
+  m = MIMEMultipart()
+  if subject is not None:
+    m['Subject'] = subject
+  else:
+    m['Subject'] = f'[auto_trade] {datetime.datetime.now().strftime(format="%Y-%m-%d %H:%M:%S")}'
+  
+  # get asset summary
+  assets = {}
+  if 'tiger' in platform:
+    if os.path.exists(config['config_path']+'tiger_position_record.json'):
+      pr = read_config(file_path=config['config_path'], file_name='tiger_position_record.json')
+      assets['glob'] = pr.get('global_account')
+      assets['simu'] = pr.get('simulation_account') 
+
+  if 'futu' in platform:
+    if os.path.exists(config['config_path']+'futu_position_record.json'):
+      pr = read_config(file_path=config['config_path'], file_name='futu_position_record.json')
+      assets['REAL'] = pr.get('REAL')
+      assets['SIMU'] = pr.get('SIMULATE')
+
+  asset_info = '<h3>Assets</h3><ul>'
+  for portfilio in assets.keys():
+    if assets[portfilio] is not None:
+      net_value = assets[portfilio].get('net_value')
+      updated = assets[portfilio].get('updated')
+    else:
+      net_value = '(Not Found)'
+      updated = '/'  
+    asset_info += f'<li><b><p>{portfilio}: ${net_value}</b></p>({updated})</li>'
+  asset_info += '</ul>'
+
+  # get signal summary
+  signal_info = '<h3>Signals</h3><ul>'
+  signal_color = {'b':'green', 's':'red', 'n':'grey'}
+  if signal_file_date is None:
+    signal_file_date =datetime.datetime.now().date().strftime(format='%Y-%m-%d')
+  signal_file = f'{config["result_path"]}{signal_file_date}.xlsx'
+  if os.path.exists(signal_file):
+    signals = pd.read_excel(signal_file, sheet_name='signal')
+    for s in ['b', 's', 'n']:
+      font_color = signal_color[s]
+      tmp_signals = signals.query(f'交易信号 == "{s}"')['代码'].tolist()
+      signal_info += f'<li>[ <b>{s}</b> ]: <font color="{font_color}">{", ".join(tmp_signals)}</font></li>'
+  else:
+    signal_info += f'<li><p>[Not Found]: {signal_file}</p></li>'
+  signal_info += '</ul>'
+
+  # attachment 1: log file
+  log_info = '<h3>Log</h3><ul>'
+  if log_file_date is None:
+    log_file_date = util.string_plus_day(string=signal_file_date, diff_days=-1)
+  log_file = f'{config["quant_path"]}tiger_trade_log_{log_file_date}.txt'
+  if os.path.exists(log_file):
+    log_part = MIMEApplication(open(log_file, 'rb').read())
+    log_part.add_header('Content-Disposition', 'attachment', filename=log_file)
+    log_info += f'<li><p>[Attached]</p></li>'
+  else:
+    log_info += f'<li><p>[Not Found]: {log_file}</p></li>'
+    log_part = None
+  log_info += '</ul>'
+  
+  # attachment 2: signal images
+  image_info = f'<h3> Images</h3><ul><li>[Requested]: {signal_file_date}'
+  images = []
+  wrong_date = {}
+  for symbol in config['selected_sec_list'][config['trade']['pool']['global_account']]:
+    signal_image = f'{config["result_path"]}signal/{symbol}_day.png'
+    if os.path.exists(signal_image):
+
+      # check whether the signal image is up-to-date
+      image_create_date = util.timestamp_2_time(timestamp=os.path.getctime(signal_image), unit='s').date().strftime(format='%Y-%m-%d')
+      if image_create_date != signal_file_date and image_create_date not in wrong_date.keys():
+        wrong_date[image_create_date] = [symbol]
+      
+      if image_create_date in wrong_date:
+        wrong_date[image_create_date].append(symbol)
+
+      with open(signal_image, 'rb') as fp:
+        symbol_image = MIMEImage(fp.read())
+      images.append(symbol_image)
+
+    else:
+      image_info += f'<li><p>[Not Found]: image for {symbol}</p></li>'
+  
+  if len(wrong_date) > 0:
+    for wd in wrong_date.keys():
+      image_info += f'<li><p>[Wrong Date]: {wd}</p>{", ".join(wrong_date[wd])}</li>'
+  image_info += '</ul>'
+
+  msg_part = MIMEText(f'<html><body>{asset_info}{signal_info}{log_info}{image_info}</body></html>','html','utf-8')
+  m.attach(msg_part)
+
+  if log_part is not None:
+    m.attach(log_part)
+
+  for i in images:
+    m.attach(i)
+
+  # start SMTP service, send email, stop SMTP service
+  server=smtplib.SMTP_SSL(smtp_server)
+  server.connect(smtp_server,465)
+  server.login(from_addr, password)
+  server.sendmail(from_addr, to_addr, m.as_string())
+  ret = server.quit()
+
+  return ret

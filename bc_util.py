@@ -13,14 +13,6 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import matplotlib.cm as cmx
 
-# mail modules
-import smtplib
-# from email.header import Header
-from email.mime.text import MIMEText
-from email.mime.image import MIMEImage
-from email.mime.multipart import MIMEMultipart
-from email.mime.application import MIMEApplication
-
 
 #----------------------- Date manipulation -----------------------#
 def string_2_time(string, diff_days=0, date_format='%Y-%m-%d'):
@@ -225,58 +217,3 @@ def print_when(condition, true_content='', false_content=None):
     if false_content is not None:
       print(false_content)
 
-
-
-#----------------------- Email sending ---------------------------#
-def send_email(MIME_content, to_addr, from_addr, smtp_server, password):
-  # ============================================== send result email ============================================
-  # # initialize mail framework
-  # m = MIMEMultipart()
-  # m['Subject'] = f'[auto_trade] {now.strftime(format="%Y-%m-%d")}'
-  
-  # # fill the message part
-  # glob_assets = tiger_glob_trader.get_asset_summary()
-  # simu_assets = tiger_simu_trader.get_asset_summary()
-  # glob_net_value = glob_assets.loc[0, 'net_value']
-  # simu_net_value = simu_assets.loc[0, 'net_value']
-  # signal_info = f'<h3>Global Account</h3>${glob_net_value}<h3>Simulation Account</h3>${simu_net_value}<h3>Signals</h3>'
-  # signal_file_date = tiger_simu_trader.trade_time['close_time'].date().strftime(format='%Y-%m-%d')
-  # signal_file = f'{config["result_path"]}{signal_file_date}.xlsx'
-  # if os.path.exists(signal_file):
-  #   signals = pd.read_excel(signal_file, sheet_name='signal')
-  #   signal_info += '<ul>'
-  #   for s in ['b', 's', 'n']:
-  #     tmp_signals = signals.query(f'交易信号 == "{s}"')['代码'].tolist()
-  #     signal_info += f'<li>[ <b>{s}</b> ]: {", ".join(tmp_signals)}</li>'
-  #   signal_info += '</ul>'
-  # else:
-  #   signal_info += f'<p>[Not Found]:</p> {signal_file}'
-  # msg_part = MIMEText(f'<html><body>{signal_info}<h3>Attachments</h3></body></html>','html','utf-8')
-  # m.attach(msg_part)
-
-  # # fill the attachment 1: log file
-  # log_file_date = tiger_simu_trader.trade_time['open_time'].date().strftime(format='%Y-%m-%d')
-  # log_file = f'{config["quant_path"]}tiger_trade_log_{log_file_date}.txt'
-  # if os.path.exists(log_file):
-  #   log_part = MIMEApplication(open(log_file, 'rb').read())
-  #   log_part.add_header('Content-Disposition', 'attachment', filename=log_file)
-  # else:
-  #   log_part = MIMEText(f'[Not Found]: {log_file}', 'plain','utf-8')
-  # m.attach(log_part)
-
-  # # fill the attachment 2: signal images
-  # for symbol in config['selected_sec_list'][config['trade']['pool']['global_account']]:
-  #   signal_image = f'{config["result_path"]}signal/{symbol}_day.png'
-  #   if os.path.exists(signal_image):
-  #     with open(signal_image, 'rb') as fp:
-  #       symbol_image = MIMEImage(fp.read())
-  #     m.attach(symbol_image)
-
-  # start SMTP service, send email, stop SMTP service
-  server=smtplib.SMTP_SSL(smtp_server)
-  server.connect(smtp_server,465)
-  server.login(from_addr, password)
-  server.sendmail(from_addr, to_addr, MIME_content.as_string())
-  ret = server.quit()
-
-  return ret

@@ -65,9 +65,14 @@ class Tiger:
         self.record[symbol] = {'cash': init_cash, 'position': 0}
 
     # get record position and real position then compare to each other
+    # print(self.positions)
     record_conflicted = False
     position_dict = dict([(x.contract.symbol, x.quantity) for x in self.positions])
+    
     for symbol in self.record.keys():
+      if symbol in ['net_value', 'updated']:
+        continue
+      
       record_position = self.record[symbol]['position']
       current_position = 0 if (symbol not in position_dict.keys()) else position_dict[symbol]
       if current_position != record_position:
@@ -353,6 +358,7 @@ class Tiger:
             self.logger.info(f'[{self.account_type[:4]}]: updating position record for {symbol} {record_cash, record_position} -> {new_cash, new_position}')
 
       # update __position_record
+      self.record['updated'] = datetime.datetime.now().strftime(format="%Y-%m-%d %H:%M:%S")
       self.__position_record = io_util.read_config(file_path=config['config_path'], file_name='tiger_position_record.json')
       self.__position_record[self.account_type] = self.record.copy()
       io_util.create_config_file(config_dict=self.__position_record, file_path=config['config_path'], file_name='tiger_position_record.json')

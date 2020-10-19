@@ -6,6 +6,7 @@ Utilities used for Futu Open API
 """
 import math
 import logging
+import datetime
 
 from quant import bc_util as util
 from quant import bc_data_io as io_util
@@ -56,6 +57,10 @@ class Futu:
     record_conflicted = False
     position_dict = dict([(x[0].split('.')[1], x[1]) for x in self.positions[['code', 'qty']].values])
     for symbol in self.record.keys():
+
+      if symbol in ['net_value', 'updated']:
+        continue
+
       record_position = self.record[symbol]['position']
       current_position = 0 if (symbol not in position_dict.keys()) else position_dict[symbol]
       if current_position != record_position:
@@ -289,6 +294,7 @@ class Futu:
           self.record[symbol]['position'] = new_position
 
       # update __position_record
+      self.record['updated'] = datetime.now().strftime(format="%Y-%m-%d %H:%M:%S")
       self.__position_record = io_util.read_config(file_path=config['config_path'], file_name='futu_position_record.json')
       self.__position_record[self.account_type] = self.record.copy()
       io_util.create_config_file(config_dict=self.__position_record, file_path=config['config_path'], file_name='futu_position_record.json')
