@@ -1114,7 +1114,7 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
     if os.path.exists(signal_image):
 
       # check whether the signal image is up-to-date
-      image_create_date = util.timestamp_2_time(timestamp=os.path.getctime(signal_image), unit='s').date().strftime(format='%Y-%m-%d')
+      image_create_date = util.timestamp_2_time(timestamp=os.path.getmtime(signal_image), unit='s').date().strftime(format='%Y-%m-%d')
       if image_create_date != signal_file_date and image_create_date not in wrong_date.keys():
         wrong_date[image_create_date] = [symbol]
       
