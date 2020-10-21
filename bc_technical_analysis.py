@@ -329,7 +329,7 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       wave_idx = df.query('(renko_trend != "u" and renko_trend != "d") and (renko_day >= 30)').index
       df.loc[wave_idx, 'renko_trend'] = 'n'
 
-    # ================================ overall trend ========
+    # ================================ overall trend ==========================
     phase = 'cal_overall_trend'
     df['trend_idx'] = 0
     df['up_trend_idx'] = 0
@@ -405,6 +405,19 @@ def calculate_ta_signal(df):
   df['signal_day'] = sda(series=df['trend'].replace({'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
   df.loc[df['signal_day'] == 1, 'signal'] = 'b'
   df.loc[df['signal_day'] ==-1, 'signal'] = 's'
+
+  # due to the uncertainty of renko signal, broadcast the most recent signal
+  last_signal_idx = df.query('signal != "n"').index.max()
+  max_idx = df.index.max()
+  if last_signal_idx < max_idx:
+    counter = 0
+    broadcast_range = 5
+    for idx, row in df.loc[last_signal_idx:].iterrows():
+      counter += 1
+      if counter > broadcast_range:
+        break
+
+      df.loc[idx, 'signal'] = df.loc[last_signal_idx, 'signal']
 
   return df
 
