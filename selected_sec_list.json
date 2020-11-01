@@ -23,7 +23,7 @@
     "MRK","PFE","NVO","GSK","AZN","ABBV","NVS","ABT","MDT","AMGN","DHR","JNJ","UNH"
   ],
 
-	"auto": ["UPRO","UDOW","TQQQ","CHAU","YINN","SOXL","TECL","GLD"],
+	"auto": ["UPRO","UDOW","TQQQ","CHAU","CQQQ","YINN","SOXL","TECL","GLD"],
 
   "a": ["601318.SS", "2607.HK", "601607.SS", "600271.SS", "601816.SS", "601939.SS", "000002.SZ", "002233.SZ", "002391.SZ", "002430.SZ"],
 
