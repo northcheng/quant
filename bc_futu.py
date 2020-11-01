@@ -82,7 +82,7 @@ class Futu:
       self.__position_record[self.account_type] = self.record.copy()
       io_util.create_config_file(config_dict=self.__position_record, file_path=config['config_path'], file_name='futu_position_record.json')
 
-    self.logger.info(f'[init]: Futu instance created: {logger_name}')
+    self.logger.info(f'[futu]: Futu instance created: {logger_name}')
 
 
   # initialize quote context

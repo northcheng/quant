@@ -94,7 +94,7 @@ class Tiger:
       self.__position_record[self.account_type] = self.record.copy()
       io_util.create_config_file(config_dict=self.__position_record, file_path=config['config_path'], file_name='tiger_position_record.json')
 
-    self.logger.info(f'[init]: Tiger instance created: {logger_name}')
+    self.logger.info(f'[tiger]: Tiger instance created: {logger_name}')
 
 
   # get user info
