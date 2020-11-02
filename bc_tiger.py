@@ -94,7 +94,7 @@ class Tiger:
       self.__position_record[self.account_type] = self.record.copy()
       io_util.create_config_file(config_dict=self.__position_record, file_path=config['config_path'], file_name='tiger_position_record.json')
 
-    self.logger.info(f'[init]: Tiger instance created: {logger_name}')
+    self.logger.info(f'[tiger]: Tiger instance created: {logger_name}')
 
 
   # get user info
@@ -106,6 +106,74 @@ class Tiger:
   def get_position_record(self):
     return self.__position_record
 
+
+  # update position for an account
+  def update_position_record(self, config, init_cash=None, init_position=None, start_time=None, end_time=None, is_print=True):
+
+    # set default values
+    init_cash = config['trade']['init_cash'][self.account_type] if (init_cash is None) else init_cash
+    init_position = 0 if (init_position is None) else init_position
+    start_time = self.trade_time['pre_open_time'].strftime(format="%Y-%m-%d %H:%M:%S") if (start_time is None) else start_time
+    end_time = self.trade_time['post_close_time'].strftime(format="%Y-%m-%d %H:%M:%S") if (end_time is None) else end_time
+    
+    try:
+
+      # get today net value
+      assets = self.get_asset_summary()
+      if len(assets) > 0:
+        net_value = assets.loc[0, 'net_value']
+      else:
+        net_value = -1
+      self.record['net_value'] = net_value
+
+      # get today filled orders
+      orders = self.trade_client.get_filled_orders(start_time=start_time, end_time=end_time)
+
+      # update position records
+      for order in orders:
+        symbol = order.contract.symbol
+        action = order.action
+        quantity = order.quantity - order.remaining
+        commission = order.commission
+        avg_fill_price = order.avg_fill_price
+
+        # init record if not exist
+        if symbol not in self.record.keys():
+          self.record[symbol] = {'cash': init_cash, 'position': init_position}
+        record_cash = self.record[symbol]['cash']
+        record_position = self.record[symbol]['position']
+        
+        # calculate new cash and position
+        if action == 'BUY':
+          cost = avg_fill_price * quantity + commission
+          new_cash = record_cash - cost
+          new_position = record_position + quantity
+        
+        elif action == 'SELL':
+          acquire = avg_fill_price * quantity - commission
+          new_cash = record_cash + acquire
+          new_position = record_position - quantity
+
+        else:
+          new_cash = record_cash
+          new_position = record_position
+
+        # update record
+        if new_cash >= 0 and new_position >= 0:
+          self.record[symbol]['cash'] = new_cash
+          self.record[symbol]['position'] = new_position
+          if is_print:
+            self.logger.info(f'[{self.account_type[:4]}]: updating position record for {symbol} {record_cash, record_position} -> {new_cash, new_position}')
+
+      # update __position_record
+      self.record['updated'] = datetime.datetime.now().strftime(format="%Y-%m-%d %H:%M:%S")
+      self.__position_record = io_util.read_config(file_path=config['config_path'], file_name='tiger_position_record.json')
+      self.__position_record[self.account_type] = self.record.copy()
+      io_util.create_config_file(config_dict=self.__position_record, file_path=config['config_path'], file_name='tiger_position_record.json')
+      
+    except Exception as e:
+      self.logger.exception(f'[erro]: fail updating position records for {self.account_type}, {e}')
+  
 
   # get summary of positions
   def get_position_summary(self, get_briefs=True):
@@ -299,74 +367,7 @@ class Tiger:
       self.logger.error(e)
 
 
-  # update position for an account
-  def update_position_record(self, config, init_cash=None, init_position=None, start_time=None, end_time=None, is_print=True):
-
-    # set default values
-    init_cash = config['trade']['init_cash'][self.account_type] if (init_cash is None) else init_cash
-    init_position = 0 if (init_position is None) else init_position
-    start_time = self.trade_time['pre_open_time'].strftime(format="%Y-%m-%d %H:%M:%S") if (start_time is None) else start_time
-    end_time = self.trade_time['post_close_time'].strftime(format="%Y-%m-%d %H:%M:%S") if (end_time is None) else end_time
-    
-    try:
-
-      # get today net value
-      assets = self.get_asset_summary()
-      if len(assets) > 0:
-        net_value = assets.loc[0, 'net_value']
-      else:
-        net_value = -1
-      self.record['net_value'] = net_value
-
-      # get today filled orders
-      orders = self.trade_client.get_filled_orders(start_time=start_time, end_time=end_time)
-
-      # update position records
-      for order in orders:
-        symbol = order.contract.symbol
-        action = order.action
-        quantity = order.quantity - order.remaining
-        commission = order.commission
-        avg_fill_price = order.avg_fill_price
-
-        # init record if not exist
-        if symbol not in self.record.keys():
-          self.record[symbol] = {'cash': init_cash, 'position': init_position}
-        record_cash = self.record[symbol]['cash']
-        record_position = self.record[symbol]['position']
-        
-        # calculate new cash and position
-        if action == 'BUY':
-          cost = avg_fill_price * quantity + commission
-          new_cash = record_cash - cost
-          new_position = record_position + quantity
-        
-        elif action == 'SELL':
-          acquire = avg_fill_price * quantity - commission
-          new_cash = record_cash + acquire
-          new_position = record_position - quantity
-
-        else:
-          new_cash = record_cash
-          new_position = record_position
-
-        # update record
-        if new_cash >= 0 and new_position >= 0:
-          self.record[symbol]['cash'] = new_cash
-          self.record[symbol]['position'] = new_position
-          if is_print:
-            self.logger.info(f'[{self.account_type[:4]}]: updating position record for {symbol} {record_cash, record_position} -> {new_cash, new_position}')
-
-      # update __position_record
-      self.record['updated'] = datetime.datetime.now().strftime(format="%Y-%m-%d %H:%M:%S")
-      self.__position_record = io_util.read_config(file_path=config['config_path'], file_name='tiger_position_record.json')
-      self.__position_record[self.account_type] = self.record.copy()
-      io_util.create_config_file(config_dict=self.__position_record, file_path=config['config_path'], file_name='tiger_position_record.json')
-      
-    except Exception as e:
-      self.logger.exception(f'[erro]: fail updating position records for {self.account_type}, {e}')
   
-
   # buy or sell stocks
   def trade(self, symbol, action, quantity, price=None, stop_loss=None, stop_profit=None, print_summary=True):
 
