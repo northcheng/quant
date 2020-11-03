@@ -384,7 +384,7 @@ def calculate_ta_signal(df):
     'aroon is up trending': '(aroon_trend == "u")',
     'adx is up trending': '(adx_trend == "u")',
     'psar is up trending': '(psar_trend == "u")',
-    # 'renko is up trending': '(renko_trend == "u")'
+    'renko is up trending': '(renko_trend == "u")'
   }
   up_idx = df.query(' and '.join(buy_conditions.values())).index 
   df.loc[up_idx, 'trend'] = 'u'
@@ -393,8 +393,9 @@ def calculate_ta_signal(df):
   sell_conditions = {
     'High is below kijun line': '(High < kijun)',
     'overall trend is down': '(trend_idx < -1)',
-    # 'price went down through brick': '(renko_trend == "d")'
-    # 'one of ichimoku/aroon/adx/psar is down trending, others are not up trending': '(down_trend_idx <= -1 and up_trend_idx == 0)',#'((ichimoku_trend=="d" and aroon_trend!="u" and adx_trend!="u" and psar_trend !="u") or (aroon_trend=="d" and ichimoku_trend!="u" and adx_trend!="u" and psar_trend !="u") or (adx_trend=="d" and ichimoku_trend!="u" and aroon_trend!="u" and psar_trend !="u") or (psar_trend=="d" and ichimoku_trend!="u" and aroon_trend!="u" and adx_trend !="u"))',
+    'price went down through brick': '(renko_trend == "d")',
+    'one of ichimoku/aroon/adx/psar is down trending, others are not up trending': '(down_trend_idx <= -1 and up_trend_idx == 0)',
+    #'((ichimoku_trend=="d" and aroon_trend!="u" and adx_trend!="u" and psar_trend !="u") or (aroon_trend=="d" and ichimoku_trend!="u" and adx_trend!="u" and psar_trend !="u") or (adx_trend=="d" and ichimoku_trend!="u" and aroon_trend!="u" and psar_trend !="u") or (psar_trend=="d" and ichimoku_trend!="u" and aroon_trend!="u" and adx_trend !="u"))',
     
   } 
   down_idx = df.query(' and '.join(sell_conditions.values())).index 
@@ -406,18 +407,18 @@ def calculate_ta_signal(df):
   df.loc[df['signal_day'] == 1, 'signal'] = 'b'
   df.loc[df['signal_day'] ==-1, 'signal'] = 's'
 
-  # # due to the uncertainty of renko signal, broadcast the most recent signal
-  # last_signal_idx = df.query('signal != "n"').index.max()
-  # max_idx = df.index.max()
-  # if last_signal_idx < max_idx:
-  #   counter = 0
-  #   broadcast_range = 5
-  #   for idx, row in df.loc[last_signal_idx:].iterrows():
-  #     counter += 1
-  #     if counter > broadcast_range:
-  #       break
+  # due to the uncertainty of renko signal, broadcast the most recent signal
+  last_signal_idx = df.query('signal != "n"').index.max()
+  max_idx = df.index.max()
+  if last_signal_idx < max_idx:
+    counter = 0
+    broadcast_range = 3
+    for idx, row in df.loc[last_signal_idx:].iterrows():
+      counter += 1
+      if counter > broadcast_range:
+        break
 
-  #     df.loc[idx, 'signal'] = df.loc[last_signal_idx, 'signal']
+      df.loc[idx, 'signal'] = df.loc[last_signal_idx, 'signal']
 
   return df
 
@@ -1914,7 +1915,7 @@ def add_renko_features(df, use_atr=False, brick_size_factor=0.1, merge_duplicate
   if use_atr:
     df['bsz'] = df['atr']
   else:  
-    df['bsz'] = df['Close'] * brick_size_factor #((df['Close'].rolling(10).mean() // 10) + (df['Close'].rolling(10).mean() / 10) )
+    df['bsz'] = (df['Close'] * brick_size_factor).round(1) #((df['Close'].rolling(10).mean() // 10) + (df['Close'].rolling(10).mean() / 10) )
   na_bsz = df.query('bsz != bsz').index
   df = df.drop(index=na_bsz).reset_index()
   brick_size = df['bsz'].values[0]

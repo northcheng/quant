@@ -179,6 +179,7 @@ class FixedPositionTrader:
 
       # skip symbols which not in sec_list
       if symbol not in sec_list:
+        # print(f'{symbol} not in sec_list')
         continue
 
       # get data and its range
@@ -215,6 +216,12 @@ class FixedPositionTrader:
     # for symbols need to recalculate trend and signal
     recalculate_trend += [x for x in sec_list if x not in self.record.keys()]
     recalculate_trend = list(set(recalculate_trend))
+
+    # read raw data for symbol that not in sec_data yet
+    for symbol in  recalculate_trend:
+      if f'{symbol}_day' not in sec_data.keys():
+        print(f'Simulator does not have raw data for {symbol}, not able to recalculate trend')
+
     for symbol_interval in sec_data.keys():
       symbol, interval = symbol_interval.split('_')
       if symbol in recalculate_trend:
