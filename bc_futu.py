@@ -154,8 +154,40 @@ class Futu:
     return self.__position_record
 
 
+  # update net value
+  def update_net_value(self, config, net_value=None, is_print=True):
+    
+    try:
+      # get current net value in record
+      old_net_value = self.record['net_value']
+
+      # get today net value
+      if net_value is None:
+        assets = self.get_asset_summary()
+        if len(assets) > 0:
+          net_value = assets.loc[0, 'total_assets']
+        else:
+          net_value = -1
+
+      # update today net value
+      self.record['net_value'] = net_value
+
+      # print change
+      if is_print:
+        self.logger.info(f'[{self.account_type[:4]}]: updating net value {old_net_value} -> {net_value}')
+
+      # update __position_record
+      self.record['updated'] = datetime.now().strftime(format="%Y-%m-%d %H:%M:%S")
+      self.__position_record = io_util.read_config(file_path=config['config_path'], file_name='futu_position_record.json')
+      self.__position_record[self.account_type] = self.record.copy()
+      io_util.create_config_file(config_dict=self.__position_record, file_path=config['config_path'], file_name='futu_position_record.json')
+      
+    except Exception as e:
+      self.logger.exception(f'[erro]: fail updating position records for {self.account_type}, {e}')
+  
+
   # update position for an account
-  def update_position_record(self, config, init_cash=None, init_position=None, start_time=None, end_time=None):
+  def update_position_record(self, config, init_cash=None, init_position=None, start_time=None, end_time=None, is_print=True):
 
     # set default values
     init_cash = config['trade']['init_cash'][self.account_type] if (init_cash is None) else init_cash
@@ -163,39 +195,35 @@ class Futu:
     start_time = datetime.now().strftime(format="%Y-%m-%d") if (start_time is None) else start_time
     end_time = start_time if (end_time is None) else end_time
 
-    try:
-      assets = self.get_asset_summary()
-      if len(assets) > 0:
-        net_value = assets.loc[0, 'total_assets']
-      else:
-        net_value = -1
-      self.record['net_value'] = net_value
+    try:      
 
       # get today filled orders
       ret_orders, orders = self.trade_context.history_order_list_query(trd_env=self.account_type, status_filter_list=[OrderStatus.FILLED_PART, OrderStatus.FILLED_ALL], start=start_time, end=end_time)
 
       # update position records
       for index, row in orders.iterrows():
-        symbol = row['code'].split('.')[1] #order.contract.symbol
-        action = row['trd_side'] #order.action
-        quantity = row['dealt_qty'] #order.quantity - order.remaining
+        symbol = row['code'].split('.')[1] # order.contract.symbol
+        action = row['trd_side'] # order.action
+        quantity = row['dealt_qty'] # order.quantity - order.remaining
         commission = 3 # order.commission
         avg_fill_price = row['dealt_avg_price'] # order.avg_fill_price
 
         # init record if not exist
         if symbol not in self.record.keys():
           self.record[symbol] = {'cash': init_cash, 'position': init_position}
-        
+        record_cash = self.record[symbol]['cash']
+        record_position = self.record[symbol]['position']
+
         # calculate new cash and position
         if action == 'BUY':
           cost = avg_fill_price * quantity + commission
-          new_cash = self.record[symbol]['cash'] - cost
-          new_position = self.record[symbol]['position'] + quantity
+          new_cash = record_cash - cost
+          new_position = record_position + quantity
         
         elif action == 'SELL':
           acquire = avg_fill_price * quantity - commission
-          new_cash = self.record[symbol]['cash'] + acquire
-          new_position = self.record[symbol]['position'] - quantity
+          new_cash = record_cash + acquire
+          new_position = record_position - quantity
 
         else:
           new_cash = self.record[symbol]['cash']
@@ -205,6 +233,8 @@ class Futu:
         if new_cash >= 0 and new_position >= 0:
           self.record[symbol]['cash'] = new_cash
           self.record[symbol]['position'] = new_position
+          if is_print:
+            self.logger.info(f'[{self.account_type[:4]}]: updating position record for {symbol} {record_cash, record_position} -> {new_cash, new_position}')
 
       # update __position_record
       self.record['updated'] = datetime.now().strftime(format="%Y-%m-%d %H:%M:%S")

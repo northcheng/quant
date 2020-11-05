@@ -107,6 +107,38 @@ class Tiger:
     return self.__position_record
 
 
+  # update net value 
+  def update_net_value(self, config, net_value=None, is_print=True):
+    
+    try:
+      # get current net value in record
+      old_net_value = self.record['net_value']
+
+      # get today net value
+      if net_value is None:
+        assets = self.get_asset_summary()
+        if len(assets) > 0:
+          net_value = assets.loc[0, 'net_value']
+        else:
+          net_value = -1
+
+      # update today net value
+      self.record['net_value'] = net_value
+
+      # print change
+      if is_print:
+        self.logger.info(f'[{self.account_type[:4]}]: updating net value {old_net_value} -> {net_value}')
+
+      # update __position_record
+      self.record['updated'] = datetime.datetime.now().strftime(format="%Y-%m-%d %H:%M:%S")
+      self.__position_record = io_util.read_config(file_path=config['config_path'], file_name='tiger_position_record.json')
+      self.__position_record[self.account_type] = self.record.copy()
+      io_util.create_config_file(config_dict=self.__position_record, file_path=config['config_path'], file_name='tiger_position_record.json')
+      
+    except Exception as e:
+      self.logger.exception(f'[erro]: fail updating position records for {self.account_type}, {e}')
+
+
   # update position for an account
   def update_position_record(self, config, init_cash=None, init_position=None, start_time=None, end_time=None, is_print=True):
 
@@ -117,14 +149,6 @@ class Tiger:
     end_time = self.trade_time['post_close_time'].strftime(format="%Y-%m-%d %H:%M:%S") if (end_time is None) else end_time
     
     try:
-
-      # get today net value
-      assets = self.get_asset_summary()
-      if len(assets) > 0:
-        net_value = assets.loc[0, 'net_value']
-      else:
-        net_value = -1
-      self.record['net_value'] = net_value
 
       # get today filled orders
       orders = self.trade_client.get_filled_orders(start_time=start_time, end_time=end_time)
@@ -367,7 +391,6 @@ class Tiger:
       self.logger.error(e)
 
 
-  
   # buy or sell stocks
   def trade(self, symbol, action, quantity, price=None, stop_loss=None, stop_profit=None, print_summary=True):
 
