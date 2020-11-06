@@ -81,13 +81,13 @@ class Tiger:
           self.record[symbol] = {'cash': 0, 'position': current_position}
         else:
           self.record[symbol] = {'cash': init_cash, 'position': 0}
-        self.logger.error(f'[{account_type[:4]}]: {symbol} position({current_position}) not match with record ({record_position}), reset position record')
+        self.logger.error(f'[{account_type[:4]}]: {symbol} position({current_position}) rather than ({record_position}), reset record')
 
     # add record for symbol in position but not recorded
     for symbol in [x for x in position_dict.keys() if x not in self.record.keys()]:
       record_conflicted = True
       self.record[symbol] = {'cash': 0, 'position': position_dict[symbol]}
-      self.logger.error(f'[{account_type[:4]}]: {symbol} position({position_dict[symbol]}) not in record, reset position record')
+      self.logger.error(f'[{account_type[:4]}]: {symbol} position({position_dict[symbol]}) not in record, add record')
 
     # update __position_record
     if record_conflicted:
@@ -455,7 +455,7 @@ class Tiger:
 
 
   # auto trade according to signals
-  def signal_trade(self, signal, money_per_sec, trading_fee=5, pool=None, according_to_record=True):
+  def signal_trade(self, signal, money_per_sec, trading_fee=5, pool=None, according_to_record=True, minimum_position=0):
 
     # set symbol to index
     if len(signal) > 0:
@@ -498,12 +498,21 @@ class Tiger:
         self.logger.info(f'[SELL]: no signal')
 
       # buy
+      # get available cash
+      available_cash = self.get_available_cash()
+
       # get buy signals which not in posiitons yet
       default_money_per_sec = money_per_sec
       buy_signal = signal.query('action == "b"')
       if len(buy_signal) > 0:
         # go through buy signals
         for symbol in buy_signal.index:
+
+          # break when available cash is below 200
+          if available_cash <= minimum_position:
+            self.logger.info(f'[BUY]: Available cash is too low({available_cash}/{minimum_position}), stop buying')
+            break
+
           # check whether symbol is already in positions
           in_position_quantity = signal.loc[symbol, 'quantity']
           if in_position_quantity == 0:
@@ -515,7 +524,6 @@ class Tiger:
                 money_per_sec = default_money_per_sec
 
             # check whether there is enough available money 
-            available_cash = self.get_available_cash()
             money_per_sec = available_cash if (money_per_sec > available_cash) else money_per_sec
 
             # calculate quantity to buy
@@ -523,6 +531,9 @@ class Tiger:
             if quantity > 0:
               trade_summary = self.trade(symbol=symbol, action='BUY', quantity=quantity, price=None, print_summary=False)
               self.logger.info(trade_summary)
+
+              # update available cash
+              available_cash -= quantity * signal.loc[symbol, 'latest_price']
             else:
               self.logger.info(f'[BUY]: not enough money')
               continue

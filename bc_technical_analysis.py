@@ -407,18 +407,18 @@ def calculate_ta_signal(df):
   df.loc[df['signal_day'] == 1, 'signal'] = 'b'
   df.loc[df['signal_day'] ==-1, 'signal'] = 's'
 
-  # due to the uncertainty of renko signal, broadcast the most recent signal
-  last_signal_idx = df.query('signal != "n"').index.max()
-  max_idx = df.index.max()
-  if last_signal_idx < max_idx:
-    counter = 0
-    broadcast_range = 3
-    for idx, row in df.loc[last_signal_idx:].iterrows():
-      counter += 1
-      if counter > broadcast_range:
-        break
+  # # due to the uncertainty of renko signal, broadcast the most recent signal
+  # last_signal_idx = df.query('signal != "n"').index.max()
+  # max_idx = df.index.max()
+  # if last_signal_idx < max_idx:
+  #   counter = 0
+  #   broadcast_range = 3
+  #   for idx, row in df.loc[last_signal_idx:].iterrows():
+  #     counter += 1
+  #     if counter > broadcast_range:
+  #       break
 
-      df.loc[idx, 'signal'] = df.loc[last_signal_idx, 'signal']
+  #     df.loc[idx, 'signal'] = df.loc[last_signal_idx, 'signal']
 
   return df
 
