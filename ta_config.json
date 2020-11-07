@@ -32,7 +32,7 @@
         "update_ta_data": true,
         "save_sec_data": true,
         "look_back_window": {
-            "day": 250,
+            "day": 300,
             "week": 1260,
             "month": 5400
         }

@@ -394,7 +394,7 @@ class Futu:
 
 
   # auto trade according to signals
-  def signal_trade(self, signal, money_per_sec, trading_fee=5, pool=None, according_to_record=True, minimum_position=0):    
+  def signal_trade(self, signal, money_per_sec, trading_fee=5, pool=None, according_to_record=True, minimum_position=None):    
     
     # set symbol to index
     if len(signal) > 0:
@@ -441,8 +441,10 @@ class Futu:
         self.logger.info(f'[SELL]: no signal')
 
       # buy
-      # get available cash
+      # get available cash, set minimum position
       available_cash = self.get_available_cash()
+      if minimum_position is None:
+        minimum_position = money_per_sec * 0.1
 
       # get buy signals which not in posiitons yet
       default_money_per_sec = money_per_sec
