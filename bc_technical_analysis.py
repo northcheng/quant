@@ -3295,7 +3295,7 @@ def plot_candlestick(
     return ax
 
 # plot ichimoku chart
-def plot_ichimoku_kama(
+def plot_main_indicators(
   df, start=None, end=None, date_col='Date', ohlcv_col=default_ohlcv_col, 
   target_indicator = ['price', 'ichimoku', 'kama', 'candlestick', 'bb', 'psar', 'renko'],
   candlestick_width=0.8, candlestick_color=default_candlestick_color, 
@@ -3688,7 +3688,7 @@ def plot_indicator(
 # plot multiple indicators on a same chart
 def plot_multiple_indicators(
   df, args={}, start=None, end=None, save_path=None, save_image=False, show_image=False, 
-  title=None, width=25, unit_size=3, wspace=0, hspace=0.15, subplot_args=default_plot_args):
+  title=None, width=25, unit_size=4, wspace=0, hspace=0.15, subplot_args=default_plot_args):
   """
   Plot Ichimoku and mean reversion in a same plot
   :param df: dataframe with ichimoku and mean reversion columns
@@ -3759,14 +3759,14 @@ def plot_multiple_indicators(
     plot_price_in_twin_ax = plot_price_in_twin_ax if plot_price_in_twin_ax is not None else False
     
     # plot ichimoku with candlesticks
-    if tmp_indicator == 'ichimoku_kama':
+    if tmp_indicator == 'main_indicators':
 
       # get candlestick width and color
       candlestick_color = tmp_args.get('candlestick_color') if tmp_args.get('candlestick_color') is not None else default_candlestick_color
       width = tmp_args.get('candlestick_width') if tmp_args.get('candlestick_width') is not None else 1
       target_indicator = tmp_args.get('target_indicator') if tmp_args.get('target_indicator') is not None else ['price']
 
-      plot_ichimoku_kama(
+      plot_main_indicators(
         df=plot_data, target_indicator=target_indicator, candlestick_width=width, candlestick_color=candlestick_color,
         use_ax=axes[tmp_indicator], title=tmp_indicator, plot_args=subplot_args)
 

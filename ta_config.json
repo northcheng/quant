@@ -54,7 +54,7 @@
         "plot_args": {
             "plot_ratio": {
                 "signals": 0.75,
-                "ichimoku_kama": 2.5,
+                "main_indicators": 2.5,
                 "volume": 0.75
             },
             "adx": {
@@ -94,7 +94,7 @@
                 "benchmark": 0,
                 "color_mode": "benchmark"
             },
-            "ichimoku_kama": {
+            "main_indicators": {
                 "target_indicator": [
                     "candlestick",
                     "ichimoku",
