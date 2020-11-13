@@ -52,7 +52,7 @@ def timestamp_2_time(timestamp, unit='ms', timezone='CN'):
   Convert pytz timestamp instance to datetime instance
 
   :param timestamp: timestamp instance
-  :param unit: unit of the timestamp
+  :param unit: unit of the timestamp, us or ms(default)
   :param timezone: timezone of the timestamp
   :returns: datetime instance
   :raises: none
@@ -105,24 +105,33 @@ def num_days_between(start_date, end_date, date_format='%Y-%m-%d'):
   return diff.days
 
 
-def sleep_until(target_time, check_frequency=3600):
+#----------------------- Process control -------------------------#
+def sleep_until(target_time, description=None, check_frequency=3600):
   """
   Sleep with a fixed frequency, until the target time
 
   :param target_time: the target time in datetime.datetime format
+  :param description: description of the target time
   :param check_frequency: the fixed sleep_time 
   :returns: none
   :raises: none
   """
+  # get current time
   now = datetime.datetime.now()
+
+  # sleep until target time
   while now < target_time:
 
+    # check time difference in seconds
     diff_time = round((target_time - now).total_seconds())
     sleep_time = (diff_time+1) if (diff_time <= check_frequency) else check_frequency
 
-    print(f'{now}: sleep for {sleep_time} seconds')
+    # print information then sleep
+    description = '' if description is None else f'({description})'
+    print(f'{now}: sleep for {sleep_time} seconds {description}')
     time.sleep(sleep_time)
 
+    # update current time
     now = datetime.datetime.now()
 
   print(f'{now}: exceed target time({target_time})')
