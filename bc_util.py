@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Generally used utilities
+Generally Utilities
 
 :author: Beichen Chen
 """
@@ -105,38 +105,6 @@ def num_days_between(start_date, end_date, date_format='%Y-%m-%d'):
   return diff.days
 
 
-#----------------------- Process control -------------------------#
-def sleep_until(target_time, description=None, check_frequency=3600):
-  """
-  Sleep with a fixed frequency, until the target time
-
-  :param target_time: the target time in datetime.datetime format
-  :param description: description of the target time
-  :param check_frequency: the fixed sleep_time 
-  :returns: none
-  :raises: none
-  """
-  # get current time
-  now = datetime.datetime.now()
-
-  # sleep until target time
-  while now < target_time:
-
-    # check time difference in seconds
-    diff_time = round((target_time - now).total_seconds())
-    sleep_time = (diff_time+1) if (diff_time <= check_frequency) else check_frequency
-
-    # print information then sleep
-    description = '' if description is None else f'({description})'
-    print(f'{now}: sleep for {sleep_time} seconds {description}')
-    time.sleep(sleep_time)
-
-    # update current time
-    now = datetime.datetime.now()
-
-  print(f'{now}: exceed target time({target_time})')
-
-
 #----------------------- Dataframe manipulation ------------------#
 def df_2_timeseries(df, time_col='date'):
   """
@@ -226,3 +194,34 @@ def print_when(condition, true_content='', false_content=None):
     if false_content is not None:
       print(false_content)
 
+
+#----------------------- Process control -------------------------#
+def sleep_until(target_time, description=None, check_frequency=3600):
+  """
+  Sleep with a fixed frequency, until the target time
+
+  :param target_time: the target time in datetime.datetime format
+  :param description: description of the target time
+  :param check_frequency: the fixed sleep_time 
+  :returns: none
+  :raises: none
+  """
+  # get current time
+  now = datetime.datetime.now()
+
+  # sleep until target time
+  while now < target_time:
+
+    # check time difference in seconds
+    diff_time = round((target_time - now).total_seconds())
+    sleep_time = (diff_time+1) if (diff_time <= check_frequency) else check_frequency
+
+    # print information then sleep
+    description = '' if description is None else f'({description})'
+    print(f'{now}: sleep for {sleep_time} seconds {description}')
+    time.sleep(sleep_time)
+
+    # update current time
+    now = datetime.datetime.now()
+
+  print(f'{now}: exceed target time({target_time})')

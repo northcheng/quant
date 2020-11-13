@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Utilities used for data IO
+Data IO Utilities
 
 :author: Beichen Chen
 """
@@ -165,7 +165,7 @@ def get_stock_briefs_from_yfinance(symbols, period='1d', interval='1m'):
   Get latest stock data for symbols
 
   :param symbols: list of target symbols
-  :param period: how long the period to download
+  :param period: how long the period you want to download data
   :param interval: available values - 1m,2m,5m,15m,30m,60m,90m,1h,1d,5d,1wk,1mo,3mo
   :returns: dataframe of latest data, per row for each symbol
   :raises: none
@@ -972,7 +972,15 @@ def modify_config(config_key, config_value, file_path, file_name, print=False):
 
 #----------------------------- Solidify data ------------------------------------# 
 def dict_2_excel(dictionary, file_path, file_name, keep_index=False):
-
+  """
+  Save dictionary into an excel file
+  :param dictionary: target dict
+  :param file_path: where to save the excel file
+  :param file_name: name of the exccel file
+  :param keep_index: whether to keep index
+  :return: None
+  :raise: None
+  """
   # 打开文件
   writer = pd.ExcelWriter(f'{file_path}{file_name}')
 
@@ -1042,7 +1050,21 @@ def pickle_load_data(file_path, file_name):
 
 #----------------------- Email sending ---------------------------#
 def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subject=None, platform=['tiger'], signal_file_date=None, log_file_date=None):
+  """
+  send automatic_trader's trading result by email
 
+  :param config: dictionary of config, include pathes, etc.
+  :param to_addr: destination email address
+  :param from_addr: email address used for sending email
+  :param smtp_server: smtp server address
+  :param password: pwd for smtp server
+  :param subject: subject of the email
+  :param platform: trading platforms include ['tiger', 'futu']
+  :param signal_file_date: date of signal file which will be attached on email
+  :param log_file_date: date of log file which will be attached on email
+  :return: smtp ret code
+  :raise: none
+  """
   # construct email 
   m = MIMEMultipart()
   if subject is not None:
