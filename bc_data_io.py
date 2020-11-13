@@ -1095,7 +1095,7 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
   log_info = '<h3>Log</h3><ul>'
   if log_file_date is None:
     log_file_date = util.string_plus_day(string=signal_file_date, diff_days=-1)
-  log_file = f'{config["quant_path"]}tiger_trade_log_{log_file_date}.txt'
+  log_file = f'{config["quant_path"]}automatic_trade_log_{log_file_date}.txt'
   if os.path.exists(log_file):
     log_part = MIMEApplication(open(log_file, 'rb').read())
     log_part.add_header('Content-Disposition', 'attachment', filename=log_file)
@@ -1109,7 +1109,7 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
   image_info = f'<h3> Images</h3><ul><li>[Requested]: {signal_file_date}'
   images = []
   wrong_date = {}
-  for symbol in config['selected_sec_list'][config['trade']['pool']['global_account']]:
+  for symbol in config['selected_sec_list']['all']: #[config['trade']['pool']['global_account']]:
     signal_image = f'{config["result_path"]}signal/{symbol}_day.png'
     if os.path.exists(signal_image):
 
@@ -1126,7 +1126,11 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
       images.append(symbol_image)
 
     else:
-      image_info += f'<li><p>[Not Found]: image for {symbol}</p></li>'
+      if symbol in config['selected_sec_list']['auto']: 
+        image_info += f'<li><p>[Not Found]: image for {symbol}</p></li>'
+      else:
+        continue
+
   
   if len(wrong_date) > 0:
     for wd in wrong_date.keys():

@@ -25,8 +25,20 @@
 
 	"auto": ["UPRO","UDOW","TQQQ","CHAU","CQQQ","YINN","SOXL","TECL","GLD"],
 
-  "a": ["601318.SS", "2607.HK", "601607.SS", "600271.SS", "601816.SS", "601939.SS", "000002.SZ", "002233.SZ", "002391.SZ", "002430.SZ"],
+  	"a": ["601318.SS", "2607.HK", "601607.SS", "600271.SS", "601816.SS", "601939.SS", "000002.SZ", "002233.SZ", "002391.SZ", "002430.SZ"],
 
-	"test": ["TQQQ"]
+	"test": ["TQQQ"],
+
+	"tiger_pool": ["UPRO","UDOW","TQQQ","CHAU","CQQQ","YINN","SOXL","TECL","GLD"],
+
+	"futu_pool": [
+		"TQQQ","UPRO","UDOW","TECL","SOXL","FAS","LABU","CHAU","YINN","CQQQ", "SPY", "GLD", 
+
+		"AAPL","MSFT","IBM","FB","ADBE","NFLX","DIS","U",
+		"INTC","NVDA","AMD","QCOM","AVGO","TXN","TSM",
+		"TSLA","LMT","GE","BA","HON",
+		"JPM","ACN","MS","GS","BAC","WFC","HSBC","C",
+    	"MRK","PFE","NVO","GSK","AZN","ABBV","NVS","ABT","MDT","AMGN","DHR","JNJ","UNH"
+  ]
 
 }

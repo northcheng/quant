@@ -205,10 +205,10 @@
         },
         "pool": {
             "simulation_account": "all",
-            "global_account": "auto",
+            "global_account": "tiger_pool",
             "standard_account": "auto",
             "SIMULATE": "all",
-            "REAL": "auto"
+            "REAL": "futu_pool"
         }
     }
 }
