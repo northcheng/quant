@@ -1049,7 +1049,7 @@ def pickle_load_data(file_path, file_name):
 
 
 #----------------------- Email sending ---------------------------#
-def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subject=None, platform=['tiger'], signal_file_date=None, log_file_date=None):
+def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subject=None, platform=['tiger'], signal_file_date=None, log_file_date=None, test=False):
   """
   send automatic_trader's trading result by email
 
@@ -1062,15 +1062,20 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
   :param platform: trading platforms include ['tiger', 'futu']
   :param signal_file_date: date of signal file which will be attached on email
   :param log_file_date: date of log file which will be attached on email
+  :param test: whether on test mode(print message rather than send the email)
   :return: smtp ret code
   :raise: none
   """
+
+  # get current time
+  current_time = datetime.datetime.now().strftime(format="%Y-%m-%d %H:%M:%S")
+
   # construct email 
   m = MIMEMultipart()
   if subject is not None:
     m['Subject'] = subject
   else:
-    m['Subject'] = f'[auto_trade] {datetime.datetime.now().strftime(format="%Y-%m-%d %H:%M:%S")}'
+    m['Subject'] = f'[auto_trade] {current_time}'
   
   # get asset summary
   assets = {}
@@ -1086,15 +1091,22 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
       assets['REAL'] = pr.get('REAL')
       assets['SIMU'] = pr.get('SIMULATE')
 
+  # construct asset summary
   asset_info = '<h3>Assets</h3><ul>'
   for portfilio in assets.keys():
     if assets[portfilio] is not None:
       net_value = assets[portfilio].get('net_value')
       updated = assets[portfilio].get('updated')
     else:
-      net_value = '(Not Found)'
-      updated = '/'  
-    asset_info += f'<li><b><p>{portfilio}: ${net_value}</b></p>({updated})</li>'
+      net_value = '--'
+      updated = '--'  
+    if updated[:16] == current_time[:16]:
+      updated = ''
+    else:
+      updated = f'({updated})'
+
+    # asset summary for current portfilio
+    asset_info += f'<li><b><p>{portfilio}: ${net_value}</b></p>{updated}</li>'
   asset_info += '</ul>'
 
   # get signal summary
@@ -1153,13 +1165,14 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
       else:
         continue
 
-  
   if len(wrong_date) > 0:
     for wd in wrong_date.keys():
       image_info += f'<li><p>[Wrong Date]: {wd}</p>{", ".join(wrong_date[wd])}</li>'
   image_info += '</ul>'
 
-  msg_part = MIMEText(f'<html><body>{asset_info}{signal_info}{log_info}{image_info}</body></html>','html','utf-8')
+  # construct message part by concating info parts
+  full_info = f'<html><body>{asset_info}{signal_info}{log_info}{image_info}</body></html>'
+  msg_part = MIMEText(full_info,'html','utf-8')
   m.attach(msg_part)
 
   if log_part is not None:
@@ -1168,11 +1181,16 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
   for i in images:
     m.attach(i)
 
-  # start SMTP service, send email, stop SMTP service
-  server=smtplib.SMTP_SSL(smtp_server)
-  server.connect(smtp_server,465)
-  server.login(from_addr, password)
-  server.sendmail(from_addr, to_addr, m.as_string())
-  ret = server.quit()
+  # if test, print info parts, else send the email with attachments
+  if test:
+    print(full_info)
+    ret = 'test'
+  else:
+    # start SMTP service, send email, stop SMTP service
+    server=smtplib.SMTP_SSL(smtp_server)
+    server.connect(smtp_server,465)
+    server.login(from_addr, password)
+    server.sendmail(from_addr, to_addr, m.as_string())
+    ret = server.quit()
 
   return ret

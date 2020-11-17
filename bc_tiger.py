@@ -221,6 +221,13 @@ class Tiger:
         result = pd.merge(result, status, how='left', left_on='symbol', right_on='symbol')
         result['rate'] = round((result['latest_price'] - result['average_cost']) / result['average_cost'], 2)
         result = result[['symbol', 'quantity', 'average_cost', 'latest_price', 'rate', 'latest_time']]
+      else:
+        result.rename(columns={'market_price':'latest_price'}, inplace=True)
+        result['rate'] = round((result['latest_price'] - result['average_cost']) / result['average_cost'], 2)
+        result['latest_time'] = None
+
+      # calculate market value
+      result['market_value'] = result['quantity'] * result['latest_price']
 
     else:
       result = pd.DataFrame()

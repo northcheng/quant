@@ -253,14 +253,23 @@ class Futu:
       ret_positions, self.positions = self.trade_context.position_list_query(trd_env=self.account_type)
       result = self.positions.copy()
 
-      if get_briefs and len(result) > 0:
-        status = io_util.get_stock_briefs(symbols=[x.split('.')[1] for x in result.code.tolist()], source='yfinance', period='1d', interval='1m')
-        status['symbol'] = f'{self.market}.' + status['symbol']
-        status.rename(columns={'symbol':'code'}, inplace=True)
-        result = pd.merge(result, status, how='left', left_on='code', right_on='code')
-        result['rate'] = round((result['latest_price'] - result['cost_price']) / result['cost_price'], 2) * 100
+      if len(result) > 0:
+        result.rename(columns={'code':'symbol', 'qty':'quantity', 'cost_price': 'average_cost'}, inplace=True)
+        if get_briefs:
+          status = io_util.get_stock_briefs(symbols=[x.split('.')[1] for x in result.symbol.tolist()], source='yfinance', period='1d', interval='1m')
+          status['symbol'] = f'{self.market}.' + status['symbol']
+          result = pd.merge(result, status, how='left', left_on='symbol', right_on='symbol')
+          result['rate'] = round((result['latest_price'] - result['average_cost']) / result['average_cost'], 2)
+          result['market_value'] = round(result['latest_price'] * result['quantity'], 2)
+        else:
+          result.rename(columns={'market_val': 'market_value', 'pl_ratio':'rate', 'nominal_price':'latest_price'}, inplace=True)
+          result['rate'] = round(result['rate'] / 100, 2)
+          result['latest_time'] = None
+
+      # select columns
+      result = result[['symbol', 'quantity', 'average_cost', 'latest_price', 'rate', 'market_value', 'latest_time']]
     except Exception as e:
-      result = None
+      result = pd.DataFrame()
       self.logger.exception(f'[erro]: can not get position summary: {e}')
 
     return result
@@ -302,9 +311,9 @@ class Futu:
     try:
       position = self.get_position_summary(get_briefs=get_briefs)
       if len(position) > 0:
-        position = position.set_index('code')
+        position = position.set_index('symbol')
         if symbol in position.index:
-          quantity = position.loc[symbol, 'qty']
+          quantity = position.loc[symbol, 'quantity']
     except Exception as e:
       self.logger.exception(f'[erro]: can not get in position quantity for {symbol}: {e}')
 
@@ -417,8 +426,7 @@ class Futu:
       if len(position) == 0:
         position = pd.DataFrame({'symbol':[], 'quantity':[]})
       else:
-        position = position[['code', 'qty']].copy()
-        position = position.rename(columns={'code':'symbol', 'qty':'quantity'})
+        position = position[['symbol', 'quantity']].copy()
 
       position['symbol'] = position['symbol'].apply(lambda x: x.split('.')[1])
       position = position.set_index('symbol')
@@ -499,19 +507,19 @@ class Futu:
     if len(position) > 0:
 
       # set symbol as index
-      position = position.set_index('code')
-      position['pl_ratio'] = position['pl_ratio'] / 100
+      position = position.set_index('symbol')
+      # position['pl_ratio'] = position['pl_ratio'] / 100
 
       # if clear all positions
       if clear_all:
         cash_out_list = position.index.tolist()
       else:
-        stop_loss_list = [] if stop_loss_rate is None else position.query(f'pl_ratio < {stop_loss_rate}').index.tolist() 
-        stop_profit_list = [] if stop_profit_rate is None else position.query(f'pl_ratio > {stop_profit_rate}').index.tolist() 
+        stop_loss_list = [] if stop_loss_rate is None else position.query(f'rate < {stop_loss_rate}').index.tolist() 
+        stop_profit_list = [] if stop_profit_rate is None else position.query(f'rate > {stop_profit_rate}').index.tolist() 
         cash_out_list = list(set(stop_loss_list + stop_profit_list))
         
       # cash out
       if len(cash_out_list) > 0:
         cash_out_position =  position.loc[cash_out_list, ].copy()
         for index, row in cash_out_position.iterrows():
-          self.trade(symbol=index, action='SELL', quantity=row['can_sell_qty'], print_summary=print_summary)
+          self.trade(symbol=index, action='SELL', quantity=row['quantity'], print_summary=print_summary)
