@@ -58,9 +58,6 @@ class Futu:
     position_dict = dict([(x[0].split('.')[1], x[1]) for x in self.positions[['code', 'qty']].values])
     for symbol in self.record.keys():
 
-      if symbol in ['net_value', 'updated']:
-        continue
-
       record_position = self.record[symbol]['position']
       current_position = 0 if (symbol not in position_dict.keys()) else position_dict[symbol]
       if current_position != record_position:
@@ -154,38 +151,6 @@ class Futu:
     return self.__position_record
 
 
-  # update net value
-  def update_net_value(self, config, net_value=None, is_print=True):
-    
-    try:
-      # get current net value in record
-      old_net_value = self.record['net_value']
-
-      # get today net value
-      if net_value is None:
-        assets = self.get_asset_summary()
-        if len(assets) > 0:
-          net_value = assets.loc[0, 'total_assets']
-        else:
-          net_value = -1
-
-      # update today net value
-      self.record['net_value'] = net_value
-
-      # print change
-      if is_print:
-        self.logger.info(f'[{self.account_type[:4]}]: updating net value {old_net_value} -> {net_value}')
-
-      # update __position_record
-      self.record['updated'] = datetime.now().strftime(format="%Y-%m-%d %H:%M:%S")
-      self.__position_record = io_util.read_config(file_path=config['config_path'], file_name='futu_position_record.json')
-      self.__position_record[self.account_type] = self.record.copy()
-      io_util.create_config_file(config_dict=self.__position_record, file_path=config['config_path'], file_name='futu_position_record.json')
-      
-    except Exception as e:
-      self.logger.exception(f'[erro]: fail updating position records for {self.account_type}, {e}')
-  
-
   # update position for an account
   def update_position_record(self, config, init_cash=None, init_position=None, start_time=None, end_time=None, is_print=True):
 
@@ -237,14 +202,55 @@ class Futu:
             self.logger.info(f'[{self.account_type[:4]}]: updating position record for {symbol} {record_cash, record_position} -> {new_cash, new_position}')
 
       # update __position_record
-      self.record['updated'] = datetime.now().strftime(format="%Y-%m-%d %H:%M:%S")
+      # self.record['updated'] = datetime.now().strftime(format="%Y-%m-%d %H:%M:%S")
       self.__position_record = io_util.read_config(file_path=config['config_path'], file_name='futu_position_record.json')
       self.__position_record[self.account_type] = self.record.copy()
+      self.__position_record['updated'][self.account_type] = datetime.now().strftime(format="%Y-%m-%d %H:%M:%S")
       io_util.create_config_file(config_dict=self.__position_record, file_path=config['config_path'], file_name='futu_position_record.json')
       
     except Exception as e:
       self.logger.exception(f'[erro]: fail updating position records for {self.account_type}, {e}')
   
+
+  # update portfolio for an account
+  def update_portfolio_record(self, config, position_summary=None, is_print=True):
+
+    # get position summary
+    if position_summary is None:
+      position_summary = self.get_position_summary(get_briefs=False)
+    position_summary.set_index('symbol', inplace=True)
+    position_summary = position_summary.round(2)
+
+    # get assets summary
+    net_value = 0
+    market_value = 0
+    cash = 0
+    asset_summary = self.get_asset_summary()
+    if len(asset_summary) > 0:
+      net_value = asset_summary.loc[0, 'total_assets']
+      market_value = asset_summary.loc[0, 'market_val']
+      cash = asset_summary.loc[0, 'cash']
+
+    # post process
+    if market_value == float('inf'):
+      market_value = position_summary['market_value'].sum().round(2)
+
+    # load portfolio record
+    portfolio_record = io_util.read_config(file_path=config['config_path'], file_name='portfolio.json')
+    old_net_value = portfolio_record['futu'][self.account_type].get('net_value')
+
+    # update portfolio record for current account
+    portfolio_record['futu'][self.account_type]['portfolio'] = position_summary.to_dict()
+    portfolio_record['futu'][self.account_type]['market_value'] = market_value
+    portfolio_record['futu'][self.account_type]['net_value'] = net_value
+    portfolio_record['futu'][self.account_type]['cash'] = cash
+    portfolio_record['futu'][self.account_type]['updated'] = datetime.now().strftime(format="%Y-%m-%d %H:%M:%S")
+    io_util.create_config_file(config_dict=portfolio_record, file_path=config['config_path'], file_name='portfolio.json')
+    
+    # print change
+    if is_print:
+      self.logger.info(f'[{self.account_type[:4]}]: net value {old_net_value} --> {net_value}')
+
 
   # get summary of positions
   def get_position_summary(self, get_briefs=False):
@@ -266,10 +272,14 @@ class Futu:
           result['rate'] = round(result['rate'] / 100, 2)
           result['latest_time'] = None
 
-      # select columns
-      result = result[['symbol', 'quantity', 'average_cost', 'latest_price', 'rate', 'market_value', 'latest_time']]
+        # select columns
+        result = result[['symbol', 'quantity', 'average_cost', 'latest_price', 'rate', 'market_value', 'latest_time']]
+      
+      else:
+        result = pd.DataFrame({'symbol':[], 'quantity':[], 'average_cost':[], 'latest_price':[], 'rate':[], 'market_value':[], 'latest_time':[]})
+
     except Exception as e:
-      result = pd.DataFrame()
+      result = pd.DataFrame({'symbol':[], 'quantity':[], 'average_cost':[], 'latest_price':[], 'rate':[], 'market_value':[], 'latest_time':[]})
       self.logger.exception(f'[erro]: can not get position summary: {e}')
 
     return result

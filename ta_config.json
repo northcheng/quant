@@ -206,7 +206,7 @@
         "pool": {
             "simulation_account": "all",
             "global_account": "tiger_pool",
-            "standard_account": "auto",
+            "standard_account": "tiger_pool",
             "SIMULATE": "all",
             "REAL": "futu_pool"
         }

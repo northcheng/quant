@@ -5,13 +5,16 @@ Utilities used for Tiger Open API
 :author: Beichen Chen
 """
 import math
-import pytz
-import time
 import logging
 import datetime
-import pandas as pd
+
 from quant import bc_util as util
 from quant import bc_data_io as io_util
+
+import pytz
+import time
+import pandas as pd
+
 from tigeropen.quote.quote_client import QuoteClient
 from tigeropen.trade.trade_client import TradeClient
 from tigeropen.tiger_open_config import TigerOpenClientConfig
@@ -50,12 +53,14 @@ class Tiger:
     self.client_config.language = Language.en_US
     self.client_config.account = self.account 
     
-    # get quote/trade clients, assets, positions, trade_time
+    # get quote/trade clients, assets, positions
     self.quote_client = QuoteClient(self.client_config)
     self.trade_client = TradeClient(self.client_config)
     self.positions = self.trade_client.get_positions(account=self.account)
     self.assets = self.trade_client.get_assets(account=self.account)
-    self.get_trade_time()
+
+    # get market status and trade time
+    self.update_trade_time()
 
     # initialize position record for symbols that not in position record
     init_cash = config['trade']['init_cash'][account_type]
@@ -64,15 +69,14 @@ class Tiger:
       if symbol not in self.record.keys():
         self.record[symbol] = {'cash': init_cash, 'position': 0}
 
-    # get record position and real position then compare to each other
-    # print(self.positions)
-    record_conflicted = False
+    # get real position (dict)
     position_dict = dict([(x.contract.symbol, x.quantity) for x in self.positions])
-    
+
+    # compare position record with real position
+    record_conflicted = False
     for symbol in self.record.keys():
-      if symbol in ['net_value', 'updated']:
-        continue
       
+      # update position in record
       record_position = self.record[symbol]['position']
       current_position = 0 if (symbol not in position_dict.keys()) else position_dict[symbol]
       if current_position != record_position:
@@ -83,7 +87,7 @@ class Tiger:
           self.record[symbol] = {'cash': init_cash, 'position': 0}
         self.logger.error(f'[{account_type[:4]}]: {symbol} position({current_position}) rather than ({record_position}), reset record')
 
-    # add record for symbol in position but not recorded
+    # add record for position that not recorded
     for symbol in [x for x in position_dict.keys() if x not in self.record.keys()]:
       record_conflicted = True
       self.record[symbol] = {'cash': 0, 'position': position_dict[symbol]}
@@ -105,38 +109,6 @@ class Tiger:
   # get position record
   def get_position_record(self):
     return self.__position_record
-
-
-  # update net value 
-  def update_net_value(self, config, net_value=None, is_print=True):
-    
-    try:
-      # get current net value in record
-      old_net_value = self.record['net_value']
-
-      # get today net value
-      if net_value is None:
-        assets = self.get_asset_summary()
-        if len(assets) > 0:
-          net_value = assets.loc[0, 'net_value']
-        else:
-          net_value = -1
-
-      # update today net value
-      self.record['net_value'] = net_value
-
-      # print change
-      if is_print:
-        self.logger.info(f'[{self.account_type[:4]}]: updating net value {old_net_value} -> {net_value}')
-
-      # update __position_record
-      self.record['updated'] = datetime.datetime.now().strftime(format="%Y-%m-%d %H:%M:%S")
-      self.__position_record = io_util.read_config(file_path=config['config_path'], file_name='tiger_position_record.json')
-      self.__position_record[self.account_type] = self.record.copy()
-      io_util.create_config_file(config_dict=self.__position_record, file_path=config['config_path'], file_name='tiger_position_record.json')
-      
-    except Exception as e:
-      self.logger.exception(f'[erro]: fail updating position records for {self.account_type}, {e}')
 
 
   # update position for an account
@@ -190,47 +162,93 @@ class Tiger:
             self.logger.info(f'[{self.account_type[:4]}]: updating position record for {symbol} {record_cash, record_position} -> {new_cash, new_position}')
 
       # update __position_record
-      self.record['updated'] = datetime.datetime.now().strftime(format="%Y-%m-%d %H:%M:%S")
+      # self.record['updated'] = datetime.datetime.now().strftime(format="%Y-%m-%d %H:%M:%S")
       self.__position_record = io_util.read_config(file_path=config['config_path'], file_name='tiger_position_record.json')
       self.__position_record[self.account_type] = self.record.copy()
+      self.__position_record['updated'][self.account_type] = datetime.datetime.now().strftime(format="%Y-%m-%d %H:%M:%S")
       io_util.create_config_file(config_dict=self.__position_record, file_path=config['config_path'], file_name='tiger_position_record.json')
       
     except Exception as e:
       self.logger.exception(f'[erro]: fail updating position records for {self.account_type}, {e}')
   
 
+  # update portfolio for an account
+  def update_portfolio_record(self, config, position_summary=None, is_print=True):
+
+    # get position summary
+    if position_summary is None:
+      position_summary = self.get_position_summary(get_briefs=False)
+    position_summary.set_index('symbol', inplace=True)
+    position_summary = position_summary.round(2)
+
+    # get asset summary
+    net_value = 0
+    market_value = 0
+    cash = 0
+    asset_summary = self.get_asset_summary()
+    if len(asset_summary) > 0:
+      net_value = asset_summary.loc[0, 'net_value']
+      market_value = asset_summary.loc[0, 'holding_value']
+      cash = asset_summary.loc[0, 'cash']
+
+    # post process
+    if market_value == float('inf'):
+      market_value = position_summary['market_value'].sum().round(2)
+
+    # load portfolio record
+    portfolio_record = io_util.read_config(file_path=config['config_path'], file_name='portfolio.json')
+    old_net_value = portfolio_record['tiger'][self.account_type].get('net_value')
+
+    # update portfolio record for current account
+    portfolio_record['tiger'][self.account_type]['portfolio'] = position_summary.to_dict()
+    portfolio_record['tiger'][self.account_type]['market_value'] = market_value
+    portfolio_record['tiger'][self.account_type]['net_value'] = net_value
+    portfolio_record['tiger'][self.account_type]['cash'] = cash
+    portfolio_record['tiger'][self.account_type]['updated'] = datetime.datetime.now().strftime(format="%Y-%m-%d %H:%M:%S")
+    io_util.create_config_file(config_dict=portfolio_record, file_path=config['config_path'], file_name='portfolio.json')
+
+    # print
+    if is_print:
+      self.logger.info(f'[{self.account_type[:4]}]: net value {old_net_value} --> {net_value}')
+
+
   # get summary of positions
   def get_position_summary(self, get_briefs=True):
 
-    # update positions
-    self.positions = self.trade_client.get_positions(account=self.client_config.account)
+    try:
+      # update positions
+      self.positions = self.trade_client.get_positions(account=self.client_config.account)
 
-    # convert positions(list) to dataframe
-    if len(self.positions) > 0:
-      result = {'symbol': [], 'quantity': [], 'average_cost': [], 'market_price': []}
-      for pos in self.positions:
-        result['symbol'].append(pos.contract.symbol)
-        result['quantity'].append(pos.quantity)
-        result['average_cost'].append(pos.average_cost)
-        result['market_price'].append(pos.market_price)
-      result = pd.DataFrame(result)
+      # convert positions(list) to dataframe
+      if len(self.positions) > 0:
+        result = {'symbol': [], 'quantity': [], 'average_cost': [], 'market_price': []}
+        for pos in self.positions:
+          result['symbol'].append(pos.contract.symbol)
+          result['quantity'].append(pos.quantity)
+          result['average_cost'].append(pos.average_cost)
+          result['market_price'].append(pos.market_price)
+        result = pd.DataFrame(result)
 
-      # get briefs for stocks in positions
-      if get_briefs:
-        status = io_util.get_stock_briefs(symbols=[x.contract.symbol for x in self.positions], source='yfinance', period='1d', interval='1m')
-        result = pd.merge(result, status, how='left', left_on='symbol', right_on='symbol')
-        result['rate'] = round((result['latest_price'] - result['average_cost']) / result['average_cost'], 2)
-        result = result[['symbol', 'quantity', 'average_cost', 'latest_price', 'rate', 'latest_time']]
+        # get briefs for stocks in positions
+        if get_briefs:
+          status = io_util.get_stock_briefs(symbols=[x.contract.symbol for x in self.positions], source='yfinance', period='1d', interval='1m')
+          result = pd.merge(result, status, how='left', left_on='symbol', right_on='symbol')
+          result['rate'] = round((result['latest_price'] - result['average_cost']) / result['average_cost'], 2)
+          result = result[['symbol', 'quantity', 'average_cost', 'latest_price', 'rate', 'latest_time']]
+        else:
+          result.rename(columns={'market_price':'latest_price'}, inplace=True)
+          result['rate'] = round((result['latest_price'] - result['average_cost']) / result['average_cost'], 2)
+          result['latest_time'] = None
+
+        # calculate market value
+        result['market_value'] = result['quantity'] * result['latest_price']
+
       else:
-        result.rename(columns={'market_price':'latest_price'}, inplace=True)
-        result['rate'] = round((result['latest_price'] - result['average_cost']) / result['average_cost'], 2)
-        result['latest_time'] = None
-
-      # calculate market value
-      result['market_value'] = result['quantity'] * result['latest_price']
-
-    else:
-      result = pd.DataFrame()
+        result = pd.DataFrame({'symbol':[], 'quantity':[], 'average_cost':[], 'latest_price':[], 'rate':[], 'market_value':[], 'latest_time':[]})
+    
+    except Exception as e:
+      result = pd.DataFrame({'symbol':[], 'quantity':[], 'average_cost':[], 'latest_price':[], 'rate':[], 'market_value':[], 'latest_time':[]})
+      self.logger.exception(f'[erro]: can not get position summary: {e}')
 
     return result
 
@@ -309,38 +327,6 @@ class Tiger:
     return quantity
 
 
-  # get trade time
-  def get_trade_time(self, market=Market.US, tz='Asia/Shanghai'):
-
-    # get local timezone
-    tz = pytz.timezone(tz)
-
-    try:
-      # get open_time
-      status = self.quote_client.get_market_status(market=market)[0]
-      open_time = status.open_time.astimezone(tz).replace(tzinfo=None)
-      if status.status in ['Trading', 'Post-Market Trading']:
-        if open_time.weekday() == 0:
-          open_time = open_time - datetime.timedelta(days=3)
-        else:
-          open_time = open_time - datetime.timedelta(days=1)
-
-      # get close time, pre_open_time, post_close_time
-      close_time = open_time + datetime.timedelta(hours=6.5)
-      pre_open_time = open_time - datetime.timedelta(hours=5.5)
-      post_close_time = close_time + datetime.timedelta(hours=4)
-
-    except Exception as e:
-      self.logger.error(e)
-      open_time = close_time = pre_open_time = post_close_time = None
-
-    self.trade_time = {
-      'status': status.status, 'tz': tz,
-      'pre_open_time': pre_open_time, 'open_time': open_time,
-      'close_time': close_time, 'post_close_time': post_close_time
-    }
-
-
   # idle for specified time and check position in certain frequency
   def idle(self, target_time, check_frequency=600):
     """
@@ -371,6 +357,46 @@ class Tiger:
       now = datetime.datetime.now()
 
     self.logger.info(f'[wake]: {now.strftime(format="%Y-%m-%d %H:%M:%S")}: exceed target time({target_time})')
+
+
+  # update trade time
+  def update_trade_time(self, market=Market.US, tz='Asia/Shanghai'):
+
+    # get local timezone
+    tz = pytz.timezone(tz)
+
+    try:
+      # get open_time
+      status = self.quote_client.get_market_status(market=market)[0]
+      current_status = status.status
+      open_time = status.open_time.astimezone(tz).replace(tzinfo=None)
+
+      # if program runs after market open, api will return trade time for next trade day, 
+      # trade time for current trade day need to be calculated manually
+      if status.status in ['Trading', 'Post-Market Trading']:
+        if open_time.weekday() == 0:
+          open_time = open_time - datetime.timedelta(days=3)
+        else:
+          open_time = open_time - datetime.timedelta(days=1)
+
+      # calculate close time, pre_open_time, post_close_time
+      close_time = open_time + datetime.timedelta(hours=6.5)
+      pre_open_time = open_time - datetime.timedelta(hours=5.5)
+      post_close_time = close_time + datetime.timedelta(hours=4)
+
+    except Exception as e:
+      self.logger.error(e)
+      current_status = None
+      open_time = None
+      close_time = None
+      pre_open_time = None
+      post_close_time = None
+
+    self.trade_time = {
+      'status': current_status, 'tz': tz,
+      'pre_open_time': pre_open_time, 'open_time': open_time,
+      'close_time': close_time, 'post_close_time': post_close_time
+    }
 
 
   # update market status

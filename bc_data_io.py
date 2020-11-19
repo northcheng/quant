@@ -1077,17 +1077,17 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
   else:
     m['Subject'] = f'[auto_trade] {current_time}'
   
-  # get asset summary
+  # get portfolio record
   assets = {}
-  if 'tiger' in platform:
-    if os.path.exists(config['config_path']+'tiger_position_record.json'):
-      pr = read_config(file_path=config['config_path'], file_name='tiger_position_record.json')
+  if os.path.exists(config['config_path']+'portfolio.json'):
+    portfolio_record = read_config(file_path=config['config_path'], file_name='portfolio.json')
+    if 'tiger' in platform:
+      pr = portfolio_record.get('tiger')
       assets['glob'] = pr.get('global_account')
       assets['simu'] = pr.get('simulation_account') 
 
-  if 'futu' in platform:
-    if os.path.exists(config['config_path']+'futu_position_record.json'):
-      pr = read_config(file_path=config['config_path'], file_name='futu_position_record.json')
+    if 'futu' in platform:
+      pr = portfolio_record.get('futu')
       assets['REAL'] = pr.get('REAL')
       assets['SIMU'] = pr.get('SIMULATE')
 
