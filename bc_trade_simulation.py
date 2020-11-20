@@ -64,6 +64,7 @@ class FixedPositionTrader:
 
   data = {}
   record = {}
+  
   cash = {} 
   stock = {}
   value = {}
