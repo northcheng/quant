@@ -489,12 +489,12 @@ class Tiger:
 
 
   # auto trade according to signals
-  def signal_trade(self, signal, money_per_sec, trading_fee=5, pool=None, according_to_record=True, minimum_position=None):
+  def signal_trade(self, signal, money_per_sec, order_type='market', trading_fee=5, pool=None, according_to_record=True, minimum_position=None):
 
     # set symbol to index
     if len(signal) > 0:
-      signal = signal.rename(columns={'代码':'symbol', '交易信号':'action'})
-      signal = signal.set_index('symbol')
+      # signal = signal.rename(columns={'代码':'symbol', '交易信号':'action'})
+      # signal = signal.set_index('symbol')
 
       # filter sec with pool
       if pool is not None:
@@ -504,9 +504,11 @@ class Tiger:
     # if signal list is not empty
     if len(signal) > 0:
       # get latest price for signals
+      
+      # if order_type == 'market':
       # signal_brief = self.quote_client.get_stock_briefs(symbols=signal.index.tolist()).set_index('symbol')
-      signal_brief = io_util.get_stock_briefs(symbols=signal.index.tolist(), source='yfinance', period='1d', interval='1m').set_index('symbol')
-      signal = pd.merge(signal, signal_brief[['latest_price']], how='left', left_index=True, right_index=True)
+      # signal_brief = io_util.get_stock_briefs(symbols=signal.index.tolist(), source='yfinance', period='1d', interval='1m').set_index('symbol')
+      # signal = pd.merge(signal, signal_brief[['latest_price']], how='left', left_index=True, right_index=True)
 
       # get in-position quantity and latest price for signals
       position = self.get_position_summary(get_briefs=False)
@@ -524,7 +526,11 @@ class Tiger:
           # check whether symbol is in positions
           in_position_quantity = signal.loc[symbol, 'quantity']
           if in_position_quantity > 0:
-            trade_summary = self.trade(symbol=symbol, action='SELL', quantity=in_position_quantity, price=None, print_summary=False)
+            if order_type == 'limit':
+              price = signal.loc[symbol, 'latest_price']
+            else:
+              price = None
+            trade_summary = self.trade(symbol=symbol, action='SELL', quantity=in_position_quantity, price=price, print_summary=False)
             self.logger.info(trade_summary)
           else:
             self.logger.info(f'[SELL]: {symbol} skipped (not in positions)')
@@ -565,7 +571,11 @@ class Tiger:
             # calculate quantity to buy
             quantity = math.floor((money_per_sec-trading_fee)/signal.loc[symbol, 'latest_price'])
             if quantity > 0:
-              trade_summary = self.trade(symbol=symbol, action='BUY', quantity=quantity, price=None, print_summary=False)
+              if order_type == 'limit':
+                price = signal.loc[symbol, 'latest_price']
+              else:
+                price = None
+              trade_summary = self.trade(symbol=symbol, action='BUY', quantity=quantity, price=price, print_summary=False)
               self.logger.info(trade_summary)
 
               # update available cash
