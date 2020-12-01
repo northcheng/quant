@@ -32,7 +32,7 @@ class Tiger:
   
 
   # init
-  def __init__(self, account_type, config, sandbox_debug=False, logger_name=None):
+  def __init__(self, account_type, config, sandbox_debug=False, logger_name=None, open_time_adj=0, close_time_adj=0):
 
     # get logger
     self.logger = Tiger.defualt_logger if (logger_name is None) else logging.getLogger(logger_name)
@@ -60,7 +60,7 @@ class Tiger:
     self.assets = self.trade_client.get_assets(account=self.account)
 
     # get market status and trade time
-    self.update_trade_time()
+    self.update_trade_time(open_time_adj=open_time_adj, close_time_adj=close_time_adj)
 
     # initialize position record for symbols that not in position record
     init_cash = config['trade']['init_cash'][account_type]
@@ -360,7 +360,7 @@ class Tiger:
 
 
   # update trade time
-  def update_trade_time(self, market=Market.US, tz='Asia/Shanghai'):
+  def update_trade_time(self, market=Market.US, tz='Asia/Shanghai', open_time_adj=0, close_time_adj=0):
 
     # get local timezone
     tz = pytz.timezone(tz)
@@ -370,6 +370,7 @@ class Tiger:
       status = self.quote_client.get_market_status(market=market)[0]
       current_status = status.status
       open_time = status.open_time.astimezone(tz).replace(tzinfo=None)
+      open_time = open_time + datetime.timedelta(hours=open_time_adj)
 
       # if program runs after market open, api will return trade time for next trade day, 
       # trade time for current trade day need to be calculated manually
@@ -380,7 +381,7 @@ class Tiger:
           open_time = open_time - datetime.timedelta(days=1)
 
       # calculate close time, pre_open_time, post_close_time
-      close_time = open_time + datetime.timedelta(hours=6.5)
+      close_time = open_time + datetime.timedelta(hours=6.5 + close_time_adj)
       pre_open_time = open_time - datetime.timedelta(hours=5.5)
       post_close_time = close_time + datetime.timedelta(hours=4)
 
