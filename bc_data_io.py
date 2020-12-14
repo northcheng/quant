@@ -12,6 +12,7 @@ import requests
 import datetime
 import zipfile
 import pickle
+import math
 import json
 import os
 
@@ -125,7 +126,113 @@ def get_data_from_yfinance(symbol, start_date=None, end_date=None, time_col='Dat
   return data 
 
 
-def get_data(symbol, start_date=None, end_date=None, source='yfinance', time_col='Date', interval='1d', is_print=False):
+def get_data_from_eod(symbol, start_date=None, end_date=None, api_key='OeAFFmMliFG5orCUuwAKQ8l4WWFQ67YX', time_col='Date', interval='d', add_dividend=True, add_split=True, is_print=False):
+  
+  url = f'https://eodhistoricaldata.com/api/eod/{symbol}?api_token={api_key}&period={interval}&fmt=json'
+  if start_date is not None:
+    url += f'&from={start_date}'
+  if end_date is not None:
+    url += f'&to={end_date}'
+    
+  response = requests.get(url)
+  eod = response.json()
+  
+  if len(eod) > 0:
+    eod_data = pd.DataFrame(eod)
+  
+    if add_dividend:
+      url = f'https://eodhistoricaldata.com/api/div/{symbol}?api_token={api_key}&fmt=json'
+      if start_date is not None:
+        url += f'&from={start_date}'
+      if end_date is not None:
+        url += f'&to={end_date}'
+
+      response = requests.get(url)
+      dividend = response.json()
+      if len(dividend) > 0:
+        dividend_data = pd.DataFrame(dividend)
+        dividend_data = dividend_data[['date', 'value']].copy()
+        dividend_data = dividend_data.rename(columns={'value':'dividend'})
+        
+        eod_data = pd.merge(eod_data, dividend_data, how='left', left_on='date', right_on='date')
+        eod_data['dividend'] = eod_data['dividend'].fillna(0.0)
+        
+    if add_split:
+      url = f'https://eodhistoricaldata.com/api/splits/{symbol}?api_token={api_key}&fmt=json'
+      if start_date is not None:
+        url += f'&from={start_date}'
+      if end_date is not None:
+        url += f'&to={end_date}'
+        
+      response = requests.get(url)
+      split = response.json()
+      if len(split) > 0:
+        split_data = pd.DataFrame(split)
+        split_data.split = split_data.split.apply(lambda x: float(x.split('/')[0])/float(x.split('/')[1]))
+        
+        eod_data = pd.merge(eod_data, split_data, how='left', left_on='date', right_on='date')
+        eod_data['split'] = eod_data['split'].fillna(1.0)
+        
+    if 'dividend' not in eod_data.columns:
+      eod_data['dividend'] = 0.0
+    if 'split' not in eod_data.columns:
+      eod_data['split'] = 1.0
+      
+  else:
+    eod_data = pd.DataFrame()
+  
+  if is_print:
+    print(response)
+
+  eod_data = post_process_download_data(df=eod_data, source='eod')
+  return eod_data
+
+
+def get_real_time_data_from_eod(symbol_list, api_key = 'OeAFFmMliFG5orCUuwAKQ8l4WWFQ67YX', is_print=False, batch_size=15):
+  
+  batch_number = math.ceil(len(symbol_list)/batch_size)
+  batch_start = 0
+  batch_end = batch_size
+  
+  result = pd.DataFrame()
+  for i in range(batch_number):
+    batch_start = i * batch_size
+    batch_end = (i+1) * batch_size
+    
+    tmp_list = symbol_list[batch_start:batch_end]
+    first_symbol = tmp_list[0]
+    other_symbols = ','.join(tmp_list[1:])
+  
+    url = f'https://eodhistoricaldata.com/api/real-time/{first_symbol}?api_token={api_key}&fmt=json&s={other_symbols}'
+    response = requests.get(url)
+    real_time = response.json()
+    
+    if is_print:
+      print(f'{i} - {response}')
+  
+    if type(real_time) == dict:
+      real_time = [real_time]
+    
+    real_time_data = pd.DataFrame(real_time)
+    real_time_data['last_updated'] = real_time_data.timestamp.apply(util.timestamp_2_time, args=['s'])
+  
+    if 'Adj Close' not in real_time_data.columns:
+      real_time_data['Adj Close'] = real_time_data['close']
+    if 'dividend' not in real_time_data.columns:
+      real_time_data['dividend'] = 0.0
+    if 'split' not in real_time_data.columns:
+      real_time_data['split'] = 1.0
+      
+    result = result.append(real_time_data)
+    
+  result.rename(columns={'code':'Symbol', 'open':'Open', 'high':'High', 'low':'Low', 'close':'Close', 'adjusted_close': 'Adj Close', 'volume': 'Volume', 'dividend':'Dividend', 'split': 'Split'}, inplace=True)
+  result.set_index('Symbol', inplace=True)
+  result.drop(['timestamp', 'gmtoffset'], axis=1, inplace=True)
+    
+  return result[['Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume', 'Dividend', 'Split', 'previousClose', 'change', 'change_p', 'last_updated']]
+
+
+def get_data(symbol, start_date=None, end_date=None, source='yfinance', time_col='Date', interval='1d', is_print=False, api_key=None, add_dividend=True, add_split=True):
   """
   Download stock data from web sources
 
@@ -150,6 +257,9 @@ def get_data(symbol, start_date=None, end_date=None, source='yfinance', time_col
     elif source == 'yfinance':
       data = get_data_from_yfinance(symbol=symbol, interval=interval, start_date=start_date, end_date=end_date, time_col=time_col, is_print=is_print)
     
+    # eod
+    elif source == 'eod':
+      data = get_data_from_eod(symbol=symbol, interval=interval, start_date=start_date, end_date=end_date, time_col=time_col, is_print=is_print, api_key=api_key, add_dividend=add_dividend, add_split=add_split)
     # otherwise
     else:
       print(f'data source {source} not found')
@@ -216,8 +326,6 @@ def get_stock_briefs_from_yfinance(symbols, period='1d', interval='1m'):
     else:
       print('ticker_data is empty')
 
-    
-
   return latest_data
 
 
@@ -271,6 +379,11 @@ def post_process_download_data(df, source):
     elif source == 'yahoo':
       df['Split'] = 1
       df['Dividend'] = 0
+
+    # post process data downloaded from eod
+    elif source == 'eod':
+      df = df.rename(columns={'date':'Date', 'open':'Open', 'high':'High', 'low':'Low', 'close':'Close', 'adjusted_close': 'Adj Close', 'volume': 'Volume', 'dividend':'Dividend', 'split': 'Split'})
+      df = util.df_2_timeseries(df=df, time_col='Date')   
 
   return df
 
