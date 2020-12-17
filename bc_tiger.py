@@ -41,6 +41,7 @@ class Tiger:
     self.__user_info = io_util.read_config(file_path=config['tiger_path'], file_name='user_info.json')
     self.__position_record = io_util.read_config(file_path=config['config_path'], file_name='tiger_position_record.json')
     self.record = self.__position_record[account_type].copy()
+    self.eod_api_key = config['api_key']['eod']
 
     # set account, account type
     self.account = self.__user_info[account_type]
@@ -231,7 +232,7 @@ class Tiger:
 
         # get briefs for stocks in positions
         if get_briefs:
-          status = io_util.get_stock_briefs(symbols=[x.contract.symbol for x in self.positions], source='yfinance', period='1d', interval='1m')
+          status = io_util.get_stock_briefs(symbols=[x.contract.symbol for x in self.positions], source='eod', period='1d', interval='1m', api_key=self.eod_api_key)
           result = pd.merge(result, status, how='left', left_on='symbol', right_on='symbol')
           result['rate'] = round((result['latest_price'] - result['average_cost']) / result['average_cost'], 2)
           result = result[['symbol', 'quantity', 'average_cost', 'latest_price', 'rate', 'latest_time']]
@@ -318,7 +319,7 @@ class Tiger:
     available_cash = self.get_available_cash() if (cash is None) else cash
 
     # get latest price of stock
-    stock_brief = io_util.get_stock_briefs(symbols=[symbol], source='yfinance', period='1d', interval='1m').set_index('symbol')
+    stock_brief = io_util.get_stock_briefs(symbols=[symbol], source='eod', period='1d', interval='1m', api_key=self.eod_api_key).set_index('symbol')
     latest_price = stock_brief.loc[symbol, 'latest_price']
 
     # check if it is affordable
@@ -507,7 +508,7 @@ class Tiger:
       
       # if order_type == 'market':
       # signal_brief = self.quote_client.get_stock_briefs(symbols=signal.index.tolist()).set_index('symbol')
-      # signal_brief = io_util.get_stock_briefs(symbols=signal.index.tolist(), source='yfinance', period='1d', interval='1m').set_index('symbol')
+      # signal_brief = io_util.get_stock_briefs(symbols=signal.index.tolist(), source='eod', period='1d', interval='1m', api_key=self.eod_api_key).set_index('symbol')
       # signal = pd.merge(signal, signal_brief[['latest_price']], how='left', left_index=True, right_index=True)
 
       # get in-position quantity and latest price for signals

@@ -55,6 +55,7 @@ def load_config(root_paths):
   config['desktop_path'] = config['home_path'] + 'Desktop/'
   config['quant_path'] = config['home_path'] + 'quant/'
   config['data_path'] = config['quant_path'] + 'stock_data/'
+  config['api_path'] = config['quant_path'] + 'api_key/'
   config['tiger_path'] = config['quant_path'] + 'tigeropen/'
   config['futu_path'] = config['quant_path'] + 'futuopen/'
   config['result_path'] = config['quant_path'] + 'ta_model/'
@@ -63,12 +64,14 @@ def load_config(root_paths):
   # load sec lists
   config['selected_sec_list'] = io_util.read_config(file_path=config['config_path'], file_name='selected_sec_list.json')
 
+  # load data api
+  config['api_key'] = io_util.read_config(file_path=config['api_path'], file_name='api_key.json')
+
   # load calculation and visulization parameters
   ta_config = io_util.read_config(file_path=config['config_path'], file_name='ta_config.json')
   config.update(ta_config)
 
   return config
-
 
 # load local data
 def load_data(symbols, config, load_empty_data=False, load_derived_data=False):
@@ -105,7 +108,6 @@ def load_data(symbols, config, load_empty_data=False, load_derived_data=False):
           print(f'{file_name} not exists')
       
   return data
-
 
 # remove invalid records from downloaded stock data
 def preprocess_sec_data(df, symbol, interval, print_error=True):
@@ -175,7 +177,6 @@ def preprocess_sec_data(df, symbol, interval, print_error=True):
   df = add_candlestick_features(df=df)
   
   return df
-
 
 # calculate trends from ta indicators
 def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indicators, other_indicators, signal_threshold=0.001):
@@ -364,7 +365,6 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
 
   return df
 
-
 # calculate ta signal
 def calculate_ta_signal(df):
   """
@@ -422,7 +422,6 @@ def calculate_ta_signal(df):
 
   return df
 
-
 # calculate certain selected ta indicators
 def calculate_ta_data(df, symbol, interval, trend_indicators=['ichimoku', 'aroon', 'adx', 'psar', 'renko'], volume_indicators=[], volatility_indicators=['bb'], other_indicators=[], signal_threshold=0.001):
   """
@@ -469,7 +468,6 @@ def calculate_ta_data(df, symbol, interval, trend_indicators=['ichimoku', 'aroon
 
   return df
 
-
 # visualize ta indicators
 def visualize_ta_data(df, start=None, end=None, title=None, save_path=None, visualization_args={}):
   """
@@ -497,7 +495,6 @@ def visualize_ta_data(df, start=None, end=None, title=None, save_path=None, visu
       show_image=is_show, save_image=is_save, save_path=save_path)
   except Exception as e:
     print(phase, e)
-
 
 # post-process calculation results
 def postprocess_ta_result(df, keep_columns, drop_columns):

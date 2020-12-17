@@ -128,108 +128,132 @@ def get_data_from_yfinance(symbol, start_date=None, end_date=None, time_col='Dat
 
 
 def get_data_from_eod(symbol, start_date=None, end_date=None, time_col='Date', interval='d', is_print=False, api_key=default_eod_key, add_dividend=True, add_split=True):
-  
-  url = f'https://eodhistoricaldata.com/api/eod/{symbol}?api_token={api_key}&period={interval}&fmt=json'
+  """
+  Download stock data from EOD
+
+  :param symbol: target symbol
+  :param start_date: start date of the data
+  :param end_date: end date of the data
+  :param time_col: column name of datetime column
+  :param interval: available values - d, w, m
+  :param is_print: whether to print download information
+  :param api_key: api token to access eod data
+  :param add_dividend: whether to add dividend data
+  :param add_split: whether to add split data
+  :returns: dataframe or None
+  :raises: exception when downloading failed
+  """
+  # from - to parameters
+  from_to = ''
   if start_date is not None:
-    url += f'&from={start_date}'
+    from_to += f'&from={start_date}'
   if end_date is not None:
-    url += f'&to={end_date}'
-    
+    from_to += f'&to={end_date}'
+
+  # url format to access eod data from EOD
+  url = f'https://eodhistoricaldata.com/api/eod/{symbol}?api_token={api_key}&period={interval}&fmt=json{from_to}'
+  
+  # get eod data
   response = requests.get(url)
   if is_print:
-    print(symbol)
-    print('data', response, end=', ')
+    print(f'{symbol}: data {response}', end=', ')
+  eod = [] if response.status_code!=200 else response.json()
   
-  if response.status_code==200:
-    eod = response.json()
-  else: 
-    eod = []
-  
+  # post process eod data, add dividend and split(optional)
   if len(eod) > 0:
+
+    # convert downloaded data from json to dataframe
     eod_data = pd.DataFrame(eod)
   
+    # add dividend data
     if add_dividend:
-      url = f'https://eodhistoricaldata.com/api/div/{symbol}?api_token={api_key}&fmt=json'
-      if start_date is not None:
-        url += f'&from={start_date}'
-      if end_date is not None:
-        url += f'&to={end_date}'
 
+      # get dividend data
+      url = f'https://eodhistoricaldata.com/api/div/{symbol}?api_token={api_key}&fmt=json{from_to}'
       response = requests.get(url)
       if is_print:
-        print('dividend', response, end=', ')
+        print(f'dividend {response}', end=', ')
+      dividend = [] if response.status_code!=200 else response.json()
 
-      if response.status_code==200:
-        dividend = response.json()
-      else:
-        dividend = []
-
+      # post process dividend data
       if len(dividend) > 0:
         dividend_data = pd.DataFrame(dividend)
         dividend_data = dividend_data[['date', 'value']].copy()
         dividend_data = dividend_data.rename(columns={'value':'dividend'})
-        
         eod_data = pd.merge(eod_data, dividend_data, how='left', left_on='date', right_on='date')
         eod_data['dividend'] = eod_data['dividend'].fillna(0.0)
-        
+    
+    # add split data
     if add_split:
-      url = f'https://eodhistoricaldata.com/api/splits/{symbol}?api_token={api_key}&fmt=json'
-      if start_date is not None:
-        url += f'&from={start_date}'
-      if end_date is not None:
-        url += f'&to={end_date}'
-        
+
+      # get split data
+      url = f'https://eodhistoricaldata.com/api/splits/{symbol}?api_token={api_key}&fmt=json{from_to}'  
       response = requests.get(url)
       if is_print:
-        print('split', response)
+        print(f'split {response}')
+      split = [] if response.status_code!=200 else response.json()
 
-      if response.status_code==200:
-        split = response.json()
-      else:
-        split = []
-
+      # post process dividend data
       if len(split) > 0:
         split_data = pd.DataFrame(split)
         split_data.split = split_data.split.apply(lambda x: float(x.split('/')[0])/float(x.split('/')[1]))
-        
         eod_data = pd.merge(eod_data, split_data, how='left', left_on='date', right_on='date')
         eod_data['split'] = eod_data['split'].fillna(1.0)
         
+    # fill na values for dividend and split    
     if 'dividend' not in eod_data.columns:
       eod_data['dividend'] = 0.0
     if 'split' not in eod_data.columns:
       eod_data['split'] = 1.0
       
+  # if eod data not available, return empty dataframe
   else:
     eod_data = pd.DataFrame()
 
+  # convert to timeseries dataframe, rename columns
   eod_data = post_process_download_data(df=eod_data, source='eod')
+  
   return eod_data
 
 
-def get_real_time_data_from_eod(symbols, api_key=default_eod_key, is_print=False, batch_size=15):
-  
+def get_real_time_data_from_eod(symbols, api_key=default_eod_key, is_print=False, batch_size=20):
+  """
+  Download real-time stock data from EOD
+
+  :param symbols: list of symbols
+  :param api_key: api token to access eod data
+  :param is_print: whether to print download information
+  :param batch_size: batch size of symbols of getting real-time data
+  :returns: dataframe or None
+  :raises: exception when downloading failed
+  """
+
+  # initialize result
+  result = pd.DataFrame()
+
+  # divid symbol list into batches
   symbol_list_len = len(symbols)
   batch_start = 0
-  result = pd.DataFrame()
   while batch_start < symbol_list_len:
     
+    # calculate batch end according to batch start and batch size
     batch_end = batch_start + batch_size
     
+    # get temporal symbol list
     tmp_list = symbols[batch_start:batch_end]
     first_symbol = tmp_list[0]
     other_symbols = ','.join(tmp_list[1:])
   
+    # get real-time data for current batch
     url = f'https://eodhistoricaldata.com/api/real-time/{first_symbol}?api_token={api_key}&fmt=json&s={other_symbols}'
     response = requests.get(url)
-    real_time = response.json()
+    real_time = [] if response.status_code!=200 else response.json()
+    real_time = [real_time] if isinstance(real_time, dict) else real_time
     
     if is_print:
       print(f'{batch_start}:{batch_end} - {response}')
   
-    if type(real_time) == dict:
-      real_time = [real_time]
-    
+    # post process downloaded real-time data
     real_time_data = pd.DataFrame(real_time)
     tz = datetime.timezone(datetime.timedelta(hours=-5))
     for idx, row in real_time_data.iterrows():
@@ -240,7 +264,8 @@ def get_real_time_data_from_eod(symbols, api_key=default_eod_key, is_print=False
     real_time_data['Adj Close'] = real_time_data['close'].copy()
     real_time_data['dividend'] = 0.0
     real_time_data['split'] = 1.0
-      
+    
+    # concate batches of real-time data 
     result = result.append(real_time_data)
     batch_start = batch_end
     
@@ -250,7 +275,7 @@ def get_real_time_data_from_eod(symbols, api_key=default_eod_key, is_print=False
   return result
 
 
-def get_data(symbol, start_date=None, end_date=None, source='yfinance', time_col='Date', interval='1d', is_print=False, api_key=default_eod_key, add_dividend=True, add_split=True):
+def get_data(symbol, start_date=None, end_date=None, source='eod', time_col='Date', interval='1d', is_print=False, api_key=default_eod_key, add_dividend=True, add_split=True):
   """
   Download stock data from web sources
 
@@ -259,8 +284,11 @@ def get_data(symbol, start_date=None, end_date=None, source='yfinance', time_col
   :param end_date: end date of the data
   :param source: datasrouce: 'yahoo' or 'yfinance'
   :param time_col: column name of datetime column
-  :param interval: period, for yahoo: d/w/m/v; for yfinance: 1d/1wk/1mo;
+  :param interval: period, for yahoo: d/w/m/v; for yfinance: 1d/1wk/1mo; for eod: d/w/m
   :param is_print: whether to print download information
+  :param api_key: api token to access eod data
+  :param add_dividend: whether to add dividend data
+  :param add_split: whether to add split data
   :returns: dataframe 
   :raises: exception when downloading failed
   """
@@ -291,7 +319,7 @@ def get_data(symbol, start_date=None, end_date=None, source='yfinance', time_col
 
 def get_stock_briefs_from_yfinance(symbols, period='1d', interval='1m'):
   """
-  Get latest stock data for symbols
+  Get latest stock data for symbols from yahoo
 
   :param symbols: list of target symbols
   :param period: how long the period you want to download data
@@ -348,15 +376,23 @@ def get_stock_briefs_from_yfinance(symbols, period='1d', interval='1m'):
   return latest_data
 
 
-def get_stock_briefs_from_eod(symbols, api_key=default_eod_key, batch_size=15):
+def get_stock_briefs_from_eod(symbols, api_key=default_eod_key, batch_size=20):
+  """
+  Get latest stock data for symbols from eod
 
-  latest_data = get_real_time_data_from_eod(symbols=symbols, api_key=api_key, batch_size=batch_size)
+  :param symbols: list of target symbols
+  :param api_key: api token to access eod data
+  :param batch_size: batch size of symbols of getting real-time data
+  :returns: dataframe of latest data, per row for each symbol
+  :raises: none
+  """
+  latest_data = get_real_time_data_from_eod(symbols=symbols, api_key=api_key, batch_size=batch_size, is_print=True)
   latest_data['latest_price'] = latest_data['Close'].copy()
 
   return latest_data[['latest_time', 'Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume', 'symbol', 'latest_price', 'Date']]
 
 
-def get_stock_briefs(symbols, source='yfinance', period='1d', interval='1m', api_key=default_eod_key, batch_size=15):
+def get_stock_briefs(symbols, source='eod', period='1d', interval='1m', api_key=default_eod_key, batch_size=20):
   """
   Get latest stock data for symbols
 
@@ -364,6 +400,8 @@ def get_stock_briefs(symbols, source='yfinance', period='1d', interval='1m', api
   :param source: data source
   :param period: how long the period to download
   :param interval: in which interval to download
+  :param api_key: api token to access eod data
+  :param batch_size: batch size of symbols of getting real-time data
   :returns: dataframe of latest stock data, per row each symbol
   :raises: none
   """
@@ -586,7 +624,7 @@ def update_stock_data_from_yfinance_by_date(symbols, stock_data_path, file_forma
     return data
 
 
-def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', required_date=None, is_print=False, is_return=False, is_save=True, api_key=default_eod_key, add_dividend=True, add_split=True, batch_size=15):
+def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', required_date=None, is_print=False, is_return=False, is_save=True, api_key=default_eod_key, add_dividend=True, add_split=True, batch_size=20):
 
   # get the existed data and its latest date for each symbols
   data = {}
@@ -611,15 +649,17 @@ def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', req
   # update eod data for each symbol
   for symbol in symbols:
 
-    if is_print:
-      print(symbol, end=', ')
-
+    # get end-point of currently existed data
     tmp_data_date = None
     tmp_data = data[symbol]
     if len(tmp_data) > 0:
       tmp_data_date = util.time_2_string(tmp_data.index.max())
     
+    # if data is not up-to-date
     if tmp_data_date is None or tmp_data_date < latest_date:
+      if is_print:
+        from_str = 'start' if tmp_data_date is None else tmp_data_date
+        print(f'updating ', end=f'from {from_str} ')
     
       # download latest data for current symbol
       new_data = get_data_from_eod(symbol, start_date=tmp_data_date, end_date=required_date, time_col='Date', interval='d', is_print=is_print, api_key=api_key, add_dividend=add_dividend, add_split=add_split)
@@ -628,16 +668,19 @@ def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', req
       data[symbol] = data[symbol].append(new_data, sort=True)
       data[symbol] = util.remove_duplicated_index(df=data[symbol], keep='last').dropna()
 
+    # if data is up-to-date
     else:
       if is_print:
-        print('data is up-to-date, skip updating')
+        print(f'{symbol}: already up-to-date, skip updating')
       continue
 
-  # save 
-  if is_save:
-    for symbol in data.keys():
+    if is_save:
       save_stock_data(df=data[symbol], file_path=stock_data_path, file_name=symbol, file_format=file_format, reset_index=True, index=False)
-  else:
+
+  # add real-time data 
+  if is_return:
+    if is_print:
+      print('querying real-time data')
     real_time_data = get_real_time_data_from_eod(symbols=symbols, api_key=api_key, is_print=is_print, batch_size=batch_size)
     real_time_data = util.df_2_timeseries(df=real_time_data, time_col='Date')
     for symbol in symbols:
@@ -650,7 +693,7 @@ def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', req
     return data
 
 
-def update_stock_data(symbols, stock_data_path, file_format='.csv', source='yfinance', by='date', required_date=None, is_print=False, is_return=False, is_save=True):
+def update_stock_data(symbols, stock_data_path, file_format='.csv', source='eod', by='date', required_date=None, is_print=False, is_return=False, is_save=True, api_key=default_eod_key, add_dividend=True, add_split=True, batch_size=20):
   """
   update local stock data
 
@@ -675,7 +718,7 @@ def update_stock_data(symbols, stock_data_path, file_format='.csv', source='yfin
     elif by == 'stock':
       result = update_stock_data_from_yfinance_by_stock(symbols=symbols, stock_data_path=stock_data_path, file_format=file_format, required_date=required_date, is_print=is_print, is_return=is_return, is_save=is_save)
   elif source == 'eod':
-    result = update_stock_data_from_eod(symbols=symbols, stock_data_path=stock_data_path, file_format=file_format, required_date=required_date, is_print=is_print, is_return=is_return, is_save=is_save, api_key=default_eod_key, add_dividend=True, add_split=True, batch_size=15)
+    result = update_stock_data_from_eod(symbols=symbols, stock_data_path=stock_data_path, file_format=file_format, required_date=required_date, is_print=is_print, is_return=is_return, is_save=is_save, api_key=api_key, add_dividend=add_dividend, add_split=add_split, batch_size=batch_size)
   else:
     print(f'unknown source: {source}')
 

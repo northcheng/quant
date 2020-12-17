@@ -30,6 +30,7 @@ class Futu:
     self.__user_info = io_util.read_config(file_path=config['futu_path'], file_name='user_info.json')
     self.__position_record = io_util.read_config(file_path=config['config_path'], file_name='futu_position_record.json')
     self.record = self.__position_record[account_type].copy()
+    self.eod_api_key = config['api_key']['eod']
 
     # set account type
     self.account_type = account_type
@@ -262,7 +263,7 @@ class Futu:
       if len(result) > 0:
         result.rename(columns={'code':'symbol', 'qty':'quantity', 'cost_price': 'average_cost'}, inplace=True)
         if get_briefs:
-          status = io_util.get_stock_briefs(symbols=[x.split('.')[1] for x in result.symbol.tolist()], source='yfinance', period='1d', interval='1m')
+          status = io_util.get_stock_briefs(symbols=[x.split('.')[1] for x in result.symbol.tolist()], source='eod', period='1d', interval='1m', api_key=self.eod_api_key)
           status['symbol'] = f'{self.market}.' + status['symbol']
           result = pd.merge(result, status, how='left', left_on='symbol', right_on='symbol')
           result['rate'] = round((result['latest_price'] - result['average_cost']) / result['average_cost'], 2)
@@ -341,7 +342,7 @@ class Futu:
       available_cash = self.get_available_cash() if (cash is None) else cash
 
       # get latest price of stock
-      stock_brief = io_util.get_stock_briefs(symbols=[symbol], source='yfinance', period='1d', interval='1m').set_index('symbol')
+      stock_brief = io_util.get_stock_briefs(symbols=[symbol], source='eod', period='1d', interval='1m', api_key=self.eod_api_key).set_index('symbol')
       latest_price = stock_brief.loc[symbol, 'latest_price']
 
       # check if it is affordable
@@ -428,7 +429,7 @@ class Futu:
     # if signal list is not empty
     if len(signal) > 0:
       # # get latest price for signals
-      # signal_brief = io_util.get_stock_briefs(symbols=signal.index.tolist(), source='yfinance', period='1d', interval='1m').set_index('symbol')
+      # signal_brief = io_util.get_stock_briefs(symbols=signal.index.tolist(), source='eod', period='1d', interval='1m', api_key=self.eod_api_key).set_index('symbol')
       # signal = pd.merge(signal, signal_brief[['latest_price']], how='left', left_index=True, right_index=True)
 
       # get in-position quantity and latest price for signals
