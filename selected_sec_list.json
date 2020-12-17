@@ -32,7 +32,7 @@
 		  "002032.SZ", "002372.SZ", "002271.SZ", "000963.SZ", "000002.SZ"
 	],
 
-	"test": ["AAPL"],
+	"test": ["AAPL", "TQQQ", "SQQQ"],
 
 	"tiger_pool": ["UPRO","UDOW","TQQQ","CHAU","CQQQ","YINN","SOXL","TECL","GLD"],
 
