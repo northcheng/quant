@@ -509,7 +509,7 @@ def update_stock_data_from_yfinance(symbol, data=None, is_print=True):
 
 def update_stock_data_from_yfinance_by_stock(symbols, stock_data_path, file_format='.csv', required_date=None, is_print=False, is_return=False, is_save=True):
   """
-  update local stock data from yfinance
+  update local stock data from yfinance by stock
 
   :param symbols: list of target symbols
   :param stock_data_path: where the local stock data files(.csv) stored
@@ -572,7 +572,7 @@ def update_stock_data_from_yfinance_by_stock(symbols, stock_data_path, file_form
 
 def update_stock_data_from_yfinance_by_date(symbols, stock_data_path, file_format='.csv', required_date=None, is_print=False, is_return=False, is_save=True):
   """
-  update local stock data from alphavantage
+  update local stock data from yahoo by date
 
   :param symbols: list of target symbols
   :param stock_data_path: where the local stock data files(.csv) stored
@@ -648,8 +648,32 @@ def update_stock_data_from_yfinance_by_date(symbols, stock_data_path, file_forma
 
 
 def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', required_date=None, is_print=False, is_return=False, is_save=True, api_key=default_eod_key, add_dividend=True, add_split=True, batch_size=15):
+  """
+  update local stock data from eod
 
+  :param symbols: list of target symbols
+  :param stock_data_path: where the local stock data files(.csv) stored
+  :param file_format: default is .csv
+  :param required_date: if the local data have already meet the required date, it won't be updated
+  :param is_print: whether to print info when downloading
+  :param is_return: whether to return the updated data
+  :param is_save: whether to save the updated data to local files
+  :param api_key: api token to access eod data
+  :param add_dividend: whether to add dividend data
+  :param add_split: whether to add split data
+  :param batch_size: batch size of symbols of getting real-time data
+  :returns: dataframe of latest stock data, per row each symbol
+  :raises: none
+  """
+
+  # init data
   data = {}
+
+  # get the benchmark of eod data
+  today = util.time_2_string(datetime.datetime.today().date())
+  start_date = util.string_plus_day(today, -7)
+  benchmark_data = get_data_from_eod(symbol='AAPL', start_date=start_date, end_date=today, interval='d', is_print=False, api_key=api_key, add_dividend=False, add_split=False)
+  benchmark_date = util.time_2_string(benchmark_data.index.max())
 
   # get the existed data and its latest date for each symbols
   print(f'******************** updating eod-data ********************')
@@ -668,20 +692,27 @@ def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', req
 
     # init tmp_data, print updating info
     tmp_data = data[symbol]
-    if is_print:
-      from_str = 'from 0000-00-00 ' if tmp_data_date is None else f'from {tmp_data_date} '
-      print(f'updating ', end=from_str)
-    
-    # download latest data for current symbol
-    new_data = get_data_from_eod(symbol, start_date=tmp_data_date, end_date=required_date, interval='d', is_print=is_print, api_key=api_key, add_dividend=add_dividend, add_split=add_split)
-  
-    # append new data to the origin
-    data[symbol] = data[symbol].append(new_data, sort=True)
-    data[symbol] = util.remove_duplicated_index(df=data[symbol], keep='last').dropna()
 
-    # save data to local csv files
-    if is_save:
-      save_stock_data(df=data[symbol], file_path=stock_data_path, file_name=symbol, file_format=file_format, reset_index=True, index=False)
+    # update eod data
+    if tmp_data_date is None or tmp_data_date < benchmark_date:
+      if is_print:
+        from_str = 'from 0000-00-00 ' if tmp_data_date is None else f'from {tmp_data_date} '
+        print(f'updating ', end=from_str)
+      
+      # download latest data for current symbol
+      new_data = get_data_from_eod(symbol, start_date=tmp_data_date, end_date=required_date, interval='d', is_print=is_print, api_key=api_key, add_dividend=add_dividend, add_split=add_split)
+    
+      # append new data to the origin
+      data[symbol] = data[symbol].append(new_data, sort=True)
+      data[symbol] = util.remove_duplicated_index(df=data[symbol], keep='last').dropna()
+
+      # save data to local csv files
+      if is_save:
+        save_stock_data(df=data[symbol], file_path=stock_data_path, file_name=symbol, file_format=file_format, reset_index=True, index=False)
+    
+    else:
+      if is_print:
+        print(f'updating from {tmp_data_date} {symbol:4}: already up-to-date, skip')
 
   # add real-time data when requiring data return and data will NOT be saved
   if is_return:
