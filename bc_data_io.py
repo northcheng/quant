@@ -216,7 +216,7 @@ def get_data_from_eod(symbol, start_date=None, end_date=None, time_col='Date', i
   return eod_data
 
 
-def get_real_time_data_from_eod(symbols, api_key=default_eod_key, is_print=False, batch_size=20):
+def get_real_time_data_from_eod(symbols, api_key=default_eod_key, is_print=False, batch_size=15):
   """
   Download real-time stock data from EOD
 
@@ -376,7 +376,7 @@ def get_stock_briefs_from_yfinance(symbols, period='1d', interval='1m'):
   return latest_data
 
 
-def get_stock_briefs_from_eod(symbols, api_key=default_eod_key, batch_size=20):
+def get_stock_briefs_from_eod(symbols, api_key=default_eod_key, batch_size=15):
   """
   Get latest stock data for symbols from eod
 
@@ -392,7 +392,7 @@ def get_stock_briefs_from_eod(symbols, api_key=default_eod_key, batch_size=20):
   return latest_data[['latest_time', 'Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume', 'symbol', 'latest_price', 'Date']]
 
 
-def get_stock_briefs(symbols, source='eod', period='1d', interval='1m', api_key=default_eod_key, batch_size=20):
+def get_stock_briefs(symbols, source='eod', period='1d', interval='1m', api_key=default_eod_key, batch_size=15):
   """
   Get latest stock data for symbols
 
@@ -624,7 +624,7 @@ def update_stock_data_from_yfinance_by_date(symbols, stock_data_path, file_forma
     return data
 
 
-def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', required_date=None, is_print=False, is_return=False, is_save=True, api_key=default_eod_key, add_dividend=True, add_split=True, batch_size=20):
+def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', required_date=None, is_print=False, is_return=False, is_save=True, api_key=default_eod_key, add_dividend=True, add_split=True, batch_size=15):
 
   # get the existed data and its latest date for each symbols
   data = {}
@@ -693,7 +693,7 @@ def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', req
     return data
 
 
-def update_stock_data(symbols, stock_data_path, file_format='.csv', source='eod', by='date', required_date=None, is_print=False, is_return=False, is_save=True, api_key=default_eod_key, add_dividend=True, add_split=True, batch_size=20):
+def update_stock_data(symbols, stock_data_path, file_format='.csv', source='eod', by='date', required_date=None, is_print=False, is_return=False, is_save=True, api_key=default_eod_key, add_dividend=True, add_split=True, batch_size=15):
   """
   update local stock data
 
