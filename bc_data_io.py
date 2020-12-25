@@ -647,7 +647,7 @@ def update_stock_data_from_yfinance_by_date(symbols, stock_data_path, file_forma
     return data
 
 
-def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', required_date=None, is_print=False, is_return=False, is_save=True, api_key=default_eod_key, add_dividend=True, add_split=True, batch_size=15):
+def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', required_date=None, window_size=1, is_print=False, is_return=False, is_save=True, api_key=default_eod_key, add_dividend=True, add_split=True, batch_size=15, force_update=False):
   """
   update local stock data from eod
 
@@ -674,6 +674,7 @@ def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', req
   start_date = util.string_plus_day(today, -7)
   benchmark_data = get_data_from_eod(symbol='AAPL', start_date=start_date, end_date=today, interval='d', is_print=False, api_key=api_key, add_dividend=False, add_split=False)
   benchmark_date = util.time_2_string(benchmark_data.index.max())
+  start_date = util.string_plus_day(benchmark_date, -window_size)
 
   # get the existed data and its latest date for each symbols
   print(f'******************** updating eod-data ********************')
@@ -687,6 +688,7 @@ def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', req
       data[symbol] = load_stock_data(file_path=stock_data_path, file_name=symbol)
       if len(data[symbol]) > 0:
         tmp_data_date = util.time_2_string(data[symbol].index.max())
+        tmp_data_date = min(start_date, tmp_data_date)
     else:
       data[symbol] = pd.DataFrame()
 
@@ -694,7 +696,7 @@ def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', req
     tmp_data = data[symbol]
 
     # update eod data
-    if tmp_data_date is None or tmp_data_date < benchmark_date:
+    if force_update or (tmp_data_date is None or tmp_data_date < benchmark_date):
       if is_print:
         from_str = 'from 0000-00-00 ' if tmp_data_date is None else f'from {tmp_data_date} '
         print(f'updating ', end=from_str)
