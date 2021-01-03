@@ -20,7 +20,7 @@ import yfinance as yf
 import pandas_datareader.data as web 
 from pandas_datareader.nasdaq_trader import get_nasdaq_symbols
 
-# mail modules
+# mail process
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
@@ -30,15 +30,18 @@ from email.mime.application import MIMEApplication
 # self defined
 from quant import bc_util as util
 
+# global variables
 default_eod_key = 'OeAFFmMliFG5orCUuwAKQ8l4WWFQ67YX'
 
 
 #----------------------------- Stock Data -------------------------------------#
-def get_symbols(remove_invalid=True):
+def get_symbols(remove_invalid=True, save_path=None, save_name='symbol_list.csv'):
   """
   Get Nasdaq stock list
 
   :param remove_invalid: whether to remove invalid stock symbols from external stock list (.csv)
+  :param save_path: where to save the symbol list, generally it will be saved at ~/quant/stock/data/
+  :param save_name: the name of the saved symbol list file, defaultly it will be symbol_list.csv
   :returns: dataframe of stock symbols
   :raises: exception when error reading not-fetched symbols list
   """
@@ -58,8 +61,13 @@ def get_symbols(remove_invalid=True):
   if remove_invalid:
     sec_list = [x for x in sec_list if '$' not in x]
     sec_list = [x for x in sec_list if '.' not in x]
+
+  symbols = symbols.loc[sec_list, ].copy()
+
+  if save_path is not None:
+    symbols.reset_index().to_csv(f'{save_path}{save_name}', index=False)
   
-  return symbols.loc[sec_list, ]
+  return symbols
 
 
 def get_data_from_yahoo(symbol, start_date=None, end_date=None, time_col='Date', interval='d', is_print=False):
@@ -84,7 +92,7 @@ def get_data_from_yahoo(symbol, start_date=None, end_date=None, time_col='Date',
       
     # print download information
     if is_print:
-      print(f'[From Yahoo]{symbol}: {data.index.min().date()} - {data.index.max().date()}, 下载记录 {len(data)}')
+      print(f'[From Yahoo] {symbol:4}: {data.index.min().date()} - {data.index.max().date()}, 下载记录 {len(data)}')
 
   except Exception as e:
       print(symbol, e)
@@ -119,7 +127,7 @@ def get_data_from_yfinance(symbol, start_date=None, end_date=None, time_col='Dat
 
     # print download result
     if is_print:
-      print(f'[From YFinance]{symbol}: {data.index.min().date()} - {data.index.max().date()}, 下载记录 {len(data)}')
+      print(f'[From YFinance] {symbol:4}: {data.index.min().date()} - {data.index.max().date()}, 下载记录 {len(data)}')
 
   except Exception as e:
       print(symbol, e)
@@ -144,17 +152,17 @@ def get_data_from_eod(symbol, start_date=None, end_date=None, interval='d', is_p
   """
   
 
-  eod_data = None
+  data = None
 
   try:
-    # from - to parameters
+    # initialize from - to parameters
     from_to = ''
     if start_date is not None:
       from_to += f'&from={start_date}'
     if end_date is not None:
       from_to += f'&to={end_date}'
 
-    # get eod data
+    # get eod data (ohlcv)
     url = f'https://eodhistoricaldata.com/api/eod/{symbol}?api_token={api_key}&period={interval}&fmt=json{from_to}'
     response = requests.get(url)
     if response.status_code==200: 
@@ -163,16 +171,15 @@ def get_data_from_eod(symbol, start_date=None, end_date=None, interval='d', is_p
     else:
       eod = []
       response_status = 'x' 
-
-    if is_print:
-      print(f'{symbol:4}: eod({response_status})', end=', ')
     
     # post process eod data, add dividend and split(optional)
     if len(eod) > 0:
 
       # convert downloaded data from json to dataframe
-      eod_data = pd.DataFrame(eod)
-    
+      data = pd.DataFrame(eod)
+      if is_print:
+        print(f'[From EOD] {symbol:4}: {data.date.min()} - {data.date.max()}, 下载记录 {len(data)}, eod({response_status})', end=', ')
+      
       # add dividend data
       if add_dividend:
 
@@ -194,8 +201,8 @@ def get_data_from_eod(symbol, start_date=None, end_date=None, interval='d', is_p
           dividend_data = pd.DataFrame(dividend)
           dividend_data = dividend_data[['date', 'value']].copy()
           dividend_data = dividend_data.rename(columns={'value':'dividend'})
-          eod_data = pd.merge(eod_data, dividend_data, how='left', left_on='date', right_on='date')
-          eod_data['dividend'] = eod_data['dividend'].fillna(0.0)
+          data = pd.merge(data, dividend_data, how='left', left_on='date', right_on='date')
+          data['dividend'] = data['dividend'].fillna(0.0)
       
       # add split data
       if add_split:
@@ -217,26 +224,26 @@ def get_data_from_eod(symbol, start_date=None, end_date=None, interval='d', is_p
         if len(split) > 0:
           split_data = pd.DataFrame(split)
           split_data.split = split_data.split.apply(lambda x: float(x.split('/')[0])/float(x.split('/')[1]))
-          eod_data = pd.merge(eod_data, split_data, how='left', left_on='date', right_on='date')
-          eod_data['split'] = eod_data['split'].fillna(1.0)
+          data = pd.merge(data, split_data, how='left', left_on='date', right_on='date')
+          data['split'] = data['split'].fillna(1.0)
           
       # fill na values for dividend and split    
-      if 'dividend' not in eod_data.columns:
-        eod_data['dividend'] = 0.0
-      if 'split' not in eod_data.columns:
-        eod_data['split'] = 1.0
+      if 'dividend' not in data.columns:
+        data['dividend'] = 0.0
+      if 'split' not in data.columns:
+        data['split'] = 1.0
         
     # if eod data not available, return empty dataframe
     else:
-      eod_data = pd.DataFrame()
+      data = pd.DataFrame()
 
     # convert to timeseries dataframe, rename columns
-    eod_data = post_process_download_data(df=eod_data, source='eod')
+    data = post_process_download_data(df=data, source='eod')
 
   except Exception as e:
     print(symbol, e)
 
-  return eod_data
+  return data
 
 
 def post_process_download_data(df, source):
@@ -275,7 +282,7 @@ def post_process_download_data(df, source):
   return df
 
 
-def get_data(symbol, start_date=None, end_date=None, source='eod', time_col='Date', interval='1d', is_print=False, api_key=default_eod_key, add_dividend=True, add_split=True):
+def get_data(symbol, start_date=None, end_date=None, interval='d', is_print=False, source='eod', time_col='Date', api_key=default_eod_key, add_dividend=True, add_split=True):
   """
   Download stock data from web sources
 
@@ -387,22 +394,20 @@ def get_stock_briefs_from_eod(symbols, api_key=default_eod_key, batch_size=15):
   :raises: none
   """
   latest_data = get_real_time_data_from_eod(symbols=symbols, api_key=api_key, batch_size=batch_size, is_print=True)
-  latest_data['latest_price'] = latest_data['Close'].copy()
 
-  return latest_data[['latest_time', 'Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume', 'symbol', 'latest_price', 'Date']]
+  if len(latest_data) > 0:
+    latest_data['latest_price'] = latest_data['Close'].copy()
+    latest_data = latest_data[['latest_time', 'Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume', 'symbol', 'latest_price', 'Date']]
+  else:
+    print('real time data from eod is empty')
+
+  return latest_data
 
 
-def get_stock_briefs_from_yfinance(symbols, period='1d', interval='1m'):
-  """
-  Get latest stock data for symbols from yahoo
+def get_real_time_data_From_yfinance(symbols, period='1d', interval='1m'):
 
-  :param symbols: list of target symbols
-  :param period: how long the period you want to download data
-  :param interval: available values - 1m,2m,5m,15m,30m,60m,90m,1h,1d,5d,1wk,1mo,3mo
-  :returns: dataframe of latest data, per row for each symbol
-  :raises: none
-  """
-  latest_data = None
+  # initialize result
+  latest_data = pd.DataFrame()
 
   # if the target list is empty
   if len(symbols) == 0:
@@ -418,35 +423,54 @@ def get_stock_briefs_from_yfinance(symbols, period='1d', interval='1m'):
         ticker_data = {symbols[0]: ticker_data}
 
       # gather latest data for each symbol
-      latest_data = pd.DataFrame()
       for symbol in symbols:
 
-        # get the latest data for current symbol 
-        tmp_ticker_data = ticker_data[symbol].dropna()
-        min_idx = tmp_ticker_data.index.min() 
-        tmp_data = tmp_ticker_data.tail(1).reset_index().copy()
+        # get the latest data for current symbol        
+        tmp_data = ticker_data[symbol].dropna().reset_index()
+        tmp_latest_data = tmp_data.tail(1).copy()
         
-        # update the Open/High/Low/Close/Volume/Adj Close/symbol
-        tmp_data.loc[0, 'Open'] = round(tmp_ticker_data.loc[min_idx, 'Open'], 2)
-        tmp_data.loc[0, 'High'] = round(tmp_ticker_data['High'].max(), 2)
-        tmp_data.loc[0, 'Low'] = round(tmp_ticker_data['Low'].min(), 2)
-        tmp_data.loc[0, 'Volume'] = tmp_ticker_data['Volume'].sum()
-        tmp_data['Close'] = tmp_data['Close'].round(2)
-        tmp_data['Adj Close'] = tmp_data['Close'] 
-        tmp_data['symbol'] = symbol
-
-        # append the data into result
-        latest_data = latest_data.append(tmp_data)
-
-      # process date of the data
+        # process latest data for current symbol
+        tmp_latest_data['symbol'] = symbol
+        tmp_latest_data['Open'] = tmp_data.Open.values[0]
+        tmp_latest_data['High'] = tmp_data.High.max()
+        tmp_latest_data['Low'] = tmp_data.Low.min()
+        tmp_latest_data['Volume'] = tmp_data.Volume.sum()
+        tmp_latest_data['Date'] = tmp_latest_data['Datetime'].max().date()
+        
+        # append to final result
+        latest_data = latest_data.append(tmp_latest_data)
+      
+      # process final result
+      latest_data['change'] = latest_data['Close'] - latest_data['Open']
+      latest_data['change_p'] = latest_data['change'] / latest_data['Open'] * 100
+      latest_data['previousClose'] =  latest_data['Open']
+      latest_data['Dividend'] = 0.0
+      latest_data['Split'] = 1.0
+      
+      latest_data = latest_data.reset_index().drop('index', axis=1).round(3)
       latest_data = latest_data.rename(columns={'Datetime': 'latest_time'})
-      latest_data['latest_price'] = latest_data['Close'].copy()
-      latest_data['Date'] = latest_data['latest_time'].copy()
-      latest_data['Date'] = latest_data['Date'].apply(util.time_2_string, args=(0, '%Y-%m-%d',))
-      latest_data['Date'] = latest_data['Date'].apply(util.string_2_time,args=(0, '%Y-%m-%d',))
+      latest_data = latest_data[['change', 'change_p', 'Close', 'symbol', 'High', 'Low', 'Open', 'previousClose', 'Volume', 'latest_time', 'Date', 'Adj Close', 'Dividend', 'Split']]
 
-    else:
-      print('ticker_data is empty')
+  return latest_data
+
+
+def get_stock_briefs_from_yfinance(symbols, period='1d', interval='1m'):
+  """
+  Get latest stock data for symbols from yahoo
+
+  :param symbols: list of target symbols
+  :param period: how long the period you want to download data
+  :param interval: available values - 1m,2m,5m,15m,30m,60m,90m,1h,1d,5d,1wk,1mo,3mo
+  :returns: dataframe of latest data, per row for each symbol
+  :raises: none
+  """
+  latest_data = get_real_time_data_From_yfinance(symbols=symbols, period=period, interval=interval)
+
+  if len(latest_data) > 0:
+    latest_data['latest_price'] = latest_data['Close'].copy()
+    latest_data = latest_data[['latest_time', 'Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume', 'symbol', 'latest_price', 'Date']]
+  else:
+    print('real time data from yfinance is empty')
 
   return latest_data
 
