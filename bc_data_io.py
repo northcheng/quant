@@ -404,7 +404,7 @@ def get_stock_briefs_from_eod(symbols, api_key=default_eod_key, batch_size=15):
   return latest_data
 
 
-def get_real_time_data_From_yfinance(symbols, period='1d', interval='1m'):
+def get_real_time_data_from_yfinance(symbols, period='1d', interval='1m'):
 
   # initialize result
   latest_data = pd.DataFrame()
