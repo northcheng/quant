@@ -384,7 +384,8 @@ def calculate_ta_signal(df):
     'aroon is up trending': '(aroon_trend == "u")',
     'adx is up trending': '(adx_trend == "u")',
     'psar is up trending': '(psar_trend == "u")',
-    'renko is up trending': '(renko_trend == "u")'
+    'renko is up trending': '(renko_trend == "u")',
+    'bb is not over buying': '(bb_trend != "d")'
   }
   up_idx = df.query(' and '.join(buy_conditions.values())).index 
   df.loc[up_idx, 'trend'] = 'u'
@@ -395,6 +396,7 @@ def calculate_ta_signal(df):
     'overall trend is down': '(trend_idx < -1)',
     'price went down through brick': '(renko_trend == "d")',
     'one of ichimoku/aroon/adx/psar is down trending, others are not up trending': '(down_trend_idx <= -1 and up_trend_idx == 0)',
+    'bb is not over selling': '(bb_trend != "u")'
     #'((ichimoku_trend=="d" and aroon_trend!="u" and adx_trend!="u" and psar_trend !="u") or (aroon_trend=="d" and ichimoku_trend!="u" and adx_trend!="u" and psar_trend !="u") or (adx_trend=="d" and ichimoku_trend!="u" and aroon_trend!="u" and psar_trend !="u") or (psar_trend=="d" and ichimoku_trend!="u" and aroon_trend!="u" and adx_trend !="u"))',
     
   } 
