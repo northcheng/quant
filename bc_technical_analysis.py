@@ -28,7 +28,7 @@ except Exception as e:
 # default values
 default_signal_val = {'pos_signal':'b', 'neg_signal':'s', 'none_signal':'n'}
 default_candlestick_color = {'colorup':'green', 'colordown':'red', 'alpha':0.8}
-default_ohlcv_col = {'close':'Close', 'open':'Open', 'high':'High', 'low':'Low', 'volume':'Volume'} 
+default_ohlcv_col = {'close':'Close', 'open':'Open', 'high':'High', 'low':'Low', 'volume':'Volume'}  
 default_plot_args = {'figsize':(25, 5), 'title_rotation':'vertical', 'title_x':-0.05, 'title_y':0.3, 'bbox_to_anchor':(1.02, 0.), 'loc':3, 'ncol':1, 'borderaxespad':0.0}
 
 
@@ -123,7 +123,7 @@ def preprocess_sec_data(df, symbol, interval, print_error=True):
   '''    
   # drop duplicated rows, keep the first
   df = util.remove_duplicated_index(df=df, keep='first')
-
+  
   # if interval is week, keep only one record in the latest week
   if interval == 'week':
     max_weekday = df.index[-1].weekday()
@@ -154,7 +154,7 @@ def preprocess_sec_data(df, symbol, interval, print_error=True):
     error_info += 'NaN values found in '
     for col in na_cols:
       error_info += f'{col}'
-
+  
   df['Split'] = df['Split'].fillna(1)
   df['Dividend'] = df['Dividend'].fillna(0)
   df = df.dropna()
@@ -165,15 +165,15 @@ def preprocess_sec_data(df, symbol, interval, print_error=True):
     for col in zero_cols:
       error_info += f'{col}'
     df = df[:-1].copy()
-
+  
   # print error information
   if print_error and len(error_info) > 0:
     error_info = f'[{symbol}]: on {max_idx.date()}, {error_info}'
     print(error_info)
-
+  
   # add symbol and change rate of close price
   df['symbol'] = symbol
-  df = cal_change_rate(df=df, target_col='Close') # price change rate
+  df = cal_change_rate(df=df, target_col=default_ohlcv_col['close']) # price change rate
   df = add_candlestick_features(df=df)
   
   return df
@@ -385,7 +385,7 @@ def calculate_ta_signal(df):
     'adx is up trending': '(adx_trend == "u")',
     'psar is up trending': '(psar_trend == "u")',
     'renko is up trending': '(renko_trend == "u")',
-    'bb is not over buying': '(bb_trend != "d")'
+    'bb is not over-buying': '(bb_trend != "d")'
   }
   up_idx = df.query(' and '.join(buy_conditions.values())).index 
   df.loc[up_idx, 'trend'] = 'u'
@@ -396,7 +396,7 @@ def calculate_ta_signal(df):
     'overall trend is down': '(trend_idx < -1)',
     'price went down through brick': '(renko_trend == "d")',
     'one of ichimoku/aroon/adx/psar is down trending, others are not up trending': '(down_trend_idx <= -1 and up_trend_idx == 0)',
-    'bb is not over selling': '(bb_trend != "u")'
+    'bb is not over-selling': '(bb_trend != "u")'
     #'((ichimoku_trend=="d" and aroon_trend!="u" and adx_trend!="u" and psar_trend !="u") or (aroon_trend=="d" and ichimoku_trend!="u" and adx_trend!="u" and psar_trend !="u") or (adx_trend=="d" and ichimoku_trend!="u" and aroon_trend!="u" and psar_trend !="u") or (psar_trend=="d" and ichimoku_trend!="u" and aroon_trend!="u" and adx_trend !="u"))',
     
   } 
@@ -422,6 +422,27 @@ def calculate_ta_signal(df):
 
   #     df.loc[idx, 'signal'] = df.loc[last_signal_idx, 'signal']
 
+  # ================================ disable signals in extreme conditions =========
+  # extreme conditions include:
+  # 1. Split
+  # 2. 50% up/down compare to previous close price
+  extreme_idx = df.query('Split < 1.0 or Split > 1.0 or rate >0.5 or rate < -0.5').index.tolist()
+  all_idx = df.index.tolist()
+  
+  # go through each extreme condition
+  for ei in extreme_idx:
+
+    # disable signals for following 10 trading days
+    sp = all_idx.index(ei)
+    ep = sp + 9
+    if ep > (len(all_idx)-1):
+      ep = (len(all_idx)-1)
+
+    start_idx = all_idx[sp]
+    end_idx = all_idx[ep]
+    df.loc[start_idx:end_idx, 'signal'] = 'n'
+    
+
   return df
 
 # calculate certain selected ta indicators
@@ -442,7 +463,6 @@ def calculate_ta_data(df, symbol, interval, trend_indicators=['ichimoku', 'aroon
   """
   # copy dataframe
   df = df.copy()
-
   if len(df) == 0:
     print('Calculation: No data')
   
@@ -790,6 +810,7 @@ def cal_change_rate(df, target_col, periods=1, add_accumulation=True, add_prefix
   acc_rate_col = f'{prefix}acc_rate'
   acc_day_col = f'{prefix}acc_day'
 
+  
   # calculate change rate within the period
   df[rate_col] = df[target_col].pct_change(periods=periods)
   
@@ -1121,7 +1142,7 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
   low = ohlcv_col['low']
   close = ohlcv_col['close']
   # volume = ohlcv_col['volume']
-
+  
   # candle color
   df['candle_color'] = 0
   up_idx = df[open] < df[close]
@@ -1134,7 +1155,7 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
   
   # entity
   df['entity'] = abs(df[close] - df[open])
-
+  
   # ======================================= upper/lower shadow ======================================= #
   df['upper_shadow'] = 0
   df['lower_shadow'] = 0
@@ -1142,7 +1163,7 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
   df.loc[up_idx, 'lower_shadow'] = (df.loc[up_idx, open] - df.loc[up_idx, low])
   df.loc[down_idx, 'upper_shadow'] = (df.loc[down_idx, high] - df.loc[down_idx, open])
   df.loc[down_idx, 'lower_shadow'] = (df.loc[down_idx, close] - df.loc[down_idx, low])
-
+  
   # gap_up / gap_down
   col_to_drop = [] 
   for col in [open, close, high, low, 'candle_color']:
@@ -1156,13 +1177,13 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
   strict_gap_up_idx = df.query(f'{low}>prev_{high}').index
   df.loc[gap_up_idx, 'gap'] = 1
   df.loc[strict_gap_up_idx, 'gap'] = 2
-
+  
   # gap down
   gap_down_idx = df.query(f'(({high}<prev_{open} and prev_candle_color==1) or ({high}<prev_{close} and prev_candle_color==-1))').index
   strict_gap_down_idx = df.query(f'{high}<prev_{low}').index  
   df.loc[gap_down_idx, 'gap'] = -1
   df.loc[strict_gap_down_idx, 'gap'] = -2
-
+  
   # ======================================= long entities ======================================= #
   df['long_entity'] = 0
   df['avg_entity_length'] = df['entity'].rolling(50).mean()
