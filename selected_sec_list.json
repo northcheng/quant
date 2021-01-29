@@ -44,6 +44,19 @@
 		"TSLA","LMT","GE","BA","HON",
 		"JPM","ACN","MS","GS","BAC","WFC","HSBC","C",
     	"MRK","PFE","NVO","GSK","AZN","ABBV","NVS","ABT","MDT","AMGN","DHR","JNJ","UNH"
+  ],
+
+  "star": [
+	"NOK", "AAPL", "GE", "F", "NIO", "T", "BAC", "INTC", "MSFT", "AMD", "PFE", "FB", "GM", 
+	"CMCSA", "WFC", "TSLA", "XOM", "VZ", "ERIC", "CSCO", "C", "TWTR", "IQ", "BMY", "KO", "ZNGA", 
+	"MS", "DIS", "JPM", "SLB", "MRK", "AES", "EBAY", "HAL", "ABT", "ORCL", "BP", "V", "RF", "BA", 
+	"COP", "MO", "HPQ", "WMB", "JNJ", "SBUX", "USB", "PG", "BILI", "CVX", "QCOM", "IBM", "CL", 
+	"QTT", "WMT", "BK", "AA", "MA", "TXN", "CPB", "NKE", "AXP", "NVDA", "PEP", "MET", "MCD", 
+	"EXC", "UXIN", "PDD", "AMGN", "AIG", "CVS", "BAX", "WY", "COF", "MDT", "MMM", "TGT", "GS", 
+	"HON", "GSK", "AKAM", "VOD", "HD", "CAT", "IP", "AMZN", "ADBE", "HUYA", "CTSH", "UNH", "SO", 
+	"ALL", "ATI", "UPS", "FDX", "AEP", "DUK", "GD", "ETR", "YUM", "GOOG", "RIO", "TRV", "CI", "EL", 
+	"SNE", "SAP", "ADS", "HIG", "NSC", "YNDX", "HAS", "GRPN", "ROK", "MSI", "HMC", "NWS", "CAJ", 
+	"MFG", "CCU", "TRI", "NMR", "TM", "B", "CHT", "S"
   ]
 
 }
