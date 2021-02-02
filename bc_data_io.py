@@ -671,7 +671,7 @@ def update_stock_data_from_yfinance_by_date(symbols, stock_data_path, file_forma
     return data
 
 
-def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', required_date=None, window_size=1, is_print=False, is_return=False, is_save=True, api_key=default_eod_key, add_dividend=True, add_split=True, batch_size=15, force_update=False):
+def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', required_date=None, window_size=3, is_print=False, is_return=False, is_save=True, api_key=default_eod_key, add_dividend=True, add_split=True, batch_size=15, update_mode='eod'):
   """
   update local stock data from eod
 
@@ -686,6 +686,7 @@ def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', req
   :param add_dividend: whether to add dividend data
   :param add_split: whether to add split data
   :param batch_size: batch size of symbols of getting real-time data
+  :param update_mode: how to update data - realtime/eod/both(eod+realtime)/refresh(delete and redownload)
   :returns: dataframe of latest stock data, per row each symbol
   :raises: none
   """
@@ -700,10 +701,24 @@ def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', req
   benchmark_date = util.time_2_string(benchmark_data.index.max())
   start_date = util.string_plus_day(benchmark_date, -window_size)
 
+  # verify update_mode
+  if update_mode not in ['realtime', 'eod', 'both', 'refresh']:
+    print(f'unknown update mode: {update_mode}')
+    return None
+
+  # delete local data if update_mode == refresh
+  if update_mode == 'refresh':
+    for symbol in symbols:
+      symbol_file_name = f'{stock_data_path}{symbol}{file_format}'
+      if os.path.exists(symbol_file_name):
+        os.remove(symbol_file_name)
+
+    update_mode = 'eod'
+
   # get the existed data and its latest date for each symbols
   print(f'******************** updating eod-data ********************')
   for symbol in symbols:
-
+    
     # init end-point of currently existed data
     tmp_data_date = None
 
@@ -712,7 +727,7 @@ def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', req
       data[symbol] = load_stock_data(file_path=stock_data_path, file_name=symbol)
       if len(data[symbol]) > 0:
         tmp_data_date = util.time_2_string(data[symbol].index.max())
-        tmp_data_date = min(start_date, tmp_data_date)
+        # tmp_data_date = min(start_date, tmp_data_date)
     else:
       data[symbol] = pd.DataFrame()
 
@@ -720,7 +735,7 @@ def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', req
     tmp_data = data[symbol]
 
     # update eod data
-    if force_update or (tmp_data_date is None or tmp_data_date < benchmark_date):
+    if (update_mode in ['eod', 'both']) and (tmp_data_date is None or tmp_data_date < benchmark_date):
       if is_print:
         from_str = 'from 0000-00-00 ' if tmp_data_date is None else f'from {tmp_data_date} '
         print(f'updating ', end=from_str)
@@ -741,12 +756,14 @@ def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', req
         print(f'updating from {tmp_data_date} {symbol:4}: already up-to-date, skip')
 
   # add real-time data when requiring data return and data will NOT be saved
-  if is_return:
-
-    # get real-time data from EOD, convert it into time-series data, append it corresponding eod data according to symbols
+  if update_mode in ['realtime', 'both']:
     print('\n***************** querying real-time data *****************')
+
+    # get real-time data from EOD, convert it into time-series data
     real_time_data = get_real_time_data_from_eod(symbols=symbols, api_key=api_key, is_print=is_print, batch_size=batch_size)
     real_time_data = util.df_2_timeseries(df=real_time_data, time_col='Date')
+
+    # append it corresponding eod data according to symbols
     for symbol in symbols:
         tmp_data = real_time_data.query(f'symbol == "{symbol}"')[data[symbol].columns].copy()
         data[symbol] = data[symbol].append(tmp_data)
@@ -757,7 +774,7 @@ def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', req
     return data
 
 
-def update_stock_data(symbols, stock_data_path, file_format='.csv', source='eod', by='date', required_date=None, is_print=False, is_return=False, is_save=True, api_key=default_eod_key, add_dividend=True, add_split=True, batch_size=15):
+def update_stock_data(symbols, stock_data_path, file_format='.csv', source='eod', by='date', required_date=None, is_print=False, is_return=False, is_save=True, api_key=default_eod_key, add_dividend=True, add_split=True, batch_size=15, update_mode='eod'):
   """
   update local stock data
 
@@ -770,6 +787,7 @@ def update_stock_data(symbols, stock_data_path, file_format='.csv', source='eod'
   :param is_print: whether to print info when downloading
   :param is_return: whether to return the updated data
   :param is_save: whether to save the updated data to local files
+  :param update_mode: how to update data - realtime/eod/both(eod+realtime)/refresh(delete and redownload)
   :returns: dataframe of latest stock data, per row each symbol
   :raises: none
   """
@@ -782,7 +800,7 @@ def update_stock_data(symbols, stock_data_path, file_format='.csv', source='eod'
     elif by == 'stock':
       result = update_stock_data_from_yfinance_by_stock(symbols=symbols, stock_data_path=stock_data_path, file_format=file_format, required_date=required_date, is_print=is_print, is_return=is_return, is_save=is_save)
   elif source == 'eod':
-    result = update_stock_data_from_eod(symbols=symbols, stock_data_path=stock_data_path, file_format=file_format, required_date=required_date, is_print=is_print, is_return=is_return, is_save=is_save, api_key=api_key, add_dividend=add_dividend, add_split=add_split, batch_size=batch_size)
+    result = update_stock_data_from_eod(symbols=symbols, stock_data_path=stock_data_path, file_format=file_format, required_date=required_date, is_print=is_print, is_return=is_return, is_save=is_save, api_key=api_key, add_dividend=add_dividend, add_split=add_split, batch_size=batch_size, update_mode=update_mode)
   else:
     print(f'unknown source: {source}')
 
