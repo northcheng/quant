@@ -691,8 +691,10 @@ def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', req
   :raises: none
   """
 
-  # init data
-  data = {}
+  # verify update_mode
+  if update_mode not in ['realtime', 'eod', 'both', 'refresh']:
+    print(f'unknown update mode: {update_mode}')
+    return None
 
   # get the benchmark of eod data
   today = util.time_2_string(datetime.datetime.today().date())
@@ -701,44 +703,33 @@ def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', req
   benchmark_date = util.time_2_string(benchmark_data.index.max())
   start_date = util.string_plus_day(benchmark_date, -window_size)
 
-  # verify update_mode
-  if update_mode not in ['realtime', 'eod', 'both', 'refresh']:
-    print(f'unknown update mode: {update_mode}')
-    return None
-
-  # delete local data if update_mode == refresh
-  if update_mode == 'refresh':
-    for symbol in symbols:
-      symbol_file_name = f'{stock_data_path}{symbol}{file_format}'
-      if os.path.exists(symbol_file_name):
-        os.remove(symbol_file_name)
-
-    update_mode = 'eod'
-
   # get the existed data and its latest date for each symbols
   print(f'******************** updating eod-data ********************')
+  data = {}
   for symbol in symbols:
     
-    # init end-point of currently existed data
+    # init symbol data and its most recent date
+    data[symbol] = pd.DataFrame()
     tmp_data_date = None
 
-    # if local data exists, load local data; otherwise load an empty dataframe
-    if os.path.exists(f'{stock_data_path}{symbol}{file_format}'):
-      data[symbol] = load_stock_data(file_path=stock_data_path, file_name=symbol)
-      if len(data[symbol]) > 0:
-        tmp_data_date = util.time_2_string(data[symbol].index.max())
-        # tmp_data_date = min(start_date, tmp_data_date)
-    else:
-      data[symbol] = pd.DataFrame()
+    # if local data exists, load existed data, update its most current date
+    symbol_file_name = f'{stock_data_path}{symbol}{file_format}'
+    if os.path.exists(symbol_file_name):
+      
+      # delete local data if update_mode == refresh
+      if update_mode == 'refresh':
+        os.remove(symbol_file_name)
+        
+      # load local data and update its most recent date
+      else:
+        data[symbol] = load_stock_data(file_path=stock_data_path, file_name=symbol)
+        if len(data[symbol]) > 0:
+          tmp_data_date = util.time_2_string(data[symbol].index.max())
 
-    # init tmp_data, print updating info
-    tmp_data = data[symbol]
-
-    # update eod data
-    if (update_mode in ['eod', 'both']) and (tmp_data_date is None or tmp_data_date < benchmark_date):
+    # update eod data, print updating info
+    if (update_mode in ['eod', 'both', 'refresh']) and (tmp_data_date is None or tmp_data_date < benchmark_date):
       if is_print:
-        from_str = 'from 0000-00-00 ' if tmp_data_date is None else f'from {tmp_data_date} '
-        print(f'updating ', end=from_str)
+        print(f'updating from ', end='0000-00-00 ' if tmp_data_date is None else f'{tmp_data_date} ')
       
       # download latest data for current symbol
       new_data = get_data_from_eod(symbol, start_date=tmp_data_date, end_date=required_date, interval='d', is_print=is_print, api_key=api_key, add_dividend=add_dividend, add_split=add_split)
