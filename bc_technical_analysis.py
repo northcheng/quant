@@ -426,21 +426,21 @@ def calculate_ta_signal(df):
   # extreme conditions include:
   # 1. Split
   # 2. 50% up/down compare to previous close price
-  extreme_idx = df.query('Split < 1.0 or Split > 1.0 or rate >0.5 or rate < -0.5').index.tolist()
-  all_idx = df.index.tolist()
+  # extreme_idx = df.query('Split < 1.0 or Split > 1.0 or rate >0.5 or rate < -0.5').index.tolist()
+  # all_idx = df.index.tolist()
   
-  # go through each extreme condition
-  for ei in extreme_idx:
+  # # go through each extreme condition
+  # for ei in extreme_idx:
 
-    # disable signals for following 10 trading days
-    sp = all_idx.index(ei)
-    ep = sp + 9
-    if ep > (len(all_idx)-1):
-      ep = (len(all_idx)-1)
+  #   # disable signals for following 10 trading days
+  #   sp = all_idx.index(ei)
+  #   ep = sp + 5
+  #   if ep > (len(all_idx)-1):
+  #     ep = (len(all_idx)-1)
 
-    start_idx = all_idx[sp]
-    end_idx = all_idx[ep]
-    df.loc[start_idx:end_idx, 'signal'] = 'n'
+  #   start_idx = all_idx[sp]
+  #   end_idx = all_idx[ep]
+  #   df.loc[start_idx:end_idx, 'signal'] = 'n'
     
 
   return df
@@ -1912,12 +1912,10 @@ def add_psar_features(df, ohlcv_col=default_ohlcv_col, step=0.02, max_step=0.10,
   return df
 
 # Renko
-def add_renko_features(df, use_atr=False, brick_size_factor=0.1, merge_duplicated=True, cal_signal=True):
+def add_renko_features(df, brick_size_factor=0.1, merge_duplicated=True, cal_signal=True):
   """
   Calculate Renko indicator
-
   :param df: original OHLCV dataframe
-  :param use_atr: whether to use the latest atr vaule as the brick size
   :param brick_size_factor: if not using atr, brick size will be set to Close*brick_size_factor
   :param merge_duplicated: whether to merge duplicated indexes in the final result
   :param ohlcv_col: column name of Open/High/Low/Close/Volume
@@ -1928,15 +1926,11 @@ def add_renko_features(df, use_atr=False, brick_size_factor=0.1, merge_duplicate
 
   # reset index and copy df
   original_df = util.remove_duplicated_index(df=df, keep='last')
-  original_df = add_atr_features(df=original_df).query('tr >0 and atr>0').copy()
   df = original_df.copy()
 
-  # set brick size
-  if use_atr:
-    df['bsz'] = df['atr']
-  else:  
-    df['bsz'] = (df['Close'] * brick_size_factor).round(1) #((df['Close'].rolling(10).mean() // 10) + (df['Close'].rolling(10).mean() / 10) )
-  na_bsz = df.query('bsz != bsz').index
+  # calculate brick size, remove rows with NA value
+  df['bsz'] = (df['Close'] * brick_size_factor).round(1) #((df['Close'].rolling(10).mean() // 10) + (df['Close'].rolling(10).mean() / 10) )
+  na_bsz = df.query('bsz != bsz').index 
   df = df.drop(index=na_bsz).reset_index()
   brick_size = df['bsz'].values[0]
 
@@ -1975,18 +1969,20 @@ def add_renko_features(df, use_atr=False, brick_size_factor=0.1, merge_duplicate
         close_p1 += brick_size
       brick_size = row['bsz']
 
-    # if in a uptrend and closs_diff is larger than 2 bricks(in a negative way)
+    # if in a uptrend and closs_diff is less than -2 bricks
     elif uptrend and bricks <= -2:
+      # flip trend
       uptrend = not uptrend
       bricks += 1
       close_p1 -= brick_size_p1
+
       for i in range(abs(bricks)):
         r = [date, close_p1, close_p1, close_p1-brick_size, close_p1-brick_size, uptrend, brick_size]
         data.append(r)
         close_p1 -= brick_size
       brick_size = row['bsz']
 
-    # if in a downtrend and close_diff is larger than 1 brick(in a negative way)
+    # if in a downtrend and close_diff is less than -1 brick
     elif not uptrend and bricks <= -1:
       for i in range(abs(bricks)):
         r = [date, close_p1, close_p1, close_p1-brick_size, close_p1-brick_size, uptrend, brick_size]
@@ -1996,9 +1992,11 @@ def add_renko_features(df, use_atr=False, brick_size_factor=0.1, merge_duplicate
 
     # if in a downtrend and close_diff is larger than 2 bricks
     elif not uptrend and bricks >= 2:
+      # flip trend
       uptrend = not uptrend
       bricks -= 1
       close_p1 += brick_size_p1
+
       for i in range(abs(bricks)):
         r = [date, close_p1, close_p1+brick_size, close_p1, close_p1+brick_size, uptrend, brick_size]
         data.append(r)
@@ -2015,11 +2013,15 @@ def add_renko_features(df, use_atr=False, brick_size_factor=0.1, merge_duplicate
   # get back to original dataframe
   df = original_df
 
-  # post process
+  # convert renko_df to time-series, add extra features(columns) to renko_df
   renko_df = util.df_2_timeseries(df=renko_df, time_col='Date')
   renko_df.rename(columns={'Open':'renko_o', 'High': 'renko_h', 'High': 'renko_h', 'Low': 'renko_l', 'Close':'renko_c', 'uptrend': 'renko_color'}, inplace=True)
+  
+  # renko brick start/end points
   renko_df['renko_start'] = renko_df.index.copy()
   renko_df['renko_end'] = renko_df['renko_start'].shift(-1).fillna(df.index.max())
+
+  # renko color(green/red), trend(u/d), flip_point(renko_real), same-direction-accumulation(renko_sda), sda-moving sum(renko_ms), number of bricks(for later calculation)
   renko_df['renko_color'] = renko_df['renko_color'].replace({True: 'green', False:'red'})
   renko_df['renko_trend'] = renko_df['renko_color'].replace({'green':'u', 'red':'d'})
   renko_df['renko_real'] = renko_df['renko_color'].copy()
@@ -2029,13 +2031,13 @@ def add_renko_features(df, use_atr=False, brick_size_factor=0.1, merge_duplicate
   renko_df['renko_sda_p1'] = renko_df['renko_sda'].shift(1)
   renko_df['renko_brick_number'] = 1
   
-  # merge renko_df with df
+  # drop currently-existed renko_df columns from df, merge renko_df into df 
   for col in ['renko_o', 'renko_h', 'renko_l', 'renko_c', 'renko_color', 'renko_trend', 'renko_real', 'renko_sda', 'renko_ms', 'renko_brick_size', 'renko_start', 'renko_end']:
     if col in df.columns:
       df.drop(col, axis=1, inplace=True)
   df = pd.merge(df, renko_df, how='left', left_index=True, right_index=True)
 
-  # if to return date index
+  # merge rows with duplicated date (e.g. more than 1 brick in a single day)
   if merge_duplicated:
     
     # remove duplicated date index
@@ -2069,7 +2071,7 @@ def add_renko_features(df, use_atr=False, brick_size_factor=0.1, merge_duplicate
         continue
     df = util.remove_duplicated_index(df=df, keep='last')
 
-  # change the value of downtrend bricks
+  # for rows in downtrend, renko_brick_size = -renko_brick_size
   red_idx = df.query('renko_color == "red"').index
   df.loc[red_idx, 'renko_brick_size'] = -df.loc[red_idx, 'renko_brick_size']
 
@@ -2077,7 +2079,8 @@ def add_renko_features(df, use_atr=False, brick_size_factor=0.1, merge_duplicate
   renko_columns = ['renko_o', 'renko_h','renko_l', 'renko_c', 'renko_color', 'renko_trend', 'renko_sda', 'renko_sda_p1', 'renko_ms', 'renko_brick_size', 'renko_brick_number','renko_start', 'renko_end']
   df[renko_columns] = df[renko_columns].fillna(method='ffill')
 
-  # calculate brick length
+  # calculate length(number of days to the end of current brick) 
+  # calculate of each brick(or merged brick): renko_day, renko_length(for ploting)
   max_idx = df.index.max()
   if merge_duplicated:
     df['s']  = df.index
