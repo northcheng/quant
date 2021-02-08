@@ -178,7 +178,7 @@ def get_data_from_eod(symbol, start_date=None, end_date=None, interval='d', is_p
       # convert downloaded data from json to dataframe
       data = pd.DataFrame(eod)
       if is_print:
-        print(f'[From EOD] {symbol:4}: {data.date.min()} - {data.date.max()}, 下载记录 {len(data)}, eod({response_status})', end=', ')
+        print(f'{symbol:4}: {data.date.min()} - {data.date.max()}, 下载记录 {len(data)}, eod({response_status})', end=', ')
       
       # add dividend data
       if add_dividend:
@@ -346,6 +346,8 @@ def get_real_time_data_from_eod(symbols, api_key=default_eod_key, is_print=False
     
     # calculate batch end according to batch start and batch size
     batch_end = batch_start + batch_size
+    if batch_end > symbol_list_len:
+      batch_end = symbol_list_len
     
     # get temporal symbol list
     tmp_list = symbols[batch_start:batch_end]
@@ -359,7 +361,7 @@ def get_real_time_data_from_eod(symbols, api_key=default_eod_key, is_print=False
     real_time = [real_time] if isinstance(real_time, dict) else real_time
     
     if is_print:
-      print(f'{batch_start}:{batch_end} - {response}')
+      print(f'updating real-time for symbol: {batch_start+1:3} -{batch_end:3} - {response}')      
   
     # post process downloaded real-time data
     real_time_data = pd.DataFrame(real_time)
@@ -748,7 +750,7 @@ def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', req
 
   # add real-time data when requiring data return and data will NOT be saved
   if update_mode in ['realtime', 'both']:
-    print('\n***************** querying real-time data *****************')
+    print('***************** querying real-time data *****************')
 
     # get real-time data from EOD, convert it into time-series data
     real_time_data = get_real_time_data_from_eod(symbols=symbols, api_key=api_key, is_print=is_print, batch_size=batch_size)
