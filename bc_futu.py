@@ -467,7 +467,7 @@ class Futu:
       # get available cash, set minimum position
       available_cash = self.get_available_cash()
       if minimum_position is None:
-        minimum_position = money_per_sec * 0.1
+        minimum_position = money_per_sec
 
       # get buy signals which not in posiitons yet
       default_money_per_sec = money_per_sec

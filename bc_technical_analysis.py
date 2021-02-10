@@ -238,24 +238,24 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       # df['aroon_trend'] = 'n'
 
       # it is going up when:
-      # 1+. aroon_up处于极大值(96+)
-      # 2+. aroon_up位于顶部时[88,100], aroon_down位于底部[0,12]
+      # 1+. aroon_up is extramely positive(96+)
+      # 2+. aroon_up is strongly positive [88,100], aroon_down is strongly negative[0,12]
       up_idx = df.query('(aroon_up>=96) or (aroon_up>=88 and aroon_down<=12)').index
       df.loc[up_idx, 'aroon_trend'] = 'u'
 
       # it is going down when
-      # 1-. aroon_down处于极大值(96+)
-      # 2-. aroon_up位于底部时[0,12], aroon_down位于顶部[88,100]
+      # 1-. aroon_down is extremely positive(96+)
+      # 2-. aroon_up is strongly negative[0,12], aroon_down is strongly positive[88,100]
       down_idx = df.query('(aroon_down>=96) or (aroon_down>=88 and aroon_up<=12)').index
       df.loc[down_idx, 'aroon_trend'] = 'd'
 
       # otherwise up trend
-      # 3+. aroon_down正在下降, 且aroon_up正在上升或者aroon_down>aroon_up, 
+      # 3+. aroon_down is decreasing, and (aroon_up is increasing or aroon_down>aroon_up)
       up_idx = df.query('(aroon_trend!="u" and aroon_trend!="d") and ((aroon_down_change<0) and (aroon_up_change>=0 or aroon_down>aroon_up))').index # and (aroon_up_acc_change_count <= -2 or aroon_down_acc_change_count <= -2)
       df.loc[up_idx, 'aroon_trend'] = 'u'
 
       # otherwise down trend
-      # 3-. aroon_up正在下降， 且aroon_down正在上升或者aroon_up>aroon_down
+      # 3-. aroon_up is decreasing, and (aroon_down is increasing or aroon_up>aroon_down)
       down_idx = df.query('(aroon_trend!="u" and aroon_trend!="d") and ((aroon_up_change<0) and (aroon_down_change>=0 or aroon_up>aroon_down))').index #and (aroon_up_acc_change_count <= -2 or aroon_down_acc_change_count <= -2)
       df.loc[down_idx, 'aroon_trend'] = 'd'
 
