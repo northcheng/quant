@@ -1377,7 +1377,7 @@ def pickle_load_data(file_path, file_name):
 
 
 #----------------------- Email sending ---------------------------#
-def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subject=None, platform=['tiger'], signal_file_date=None, log_file_date=None, test=False):
+def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subject=None, platform=['tiger'], signal_file_date=None, log_file_date=None, position_summary={}, test=False):
   """
   send automatic_trader's trading result by email
 
@@ -1390,6 +1390,7 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
   :param platform: trading platforms include ['tiger', 'futu']
   :param signal_file_date: date of signal file which will be attached on email
   :param log_file_date: date of log file which will be attached on email
+  :param position_summary: dictionary of dataframes which contain position info
   :param test: whether on test mode(print message rather than send the email)
   :return: smtp ret code
   :raise: none
@@ -1407,6 +1408,7 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
   
   # get portfolio record
   assets = {}
+  positions = {}
   if os.path.exists(config['config_path']+'portfolio.json'):
     portfolio_record = read_config(file_path=config['config_path'], file_name='portfolio.json')
     if 'tiger' in platform:
@@ -1425,77 +1427,93 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
     if assets[portfilio] is not None:
       net_value = assets[portfilio].get('net_value')
       updated = assets[portfilio].get('updated')
+
+      # add position summary if provided
+      position = position_summary.get(portfilio)
+      position = position.drop('latest_time', axis=1).to_html() if position is not None else ''
     else:
       net_value = '--'
       updated = '--'  
+      position = ''
+
+    # mark update-time if not not match with current time
     if updated[:16] == current_time[:16]:
       updated = ''
     else:
       updated = f'({updated})'
 
     # asset summary for current portfilio
-    asset_info += f'<li><b><p>{portfilio}: ${net_value}</b></p>{updated}</li>'
+    asset_info += f'<li><b><p>{portfilio}: ${net_value}</b></p>{position}{updated}</li>'
   asset_info += '</ul>'
 
   # get signal summary
   signal_info = '<h3>Signals</h3><ul>'
   signal_color = {'b':'green', 's':'red', 'n':'grey'}
-  if signal_file_date is None:
-    signal_file_date =datetime.datetime.now().date().strftime(format='%Y-%m-%d')
-  signal_file = f'{config["result_path"]}{signal_file_date}.xlsx'
-  if os.path.exists(signal_file):
-    signals = pd.read_excel(signal_file, sheet_name='signal')
-    for s in ['b', 's', 'n']:
-      font_color = signal_color[s]
-      tmp_signals = signals.query(f'交易信号 == "{s}"')['代码'].tolist()
-      signal_info += f'<li>[ <b>{s}</b> ]: <font color="{font_color}">{", ".join(tmp_signals)}</font></li>'
+  if signal_file_date is not None:
+    signal_file = f'{config["result_path"]}{signal_file_date}.xlsx'
+    if os.path.exists(signal_file):
+      signals = pd.read_excel(signal_file, sheet_name='signal')
+      for s in ['b', 's', 'n']:
+        font_color = signal_color[s]
+        tmp_signals = signals.query(f'交易信号 == "{s}"')['代码'].tolist()
+        signal_info += f'<li>[ <b>{s}</b> ]: <font color="{font_color}">{", ".join(tmp_signals)}</font></li>'
+    else:
+      signal_info += f'<li><p>[Not Found]: {signal_file}</p></li>'
   else:
-    signal_info += f'<li><p>[Not Found]: {signal_file}</p></li>'
+    signal_info += '<li><p>[Not Required]</p></li>'
   signal_info += '</ul>'
 
   # attachment 1: log file
   log_info = '<h3>Log</h3><ul>'
-  if log_file_date is None:
-    log_file_date = util.string_plus_day(string=signal_file_date, diff_days=-1)
-  log_file = f'{config["quant_path"]}automatic_trade_log_{log_file_date}.txt'
-  if os.path.exists(log_file):
-    log_part = MIMEApplication(open(log_file, 'rb').read())
-    log_part.add_header('Content-Disposition', 'attachment', filename=log_file)
-    log_info += f'<li><p>[Attached]</p></li>'
+  if log_file_date is not None:
+    # log_file_date = util.string_plus_day(string=signal_file_date, diff_days=-1)
+
+    log_file = f'{config["quant_path"]}automatic_trade_log_{log_file_date}.txt'
+    if os.path.exists(log_file):
+      log_part = MIMEApplication(open(log_file, 'rb').read())
+      log_part.add_header('Content-Disposition', 'attachment', filename=log_file)
+      log_info += f'<li><p>[Attached]</p></li>'
+    else:
+      log_info += f'<li><p>[Not Found]: {log_file}</p></li>'
+      log_part = None
   else:
-    log_info += f'<li><p>[Not Found]: {log_file}</p></li>'
+    log_info += '<li><p>[Not Required]</p></li>'
     log_part = None
   log_info += '</ul>'
   
   # attachment 2: signal images
-  image_info = f'<h3> Images</h3><ul><li>[Requested]: {signal_file_date}'
+  image_info = f'<h3> Images</h3><ul>'
   images = []
-  wrong_date = {}
-  for symbol in config['selected_sec_list']['all']: #[config['trade']['pool']['global_account']]:
-    signal_image = f'{config["result_path"]}signal/{symbol}_day.png'
-    if os.path.exists(signal_image):
+  if signal_file_date is not None:
+    image_info += f'<li>[Requested]: {signal_file_date}</li>'
+    wrong_date = {}
+    for symbol in config['selected_sec_list']['all']: #[config['trade']['pool']['global_account']]:
+      signal_image = f'{config["result_path"]}signal/{symbol}_day.png'
+      if os.path.exists(signal_image):
 
-      # check whether the signal image is up-to-date
-      image_create_date = util.timestamp_2_time(timestamp=os.path.getmtime(signal_image), unit='s').date().strftime(format='%Y-%m-%d')
-      if image_create_date != signal_file_date and image_create_date not in wrong_date.keys():
-        wrong_date[image_create_date] = [symbol]
-      
-      if image_create_date in wrong_date:
-        wrong_date[image_create_date].append(symbol)
+        # check whether the signal image is up-to-date
+        image_create_date = util.timestamp_2_time(timestamp=os.path.getmtime(signal_image), unit='s').date().strftime(format='%Y-%m-%d')
+        if image_create_date != signal_file_date and image_create_date not in wrong_date.keys():
+          wrong_date[image_create_date] = [symbol]
+        
+        if image_create_date in wrong_date:
+          wrong_date[image_create_date].append(symbol)
 
-      with open(signal_image, 'rb') as fp:
-        symbol_image = MIMEImage(fp.read())
-      images.append(symbol_image)
+        with open(signal_image, 'rb') as fp:
+          symbol_image = MIMEImage(fp.read())
+        images.append(symbol_image)
 
-    else:
-      if symbol in config['selected_sec_list']['auto']: 
-        image_info += f'<li><p>[Not Found]: image for {symbol}</p></li>'
       else:
-        continue
+        if symbol in config['selected_sec_list']['auto']: 
+          image_info += f'<li><p>[Not Found]: image for {symbol}</p></li>'
+        else:
+          continue
 
-  if len(wrong_date) > 0:
-    for wd in wrong_date.keys():
-      image_info += f'<li><p>[Wrong Date]: {wd}</p>{", ".join(wrong_date[wd])}</li>'
+    if len(wrong_date) > 0:
+      for wd in wrong_date.keys():
+        image_info += f'<li><p>[Actual Date]: {wd}</p>{", ".join(wrong_date[wd])}</li>'
+  else:
+    image_info += f'<li><p>[Not Required]</p></li>'
   image_info += '</ul>'
 
   # construct message part by concating info parts

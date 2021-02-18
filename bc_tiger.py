@@ -214,7 +214,7 @@ class Tiger:
 
 
   # get summary of positions
-  def get_position_summary(self, get_briefs=True):
+  def get_position_summary(self, get_briefs=False):
 
     try:
       # update positions
