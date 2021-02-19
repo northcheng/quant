@@ -60,6 +60,7 @@ def load_config(root_paths):
   config['futu_path'] = config['quant_path'] + 'futuopen/'
   config['result_path'] = config['quant_path'] + 'ta_model/'
   config['signal_path'] = config['result_path'] + 'signal/'
+  config['portfolio_path'] = config['result_path'] + 'portfolio/'
   
   # load sec lists
   config['selected_sec_list'] = io_util.read_config(file_path=config['config_path'], file_name='selected_sec_list.json')
@@ -384,7 +385,8 @@ def calculate_ta_signal(df):
     'aroon is up trending': '(aroon_trend == "u")',
     'adx is up trending': '(adx_trend == "u")',
     'psar is up trending': '(psar_trend == "u")',
-    'renko is up trending': '(renko_trend == "u")',
+    'renko is up trending': '(renko_trend == "u")', 
+    # 'renko is not waving': '(renko_brick_length<3*renko_duration_p1)', # or renko_brick_length <30
     'bb is not over-buying': '(bb_trend != "d")'
   }
   up_idx = df.query(' and '.join(buy_conditions.values())).index 
@@ -394,7 +396,7 @@ def calculate_ta_signal(df):
   sell_conditions = {
     'High is below kijun line': '(High < kijun)',
     'overall trend is down': '(trend_idx < -1)',
-    'price went down through brick': '(renko_trend == "d")',
+    'price went down through brick or waving': '(renko_trend == "d")', # or (renko_brick_length > 3*renko_duration_p1 and tankan < kijun and kijun < renko_l) 
     'one of ichimoku/aroon/adx/psar is down trending, others are not up trending': '(down_trend_idx <= -1 and up_trend_idx == 0)',
     'bb is not over-selling': '(bb_trend != "u")'
     #'((ichimoku_trend=="d" and aroon_trend!="u" and adx_trend!="u" and psar_trend !="u") or (aroon_trend=="d" and ichimoku_trend!="u" and adx_trend!="u" and psar_trend !="u") or (adx_trend=="d" and ichimoku_trend!="u" and aroon_trend!="u" and psar_trend !="u") or (psar_trend=="d" and ichimoku_trend!="u" and aroon_trend!="u" and adx_trend !="u"))',
@@ -549,7 +551,6 @@ def postprocess_ta_result(df, keep_columns, drop_columns):
   return df
 
 
-
 # ================================================ Basic calculation ================================================ #
 # drop na values for dataframe
 def dropna(df):
@@ -645,7 +646,6 @@ def set_idx_col_value(df, idx, col, values, set_on_copy=True):
     df.loc[idx[i], col] = values[i]
 
   return df
-
 
 
 # ================================================ Rolling windows ================================================== #
@@ -841,7 +841,6 @@ def cal_change_rate(df, target_col, periods=1, add_accumulation=True, add_prefix
   return df
 
 
-
 # ================================================ Signal processing ================================================ #
 # calculate signal that generated from 2 lines crossover
 def cal_crossover_signal(df, fast_line, slow_line, result_col='signal', pos_signal='b', neg_signal='s', none_signal='n'):
@@ -960,7 +959,6 @@ def remove_redundant_signal(df, signal_col='signal', pos_signal='b', neg_signal=
       df.loc[dup_idx, signal_col] = none_signal
 
   return df
-
 
 
 # ================================================ Self-defined TA ================================================== #
@@ -2030,53 +2028,63 @@ def add_renko_features(df, brick_size_factor=0.1, merge_duplicated=True, cal_sig
   renko_df['renko_real'] = renko_df['renko_color'].copy()
   renko_df['renko_brick_number'] = 1
   
-  # drop currently-existed renko_df columns from df, merge renko_df into df 
-  for col in ['renko_o', 'renko_h', 'renko_l', 'renko_c', 'renko_color', 'renko_trend', 'renko_real', 'renko_brick_height', 'renko_start', 'renko_end', 'renko_duration', 'renko_duration_p1']:
-    if col in df.columns:
-      df.drop(col, axis=1, inplace=True)
-  df = pd.merge(df, renko_df, how='left', left_index=True, right_index=True)
-
   # merge rows with duplicated date (e.g. more than 1 brick in a single day)
   if merge_duplicated:
     
     # remove duplicated date index
-    duplicated_idx = list(set(df.index[df.index.duplicated()]))
+    duplicated_idx = list(set(renko_df.index[renko_df.index.duplicated()]))
     for idx in duplicated_idx:
-      tmp_rows = df.loc[idx, ].copy()
+      tmp_rows = renko_df.loc[idx, ].copy()
 
       # make sure they are in same color
       colors = tmp_rows['renko_color'].unique()
       if len(colors) == 1:
         color = colors[0]
         if color == 'green':
-          df.loc[idx, 'renko_o'] = tmp_rows['renko_o'].min()
-          df.loc[idx, 'renko_l'] = tmp_rows['renko_l'].min()
-          df.loc[idx, 'renko_h'] = tmp_rows['renko_h'].max()
-          df.loc[idx, 'renko_c'] = tmp_rows['renko_c'].max()
-          df.loc[idx, 'renko_brick_height'] = tmp_rows['renko_brick_height'].sum()
-          df.loc[idx, 'renko_brick_number'] = tmp_rows['renko_brick_number'].sum()
+          renko_df.loc[idx, 'renko_o'] = tmp_rows['renko_o'].min()
+          renko_df.loc[idx, 'renko_l'] = tmp_rows['renko_l'].min()
+          renko_df.loc[idx, 'renko_h'] = tmp_rows['renko_h'].max()
+          renko_df.loc[idx, 'renko_c'] = tmp_rows['renko_c'].max()
+          renko_df.loc[idx, 'renko_brick_height'] = tmp_rows['renko_brick_height'].sum()
+          renko_df.loc[idx, 'renko_brick_number'] = tmp_rows['renko_brick_number'].sum()
         elif color == 'red':
-          df.loc[idx, 'renko_o'] = tmp_rows['renko_o'].max()
-          df.loc[idx, 'renko_l'] = tmp_rows['renko_l'].min()
-          df.loc[idx, 'renko_h'] = tmp_rows['renko_h'].max()
-          df.loc[idx, 'renko_c'] = tmp_rows['renko_c'].min()
-          df.loc[idx, 'renko_brick_height'] = tmp_rows['renko_brick_height'].sum()
-          df.loc[idx, 'renko_brick_number'] = tmp_rows['renko_brick_number'].sum() 
+          renko_df.loc[idx, 'renko_o'] = tmp_rows['renko_o'].max()
+          renko_df.loc[idx, 'renko_l'] = tmp_rows['renko_l'].min()
+          renko_df.loc[idx, 'renko_h'] = tmp_rows['renko_h'].max()
+          renko_df.loc[idx, 'renko_c'] = tmp_rows['renko_c'].min()
+          renko_df.loc[idx, 'renko_brick_height'] = tmp_rows['renko_brick_height'].sum()
+          renko_df.loc[idx, 'renko_brick_number'] = tmp_rows['renko_brick_number'].sum() 
         else:
           print(f'unknown renko color {color}')
           continue 
       else:
         print('duplicated index with different renko colors!')
         continue
-    df = util.remove_duplicated_index(df=df, keep='last')
+    renko_df = util.remove_duplicated_index(df=renko_df, keep='last')
+
+  # calculate accumulated renko trend (so called renko_series)
+  series_len = 5
+  renko_df['renko_series'] = 'n' * series_len
+  prev_idx = None
+  for idx, row in renko_df.iterrows():
+    if prev_idx is not None:
+      renko_df.loc[idx, 'renko_series'] = (renko_df.loc[prev_idx, 'renko_series'] + renko_df.loc[idx, 'renko_trend']*int(renko_df.loc[idx, 'renko_brick_number']))[-series_len:]
+    prev_idx = idx
+    
+  # drop currently-existed renko_df columns from df, merge renko_df into df 
+  for col in ['renko_o', 'renko_h', 'renko_l', 'renko_c', 'renko_color', 'renko_trend', 'renko_real', 'renko_brick_height', 'renko_start', 'renko_end', 'renko_duration', 'renko_duration_p1', 'renko_series']:
+    if col in df.columns:
+      df.drop(col, axis=1, inplace=True)
+  df = pd.merge(df, renko_df, how='left', left_index=True, right_index=True)
 
   # for rows in downtrend, renko_brick_height = -renko_brick_height
   red_idx = df.query('renko_color == "red"').index
   df.loc[red_idx, 'renko_brick_height'] = -df.loc[red_idx, 'renko_brick_height']
 
   # fill na values
-  renko_columns = ['renko_o', 'renko_h','renko_l', 'renko_c', 'renko_color', 'renko_trend', 'renko_brick_height', 'renko_brick_number','renko_start', 'renko_end', 'renko_duration', 'renko_duration_p1'] 
-  df[renko_columns] = df[renko_columns].fillna(method='ffill')
+  renko_columns = ['renko_o', 'renko_h','renko_l', 'renko_c', 'renko_color', 'renko_trend', 'renko_brick_height', 'renko_brick_number','renko_start', 'renko_end', 'renko_duration', 'renko_duration_p1', 'renko_series'] 
+  for col in renko_columns:
+    df[col] = df[col].fillna(method='ffill')
 
   # calculate length(number of days to the end of current brick) 
   # calculate of each brick(or merged brick): renko_brick_length, renko_countdown_days(for ploting)
@@ -2088,17 +2096,18 @@ def add_renko_features(df, brick_size_factor=0.1, merge_duplicated=True, cal_sig
     df['renko_countdown_days'] = df['renko_end'] - df['s'] 
     df['renko_brick_length'] = df['s'] - df['renko_start']
     df['renko_brick_length'] = df['renko_brick_length'].apply(lambda x: x.days+1).astype(float)
-
   else:
     df['renko_countdown_days'] = 1
     df['renko_brick_length'] = 1
+
+  # calculate renko trend index
+  df['renko_series_idx'] = df['renko_series'].apply(lambda x: (x.count('u') - x.count('d'))/((x.count('u') + x.count('d'))+1))
 
   # calculate signals
   if cal_signal:
     df['renko_signal'] = 'n'
 
   return df
-
 
 
 # ================================================ Volume indicators ================================================ #
@@ -2400,7 +2409,6 @@ def add_vpt_features(df, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=T
   df.drop(['close_change_rate'], axis=1, inplace=True)
 
   return df
-
 
 
 # ================================================ Momentum indicators ============================================== #
@@ -2833,7 +2841,6 @@ def add_wr_features(df, lbp=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_s
   return df
 
 
-
 # ================================================ Volatility indicators ============================================ #
 # Average True Range
 def add_atr_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True):
@@ -3127,7 +3134,6 @@ def add_kc_features(df, n=10, ohlcv_col=default_ohlcv_col, method='atr', fillna=
     df.loc[sell_idx, 'kc_signal'] = 's'
 
   return df
-
 
 
 # ================================================ Indicator visualization  ========================================= #

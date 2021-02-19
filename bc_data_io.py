@@ -385,27 +385,6 @@ def get_real_time_data_from_eod(symbols, api_key=default_eod_key, is_print=False
   return result
 
 
-def get_stock_briefs_from_eod(symbols, api_key=default_eod_key, batch_size=15):
-  """
-  Get latest stock data for symbols from eod
-
-  :param symbols: list of target symbols
-  :param api_key: api token to access eod data
-  :param batch_size: batch size of symbols of getting real-time data
-  :returns: dataframe of latest data, per row for each symbol
-  :raises: none
-  """
-  latest_data = get_real_time_data_from_eod(symbols=symbols, api_key=api_key, batch_size=batch_size, is_print=True)
-
-  if len(latest_data) > 0:
-    latest_data['latest_price'] = latest_data['Close'].copy()
-    latest_data = latest_data[['latest_time', 'Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume', 'symbol', 'latest_price', 'Date']]
-  else:
-    print('real time data from eod is empty')
-
-  return latest_data
-
-
 def get_real_time_data_from_yfinance(symbols, period='1d', interval='1m'):
 
   # initialize result
@@ -452,6 +431,27 @@ def get_real_time_data_from_yfinance(symbols, period='1d', interval='1m'):
       latest_data = latest_data.reset_index().drop('index', axis=1).round(3)
       latest_data = latest_data.rename(columns={'Datetime': 'latest_time'})
       latest_data = latest_data[['change', 'change_p', 'Close', 'symbol', 'High', 'Low', 'Open', 'previousClose', 'Volume', 'latest_time', 'Date', 'Adj Close', 'Dividend', 'Split']]
+
+  return latest_data
+
+
+def get_stock_briefs_from_eod(symbols, api_key=default_eod_key, batch_size=15):
+  """
+  Get latest stock data for symbols from eod
+
+  :param symbols: list of target symbols
+  :param api_key: api token to access eod data
+  :param batch_size: batch size of symbols of getting real-time data
+  :returns: dataframe of latest data, per row for each symbol
+  :raises: none
+  """
+  latest_data = get_real_time_data_from_eod(symbols=symbols, api_key=api_key, batch_size=batch_size, is_print=True)
+
+  if len(latest_data) > 0:
+    latest_data['latest_price'] = latest_data['Close'].copy()
+    latest_data = latest_data[['latest_time', 'Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume', 'symbol', 'latest_price', 'Date']]
+  else:
+    print('real time data from eod is empty')
 
   return latest_data
 
@@ -1176,7 +1176,7 @@ def read_nytimes(year, month, file_path, file_format='.json'):
   return df  
 
 
-#----------------------------- Global Parameter Setting -------------------------#
+#----------------------------- Json File Processing---- -------------------------#
 def create_config_file(config_dict, file_path, file_name, print=False):
   """
   Create a config file and save global parameters into the file
@@ -1376,7 +1376,7 @@ def pickle_load_data(file_path, file_name):
   return data
 
 
-#----------------------- Email sending ---------------------------#
+#----------------------------- Email sending ------------------------------------#
 def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subject=None, platform=['tiger'], signal_file_date=None, log_file_date=None, position_summary={}, test=False):
   """
   send automatic_trader's trading result by email

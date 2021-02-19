@@ -193,6 +193,7 @@
         "save_result": true,
         "save_data": true,
         "extract_signal_image": true,
+        "extract_portfolio_image": true,
         "zip_ta_model_folder": false
     },
     "trade": {
