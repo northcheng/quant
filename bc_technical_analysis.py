@@ -26,7 +26,7 @@ except Exception as e:
   print(e)
 
 # default values
-default_signal_val = {'pos_signal':'b', 'neg_signal':'s', 'none_signal':'n'}
+default_signal_val = {'pos_signal':'b', 'neg_signal':'s', 'none_signal':'', 'wave_signal': 'n'}
 default_candlestick_color = {'colorup':'green', 'colordown':'red', 'alpha':0.8}
 default_ohlcv_col = {'close':'Close', 'open':'Open', 'high':'High', 'low':'Low', 'volume':'Volume'}  
 default_plot_args = {'figsize':(25, 5), 'title_rotation':'vertical', 'title_x':-0.05, 'title_y':0.3, 'bbox_to_anchor':(1.02, 0.), 'loc':3, 'ncol':1, 'borderaxespad':0.0}
@@ -203,29 +203,60 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
 
       for col in ['tankan', 'kijun']:
         df[f'{col}_day'] = sda(series=df[f'{col}_signal'], zero_as=1)
+        df = cal_change_rate(df=df, target_col=f'{col}', periods=1, add_accumulation=False, add_prefix=f'{col}', drop_na=False)
+        df[f'{col}_rate_ma'] = em(series=df[f'{col}_rate'], periods=5, fillna=False).mean()
+        
 
       fl = 'tankan'
       sl = 'kijun'
       fld = 'tankan_day'
       sld = 'kijun_day'
-      df[trend_col] = 'n'
+      df[trend_col] = ''
+
       # it is going up when
-      # Close is beyond the cloud_bottom or cloud is green, with one of the following condition:
-      # 1. (close_to_{fl} >= close_to_{sl} > {signal_threshold})
-      # 2. (close_to_{sl} >= close_to_{fl} > {signal_threshold}) 
-      # 3. ((close_to_{fl}>={signal_threshold}) and (close_to_{sl}<={-signal_threshold}) and (abs({fld})<abs({sld}))) 
-      # 4. ((close_to_{fl}<={-signal_threshold}) and (close_to_{sl}>={signal_threshold}) and (abs({fld})>abs({sld})))
-      # (Close>cloud_bottom or tankan>kijun) and 
-      up_idx = df.query(f'((close_to_{fl} >= close_to_{sl} > {signal_threshold}) or (close_to_{sl} >= close_to_{fl} > {signal_threshold}) or ((close_to_{fl}>={signal_threshold}) and (close_to_{sl}<={-signal_threshold}) and (abs({fld})<abs({sld}))) or ((close_to_{fl}<={-signal_threshold}) and (close_to_{sl}>={signal_threshold}) and (abs({fld})>abs({sld}))))').index
+      ichimoku_up_conditions = {
+        'at least 1 triggered': [
+          f'(close_to_{fl} >= close_to_{sl} > {signal_threshold})',
+          f'(close_to_{sl} >= close_to_{fl} > {signal_threshold})',
+          f'((close_to_{fl}>={signal_threshold}) and (close_to_{sl}<={-signal_threshold}) and (abs({fld})<abs({sld})))',
+          f'((close_to_{fl}<={-signal_threshold}) and (close_to_{sl}>={signal_threshold}) and (abs({fld})>abs({sld})))',
+        ],
+        'must all triggered': [
+          f'((tankan_rate_ma > 0) and (kijun_rate_ma > 0))',
+          'Close > 0' # when there is no condition
+        ]
+      }
+      ichimoku_up_query_or = ' or '.join(ichimoku_up_conditions['at least 1 triggered'])
+      ichimoku_up_query_and = ' and '.join(ichimoku_up_conditions['must all triggered']) 
+      ichimoku_up_query = f'({ichimoku_up_query_and}) and ({ichimoku_up_query_or})'
+      up_idx = df.query(f'{ichimoku_up_query}').index
 
       # it is going down when
-      # 1. (close_to_{fl} <= close_to_{sl} < {-signal_threshold})
-      # 2. (close_to_{sl} <= close_to_{fl} < {-signal_threshold}) 
-      # 3. ((close_to_{sl}<{-signal_threshold}) and (close_to_{fl}>{signal_threshold}) and (abs({fld})>abs({sld}))) 
-      # 4. ((close_to_{sl}>{signal_threshold}) and (close_to_{fl}<{-signal_threshold}) and (abs({fld})<abs({sld})))
-      down_idx = df.query(f'(Close<kijun) and ((close_to_{fl} <= close_to_{sl} < {-signal_threshold}) or (close_to_{sl} <= close_to_{fl} < {-signal_threshold}) or ((close_to_{sl}<{-signal_threshold}) and (close_to_{fl}>{signal_threshold}) and (abs({fld})>abs({sld}))) or ((close_to_{sl}>{signal_threshold}) and (close_to_{fl}<{-signal_threshold}) and (abs({fld})<abs({sld}))))').index
+      ichimoku_down_conditions = {
+        'at least 1 triggered': [
+          f'(close_to_{fl} <= close_to_{sl} < {-signal_threshold})',
+          f'(close_to_{sl} <= close_to_{fl} < {-signal_threshold})',
+          f'((close_to_{sl}<{-signal_threshold}) and (close_to_{fl}>{signal_threshold}) and (abs({fld})>abs({sld})))',
+          f'((close_to_{sl}>{signal_threshold}) and (close_to_{fl}<{-signal_threshold}) and (abs({fld})<abs({sld})))',
+        ],
+        'must all triggered': [
+          # f'((tankan_rate_ma < 0) or (kijun_rate_ma < 0))',
+          f'(Close<kijun)',
+          # 'Close > 0' # when there is no condition
+        ],
+      }
+      ichimoku_down_query_or = ' or '.join(ichimoku_down_conditions['at least 1 triggered'])
+      ichimoku_down_query_and = ' and '.join(ichimoku_down_conditions['must all triggered'])
+      ichimoku_down_query = f'({ichimoku_down_query_and}) and ({ichimoku_down_query_or})'
+      down_idx = df.query(ichimoku_down_query).index
+      
+      # it is waving when
+      # 1. (-0.01 < kijun_rate_ma < 0.01)
+      wave_idx = df.query(f'((kijun_rate == 0) and (tankan < kijun))').index
+
       df.loc[up_idx, trend_col] = 'u'
       df.loc[down_idx, trend_col] = 'd'
+      df.loc[wave_idx, trend_col] = 'n'
 
     # ================================ aroon trend ============================
     # calculate aroon_diff
@@ -236,7 +267,7 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
         df = cal_change(df=df, target_col=col, add_prefix=True, add_accumulation=True)
 
       # calculate aroon trend
-      # df['aroon_trend'] = 'n'
+      df['aroon_trend'] = ''
 
       # it is going up when:
       # 1+. aroon_up is extramely positive(96+)
@@ -268,7 +299,7 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
     # ================================ adx trend ==============================
     if 'adx' in trend_indicators:
       # initialize
-      # df['adx_trend'] = 'n'
+      df['adx_trend'] = ''
 
       # it is going up when adx_diff>0
       up_idx = df.query('adx_diff > 0').index
@@ -277,6 +308,10 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       # it is going down when adx_diff<0
       down_idx = df.query('adx_diff <= 0').index
       df.loc[down_idx ,'adx_trend'] = 'd'
+
+      # it is waving when adx between -20~20
+      wave_idx = df.query('adx < 20').index
+      df.loc[wave_idx, 'adx_trend'] = 'n'
 
     # ================================ eom trend ==============================
     if 'eom' in volume_indicators:
@@ -320,7 +355,7 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
 
     # ================================ renko trend ============================
     if 'renko' in trend_indicators:
-      df['renko_trend'] = 'n'
+      df['renko_trend'] = ''
 
       up_idx = df.query('(Close > Open) and ((renko_color=="red" and Low>renko_h) or (renko_color=="green"))').index
       df.loc[up_idx, 'renko_trend'] = 'u'
@@ -328,7 +363,7 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       down_idx = df.query('(renko_color=="red") or (renko_color=="green" and Close<renko_l)').index
       df.loc[down_idx, 'renko_trend'] = 'd'
 
-      wave_idx = df.query('(renko_trend != "u" and renko_trend != "d") and (renko_brick_length >= 30)').index
+      wave_idx = df.query('(renko_brick_length >= 20 and renko_brick_length>3*renko_duration_p1)').index
       df.loc[wave_idx, 'renko_trend'] = 'n'
 
     # ================================ overall trend ==========================
@@ -345,7 +380,7 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       day_col = f'{indicator}_day'
 
       # calculate number of days since trend shifted
-      df[day_col] = sda(series=df[trend_col].replace({'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1) 
+      df[day_col] = sda(series=df[trend_col].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1) 
       
       # signal of individual indicators are set to 'n'
       if signal_col not in df.columns:
@@ -377,16 +412,17 @@ def calculate_ta_signal(df):
   """
   # copy data, initialize
   df = df.copy()
-  df['trend'] = 'n'
+  df['trend'] = ''
   
   # buy conditions
   buy_conditions = {
-    'ichimoku is up trending': '(ichimoku_trend == "u")',
-    'aroon is up trending': '(aroon_trend == "u")',
-    'adx is up trending': '(adx_trend == "u")',
-    'psar is up trending': '(psar_trend == "u")',
-    'renko is up trending': '(renko_trend == "u")', 
+    # 'ichimoku is up trending': '(ichimoku_trend == "u")',
+    # 'aroon is up trending': '(aroon_trend == "u")',
+    # 'adx is up trending': '(adx_trend == "u")',
+    # 'psar is up trending': '(psar_trend == "u")',
+    # 'renko is up trending': '(renko_trend == "u")', 
     # 'renko is not waving': '(renko_brick_length<3*renko_duration_p1)', # or renko_brick_length <30
+    'only use renko signal': '(renko_trend == "u" and renko_series_idx >= 0.5)',
     'bb is not over-buying': '(bb_trend != "d")'
   }
   up_idx = df.query(' and '.join(buy_conditions.values())).index 
@@ -395,19 +431,28 @@ def calculate_ta_signal(df):
   # sell conditions
   sell_conditions = {
     'High is below kijun line': '(High < kijun)',
-    'overall trend is down': '(trend_idx < -1)',
-    'price went down through brick or waving': '(renko_trend == "d")', # or (renko_brick_length > 3*renko_duration_p1 and tankan < kijun and kijun < renko_l) 
-    'one of ichimoku/aroon/adx/psar is down trending, others are not up trending': '(down_trend_idx <= -1 and up_trend_idx == 0)',
-    'bb is not over-selling': '(bb_trend != "u")'
-    #'((ichimoku_trend=="d" and aroon_trend!="u" and adx_trend!="u" and psar_trend !="u") or (aroon_trend=="d" and ichimoku_trend!="u" and adx_trend!="u" and psar_trend !="u") or (adx_trend=="d" and ichimoku_trend!="u" and aroon_trend!="u" and psar_trend !="u") or (psar_trend=="d" and ichimoku_trend!="u" and aroon_trend!="u" and adx_trend !="u"))',
+    # 'overall trend is down': '(trend_idx < -1 and up_trend_idx == 0)',
+    # 'price went down through brick or waving': '(renko_trend == "d" or kijun < renko_h)', # or (renko_brick_length > 3*renko_duration_p1 and tankan < kijun and kijun < renko_l) 
+    # 'one of ichimoku/aroon/adx/psar is down trending, others are not up trending': '(down_trend_idx <= -1 and up_trend_idx == 0)',
+    'only use renko signal': '(renko_trend == "d" or (renko_trend == "n" and renko_brick_length >= 20))',
+    'bb is not over-selling': '(bb_trend != "u")',
+    # '((ichimoku_trend=="d" and aroon_trend!="u" and adx_trend!="u" and psar_trend !="u") or (aroon_trend=="d" and ichimoku_trend!="u" and adx_trend!="u" and psar_trend !="u") or (adx_trend=="d" and ichimoku_trend!="u" and aroon_trend!="u" and psar_trend !="u") or (psar_trend=="d" and ichimoku_trend!="u" and aroon_trend!="u" and adx_trend !="u"))',
     
   } 
   down_idx = df.query(' and '.join(sell_conditions.values())).index 
   df.loc[down_idx, 'trend'] = 'd'
 
+  # wave conditions
+  wave_conditions = {
+    'kijun_rate is going flatly': '(kijun_rate == 0 and tankan < kijun and tankan_rate_ma <= 0)',
+    'renko brick is very long': '(renko_brick_length >=20 and renko_brick_length >= renko_duration_p1*3)',
+  }
+  wave_idx = df.query(' and '.join(wave_conditions.values())).index 
+  df.loc[wave_idx, 'trend'] = 'n'
+
   # ================================ Calculate overall siganl ======================
   df['signal'] = 'n' 
-  df['signal_day'] = sda(series=df['trend'].replace({'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
+  df['signal_day'] = sda(series=df['trend'].replace({'':0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
   df.loc[df['signal_day'] == 1, 'signal'] = 'b'
   df.loc[df['signal_day'] ==-1, 'signal'] = 's'
 
@@ -3018,8 +3063,8 @@ def add_bb_features(df, n=20, ndev=2, ohlcv_col=default_ohlcv_col, fillna=False,
   df['bb_low_band'] = low_band
 
   if cal_signal:
-    df['bb_signal'] = 'n'
-    df['bb_trend'] = 'n'
+    df['bb_signal'] = ''
+    df['bb_trend'] = ''
     buy_idx = df.query(f'{close} < bb_low_band').index
     sell_idx = df.query(f'{close} > bb_high_band').index
     df.loc[buy_idx, 'bb_trend'] = 'u'
@@ -3180,6 +3225,7 @@ def plot_signal(
   # get signal values
   pos_signal = signal_val['pos_signal']
   neg_signal = signal_val['neg_signal']
+  wave_signal = signal_val['wave_signal']
   none_signal = signal_val['none_signal']
 
   # plot signals
@@ -3189,6 +3235,7 @@ def plot_signal(
     trend_alpha = 0.25 if signal_col == 'signal' else 0.15
     positive_signal = df.query(f'{signal_col} == "{pos_signal}"')
     negative_signal = df.query(f'{signal_col} == "{neg_signal}"')
+    wave_signal = df.query(f'{signal_col} == "{wave_signal}"')
     none_signal = df.query(f'{signal_col} == "{none_signal}"')
     ax.scatter(positive_signal.index, positive_signal['signal_base'], label=None, marker='^', color='green', alpha=signal_alpha)
     ax.scatter(negative_signal.index, negative_signal['signal_base'], label=None, marker='v', color='red', alpha=signal_alpha)
@@ -3197,10 +3244,11 @@ def plot_signal(
     if trend_col in df.columns:
       pos_trend = df.query(f'{trend_col} == "u"')
       neg_trend = df.query(f'{trend_col} == "d"') 
-      none_trend = df.query(f'{trend_col} == "n"')
+      wave_trend = df.query(f'{trend_col} == "n"')
+      none_trend = df.query(f'{trend_col} == ""')
       ax.scatter(pos_trend.index, pos_trend['signal_base'], label=None, marker='o', color='green', alpha=trend_alpha)
       ax.scatter(neg_trend.index, neg_trend['signal_base'], label=None, marker='o', color='red', alpha=trend_alpha)
-      ax.scatter(none_trend.index, none_trend['signal_base'], label=None, marker='o', color='orange', alpha=trend_alpha)
+      ax.scatter(wave_trend.index, wave_trend['signal_base'], label=None, marker='o', color='orange', alpha=trend_alpha)
 
 
   # legend and title
@@ -3352,7 +3400,7 @@ def plot_main_indicators(
   if ax is None:
     fig = mpf.figure(figsize=plot_args['figsize'])
     ax = fig.add_subplot(1,1,1, style='yahoo')
-  
+ 
   # plot close price
   if 'price' in target_indicator:
     alpha = 0.2
@@ -3396,7 +3444,6 @@ def plot_main_indicators(
   if 'renko' in target_indicator:
     ax = plot_renko(df, use_ax=ax, plot_args=default_plot_args, plot_in_date=True, close_alpha=0)
     
-  
   # plot candlestick
   if 'candlestick' in target_indicator:
     ax = plot_candlestick(df=df, start=start, end=end, date_col=date_col, ohlcv_col=ohlcv_col, width=candlestick_width, color=candlestick_color, use_ax=ax, plot_args=plot_args)
@@ -3542,7 +3589,7 @@ def plot_renko(
     df = df.query('renko_real == "green" or renko_real =="red"').reset_index()
   
   # plot renko
-  legends = {'u': 'u', 'd': 'd', 'n':'n'}
+  legends = {'u': 'u', 'd': 'd', 'n':'n', '':''}
   for index, row in df.iterrows():
     renko = Rectangle((index, row['renko_o']), row['renko_countdown_days'], row['renko_brick_height'], facecolor=row['renko_color'], edgecolor=row['renko_color'], linestyle='-', linewidth=1, fill=True, alpha=0.25, label=legends[row['renko_trend']]) #  edgecolor=row['renko_color'], linestyle='-', linewidth=5, 
     legends[row['renko_trend']] = "_nolegend_"
@@ -3788,7 +3835,6 @@ def plot_multiple_indicators(
     
     # plot ichimoku with candlesticks
     if tmp_indicator == 'main_indicators':
-
       # get candlestick width and color
       candlestick_color = tmp_args.get('candlestick_color') if tmp_args.get('candlestick_color') is not None else default_candlestick_color
       width = tmp_args.get('candlestick_width') if tmp_args.get('candlestick_width') is not None else 1

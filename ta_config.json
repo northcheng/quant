@@ -98,7 +98,8 @@
                 "target_indicator": [
                     "candlestick",
                     "ichimoku",
-                    "renko"
+                    "renko",
+                    "psar"                    
                 ],
                 "candlestick_width": 1,
                 "candlestick_color": {
