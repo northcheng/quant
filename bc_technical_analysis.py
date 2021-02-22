@@ -2112,16 +2112,19 @@ def add_renko_features(df, brick_size_factor=0.1, merge_duplicated=True, cal_sig
     renko_df = util.remove_duplicated_index(df=renko_df, keep='last')
 
   # calculate accumulated renko trend (so called renko_series)
-  series_len = 10
-  renko_df['renko_series'] = 'n' * series_len
+  series_len_short = 3
+  series_len_long = 5
+  renko_df['renko_series_short'] = 'n' * series_len_short
+  renko_df['renko_series_long'] = 'n' * series_len_long
   prev_idx = None
   for idx, row in renko_df.iterrows():
     if prev_idx is not None:
-      renko_df.loc[idx, 'renko_series'] = (renko_df.loc[prev_idx, 'renko_series'] + renko_df.loc[idx, 'renko_trend'])[-series_len:]
+      renko_df.loc[idx, 'renko_series_short'] = (renko_df.loc[prev_idx, 'renko_series_short'] + renko_df.loc[idx, 'renko_trend'])[-series_len_short:]
+      renko_df.loc[idx, 'renko_series_long'] = (renko_df.loc[prev_idx, 'renko_series_long'] + renko_df.loc[idx, 'renko_trend'])[-series_len_long:]
     prev_idx = idx
     
   # drop currently-existed renko_df columns from df, merge renko_df into df 
-  for col in ['renko_o', 'renko_h', 'renko_l', 'renko_c', 'renko_color', 'renko_trend', 'renko_real', 'renko_brick_height', 'renko_start', 'renko_end', 'renko_duration', 'renko_duration_p1', 'renko_series']:
+  for col in ['renko_o', 'renko_h', 'renko_l', 'renko_c', 'renko_color', 'renko_trend', 'renko_real', 'renko_brick_height', 'renko_start', 'renko_end', 'renko_duration', 'renko_duration_p1', 'renko_series_short', 'renko_series_long']:
     if col in df.columns:
       df.drop(col, axis=1, inplace=True)
   df = pd.merge(df, renko_df, how='left', left_index=True, right_index=True)
@@ -2131,7 +2134,7 @@ def add_renko_features(df, brick_size_factor=0.1, merge_duplicated=True, cal_sig
   df.loc[red_idx, 'renko_brick_height'] = -df.loc[red_idx, 'renko_brick_height']
 
   # fill na values
-  renko_columns = ['renko_o', 'renko_h','renko_l', 'renko_c', 'renko_color', 'renko_trend', 'renko_brick_height', 'renko_brick_number','renko_start', 'renko_end', 'renko_duration', 'renko_duration_p1', 'renko_series'] 
+  renko_columns = ['renko_o', 'renko_h','renko_l', 'renko_c', 'renko_color', 'renko_trend', 'renko_brick_height', 'renko_brick_number','renko_start', 'renko_end', 'renko_duration', 'renko_duration_p1', 'renko_series_short', 'renko_series_long'] 
   for col in renko_columns:
     df[col] = df[col].fillna(method='ffill')
 
@@ -2150,7 +2153,7 @@ def add_renko_features(df, brick_size_factor=0.1, merge_duplicated=True, cal_sig
     df['renko_brick_length'] = 1
 
   # calculate renko trend index
-  df['renko_series_idx'] = df['renko_series'].apply(lambda x: (x.count('u') - x.count('d'))/((x.count('u') + x.count('d'))+1))
+  # df['renko_series_idx'] = df['renko_series'].apply(lambda x: (x.count('u') - x.count('d'))/((x.count('u') + x.count('d'))+1))
 
   # calculate signals
   if cal_signal:
