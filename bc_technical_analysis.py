@@ -140,6 +140,11 @@ def preprocess_sec_data(df, symbol, interval, print_error=True):
   na_cols = []
   zero_cols = []
   error_info = ''
+
+  # replace close with adj close
+  adj_rate = df['Adj Close'] / df['Close']
+  for col in ['High', 'Low', 'Open', 'Close','Volume']:
+    df[col] = df[col] * adj_rate
         
   # check whether 0 or NaN values exists in the latest record
   extra_cols = ['Split', 'Dividend']
@@ -364,6 +369,16 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       wave_idx = df.query('(renko_trend != "u" and renko_trend != "d") and ((renko_brick_length >= 20 ) and (renko_brick_length>3*renko_duration_p1))').index
       df.loc[wave_idx, 'renko_trend'] = 'n'
 
+    # ================================ candlestick trend ======================
+    # df['candle_trend'] = ''
+    # df['candle_signal'] = ''
+
+    # up_idx = df.query('candle_long_entity == 1').index
+    # df.loc[up_idx, 'candle_trend'] = 'u'
+
+    # down_idx = df.query('candle_long_entity == -1').index
+    # df.loc[down_idx, 'candle_trend'] = 'd'    
+
     # ================================ overall trend ==========================
     phase = 'cal_overall_trend'
     df['trend_idx'] = 0
@@ -411,14 +426,22 @@ def calculate_ta_signal(df):
   # copy data, initialize
   df = df.copy()
   df['trend'] = ''
+
+  # ================================ Support and resistance ========================
+  df['support'] = df['renko_l']
+  df['resistant'] = df['renko_h']
   
+  # ================================ buy and sell signals ==========================
   # buy conditions
   buy_conditions = {
     # stable version
-    'ichimoku is up trending': '(ichimoku_trend == "u")',
-    'aroon is up trending': '(aroon_trend == "u")',
-    'adx is up trending': '(adx_trend == "u")',
-    'psar is up trending': '(psar_trend == "u")',
+    # 'break up through resistant': '(Close > resistant)',
+    
+    # 'ichimoku is up trending': '(ichimoku_trend == "u")',
+    # 'aroon is up trending': '(aroon_trend == "u")',
+    # 'adx is up trending': '(adx_trend == "u")',
+    # 'psar is up trending': '(psar_trend == "u")',
+    'ichimoku/aroon/adx/psar are all up trending': '(trend_idx == 4)',
     'renko is up trending': '(renko_trend == "u")',
     'bb is not over-buying': '(bb_trend != "d")'
 
@@ -433,9 +456,10 @@ def calculate_ta_signal(df):
   # sell conditions
   sell_conditions = {
     # stable version
+    # 'break down through support': '(Close < support)',
     'High is below kijun line': '(High < kijun)',
     'overall trend is down': '(trend_idx < -1)',
-    'price went down through brick': '(renko_trend == "d")',
+    'price went down through brick': '(renko_trend == "d" )',
     'one of ichimoku/aroon/adx/psar is down trending, others are not up trending': '(down_trend_idx <= -1 and up_trend_idx == 0)',
     'bb is not over-selling': '(bb_trend != "u")'
     
@@ -480,6 +504,8 @@ def calculate_ta_signal(df):
   df['signal_day'] = sda(series=df['trend'].replace({'':0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
   df.loc[df['signal_day'] == 1, 'signal'] = 'b'
   df.loc[df['signal_day'] ==-1, 'signal'] = 's'
+
+  
 
   # # due to the uncertainty of renko signal, broadcast the most recent signal
   # last_signal_idx = df.query('signal != "n"').index.max()
@@ -1051,10 +1077,10 @@ def cal_peak_trough(df, target_col, height=None, threshold=None, distance=None, 
   df = df.copy()
 
   # set result values
-  result_col='signal'
-  peak_signal='p'
-  trough_signal='t'
-  none_signal='n'
+  result_col='peak_trend'
+  peak_signal='d'
+  trough_signal='u'
+  none_signal=''
   
   try:
     # find peaks 
@@ -1071,70 +1097,7 @@ def cal_peak_trough(df, target_col, height=None, threshold=None, distance=None, 
     df.loc[troughs, result_col] = trough_signal
     
   except Exception as e:
-    print(e, 'using self-defined method')
-    
-    further_filter=True
-
-    # previous value of the target column
-    previous_target_col = 'previous_' + target_col
-    df[previous_target_col] = df[target_col].shift(1)
-
-    # when value goes down, it means it is currently at peak
-    peaks = df.query(f'{target_col} < {previous_target_col}').index
-    # when value goes up, it means it is currently at trough
-    troughs = df.query(f'{target_col} > {previous_target_col}').index
-  
-    # set signal values
-    df[result_col] = none_signal
-    df.loc[peaks, result_col] = peak_signal
-    df.loc[troughs, result_col] = trough_signal
-  
-    # shift the signal back by 1 unit
-    df[result_col] = df[result_col].shift(-1)
-  
-    # remove redundant signals
-    df = remove_redundant_signal(df=df, signal_col=result_col, keep='first', pos_signal=peak_signal, neg_signal=trough_signal, none_signal=none_signal)
-  
-    # further filter the signals
-    if further_filter:
-      
-      # get all peak/trough signals
-      peak = df.query(f'{result_col}=="{peak_signal}"').index.tolist()
-      trough = df.query(f'{result_col}=="{trough_signal}"').index.tolist()
-        
-      # peak/trough that not qualified
-      false_peak = []
-      false_trough = []
-    
-      # filter peak signals
-      for i in range(len(peak)):
-        current_idx = peak[i]
-        benchmark = 0
-      
-        # the peak is not qualified if it is lower that the average of previous 2 troughs
-        previous_troughs = df[:current_idx].query(f'{result_col}=="{trough_signal}"').tail(2)
-        if len(previous_troughs) > 0:
-          benchmark = previous_troughs[target_col].mean()
-        
-        if df.loc[current_idx, target_col] < benchmark:
-          false_peak.append(current_idx)
-        
-      # filter trough signals
-      for i in range(len(trough)):        
-        current_idx = trough[i]
-        benchmark = 0
-
-        # the trough is not qualified if it is lower that the average of previous 2 peaks
-        previous_peaks = df[:current_idx].query(f'{result_col}=="{peak_signal}"').tail(2)
-        if len(previous_peaks) > 0:
-          benchmark = previous_peaks[target_col].mean()
-      
-        if df.loc[current_idx, target_col] > benchmark:
-          false_trough.append(current_idx)
-          
-      df.loc[false_peak, result_col] = none_signal
-      df.loc[false_trough, result_col] = none_signal
-      df.fillna('n')
+    print(e)
 
   return df[[result_col]]
 
@@ -1198,48 +1161,63 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
   df.loc[down_idx, 'candle_color'] = -1
   
   # shadow
-  df['shadow'] = (df[high] - df[low])
+  df['candle_shadow'] = (df[high] - df[low])
   
   # entity
-  df['entity'] = abs(df[close] - df[open])
+  df['candle_entity'] = abs(df[close] - df[open])
   
   # ======================================= upper/lower shadow ======================================= #
-  df['upper_shadow'] = 0
-  df['lower_shadow'] = 0
-  df.loc[up_idx, 'upper_shadow'] = (df.loc[up_idx, high] - df.loc[up_idx, close])
-  df.loc[up_idx, 'lower_shadow'] = (df.loc[up_idx, open] - df.loc[up_idx, low])
-  df.loc[down_idx, 'upper_shadow'] = (df.loc[down_idx, high] - df.loc[down_idx, open])
-  df.loc[down_idx, 'lower_shadow'] = (df.loc[down_idx, close] - df.loc[down_idx, low])
+  df['candle_upper_shadow'] = 0
+  df['candle_lower_shadow'] = 0
+  df.loc[up_idx, 'candle_upper_shadow'] = (df.loc[up_idx, high] - df.loc[up_idx, close])
+  df.loc[up_idx, 'candle_lower_shadow'] = (df.loc[up_idx, open] - df.loc[up_idx, low])
+  df.loc[down_idx, 'candle_upper_shadow'] = (df.loc[down_idx, high] - df.loc[down_idx, open])
+  df.loc[down_idx, 'candle_lower_shadow'] = (df.loc[down_idx, close] - df.loc[down_idx, low])
   
   # gap_up / gap_down
   col_to_drop = [] 
-  for col in [open, close, high, low, 'candle_color']:
+  for col in [open, close, high, low, 'candle_color', 'candle_entity']:
     prev_col = f'prev_{col}' 
     df[prev_col] = df[col].shift(1)
     col_to_drop.append(prev_col)
   
   # gap up
-  df['gap'] = 0
+  df['candle_gap'] = 0
   gap_up_idx = df.query(f'(({low}>prev_{close} and prev_candle_color==1) or ({low}>prev_{open} and prev_candle_color==-1))').index
   strict_gap_up_idx = df.query(f'{low}>prev_{high}').index
-  df.loc[gap_up_idx, 'gap'] = 1
-  df.loc[strict_gap_up_idx, 'gap'] = 2
+  df.loc[gap_up_idx, 'candle_gap'] = 1
+  df.loc[strict_gap_up_idx, 'candle_gap'] = 2
   
   # gap down
   gap_down_idx = df.query(f'(({high}<prev_{open} and prev_candle_color==1) or ({high}<prev_{close} and prev_candle_color==-1))').index
   strict_gap_down_idx = df.query(f'{high}<prev_{low}').index  
-  df.loc[gap_down_idx, 'gap'] = -1
-  df.loc[strict_gap_down_idx, 'gap'] = -2
+  df.loc[gap_down_idx, 'candle_gap'] = -1
+  df.loc[strict_gap_down_idx, 'candle_gap'] = -2
   
-  # ======================================= long entities ======================================= #
-  df['long_entity'] = 0
-  df['avg_entity_length'] = df['entity'].rolling(50).mean()
-  long_entity_idx = df.query(f'(entity >= 3*avg_entity_length)').index
-  df.loc[long_entity_idx, 'long_entity'] = df.loc[long_entity_idx, 'candle_color']
-  col_to_drop.append('avg_entity_length')
+  # ======================================= long/short entities ================================= #
+  df['candle_long_entity'] = 0
+  df['candle_short_entity'] = 0
+  df['candle_entity_ma'] = df['candle_entity'].rolling(50).mean()
+  long_entity_idx = df.query(f'((candle_entity >= 1.5*candle_entity_ma) or (candle_entity > 3*prev_candle_entity))').index
+  short_entity_idx = df.query(f'((candle_entity <= 0.5*candle_entity_ma) or (candle_entity < 0.33*prev_candle_entity))').index
+  df.loc[long_entity_idx, 'candle_long_entity'] = df.loc[long_entity_idx, 'candle_color']
+  df.loc[short_entity_idx, 'candle_short_entity'] = df.loc[short_entity_idx, 'candle_color']
+  col_to_drop.append('candle_entity_ma')
 
-  df['candlestick_signal'] = df['long_entity'].replace({0:'n', 1:'b', -1:'s'})
+  # # ======================================= candle patterns ===================================== #
+  # df['candle_pattern'] = 0
+  # df['Close_ma'] = df[close].rolling(5).mean()
+  # df['period_High'] = df[high].rolling(5).max()
+  # df['period_Low'] = df[low].rolling(5).min()
+  # reach_top_idx = df.query('(candle_lower_shadow > 3*candle_upper_shadow) and (candle_lower_shadow > 3*candle_entity) and (Close > Close_ma) and (High >= period_High > prev_High)').index
+  # reach_bottom_idx = df.query('(candle_lower_shadow > 3*candle_upper_shadow) and (candle_lower_shadow > 3*candle_entity) and (Close < Close_ma)  and (Low <= period_Low < prev_Low)').index
+  # df.loc[reach_top_idx, 'candle_pattern'] = 1
+  # df.loc[reach_bottom_idx, 'candle_pattern'] = -1
+  # col_to_drop.append('Close_ma')
+  # col_to_drop.append('period_High')
+  # col_to_drop.append('period_Low')
 
+  # drop intermidiate columns
   df = df.drop(col_to_drop, axis=1)
 
   return df
@@ -1976,7 +1954,7 @@ def add_renko_features(df, brick_size_factor=0.1, merge_duplicated=True, cal_sig
   df = original_df.copy()
 
   # calculate brick size, remove rows with NA value
-  df['bsz'] = (df['Close'] * brick_size_factor).round(1) #((df['Close'].rolling(10).mean() // 10) + (df['Close'].rolling(10).mean() / 10) )
+  df['bsz'] = (df['Close'] * brick_size_factor).round(3) #((df['Close'].rolling(10).mean() // 10) + (df['Close'].rolling(10).mean() / 10) )
   na_bsz = df.query('bsz != bsz').index 
   df = df.drop(index=na_bsz).reset_index()
   brick_size = df['bsz'].values[0]
@@ -2112,8 +2090,8 @@ def add_renko_features(df, brick_size_factor=0.1, merge_duplicated=True, cal_sig
     renko_df = util.remove_duplicated_index(df=renko_df, keep='last')
 
   # calculate accumulated renko trend (so called renko_series)
-  series_len_short = 3
-  series_len_long = 5
+  series_len_short = 4
+  series_len_long = 8
   renko_df['renko_series_short'] = 'n' * series_len_short
   renko_df['renko_series_long'] = 'n' * series_len_long
   prev_idx = None
@@ -2122,6 +2100,8 @@ def add_renko_features(df, brick_size_factor=0.1, merge_duplicated=True, cal_sig
       renko_df.loc[idx, 'renko_series_short'] = (renko_df.loc[prev_idx, 'renko_series_short'] + renko_df.loc[idx, 'renko_trend'])[-series_len_short:]
       renko_df.loc[idx, 'renko_series_long'] = (renko_df.loc[prev_idx, 'renko_series_long'] + renko_df.loc[idx, 'renko_trend'])[-series_len_long:]
     prev_idx = idx
+  renko_df['renko_series_short_idx'] = renko_df['renko_series_short'].apply(lambda x: x.count('u') - x.count('d'))
+  renko_df['renko_series_long_idx'] = renko_df['renko_series_long'].apply(lambda x: x.count('u') - x.count('d'))
     
   # drop currently-existed renko_df columns from df, merge renko_df into df 
   for col in ['renko_o', 'renko_h', 'renko_l', 'renko_c', 'renko_color', 'renko_trend', 'renko_real', 'renko_brick_height', 'renko_start', 'renko_end', 'renko_duration', 'renko_duration_p1', 'renko_series_short', 'renko_series_long']:

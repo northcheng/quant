@@ -6,6 +6,7 @@ Utilities used for trade simulation
 """
 import pandas as pd
 import numpy as np
+import os
 import math
 import datetime
 import matplotlib.pyplot as plt
@@ -72,12 +73,19 @@ class FixedPositionTrader:
   
 
   # init
-  def __init__(self, data, start_date=None, end_date=None, num_days=365):
+  def __init__(self, data, start_date=None, end_date=None, num_days=365, load_local_data=True):
 
-    # copy data
+    # copy data(sec_data, ta_data), initialize record with ta_data
     self.data = data.copy()
+    ta_data = data['ta_data']
+    for k in ta_data.keys():
+      symbol = k.split('_')[0]
+      self.record[symbol] = ta_data[k].copy()    
 
-    # set start_date/end_date
+    # initialize record
+    self.init_record(load_local_data=load_local_data)
+
+    # set default start_date/end_date
     if (start_date is not None) and (end_date is None):
       end_date = util.string_plus_day(string=start_date, diff_days=num_days)
     elif (start_date is None) and (end_date is not None):
@@ -87,15 +95,7 @@ class FixedPositionTrader:
       start_date = util.string_plus_day(string=end_date, diff_days=-num_days)
     self.start_date = start_date
     self.end_date = end_date
-
-    # initialize record with sec_data
-    ta_data = data['ta_data']
-    for k in ta_data.keys():
-      symbol = k.split('_')[0]
-      self.record[symbol] = ta_data[k].copy()
     
-    self.init_record()
-
   # set benchmark 
   def set_benchmark(self, benchmark, start_date=None, end_date=None): 
     
@@ -122,39 +122,19 @@ class FixedPositionTrader:
       self.record['benchmark'].loc[benchmark_idx.max(),'signal'] = 's'
 
   # initialize record
-  def init_record(self):
-    # add extra columns for records
+  def init_record(self, load_local_data=True):
+
+    # initialize record with local saved data
+    if load_local_data:
+      self.load_data()
+
+    # initialize back-test columns for records
     for symbol in self.record.keys():
       self.record[symbol]['holding_price'] = 0
       self.record[symbol]['holding_return'] = 0
       self.record[symbol]['money'] = np.NaN
       self.record[symbol]['stock'] = np.NaN
       self.record[symbol]['value'] = np.NaN
-
-  # save record
-  def save_record(self, file_name='', file_path=''):
-    
-    # if filename missing, set current time as filename
-    current_time = datetime.datetime.now().strftime('%Y-%m-%d_%H.%M.%S')
-    if len(file_name) == 0:
-      file_name = current_time
-    else:
-      file_name = f'simrecord_{current_time}_{file_name}'
-
-    io_util.pickle_dump_data(data=self.record, file_path=file_path, file_name=file_name)
-    print(f'saved record: {file_path}{file_name}')
-
-  # load saved record
-  def load_record(self, file_name, file_path=''):
-    
-    # load data and verify its type
-    loaded_data = io_util.pickle_load_data(file_path=file_path, file_name=file_name)
-    loaded_data_type = type(loaded_data)
-    if loaded_data_type == dict:
-      self.record = loaded_data
-      print(f'loaded record: {file_path}{file_name}')
-    else:
-      print(f'loaded data is {loaded_data_type} rather than a dict')
 
   # recalculate data
   def recalculate_data(self, sec_list, mode=None, start_date=None, end_date=None):
@@ -164,13 +144,19 @@ class FixedPositionTrader:
       print(f'Unknown mode: {mode}')
       return None
 
-    # set start_date/end_date
-    start_date = self.start_date if start_date is None else start_date
-    end_date = self.end_date if end_date is None else end_date
-
     # copy sec_data, ta_data
     sec_data = self.data['sec_data'].copy()
     ta_data = self.data['ta_data'].copy()
+
+    # set start_date/end_date for recalculation
+    start_date = self.start_date if start_date is None else start_date
+    end_date = self.end_date if end_date is None else end_date
+    global_min_date = None
+    for k in sec_data.keys():
+      symbol = k.split('_')[0]
+      min_date = sec_data[k][start_date:].index.min()
+      global_min_date = min_date if global_min_date is None else min(min_date, global_min_date)
+    start_date = util.time_2_string(min_date)
     
     # set recalculate mode for each symbol
     cut_data = []
@@ -217,7 +203,6 @@ class FixedPositionTrader:
     # for symbols need to recalculate trend and signal
     recalculate_trend += [x for x in sec_list if x not in self.record.keys()]
     recalculate_trend = list(set(recalculate_trend))
-
     # read raw data for symbol that not in sec_data yet
     for symbol in  recalculate_trend:
       if f'{symbol}_day' not in sec_data.keys():
@@ -231,7 +216,7 @@ class FixedPositionTrader:
         continue
 
     # reset record
-    self.init_record()
+    self.init_record(load_local_data=False)
 
   # trade
   def trade(self, sec_list, start_cash, start_date=None, end_date=None, stop_profit=None, stop_loss=None, benchmark='SPY'):
@@ -241,7 +226,7 @@ class FixedPositionTrader:
     end_date = self.end_date if end_date is None else end_date
     self.set_benchmark(benchmark=benchmark, start_date=start_date, end_date=end_date)
     self.sec_list = list(set(sec_list + ['benchmark']))
-    self.init_record()
+    self.init_record(load_local_data=False)
     
     # initialize portfolio
     avg_position = start_cash
@@ -324,7 +309,7 @@ class FixedPositionTrader:
     self.record['portfolio'] = total.copy()
 
   # visualize
-  def visualize(self, symbol, start_date=None, end_date=None, is_return=False):
+  def visualize(self, symbol, start_date=None, end_date=None, is_return=False, is_show=True, is_save=False, save_path=None):
 
     # create image
     fig = plt.figure(figsize=(20, 5))  
@@ -375,7 +360,19 @@ class FixedPositionTrader:
     money_plot.legend(bbox_to_anchor=(1.02, 0.), loc=3, ncol=1, borderaxespad=0.0) 
     money_plot.set_title('Money', rotation='vertical', x=-0.05, y=0.3)
     hpr = finance_util.cal_HPR(data=record, start=min_idx.date(), end=max_idx.date(), dim='value', dividends=0)
-    fig.suptitle(f'{symbol}: {hpr*100:.2f}%', x=0.5, y=0.95, fontsize=20)
+    start_value = self.record[symbol].value[0].round(2)
+    end_value = self.record[symbol].value[-1].round(2)
+    fig.suptitle(f'{symbol}: {hpr*100:.2f}% ({start_value} -> {end_value})', x=0.5, y=0.95, fontsize=20)
+
+    # save image
+    if is_save and (save_path is not None):
+      plt.savefig(save_path + f'{symbol}_back_test' + '.png')
+
+    # close image
+    if not is_show:
+      plt.close(fig)
+    else:
+      plt.show()
 
     if is_return:
       return record
@@ -463,3 +460,31 @@ class FixedPositionTrader:
     
     return analysis
 
+  # save data
+  def save_data(self, file_name='back_test_data'):
+    
+    # initialize
+    if os.path.exists(file_name):
+      saved_data = io_util.pickle_load_data(file_path='', file_name=file_name)
+    else:
+      saved_data = {}
+
+    # update
+    for symbol in self.record.keys():
+      saved_data[symbol] = self.record[symbol]
+
+    # save data
+    io_util.pickle_dump_data(data=saved_data, file_path='', file_name=file_name)
+    print(f'[simu]: saved record to local file: {file_name}')
+    
+  # load data
+  def load_data(self, file_name='back_test_data'):
+    
+    # initialize
+    if os.path.exists(file_name):
+      loaded_data = io_util.pickle_load_data(file_path='', file_name=file_name)
+      updated_time = util.timestamp_2_time(os.stat(file_name).st_mtime, unit='s').strftime(format='%Y-%m-%d %H:%M:%S')
+      self.record = loaded_data
+      print(f'[simu]: initialized record from data saved on: {updated_time}, data range [{loaded_data["benchmark"].index.min().date()} - {loaded_data["benchmark"].index.max().date()}]')
+      
+    
