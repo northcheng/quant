@@ -435,17 +435,12 @@ def calculate_ta_signal(df):
   # buy conditions
   buy_conditions = {
     # stable version
-    # 'break up through resistant': '(Close > resistant)',
-    
-    # 'ichimoku is up trending': '(ichimoku_trend == "u")',
-    # 'aroon is up trending': '(aroon_trend == "u")',
-    # 'adx is up trending': '(adx_trend == "u")',
-    # 'psar is up trending': '(psar_trend == "u")',
     'ichimoku/aroon/adx/psar are all up trending': '(trend_idx == 4)',
     'renko is up trending': '(renko_trend == "u")',
     'bb is not over-buying': '(bb_trend != "d")'
 
     # # developing version
+    # 'break up through resistant': '(Close > resistant)',
     # 'renko is not waving': '(renko_brick_length<3*renko_duration_p1)', # or renko_brick_length <30
     # 'only use renko signal': '(renko_trend == "u" and renko_series_idx >= 0.5)',
     # 'bb is not over-buying': '(bb_trend != "d")'
@@ -456,14 +451,14 @@ def calculate_ta_signal(df):
   # sell conditions
   sell_conditions = {
     # stable version
-    # 'break down through support': '(Close < support)',
     'High is below kijun line': '(High < kijun)',
-    'overall trend is down': '(trend_idx < -1)',
+    'no individual trend is up and overall trend is down': '(trend_idx < -1 and up_trend_idx == 0)',
     'price went down through brick': '(renko_trend == "d" )',
-    'one of ichimoku/aroon/adx/psar is down trending, others are not up trending': '(down_trend_idx <= -1 and up_trend_idx == 0)',
+    # 'one of ichimoku/aroon/adx/psar is down trending, others are not up trending': '(down_trend_idx <= -1 and up_trend_idx == 0)',
     'bb is not over-selling': '(bb_trend != "u")'
     
     # # developing version
+    # 'break down through support': '(Close < support)',
     # 'only use renko signal': '(renko_trend == "d" or (renko_trend == "n" and renko_brick_length >= 20))',
     # 'bb is not over-selling': '(bb_trend != "u")',
   } 
@@ -2104,8 +2099,8 @@ def add_renko_features(df, brick_size_factor=0.1, merge_duplicated=True, cal_sig
   renko_df['renko_series_long_idx'] = renko_df['renko_series_long'].apply(lambda x: x.count('u') - x.count('d'))
     
   # drop currently-existed renko_df columns from df, merge renko_df into df 
-  for col in ['renko_o', 'renko_h', 'renko_l', 'renko_c', 'renko_color', 'renko_trend', 'renko_real', 'renko_brick_height', 'renko_start', 'renko_end', 'renko_duration', 'renko_duration_p1', 'renko_series_short', 'renko_series_long']:
-    if col in df.columns:
+  for col in df.columns:
+    if 'renko' in col:
       df.drop(col, axis=1, inplace=True)
   df = pd.merge(df, renko_df, how='left', left_index=True, right_index=True)
 
@@ -3549,7 +3544,8 @@ def plot_adx(
 # plot renko chart
 def plot_renko(
   df, start=None, end=None, ohlcv_col=default_ohlcv_col, 
-  use_ax=None, title=None, plot_args=default_plot_args, plot_in_date=True, close_alpha=0.5):
+  use_ax=None, title=None, plot_args=default_plot_args, plot_in_date=True, close_alpha=0.5, 
+  save_path=None, save_image=False, show_image=False):
 
   # copy data frame
   df = df[start:end].copy()
@@ -3603,7 +3599,15 @@ def plot_renko(
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
   ax.grid(True, axis='both', linestyle='--', linewidth=0.5)
 
-  # print(ax is None)
+  # save image
+  if save_image and (save_path is not None):
+    plt.savefig(save_path + title + '.png')
+    
+  # close image
+  if not show_image:
+    plt.close(fig)
+  else:
+    plt.show()
 
   if use_ax is not None:
     return ax
