@@ -3599,18 +3599,18 @@ def plot_renko(
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
   ax.grid(True, axis='both', linestyle='--', linewidth=0.5)
 
-  # save image
-  if save_image and (save_path is not None):
-    plt.savefig(save_path + title + '.png')
-    
-  # close image
-  if not show_image:
-    plt.close(fig)
-  else:
-    plt.show()
-
   if use_ax is not None:
     return ax
+  else:
+    # save image
+    if save_image and (save_path is not None):
+      plt.savefig(save_path + title + '.png')
+      
+    # show image
+    if not show_image:
+      plt.close(fig)
+    else:
+      plt.show()
 
 # plot volume
 def plot_bar(
