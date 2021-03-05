@@ -59,6 +59,7 @@ def load_config(root_paths):
   config['tiger_path'] = config['quant_path'] + 'tigeropen/'
   config['futu_path'] = config['quant_path'] + 'futuopen/'
   config['result_path'] = config['quant_path'] + 'ta_model/'
+  config['log_path'] = config['quant_path'] + 'logs/'
   config['signal_path'] = config['result_path'] + 'signal/'
   config['portfolio_path'] = config['result_path'] + 'portfolio/'
   
@@ -369,6 +370,20 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       wave_idx = df.query('(renko_trend != "u" and renko_trend != "d") and ((renko_brick_length >= 20 ) and (renko_brick_length>3*renko_duration_p1))').index
       df.loc[wave_idx, 'renko_trend'] = 'n'
 
+    # ================================ ichimoku + renko trend =================
+    df['cloud_trend'] = ''
+    df['cloud_signal'] = ''
+
+    df['cloud_center'] = (df['cloud_top'] + df['cloud_bottom'])/2
+    up_idx = df.query('cloud_center < renko_l').index
+    df.loc[up_idx, 'cloud_trend'] = 'u'
+
+    down_idx = df.query('cloud_center > renko_h').index
+    df.loc[down_idx, 'cloud_trend'] = 'd'
+
+    wave_idx = df.query('cloud_center >= renko_l and cloud_center <= renko_h').index
+    df.loc[wave_idx, 'cloud_trend'] = 'n'
+
     # ================================ candlestick trend ======================
     # df['candle_trend'] = ''
     # df['candle_signal'] = ''
@@ -437,7 +452,8 @@ def calculate_ta_signal(df):
     # stable version
     'ichimoku/aroon/adx/psar are all up trending': '(trend_idx == 4)',
     'renko is up trending': '(renko_trend == "u")',
-    'bb is not over-buying': '(bb_trend != "d")'
+    'bb is not over-buying': '(bb_trend != "d")',
+    # 'renko-cloud trend is uptrending': '(cloud_trend == "u")'
 
     # # developing version
     # 'break up through resistant': '(Close > resistant)',
@@ -454,8 +470,8 @@ def calculate_ta_signal(df):
     'High is below kijun line': '(High < kijun)',
     'no individual trend is up and overall trend is down': '(trend_idx < -1 and up_trend_idx == 0)',
     'price went down through brick': '(renko_trend == "d" )',
-    # 'one of ichimoku/aroon/adx/psar is down trending, others are not up trending': '(down_trend_idx <= -1 and up_trend_idx == 0)',
-    'bb is not over-selling': '(bb_trend != "u")'
+    'bb is not over-selling': '(bb_trend != "u")',
+    # 'renko-cloud trend is not uptrending': '(cloud_trend != "u")'
     
     # # developing version
     # 'break down through support': '(Close < support)',
@@ -537,6 +553,7 @@ def calculate_ta_data(df, symbol, interval, trend_indicators=['ichimoku', 'aroon
   df = df.copy()
   if len(df) == 0:
     print('Calculation: No data')
+    return df
   
   try:
     # preprocess sec_data
@@ -555,6 +572,7 @@ def calculate_ta_data(df, symbol, interval, trend_indicators=['ichimoku', 'aroon
     df = calculate_ta_trend(df=df, trend_indicators=trend_indicators, volume_indicators=volume_indicators, volatility_indicators=volatility_indicators, other_indicators=other_indicators, signal_threshold=signal_threshold)
 
     # calculate TA final signal
+    phase = 'cal_ta_signals'
     df = calculate_ta_signal(df=df)
 
   except Exception as e:

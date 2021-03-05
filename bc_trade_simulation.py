@@ -190,7 +190,7 @@ class FixedPositionTrader:
       else:
         recalculate_trend.append(symbol)
 
-    # for symbols just need to be cut
+    # for symbols just need to be cutted
     cut_data = list(set(cut_data))
     for symbol in cut_data:
       self.record[symbol] = self.record[symbol][start_date:end_date].copy()
@@ -211,7 +211,11 @@ class FixedPositionTrader:
     for symbol_interval in sec_data.keys():
       symbol, interval = symbol_interval.split('_')
       if symbol in recalculate_trend:
-        self.record[symbol] = ta_util.calculate_ta_data(df=sec_data[symbol_interval][start_date:end_date], symbol=symbol, interval=interval)
+        if len(sec_data[symbol_interval][start_date:end_date]) > 0:
+          self.record[symbol] = ta_util.calculate_ta_data(df=sec_data[symbol_interval][start_date:end_date], symbol=symbol, interval=interval)
+        else:
+          print(f'{symbol} has no data, remove it from record')
+          self.record.pop(symbol)
       else:
         continue
 
@@ -227,6 +231,12 @@ class FixedPositionTrader:
     self.set_benchmark(benchmark=benchmark, start_date=start_date, end_date=end_date)
     self.sec_list = list(set(sec_list + ['benchmark']))
     self.init_record(load_local_data=False)
+
+    # remove symbols without data
+    for symbol in self.sec_list:
+      if symbol not in self.record.keys() or len(self.record[symbol][start_date:end_date]) == 0:
+        print(f'{symbol} has no data, remove it from sec_list')
+        self.sec_list.remove(symbol)
     
     # initialize portfolio
     avg_position = start_cash
@@ -248,6 +258,7 @@ class FixedPositionTrader:
 
       # go through each stock
       for symbol in self.sec_list:
+        
         signal_data = self.record[symbol]
         
         # if current date is trading day
@@ -258,7 +269,7 @@ class FixedPositionTrader:
           tmp_price = signal_data.loc[date, 'Close']
 
           # check if it is necessary to stop profit/loss
-          if self.stock[symbol] > 0:
+          if self.stock[symbol] > 0 and ((stop_profit is not None) or (stop_loss is not None)):
             signal_data.loc[date, 'holding_price'] = self.holding_price[symbol]
             signal_data.loc[date, 'holding_return'] = (tmp_price - signal_data.loc[date, 'holding_price']) / signal_data.loc[date, 'holding_price']
             if (stop_profit is not None and signal_data.loc[date, 'holding_return'] >= stop_profit) or (stop_loss is not None and signal_data.loc[date, 'holding_return'] <= stop_loss):
@@ -322,7 +333,7 @@ class FixedPositionTrader:
     # get plot data
     record = self.record[symbol].copy()  
     record = record[start_date:end_date].copy()
-    if len(record) == 0:
+    if len(record) == 0 or record['value'].sum()==0:
       print(f'no record for {symbol}')
       return None
     min_idx = record.index.min()
@@ -462,10 +473,12 @@ class FixedPositionTrader:
 
   # save data
   def save_data(self, file_name='back_test_data'):
+
+    saved_file = f'C:\\Users\\north\\quant\\backtest_data\\{file_name}'
     
     # initialize
     if os.path.exists(file_name):
-      saved_data = io_util.pickle_load_data(file_path='', file_name=file_name)
+      saved_data = io_util.pickle_load_data(file_path='', file_name=saved_file)
     else:
       saved_data = {}
 
@@ -474,17 +487,48 @@ class FixedPositionTrader:
       saved_data[symbol] = self.record[symbol]
 
     # save data
-    io_util.pickle_dump_data(data=saved_data, file_path='', file_name=file_name)
-    print(f'[simu]: saved record to local file: {file_name}')
+    io_util.pickle_dump_data(data=saved_data, file_path='', file_name=saved_file)
+    print(f'[simu]: saved record to local file: {saved_file}')
     
   # load data
   def load_data(self, file_name='back_test_data'):
     
+    saved_file = f'C:\\Users\\north\\quant\\backtest_data\\{file_name}'
+
     # initialize
-    if os.path.exists(file_name):
-      loaded_data = io_util.pickle_load_data(file_path='', file_name=file_name)
-      updated_time = util.timestamp_2_time(os.stat(file_name).st_mtime, unit='s').strftime(format='%Y-%m-%d %H:%M:%S')
+    if os.path.exists(saved_file):
+      loaded_data = io_util.pickle_load_data(file_path='', file_name=saved_file)
+      updated_time = util.timestamp_2_time(os.stat(saved_file).st_mtime, unit='s').strftime(format='%Y-%m-%d %H:%M:%S')
       self.record = loaded_data
       print(f'[simu]: initialized record from data saved on: {updated_time}, data range [{loaded_data["benchmark"].index.min().date()} - {loaded_data["benchmark"].index.max().date()}]')
-      
     
+  # back test
+  def backtest(self, target_list, start_cash, start_date=None, end_date=None, mode=None, stop_profit=None, stop_loss=None, benchmark='SPY', is_show=True, save_path=None, is_save=False):
+
+    # time it
+    start_time = datetime.datetime.now()
+
+    # recalculate data
+    self.recalculate_data(sec_list=target_list, start_date=start_date, end_date=end_date, mode=mode)
+    calculation_time = datetime.datetime.now()
+    print(f'[cost]: calculation {calculation_time - start_time}')
+
+    # backtest
+    self.trade(start_cash=start_cash, sec_list=target_list, start_date=start_date, end_date=end_date, stop_profit=stop_profit, stop_loss=stop_loss, benchmark=benchmark)
+    backtest_time = datetime.datetime.now()
+    print(f'[cost]: backtest {backtest_time - calculation_time}')
+
+    # visualization 
+    symbol_to_visualize = 'portfolio'
+    if len(self.sec_list) == 1:
+      symbol_to_visualize = self.sec_list[0]
+    self.visualize(symbol=symbol_to_visualize, start_date=start_date, end_date=end_date, is_show=is_show, save_path=save_path, is_save=is_save)
+    visualization_time = datetime.datetime.now()
+    print(f'[cost]: visualization {visualization_time - backtest_time}')
+
+    # analysis
+    self.analysis = self.analyze()
+    analysis_time = datetime.datetime.now()
+    print(f'[cost]: analysis {analysis_time - visualization_time}')
+
+    return self.analysis
