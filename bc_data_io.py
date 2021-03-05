@@ -1468,7 +1468,7 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
   if log_file_date is not None:
     # log_file_date = util.string_plus_day(string=signal_file_date, diff_days=-1)
 
-    log_file = f'{config["quant_path"]}automatic_trade_log_{log_file_date}.txt'
+    log_file = f'{config["log_path"]}automatic_trade_log_{log_file_date}.txt'
     if os.path.exists(log_file):
       log_part = MIMEApplication(open(log_file, 'rb').read())
       log_part.add_header('Content-Disposition', 'attachment', filename=log_file)
