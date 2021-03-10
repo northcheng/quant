@@ -47,14 +47,24 @@
   ],
 
   "star": [
-		  "NOK", "F", "NIO", "T", "GM", "CMCSA", "XOM", "VZ", "ERIC", "CSCO", "TWTR", "IQ", 
-		  "BMY", "KO", "ZNGA", "SLB", "AES", "EBAY", "HAL", "ORCL", "BP", "V", "RF", "COP", 
-		  "MO", "HPQ", "WMB", "SBUX", "USB", "PG", "BILI", "CVX", "CL", "QTT", "WMT", "BK", 
-		  "AA", "MA", "CPB", "NKE", "AXP", "PEP", "MET", "MCD", "EXC", "UXIN", "PDD", "AIG", 
-		  "CVS", "BAX", "WY", "COF", "MMM", "TGT", "AKAM", "VOD", "HD", "CAT", "IP", "AMZN", 
-		  "HUYA", "CTSH", "SO", "ALL", "ATI", "UPS", "FDX", "AEP", "DUK", "GD", "ETR", "YUM", 
-		  "GOOG", "RIO", "TRV", "CI", "EL", "SNE", "SAP", "ADS", "HIG", "NSC", "YNDX", "HAS", 
-		  "GRPN", "ROK", "MSI", "HMC", "NWS", "CAJ", "MFG", "CCU", "TRI", "NMR", "TM", "B", "CHT"
-  ]
+		"NOK", "F", "NIO", "T", "GM", "CMCSA", "XOM", "VZ", "ERIC", "CSCO", "TWTR", "IQ", 
+		"BMY", "KO", "ZNGA", "SLB", "AES", "EBAY", "HAL", "ORCL", "BP", "V", "RF", "COP", 
+		"MO", "HPQ", "WMB", "SBUX", "USB", "PG", "BILI", "CVX", "CL", "QTT", "WMT", "BK", 
+		"AA", "MA", "CPB", "NKE", "AXP", "PEP", "MET", "MCD", "EXC", "UXIN", "PDD", "AIG", 
+		"CVS", "BAX", "WY", "COF", "MMM", "TGT", "AKAM", "VOD", "HD", "CAT", "IP", "AMZN", 
+		"HUYA", "CTSH", "SO", "ALL", "ATI", "UPS", "FDX", "AEP", "DUK", "GD", "ETR", "YUM", 
+		"GOOG", "RIO", "TRV", "CI", "EL", "SNE", "SAP", "ADS", "HIG", "NSC", "YNDX", "HAS", 
+		"GRPN", "ROK", "MSI", "HMC", "NWS", "CAJ", "MFG", "CCU", "TRI", "NMR", "TM", "B", "CHT"
+  ],
+
+  "volume": [
+		"SPY", "TSLA", "QQQ", "AAPL", "AMZN", "GME", "MSFT", "IWM", "NIO", "NVDA", "FB", "BA", 
+		"DIS", "XLF", "TQQQ", "BABA", "AMD", "GOOG", "GOOGL", "BIDU", "SQ", "XLE", "ARKK", "PYPL", 
+		"DASH", "LQD", "HYG", "JPM", "PLTR", "BAC", "FUTU", "SQQQ", "INTC", "EEM", "MA", "VOO", 
+		"XOM", "BRK-B", "SHOP", "CVX", "CRM", "TSM", "V", "TLT", "XELA", "MU", "ZM", "VIAC", "DIA", 
+		"ROKU", "RIOT", "EYES", "NFLX", "HD", "C", "ADBE", "COST", "QCOM", "AVGO", "GLD", "PDD", 
+		"GE", "SMH", "JNK", "AMC", "UNH", "TWTR", "EWZ", "XLY", "XLK", "SNOW", "EFA", "T", "PLUG", 
+		"CMCSA", "IVV", "WMT", "WFC", "AMAT", "MELI", "SE", "TWLO", "TMO", "TXN", "XPEV", "CSCO", 
+		"XLV", "BILI", "ORCL", "PTON", "BRK-A", "XBI", "NOW", "VZ", "PEP", "JNJ", "XLI", "KO", "SNAP", "BKNG"]
 
 }

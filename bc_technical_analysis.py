@@ -3923,3 +3923,24 @@ def plot_multiple_indicators(
     plt.close(fig)
   else:
     plt.show()
+
+# plot subplots
+def plot_data_subplots(df, columns, start=None, end=None, title='', num_rows=2, plot_args=default_plot_args):
+  num_subplots = len(columns)
+  num_columns = math.ceil(num_subplots / num_rows)
+
+  # create figure
+  fig=plt.figure(figsize=(25, 5*num_rows))
+  subplots = {}
+
+  for i in range(num_subplots):
+    if i == 0:
+      subplots[f'ax{i+1}'] = plt.subplot(num_rows, num_columns, i+1)
+    else:
+      subplots[f'ax{i+1}'] = plt.subplot(num_rows, num_columns, i+1, sharex = subplots[f'ax1'])
+    plt.plot(df[columns[i]], label=columns[i])
+
+    subplots[f'ax{i+1}'].legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
+    # subplots[f'ax{i+1}'].set_title(columns[i], rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
+  
+  fig.suptitle(title, x=0.5, y=0.92, fontsize=20)
