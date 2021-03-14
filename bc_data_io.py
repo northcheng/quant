@@ -1423,13 +1423,13 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
 
   # construct asset summary
   asset_info = '<h3>Assets</h3><ul>'
-  for portfilio in assets.keys():
-    if assets[portfilio] is not None:
-      net_value = assets[portfilio].get('net_value')
-      updated = assets[portfilio].get('updated')
+  for portfolio in assets.keys():
+    if assets[portfolio] is not None:
+      net_value = assets[portfolio].get('net_value')
+      updated = assets[portfolio].get('updated')
 
       # add position summary if provided
-      position = position_summary.get(portfilio)
+      position = position_summary.get(portfolio)
       position = position.drop('latest_time', axis=1).to_html() if position is not None else ''
     else:
       net_value = '--'
@@ -1442,8 +1442,8 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
     else:
       updated = f'({updated})'
 
-    # asset summary for current portfilio
-    asset_info += f'<li><b><p>{portfilio}: ${net_value}</b></p>{position}{updated}</li>'
+    # asset summary for current portfolio
+    asset_info += f'<li><b><p>{portfolio}: ${net_value}</b></p>{position}{updated}</li>'
   asset_info += '</ul>'
 
   # get signal summary
@@ -1483,32 +1483,42 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
   
   # attachment 2: signal images
   image_info = f'<h3> Images</h3><ul>'
+  images_to_attach = {}
   images = []
   if signal_file_date is not None:
     image_info += f'<li>[Requested]: {signal_file_date}</li>'
     wrong_date = {}
-    for symbol in config['selected_sec_list']['all']: #[config['trade']['pool']['global_account']]:
-      signal_image = f'{config["result_path"]}signal/{symbol}_day.png'
-      if os.path.exists(signal_image):
 
-        # check whether the signal image is up-to-date
-        image_create_date = util.timestamp_2_time(timestamp=os.path.getmtime(signal_image), unit='s').date().strftime(format='%Y-%m-%d')
-        if image_create_date != signal_file_date and image_create_date not in wrong_date.keys():
-          wrong_date[image_create_date] = [symbol]
-        
-        if image_create_date in wrong_date:
-          wrong_date[image_create_date].append(symbol)
+    # portfolio images
+    portfolio_image_path = f'{config["result_path"]}portfolio/'
+    for img in os.listdir(portfolio_image_path):
+      symbol = img.split('.')[0]
+      images_to_attach[symbol] = f'{portfolio_image_path}{img}'
+    
+    # signal images
+    signal_image_path = f'{config["result_path"]}signal/'
+    for img in os.listdir(signal_image_path):
+      symbol = img.split('_')[0]
+      images_to_attach[symbol] = f'{signal_image_path}{img}'
 
-        with open(signal_image, 'rb') as fp:
+    # verify whether images are up-to-date and attach images
+    for symbol in images_to_attach.keys():
+      img = images_to_attach[symbol]
+      if os.path.exists(img):
+        image_create_date = util.timestamp_2_time(timestamp=os.path.getmtime(img), unit='s').date().strftime(format='%Y-%m-%d')
+        if image_create_date != signal_file_date:
+          if image_create_date not in wrong_date.keys():
+            wrong_date[image_create_date] = [symbol]
+          else:
+            wrong_date[image_create_date].append(symbol)
+
+        with open(img, 'rb') as fp:
           symbol_image = MIMEImage(fp.read())
         images.append(symbol_image)
+      else:        
+        image_info += f'<li><p>[Not Found]: image for {symbol}</p></li>'
 
-      else:
-        if symbol in config['selected_sec_list']['auto']: 
-          image_info += f'<li><p>[Not Found]: image for {symbol}</p></li>'
-        else:
-          continue
-
+    # append information for images that not up-to-date
     if len(wrong_date) > 0:
       for wd in wrong_date.keys():
         image_info += f'<li><p>[Actual Date]: {wd}</p>{", ".join(wrong_date[wd])}</li>'
