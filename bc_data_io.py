@@ -35,7 +35,7 @@ default_eod_key = 'OeAFFmMliFG5orCUuwAKQ8l4WWFQ67YX'
 
 
 #----------------------------- Stock Data -------------------------------------#
-def get_symbols(remove_invalid=True, save_path=None, save_name='symbol_list.csv'):
+def get_symbols(remove_invalid=True, save_path=None, save_name='symbol_list.csv', local_file=None):
   """
   Get Nasdaq stock list
 
@@ -46,26 +46,30 @@ def get_symbols(remove_invalid=True, save_path=None, save_name='symbol_list.csv'
   :raises: exception when error reading not-fetched symbols list
   """
   # get the symbols from pandas_datareader
-  try:
-    symbols = get_nasdaq_symbols()
-    symbols = symbols.loc[symbols['Test Issue'] == False,]
-  
-  # get symbols from Nasdaq website directly when the pandas datareader is not available
-  except Exception as e:
-    symbols = pd.read_table('ftp://ftp.nasdaqtrader.com/symboldirectory/nasdaqtraded.txt', sep='|', index_col='Symbol').drop(np.NaN)
-    symbols = symbols.loc[symbols['Test Issue'] == 'N',]
-    print(e)
-  
-  # get list of all symbols and remove invalid symbols
-  sec_list = symbols.index.tolist()
-  if remove_invalid:
-    sec_list = [x for x in sec_list if '$' not in x]
-    sec_list = [x for x in sec_list if '.' not in x]
+  if local_file is not None and os.path.exists(local_file):
+    symbols = pd.read_csv(local_file).set_index('Symbol')
 
-  symbols = symbols.loc[sec_list, ].copy()
+  else:
+    try:
+      symbols = get_nasdaq_symbols()
+      symbols = symbols.loc[symbols['Test Issue'] == False,]
+    
+    # get symbols from Nasdaq website directly when the pandas datareader is not available
+    except Exception as e:
+      symbols = pd.read_table('ftp://ftp.nasdaqtrader.com/symboldirectory/nasdaqtraded.txt', sep='|', index_col='Symbol').drop(np.NaN)
+      symbols = symbols.loc[symbols['Test Issue'] == 'N',]
+      print(e)
+    
+    # get list of all symbols and remove invalid symbols
+    sec_list = symbols.index.tolist()
+    if remove_invalid:
+      sec_list = [x for x in sec_list if '$' not in x]
+      sec_list = [x for x in sec_list if '.' not in x]
 
-  if save_path is not None:
-    symbols.reset_index().to_csv(f'{save_path}{save_name}', index=False)
+    symbols = symbols.loc[sec_list, ].copy()
+
+    if save_path is not None:
+      symbols.reset_index().to_csv(f'{save_path}{save_name}', index=False)
   
   return symbols
 
