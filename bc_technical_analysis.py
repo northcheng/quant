@@ -122,7 +122,11 @@ def preprocess_sec_data(df, symbol, interval, print_error=True):
   :param print_error: whether print error information or not
   :returns: preprocessed dataframe
   :raises: None
-  '''    
+  '''
+  if len(df) == 0:
+    print(f'No data for preprocessing')
+    return None
+
   # drop duplicated rows, keep the first
   df = util.remove_duplicated_index(df=df, keep='first')
   
@@ -198,6 +202,9 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
   :returns: dataframe with extra fetures
   :raises: Exception 
   """
+  if len(df) == 0:
+    print(f'No data for calculate_ta_trend')
+    return None
   
   try:
     phase = 'cal_trend_for_trend_indicators'
@@ -438,6 +445,10 @@ def calculate_ta_signal(df):
   :raturns: dataframe with signal
   :raises: None
   """
+  if len(df) == 0:
+    print(f'No data for calculate_ta_signal')
+    return None
+
   # copy data, initialize
   df = df.copy()
   df['trend'] = ''
@@ -551,9 +562,9 @@ def calculate_ta_data(df, symbol, interval, trend_indicators=['ichimoku', 'aroon
   """
   # copy dataframe
   df = df.copy()
-  if len(df) == 0:
-    print('Calculation: No data')
-    return df
+  if df is None or len(df) == 0:
+    print(f'{symbol}: No data for calculate_ta_data')
+    return None   
   
   try:
     # preprocess sec_data
@@ -576,7 +587,7 @@ def calculate_ta_data(df, symbol, interval, trend_indicators=['ichimoku', 'aroon
     df = calculate_ta_signal(df=df)
 
   except Exception as e:
-    print(phase, indicator, e)
+    print(symbol, phase, indicator, e)
 
   return df
 
@@ -594,7 +605,8 @@ def visualize_ta_data(df, start=None, end=None, title=None, save_path=None, visu
   :raises: Exception
   """
   if len(df) == 0:
-    print(f'Visualization: No data')
+    print(f'No data for visualize_ta_data')
+    return None
 
   try:
     # visualize 
@@ -619,7 +631,11 @@ def postprocess_ta_result(df, keep_columns, drop_columns):
   :param watch_columns: list of indicators to keep watching
   :returns: postprocessed dataframe
   :raises: None
-  """     
+  """
+  if len(df) == 0:
+    print(f'No data for postprocessing')
+    return None     
+
   # reset index(as the index(date) of rows are all the same)
   df = df.reset_index().copy()
   df['notes'] = ''
