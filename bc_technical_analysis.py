@@ -1100,6 +1100,68 @@ def linear_fit(df, target_col, periods):
 
     return {'slope': lr[0], 'intecept': lr[1]}
 
+# linear regression for recent high/low
+def linear_high_low(df, num_month=3):
+
+  # get the most recent date
+  today = df.index.max()
+  year = today.year
+  month = today.month
+  day = today.day
+  
+  # month
+  tmp_month = f'{year}-{month}'
+  months = []
+  for m in range(num_month):
+    months.append(util.string_plus_day(f'{tmp_month}-01', -m)[:7])
+    tmp_month = util.string_plus_day(f'{tmp_month}-01', -m)[:7]
+  months.sort(reverse=False)
+  
+  # highs and lows
+  high = {'x':[], 'y':[]}
+  low = {'x':[], 'y':[]}
+  idxs = df.index.tolist()
+  for m in months:
+    periods = [(m, f'{m}-15'), (f'{m}-16', m)]
+  
+    for i in range(len(periods)):
+      s = periods[i][0]
+      e = periods[i][1]
+      tmp_data = df[s:e].copy()
+      if len(tmp_data) == 0:
+        continue
+      
+      # lowest_low
+      ll_idx = tmp_data['Low'].idxmin()
+      ll_y = df.loc[ll_idx, 'Low']
+      ll_x = idxs.index(ll_idx)
+
+      # highest_high
+      hh_idx = tmp_data['High'].idxmax()
+      hh_y = df.loc[hh_idx, 'High']
+      hh_x = idxs.index(hh_idx)
+      
+      high['x'].append(hh_x)
+      high['y'].append(hh_y)
+      low['x'].append(ll_x)
+      low['y'].append(ll_y)
+      
+  # linear regress
+  high_linear = linregress(high['x'], high['y'])
+  low_linear = linregress(low['x'], low['y'])
+  
+  # 
+  idx_max = len(idxs)
+  for x in range(min(high['x']), idx_max):
+    idx = idxs[x]
+    df.loc[idx, 'linear_fit_high'] = high_linear[0] * x + high_linear[1]
+    
+  for x in range(min(low['x']), idx_max):
+    idx = idxs[x]
+    df.loc[idx, 'linear_fit_low'] = low_linear[0] * x + low_linear[1]
+      
+  return df
+    
 # calculate peak / trough in price
 def cal_peak_trough(df, target_col, height=None, threshold=None, distance=None, width=None):
   """
