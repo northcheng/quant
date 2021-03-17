@@ -146,11 +146,25 @@ def preprocess_sec_data(df, symbol, interval, print_error=True):
   zero_cols = []
   error_info = ''
 
-  # replace close with adj close
+  # adjust close price manually
+  adj_rate = 1
+  df['adj_close_p1'] = df['Adj Close'].shift(1)
+  df['adj_rate'] = df['adj_close_p1'] / df['Adj Close']
+  df = df.sort_index(ascending=False)
+  for idx, row in df.iterrows():
+    df.loc[idx, 'Adj Close'] *= adj_rate
+    if row['Split'] != 1:
+      if row['Adj Close'] == row['Close']:
+        if row['adj_rate'] > 2 or row['adj_rate'] < 0.5:
+          adj_rate = 1/row['Split']
+  df = df.sort_index()
+  df.drop(['adj_rate', 'adj_close_p1'], axis=1, inplace=True)
+
+  # adjust open/high/low/close/volume values
   adj_rate = df['Adj Close'] / df['Close']
   for col in ['High', 'Low', 'Open', 'Close','Volume']:
     df[col] = df[col] * adj_rate
-        
+
   # check whether 0 or NaN values exists in the latest record
   extra_cols = ['Split', 'Dividend']
   cols = [x for x in df.columns if x not in extra_cols]
@@ -460,34 +474,32 @@ def calculate_ta_signal(df):
   # ================================ buy and sell signals ==========================
   # buy conditions
   buy_conditions = {
-    # stable version
-    'ichimoku/aroon/adx/psar are all up trending': '(trend_idx == 4)',
-    'renko is up trending': '(renko_trend == "u")',
-    'bb is not over-buying': '(bb_trend != "d")',
-    # 'renko-cloud trend is uptrending': '(cloud_trend == "u")'
+    # # stable version
+    # 'ichimoku/aroon/adx/psar are all up trending': '(trend_idx == 4)',
+    # 'renko is up trending': '(renko_trend == "u")',
+    # 'bb is not over-buying': '(bb_trend != "d")',
 
-    # # developing version
-    # 'break up through resistant': '(Close > resistant)',
-    # 'renko is not waving': '(renko_brick_length<3*renko_duration_p1)', # or renko_brick_length <30
-    # 'only use renko signal': '(renko_trend == "u" and renko_series_idx >= 0.5)',
-    # 'bb is not over-buying': '(bb_trend != "d")'
+    # developing version
+    'ichimoku/aroon/adx/psar are all up trending': '((trend_idx == 4))',
+    'renko is up trending': '(renko_trend == "u" and (renko_duration<=150 or (below_renko_l > 0 and Close > renko_h)))',
+    'bb is not over-buying': '(bb_trend != "d")',
   }
   up_idx = df.query(' and '.join(buy_conditions.values())).index 
   df.loc[up_idx, 'trend'] = 'u'
 
   # sell conditions
   sell_conditions = {
-    # stable version
+    # # stable version
+    # 'High is below kijun line': '(High < kijun)',
+    # 'no individual trend is up and overall trend is down': '(trend_idx < -1 and up_trend_idx == 0)',
+    # 'price went down through brick': '(renko_trend == "d")', 
+    # 'bb is not over-selling': '(bb_trend != "u")',
+    
+    # developing version
     'High is below kijun line': '(High < kijun)',
     'no individual trend is up and overall trend is down': '(trend_idx < -1 and up_trend_idx == 0)',
-    'price went down through brick': '(renko_trend == "d" )',
-    'bb is not over-selling': '(bb_trend != "u")',
-    # 'renko-cloud trend is not uptrending': '(cloud_trend != "u")'
-    
-    # # developing version
-    # 'break down through support': '(Close < support)',
-    # 'only use renko signal': '(renko_trend == "d" or (renko_trend == "n" and renko_brick_length >= 20))',
-    # 'bb is not over-selling': '(bb_trend != "u")',
+    'price went down through brick': '(renko_trend == "d")', 
+    'bb is not over-selling': '(bb_trend != "u" or (Close < renko_l and renko_duration >= 150))',
   } 
   down_idx = df.query(' and '.join(sell_conditions.values())).index 
   df.loc[down_idx, 'trend'] = 'd'
@@ -2163,6 +2175,23 @@ def add_renko_features(df, brick_size_factor=0.1, merge_duplicated=True, cal_sig
 
   # calculate renko trend index
   # df['renko_series_idx'] = df['renko_series'].apply(lambda x: (x.count('u') - x.count('d'))/((x.count('u') + x.count('d'))+1))
+
+  # number of days below/among/above renko bricks
+  for col in ['above_renko_h', 'among_renko', 'below_renko_l']:
+    df[col] = 0
+
+  above_idx = df.query('Close > renko_h').index
+  among_idx = df.query('renko_l <= Close <= renko_h').index
+  below_idx = df.query('Close < renko_l').index
+  df.loc[above_idx, 'above_renko_h'] = 1
+  df.loc[below_idx, 'below_renko_l'] = 1
+  df.loc[among_idx, 'among_renko'] = 1
+
+  renko_swift_idx = df.query('renko_real == renko_real').index
+
+  for col in ['above_renko_h', 'among_renko', 'below_renko_l']:
+    df.loc[renko_swift_idx, col] = 0
+    df[col] = sda(df[col], zero_as=0, )   
 
   # calculate signals
   if cal_signal:
