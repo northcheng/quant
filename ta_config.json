@@ -42,7 +42,7 @@
         "show_image": true,
         "save_image": false,
         "plot_window": {
-            "day": 250,
+            "day": 200,
             "week": 1260,
             "month": 5400
         },
@@ -98,7 +98,8 @@
                 "target_indicator": [
                     "candlestick",
                     "ichimoku",
-                    "renko"                 
+                    "renko",
+                    "linear_fit"                 
                 ],
                 "candlestick_width": 1,
                 "candlestick_color": {

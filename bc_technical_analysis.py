@@ -148,6 +148,7 @@ def preprocess_sec_data(df, symbol, interval, print_error=True):
 
   # adjust close price manually
   adj_rate = 1
+  df['split_p1'] = df['Split'].shift(-1)
   df['adj_close_p1'] = df['Adj Close'].shift(1)
   df['adj_rate'] = df['adj_close_p1'] / df['Adj Close']
   df = df.sort_index(ascending=False)
@@ -157,8 +158,12 @@ def preprocess_sec_data(df, symbol, interval, print_error=True):
       if row['Adj Close'] == row['Close']:
         if row['adj_rate'] > 2 or row['adj_rate'] < 0.5:
           adj_rate = 1/row['Split']
+    elif row['split_p1'] != 1:
+      if row['Adj Close'] == row['Close']:
+        if row['adj_rate'] > 2 or row['adj_rate'] < 0.5:
+          adj_rate = 1/row['split_p1']
   df = df.sort_index()
-  df.drop(['adj_rate', 'adj_close_p1'], axis=1, inplace=True)
+  df.drop(['adj_rate', 'adj_close_p1', 'split_p1'], axis=1, inplace=True)
 
   # adjust open/high/low/close/volume values
   adj_rate = df['Adj Close'] / df['Close']
@@ -391,19 +396,22 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       wave_idx = df.query('(renko_trend != "u" and renko_trend != "d") and ((renko_brick_length >= 20 ) and (renko_brick_length>3*renko_duration_p1))').index
       df.loc[wave_idx, 'renko_trend'] = 'n'
 
+    # ================================ high-low trend =========================
+    df = add_linear_high_low_features(df, day_gap=5, max_period=90)
+
     # ================================ ichimoku + renko trend =================
-    df['cloud_trend'] = ''
-    df['cloud_signal'] = ''
+    # df['cloud_trend'] = ''
+    # df['cloud_signal'] = ''
 
-    df['cloud_center'] = (df['cloud_top'] + df['cloud_bottom'])/2
-    up_idx = df.query('cloud_center < renko_l').index
-    df.loc[up_idx, 'cloud_trend'] = 'u'
+    # df['cloud_center'] = (df['cloud_top'] + df['cloud_bottom'])/2
+    # up_idx = df.query('cloud_center < renko_l').index
+    # df.loc[up_idx, 'cloud_trend'] = 'u'
 
-    down_idx = df.query('cloud_center > renko_h').index
-    df.loc[down_idx, 'cloud_trend'] = 'd'
+    # down_idx = df.query('cloud_center > renko_h').index
+    # df.loc[down_idx, 'cloud_trend'] = 'd'
 
-    wave_idx = df.query('cloud_center >= renko_l and cloud_center <= renko_h').index
-    df.loc[wave_idx, 'cloud_trend'] = 'n'
+    # wave_idx = df.query('cloud_center >= renko_l and cloud_center <= renko_h').index
+    # df.loc[wave_idx, 'cloud_trend'] = 'n'
 
     # ================================ candlestick trend ======================
     # df['candle_trend'] = ''
@@ -1099,69 +1107,7 @@ def linear_fit(df, target_col, periods):
     lr = linregress(x, y)
 
     return {'slope': lr[0], 'intecept': lr[1]}
-
-# linear regression for recent high/low
-def linear_high_low(df, num_month=3):
-
-  # get the most recent date
-  today = df.index.max()
-  year = today.year
-  month = today.month
-  day = today.day
-  
-  # month
-  tmp_month = f'{year}-{month}'
-  months = []
-  for m in range(num_month):
-    months.append(util.string_plus_day(f'{tmp_month}-01', -m)[:7])
-    tmp_month = util.string_plus_day(f'{tmp_month}-01', -m)[:7]
-  months.sort(reverse=False)
-  
-  # highs and lows
-  high = {'x':[], 'y':[]}
-  low = {'x':[], 'y':[]}
-  idxs = df.index.tolist()
-  for m in months:
-    periods = [(m, f'{m}-15'), (f'{m}-16', m)]
-  
-    for i in range(len(periods)):
-      s = periods[i][0]
-      e = periods[i][1]
-      tmp_data = df[s:e].copy()
-      if len(tmp_data) == 0:
-        continue
-      
-      # lowest_low
-      ll_idx = tmp_data['Low'].idxmin()
-      ll_y = df.loc[ll_idx, 'Low']
-      ll_x = idxs.index(ll_idx)
-
-      # highest_high
-      hh_idx = tmp_data['High'].idxmax()
-      hh_y = df.loc[hh_idx, 'High']
-      hh_x = idxs.index(hh_idx)
-      
-      high['x'].append(hh_x)
-      high['y'].append(hh_y)
-      low['x'].append(ll_x)
-      low['y'].append(ll_y)
-      
-  # linear regress
-  high_linear = linregress(high['x'], high['y'])
-  low_linear = linregress(low['x'], low['y'])
-  
-  # 
-  idx_max = len(idxs)
-  for x in range(min(high['x']), idx_max):
-    idx = idxs[x]
-    df.loc[idx, 'linear_fit_high'] = high_linear[0] * x + high_linear[1]
-    
-  for x in range(min(low['x']), idx_max):
-    idx = idxs[x]
-    df.loc[idx, 'linear_fit_low'] = low_linear[0] * x + low_linear[1]
-      
-  return df
-    
+   
 # calculate peak / trough in price
 def cal_peak_trough(df, target_col, height=None, threshold=None, distance=None, width=None):
   """
@@ -1371,6 +1317,79 @@ def add_heikin_ashi_features(df, ohlcv_col=default_ohlcv_col, replace_ohlc=False
   
   return df
 
+# linear regression for recent high and low values
+def add_linear_high_low_features(df, day_gap=5, max_period=90):
+  current_date = df.index.max()
+  current_color = df.loc[current_date, 'renko_color']
+  current_start = df.loc[current_date, 'renko_start']
+
+  # calculate the earliest start
+  max_period = 90
+  earliest_start = current_date - datetime.timedelta(days=max_period)
+
+  # calculate start according to renko features, allows only 1 differnt renko color
+  start=None
+  renko_list = df.query('renko_real == renko_real').index.tolist()
+  renko_list.reverse()
+  for idx in renko_list:
+    tmp_color = df.loc[idx, 'renko_color']
+    tmp_start = df.loc[idx, 'renko_start']
+
+    if tmp_color != current_color:
+      break
+    else:
+      if tmp_start < earliest_start:
+        start = earliest_start
+        break
+  start = (max(tmp_start, earliest_start))
+
+  # gathering high and low points
+  high = {'x':[], 'y':[]}
+  low = {'x':[], 'y':[]}
+  s = start
+  e = start
+  idxs = df.index.tolist()
+  while e < current_date:
+    e = s + datetime.timedelta(days=day_gap)
+    tmp_data = df[s:e].copy()
+    if len(tmp_data) == 0:
+      continue
+
+    # lowest_low
+    ll_idx = tmp_data['Low'].idxmin()
+    ll_y = df.loc[ll_idx, 'Low']
+    ll_x = idxs.index(ll_idx)
+
+    # highest_high
+    hh_idx = tmp_data['High'].idxmax()
+    hh_y = df.loc[hh_idx, 'High']
+    hh_x = idxs.index(hh_idx)
+
+    high['x'].append(hh_x)
+    high['y'].append(hh_y)
+    low['x'].append(ll_x)
+    low['y'].append(ll_y)
+
+    s = e
+
+  # linear regress
+  high_linear = linregress(high['x'], high['y'])
+  low_linear = linregress(low['x'], low['y'])
+
+  # add high/low fit values
+  idx_max = len(idxs)
+  for x in range(min(high['x']), idx_max):
+    idx = idxs[x]
+    df.loc[idx, 'linear_fit_high'] = high_linear[0] * x + high_linear[1]
+    df.loc[idx, 'linear_fit_high_slope'] = high_linear[0]
+
+  for x in range(min(low['x']), idx_max):
+    idx = idxs[x]
+    df.loc[idx, 'linear_fit_low'] = low_linear[0] * x + low_linear[1]
+    df.loc[idx, 'linear_fit_low_slope'] = low_linear[0]
+
+  return df
+ 
 
 # ================================================ Trend indicators ================================================= #
 # ADX(Average Directional Index) 
@@ -3456,7 +3475,7 @@ def plot_candlestick(
 
     for s in splited:
       x = s
-      x_text = all_idx[all_idx.index(s)-2]
+      x_text = all_idx[max(0, all_idx.index(s)-2)]
       y = df.loc[s, 'High']
       y_text = y + df.High.max()*0.1
       sp = round(df.loc[s, 'Split'], 4)
@@ -3550,6 +3569,16 @@ def plot_main_indicators(
   # plot renko bricks
   if 'renko' in target_indicator:
     ax = plot_renko(df, use_ax=ax, plot_args=default_plot_args, plot_in_date=True, close_alpha=0)
+
+  # plot high/low trend
+  if 'linear_fit' in target_indicator:
+    # plot aroon_up/aroon_down lines 
+    ax.plot(df.index, df.linear_fit_high, label='linear_fit_high', color='grey', alpha=0.2)
+    ax.plot(df.index, df.linear_fit_low, label='linear_fit_low', color='grey', alpha=0.2)
+
+    # fill between aroon_up/aroon_down
+    ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=df.linear_fit_high_slope>0, facecolor='green', interpolate=True, alpha=0.2)
+    ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=df.linear_fit_high_slope<=0, facecolor='red', interpolate=True, alpha=0.2)
     
   # plot candlestick
   if 'candlestick' in target_indicator:
