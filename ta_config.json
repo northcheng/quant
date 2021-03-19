@@ -143,7 +143,7 @@
             "signals": {
                 "signal_list": [
                     "bb_signal",
-                    "cloud_signal",
+                    "linear_signal",
                     "renko_signal",
                     "psar_signal",
                     "aroon_signal",

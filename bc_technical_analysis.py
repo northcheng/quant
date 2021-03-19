@@ -396,8 +396,19 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       wave_idx = df.query('(renko_trend != "u" and renko_trend != "d") and ((renko_brick_length >= 20 ) and (renko_brick_length>3*renko_duration_p1))').index
       df.loc[wave_idx, 'renko_trend'] = 'n'
 
-    # ================================ high-low trend =========================
+    # ================================ linear trend ===========================
     df = add_linear_high_low_features(df, day_gap=5, max_period=90)
+    df['linear_trend'] = ''
+    df['linear_signal'] = ''
+
+    up_idx = df.query('Close > linear_fit_high').index
+    df.loc[up_idx, 'linear_trend'] = 'u'
+
+    down_idx = df.query('Close < linear_fit_low').index 
+    df.loc[down_idx, 'linear_trend'] = 'd'
+
+    non_idx = df.query('linear_fit_low <= Close <= linear_fit_high').index
+    df.loc[non_idx, 'linear_trend'] = 'n'
 
     # ================================ ichimoku + renko trend =================
     # df['cloud_trend'] = ''
@@ -1353,24 +1364,26 @@ def add_linear_high_low_features(df, day_gap=5, max_period=90):
     e = s + datetime.timedelta(days=day_gap)
     tmp_data = df[s:e].copy()
     if len(tmp_data) == 0:
+      s = e
       continue
+    else:
 
-    # lowest_low
-    ll_idx = tmp_data['Low'].idxmin()
-    ll_y = df.loc[ll_idx, 'Low']
-    ll_x = idxs.index(ll_idx)
+      # lowest_low
+      ll_idx = tmp_data['Low'].idxmin()
+      ll_y = df.loc[ll_idx, 'Low']
+      ll_x = idxs.index(ll_idx)
 
-    # highest_high
-    hh_idx = tmp_data['High'].idxmax()
-    hh_y = df.loc[hh_idx, 'High']
-    hh_x = idxs.index(hh_idx)
+      # highest_high
+      hh_idx = tmp_data['High'].idxmax()
+      hh_y = df.loc[hh_idx, 'High']
+      hh_x = idxs.index(hh_idx)
 
-    high['x'].append(hh_x)
-    high['y'].append(hh_y)
-    low['x'].append(ll_x)
-    low['y'].append(ll_y)
+      high['x'].append(hh_x)
+      high['y'].append(hh_y)
+      low['x'].append(ll_x)
+      low['y'].append(ll_y)
 
-    s = e
+      s = e
 
   # linear regress
   high_linear = linregress(high['x'], high['y'])
@@ -3577,8 +3590,8 @@ def plot_main_indicators(
     ax.plot(df.index, df.linear_fit_low, label='linear_fit_low', color='grey', alpha=0.2)
 
     # fill between aroon_up/aroon_down
-    ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=df.linear_fit_high_slope>0, facecolor='green', interpolate=True, alpha=0.2)
-    ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=df.linear_fit_high_slope<=0, facecolor='red', interpolate=True, alpha=0.2)
+    ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=df.linear_fit_high_slope>0, facecolor='purple', interpolate=True, alpha=0.2)
+    ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=df.linear_fit_high_slope<=0, facecolor='purple', interpolate=True, alpha=0.2)
     
   # plot candlestick
   if 'candlestick' in target_indicator:
