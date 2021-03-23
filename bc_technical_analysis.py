@@ -226,7 +226,7 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
     return None
   
   try:
-    phase = 'cal_trend_for_trend_indicators'
+    phase = 'cal_trend_indicator_trend'
 
     # ================================ ichimoku trend =========================
     if 'ichimoku' in trend_indicators:
@@ -288,6 +288,9 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       wave_idx = df.query(f'(({trend_col} != "u") and ({trend_col} != "d")) and ((kijun_rate == 0) and (tankan < kijun))').index
       df.loc[wave_idx, trend_col] = 'n'
 
+      # drop intermediate columns
+      df.drop(['tankan_day', 'tankan_rate', 'tankan_rate_ma', 'kijun_day', 'kijun_rate', 'kijun_rate_ma'], axis=1, inplace=True)
+
     # ================================ aroon trend ============================
     # calculate aroon_diff
     if 'aroon' in trend_indicators:
@@ -325,6 +328,9 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       # 1=. aroon_gap keep steady and aroon_up/aroon_down keep changing toward a same direction
       wave_idx = df.query('-32<=aroon_gap<=32 and ((aroon_gap_change==0 and aroon_up_change==aroon_down_change<0) or ((aroon_up_change<0 and aroon_down<=4) or (aroon_down_change<0 and aroon_up<=4)))').index
       df.loc[wave_idx, 'aroon_trend'] = 'n'
+
+      # drop intermediate columns
+      df.drop(['aroon_up_change', 'aroon_up_acc_change', 'aroon_up_acc_change_count', 'aroon_down_change', 'aroon_down_acc_change', 'aroon_down_acc_change_count', 'aroon_gap_change', 'aroon_gap_acc_change', 'aroon_gap_acc_change_count'], axis=1, inplace=True)
 
     # ================================ adx trend ==============================
     if 'adx' in trend_indicators:
@@ -371,17 +377,12 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
 
     # ================================ psar trend =============================
     if 'psar' in trend_indicators:
-      df['psar_trend'] = 'n'
+      df['psar_trend'] = ''
+
       up_idx = df.query('psar_up > 0').index
       down_idx = df.query('psar_down > 0').index
       df.loc[up_idx, 'psar_trend'] = 'u'
       df.loc[down_idx, 'psar_trend'] = 'd'
-
-      df['psar_signal'] = 'n'
-      # buy_idx = df.query('psar_up_indicator == 1').index
-      # sell_idx = df.query('psar_down_indicator == 1').index
-      # df.loc[buy_idx, 'psar_signal']  = 'b'
-      # df.loc[sell_idx, 'psar_signal'] = 's'
 
     # ================================ renko trend ============================
     if 'renko' in trend_indicators:
@@ -397,51 +398,40 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       df.loc[wave_idx, 'renko_trend'] = 'n'
 
     # ================================ linear trend ===========================
-    df = add_linear_high_low_features(df, day_gap=5, max_period=90)
-    df['linear_trend'] = ''
-    df['linear_signal'] = ''
+    if 'linear' in trend_indicators:
+      df['linear_trend'] = ''
+      df['linear_signal'] = ''
 
-    up_idx = df.query('Close > linear_fit_high').index
-    df.loc[up_idx, 'linear_trend'] = 'u'
+      up_idx = df.query('Close > linear_fit_high').index
+      df.loc[up_idx, 'linear_trend'] = 'u'
 
-    down_idx = df.query('Close < linear_fit_low').index 
-    df.loc[down_idx, 'linear_trend'] = 'd'
+      down_idx = df.query('Close < linear_fit_low').index 
+      df.loc[down_idx, 'linear_trend'] = 'd'
 
-    non_idx = df.query('linear_fit_low <= Close <= linear_fit_high').index
-    df.loc[non_idx, 'linear_trend'] = 'n'
+      non_idx = df.query('linear_fit_low <= Close <= linear_fit_high').index
+      df.loc[non_idx, 'linear_trend'] = 'n'
+    # =========================================================================
 
-    # ================================ ichimoku + renko trend =================
-    # df['cloud_trend'] = ''
-    # df['cloud_signal'] = ''
+    phase = 'cal_volatility_indicator_trend'
 
-    # df['cloud_center'] = (df['cloud_top'] + df['cloud_bottom'])/2
-    # up_idx = df.query('cloud_center < renko_l').index
-    # df.loc[up_idx, 'cloud_trend'] = 'u'
+    # ================================ bb trend ===============================
+    if 'bb' in volatility_indicators:
+      df['bb_trend'] = ''
+      up_idx = df.query(f'Close < bb_low_band').index
+      down_idx = df.query(f'Close > bb_high_band').index
+      df.loc[up_idx, 'bb_trend'] = 'u'
+      df.loc[down_idx, 'bb_trend'] = 'd'
+    # =========================================================================
 
-    # down_idx = df.query('cloud_center > renko_h').index
-    # df.loc[down_idx, 'cloud_trend'] = 'd'
-
-    # wave_idx = df.query('cloud_center >= renko_l and cloud_center <= renko_h').index
-    # df.loc[wave_idx, 'cloud_trend'] = 'n'
-
-    # ================================ candlestick trend ======================
-    # df['candle_trend'] = ''
-    # df['candle_signal'] = ''
-
-    # up_idx = df.query('candle_long_entity == 1').index
-    # df.loc[up_idx, 'candle_trend'] = 'u'
-
-    # down_idx = df.query('candle_long_entity == -1').index
-    # df.loc[down_idx, 'candle_trend'] = 'd'    
+    phase = 'cal_overall_trend'
 
     # ================================ overall trend ==========================
-    phase = 'cal_overall_trend'
     df['trend_idx'] = 0
     df['up_trend_idx'] = 0
     df['down_trend_idx'] = 0
 
     all_indicators = trend_indicators + volume_indicators + volatility_indicators + other_indicators
-    exclude_indicators = ['renko', 'bb']
+    exclude_indicators = ['renko', 'bb', 'linear']
     for indicator in all_indicators:
       trend_col = f'{indicator}_trend'
       signal_col = f'{indicator}_signal'
@@ -455,11 +445,12 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
         df[signal_col] = 'n'
 
       # calculate up/down trend index
-      if indicator not in exclude_indicators:
-        up_idx = df.query(f'{trend_col} == "u"').index
-        down_idx = df.query(f'{trend_col} == "d"').index
-        df.loc[up_idx, 'up_trend_idx'] += 1
-        df.loc[down_idx, 'down_trend_idx'] -= 1
+      if indicator in exclude_indicators:
+        continue
+      up_idx = df.query(f'{trend_col} == "u"').index
+      down_idx = df.query(f'{trend_col} == "d"').index
+      df.loc[up_idx, 'up_trend_idx'] += 1
+      df.loc[down_idx, 'down_trend_idx'] -= 1
     
     # calculate overall trend index
     df['trend_idx'] = df['up_trend_idx'] + df['down_trend_idx']
@@ -485,10 +476,6 @@ def calculate_ta_signal(df):
   # copy data, initialize
   df = df.copy()
   df['trend'] = ''
-
-  # ================================ Support and resistance ========================
-  df['support'] = df['renko_l']
-  df['resistant'] = df['renko_h']
   
   # ================================ buy and sell signals ==========================
   # buy conditions
@@ -576,7 +563,7 @@ def calculate_ta_signal(df):
   return df
 
 # calculate certain selected ta indicators
-def calculate_ta_data(df, symbol, interval, trend_indicators=['ichimoku', 'aroon', 'adx', 'psar', 'renko'], volume_indicators=[], volatility_indicators=['bb'], other_indicators=[], signal_threshold=0.001):
+def calculate_ta_data(df, symbol, interval, trend_indicators=['ichimoku', 'aroon', 'adx', 'psar', 'renko', 'linear'], volume_indicators=[], volatility_indicators=['bb'], other_indicators=[], signal_threshold=0.001):
   """
   Calculate selected ta features for dataframe
 
@@ -604,10 +591,16 @@ def calculate_ta_data(df, symbol, interval, trend_indicators=['ichimoku', 'aroon
 
     # calculate TA indicators
     phase = 'cal_ta_indicators' 
-    all_indicators = list(set(trend_indicators + volume_indicators + volatility_indicators + other_indicators))
+    all_indicators = []
+    all_indicators += [x for x in trend_indicators if x not in all_indicators]
+    all_indicators += [x for x in volume_indicators if x not in all_indicators]
+    all_indicators += [x for x in volatility_indicators if x not in all_indicators]
+    all_indicators += [x for x in other_indicators if x not in all_indicators]
+
     indicator = None
     for indicator in all_indicators:
-      df = eval(f'add_{indicator}_features(df=df)')
+      to_eval = f'add_{indicator}_features(df=df)'
+      df = eval(to_eval)
 
     # calculate TA derivatives
     phase = 'cal_ta_derivatives'
@@ -1329,13 +1322,14 @@ def add_heikin_ashi_features(df, ohlcv_col=default_ohlcv_col, replace_ohlc=False
   return df
 
 # linear regression for recent high and low values
-def add_linear_high_low_features(df, day_gap=5, max_period=90):
+def add_linear_features(df, day_gap=5, max_period=60):
+  idxs = df.index.tolist()
+  highest_high = df['High'].max()
+  lowest_low = df['Low'].min()
   current_date = df.index.max()
   current_color = df.loc[current_date, 'renko_color']
-  current_start = df.loc[current_date, 'renko_start']
 
   # calculate the earliest start
-  max_period = 90
   earliest_start = current_date - datetime.timedelta(days=max_period)
 
   # calculate start according to renko features, allows only 1 differnt renko color
@@ -1352,15 +1346,82 @@ def add_linear_high_low_features(df, day_gap=5, max_period=90):
       if tmp_start < earliest_start:
         start = earliest_start
         break
-  start = (max(tmp_start, earliest_start))
+  start = max(tmp_start, earliest_start)
+ 
+  # calculate peaks and troughs
+  tmp_data = df[start:].copy()
+  tmp_idxs = tmp_data.index.tolist()
+  min_period = 12
+
+  # peaks
+  peaks,_ = find_peaks(x=tmp_data['High'], distance=30)
+  peaks = [tmp_idxs[x] for x in peaks]
+  # print(peaks)
+  # print(df.loc[peaks, 'High'])
+  if len(peaks) > 0:
+    peak = peaks[-1]#df.loc[peaks, ]['High'].idxmax()
+  else:
+    peak = None
+
+  # troughs
+  troughs, _ = find_peaks(x=-df['Low'][start:], distance=30)
+  troughs = [tmp_idxs[x] for x in troughs]
+  # print(troughs)
+  # print(df.loc[troughs, 'Low'])
+  if len(troughs) > 0:
+    trough = troughs[-1]#df.loc[troughs, ]['Low'].idxmin()
+  else:
+    trough = None
+
+  # get slice
+  if len(peaks)>0 and len(troughs)>0:
+    period = abs((peak - trough).days)
+    if period < min_period:
+      if len(peaks) > 1:
+        high_diff = df.loc[peaks[0], 'High'] - df.loc[peaks[1], 'High']
+      else:
+        high_diff = np.Inf
+
+      if len(troughs) > 1:
+        low_diff = df.loc[troughs[0], 'Low'] - df.loc[troughs[1], 'Low']
+      else:
+        low_diff = np.Inf
+
+      if high_diff > low_diff:
+        trough = [x for x in troughs if x != trough][0]
+      elif low_diff < high_diff:
+        peak = [x for x in peaks if x != peak][0]
+      else:
+        if peak > trough:
+          trough = None
+        else:
+          peak = None
+
+  if peak is None and trough is None:
+    peak = start
+    trough = current_date
+  elif peak is not None and trough is None:
+    days_1 = current_date - peak
+    days_2 = peak - earliest_start
+    trough = current_date if days_1 > days_2 else earliest_start
+  elif peak is None and trough is not None:
+    days_1 = current_date - trough
+    days_2 = trough - earliest_start
+    peak = current_date if days_1 > days_2 else earliest_start
+  else:
+    pass
+
+  start = min(peak, trough)
+  end = max(peak, trough)
+  # print(start, end)
 
   # gathering high and low points
   high = {'x':[], 'y':[]}
   low = {'x':[], 'y':[]}
   s = start
   e = start
-  idxs = df.index.tolist()
-  while e < current_date:
+  
+  while e < end:
     e = s + datetime.timedelta(days=day_gap)
     tmp_data = df[s:e].copy()
     if len(tmp_data) == 0:
@@ -1370,36 +1431,58 @@ def add_linear_high_low_features(df, day_gap=5, max_period=90):
 
       # lowest_low
       ll_idx = tmp_data['Low'].idxmin()
-      ll_y = df.loc[ll_idx, 'Low']
+      ll_y = df.loc[ll_idx, 'Low'] - df[s:e]['candle_lower_shadow'].mean()
       ll_x = idxs.index(ll_idx)
-
-      # highest_high
-      hh_idx = tmp_data['High'].idxmax()
-      hh_y = df.loc[hh_idx, 'High']
-      hh_x = idxs.index(hh_idx)
-
-      high['x'].append(hh_x)
-      high['y'].append(hh_y)
       low['x'].append(ll_x)
       low['y'].append(ll_y)
 
+      # highest_high
+      hh_idx = tmp_data['High'].idxmax()
+      hh_y = df.loc[hh_idx, 'High'] + df[s:e]['candle_upper_shadow'].mean()
+      hh_x = idxs.index(hh_idx)
+      high['x'].append(hh_x)
+      high['y'].append(hh_y)
+      
+      # update end date
       s = e
 
-  # linear regress
-  high_linear = linregress(high['x'], high['y'])
-  low_linear = linregress(low['x'], low['y'])
+  
+  if len(high['x']) < 2 or len(low['x']) < 2:
+    high_linear = (0, highest_high, 0, 0)
+    low_linear = (0, lowest_low, 0, 0)
+
+  else:
+    # linear regress
+    high_linear = linregress(high['x'], high['y'])
+    low_linear = linregress(low['x'], low['y'])
 
   # add high/low fit values
   idx_max = len(idxs)
-  for x in range(min(high['x']), idx_max):
+  idx_min = min(min(high['x']), min(low['x']))
+  for x in range(idx_min, idx_max):
     idx = idxs[x]
-    df.loc[idx, 'linear_fit_high'] = high_linear[0] * x + high_linear[1]
-    df.loc[idx, 'linear_fit_high_slope'] = high_linear[0]
+    linear_fit_high = high_linear[0] * x + high_linear[1]
+    linear_fit_low = low_linear[0] * x + low_linear[1]
 
-  for x in range(min(low['x']), idx_max):
-    idx = idxs[x]
-    df.loc[idx, 'linear_fit_low'] = low_linear[0] * x + low_linear[1]
+    df.loc[idx, 'linear_fit_high_slope'] = high_linear[0]
+    if (linear_fit_high <= highest_high and linear_fit_high >= lowest_low): 
+      df.loc[idx, 'linear_fit_high'] = linear_fit_high
+    elif linear_fit_high > highest_high:
+      df.loc[idx, 'linear_fit_high'] = highest_high
+    elif linear_fit_high < lowest_low:
+      df.loc[idx, 'linear_fit_high'] = lowest_low
+    else:
+      df.loc[idx, 'linear_fit_high'] = np.NaN
+    
     df.loc[idx, 'linear_fit_low_slope'] = low_linear[0]
+    if (linear_fit_low <= highest_high and linear_fit_low >= lowest_low): 
+      df.loc[idx, 'linear_fit_low'] = linear_fit_low
+    elif linear_fit_low > highest_high:
+      df.loc[idx, 'linear_fit_low'] = highest_high
+    elif linear_fit_low < lowest_low:
+      df.loc[idx, 'linear_fit_low'] = lowest_low
+    else:
+      df.loc[idx, 'linear_fit_low'] = np.NaN
 
   return df
  
@@ -1654,7 +1737,7 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
   if cal_status:
     # ================================ Cloud status ===================================
     # cloud color change, cloud height (how thick is the cloud)
-    df['cloud_shift'] = cal_crossover_signal(df=df, fast_line='senkou_a', slow_line='senkou_b', pos_signal=1, neg_signal=-1, none_signal=0)
+    # df['cloud_shift'] = cal_crossover_signal(df=df, fast_line='senkou_a', slow_line='senkou_b', pos_signal=1, neg_signal=-1, none_signal=0)
     df['cloud_height'] = round((df['senkou_a'] - df['senkou_b'])/df[close], ndigits=3)
     green_idx = df.query('cloud_height > 0').index
     red_idx = df.query('cloud_height <= 0').index
@@ -1966,7 +2049,7 @@ def add_vortex_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal
   return df
 
 # PSAR
-def add_psar_features(df, ohlcv_col=default_ohlcv_col, step=0.02, max_step=0.10, fillna=False, cal_signal=True):
+def add_psar_features(df, ohlcv_col=default_ohlcv_col, step=0.02, max_step=0.10, fillna=False):
   """
   Calculate Parabolic Stop and Reverse (Parabolic SAR) indicator
 
@@ -2054,25 +2137,15 @@ def add_psar_features(df, ohlcv_col=default_ohlcv_col, step=0.02, max_step=0.10,
     else:
       df.loc[current_idx, 'psar_down'] = df.loc[current_idx, 'psar']
 
-  
-  # add psar up/down indicators
-  for col in ['psar_up', 'psar_down']:
-    indicator = df[col].where(df[col].notnull() & df[col].shift(1).isnull(), 0)
-    indicator = indicator.where(indicator == 0, 1)
-    df[f'{col}_indicator'] = indicator
-
   # fill na values
   if fillna:
-    for col in ['psar', 'psar_up', 'psar_down', 'psar_up_indicator', 'psar_down_indicator']:
+    for col in ['psar', 'psar_up', 'psar_down']:
       df[col] = df[col].fillna(method='ffill').fillna(-1)
-
-  if cal_signal:
-    df['psar_signal'] = 'n'
 
   return df
 
 # Renko
-def add_renko_features(df, brick_size_factor=0.1, merge_duplicated=True, cal_signal=True):
+def add_renko_features(df, brick_size_factor=0.1, merge_duplicated=True):
   """
   Calculate Renko indicator
   :param df: original OHLCV dataframe
@@ -2186,7 +2259,7 @@ def add_renko_features(df, brick_size_factor=0.1, merge_duplicated=True, cal_sig
 
   # renko color(green/red), trend(u/d), flip_point(renko_real), same-direction-accumulation(renko_brick_sda), sda-moving sum(renko_brick_ms), number of bricks(for later calculation)
   renko_df['renko_color'] = renko_df['renko_color'].replace({True: 'green', False:'red'})
-  renko_df['renko_trend'] = renko_df['renko_color'].replace({'green':'u', 'red':'d'})
+  renko_df['renko_direction'] = renko_df['renko_color'].replace({'green':'u', 'red':'d'})
   renko_df['renko_real'] = renko_df['renko_color'].copy()
   renko_df['renko_brick_number'] = 1
   
@@ -2232,11 +2305,11 @@ def add_renko_features(df, brick_size_factor=0.1, merge_duplicated=True, cal_sig
   prev_idx = None
   for idx, row in renko_df.iterrows():
     if prev_idx is not None:
-      renko_df.loc[idx, 'renko_series_short'] = (renko_df.loc[prev_idx, 'renko_series_short'] + renko_df.loc[idx, 'renko_trend'])[-series_len_short:]
-      renko_df.loc[idx, 'renko_series_long'] = (renko_df.loc[prev_idx, 'renko_series_long'] + renko_df.loc[idx, 'renko_trend'])[-series_len_long:]
+      renko_df.loc[idx, 'renko_series_short'] = (renko_df.loc[prev_idx, 'renko_series_short'] + renko_df.loc[idx, 'renko_direction'])[-series_len_short:]
+      renko_df.loc[idx, 'renko_series_long'] = (renko_df.loc[prev_idx, 'renko_series_long'] + renko_df.loc[idx, 'renko_direction'])[-series_len_long:]
     prev_idx = idx
-  renko_df['renko_series_short_idx'] = renko_df['renko_series_short'].apply(lambda x: x.count('u') - x.count('d'))
-  renko_df['renko_series_long_idx'] = renko_df['renko_series_long'].apply(lambda x: x.count('u') - x.count('d'))
+  # renko_df['renko_series_short_idx'] = renko_df['renko_series_short'].apply(lambda x: x.count('u') - x.count('d'))
+  # renko_df['renko_series_long_idx'] = renko_df['renko_series_long'].apply(lambda x: x.count('u') - x.count('d'))
     
   # drop currently-existed renko_df columns from df, merge renko_df into df 
   for col in df.columns:
@@ -2249,7 +2322,7 @@ def add_renko_features(df, brick_size_factor=0.1, merge_duplicated=True, cal_sig
   df.loc[red_idx, 'renko_brick_height'] = -df.loc[red_idx, 'renko_brick_height']
 
   # fill na values
-  renko_columns = ['renko_o', 'renko_h','renko_l', 'renko_c', 'renko_color', 'renko_trend', 'renko_brick_height', 'renko_brick_number','renko_start', 'renko_end', 'renko_duration', 'renko_duration_p1', 'renko_series_short', 'renko_series_long'] 
+  renko_columns = ['renko_o', 'renko_h','renko_l', 'renko_c', 'renko_color', 'renko_direction', 'renko_brick_height', 'renko_brick_number','renko_start', 'renko_end', 'renko_duration', 'renko_duration_p1', 'renko_series_short', 'renko_series_long'] 
   for col in renko_columns:
     df[col] = df[col].fillna(method='ffill')
 
@@ -2263,12 +2336,10 @@ def add_renko_features(df, brick_size_factor=0.1, merge_duplicated=True, cal_sig
     df['renko_countdown_days'] = df['renko_end'] - df['s'] 
     df['renko_brick_length'] = df['s'] - df['renko_start']
     df['renko_brick_length'] = df['renko_brick_length'].apply(lambda x: x.days+1).astype(float)
+    df.drop('s', axis=1, inplace=True)
   else:
     df['renko_countdown_days'] = 1
     df['renko_brick_length'] = 1
-
-  # calculate renko trend index
-  # df['renko_series_idx'] = df['renko_series'].apply(lambda x: (x.count('u') - x.count('d'))/((x.count('u') + x.count('d'))+1))
 
   # number of days below/among/above renko bricks
   for col in ['above_renko_h', 'among_renko', 'below_renko_l']:
@@ -2286,10 +2357,6 @@ def add_renko_features(df, brick_size_factor=0.1, merge_duplicated=True, cal_sig
   for col in ['above_renko_h', 'among_renko', 'below_renko_l']:
     df.loc[renko_swift_idx, col] = 0
     df[col] = sda(df[col], zero_as=0, )   
-
-  # calculate signals
-  if cal_signal:
-    df['renko_signal'] = 'n'
 
   return df
 
@@ -3160,7 +3227,7 @@ def cal_mean_reversion_expected_rate(df, rate_col, n=100, mr_threshold=2):
   return result
 
 # Bollinger Band
-def add_bb_features(df, n=20, ndev=2, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True):
+def add_bb_features(df, n=20, ndev=2, ohlcv_col=default_ohlcv_col, fillna=False):
   """
   Calculate Bollinger Band
 
@@ -3200,14 +3267,6 @@ def add_bb_features(df, n=20, ndev=2, ohlcv_col=default_ohlcv_col, fillna=False,
   df['mstd'] = mstd
   df['bb_high_band'] = high_band
   df['bb_low_band'] = low_band
-
-  if cal_signal:
-    df['bb_signal'] = ''
-    df['bb_trend'] = ''
-    buy_idx = df.query(f'{close} < bb_low_band').index
-    sell_idx = df.query(f'{close} > bb_high_band').index
-    df.loc[buy_idx, 'bb_trend'] = 'u'
-    df.loc[sell_idx, 'bb_trend'] = 'd'
 
   return df
 
@@ -3512,7 +3571,7 @@ def plot_candlestick(
 # plot ichimoku chart
 def plot_main_indicators(
   df, start=None, end=None, date_col='Date', ohlcv_col=default_ohlcv_col, 
-  target_indicator = ['price', 'ichimoku', 'kama', 'candlestick', 'bb', 'psar', 'renko'],
+  target_indicator = ['price', 'ichimoku', 'kama', 'candlestick', 'bb', 'psar', 'renko', 'linear'],
   candlestick_width=0.8, candlestick_color=default_candlestick_color, 
   use_ax=None, title=None, plot_args=default_plot_args):
   """
@@ -3584,14 +3643,14 @@ def plot_main_indicators(
     ax = plot_renko(df, use_ax=ax, plot_args=default_plot_args, plot_in_date=True, close_alpha=0)
 
   # plot high/low trend
-  if 'linear_fit' in target_indicator:
+  if 'linear' in target_indicator:
     # plot aroon_up/aroon_down lines 
-    ax.plot(df.index, df.linear_fit_high, label='linear_fit_high', color='grey', alpha=0.2)
-    ax.plot(df.index, df.linear_fit_low, label='linear_fit_low', color='grey', alpha=0.2)
+    ax.plot(df.index, df.linear_fit_high, label='linear_fit_high', color='black', alpha=0.5)
+    ax.plot(df.index, df.linear_fit_low, label='linear_fit_low', color='black', alpha=0.5)
 
     # fill between aroon_up/aroon_down
-    ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=df.linear_fit_high_slope>0, facecolor='purple', interpolate=True, alpha=0.2)
-    ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=df.linear_fit_high_slope<=0, facecolor='purple', interpolate=True, alpha=0.2)
+    ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=df.linear_fit_high_slope>0, facecolor='green', interpolate=True, alpha=0.1)
+    ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=df.linear_fit_high_slope<=0, facecolor='red', interpolate=True, alpha=0.1)
     
   # plot candlestick
   if 'candlestick' in target_indicator:
@@ -3741,7 +3800,7 @@ def plot_renko(
   # plot renko
   legends = {'u': 'u', 'd': 'd', 'n':'n', '':''}
   for index, row in df.iterrows():
-    renko = Rectangle((index, row['renko_o']), row['renko_countdown_days'], row['renko_brick_height'], facecolor=row['renko_color'], edgecolor=row['renko_color'], linestyle='-', linewidth=1, fill=True, alpha=0.25, label=legends[row['renko_trend']]) #  edgecolor=row['renko_color'], linestyle='-', linewidth=5, 
+    renko = Rectangle((index, row['renko_o']), row['renko_countdown_days'], row['renko_brick_height'], facecolor=row['renko_color'], edgecolor=None, linestyle='-', linewidth=2, fill=True, alpha=0.25, label=legends[row['renko_trend']]) #  edgecolor=row['renko_color'], linestyle='-', linewidth=5, 
     legends[row['renko_trend']] = "_nolegend_"
     ax.add_patch(renko)
   

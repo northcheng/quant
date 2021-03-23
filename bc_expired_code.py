@@ -235,3 +235,49 @@
       # df.loc[buy_idx, 'aroon_sda_trend'] = 'u'
       # df.loc[sell_idx, 'aroon_sda_trend'] = 'd'
       # df['aroon_sda_signal'] = 'n'
+
+
+# 2021-03-23
+# ta_data.columns = [
+# # 基础特征
+# 'High', 'Low', 'Open','Close', 'Adj Close', 'Dividend', 'Split', 'Volume', 'symbol', 
+# # Close 变化率
+# 'rate', 'acc_rate', 'acc_day', 
+# # 蜡烛图特征
+# 'candle_color', 'candle_shadow', 'candle_entity', 'candle_upper_shadow','candle_lower_shadow', 'candle_gap', 'candle_long_entity', 'candle_short_entity', 
+# # ichimoku 基础特征
+# 'tankan', 'kijun', 'senkou_a', 'senkou_b', 'chikan', 
+# # ichimoku 云特征
+# 'cloud_shift', 'cloud_height', 'cloud_width', 'cloud_top', 'cloud_bottom', 
+# # ichimoku 穿越特征
+# 'break_up', 'break_down', 'kijun_signal', 'close_to_kijun', 'tankan_signal', 'close_to_tankan', 'cloud_top_signal', 'close_to_cloud_top', 'cloud_bottom_signal', 'close_to_cloud_bottom', 
+# # aroon 特征
+# 'aroon_up', 'aroon_down', 'aroon_gap', 
+# # atr 特征
+# 'tr', 'atr', 'pdi', 'mdi', 'dx', 'adx', 'adx_diff', 
+# # psar 特征
+# 'psar', 'psar_up', 'psar_down', 
+# # renko 基础特征
+# 'renko_o', 'renko_h', 'renko_l', 'renko_c', 'renko_real', 'renko_color', 'renko_brick_height', 'renko_brick_length', 'renko_brick_number',
+# 'renko_start', 'renko_end', 'renko_duration', 'renko_duration_p1', 'renko_countdown_days', 'above_renko_h', 'among_renko', 'below_renko_l', 'renko_series_short', 'renko_series_long',
+# # rHigh/Low 线性拟合特征
+# 'linear_fit_high', 'linear_fit_high_slope', 'linear_fit_low', 'linear_fit_low_slope',
+# # bb 特征
+# 'mavg', 'mstd', 'bb_high_band', 'bb_low_band', 
+# # ichimoku trend 特征
+# 'ichimoku_trend', 'ichimoku_day', 'ichimoku_signal',
+# # aroon trend 特征
+# 'aroon_trend', 'aroon_day', 'aroon_signal', 
+# # adx trend 特征
+# 'adx_trend', 'adx_day', 'adx_signal',
+# # psar trend 特征
+# 'psar_trend', 'psar_day', 'psar_signal', 
+# # renko trend 特征
+# 'renko_trend', 'renko_day', 'renko_signal',
+# # High/Low 线性拟合trend 特征
+# 'linear_trend', 'linear_day', 'linear_signal', 
+# # bb trend 特征
+# 'bb_trend', 'bb_day', 'bb_signal',
+# # overall trend 特征
+# 'trend_idx', 'up_trend_idx', 'down_trend_idx', 'trend', 'signal_day', 'signal', 
+# ]
