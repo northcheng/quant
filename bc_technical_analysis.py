@@ -399,17 +399,38 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
 
     # ================================ linear trend ===========================
     if 'linear' in trend_indicators:
-      df['linear_trend'] = ''
-      df['linear_signal'] = ''
 
-      up_idx = df.query('Close > linear_fit_high').index
+      # direction means the slope of linear fit of (High/Low)
+      df['linear_direction'] = ''
+      up_idx = df.query('linear_fit_high_slope > 0 and linear_fit_low_slope > 0').index
+      down_idx = df.query('linear_fit_high_slope < 0 and linear_fit_low_slope < 0').index
+      uncertain_idx = df.query('(linear_fit_high_slope > 0 and linear_fit_low_slope < 0) or (linear_fit_high_slope < 0 and linear_fit_low_slope > 0)').index
+      df.loc[up_idx, 'linear_direction'] = 'u'
+      df.loc[down_idx, 'linear_direction'] = 'd'
+      df.loc[uncertain_idx, 'linear_direction'] = 'n'
+
+      # the corresponding position of Close to linear_fit_high and linear_fit_low
+      df['linear_position'] = ''
+      among_idx = df.query('Close <= linear_fit_high and Close >= linear_fit_low').index
+      above_idx = df.query('Close > linear_fit_high').index
+      below_idx = df.query('Close < linear_fit_low').index
+      df.loc[among_idx, 'linear_position'] = 'n'
+      df.loc[above_idx, 'linear_position'] = 'u'
+      df.loc[below_idx, 'linear_position'] = 'd'
+
+      # number of days the Close triggered position change
+      df['linear_triggered'] = sda(series=df['linear_position'].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=None)
+
+      # calculate trend
+      df['linear_trend'] = df['linear_direction']
+      up_idx = df.query('(linear_direction=="u" and linear_position!="d") or (linear_direction=="d" and linear_position=="u" and linear_triggered<=5 and linear_day_count>=5)').index
+      down_idx = df.query('(linear_direction=="d" and linear_position!="u") or (linear_direction=="u" and linear_position=="d" and linear_triggered<=5 and linear_day_count>=5)').index
       df.loc[up_idx, 'linear_trend'] = 'u'
-
-      down_idx = df.query('Close < linear_fit_low').index 
       df.loc[down_idx, 'linear_trend'] = 'd'
 
-      non_idx = df.query('linear_fit_low <= Close <= linear_fit_high').index
-      df.loc[non_idx, 'linear_trend'] = 'n'
+      # drop intermediate columns
+      df.drop(['linear_direction', 'linear_position', 'linear_triggered', 'linear_day_count'], axis=1, inplace=True)
+
     # =========================================================================
 
     phase = 'cal_volatility_indicator_trend'
@@ -430,7 +451,8 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
     df['up_trend_idx'] = 0
     df['down_trend_idx'] = 0
 
-    all_indicators = trend_indicators + volume_indicators + volatility_indicators + other_indicators
+    # specify all indicators and specify the exclusives
+    all_indicators = list(set(trend_indicators + volume_indicators + volatility_indicators + other_indicators))
     exclude_indicators = ['renko', 'bb', 'linear']
     for indicator in all_indicators:
       trend_col = f'{indicator}_trend'
@@ -438,15 +460,21 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       day_col = f'{indicator}_day'
 
       # calculate number of days since trend shifted
-      df[day_col] = sda(series=df[trend_col].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1) 
+      if indicator == 'linear':
+        zero_as = None
+      else:
+        zero_as = 1
+      df[day_col] = sda(series=df[trend_col].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=zero_as) 
       
       # signal of individual indicators are set to 'n'
       if signal_col not in df.columns:
         df[signal_col] = 'n'
 
-      # calculate up/down trend index
+      # skype the exclusive indicators
       if indicator in exclude_indicators:
         continue
+
+      # calculate the overall trend value
       up_idx = df.query(f'{trend_col} == "u"').index
       down_idx = df.query(f'{trend_col} == "d"').index
       df.loc[up_idx, 'up_trend_idx'] += 1
@@ -1356,8 +1384,8 @@ def add_linear_features(df, day_gap=5, max_period=60):
   # peaks
   peaks,_ = find_peaks(x=tmp_data['High'], distance=30)
   peaks = [tmp_idxs[x] for x in peaks]
-  # print(peaks)
-  # print(df.loc[peaks, 'High'])
+  print(peaks)
+  print(df.loc[peaks, 'High'])
   if len(peaks) > 0:
     peak = peaks[-1]#df.loc[peaks, ]['High'].idxmax()
   else:
@@ -1366,8 +1394,8 @@ def add_linear_features(df, day_gap=5, max_period=60):
   # troughs
   troughs, _ = find_peaks(x=-df['Low'][start:], distance=30)
   troughs = [tmp_idxs[x] for x in troughs]
-  # print(troughs)
-  # print(df.loc[troughs, 'Low'])
+  print(troughs)
+  print(df.loc[troughs, 'Low'])
   if len(troughs) > 0:
     trough = troughs[-1]#df.loc[troughs, ]['Low'].idxmin()
   else:
@@ -1413,7 +1441,7 @@ def add_linear_features(df, day_gap=5, max_period=60):
 
   start = min(peak, trough)
   end = max(peak, trough)
-  # print(start, end)
+  print(start, end)
 
   # gathering high and low points
   high = {'x':[], 'y':[]}
@@ -1431,14 +1459,14 @@ def add_linear_features(df, day_gap=5, max_period=60):
 
       # lowest_low
       ll_idx = tmp_data['Low'].idxmin()
-      ll_y = df.loc[ll_idx, 'Low'] - df[s:e]['candle_lower_shadow'].mean()
+      ll_y = df.loc[ll_idx, 'Low'] - df[s:e]['Low'].std()
       ll_x = idxs.index(ll_idx)
       low['x'].append(ll_x)
       low['y'].append(ll_y)
 
       # highest_high
       hh_idx = tmp_data['High'].idxmax()
-      hh_y = df.loc[hh_idx, 'High'] + df[s:e]['candle_upper_shadow'].mean()
+      hh_y = df.loc[hh_idx, 'High'] + df[s:e]['High'].std()
       hh_x = idxs.index(hh_idx)
       high['x'].append(hh_x)
       high['y'].append(hh_y)
@@ -1459,10 +1487,16 @@ def add_linear_features(df, day_gap=5, max_period=60):
   # add high/low fit values
   idx_max = len(idxs)
   idx_min = min(min(high['x']), min(low['x']))
+  counter = 0
   for x in range(idx_min, idx_max):
+    counter += 1
+    
+
     idx = idxs[x]
     linear_fit_high = high_linear[0] * x + high_linear[1]
     linear_fit_low = low_linear[0] * x + low_linear[1]
+
+    df.loc[idx, 'linear_day_count'] = counter
 
     df.loc[idx, 'linear_fit_high_slope'] = high_linear[0]
     if (linear_fit_high <= highest_high and linear_fit_high >= lowest_low): 
