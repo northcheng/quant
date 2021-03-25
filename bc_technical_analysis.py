@@ -1350,24 +1350,23 @@ def add_heikin_ashi_features(df, ohlcv_col=default_ohlcv_col, replace_ohlc=False
   return df
 
 # linear regression for recent high and low values
-def add_linear_features(df, day_gap=5, max_period=60):
+def add_linear_features(df, max_period=60, is_print=False):
   idxs = df.index.tolist()
   highest_high = df['High'].max()
   lowest_low = df['Low'].min()
+
   current_date = df.index.max()
   current_color = df.loc[current_date, 'renko_color']
-
-  # calculate the earliest start
   earliest_start = current_date - datetime.timedelta(days=max_period)
-
-  # calculate start according to renko features, allows only 1 differnt renko color
-  start=None
+  latest_end = current_date - datetime.timedelta(days=(current_date.weekday()+1))
+ 
+  # get slice according to renko bricks, allows only 1 different color brick
+  start=None  
   renko_list = df.query('renko_real == renko_real').index.tolist()
   renko_list.reverse()
   for idx in renko_list:
     tmp_color = df.loc[idx, 'renko_color']
     tmp_start = df.loc[idx, 'renko_start']
-
     if tmp_color != current_color:
       break
     else:
@@ -1375,129 +1374,248 @@ def add_linear_features(df, day_gap=5, max_period=60):
         start = earliest_start
         break
   start = max(tmp_start, earliest_start)
- 
+  end = latest_end
+  min_period = 20
+  if is_print:
+    print(start, end)
+
   # calculate peaks and troughs
-  tmp_data = df[start:].copy()
+  tmp_data = df[start:end].copy()
   tmp_idxs = tmp_data.index.tolist()
-  min_period = 12
+  
+  # --------------------------------- method 0 ---------------------------------------
+  # # peaks
+  # peaks,_ = find_peaks(x=tmp_data['High'], distance=30)
+  # if len(peaks) > 0:
+  #   peaks = [tmp_idxs[x] for x in peaks] 
+  #   print(df.loc[peaks, 'High'])
+  #   peak = peaks[-1]#df.loc[peaks, ]['High'].idxmax()
+  # else:
+  #   peak = None
+
+  # # troughs
+  # troughs, _ = find_peaks(x=-tmp_data['Low'], distance=30)
+  # if len(troughs) > 0:
+  #   troughs = [tmp_idxs[x] for x in troughs] 
+  #   print(df.loc[troughs, 'Low'])
+  #   trough = troughs[-1]#df.loc[troughs, ]['Low'].idxmin()
+  # else:
+  #   trough = None
+ 
+  # # if not only 1 peak/trough detected
+  # if len(peaks)>0 and len(troughs)>0:
+  #   period = abs((peak - trough).days)
+  #   if period < min_period:
+  #     if len(peaks) > 1:
+  #       high_diff = df.loc[peaks[0], 'High'] - df.loc[peaks[1], 'High']
+  #     else:
+  #       high_diff = np.Inf
+
+  #     if len(troughs) > 1:
+  #       low_diff = df.loc[troughs[0], 'Low'] - df.loc[troughs[1], 'Low']
+  #     else:
+  #       low_diff = np.Inf
+
+  #     if high_diff > low_diff:
+  #       trough = [x for x in troughs if x != trough][0]
+  #     elif low_diff < high_diff:
+  #       peak = [x for x in peaks if x != peak][0]
+  #     else:
+  #       if peak > trough:
+  #         trough = None
+  #       else:
+  #         peak = None
+
+  # # get slice according to peak/trough
+  # if peak is None and trough is None:
+  #   peak = start
+  #   trough = current_date
+  # elif peak is not None and trough is None:
+  #   days_1 = current_date - peak
+  #   days_2 = peak - earliest_start
+  #   trough = current_date if days_1 > days_2 else earliest_start
+  # elif peak is None and trough is not None:
+  #   days_1 = current_date - trough
+  #   days_2 = trough - earliest_start
+  #   peak = current_date if days_1 > days_2 else earliest_start
+  # else:
+  #   pass
+  # start = min(peak, trough)
+  # end = max(peak, trough)
+  # print(start, end)
+
+  # # gathering high and low points
+  # high = {'x':[], 'y':[]}
+  # low = {'x':[], 'y':[]}
+  # s = start
+  # e = start
+  # while e < end:
+  #   e = s + datetime.timedelta(days=day_gap)
+  #   tmp_data = df[s:e].copy()
+  #   if len(tmp_data) == 0:
+  #     s = e
+  #     continue
+  #   else:
+
+  #     # lowest_low
+  #     ll_idx = tmp_data['Low'].idxmin()
+  #     ll_y = df.loc[ll_idx, 'Low'] - df[s:e]['Low'].std()
+  #     ll_x = idxs.index(ll_idx)
+  #     low['x'].append(ll_x)
+  #     low['y'].append(ll_y)
+
+  #     # highest_high
+  #     hh_idx = tmp_data['High'].idxmax()
+  #     hh_y = df.loc[hh_idx, 'High'] + df[s:e]['High'].std()
+  #     hh_x = idxs.index(hh_idx)
+  #     high['x'].append(hh_x)
+  #     high['y'].append(hh_y)
+      
+  #     # update end date
+  #     s = e
+
+  # --------------------------------- method 1 --------------------------------------- 
+  # find the highest high and lowest low
+  hh = tmp_data['High'].idxmax()
+  ll = tmp_data['Low'].idxmin()
+  if is_print:
+    print(hh, ll)
+
+  # get slice from highest high and lowest low
+  if hh > ll:
+    if (latest_end - hh).days >=min_period:
+      start = hh
+    elif (latest_end - ll).days >=min_period:
+      start = ll
+    else:
+      end = max(hh, ll)
+  else:
+    if (latest_end - ll).days >=min_period:
+      start = ll
+    elif (latest_end - hh).days >=min_period:
+      start = hh
+    else:
+      end = max(hh, ll)
+
+  if start != earliest_start:
+    start = start - datetime.timedelta(days=3)
+  tmp_data = df[start:end].copy()
+  tmp_idxs = tmp_data.index.tolist()
+  num_points = 4
+  distance = math.floor(len(tmp_data) / num_points)
+  day_gap = len(tmp_data) / 2
 
   # peaks
-  peaks,_ = find_peaks(x=tmp_data['High'], distance=30)
+  peaks,_ = find_peaks(x=tmp_data['High'], distance=distance)
   peaks = [tmp_idxs[x] for x in peaks]
-  print(peaks)
-  print(df.loc[peaks, 'High'])
-  if len(peaks) > 0:
-    peak = peaks[-1]#df.loc[peaks, ]['High'].idxmax()
-  else:
-    peak = None
+  if is_print:
+    print(df.loc[peaks, 'High'])
 
-  # troughs
-  troughs, _ = find_peaks(x=-df['Low'][start:], distance=30)
-  troughs = [tmp_idxs[x] for x in troughs]
-  print(troughs)
-  print(df.loc[troughs, 'Low'])
-  if len(troughs) > 0:
-    trough = troughs[-1]#df.loc[troughs, ]['Low'].idxmin()
-  else:
-    trough = None
+  # divide peaks by highest peak, take the longer half
+  if len(peaks) >= 2:
+    peak_value = [df.loc[x, 'High'] for x in peaks]
+    hp = peak_value.index(max(peak_value))
 
-  # get slice
-  if len(peaks)>0 and len(troughs)>0:
-    period = abs((peak - trough).days)
-    if period < min_period:
-      if len(peaks) > 1:
-        high_diff = df.loc[peaks[0], 'High'] - df.loc[peaks[1], 'High']
-      else:
-        high_diff = np.Inf
-
-      if len(troughs) > 1:
-        low_diff = df.loc[troughs[0], 'Low'] - df.loc[troughs[1], 'Low']
-      else:
-        low_diff = np.Inf
-
-      if high_diff > low_diff:
-        trough = [x for x in troughs if x != trough][0]
-      elif low_diff < high_diff:
-        peak = [x for x in peaks if x != peak][0]
-      else:
-        if peak > trough:
-          trough = None
-        else:
-          peak = None
-
-  if peak is None and trough is None:
-    peak = start
-    trough = current_date
-  elif peak is not None and trough is None:
-    days_1 = current_date - peak
-    days_2 = peak - earliest_start
-    trough = current_date if days_1 > days_2 else earliest_start
-  elif peak is None and trough is not None:
-    days_1 = current_date - trough
-    days_2 = trough - earliest_start
-    peak = current_date if days_1 > days_2 else earliest_start
-  else:
-    pass
-
-  start = min(peak, trough)
-  end = max(peak, trough)
-  print(start, end)
-
-  # gathering high and low points
-  high = {'x':[], 'y':[]}
-  low = {'x':[], 'y':[]}
+    if hp+1 > len(peak_value)/2:
+      peaks = peaks[:hp+1]
+    elif hp+1 <= math.ceil(len(peak_value)/2):
+      peaks = peaks[hp:]
+  # else:
   s = start
   e = start
-  
   while e < end:
     e = s + datetime.timedelta(days=day_gap)
-    tmp_data = df[s:e].copy()
-    if len(tmp_data) == 0:
+    t_data = df[s:e].copy()
+    if len(t_data) == 0:
+      s = e
+      continue
+    else:
+      # highest high 
+      hh_idx = t_data['High'].idxmax()
+      if hh_idx not in peaks:
+        peaks = np.append(peaks, hh_idx)
+      s = e
+  if is_print:
+    print(df.loc[peaks, 'High'])
+
+  # troughs
+  troughs, _ = find_peaks(x=-tmp_data['Low'], distance=distance)
+  troughs = [tmp_idxs[x] for x in troughs]
+  if is_print:
+    print(df.loc[troughs, 'Low'])
+
+  # divide troughs by lowest trough, take the longer half
+  if len(troughs) >= 2:
+    trough_value = [df.loc[x, 'Low'] for x in troughs]
+    lt = trough_value.index(min(trough_value))
+    
+    if lt+1 > len(trough_value)/2:
+      troughs = troughs[:lt+1]
+    elif lt+1 <= math.ceil(len(trough_value)/2):
+      troughs = troughs[lt:]
+    
+  # else:
+  s = start
+  e = start
+  while e < end:
+    e = s + datetime.timedelta(days=day_gap)
+    t_data = df[s:e].copy()
+    if len(t_data) == 0:
       s = e
       continue
     else:
 
       # lowest_low
-      ll_idx = tmp_data['Low'].idxmin()
-      ll_y = df.loc[ll_idx, 'Low'] - df[s:e]['Low'].std()
-      ll_x = idxs.index(ll_idx)
-      low['x'].append(ll_x)
-      low['y'].append(ll_y)
-
-      # highest_high
-      hh_idx = tmp_data['High'].idxmax()
-      hh_y = df.loc[hh_idx, 'High'] + df[s:e]['High'].std()
-      hh_x = idxs.index(hh_idx)
-      high['x'].append(hh_x)
-      high['y'].append(hh_y)
+      ll_idx = t_data['Low'].idxmin()
+      troughs = np.append(troughs, ll_idx)
       
       # update end date
       s = e
+  if is_print:
+    print(df.loc[troughs, 'Low'])
 
-  
-  if len(high['x']) < 2 or len(low['x']) < 2:
+  # gathering high and low points
+  high = {'x':[], 'y':[]}
+  low = {'x':[], 'y':[]}
+
+  for p in peaks:
+    x = idxs.index(p)
+    y = df.loc[p, 'High'] #+ df[start:end]['High'].std()*0.5
+    high['x'].append(x)
+    high['y'].append(y)
+
+  for t in troughs:
+    x = idxs.index(t)
+    y = df.loc[t, 'Low'] #- df[start:end]['Low'].std()*0.5
+    low['x'].append(x)
+    low['y'].append(y)
+
+  # when there are not enough data for linear regression
+  if len(high['x']) < 2: 
     high_linear = (0, highest_high, 0, 0)
-    low_linear = (0, lowest_low, 0, 0)
-
   else:
-    # linear regress
     high_linear = linregress(high['x'], high['y'])
+
+  if len(low['x']) < 2:
+    low_linear = (0, lowest_low, 0, 0)
+  else:
     low_linear = linregress(low['x'], low['y'])
 
   # add high/low fit values
+  counter = 0
   idx_max = len(idxs)
   idx_min = min(min(high['x']), min(low['x']))
-  counter = 0
   for x in range(idx_min, idx_max):
-    counter += 1
-    
-
     idx = idxs[x]
+
+    counter += 1
+    df.loc[idx, 'linear_day_count'] = counter
+
+    # calculate linear fit values    
     linear_fit_high = high_linear[0] * x + high_linear[1]
     linear_fit_low = low_linear[0] * x + low_linear[1]
 
-    df.loc[idx, 'linear_day_count'] = counter
-
+    # linear fit high
     df.loc[idx, 'linear_fit_high_slope'] = high_linear[0]
     if (linear_fit_high <= highest_high and linear_fit_high >= lowest_low): 
       df.loc[idx, 'linear_fit_high'] = linear_fit_high
@@ -1508,6 +1626,7 @@ def add_linear_features(df, day_gap=5, max_period=60):
     else:
       df.loc[idx, 'linear_fit_high'] = np.NaN
     
+    # linear fit low
     df.loc[idx, 'linear_fit_low_slope'] = low_linear[0]
     if (linear_fit_low <= highest_high and linear_fit_low >= lowest_low): 
       df.loc[idx, 'linear_fit_low'] = linear_fit_low
