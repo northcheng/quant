@@ -129,7 +129,7 @@ def preprocess_sec_data(df, symbol, interval, print_error=True):
 
   # drop duplicated rows, keep the first
   df = util.remove_duplicated_index(df=df, keep='first')
-  
+
   # if interval is week, keep only one record in the latest week
   if interval == 'week':
     max_weekday = df.index[-1].weekday()
@@ -148,22 +148,23 @@ def preprocess_sec_data(df, symbol, interval, print_error=True):
 
   # adjust close price manually
   adj_rate = 1
-  df['split_p1'] = df['Split'].shift(-1)
+  df['split_n1'] = df['Split'].shift(-1).fillna(1.0)
   df['adj_close_p1'] = df['Adj Close'].shift(1)
   df['adj_rate'] = df['adj_close_p1'] / df['Adj Close']
   df = df.sort_index(ascending=False)
+
   for idx, row in df.iterrows():
     df.loc[idx, 'Adj Close'] *= adj_rate
     if row['Split'] != 1:
       if row['Adj Close'] == row['Close']:
         if row['adj_rate'] > 2 or row['adj_rate'] < 0.5:
           adj_rate = 1/row['Split']
-    elif row['split_p1'] != 1:
+    elif row['split_n1'] != 1:
       if row['Adj Close'] == row['Close']:
         if row['adj_rate'] > 2 or row['adj_rate'] < 0.5:
-          adj_rate = 1/row['split_p1']
+          adj_rate = 1/row['split_n1']
   df = df.sort_index()
-  df.drop(['adj_rate', 'adj_close_p1', 'split_p1'], axis=1, inplace=True)
+  df.drop(['adj_rate', 'adj_close_p1', 'split_n1'], axis=1, inplace=True)
 
   # adjust open/high/low/close/volume values
   adj_rate = df['Adj Close'] / df['Close']
@@ -200,7 +201,7 @@ def preprocess_sec_data(df, symbol, interval, print_error=True):
   if print_error and len(error_info) > 0:
     error_info = f'[{symbol}]: on {max_idx.date()}, {error_info}'
     print(error_info)
-  
+
   # add symbol and change rate of close price
   df['symbol'] = symbol
   df = cal_change_rate(df=df, target_col=default_ohlcv_col['close']) # price change rate
@@ -616,7 +617,7 @@ def calculate_ta_data(df, symbol, interval, trend_indicators=['ichimoku', 'aroon
     # preprocess sec_data
     phase = 'preprocess_sec_data'
     df = preprocess_sec_data(df=df, symbol=symbol, interval=interval)
-
+    
     # calculate TA indicators
     phase = 'cal_ta_indicators' 
     all_indicators = []
@@ -1351,6 +1352,7 @@ def add_heikin_ashi_features(df, ohlcv_col=default_ohlcv_col, replace_ohlc=False
 
 # linear regression for recent high and low values
 def add_linear_features(df, max_period=60, is_print=False):
+
   idxs = df.index.tolist()
   highest_high = df['High'].max()
   lowest_low = df['Low'].min()
@@ -1376,6 +1378,9 @@ def add_linear_features(df, max_period=60, is_print=False):
   start = max(tmp_start, earliest_start)
   end = latest_end
   min_period = 20
+
+  if (end - start).days < min_period:
+    start = end - datetime.timedelta(days=min_period)
   if is_print:
     print(start, end)
 
