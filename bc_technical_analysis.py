@@ -1377,7 +1377,7 @@ def add_linear_features(df, max_period=60, is_print=False):
         break
   start = max(tmp_start, earliest_start)
   end = latest_end
-  min_period = 20
+  min_period = 15
 
   if (end - start).days < min_period:
     start = end - datetime.timedelta(days=min_period)
