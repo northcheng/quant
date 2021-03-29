@@ -31,6 +31,109 @@ default_candlestick_color = {'colorup':'green', 'colordown':'red', 'alpha':0.8}
 default_ohlcv_col = {'close':'Close', 'open':'Open', 'high':'High', 'low':'Low', 'volume':'Volume'}  
 default_plot_args = {'figsize':(25, 5), 'title_rotation':'vertical', 'title_x':-0.05, 'title_y':0.3, 'bbox_to_anchor':(1.02, 0.), 'loc':3, 'ncol':1, 'borderaxespad':0.0}
 
+# ================================================ Target selection ================================================= # 
+# add extra features for filtering stocks
+def add_extra_features(df):
+
+  # overall slope of High and Low
+  df['linear_slope']  = df['linear_fit_high_slope'] + df['linear_fit_low_slope']
+  
+  # crossover signals between Close and High/Low columns
+  for col in ['linear_fit_high', 'linear_fit_low']:
+    df[f'{col}_signal'] = cal_crossover_signal(df=df, fast_line='Close', slow_line=col, pos_signal=1, neg_signal=-1, none_signal=0)
+  
+  # number of days since signals triggered
+  for col in ['kijun', 'tankan', 'linear_fit_high', 'linear_fit_low']:
+    df[f'{col}_signal'] = sda(series=df[f'{col}_signal'], zero_as=1)
+    
+  return df
+
+# create universe data for symbols in universe
+def create_universe_data(universe, ta_data, ):
+  
+  # initialize empty dataframe
+  universe_data = pd.DataFrame()
+
+  # process stock data of symbols
+  for symbol in universe:
+    si = f'{symbol}_day'
+    if si in ta_data.keys():
+      tmp_data = add_extra_features(ta_data[si])
+      universe_data = universe_data.append(tmp_data.tail(1), sort=False)
+
+  # reset index by symbol
+  universe_data.reset_index(inplace=True)
+  universe_data.set_index('symbol', inplace=True)
+  
+  return universe_data
+
+# filter symbols from universe which fulfill certain conditions
+def filter_universe(df):
+  
+  # define conditions
+  conditions = {
+    '上涨': '((linear_fit_high_slope > 0 and linear_fit_low_slope > 0))',
+    '下跌': '((linear_fit_high_slope < 0 and linear_fit_low_slope < 0))',
+    '波动': '((linear_fit_high_slope >= 0 and linear_fit_low_slope <= 0) or (linear_fit_high_slope <= 0 and linear_fit_low_slope >= 0))',
+    '趋势之中': '((linear_fit_high >= Open >= linear_fit_low) or (linear_fit_high >= Close >= linear_fit_low))',
+    '趋势之上': '((Open > linear_fit_high and Open > linear_fit_low) and (Close > linear_fit_high and Close > linear_fit_low))',
+    '趋势之下': '((Open < linear_fit_high and Open < linear_fit_low) and (Close < linear_fit_high and Close < linear_fit_low))',
+    '趋势较强': '((linear_slope >=0.1 and linear_fit_high_slope > 0 and linear_fit_low_slope > 0) or (linear_slope <= -0.1 and linear_fit_high_slope < 0 and linear_fit_low_slope < 0))',
+    '趋势较弱': '(-0.1 < linear_slope <0.1)',
+    '最近触发': '((-10 <= kijun_signal <=10 and kijun_signal !=0) or (-10 <= tankan_signal <= 10 and tankan_signal !=0) or (-10 <= linear_fit_high_signal <= 10 and linear_fit_high_signal !=0) or (-10 <= linear_fit_low_signal <=10 and linear_fit_low_signal !=0))',
+    '上穿kijun': '(kijun_signal > 0)',
+    '下穿kijun': '(kijun_signal < 0)',
+    '上穿tankan': '(tankan_signal > 0)',
+    '下穿tankan': '(tankan_signal < 0)',
+    '上穿linear_fit_high': '(linear_fit_high_signal > 0)',
+    '下穿linear_fit_high': '(linear_fit_high_signal < 0)',
+    '上穿linear_fit_low': '(linear_fit_low_signal > 0)',
+    '下穿linear_fit_low': '(linear_fit_low_signal < 0)'
+  }
+  
+  # filter data
+  filter_result = {}
+  for c in conditions.keys():
+    filter_result[c] = df.query(conditions[c]).index.tolist()
+    
+  return filter_result
+
+# classify symbols in universe
+def classify_universe(universe, filter_result, is_plot=True):
+  
+  # initialize empty dict
+  classification = {}
+
+  # 止跌回升
+  classification['rebound'] = [x for x in filter_result['下跌'] if (x in filter_result['趋势之上'] and x in filter_result['最近触发'] and  x in filter_result['上穿tankan'])] 
+
+  # 触顶回调
+  classification['hitpeak'] = [x for x in filter_result['上涨'] if (x in filter_result['趋势之下'] and x in filter_result['最近触发'] and  x in filter_result['下穿tankan'])]
+
+  # 上升趋势中
+  classification['uptrending'] = [x for x in filter_result['上涨'] if ((x in filter_result['趋势之中'] or x in filter_result['趋势之上']) and x in filter_result['趋势较强'])]
+
+  # 下降趋势中
+  classification['downtrending'] = [x for x in filter_result['下跌'] if ((x in filter_result['趋势之中'] or x in filter_result['趋势之下']) and x in filter_result['趋势较强'])]
+
+  # 波动中
+  classification['waving'] = [x for x in filter_result['波动'] or x in filter_result['趋势较弱'] if (x not in classification['rebound'] and x not in classification['hitpeak'])]
+
+  # 其他
+  classification['others'] = [x for x in universe if ((x not in classification['rebound']) and (x not in classification['hitpeak']) and (x not in classification['uptrending']) and (x not in classification['downtrending']) and (x not in classification['waving']))]
+
+  # plot distribution
+  if is_plot:
+    class_statistics = {}
+    for k in classification.keys():
+      print(f'{k}: {len(classification[k])}')
+      class_statistics[k] = len(classification[k])
+    cls_stat = pd.DataFrame(class_statistics, index=['num'],).T
+    plt.figure(figsize=(20, 5))
+    hist = plt.bar(cls_stat.index, cls_stat.num, alpha=0.5,)  
+
+  return classification
+
 
 # ================================================ Core calculation ================================================= # 
 # load configuration
