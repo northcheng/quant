@@ -1501,15 +1501,17 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
 
     # portfolio images
     portfolio_image_path = f'{config["result_path"]}portfolio/'
-    for img in os.listdir(portfolio_image_path):
-      symbol = img.split('.')[0]
-      images_to_attach[symbol] = f'{portfolio_image_path}{img}'
+    images_to_attach['portfolio'] = f'{portfolio_image_path}portfolio.png'
+    # for img in os.listdir(portfolio_image_path):
+    #   symbol = img.split('.')[0]
+    #   images_to_attach[symbol] = f'{portfolio_image_path}{img}'
     
     # signal images
     signal_image_path = f'{config["result_path"]}signal/'
-    for img in os.listdir(signal_image_path):
-      symbol = img.split('_')[0]
-      images_to_attach[symbol] = f'{signal_image_path}{img}'
+    images_to_attach['signal'] = f'{signal_image_path}signal.png'
+    # for img in os.listdir(signal_image_path):
+    #   symbol = img.split('_')[0]
+    #   images_to_attach[symbol] = f'{signal_image_path}{img}'
 
     # verify whether images are up-to-date and attach images
     for symbol in images_to_attach.keys():

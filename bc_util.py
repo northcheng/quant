@@ -4,14 +4,17 @@ Generally Utilities
 
 :author: Beichen Chen
 """
-import pandas as pd
-import numpy as np
-import datetime
+import os
 import time
 import pytz
+import datetime
+import numpy as np
+import pandas as pd
+import matplotlib.cm as cmx
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
-import matplotlib.cm as cmx
+from PIL import Image
+
 
 
 #----------------------- Date manipulation -----------------------#
@@ -225,3 +228,35 @@ def sleep_until(target_time, description=None, check_frequency=3600):
     now = datetime.datetime.now()
 
   print(f'{now}: exceed target time({target_time})')
+
+
+#----------------------- Image manipulation ----------------------#
+def concate_image(image_list, adjust_size=False, save_name=None):
+
+  # load images
+  images = []
+  for image in image_list:
+    if os.path.exists(image):
+      images.append(Image.open(image))
+
+  # adjust image size 
+  if adjust_size:
+    ims = []
+    for i in images:
+      new_img = i.resize((1280, 1280), Image.BILINEAR)
+      ims.append(new_img)
+  else:
+    ims = images
+
+  # concate images
+  width, height = ims[0].size
+  result = Image.new(ims[0].mode, (width, height * len(ims)))
+  for i, im in enumerate(ims):
+    result.paste(im, box=(0, i * height))
+
+  # save concated image
+  if save_name is None:
+    save_name = 'concated_image.png'
+
+  result.save(save_name)
+  
