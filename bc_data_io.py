@@ -728,9 +728,15 @@ def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', req
         
       # load local data and update its most recent date
       else:
-        data[symbol] = load_stock_data(file_path=stock_data_path, file_name=symbol)
-        if len(data[symbol]) > 0:
-          tmp_data_date = util.time_2_string(data[symbol].index.max())
+        existed_data = load_stock_data(file_path=stock_data_path, file_name=symbol)
+        if len(existed_data) > 0:
+          max_idx = existed_data.index.max()
+          if max_idx > util.string_2_time('2020-01-01'):
+            data[symbol] = existed_data
+            tmp_data_date = util.time_2_string(max_idx)
+          else:
+            print(f'max index of {symbol} is invalid({max_idx}), refreshing data')
+            os.remove(symbol_file_name)
 
     # update eod data, print updating info
     if (update_mode in ['eod', 'both', 'refresh']) and (tmp_data_date is None or tmp_data_date < benchmark_date):

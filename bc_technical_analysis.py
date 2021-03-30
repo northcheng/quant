@@ -49,7 +49,7 @@ def add_extra_features(df):
   return df
 
 # create universe data for symbols in universe
-def create_universe_data(universe, ta_data, ):
+def create_universe_data(universe, ta_data):
   
   # initialize empty dataframe
   universe_data = pd.DataFrame()
@@ -3826,6 +3826,7 @@ def plot_candlestick(
   )
   ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
 
+  # return ax
   if use_ax is not None:
     return ax
 
@@ -3922,6 +3923,7 @@ def plot_main_indicators(
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
   ax.grid(True, axis='both', linestyle='--', linewidth=0.5)
 
+  # return ax
   if use_ax is not None:
     return ax
 
@@ -3975,6 +3977,7 @@ def plot_aroon(
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
   ax.grid(True, axis='both', linestyle='--', linewidth=0.5)
 
+  # return ax
   if use_ax is not None:
     return ax
 
@@ -4025,6 +4028,7 @@ def plot_adx(
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
   ax.grid(True, axis='both', linestyle='--', linewidth=0.5)
 
+  # return ax
   if use_ax is not None:
     return ax
 
@@ -4086,6 +4090,7 @@ def plot_renko(
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
   ax.grid(True, axis='both', linestyle='--', linewidth=0.5)
 
+  # return ax
   if use_ax is not None:
     return ax
   else:
@@ -4094,9 +4099,7 @@ def plot_renko(
       plt.savefig(save_path + title + '.png')
       
     # show image
-    if not show_image:
-      plt.close(fig)
-    else:
+    if show_image:
       plt.show()
 
 # plot volume
@@ -4139,6 +4142,7 @@ def plot_bar(
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
   ax.grid(True, axis='y', linestyle='--', linewidth=1)
 
+  # return ax
   if use_ax is not None:
     return ax
 
@@ -4387,11 +4391,13 @@ def plot_multiple_indicators(
   if save_image and (save_path is not None):
     plt.savefig(save_path + title + '.png')
     
-  # close image
-  if not show_image:
-    plt.close(fig)
-  else:
+  # show image
+  if show_image:
     plt.show()
+
+  plt.cla()
+  plt.clf()
+  plt.close(fig)
 
 # plot subplots
 def plot_data_subplots(df, columns, start=None, end=None, title='', num_rows=2, plot_args=default_plot_args):
