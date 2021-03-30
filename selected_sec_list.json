@@ -63,7 +63,8 @@
 		"AMGN",
 		"DHR",
 		"JNJ",
-		"UNH"
+		"UNH",
+		"SPFR"
 	],
 	"all": [
 		"TQQQ",
@@ -127,7 +128,8 @@
 		"AMGN",
 		"DHR",
 		"JNJ",
-		"UNH"
+		"UNH",
+		"SPFR"
 	],
 	"auto": [
 		"UPRO",
@@ -232,7 +234,8 @@
 		"AMGN",
 		"DHR",
 		"JNJ",
-		"UNH"
+		"UNH",
+		"SPFR"
 	],
 	"universe_potential": [
 		"A",

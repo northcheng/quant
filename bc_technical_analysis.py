@@ -3911,8 +3911,15 @@ def plot_main_indicators(
     ax.plot(df.index, df.linear_fit_low, label='linear_fit_low', color='black', alpha=0.5)
 
     # fill between aroon_up/aroon_down
-    ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=df.linear_fit_high_slope>0, facecolor='green', interpolate=True, alpha=0.1)
-    ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=df.linear_fit_high_slope<=0, facecolor='red', interpolate=True, alpha=0.1)
+    mask_high_up = df.linear_fit_high_slope>0
+    mask_low_up = df.linear_fit_low_slope>0
+    mask_up = mask_high_up & mask_low_up
+    mask_down = ~mask_high_up & ~mask_low_up
+    mask_wave = (~mask_high_up & mask_low_up) | (mask_high_up & ~mask_low_up)
+
+    ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=mask_up, facecolor='green', interpolate=True, alpha=0.1)
+    ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=mask_down, facecolor='red', interpolate=True, alpha=0.1)
+    ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=mask_wave, facecolor='yellow', interpolate=True, alpha=0.2)
     
   # plot candlestick
   if 'candlestick' in target_indicator:
