@@ -248,15 +248,16 @@ def concate_image(image_list, adjust_size=False, save_name=None):
   else:
     ims = images
 
-  # concate images
-  width, height = ims[0].size
-  result = Image.new(ims[0].mode, (width, height * len(ims)))
-  for i, im in enumerate(ims):
-    result.paste(im, box=(0, i * height))
+  if len(ims) > 0:
+    # concate images
+    width, height = ims[0].size
+    result = Image.new(ims[0].mode, (width, height * len(ims)))
+    for i, im in enumerate(ims):
+      result.paste(im, box=(0, i * height))
 
-  # save concated image
-  if save_name is None:
-    save_name = 'concated_image.png'
+    # save concated image
+    if save_name is None:
+      save_name = 'concated_image.png'
 
-  result.save(save_name)
+    result.save(save_name)
   

@@ -199,7 +199,10 @@ def load_data(symbols, config, load_empty_data=False, load_derived_data=False):
 
     # load stock data
     for symbol in symbols:
-      data['sec_data'][f'{symbol}_day'] = io_util.load_stock_data(file_path=config['data_path'], file_name=symbol, standard_columns=True)
+      if os.path.exists(config['data_path']+f'{symbol}.csv'):
+        data['sec_data'][f'{symbol}_day'] = io_util.load_stock_data(file_path=config['data_path'], file_name=symbol, standard_columns=True)
+      else:
+        data['sec_data'][f'{symbol}_day'] = None
 
     # load derived data
     if load_derived_data:
