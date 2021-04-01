@@ -232,6 +232,15 @@ def sleep_until(target_time, description=None, check_frequency=3600):
 
 #----------------------- Image manipulation ----------------------#
 def concate_image(image_list, adjust_size=False, save_name=None):
+  """
+  Concate images in the image list, save to save_name
+
+  :param image_list: list of absolute path of images
+  :param adjust_size: adjust images to the same size of the first image
+  :param save_name: the absolute path of the concated image
+  :returns: none
+  :raises: none
+  """
 
   # load images
   images = []

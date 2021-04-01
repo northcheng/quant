@@ -99,7 +99,8 @@
                     "candlestick",
                     "ichimoku",
                     "renko",
-                    "linear"                 
+                    "linear",
+                    "psar"                 
                 ],
                 "candlestick_width": 1,
                 "candlestick_color": {

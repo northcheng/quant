@@ -32,24 +32,16 @@ default_ohlcv_col = {'close':'Close', 'open':'Open', 'high':'High', 'low':'Low',
 default_plot_args = {'figsize':(25, 5), 'title_rotation':'vertical', 'title_x':-0.05, 'title_y':0.3, 'bbox_to_anchor':(1.02, 0.), 'loc':3, 'ncol':1, 'borderaxespad':0.0}
 
 # ================================================ Target selection ================================================= # 
-# add extra features for filtering stocks
-def add_extra_features(df):
-
-  # overall slope of High and Low
-  df['linear_slope']  = df['linear_fit_high_slope'] + df['linear_fit_low_slope']
-  
-  # crossover signals between Close and High/Low columns
-  for col in ['linear_fit_high', 'linear_fit_low']:
-    df[f'{col}_signal'] = cal_crossover_signal(df=df, fast_line='Close', slow_line=col, pos_signal=1, neg_signal=-1, none_signal=0)
-  
-  # number of days since signals triggered
-  for col in ['kijun', 'tankan', 'linear_fit_high', 'linear_fit_low']:
-    df[f'{col}_signal'] = sda(series=df[f'{col}_signal'], zero_as=1)
-    
-  return df
-
 # create universe data for symbols in universe
 def create_universe_data(universe, ta_data):
+  """
+  create universe data from the latest rows of ta_data of symbols
+
+  :param universe: the list of symbols
+  :param ta_data: dict of data, with [symbol]_day as keys
+  :returns: universe data
+  :raises: none
+  """
   
   # initialize empty dataframe
   universe_data = pd.DataFrame()
@@ -58,8 +50,25 @@ def create_universe_data(universe, ta_data):
   for symbol in universe:
     si = f'{symbol}_day'
     if si in ta_data.keys():
-      tmp_data = add_extra_features(ta_data[si])
-      universe_data = universe_data.append(tmp_data.tail(1), sort=False)
+
+      df = ta_data[si]
+
+      # crossover signals between Close and High/Low columns
+      for col in ['linear_fit_high', 'linear_fit_low']:
+        if col in df.columns:
+          df[f'{col}_signal'] = cal_crossover_signal(df=df, fast_line='Close', slow_line=col, pos_signal=1, neg_signal=-1, none_signal=0)
+        else:
+          print(f'{col} not in df.columns')
+      
+      # number of days since signals triggered
+      for col in ['kijun', 'tankan', 'linear_fit_high', 'linear_fit_low']:
+        signal_col = f'{col}_signal'
+        if signal_col in df.columns:
+          df[signal_col] = sda(series=df[signal_col], zero_as=1)
+        else:
+          print(f'{signal_col} not in df.columns')
+
+      universe_data = universe_data.append(df.tail(1), sort=False)
 
   # reset index by symbol
   universe_data.reset_index(inplace=True)
@@ -67,9 +76,17 @@ def create_universe_data(universe, ta_data):
   
   return universe_data
 
-# filter symbols from universe which fulfill certain conditions
-def filter_universe(df):
-  
+# classify symbols in universe
+def classify_universe(universe, universe_data, is_plot=True):
+  """
+  classify symbols to different categories by conditions
+
+  :param universe: the list of symbols
+  :param filter_result: dict of symbol list in different conditions
+  :returns: dict of symbol list in different categories
+  :raises: none
+  """
+
   # define conditions
   conditions = {
     '上涨': '((linear_fit_high_slope > 0 and linear_fit_low_slope > 0))',
@@ -88,19 +105,16 @@ def filter_universe(df):
     '上穿linear_fit_high': '(linear_fit_high_signal > 0)',
     '下穿linear_fit_high': '(linear_fit_high_signal < 0)',
     '上穿linear_fit_low': '(linear_fit_low_signal > 0)',
-    '下穿linear_fit_low': '(linear_fit_low_signal < 0)'
+    '下穿linear_fit_low': '(linear_fit_low_signal < 0)',
+    '触发买入信号': '(signal=="b")',
+    '触发卖出信号': '(signal=="s")'
   }
   
   # filter data
   filter_result = {}
   for c in conditions.keys():
-    filter_result[c] = df.query(conditions[c]).index.tolist()
-    
-  return filter_result
+    filter_result[c] = universe_data.query(conditions[c]).index.tolist()
 
-# classify symbols in universe
-def classify_universe(universe, filter_result, is_plot=True):
-  
   # initialize empty dict
   classification = {}
 
@@ -121,6 +135,9 @@ def classify_universe(universe, filter_result, is_plot=True):
 
   # 其他
   classification['others'] = [x for x in universe if ((x not in classification['rebound']) and (x not in classification['hitpeak']) and (x not in classification['uptrending']) and (x not in classification['downtrending']) and (x not in classification['waving']))]
+
+  # 信号
+  classification['signal'] = [x for x in (filter_result['触发买入信号'] + filter_result['触发卖出信号'])]
 
   # plot distribution
   if is_plot:
@@ -1494,98 +1511,6 @@ def add_linear_features(df, max_period=60, is_print=False):
   tmp_data = df[start:end].copy()
   tmp_idxs = tmp_data.index.tolist()
   
-  # --------------------------------- method 0 ---------------------------------------
-  # # peaks
-  # peaks,_ = find_peaks(x=tmp_data['High'], distance=30)
-  # if len(peaks) > 0:
-  #   peaks = [tmp_idxs[x] for x in peaks] 
-  #   print(df.loc[peaks, 'High'])
-  #   peak = peaks[-1]#df.loc[peaks, ]['High'].idxmax()
-  # else:
-  #   peak = None
-
-  # # troughs
-  # troughs, _ = find_peaks(x=-tmp_data['Low'], distance=30)
-  # if len(troughs) > 0:
-  #   troughs = [tmp_idxs[x] for x in troughs] 
-  #   print(df.loc[troughs, 'Low'])
-  #   trough = troughs[-1]#df.loc[troughs, ]['Low'].idxmin()
-  # else:
-  #   trough = None
- 
-  # # if not only 1 peak/trough detected
-  # if len(peaks)>0 and len(troughs)>0:
-  #   period = abs((peak - trough).days)
-  #   if period < min_period:
-  #     if len(peaks) > 1:
-  #       high_diff = df.loc[peaks[0], 'High'] - df.loc[peaks[1], 'High']
-  #     else:
-  #       high_diff = np.Inf
-
-  #     if len(troughs) > 1:
-  #       low_diff = df.loc[troughs[0], 'Low'] - df.loc[troughs[1], 'Low']
-  #     else:
-  #       low_diff = np.Inf
-
-  #     if high_diff > low_diff:
-  #       trough = [x for x in troughs if x != trough][0]
-  #     elif low_diff < high_diff:
-  #       peak = [x for x in peaks if x != peak][0]
-  #     else:
-  #       if peak > trough:
-  #         trough = None
-  #       else:
-  #         peak = None
-
-  # # get slice according to peak/trough
-  # if peak is None and trough is None:
-  #   peak = start
-  #   trough = current_date
-  # elif peak is not None and trough is None:
-  #   days_1 = current_date - peak
-  #   days_2 = peak - earliest_start
-  #   trough = current_date if days_1 > days_2 else earliest_start
-  # elif peak is None and trough is not None:
-  #   days_1 = current_date - trough
-  #   days_2 = trough - earliest_start
-  #   peak = current_date if days_1 > days_2 else earliest_start
-  # else:
-  #   pass
-  # start = min(peak, trough)
-  # end = max(peak, trough)
-  # print(start, end)
-
-  # # gathering high and low points
-  # high = {'x':[], 'y':[]}
-  # low = {'x':[], 'y':[]}
-  # s = start
-  # e = start
-  # while e < end:
-  #   e = s + datetime.timedelta(days=day_gap)
-  #   tmp_data = df[s:e].copy()
-  #   if len(tmp_data) == 0:
-  #     s = e
-  #     continue
-  #   else:
-
-  #     # lowest_low
-  #     ll_idx = tmp_data['Low'].idxmin()
-  #     ll_y = df.loc[ll_idx, 'Low'] - df[s:e]['Low'].std()
-  #     ll_x = idxs.index(ll_idx)
-  #     low['x'].append(ll_x)
-  #     low['y'].append(ll_y)
-
-  #     # highest_high
-  #     hh_idx = tmp_data['High'].idxmax()
-  #     hh_y = df.loc[hh_idx, 'High'] + df[s:e]['High'].std()
-  #     hh_x = idxs.index(hh_idx)
-  #     high['x'].append(hh_x)
-  #     high['y'].append(hh_y)
-      
-  #     # update end date
-  #     s = e
-
-  # --------------------------------- method 1 --------------------------------------- 
   # find the highest high and lowest low
   hh = tmp_data['High'].idxmax()
   ll = tmp_data['Low'].idxmin()
@@ -1631,7 +1556,7 @@ def add_linear_features(df, max_period=60, is_print=False):
       peaks = peaks[:hp+1]
     elif hp+1 <= math.ceil(len(peak_value)/2):
       peaks = peaks[hp:]
-  # else:
+
   s = start
   e = start
   while e < end:
@@ -1747,6 +1672,9 @@ def add_linear_features(df, max_period=60, is_print=False):
       df.loc[idx, 'linear_fit_low'] = lowest_low
     else:
       df.loc[idx, 'linear_fit_low'] = np.NaN
+  
+  # overall slope of High and Low
+  df['linear_slope']  = df['linear_fit_high_slope'] + df['linear_fit_low_slope']
 
   return df
  
@@ -3871,11 +3799,11 @@ def plot_main_indicators(
   
   # plot senkou lines, clouds, tankan and kijun
   if 'ichimoku' in target_indicator:
-    alpha = 0.2
-    ax.plot(df.index, df.senkou_a, label='senkou_a', color='green', alpha=alpha)
-    ax.plot(df.index, df.senkou_b, label='senkou_b', color='red', alpha=alpha)
-    ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a > df.senkou_b, facecolor='green', interpolate=True, alpha=alpha)
-    ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a <= df.senkou_b, facecolor='red', interpolate=True, alpha=alpha)
+    # alpha = 0.2
+    # ax.plot(df.index, df.senkou_a, label='senkou_a', color='green', alpha=alpha)
+    # ax.plot(df.index, df.senkou_b, label='senkou_b', color='red', alpha=alpha)
+    # ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a > df.senkou_b, facecolor='green', interpolate=True, alpha=alpha)
+    # ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a <= df.senkou_b, facecolor='red', interpolate=True, alpha=alpha)
 
     alpha = 0.6
     ax.plot(df.index, df.tankan, label='tankan', color='magenta', linestyle='--', alpha=alpha)
@@ -3900,8 +3828,8 @@ def plot_main_indicators(
   if 'psar' in target_indicator:
     alpha = 0.6
     s = 10
-    ax.scatter(df.index, df.psar_up, label='psar', color='green', alpha=alpha, s=s)
-    ax.scatter(df.index, df.psar_down, label='psar', color='red', alpha=alpha, s=s)
+    ax.scatter(df.index, df.psar_up, label='psar', color='green', alpha=alpha, s=s, marker='o')
+    ax.scatter(df.index, df.psar_down, label='psar', color='red', alpha=alpha, s=s, marker='o')
 
   # plot renko bricks
   if 'renko' in target_indicator:
