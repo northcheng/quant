@@ -29,31 +29,31 @@
     "ABT", "MDT", "AMGN", "DHR", "JNJ", "UNH", "SPFR"
   ],
   "company_star":[
-    "AAPL", "AMZN", "MSFT", "ADBE", "DIS", "EBAY", "FB", "GOOG", "TWTR", "YNDX", 
-    "CSCO", "CTSH", "IBM", "ORCL", "SAP", "TRI", 
-    "ADS", "CMCSA", "HAS", "NWS", "ZNGA", 
-    "AMD", "INTC", "NVDA", "QCOM", "TXN", 
-
-    "AKAM", "CAJ", "CHT", "ERIC", "HPQ", "MSI", "NOK", "S", "SNE", "T", "VOD", "VZ",
-    
-    "B", "BA", "CAT", "F", "GD", "GE", "GM", "HMC", "HON", "LMT", "MMM", "ROK", "TM", "TSLA", 
-    
-    "ABT", "AMGN", "ATI", "BMY", "BAX", "CI", "CVS", "GSK", "JNJ", "MDT", "MRK", "PFE", "UNH", 
-      
-    "HD", "WY", "TGT", "WMT", "NSC", "UPS", "FDX",
-    "MCD", "YUM", "GRPN", "SBUX", "CCU", "KO", "PEP", "MO", "CPB", 
-    "EL", "PG", "CL", "NKE", 
-    
-    "BAC", "BK", "C", "WFC", "USB", "RF", "V", "MA", "AXP", 
-    "AIG", "MET", "TRV", "HIG", "ALL", 
-    "JPM", "MS", "GS", "NMR", "COF", "MFG", 
-    
-    "COP", "DUK", "CVX", "XOM", "WMB", "SLB", "HAL", "BP",
-    "ETR", "EXC", "SO", "AEP", "AES", 
+    "AAPL", "AMZN", "MSFT", "DIS", "NFLX", "EBAY", "FB", "GOOG", "TWTR", "YNDX", 
+    "ADBE", "U", "CSCO", "CTSH", "IBM", "ORCL", "SAP", "TRI", "ADS", "CMCSA", "HAS", "NWS", "ZNGA", "ACN",
+    "AMD", "INTC", "NVDA", "QCOM", "TXN", "AVGO", "TSM",
+    "CAJ", "HPQ", "SNE", 
     "AA", "RIO", "IP", 
-
+    "NSC", "UPS", "FDX",
+    "AKAM", "CHT", "ERIC", "MSI", "NOK", "S", "T", "VOD", "VZ",
+    "B", "BA", "CAT", "F", "GD", "GE", "GM", "HMC", "HON", "LMT", "MMM", "ROK", "TM", "LMT", "TSLA", 
+    "ABT", "AMGN", "ATI", "BMY", "BAX", "CI", "CVS", "GSK", "JNJ", "MDT", "MRK", "PFE", "UNH", "NVO", "AZN", "ABBV",
+    "HD", "WY", "TGT", "WMT", "MCD", "YUM", "GRPN", "SBUX", "CCU", "KO", "PEP", "MO", "CPB", "EL", "PG", "CL", "NKE", 
+    "BAC", "BK", "C", "WFC", "USB", "RF", "V", "MA", "AXP", "HSBC", "AIG", "MET", "TRV", "HIG", "ALL",  "JPM", "MS", "GS", "NMR", "COF", "MFG", 
+    "COP", "DUK", "CVX", "XOM", "WMB", "SLB", "HAL", "BP", "ETR", "EXC", "SO", "AEP", "AES", 
     "UXIN", "NIO", "PDD", "HUYA", "QTT", "IQ", "BILI"
     ],
+  "company_XTN": ["NSC", "UPS", "FDX"],
+  "company_XTL": ["AKAM", "CHT", "ERIC", "MSI", "NOK", "S", "T", "VOD", "VZ"],
+  "company_XSW": ["ADBE", "U", "CSCO", "CTSH", "IBM", "ORCL", "SAP", "TRI", "ADS", "CMCSA", "HAS", "NWS", "ZNGA", "ACN"],
+  "company_XSD": ["AMD", "INTC", "NVDA", "QCOM", "TXN", "AVGO", "TSM"],
+  "company_XPH": ["ABT", "AMGN", "ATI", "BMY", "BAX", "CI", "CVS", "GSK", "JNJ", "MDT", "MRK", "PFE", "UNH", "NVO", "AZN", "ABBV"],
+  "company_XLK": ["AAPL", "AMZN", "MSFT", "DIS", "NFLX", "EBAY", "FB", "GOOG", "TWTR", "YNDX", "TSLA", "CAJ", "HPQ", "SNE"],
+  "company_XLI": ["B", "BA", "CAT", "F", "GD", "GE", "GM", "HMC", "HON", "LMT", "MMM", "ROK", "TM", "LMT"],
+  "company_XLF": ["BAC", "BK", "C", "WFC", "USB", "RF", "V", "MA", "AXP", "HSBC", "AIG", "MET", "TRV", "HIG", "ALL", "JPM", "MS", "GS", "NMR", "COF", "MFG"],
+  "company_XLE": ["COP", "DUK", "CVX", "XOM", "WMB", "SLB", "HAL", "BP", "ETR", "EXC", "SO", "AEP", "AES"],
+  "company_XLB": ["AA", "RIO", "IP"],
+  "company_XLP": ["HD", "WY", "TGT", "WMT", "MCD", "YUM", "GRPN", "SBUX", "CCU", "KO", "PEP", "MO", "CPB", "EL", "PG", "CL", "NKE"],
   "all": [
     "TQQQ", "SQQQ", "UPRO", "SPXU", "UDOW", "SDOW",
     "TECL", "TECS", "SOXL", "SOXS", "FAS", "FAZ", "LABU", "LABD",
@@ -67,16 +67,13 @@
     "MRK", "PFE", "NVO", "GSK", "AZN", "ABBV", "NVS",
     "ABT", "MDT", "AMGN", "DHR", "JNJ", "UNH", "SPFR"
   ],
-  "auto": [
-    "UPRO", "UDOW", "TQQQ",
-    "CHAU", "CQQQ", "YINN",
-    "SOXL", "TECL", "GLD"
-  ],
+  
   "a": [
   ],
   "test": [
     "AAPL", "TQQQ", "SQQQ"
   ],
+  
   "tiger_pool": [
     "UPRO", "UDOW", "TQQQ",
     "CHAU", "CQQQ", "YINN",
