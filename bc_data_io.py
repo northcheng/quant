@@ -1418,18 +1418,17 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
   
   # get portfolio record
   assets = {}
-  positions = {}
   if os.path.exists(config['config_path']+'portfolio.json'):
     portfolio_record = read_config(file_path=config['config_path'], file_name='portfolio.json')
     if 'tiger' in platform:
       pr = portfolio_record.get('tiger')
       assets['glob'] = pr.get('global_account')
-      assets['simu'] = pr.get('simulation_account') 
+      # assets['simu'] = pr.get('simulation_account') 
 
     if 'futu' in platform:
       pr = portfolio_record.get('futu')
       assets['REAL'] = pr.get('REAL')
-      assets['SIMU'] = pr.get('SIMULATE')
+      # assets['SIMU'] = pr.get('SIMULATE')
 
   # construct asset summary
   asset_info = '<h3>Assets</h3><ul>'
