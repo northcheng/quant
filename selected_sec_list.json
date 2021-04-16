@@ -68,7 +68,10 @@
     "ABT", "MDT", "AMGN", "DHR", "JNJ", "UNH", "SPFR"
   ],
   
-  "a": [
+  "auto": [
+    "UPRO", "UDOW", "TQQQ",
+    "CHAU", "CQQQ", "YINN",
+    "SOXL", "TECL", "GLD"
   ],
   "test": [
     "AAPL", "TQQQ", "SQQQ"
@@ -91,8 +94,5 @@
     "BAC", "WFC", "HSBC", "C",
     "MRK", "PFE", "NVO", "GSK", "AZN", "ABBV", "NVS",
     "ABT", "MDT", "AMGN", "DHR", "JNJ", "UNH", "SPFR"
-  ],
-  "universe_potential": [
-    
   ]
 }

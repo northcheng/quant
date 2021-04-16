@@ -8,6 +8,7 @@ import os
 import time
 import pytz
 import datetime
+import subprocess
 import numpy as np
 import pandas as pd
 import matplotlib.cm as cmx
@@ -270,3 +271,24 @@ def concate_image(image_list, adjust_size=False, save_name=None):
 
     result.save(save_name)
   
+
+#----------------------- Script runner ---------------------------#
+def run_script(cmd, retry=1, timeout=600):
+  
+  # try to run non_visual script, if failed, retry(10 times)
+  retry_count = 0
+  while retry_count < retry:
+
+    # set retru count and current time
+    retry_count += 1
+    return_code = None
+
+    try:
+      return_code = subprocess.check_call(cmd, timeout=timeout)
+      if return_code == 0:
+        break              
+    except Exception as e:
+      print(f'[erro]: {type(e)}, {e}, retry({retry_count}/{retry})')
+      continue
+
+  return return_code

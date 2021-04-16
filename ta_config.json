@@ -201,6 +201,14 @@
     },
     "trade": {
         "init_cash": {
+            "tiger":{
+                "real": 2000,
+                "simu": 10000
+            },
+            "futu":{
+                "real": 2000,
+                "simu": 10000
+            },
             "simulation_account": 10000,
             "global_account": 2000,
             "standard_account": 2000,
@@ -208,11 +216,39 @@
             "REAL": 2000
         },
         "pool": {
+            "tiger": {
+                "real": "tiger_pool",
+                "simu": "all"
+            },
+            "futu":{
+                "real": "futu_pool",
+                "simu": "all"
+            },
             "simulation_account": "all",
             "global_account": "tiger_pool",
             "standard_account": "tiger_pool",
             "SIMULATE": "all",
             "REAL": "futu_pool"
+        },
+        "stop_profit": {
+            "tiger":{
+                "real": 10,
+                "simu": 10
+            },
+            "futu":{
+                "real": 10,
+                "simu": 10
+            }
+        },
+        "stop_loss": {
+            "tiger":{
+                "real": -0.1,
+                "simu": -0.5
+            },
+            "futu":{
+                "real": -0.1,
+                "simu": -0.5
+            }
         }
     }
 }
