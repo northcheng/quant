@@ -1,10 +1,22 @@
 {
+  
+  "test": [
+    "AAPL", "TQQQ", "SQQQ"
+  ],
+
+  "auto": [
+    "UPRO", "UDOW", "TQQQ",
+    "CHAU", "CQQQ", "YINN",
+    "SOXL", "TECL", "GLD"
+  ],
+
   "etf": [
     "TQQQ", "SQQQ", "UPRO", "SPXU", "UDOW", "SDOW",
     "TECL", "TECS", "SOXL", "SOXS", "FAS", "FAZ", "LABU", "LABD",
     "CHAU", "CHAD", "YINN", "YANG", "CQQQ",
     "SPY", "GLD"
   ],
+
   "etf_3x":[
     "EDC", "EDZ", "CHAU", "CHAD", "YINN", "YANG", "CQQQ",
     "TQQQ", "SQQQ", "UPRO", "SPXU", "UDOW", "SDOW",
@@ -12,6 +24,7 @@
     "FAS", "FAZ", "BNKU", "BNKD", "DRN", "DRV", "GDXU", "GDXD",
     "CURE", "TNA"
   ],
+
   "etf_idx": [
     "XTN", "XTL", "XSW", "XSD", "XWEB", "XLK", 
     "XPH", "XBI", "XHS", "XHE",  
@@ -19,6 +32,7 @@
     "XRT", "XITK", "XHB", "XOP", "XES", "XME", "XAR", "SPYX", 
     "QUS", "QEFA", "QEMM", "QWLD"
   ],
+
   "company": [
     "AAPL", "MSFT", "FB", "ADBE", "NFLX", "DIS", "U",
     "INTC", "NVDA", "AMD", "QCOM", "AVGO", "TXN", "TSM",
@@ -28,6 +42,7 @@
     "MRK", "PFE", "NVO", "GSK", "AZN", "ABBV", "NVS",
     "ABT", "MDT", "AMGN", "DHR", "JNJ", "UNH", "SPFR"
   ],
+
   "company_star":[
     "AAPL", "AMZN", "MSFT", "DIS", "NFLX", "EBAY", "FB", "GOOG", "TWTR", "YNDX", 
     "ADBE", "U", "CSCO", "CTSH", "IBM", "ORCL", "SAP", "TRI", "ADS", "CMCSA", "HAS", "NWS", "ZNGA", "ACN",
@@ -42,7 +57,8 @@
     "BAC", "BK", "C", "WFC", "USB", "RF", "V", "MA", "AXP", "HSBC", "AIG", "MET", "TRV", "HIG", "ALL",  "JPM", "MS", "GS", "NMR", "COF", "MFG", 
     "COP", "DUK", "CVX", "XOM", "WMB", "SLB", "HAL", "BP", "ETR", "EXC", "SO", "AEP", "AES", 
     "UXIN", "NIO", "PDD", "HUYA", "QTT", "IQ", "BILI"
-    ],
+  ],
+
   "company_XTN": ["NSC", "UPS", "FDX"],
   "company_XTL": ["AKAM", "CHT", "ERIC", "MSI", "NOK", "S", "T", "VOD", "VZ"],
   "company_XSW": ["ADBE", "U", "CSCO", "CTSH", "IBM", "ORCL", "SAP", "TRI", "ADS", "CMCSA", "HAS", "NWS", "ZNGA", "ACN"],
@@ -54,6 +70,7 @@
   "company_XLE": ["COP", "DUK", "CVX", "XOM", "WMB", "SLB", "HAL", "BP", "ETR", "EXC", "SO", "AEP", "AES"],
   "company_XLB": ["AA", "RIO", "IP"],
   "company_XLP": ["HD", "WY", "TGT", "WMT", "MCD", "YUM", "GRPN", "SBUX", "CCU", "KO", "PEP", "MO", "CPB", "EL", "PG", "CL", "NKE"],
+  
   "all": [
     "TQQQ", "SQQQ", "UPRO", "SPXU", "UDOW", "SDOW",
     "TECL", "TECS", "SOXL", "SOXS", "FAS", "FAZ", "LABU", "LABD",
@@ -68,20 +85,12 @@
     "ABT", "MDT", "AMGN", "DHR", "JNJ", "UNH", "SPFR"
   ],
   
-  "auto": [
-    "UPRO", "UDOW", "TQQQ",
-    "CHAU", "CQQQ", "YINN",
-    "SOXL", "TECL", "GLD"
-  ],
-  "test": [
-    "AAPL", "TQQQ", "SQQQ"
-  ],
-  
   "tiger_pool": [
     "UPRO", "UDOW", "TQQQ",
     "CHAU", "CQQQ", "YINN",
     "SOXL", "TECL", "GLD"
   ],
+
   "futu_pool": [
     "TQQQ", "SQQQ", "UPRO", "SPXU", "UDOW", "SDOW",
     "TECL", "TECS", "SOXL", "SOXS", "FAS", "FAZ", "LABU", "LABD",
