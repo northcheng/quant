@@ -1474,12 +1474,14 @@ def add_heikin_ashi_features(df, ohlcv_col=default_ohlcv_col, replace_ohlc=False
   return df
 
 # linear regression for recent high and low values
-def add_linear_features(df, max_period=60, is_print=False):
+def add_linear_features(df, max_period=60, min_period=15, is_print=False):
 
+  # get index and highest-high / lowest-low
   idxs = df.index.tolist()
   highest_high = df['High'].max()
   lowest_low = df['Low'].min()
 
+  # get current date, renko_color, earliest-start date, latest-end date
   current_date = df.index.max()
   current_color = df.loc[current_date, 'renko_color']
   earliest_start = current_date - datetime.timedelta(days=max_period)
@@ -1500,10 +1502,12 @@ def add_linear_features(df, max_period=60, is_print=False):
         break
   start = max(tmp_start, earliest_start)
   end = latest_end
-  min_period = 15
-
+  
+  # make the slice length at least min_period
   if (end - start).days < min_period:
     start = end - datetime.timedelta(days=min_period)
+  if (end - start).days > max_period:
+    start = end - datetime.timedelta(days=max_period)
   if is_print:
     print(start, end)
 
@@ -1519,16 +1523,16 @@ def add_linear_features(df, max_period=60, is_print=False):
 
   # get slice from highest high and lowest low
   if hh > ll:
-    if (latest_end - hh).days >=min_period:
+    if (latest_end - hh).days >= min_period:
       start = hh
-    elif (latest_end - ll).days >=min_period:
+    elif (latest_end - ll).days >= min_period:
       start = ll
     else:
       end = max(hh, ll)
   else:
-    if (latest_end - ll).days >=min_period:
+    if (latest_end - ll).days >= min_period:
       start = ll
-    elif (latest_end - hh).days >=min_period:
+    elif (latest_end - hh).days >= min_period:
       start = hh
     else:
       end = max(hh, ll)
@@ -1537,9 +1541,9 @@ def add_linear_features(df, max_period=60, is_print=False):
     start = start - datetime.timedelta(days=3)
   tmp_data = df[start:end].copy()
   tmp_idxs = tmp_data.index.tolist()
-  num_points = 4
+  num_points = 4 #int(len(tmp_data) / 3)
   distance = math.floor(len(tmp_data) / num_points)
-  day_gap = len(tmp_data) / 2
+  day_gap = math.floor(len(tmp_data) / 2)
 
   # peaks
   peaks,_ = find_peaks(x=tmp_data['High'], distance=distance)

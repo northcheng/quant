@@ -1534,7 +1534,13 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
       for wd in wrong_date.keys():
         image_info += f'<li><p>[Actual Date]: {wd}</p>{", ".join(wrong_date[wd])}</li>'
   else:
-    image_info += f'<li><p>[Not Required]</p></li>'
+    index_image = config['result_path'] + 'etf_idx/day/' + 'index.png'
+    if os.path.exists(index_image):
+      image_info += f'<li><p>[Index Images]:</p></li>'
+      with open(index_image, 'rb') as fp:
+        images.append(MIMEImage(fp.read()))
+    else:
+      image_info += f'<li><p>[Index Image Not Found]</p></li>'
   image_info += '</ul>'
 
   # construct message part by concating info parts
