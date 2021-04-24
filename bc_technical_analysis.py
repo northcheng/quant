@@ -1543,6 +1543,7 @@ def add_linear_features(df, max_period=60, min_period=15, is_print=False):
   tmp_idxs = tmp_data.index.tolist()
   num_points = 4 #int(len(tmp_data) / 3)
   distance = math.floor(len(tmp_data) / num_points)
+  distance = 1 if distance < 1 else distance
   day_gap = math.floor(len(tmp_data) / 2)
 
   # peaks
@@ -3749,6 +3750,47 @@ def plot_candlestick(
       sp = round(df.loc[s, 'Split'], 4)
       plt.annotate(f'splited {sp}', xy=(x, y), xytext=(x_text,y_text), xycoords='data', textcoords='data', arrowprops=dict(arrowstyle='->', alpha=0.5), bbox=dict(boxstyle="round",fc="1.0", alpha=0.5))
   
+  # draw gaps
+  idxs = df.index.tolist()
+  gap_data = df.query('candle_gap ==2 or candle_gap == -2').copy().sort_index(ascending=False)
+
+  # draw every gap
+  if len(gap_data) > 0:
+    for idx, row in gap_data.iterrows():
+      gap_start = idxs[idxs.index(idx) - 1]
+      gap_end = idxs[-1]
+
+      # high gaps
+      if row['candle_gap'] == 2:
+        gap_color = 'green'
+        gap_top = row['Low']
+        gap_bottom = df.loc[gap_start, 'High']
+        
+        later_data = df[gap_start:].query(f'Low < {gap_top}')
+        if len(later_data) > 1:
+          gap_end = later_data.index.tolist()[1]
+        
+      # low gaps
+      elif row['candle_gap'] == -2:
+        gap_color = 'red'
+        gap_top = row['High']
+        gap_bottom = df.loc[gap_start, 'Low']
+        
+        later_data = df[gap_start:].query(f'High > {gap_bottom}')
+        if len(later_data) > 1:
+          gap_end = later_data.index.tolist()[1]
+      
+      else:
+        pass
+
+      tmp_gap = df[gap_start:gap_end].copy()
+      tmp_gap['gap_top'] = gap_top
+      tmp_gap['gap_bottom'] = gap_bottom
+      
+      if gap_end == idxs[-1]:
+        ax.fill_between(tmp_gap.index, tmp_gap.gap_top, tmp_gap.gap_bottom, facecolor='purple', interpolate=True, alpha=0.5)
+        break
+
   # transform date to numbers
   df.reset_index(inplace=True)
   df[date_col] = df[date_col].apply(mdates.date2num)
