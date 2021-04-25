@@ -1478,8 +1478,6 @@ def add_linear_features(df, max_period=60, min_period=15, is_print=False):
 
   # get index and highest-high / lowest-low
   idxs = df.index.tolist()
-  highest_high = df['High'].max()
-  lowest_low = df['Low'].min()
 
   # get current date, renko_color, earliest-start date, latest-end date
   current_date = df.index.max()
@@ -1545,6 +1543,10 @@ def add_linear_features(df, max_period=60, min_period=15, is_print=False):
   distance = math.floor(len(tmp_data) / num_points)
   distance = 1 if distance < 1 else distance
   day_gap = math.floor(len(tmp_data) / 2)
+  highest_high = tmp_data['High'].max()
+  highest_high_idx = tmp_data['High'].idxmax()
+  lowest_low = tmp_data['Low'].min()
+  lowest_low_idx = tmp_data['Low'].idxmin()
 
   # peaks
   peaks,_ = find_peaks(x=tmp_data['High'], distance=distance)
@@ -1658,6 +1660,7 @@ def add_linear_features(df, max_period=60, min_period=15, is_print=False):
 
     # linear fit high
     df.loc[idx, 'linear_fit_high_slope'] = high_linear[0]
+
     if (linear_fit_high <= highest_high and linear_fit_high >= lowest_low): 
       df.loc[idx, 'linear_fit_high'] = linear_fit_high
     elif linear_fit_high > highest_high:
@@ -1667,8 +1670,12 @@ def add_linear_features(df, max_period=60, min_period=15, is_print=False):
     else:
       df.loc[idx, 'linear_fit_high'] = np.NaN
     
+    if  high_linear[0] > 0 and idx >= highest_high_idx and df.loc[idx, 'linear_fit_high'] <= highest_high:
+      df.loc[idx, 'linear_fit_high'] = highest_high
+
     # linear fit low
     df.loc[idx, 'linear_fit_low_slope'] = low_linear[0]
+
     if (linear_fit_low <= highest_high and linear_fit_low >= lowest_low): 
       df.loc[idx, 'linear_fit_low'] = linear_fit_low
     elif linear_fit_low > highest_high:
@@ -1677,6 +1684,9 @@ def add_linear_features(df, max_period=60, min_period=15, is_print=False):
       df.loc[idx, 'linear_fit_low'] = lowest_low
     else:
       df.loc[idx, 'linear_fit_low'] = np.NaN
+
+    if  low_linear[0] < 0 and idx >= lowest_low_idx and df.loc[idx, 'linear_fit_low'] <= lowest_low:
+      df.loc[idx, 'linear_fit_low'] = lowest_low
   
   # overall slope of High and Low
   df['linear_slope']  = df['linear_fit_high_slope'] + df['linear_fit_low_slope']
@@ -3897,7 +3907,21 @@ def plot_main_indicators(
     ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=mask_up, facecolor='green', interpolate=True, alpha=0.1)
     ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=mask_down, facecolor='red', interpolate=True, alpha=0.1)
     ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=mask_wave, facecolor='yellow', interpolate=True, alpha=0.2)
-    
+
+    x_start = df.query('linear_fit_low == linear_fit_low').index.min()  
+    y_start_low = df.loc[x_start, 'linear_fit_low'].round(3)
+    y_start_high = df.loc[x_start, 'linear_fit_high'].round(3)
+    x_start = x_start - datetime.timedelta(days=6)
+    plt.annotate(f'{y_start_low}', xy=(x_start, y_start_low), xytext=(x_start, y_start_low), xycoords='data', textcoords='data', bbox=dict(boxstyle="round",fc="1.0", alpha=0.1))
+    plt.annotate(f'{y_start_high}', xy=(x_start, y_start_high), xytext=(x_start, y_start_high), xycoords='data', textcoords='data', bbox=dict(boxstyle="round",fc="1.0", alpha=0.1))
+
+    x_end = df.index.max()
+    y_end_low = df.loc[x_end, 'linear_fit_low'].round(3)
+    y_end_high = df.loc[x_end, 'linear_fit_high'].round(3)
+    x_end = x_end + datetime.timedelta(days=1)
+    plt.annotate(f'{y_end_low}', xy=(x_end, y_end_low), xytext=(x_end, y_end_low), xycoords='data', textcoords='data', bbox=dict(boxstyle="round",fc="1.0", alpha=0.1))#)#, arrowprops=dict(arrowstyle='->', alpha=0.5), bbox=dict(boxstyle="round",fc="1.0", alpha=0.5))
+    plt.annotate(f'{y_end_high}', xy=(x_end, y_end_high), xytext=(x_end, y_end_high), xycoords='data', textcoords='data', bbox=dict(boxstyle="round",fc="1.0", alpha=0.1))
+
   # plot candlestick
   if 'candlestick' in target_indicator:
     ax = plot_candlestick(df=df, start=start, end=end, date_col=date_col, ohlcv_col=ohlcv_col, width=candlestick_width, color=candlestick_color, use_ax=ax, plot_args=plot_args)
