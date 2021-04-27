@@ -3938,30 +3938,47 @@ def plot_main_indicators(
     ax.plot(df.index, df.linear_fit_high, label='linear_fit_high', color='black', alpha=0.5)
     ax.plot(df.index, df.linear_fit_low, label='linear_fit_low', color='black', alpha=0.5)
 
-    # fill between aroon_up/aroon_down
+    # fill between linear_fit_high and linear_fit_low
     mask_high_up = df.linear_fit_high_slope>0
     mask_low_up = df.linear_fit_low_slope>0
     mask_up = mask_high_up & mask_low_up
     mask_down = ~mask_high_up & ~mask_low_up
     mask_wave = (~mask_high_up & mask_low_up) | (mask_high_up & ~mask_low_up)
-
     ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=mask_up, facecolor='green', interpolate=True, alpha=0.1)
     ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=mask_down, facecolor='red', interpolate=True, alpha=0.1)
     ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=mask_wave, facecolor='yellow', interpolate=True, alpha=0.2)
 
+    # annotate the start/end values of high/low fit
     x_start = df.query('linear_fit_low == linear_fit_low').index.min()  
     y_start_low = df.loc[x_start, 'linear_fit_low'].round(3)
     y_start_high = df.loc[x_start, 'linear_fit_high'].round(3)
-    x_start = x_start - datetime.timedelta(days=6)
-    plt.annotate(f'{y_start_low}', xy=(x_start, y_start_low), xytext=(x_start, y_start_low), xycoords='data', textcoords='data', bbox=dict(boxstyle="round",fc="1.0", alpha=0.1))
-    plt.annotate(f'{y_start_high}', xy=(x_start, y_start_high), xytext=(x_start, y_start_high), xycoords='data', textcoords='data', bbox=dict(boxstyle="round",fc="1.0", alpha=0.1))
-
+    x = x_start - datetime.timedelta(days=6)
+    y = y_start_high if df.linear_fit_high_slope.values[-1] < 0 else y_start_low
+    if y_start_low == y_start_high:
+      start_text = f'{y_start_high}'
+    else:
+      start_text = f'{y_start_high}\n{y_start_low}'
+    plt.annotate(start_text, xy=(x, y), xytext=(x, y), xycoords='data', textcoords='data', bbox=dict(boxstyle="round",fc="1.0", alpha=0.1))
+    
     x_end = df.index.max()
     y_end_low = df.loc[x_end, 'linear_fit_low'].round(3)
     y_end_high = df.loc[x_end, 'linear_fit_high'].round(3)
-    x_end = x_end + datetime.timedelta(days=1)
-    plt.annotate(f'{y_end_low}', xy=(x_end, y_end_low), xytext=(x_end, y_end_low), xycoords='data', textcoords='data', bbox=dict(boxstyle="round",fc="1.0", alpha=0.1))#)#, arrowprops=dict(arrowstyle='->', alpha=0.5), bbox=dict(boxstyle="round",fc="1.0", alpha=0.5))
-    plt.annotate(f'{y_end_high}', xy=(x_end, y_end_high), xytext=(x_end, y_end_high), xycoords='data', textcoords='data', bbox=dict(boxstyle="round",fc="1.0", alpha=0.1))
+    x = x_end + datetime.timedelta(days=1)
+    y = y_end_low if df.linear_fit_high_slope.values[-1] < 0 else y_end_high
+    if y_end_low == y_end_high:
+      end_text = f'{y_end_high}'
+    else:
+      end_text = f'{y_end_high}\n{y_end_low}'
+    plt.annotate(end_text, xy=(x, y), xytext=(x, y), xycoords='data', textcoords='data', bbox=dict(boxstyle="round",fc="1.0", alpha=0.1))
+
+  # plot gap values
+  max_idx = df.index.max()
+  gap_top = df.loc[max_idx, 'candle_gap_top'].round(3)
+  gap_bottom = df.loc[max_idx, 'candle_gap_bottom'].round(3)
+  x = max_idx + datetime.timedelta(days=1)
+  y = 0.5 * (gap_bottom + gap_top)
+  gap_text = f'{gap_bottom}\n{gap_top}'
+  plt.annotate(gap_text, xy=(x, y), xytext=(x, y), xycoords='data', textcoords='data', bbox=dict(boxstyle="round",fc="1.0", alpha=0.1))
 
   # plot candlestick
   if 'candlestick' in target_indicator:
