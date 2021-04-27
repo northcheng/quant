@@ -1388,16 +1388,44 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
   
   # gap up
   df['candle_gap'] = 0
-  gap_up_idx = df.query(f'(({low}>prev_{close} and prev_candle_color==1) or ({low}>prev_{open} and prev_candle_color==-1))').index
-  strict_gap_up_idx = df.query(f'{low}>prev_{high}').index
-  df.loc[gap_up_idx, 'candle_gap'] = 1
+  # gap_up_idx = df.query(f'(({low}>prev_{close} and prev_candle_color==1) or ({low}>prev_{open} and prev_candle_color==-1))').index
+  # df.loc[gap_up_idx, 'candle_gap'] = 1
+  strict_gap_up_idx = df.query(f'({low}-prev_{high}) >= (0.01*{close})').index
   df.loc[strict_gap_up_idx, 'candle_gap'] = 2
+  df.loc[strict_gap_up_idx, 'candle_gap_top'] = df.loc[strict_gap_up_idx, f'{low}']
+  df.loc[strict_gap_up_idx, 'candle_gap_bottom'] = df.loc[strict_gap_up_idx, f'prev_{high}']
+
+  # idxs = strict_gap_up_idx.tolist() if max(strict_gap_up_idx) == df.index.max() else strict_gap_up_idx.tolist() + [df.index.max()]
+  # for i in range(len(idxs)-1):
+  #   start = idxs[i]
+  #   end = idxs[i+1]
+  #   top = df.loc[start, 'candle_gap_top']
+  #   print(start, end, top)
+  #   exclude_idx = df[start:end].query(f'{low} < {top}').index
+  #   df.loc[exclude_idx, 'candle_gap_top'] = 0
+  #   df.loc[exclude_idx, 'candle_gap_bottom'] = 0
   
   # gap down
-  gap_down_idx = df.query(f'(({high}<prev_{open} and prev_candle_color==1) or ({high}<prev_{close} and prev_candle_color==-1))').index
-  strict_gap_down_idx = df.query(f'{high}<prev_{low}').index  
-  df.loc[gap_down_idx, 'candle_gap'] = -1
+  # gap_down_idx = df.query(f'(({high}<prev_{open} and prev_candle_color==1) or ({high}<prev_{close} and prev_candle_color==-1))').index
+  # df.loc[gap_down_idx, 'candle_gap'] = -1
+  strict_gap_down_idx = df.query(f'(prev_{low}-{high}) >= (0.01*{close})').index  
   df.loc[strict_gap_down_idx, 'candle_gap'] = -2
+  df.loc[strict_gap_down_idx, 'candle_gap_top'] = df.loc[strict_gap_down_idx, f'prev_{low}']
+  df.loc[strict_gap_down_idx, 'candle_gap_bottom'] = df.loc[strict_gap_down_idx, f'{high}']
+
+  # idxs = strict_gap_down_idx.tolist() if max(strict_gap_down_idx) == df.index.max() else strict_gap_down_idx.tolist() + [df.index.max()]
+  # for i in range(len(idxs)-1):
+  #   start = idxs[i]
+  #   end = idxs[i+1]
+  #   bottom = df.loc[start, 'candle_gap_bottom']
+  #   print(start, end, bottom)
+  #   exclude_idx = df[start:end].query(f'{high} > {bottom}').index
+  #   df.loc[exclude_idx, 'candle_gap_top'] = 0
+  #   df.loc[exclude_idx, 'candle_gap_bottom'] = 0
+
+  # df['candle_gap'] = df['candle_gap'].fillna(method='ffill')#.replace(0, np.NaN)
+  df['candle_gap_top'] = df['candle_gap_top'].fillna(method='ffill')#.replace(0, np.NaN)
+  df['candle_gap_bottom'] = df['candle_gap_bottom'].fillna(method='ffill')#.replace(0, np.NaN)
   
   # ======================================= long/short entities ================================= #
   df['candle_long_entity'] = 0
@@ -1409,18 +1437,6 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
   df.loc[short_entity_idx, 'candle_short_entity'] = df.loc[short_entity_idx, 'candle_color']
   col_to_drop.append('candle_entity_ma')
 
-  # # ======================================= candle patterns ===================================== #
-  # df['candle_pattern'] = 0
-  # df['Close_ma'] = df[close].rolling(5).mean()
-  # df['period_High'] = df[high].rolling(5).max()
-  # df['period_Low'] = df[low].rolling(5).min()
-  # reach_top_idx = df.query('(candle_lower_shadow > 3*candle_upper_shadow) and (candle_lower_shadow > 3*candle_entity) and (Close > Close_ma) and (High >= period_High > prev_High)').index
-  # reach_bottom_idx = df.query('(candle_lower_shadow > 3*candle_upper_shadow) and (candle_lower_shadow > 3*candle_entity) and (Close < Close_ma)  and (Low <= period_Low < prev_Low)').index
-  # df.loc[reach_top_idx, 'candle_pattern'] = 1
-  # df.loc[reach_bottom_idx, 'candle_pattern'] = -1
-  # col_to_drop.append('Close_ma')
-  # col_to_drop.append('period_High')
-  # col_to_drop.append('period_Low')
 
   # drop intermidiate columns
   df = df.drop(col_to_drop, axis=1)
@@ -1648,6 +1664,7 @@ def add_linear_features(df, max_period=60, min_period=15, is_print=False):
   counter = 0
   idx_max = len(idxs)
   idx_min = min(min(high['x']), min(low['x']))
+  df['linear_stop'] = 0
   for x in range(idx_min, idx_max):
     idx = idxs[x]
 
@@ -1672,6 +1689,7 @@ def add_linear_features(df, max_period=60, min_period=15, is_print=False):
     
     if  high_linear[0] > 0 and idx >= highest_high_idx and df.loc[idx, 'linear_fit_high'] <= highest_high:
       df.loc[idx, 'linear_fit_high'] = highest_high
+      df.loc[idx, 'linear_stop'] = 1
 
     # linear fit low
     df.loc[idx, 'linear_fit_low_slope'] = low_linear[0]
@@ -1687,6 +1705,7 @@ def add_linear_features(df, max_period=60, min_period=15, is_print=False):
 
     if  low_linear[0] < 0 and idx >= lowest_low_idx and df.loc[idx, 'linear_fit_low'] <= lowest_low:
       df.loc[idx, 'linear_fit_low'] = lowest_low
+      df.loc[idx, 'linear_stop'] = -1
   
   # overall slope of High and Low
   df['linear_slope']  = df['linear_fit_high_slope'] + df['linear_fit_low_slope']
@@ -3761,45 +3780,67 @@ def plot_candlestick(
       plt.annotate(f'splited {sp}', xy=(x, y), xytext=(x_text,y_text), xycoords='data', textcoords='data', arrowprops=dict(arrowstyle='->', alpha=0.5), bbox=dict(boxstyle="round",fc="1.0", alpha=0.5))
   
   # draw gaps
-  idxs = df.index.tolist()
-  gap_data = df.query('candle_gap ==2 or candle_gap == -2').copy().sort_index(ascending=False)
+  gap_idxs = df.query('candle_gap != 0').index
+  for idx in gap_idxs:
+    start = idx
+    start_value = df.loc[start, 'candle_gap_top']
+    
+    gap_direction = df.loc[start, 'candle_gap']
+    if gap_direction == 2:
+      facecolor = 'green'
+    elif gap_direction == -2:
+      facecolor = 'red'
+    else:
+      facecolor = 'grey'
 
-  # draw every gap
-  if len(gap_data) > 0:
-    for idx, row in gap_data.iterrows():
-      gap_start = idxs[idxs.index(idx) - 1]
-      gap_end = idxs[-1]
+    end = None
+    tmp_data = df[start:]
+    for i, r in tmp_data.iterrows():
+      if r['candle_gap_top'] != start_value:
+        break      
+      end = i
+  
+    tmp_data = df[start:end]
+    ax.fill_between(tmp_data.index, tmp_data['candle_gap_top'], tmp_data['candle_gap_bottom'], facecolor=facecolor, edgecolor='black', linestyle='-', interpolate=True, alpha=0.5) #,  linewidth=2,
 
-      # high gaps
-      if row['candle_gap'] == 2:
-        gap_color = 'green'
-        gap_top = row['Low']
-        gap_bottom = df.loc[gap_start, 'High']
+  # idxs = df.index.tolist()
+  # gap_data = df.query('candle_gap ==2 or candle_gap == -2').copy().sort_index(ascending=False)
+
+  # if len(gap_data) > 0:
+  #   for idx, row in gap_data.iterrows():
+  #     gap_start = idxs[idxs.index(idx) - 1]
+  #     gap_end = idxs[-1]
+
+  #     # high gaps
+  #     if row['candle_gap'] == 2:
+  #       gap_color = 'green'
+  #       gap_top = row['Low']
+  #       gap_bottom = df.loc[gap_start, 'High']
         
-        later_data = df[gap_start:].query(f'Low < {gap_top}')
-        if len(later_data) > 1:
-          gap_end = later_data.index.tolist()[1]
+  #       later_data = df[gap_start:].query(f'Low < {gap_top}')
+  #       if len(later_data) > 1:
+  #         gap_end = later_data.index.tolist()[1]
         
-      # low gaps
-      elif row['candle_gap'] == -2:
-        gap_color = 'red'
-        gap_top = row['High']
-        gap_bottom = df.loc[gap_start, 'Low']
+  #     # low gaps
+  #     elif row['candle_gap'] == -2:
+  #       gap_color = 'red'
+  #       gap_top = row['High']
+  #       gap_bottom = df.loc[gap_start, 'Low']
         
-        later_data = df[gap_start:].query(f'High > {gap_bottom}')
-        if len(later_data) > 1:
-          gap_end = later_data.index.tolist()[1]
+  #       later_data = df[gap_start:].query(f'High > {gap_bottom}')
+  #       if len(later_data) > 1:
+  #         gap_end = later_data.index.tolist()[1]
       
-      else:
-        pass
+  #     else:
+  #       pass
 
-      tmp_gap = df[gap_start:gap_end].copy()
-      tmp_gap['gap_top'] = gap_top
-      tmp_gap['gap_bottom'] = gap_bottom
+  #     tmp_gap = df[gap_start:gap_end].copy()
+  #     tmp_gap['gap_top'] = gap_top
+  #     tmp_gap['gap_bottom'] = gap_bottom
       
-      if gap_end == idxs[-1]:
-        ax.fill_between(tmp_gap.index, tmp_gap.gap_top, tmp_gap.gap_bottom, facecolor='purple', interpolate=True, alpha=0.5)
-        break
+  #     if gap_end == idxs[-1]:
+  #       ax.fill_between(tmp_gap.index, tmp_gap.gap_top, tmp_gap.gap_bottom, facecolor='purple', interpolate=True, alpha=0.5)
+  #       break
 
   # transform date to numbers
   df.reset_index(inplace=True)

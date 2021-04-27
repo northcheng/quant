@@ -4,17 +4,12 @@
     "AAPL", "TQQQ", "SQQQ"
   ],
 
-  "auto": [
-    "UPRO", "UDOW", "TQQQ",
-    "CHAU", "CQQQ", "YINN",
-    "SOXL", "TECL", "GLD"
-  ],
-
-  "etf": [
-    "TQQQ", "SQQQ", "UPRO", "SPXU", "UDOW", "SDOW",
-    "TECL", "TECS", "SOXL", "SOXS", "FAS", "FAZ", "LABU", "LABD",
-    "CHAU", "CHAD", "YINN", "YANG", "CQQQ",
-    "SPY", "GLD"
+  "etf_idx": [
+    "SPY", "UVXY", "GLD",
+    "XTN", "XTL", "XSW", "XSD", "XWEB", "XLK", 
+    "XPH", "XBI", "XHS", "XHE",  
+    "XLP", "XLY", "XLU", "XLI", "XLF", "XLE", "XLB", "XLV",
+    "XRT", "XITK", "XHB", "XOP", "XES", "XME", "XAR", "SPYX"
   ],
 
   "etf_3x":[
@@ -23,23 +18,6 @@
     "TECL", "TECS", "SOXL", "SOXS", "LABU", "LABD",
     "FAS", "FAZ", "BNKU", "BNKD", "DRN", "DRV", "GDXU", "GDXD",
     "CURE", "TNA"
-  ],
-
-  "etf_idx": [
-    "XTN", "XTL", "XSW", "XSD", "XWEB", "XLK", 
-    "XPH", "XBI", "XHS", "XHE",  
-    "XLP", "XLY", "XLU", "XLI", "XLF", "XLE", "XLB", "XLV",
-    "XRT", "XITK", "XHB", "XOP", "XES", "XME", "XAR", "SPYX"
-  ],
-
-  "company": [
-    "AAPL", "MSFT", "FB", "ADBE", "NFLX", "DIS", "U",
-    "INTC", "NVDA", "AMD", "QCOM", "AVGO", "TXN", "TSM",
-    "TSLA", "LMT", "GE", "BA", "HON",
-    "JPM", "ACN", "MS", "GS", 
-    "BAC", "WFC", "HSBC", "C",
-    "MRK", "PFE", "NVO", "GSK", "AZN", "ABBV", "NVS",
-    "ABT", "MDT", "AMGN", "DHR", "JNJ", "UNH", "SPFR"
   ],
 
   "company_star":[
@@ -58,30 +36,37 @@
     "UXIN", "NIO", "PDD", "HUYA", "QTT", "IQ", "BILI"
   ],
 
-  "company_XTN": ["NSC", "UPS", "FDX"],
-  "company_XTL": ["AKAM", "CHT", "ERIC", "MSI", "NOK", "S", "T", "VOD", "VZ"],
-  "company_XSW": ["ADBE", "U", "CSCO", "CTSH", "IBM", "ORCL", "SAP", "TRI", "ADS", "CMCSA", "HAS", "NWS", "ZNGA", "ACN"],
-  "company_XSD": ["AMD", "INTC", "NVDA", "QCOM", "TXN", "AVGO", "TSM"],
-  "company_XPH": ["ABT", "AMGN", "ATI", "BMY", "BAX", "CI", "CVS", "GSK", "JNJ", "MDT", "MRK", "PFE", "UNH", "NVO", "AZN", "ABBV"],
-  "company_XLK": ["AAPL", "AMZN", "MSFT", "DIS", "NFLX", "EBAY", "FB", "GOOG", "TWTR", "YNDX", "TSLA", "CAJ", "HPQ", "SNE"],
-  "company_XLI": ["B", "BA", "CAT", "F", "GD", "GE", "GM", "HMC", "HON", "LMT", "MMM", "ROK", "TM", "LMT"],
-  "company_XLF": ["BAC", "BK", "C", "WFC", "USB", "RF", "V", "MA", "AXP", "HSBC", "AIG", "MET", "TRV", "HIG", "ALL", "JPM", "MS", "GS", "NMR", "COF", "MFG"],
-  "company_XLE": ["COP", "DUK", "CVX", "XOM", "WMB", "SLB", "HAL", "BP", "ETR", "EXC", "SO", "AEP", "AES"],
-  "company_XLB": ["AA", "RIO", "IP"],
-  "company_XLP": ["HD", "WY", "TGT", "WMT", "MCD", "YUM", "GRPN", "SBUX", "CCU", "KO", "PEP", "MO", "CPB", "EL", "PG", "CL", "NKE"],
-  
-  "all": [
+  "etf": [
+    "SPY", "GLD",
     "TQQQ", "SQQQ", "UPRO", "SPXU", "UDOW", "SDOW",
     "TECL", "TECS", "SOXL", "SOXS", "FAS", "FAZ", "LABU", "LABD",
     "CHAU", "CHAD", "YINN", "YANG", "CQQQ",
-    "SPY", "GLD",
+    "SPY", "GLD"
+  ],
+
+  "company": [
     "AAPL", "MSFT", "FB", "ADBE", "NFLX", "DIS", "U",
     "INTC", "NVDA", "AMD", "QCOM", "AVGO", "TXN", "TSM",
     "TSLA", "LMT", "GE", "BA", "HON",
     "JPM", "ACN", "MS", "GS", 
     "BAC", "WFC", "HSBC", "C",
-    "MRK", "PFE", "NVO", "GSK", "AZN", "ABBV", "NVS",
-    "ABT", "MDT", "AMGN", "DHR", "JNJ", "UNH", "SPFR"
+    "MRK", "PFE", "NVO", "GSK", "AZN", "ABBV", 
+    "ABT", "MDT", "AMGN", "JNJ", "UNH"
+  ],
+  
+  "universe": [
+    "SPY", "GLD",
+    "TQQQ", "SQQQ", "UPRO", "SPXU", "UDOW", "SDOW",
+    "TECL", "TECS", "SOXL", "SOXS", "FAS", "FAZ", "LABU", "LABD",
+    "CHAU", "CHAD", "YINN", "YANG", "CQQQ",
+    
+    "AAPL", "MSFT", "FB", "ADBE", "NFLX", "DIS", "U",
+    "INTC", "NVDA", "AMD", "QCOM", "AVGO", "TXN", "TSM",
+    "TSLA", "LMT", "GE", "BA", "HON",
+    "JPM", "ACN", "MS", "GS", 
+    "BAC", "WFC", "HSBC", "C",
+    "MRK", "PFE", "NVO", "GSK", "AZN", "ABBV", 
+    "ABT", "MDT", "AMGN", "JNJ", "UNH"
   ],
   
   "tiger_pool": [
@@ -100,7 +85,7 @@
     "TSLA", "LMT", "GE", "BA", "HON",
     "JPM", "ACN", "MS", "GS", 
     "BAC", "WFC", "HSBC", "C",
-    "MRK", "PFE", "NVO", "GSK", "AZN", "ABBV", "NVS",
-    "ABT", "MDT", "AMGN", "DHR", "JNJ", "UNH", "SPFR"
+    "MRK", "PFE", "NVO", "GSK", "AZN", "ABBV",  
+    "ABT", "MDT", "AMGN", "JNJ", "UNH" 
   ]
 }

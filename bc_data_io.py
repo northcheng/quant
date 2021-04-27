@@ -1501,16 +1501,14 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
     # portfolio images
     portfolio_image_path = f'{config["result_path"]}portfolio/'
     images_to_attach['portfolio'] = f'{portfolio_image_path}portfolio.png'
-    # for img in os.listdir(portfolio_image_path):
-    #   symbol = img.split('.')[0]
-    #   images_to_attach[symbol] = f'{portfolio_image_path}{img}'
     
     # signal images
     signal_image_path = f'{config["result_path"]}signal/'
     images_to_attach['signal'] = f'{signal_image_path}signal.png'
-    # for img in os.listdir(signal_image_path):
-    #   symbol = img.split('_')[0]
-    #   images_to_attach[symbol] = f'{signal_image_path}{img}'
+
+    # index images
+    index_image_path = f'{config["result_path"]}etf_idx/day/'
+    images_to_attach['index'] = f'{index_image_path}index.png'
 
     # verify whether images are up-to-date and attach images
     for symbol in images_to_attach.keys():
@@ -1534,13 +1532,14 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
       for wd in wrong_date.keys():
         image_info += f'<li><p>[Actual Date]: {wd}</p>{", ".join(wrong_date[wd])}</li>'
   else:
-    index_image = config['result_path'] + 'etf_idx/day/' + 'index.png'
-    if os.path.exists(index_image):
-      image_info += f'<li><p>[Index Images]:</p></li>'
-      with open(index_image, 'rb') as fp:
-        images.append(MIMEImage(fp.read()))
-    else:
-      image_info += f'<li><p>[Index Image Not Found]</p></li>'
+    # index_image = config['result_path'] + 'etf_idx/day/' + 'index.png'
+    # if os.path.exists(index_image):
+    #   image_info += f'<li><p>[Index Images]:</p></li>'
+    #   with open(index_image, 'rb') as fp:
+    #     images.append(MIMEImage(fp.read()))
+    # else:
+    #   image_info += f'<li><p>[Index Image Not Found]</p></li>'
+    image_info += '<li><p>[Not Required]</p></li>'
   image_info += '</ul>'
 
   # construct message part by concating info parts

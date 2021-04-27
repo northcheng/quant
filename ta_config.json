@@ -99,8 +99,7 @@
                     "candlestick",
                     "ichimoku",
                     "renko",
-                    "linear",
-                    "psar"                 
+                    "linear"              
                 ],
                 "candlestick_width": 1,
                 "candlestick_color": {
@@ -144,7 +143,6 @@
             "signals": {
                 "signal_list": [
                     "bb_signal",
-                    "linear_signal",
                     "renko_signal",
                     "psar_signal",
                     "aroon_signal",
