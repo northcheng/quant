@@ -87,6 +87,19 @@ def classify_universe(universe, universe_data, is_plot=True):
   :raises: none
   """
 
+  # support and resistant
+  test_idx = universe_data.query('(linear_fit_support > candle_gap_support) or (linear_fit_support == linear_fit_support and candle_gap_support != candle_gap_support)').index
+  universe_data.loc[test_idx, 'support'] = universe_data.loc[test_idx, 'linear_fit_support']
+
+  test_idx = universe_data.query('(linear_fit_support < candle_gap_support) or (linear_fit_support != linear_fit_support and candle_gap_support == candle_gap_support)').index
+  universe_data.loc[test_idx, 'support'] = universe_data.loc[test_idx, 'candle_gap_support']
+
+  test_idx = universe_data.query('(linear_fit_resistant < candle_gap_resistant) or (linear_fit_resistant == linear_fit_resistant and candle_gap_resistant != candle_gap_resistant)').index
+  universe_data.loc[test_idx, 'resistant'] = universe_data.loc[test_idx, 'linear_fit_resistant']
+
+  test_idx = universe_data.query('(linear_fit_resistant > candle_gap_resistant) or (linear_fit_resistant != linear_fit_resistant and candle_gap_resistant == candle_gap_resistant)').index
+  universe_data.loc[test_idx, 'resistant'] = universe_data.loc[test_idx, 'candle_gap_resistant']
+
   # define conditions
   conditions = {
     '上涨': '((linear_fit_high_slope > 0 and linear_fit_low_slope > 0))',
@@ -97,6 +110,13 @@ def classify_universe(universe, universe_data, is_plot=True):
     '趋势之下': '((Open < linear_fit_high and Open < linear_fit_low) and (Close < linear_fit_high and Close < linear_fit_low))',
     '趋势较强': '((linear_slope >=0.1 and linear_fit_high_slope > 0 and linear_fit_low_slope > 0) or (linear_slope <= -0.1 and linear_fit_high_slope < 0 and linear_fit_low_slope < 0))',
     '趋势较弱': '(-0.1 < linear_slope <0.1)',
+    '价格接近阻挡位': '((resistant == resistant) and (0 < (resistant - Close) <= 0.02*Close))',
+    '价格接近支撑位': '((support == support) and (0 < (Close - support) <= 0.02*Close))',
+    '价格突破阻挡位': '((resistant == resistant) and (Close > resistant))',
+    '价格突破支撑位': '((support == support) and (Close < support))',
+    'tankan在kijun之上': '(tankan > kijun)',
+    'tankan在kijun之下': '(tankan <= kijun)',
+
     '最近触发': '((-10 <= kijun_signal <=10 and kijun_signal !=0) or (-10 <= tankan_signal <= 10 and tankan_signal !=0) or (-10 <= linear_fit_high_signal <= 10 and linear_fit_high_signal !=0) or (-10 <= linear_fit_low_signal <=10 and linear_fit_low_signal !=0))',
     '上穿kijun': '(kijun_signal > 0)',
     '下穿kijun': '(kijun_signal < 0)',
@@ -149,7 +169,7 @@ def classify_universe(universe, universe_data, is_plot=True):
     plt.figure(figsize=(20, 5))
     hist = plt.bar(cls_stat.index, cls_stat.num, alpha=0.5,)  
 
-  return classification
+  return filter_result#classification
 
 
 # ================================================ Core calculation ================================================= # 
@@ -1388,45 +1408,30 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
   
   # gap up
   df['candle_gap'] = 0
-  # gap_up_idx = df.query(f'(({low}>prev_{close} and prev_candle_color==1) or ({low}>prev_{open} and prev_candle_color==-1))').index
-  # df.loc[gap_up_idx, 'candle_gap'] = 1
   strict_gap_up_idx = df.query(f'({low}-prev_{high}) >= (0.01*{close})').index
   df.loc[strict_gap_up_idx, 'candle_gap'] = 2
   df.loc[strict_gap_up_idx, 'candle_gap_top'] = df.loc[strict_gap_up_idx, f'{low}']
   df.loc[strict_gap_up_idx, 'candle_gap_bottom'] = df.loc[strict_gap_up_idx, f'prev_{high}']
-
-  # idxs = strict_gap_up_idx.tolist() if max(strict_gap_up_idx) == df.index.max() else strict_gap_up_idx.tolist() + [df.index.max()]
-  # for i in range(len(idxs)-1):
-  #   start = idxs[i]
-  #   end = idxs[i+1]
-  #   top = df.loc[start, 'candle_gap_top']
-  #   print(start, end, top)
-  #   exclude_idx = df[start:end].query(f'{low} < {top}').index
-  #   df.loc[exclude_idx, 'candle_gap_top'] = 0
-  #   df.loc[exclude_idx, 'candle_gap_bottom'] = 0
   
   # gap down
-  # gap_down_idx = df.query(f'(({high}<prev_{open} and prev_candle_color==1) or ({high}<prev_{close} and prev_candle_color==-1))').index
-  # df.loc[gap_down_idx, 'candle_gap'] = -1
   strict_gap_down_idx = df.query(f'(prev_{low}-{high}) >= (0.01*{close})').index  
   df.loc[strict_gap_down_idx, 'candle_gap'] = -2
   df.loc[strict_gap_down_idx, 'candle_gap_top'] = df.loc[strict_gap_down_idx, f'prev_{low}']
   df.loc[strict_gap_down_idx, 'candle_gap_bottom'] = df.loc[strict_gap_down_idx, f'{high}']
 
-  # idxs = strict_gap_down_idx.tolist() if max(strict_gap_down_idx) == df.index.max() else strict_gap_down_idx.tolist() + [df.index.max()]
-  # for i in range(len(idxs)-1):
-  #   start = idxs[i]
-  #   end = idxs[i+1]
-  #   bottom = df.loc[start, 'candle_gap_bottom']
-  #   print(start, end, bottom)
-  #   exclude_idx = df[start:end].query(f'{high} > {bottom}').index
-  #   df.loc[exclude_idx, 'candle_gap_top'] = 0
-  #   df.loc[exclude_idx, 'candle_gap_bottom'] = 0
-
-  # df['candle_gap'] = df['candle_gap'].fillna(method='ffill')#.replace(0, np.NaN)
+  # gap top and bottom
   df['candle_gap_top'] = df['candle_gap_top'].fillna(method='ffill')#.replace(0, np.NaN)
   df['candle_gap_bottom'] = df['candle_gap_bottom'].fillna(method='ffill')#.replace(0, np.NaN)
-  
+
+  # gap support and resistant
+  support_idx = df.query(f'{close} > candle_gap_top').index
+  resistant_idx = df.query(f'{close} < candle_gap_bottom').index
+  other_idx = [x for x in df.index if x not in support_idx and x not in resistant_idx]
+  df.loc[support_idx, 'candle_gap_support'] = df.loc[support_idx, 'candle_gap_top']
+  df.loc[resistant_idx, 'candle_gap_resistant'] = df.loc[resistant_idx, 'candle_gap_bottom']
+  df.loc[other_idx, 'candle_gap_support'] = df.loc[other_idx, 'candle_gap_bottom']
+  df.loc[other_idx, 'candle_gap_resistant'] = df.loc[other_idx, 'candle_gap_top']
+
   # ======================================= long/short entities ================================= #
   df['candle_long_entity'] = 0
   df['candle_short_entity'] = 0
@@ -1664,7 +1669,8 @@ def add_linear_features(df, max_period=60, min_period=15, is_print=False):
   counter = 0
   idx_max = len(idxs)
   idx_min = min(min(high['x']), min(low['x']))
-  df['linear_stop'] = 0
+  df['linear_fit_high_stop'] = 0
+  df['linear_fit_low_stop'] = 0
   for x in range(idx_min, idx_max):
     idx = idxs[x]
 
@@ -1689,7 +1695,6 @@ def add_linear_features(df, max_period=60, min_period=15, is_print=False):
     
     if  high_linear[0] > 0 and idx >= highest_high_idx and df.loc[idx, 'linear_fit_high'] <= highest_high:
       df.loc[idx, 'linear_fit_high'] = highest_high
-      df.loc[idx, 'linear_stop'] = 1
 
     # linear fit low
     df.loc[idx, 'linear_fit_low_slope'] = low_linear[0]
@@ -1705,7 +1710,15 @@ def add_linear_features(df, max_period=60, min_period=15, is_print=False):
 
     if  low_linear[0] < 0 and idx >= lowest_low_idx and df.loc[idx, 'linear_fit_low'] <= lowest_low:
       df.loc[idx, 'linear_fit_low'] = lowest_low
-      df.loc[idx, 'linear_stop'] = -1
+
+  # high/low fit support and resistant
+  reach_top_idx = df.query(f'linear_fit_high == {highest_high}').index
+  df.loc[reach_top_idx, 'linear_fit_high_stop'] = 1
+  df.loc[reach_top_idx, 'linear_fit_resistant'] = highest_high
+
+  reach_bottom_idx = df.query(f'linear_fit_low == {lowest_low}').index
+  df.loc[reach_bottom_idx, 'linear_fit_low_stop'] = 1
+  df.loc[reach_bottom_idx, 'linear_fit_support'] = lowest_low
   
   # overall slope of High and Low
   df['linear_slope']  = df['linear_fit_high_slope'] + df['linear_fit_low_slope']
@@ -3779,68 +3792,28 @@ def plot_candlestick(
       sp = round(df.loc[s, 'Split'], 4)
       plt.annotate(f'splited {sp}', xy=(x, y), xytext=(x_text,y_text), xycoords='data', textcoords='data', arrowprops=dict(arrowstyle='->', alpha=0.5), bbox=dict(boxstyle="round",fc="1.0", alpha=0.5))
   
-  # draw gaps
+  # annotate gaps
+  idxs = df.index.tolist()
   gap_idxs = df.query('candle_gap != 0').index
   for idx in gap_idxs:
-    start = idx
-    start_value = df.loc[start, 'candle_gap_top']
-    
-    gap_direction = df.loc[start, 'candle_gap']
-    if gap_direction == 2:
-      facecolor = 'green'
-    elif gap_direction == -2:
-      facecolor = 'red'
-    else:
-      facecolor = 'grey'
 
+    # gap start and it top/bottom
+    start = idx
+    top_value = df.loc[start, 'candle_gap_top']
+    bottom_value = df.loc[start, 'candle_gap_bottom']
+    
+    # gap end
     end = None
     tmp_data = df[start:]
     for i, r in tmp_data.iterrows():
-      if r['candle_gap_top'] != start_value:
+      if r['candle_gap_top'] != top_value:
         break      
       end = i
-  
+
+    # shift gap start 1 day earlier
+    pre_start = idxs[idxs.index(start)-1]
     tmp_data = df[start:end]
-    ax.fill_between(tmp_data.index, tmp_data['candle_gap_top'], tmp_data['candle_gap_bottom'], facecolor=facecolor, edgecolor='black', linestyle='-', interpolate=True, alpha=0.5) #,  linewidth=2,
-
-  # idxs = df.index.tolist()
-  # gap_data = df.query('candle_gap ==2 or candle_gap == -2').copy().sort_index(ascending=False)
-
-  # if len(gap_data) > 0:
-  #   for idx, row in gap_data.iterrows():
-  #     gap_start = idxs[idxs.index(idx) - 1]
-  #     gap_end = idxs[-1]
-
-  #     # high gaps
-  #     if row['candle_gap'] == 2:
-  #       gap_color = 'green'
-  #       gap_top = row['Low']
-  #       gap_bottom = df.loc[gap_start, 'High']
-        
-  #       later_data = df[gap_start:].query(f'Low < {gap_top}')
-  #       if len(later_data) > 1:
-  #         gap_end = later_data.index.tolist()[1]
-        
-  #     # low gaps
-  #     elif row['candle_gap'] == -2:
-  #       gap_color = 'red'
-  #       gap_top = row['High']
-  #       gap_bottom = df.loc[gap_start, 'Low']
-        
-  #       later_data = df[gap_start:].query(f'High > {gap_bottom}')
-  #       if len(later_data) > 1:
-  #         gap_end = later_data.index.tolist()[1]
-      
-  #     else:
-  #       pass
-
-  #     tmp_gap = df[gap_start:gap_end].copy()
-  #     tmp_gap['gap_top'] = gap_top
-  #     tmp_gap['gap_bottom'] = gap_bottom
-      
-  #     if gap_end == idxs[-1]:
-  #       ax.fill_between(tmp_gap.index, tmp_gap.gap_top, tmp_gap.gap_bottom, facecolor='purple', interpolate=True, alpha=0.5)
-  #       break
+    ax.fill_between(df[pre_start:end].index, top_value, bottom_value, facecolor='purple', interpolate=True, alpha=0.4) #,  linewidth=2,
 
   # transform date to numbers
   df.reset_index(inplace=True)
@@ -3949,36 +3922,62 @@ def plot_main_indicators(
     ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=mask_wave, facecolor='yellow', interpolate=True, alpha=0.2)
 
     # annotate the start/end values of high/low fit
+    text_color = 'black'
+
+    # start values
     x_start = df.query('linear_fit_low == linear_fit_low').index.min()  
     y_start_low = df.loc[x_start, 'linear_fit_low'].round(3)
     y_start_high = df.loc[x_start, 'linear_fit_high'].round(3)
-    x = x_start - datetime.timedelta(days=6)
-    y = y_start_high if df.linear_fit_high_slope.values[-1] < 0 else y_start_low
+    start_text = ''
     if y_start_low == y_start_high:
       start_text = f'{y_start_high}'
     else:
       start_text = f'{y_start_high}\n{y_start_low}'
+
+    x = x_start - datetime.timedelta(days=6)
+    y = y_start_high if df.linear_fit_high_slope.values[-1] < 0 else y_start_low
     plt.annotate(start_text, xy=(x, y), xytext=(x, y), xycoords='data', textcoords='data', bbox=dict(boxstyle="round",fc="1.0", alpha=0.1))
     
+    # end values and support/resistant
     x_end = df.index.max()
-    y_end_low = df.loc[x_end, 'linear_fit_low'].round(3)
-    y_end_high = df.loc[x_end, 'linear_fit_high'].round(3)
-    x = x_end + datetime.timedelta(days=1)
-    y = y_end_low if df.linear_fit_high_slope.values[-1] < 0 else y_end_high
-    if y_end_low == y_end_high:
-      end_text = f'{y_end_high}'
-    else:
-      end_text = f'{y_end_high}\n{y_end_low}'
-    plt.annotate(end_text, xy=(x, y), xytext=(x, y), xycoords='data', textcoords='data', bbox=dict(boxstyle="round",fc="1.0", alpha=0.1))
+    y_end_low = df.loc[x_end, 'linear_fit_low'].round(2)
+    y_end_high = df.loc[x_end, 'linear_fit_high'].round(2)
+    y_end_support = df.loc[x_end, 'linear_fit_support']
+    y_end_resistant = df.loc[x_end, 'linear_fit_resistant']
+    end_text = ''
+    if not np.isnan(y_end_support):
+      end_text += f'LS: {y_end_support}'
+      text_color = 'green'
+    if not np.isnan(y_end_resistant):
+      end_text += f'LR: {y_end_resistant}'
+      text_color = 'red'
+    if np.isnan(y_end_support) and np.isnan(y_end_resistant):
+      if y_end_low == y_end_high:
+        end_text = f'L: {y_end_high}'
+      else:
+        end_text = f'L: {y_end_high}, {y_end_low}'
+    
+    # gap values and support/resistant
+    gap_top = df.loc[x_end, 'candle_gap_top'].round(2)
+    gap_bottom = df.loc[x_end, 'candle_gap_bottom'].round(2)
+    gap_support = df.loc[x_end, 'candle_gap_support'].round(2)
+    gap_resistant = df.loc[x_end, 'candle_gap_resistant'].round(2)
+    
+    if not np.isnan(gap_support):
+      merge_text = end_text + f'\nGS: {gap_support}'
+      text_color = 'green' if text_color=='black' else text_color
+    if not np.isnan(gap_resistant):
+      merge_text = f'GR: {gap_resistant}'+ '\n' + end_text
+      text_color = 'red' 
+    if np.isnan(gap_support) and np.isnan(gap_resistant):
+      if not np.isnan(gap_top) or not np.isnan(gap_bottom):
+        merge_text = end_text + f'\nG: {gap_top}, {gap_bottom}'
+      else:
+        merge_text = end_text
 
-  # plot gap values
-  max_idx = df.index.max()
-  gap_top = df.loc[max_idx, 'candle_gap_top'].round(3)
-  gap_bottom = df.loc[max_idx, 'candle_gap_bottom'].round(3)
-  x = max_idx + datetime.timedelta(days=1)
-  y = 0.5 * (gap_bottom + gap_top)
-  gap_text = f'{gap_bottom}\n{gap_top}'
-  plt.annotate(gap_text, xy=(x, y), xytext=(x, y), xycoords='data', textcoords='data', bbox=dict(boxstyle="round",fc="1.0", alpha=0.1))
+    x = x_end + datetime.timedelta(days=1)  
+    y = (y_end_high + y_end_low)/2
+    plt.annotate(merge_text, xy=(x, y), xytext=(x, y), xycoords='data', textcoords='data', color=text_color, bbox=dict(boxstyle="round",fc="1.0", alpha=0.1))
 
   # plot candlestick
   if 'candlestick' in target_indicator:
@@ -4451,7 +4450,11 @@ def plot_multiple_indicators(
         title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=subplot_args)
 
   # adjust plot layout
-  fig.suptitle(title, x=0.5, y=0.92, fontsize=20)
+  max_idx = df.index.max()
+  close_price = df.loc[max_idx, "Close"].round(2)
+  close_rate = (df.loc[max_idx, "rate"]*100).round(2)
+  title_color = 'green' if close_rate > 0 else 'red'
+  fig.suptitle(title + f' : {close_price}({close_rate}%)', color=title_color, x=0.5, y=0.92, fontsize=20)
 
   # save image
   if save_image and (save_path is not None):
