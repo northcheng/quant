@@ -1187,7 +1187,7 @@ def read_nytimes(year, month, file_path, file_format='.json'):
 
 
 #----------------------------- Json File Processing---- -------------------------#
-def create_config_file(config_dict, file_path, file_name, print=False):
+def create_config_file(config_dict, file_path, file_name, print=False, ensure_ascii=True):
   """
   Create a config file and save global parameters into the file
 
@@ -1200,7 +1200,7 @@ def create_config_file(config_dict, file_path, file_name, print=False):
   """
   try:
     with open(file_path + file_name, 'w') as f:
-      json.dump(config_dict, f)
+      json.dump(config_dict, f, ensure_ascii=ensure_ascii)
     
     if print:
       print('Config saved successfully')
@@ -1506,9 +1506,13 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
     signal_image_path = f'{config["result_path"]}signal/'
     images_to_attach['signal'] = f'{signal_image_path}signal.png'
 
-    # index images
-    index_image_path = f'{config["result_path"]}etf_idx/day/'
-    images_to_attach['index'] = f'{index_image_path}index.png'
+    # # index images
+    # index_image_path = f'{config["result_path"]}etf_idx/day/'
+    # images_to_attach['index'] = f'{index_image_path}index.png'
+
+    # up_x_resistant and rebound images
+    images_to_attach['up_x_resistant'] = f'{config["result_path"]}up_x_resistant_{signal_file_date}.png'
+    images_to_attach['rebound'] = f'{config["result_path"]}rebound_{signal_file_date}.png'
 
     # verify whether images are up-to-date and attach images
     for symbol in images_to_attach.keys():
@@ -1532,15 +1536,16 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
       for wd in wrong_date.keys():
         image_info += f'<li><p>[Actual Date]: {wd}</p>{", ".join(wrong_date[wd])}</li>'
   else:
-    # index_image = config['result_path'] + 'etf_idx/day/' + 'index.png'
-    # if os.path.exists(index_image):
-    #   image_info += f'<li><p>[Index Images]:</p></li>'
-    #   with open(index_image, 'rb') as fp:
-    #     images.append(MIMEImage(fp.read()))
-    # else:
-    #   image_info += f'<li><p>[Index Image Not Found]</p></li>'
     image_info += '<li><p>[Not Required]</p></li>'
   image_info += '</ul>'
+
+  # attachment 3: analysis part
+  analysis_file = f'{config["result_path"]}analysis_{signal_file_date}.txt'
+  if os.path.exists(analysis_file):
+    analysis_part = MIMEApplication(open(analysis_file, 'rb').read())
+    analysis_part.add_header('Content-Disposition', 'attachment', filename=analysis_file)
+  else:
+    analysis_part = None
 
   # construct message part by concating info parts
   full_info = f'<html><body>{asset_info}{signal_info}{log_info}{image_info}</body></html>'
@@ -1552,6 +1557,9 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
 
   for i in images:
     m.attach(i)
+
+  if analysis_part is not None:
+    m.attach(analysis_part)
 
   # if test, print info parts, else send the email with attachments
   if test:

@@ -53,15 +53,37 @@ def create_universe_data(universe, ta_data):
 
       df = ta_data[si]
 
+      # support and resistant
+      max_idx = df.index.max()
+      linear_fit_support = df.loc[max_idx, 'linear_fit_support']
+      linear_fit_resistant = df.loc[max_idx, 'linear_fit_resistant']
+      candle_gap_support = df.loc[max_idx, 'candle_gap_support']
+      candle_gap_resistant = df.loc[max_idx, 'candle_gap_resistant']
+
+      support = linear_fit_support
+      if np.isnan(support):
+        support = candle_gap_support
+      if not np.isnan(candle_gap_support) and not np.isnan(linear_fit_support):
+        support = max(linear_fit_support, candle_gap_support)
+
+      resistant = linear_fit_resistant
+      if np.isnan(resistant):
+        resistant = candle_gap_resistant
+      if not np.isnan(candle_gap_resistant) and not np.isnan(linear_fit_resistant):
+        resistant = min(linear_fit_resistant, candle_gap_resistant)
+
+      df['support'] = support
+      df['resistant'] = resistant
+
       # crossover signals between Close and High/Low columns
-      for col in ['linear_fit_high', 'linear_fit_low']:
+      for col in ['linear_fit_high', 'linear_fit_low', 'support', 'resistant']:
         if col in df.columns:
           df[f'{col}_signal'] = cal_crossover_signal(df=df, fast_line='Close', slow_line=col, pos_signal=1, neg_signal=-1, none_signal=0)
         else:
           print(f'{col} not in df.columns')
       
       # number of days since signals triggered
-      for col in ['kijun', 'tankan', 'linear_fit_high', 'linear_fit_low']:
+      for col in ['kijun', 'tankan', 'linear_fit_high', 'linear_fit_low', 'support', 'resistant']:
         signal_col = f'{col}_signal'
         if signal_col in df.columns:
           df[signal_col] = sda(series=df[signal_col], zero_as=1)
@@ -77,7 +99,7 @@ def create_universe_data(universe, ta_data):
   return universe_data
 
 # classify symbols in universe
-def classify_universe(universe, universe_data, is_plot=True):
+def classify_universe(universe, universe_data, is_plot=False):
   """
   classify symbols to different categories by conditions
 
@@ -87,47 +109,36 @@ def classify_universe(universe, universe_data, is_plot=True):
   :raises: none
   """
 
-  # support and resistant
-  test_idx = universe_data.query('(linear_fit_support > candle_gap_support) or (linear_fit_support == linear_fit_support and candle_gap_support != candle_gap_support)').index
-  universe_data.loc[test_idx, 'support'] = universe_data.loc[test_idx, 'linear_fit_support']
-
-  test_idx = universe_data.query('(linear_fit_support < candle_gap_support) or (linear_fit_support != linear_fit_support and candle_gap_support == candle_gap_support)').index
-  universe_data.loc[test_idx, 'support'] = universe_data.loc[test_idx, 'candle_gap_support']
-
-  test_idx = universe_data.query('(linear_fit_resistant < candle_gap_resistant) or (linear_fit_resistant == linear_fit_resistant and candle_gap_resistant != candle_gap_resistant)').index
-  universe_data.loc[test_idx, 'resistant'] = universe_data.loc[test_idx, 'linear_fit_resistant']
-
-  test_idx = universe_data.query('(linear_fit_resistant > candle_gap_resistant) or (linear_fit_resistant != linear_fit_resistant and candle_gap_resistant == candle_gap_resistant)').index
-  universe_data.loc[test_idx, 'resistant'] = universe_data.loc[test_idx, 'candle_gap_resistant']
-
   # define conditions
   conditions = {
+
+    # 支撑/阻挡
+    '触发买入信号': '(signal=="b")',
+    '触发卖出信号': '(signal=="s")',
+    '突破支撑': '((-5 < support_signal < 0) and (High < support))',
+    '突破阻挡': '((0 < resistant_signal < 5) and (Low > resistant))',
+    '触顶回落': '((linear_fit_high_stop >= 2) and (Close < resistant))',
+    '触底反弹': '((linear_fit_low_stop >= 2) and (Close > support))',
+    
+    # 趋势
+    '强势': '((linear_slope >=0.1 and linear_fit_high_slope > 0 and linear_fit_low_slope > 0) or (linear_slope <= -0.1 and linear_fit_high_slope < 0 and linear_fit_low_slope < 0))',
+    '弱势': '((-0.1 < linear_slope <0.1) or (linear_fit_high_slope > 0 and linear_fit_low_slope < 0) or (linear_fit_high_slope < 0 and linear_fit_low_slope > 0))',
     '上涨': '((linear_fit_high_slope > 0 and linear_fit_low_slope > 0))',
     '下跌': '((linear_fit_high_slope < 0 and linear_fit_low_slope < 0))',
     '波动': '((linear_fit_high_slope >= 0 and linear_fit_low_slope <= 0) or (linear_fit_high_slope <= 0 and linear_fit_low_slope >= 0))',
     '趋势之中': '((linear_fit_high >= Open >= linear_fit_low) or (linear_fit_high >= Close >= linear_fit_low))',
     '趋势之上': '((Open > linear_fit_high and Open > linear_fit_low) and (Close > linear_fit_high and Close > linear_fit_low))',
     '趋势之下': '((Open < linear_fit_high and Open < linear_fit_low) and (Close < linear_fit_high and Close < linear_fit_low))',
-    '趋势较强': '((linear_slope >=0.1 and linear_fit_high_slope > 0 and linear_fit_low_slope > 0) or (linear_slope <= -0.1 and linear_fit_high_slope < 0 and linear_fit_low_slope < 0))',
-    '趋势较弱': '(-0.1 < linear_slope <0.1)',
-    '价格接近阻挡位': '((resistant == resistant) and (0 < (resistant - Close) <= 0.02*Close))',
-    '价格接近支撑位': '((support == support) and (0 < (Close - support) <= 0.02*Close))',
-    '价格突破阻挡位': '((resistant == resistant) and (Close > resistant))',
-    '价格突破支撑位': '((support == support) and (Close < support))',
-    'tankan在kijun之上': '(tankan > kijun)',
-    'tankan在kijun之下': '(tankan <= kijun)',
 
-    '最近触发': '((-10 <= kijun_signal <=10 and kijun_signal !=0) or (-10 <= tankan_signal <= 10 and tankan_signal !=0) or (-10 <= linear_fit_high_signal <= 10 and linear_fit_high_signal !=0) or (-10 <= linear_fit_low_signal <=10 and linear_fit_low_signal !=0))',
-    '上穿kijun': '(kijun_signal > 0)',
-    '下穿kijun': '(kijun_signal < 0)',
-    '上穿tankan': '(tankan_signal > 0)',
-    '下穿tankan': '(tankan_signal < 0)',
-    '上穿linear_fit_high': '(linear_fit_high_signal > 0)',
-    '下穿linear_fit_high': '(linear_fit_high_signal < 0)',
-    '上穿linear_fit_low': '(linear_fit_low_signal > 0)',
-    '下穿linear_fit_low': '(linear_fit_low_signal < 0)',
-    '触发买入信号': '(signal=="b")',
-    '触发卖出信号': '(signal=="s")'
+    # 技术指标
+    '上穿快线': '(tankan_signal > 0)',
+    '上穿慢线': '(kijun_signal > 0)',
+    '上穿底部': '(linear_fit_low_signal > 0)',
+    '上穿顶部': '(linear_fit_high_signal > 0)',
+    '下穿快线': '(tankan_signal < 0)',
+    '下穿慢线': '(kijun_signal < 0)',
+    '下穿底部': '(linear_fit_low_signal < 0)',
+    '下穿顶部': '(linear_fit_high_signal < 0)'
   }
   
   # filter data
@@ -138,23 +149,29 @@ def classify_universe(universe, universe_data, is_plot=True):
   # initialize empty dict
   classification = {}
 
+  # 突破阻挡
+  classification['up_x_resistant'] = [x for x in filter_result['上涨'] if (x in filter_result['突破阻挡'] and x in filter_result['强势'])]
+
+  # 突破支撑
+  classification['down_x_support'] = [x for x in filter_result['下跌'] if (x in filter_result['突破支撑'] and x in filter_result['强势'])]
+
   # 止跌回升
-  classification['rebound'] = [x for x in filter_result['下跌'] if (x in filter_result['趋势之上'] and x in filter_result['最近触发'] and  x in filter_result['上穿tankan'])] 
+  classification['rebound'] = list(set(filter_result['下跌']).intersection(filter_result['触底反弹'], filter_result['上穿快线'], set(filter_result['上穿顶部']).union(filter_result['上穿慢线']), )) 
 
   # 触顶回调
-  classification['hitpeak'] = [x for x in filter_result['上涨'] if (x in filter_result['趋势之下'] and x in filter_result['最近触发'] and  x in filter_result['下穿tankan'])]
+  classification['hitpeak'] = list(set(filter_result['上涨']).intersection(filter_result['触顶回落'], set(filter_result['下穿底部']).union(filter_result['下穿快线'], filter_result['下穿慢线']), ))
 
   # 上升趋势中
-  classification['uptrending'] = [x for x in filter_result['上涨'] if ((x in filter_result['趋势之中'] or x in filter_result['趋势之上']) and x in filter_result['趋势较强'])]
+  classification['uptrending'] = [x for x in filter_result['上涨'] if ((x in filter_result['趋势之中'] or x in filter_result['趋势之上']) and x in filter_result['强势'] and x not in classification['hitpeak'] and x not in classification['up_x_resistant'])]
 
   # 下降趋势中
-  classification['downtrending'] = [x for x in filter_result['下跌'] if ((x in filter_result['趋势之中'] or x in filter_result['趋势之下']) and x in filter_result['趋势较强'])]
+  classification['downtrending'] = [x for x in filter_result['下跌'] if ((x in filter_result['趋势之中'] or x in filter_result['趋势之下']) and x in filter_result['强势'] and x not in classification['rebound'] and x not in classification['down_x_support'])]
 
   # 波动中
-  classification['waving'] = [x for x in filter_result['波动'] or x in filter_result['趋势较弱'] if (x not in classification['rebound'] and x not in classification['hitpeak'])]
+  classification['waving'] = [x for x in filter_result['波动'] or x in filter_result['弱势'] if (x not in classification['rebound'] and x not in classification['hitpeak'] and x not in classification['uptrending'] and x not in classification['downtrending'])]
 
   # 其他
-  classification['others'] = [x for x in universe if ((x not in classification['rebound']) and (x not in classification['hitpeak']) and (x not in classification['uptrending']) and (x not in classification['downtrending']) and (x not in classification['waving']))]
+  classification['others'] = [x for x in universe if ((x not in classification['rebound']) and (x not in classification['hitpeak']) and (x not in classification['uptrending']) and (x not in classification['downtrending']) and (x not in classification['waving']) and (x not in classification['up_x_resistant']) and (x not in classification['down_x_support']))]
 
   # 信号
   classification['signal'] = [x for x in (filter_result['触发买入信号'] + filter_result['触发卖出信号'])]
@@ -167,10 +184,63 @@ def classify_universe(universe, universe_data, is_plot=True):
       class_statistics[k] = len(classification[k])
     cls_stat = pd.DataFrame(class_statistics, index=['num'],).T
     plt.figure(figsize=(20, 5))
-    hist = plt.bar(cls_stat.index, cls_stat.num, alpha=0.5,)  
+    plt.bar(cls_stat.index, cls_stat.num, alpha=0.5,)  
 
-  return filter_result#classification
+  return {
+    'filter': filter_result,
+    'class': classification
+    }
 
+# analysis symbols in universe
+def describe_universe(universe, universe_classification):
+
+  filter_result = universe_classification['filter']
+  # classification = universe_classification['class']
+
+  description = {}
+  for symbol in universe:
+  
+    description[symbol] = ''
+
+    for k in filter_result.keys():
+      if symbol in filter_result[k]:
+        
+        segment_s = ''
+        segment_e = ''
+        s = None
+        e = None
+        
+        if k in ['强势', '弱势', '上涨', '下跌', '波动']:
+          segment_s = ''
+          
+        if k in ['趋势之中', '趋势之上', '趋势之下']:
+          segment_e = ', '
+          
+        if k in ['突破支撑', '突破阻挡', '触顶回落', '触底反弹']:
+          segment_s = '['
+          segment_e = '], '
+          
+        if k in ['触发买入信号', '触发卖出信号']:
+          segment_s = '['
+          segment_e = '], '
+          
+        if k in ['上穿快线', '上穿慢线', '上穿底部', '上穿顶部'] and prev_k in ['上穿快线', '上穿慢线', '上穿底部', '上穿顶部']:
+          segment_s = '/'
+          s = 2
+          
+        if k in ['下穿快线', '下穿慢线', '下穿底部', '下穿顶部'] and prev_k in ['下穿快线', '下穿慢线', '下穿底部', '下穿顶部']: 
+          segment_s = '/'
+          s = 2
+          
+        if k in ['下穿快线', '下穿慢线', '下穿底部', '下穿顶部'] and prev_k in ['上穿快线', '上穿慢线', '上穿底部', '上穿顶部']:
+          segment_s = ', '
+          
+        description[symbol] += f'{segment_s}{k[s:e]}{segment_e}'
+        prev_k = k
+
+  description = dict(sorted(description.items(), key=lambda item:item[1]))
+
+  return description
 
 # ================================================ Core calculation ================================================= # 
 # load configuration
@@ -1424,13 +1494,13 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
   df['candle_gap_bottom'] = df['candle_gap_bottom'].fillna(method='ffill')#.replace(0, np.NaN)
 
   # gap support and resistant
-  support_idx = df.query(f'{close} > candle_gap_top').index
-  resistant_idx = df.query(f'{close} < candle_gap_bottom').index
+  support_idx = df.query(f'{low} > candle_gap_bottom').index
+  resistant_idx = df.query(f'{high} < candle_gap_top').index
   other_idx = [x for x in df.index if x not in support_idx and x not in resistant_idx]
-  df.loc[support_idx, 'candle_gap_support'] = df.loc[support_idx, 'candle_gap_top']
-  df.loc[resistant_idx, 'candle_gap_resistant'] = df.loc[resistant_idx, 'candle_gap_bottom']
-  df.loc[other_idx, 'candle_gap_support'] = df.loc[other_idx, 'candle_gap_bottom']
-  df.loc[other_idx, 'candle_gap_resistant'] = df.loc[other_idx, 'candle_gap_top']
+  df.loc[support_idx, 'candle_gap_support'] = df.loc[support_idx, 'candle_gap_bottom']
+  df.loc[resistant_idx, 'candle_gap_resistant'] = df.loc[resistant_idx, 'candle_gap_top']
+  # df.loc[other_idx, 'candle_gap_support'] = df.loc[other_idx, 'candle_gap_bottom']
+  # df.loc[other_idx, 'candle_gap_resistant'] = df.loc[other_idx, 'candle_gap_top']
 
   # ======================================= long/short entities ================================= #
   df['candle_long_entity'] = 0
@@ -1659,11 +1729,15 @@ def add_linear_features(df, max_period=60, min_period=15, is_print=False):
     high_linear = (0, highest_high, 0, 0)
   else:
     high_linear = linregress(high['x'], high['y'])
+    if abs(high_linear[0]) < 0.01:
+      high_linear = (0, highest_high, 0, 0)
 
   if len(low['x']) < 2:
     low_linear = (0, lowest_low, 0, 0)
   else:
     low_linear = linregress(low['x'], low['y'])
+    if abs(low_linear[0]) < 0.01:
+      low_linear = (0, lowest_low, 0, 0)
 
   # add high/low fit values
   counter = 0
@@ -1719,6 +1793,9 @@ def add_linear_features(df, max_period=60, min_period=15, is_print=False):
   reach_bottom_idx = df.query(f'linear_fit_low == {lowest_low}').index
   df.loc[reach_bottom_idx, 'linear_fit_low_stop'] = 1
   df.loc[reach_bottom_idx, 'linear_fit_support'] = lowest_low
+
+  df['linear_fit_low_stop'] = sda(df['linear_fit_low_stop'])
+  df['linear_fit_high_stop'] = sda(df['linear_fit_high_stop'])
   
   # overall slope of High and Low
   df['linear_slope']  = df['linear_fit_high_slope'] + df['linear_fit_low_slope']
