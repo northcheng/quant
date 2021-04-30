@@ -1539,14 +1539,6 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
     image_info += '<li><p>[Not Required]</p></li>'
   image_info += '</ul>'
 
-  # attachment 3: analysis part
-  analysis_file = f'{config["result_path"]}analysis_{signal_file_date}.txt'
-  if os.path.exists(analysis_file):
-    analysis_part = MIMEApplication(open(analysis_file, 'rb').read())
-    analysis_part.add_header('Content-Disposition', 'attachment', filename=analysis_file)
-  else:
-    analysis_part = None
-
   # construct message part by concating info parts
   full_info = f'<html><body>{asset_info}{signal_info}{log_info}{image_info}</body></html>'
   msg_part = MIMEText(full_info,'html','utf-8')
@@ -1557,9 +1549,6 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
 
   for i in images:
     m.attach(i)
-
-  if analysis_part is not None:
-    m.attach(analysis_part)
 
   # if test, print info parts, else send the email with attachments
   if test:

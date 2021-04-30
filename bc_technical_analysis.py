@@ -852,6 +852,14 @@ def calculate_ta_data(df, symbol, interval, trend_indicators=['ichimoku', 'aroon
     phase = 'cal_ta_signals'
     df = calculate_ta_signal(df=df)
 
+    # TA analysis
+    phase = 'analyze_ta_data'
+    df = analyze_ta_data(df=df)
+
+    # TA description
+    phase = 'describe_ta_data'
+    df = describe_ta_data(df=df)
+
   except Exception as e:
     print(symbol, phase, indicator, e)
 
@@ -886,10 +894,187 @@ def visualize_ta_data(df, start=None, end=None, title=None, save_path=None, visu
   except Exception as e:
     print(phase, e)
 
+# analyze ta_data
+def analyze_ta_data(df):
+
+  # calculate support and resistant from linear_fit and candle_gap
+  max_idx = df.index.max()
+  linear_fit_support = df.loc[max_idx, 'linear_fit_support']
+  linear_fit_resistant = df.loc[max_idx, 'linear_fit_resistant']
+  candle_gap_support = df.loc[max_idx, 'candle_gap_support']
+  candle_gap_resistant = df.loc[max_idx, 'candle_gap_resistant']
+
+  # support
+  support = linear_fit_support
+  if np.isnan(support):
+    support = candle_gap_support
+  if not np.isnan(candle_gap_support) and not np.isnan(linear_fit_support):
+    support = max(linear_fit_support, candle_gap_support)
+  df['support'] = support
+
+  # resistant
+  resistant = linear_fit_resistant
+  if np.isnan(resistant):
+    resistant = candle_gap_resistant
+  if not np.isnan(candle_gap_resistant) and not np.isnan(linear_fit_resistant):
+    resistant = min(linear_fit_resistant, candle_gap_resistant)
+  df['resistant'] = resistant
+
+  # crossover signals between Close and linear_fit_high/linear_fit_low, and support/resistant
+  for col in ['linear_fit_high', 'linear_fit_low', 'support', 'resistant']:
+    if col in df.columns:
+      df[f'{col}_signal'] = cal_crossover_signal(df=df, fast_line='Close', slow_line=col, pos_signal=1, neg_signal=-1, none_signal=0)
+    else:
+      print(f'{col} not in df.columns')
+  
+  # number of days since signals triggered
+  for col in ['kijun', 'tankan', 'linear_fit_high', 'linear_fit_low', 'support', 'resistant']:
+    signal_col = f'{col}_signal'
+    if signal_col in df.columns:
+      df[signal_col] = sda(series=df[signal_col], zero_as=1)
+    else:
+      print(f'{signal_col} not in df.columns')
+
+  return df
+
+# describe ta_data
+def describe_ta_data(df):
+
+  max_idx = df.index.max()
+  row = df.loc[max_idx,].copy()
+
+  # define conditions
+  conditions = {
+
+    # 支撑/阻挡
+    '突破支撑': (row['support_signal'] < 0 and row['support_signal'] > -10) and (row['High'] < row['support']),
+    '突破阻挡': (row['resistant_signal'] > 0 and row['resistant_signal'] < 10) and (row['resistant_signal'] < 5) and (row['Low'] > row['resistant']), 
+    '触顶回落': (row['linear_fit_high_stop'] >= 2) and (row['Close'] < row['resistant']) ,
+    '触底反弹': (row['linear_fit_low_stop'] >= 2) and (row['Close'] > row['support']), 
+    
+    # 趋势
+    '强势': (row['linear_slope'] >= 0.1 and row['linear_fit_high_slope'] > 0 and row['linear_fit_low_slope'] > 0) or (row['linear_slope'] <= -0.1 and row['linear_fit_high_slope'] < 0 and row['linear_fit_low_slope'] < 0),
+    '弱势': (row['linear_slope'] >-0.1 and row['linear_slope'] < 0.1 ) or ((row['linear_fit_high_slope'] * row['linear_fit_low_slope']) < 0),
+    '上涨': (row['linear_fit_high_slope'] > 0 and row['linear_fit_low_slope'] > 0),
+    '下跌': (row['linear_fit_high_slope'] < 0 and row['linear_fit_low_slope'] < 0),
+    '波动': (row['linear_fit_high_slope'] * row['linear_fit_low_slope']) < 0,
+    '趋势之中': (row['linear_fit_high'] >= row['Close']) and (row['linear_fit_low'] <= row['Close']),
+    '趋势之上': (row['linear_fit_high'] < row['Close']) and (row['linear_fit_low'] < row['Close']),
+    '趋势之下': (row['linear_fit_high'] > row['Close']) and (row['linear_fit_low'] > row['Close']),
+
+    # 技术指标
+    '上穿快线': (row['tankan_signal'] > 0 and row['tankan_signal'] < 20),
+    '上穿慢线': (row['kijun_signal'] > 0 and row['kijun_signal'] < 20),
+    '上穿底部': (row['linear_fit_low_signal'] > 0 and row['linear_fit_low_signal'] < 20),
+    '上穿顶部': (row['linear_fit_high_signal'] > 0 and row['linear_fit_high_signal'] < 20),
+    '下穿快线': (row['tankan_signal'] < 0 and row['tankan_signal'] > -20),
+    '下穿慢线': (row['kijun_signal'] < 0 and row['kijun_signal'] > -20),
+    '下穿底部': (row['linear_fit_low_signal'] < 0 and row['linear_fit_low_signal'] > -20),
+    '下穿顶部': (row['linear_fit_high_signal'] < 0 and row['linear_fit_high_signal'] > -20)
+  }
+
+  # initialize empty dict
+  classification = []
+
+  # 突破阻挡
+  if conditions['上涨'] and conditions['强势'] and conditions['突破阻挡']:
+    classification.append('up_x_resistant')
+
+  # 突破支撑
+  if conditions['下跌'] and conditions['强势'] and conditions['突破支撑']:
+    classification.append('down_x_support')
+
+  # 止跌回升
+  if conditions['下跌'] and conditions['触底反弹'] and conditions['上穿快线'] and (conditions['上穿顶部'] or conditions['上穿慢线']):
+    classification.append('rebound')
+
+  # 触顶回调
+  if conditions['上涨'] and conditions['触顶回落'] and (conditions['下穿底部'] or conditions['下穿快线'] or conditions['下穿慢线']):
+    classification.append('hitpeak')
+
+  # 上升趋势中
+  if conditions['上涨'] and conditions['强势'] and (conditions['趋势之中'] or conditions['趋势之上']) and ('hitpeak' not in classification and 'up_x_resistant' not in classification):
+    classification.append('uptrending')
+
+  # 下降趋势中
+  if conditions['下跌'] and conditions['强势'] and (conditions['趋势之中'] or conditions['趋势之下']) and ('rebound' not in classification and 'down_x_support' not in classification):
+    classification.append('downtrending')
+
+  # 波动中
+  if (conditions['波动'] or conditions['弱势']) and ('rebound' not in classification and 'hitpeak' not in classification and 'uptrending' not in classification and 'downtrending' not in classification):
+    classification.append('waving')
+
+  # 其他
+  if len(classification) == 0:
+    classification.append('others')
+
+  category = '/'.join(classification)
+  
+  support = row['support']
+  support = '-' if np.isnan(support) else f'{support.round(2)}'
+  resistant = row['resistant']
+  resistant = '-' if np.isnan(resistant) else f'{resistant.round(2)}'
+  description = f'支撑: {support}, 阻挡: {resistant}\n'
+  for k in conditions.keys():
+    segment_s = ''
+    segment_e = ''
+    s = None
+    e = None
+    addition = ''
+
+    if not conditions[k]:
+      continue
+
+    if k == '上穿快线':
+      addition = f'({row["tankan_signal"]})'
+    elif k == '上穿慢线':
+      addition = f'({row["kijun_signal"]})'
+    elif k == '上穿顶部':
+      addition = f'({row["linear_fit_high_signal"]})'
+    elif k == '上穿底部':
+      addition = f'({row["linear_fit_low_signal"]})'
+    elif k == '下穿快线':
+      addition = f'({row["tankan_signal"]})'
+    elif k == '下穿慢线':
+      addition = f'({row["kijun_signal"]})'
+    elif k == '下穿顶部':
+      addition = f'({row["linear_fit_high_signal"]})'
+    elif k == '下穿底部':
+      addition = f'({row["linear_fit_low_signal"]})'
+
+    if k in ['强势', '弱势', '上涨', '下跌', '波动']:
+      segment_s = ''
+      
+    if k in ['趋势之中', '趋势之上', '趋势之下']:
+      segment_e = ', '
+      
+    if k in ['突破支撑', '突破阻挡', '触顶回落', '触底反弹']:
+      segment_s = '['
+      segment_e = '] '
+      
+    if k in ['上穿快线', '上穿慢线', '上穿底部', '上穿顶部'] and prev_k in ['上穿快线', '上穿慢线', '上穿底部', '上穿顶部']:
+      segment_s = '/'
+      s = 2
+      
+    if k in ['下穿快线', '下穿慢线', '下穿底部', '下穿顶部'] and prev_k in ['下穿快线', '下穿慢线', '下穿底部', '下穿顶部']: 
+      segment_s = '/'
+      s = 2
+      
+    if k in ['下穿快线', '下穿慢线', '下穿底部', '下穿顶部'] and prev_k in ['上穿快线', '上穿慢线', '上穿底部', '上穿顶部']:
+      segment_s = ', '
+      
+    description += f'{segment_s}{k[s:e]}{addition}{segment_e}'
+    prev_k = k
+
+  df.loc[max_idx, 'category'] = category
+  df.loc[max_idx, 'description'] = description
+
+  return df
+
 # post-process calculation results
 def postprocess_ta_result(df, keep_columns, drop_columns):
   """
-  Postprocess downloaded data
+  Postprocess reulst data (last rows of symbols in a list)
 
   :param df: dataframe with ta features and ta derived features
   :param keep_columns: columns to keep for the final result
@@ -4531,7 +4716,12 @@ def plot_multiple_indicators(
   close_price = df.loc[max_idx, "Close"].round(2)
   close_rate = (df.loc[max_idx, "rate"]*100).round(2)
   title_color = 'green' if close_rate > 0 else 'red'
-  fig.suptitle(title + f' : {close_price}({close_rate}%)', color=title_color, x=0.5, y=0.92, fontsize=20)
+  
+  plt.rcParams['font.sans-serif'] = ['KaiTi'] # 指定默认字体
+  plt.rcParams['axes.unicode_minus'] = False
+  fig.suptitle(title + f' : {close_price}({close_rate}%)\n{df.loc[df.index.max(), "description"]}', color=title_color, x=0.5, y=0.96, fontsize=20)
+  # plt.annotate(, xy=(0, 0), xytext=(0,0), xycoords='data', textcoords='data', arrowprops=dict(arrowstyle='->', alpha=0.5), bbox=dict(boxstyle="round",fc="1.0", alpha=0.5))
+
 
   # save image
   if save_image and (save_path is not None):
