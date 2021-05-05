@@ -1561,9 +1561,12 @@ def add_linear_features(df, max_period=60, min_period=15, is_print=False):
   # get current date, renko_color, earliest-start date, latest-end date
   current_date = df.index.max()
   current_color = df.loc[current_date, 'renko_color']
-  earliest_start = current_date - datetime.timedelta(days=max_period)
-  latest_end = current_date - datetime.timedelta(days=(current_date.weekday()+1))
- 
+  earliest_start = df.tail(max_period).index.min() #current_date - datetime.timedelta(days=max_period)
+  if (idxs[-1] - idxs[-2]).days >= 7:
+    latest_end = idxs[-2]
+  else:
+    latest_end = current_date - datetime.timedelta(days=(current_date.weekday()+1))
+
   # get slice according to renko bricks, allows only 1 different color brick
   start=None  
   renko_list = df.query('renko_real == renko_real').index.tolist()
@@ -1581,10 +1584,10 @@ def add_linear_features(df, max_period=60, min_period=15, is_print=False):
   end = latest_end
   
   # make the slice length at least min_period
-  if (end - start).days < min_period:
-    start = end - datetime.timedelta(days=min_period)
-  if (end - start).days > max_period:
-    start = end - datetime.timedelta(days=max_period)
+  if len(df[start:end]) < min_period: #(end - start).days < min_period:
+    start = df[:end].tail(min_period).index.min() # end - datetime.timedelta(days=min_period)
+  if len(df[start:end]) > min_period: #(end - start).days > max_period:
+    start = df[:end].tail(max_period).index.min() # end - datetime.timedelta(days=max_period)
   if is_print:
     print(start, end)
 
@@ -1600,22 +1603,26 @@ def add_linear_features(df, max_period=60, min_period=15, is_print=False):
 
   # get slice from highest high and lowest low
   if hh > ll:
-    if (latest_end - hh).days >= min_period:
+    if len(df[hh:latest_end]) >= min_period: # (latest_end - hh).days >= min_period:
       start = hh
-    elif (latest_end - ll).days >= min_period:
+    elif len(df[ll:latest_end]) >= min_period: # (latest_end - ll).days >= min_period:
       start = ll
     else:
       end = max(hh, ll)
   else:
-    if (latest_end - ll).days >= min_period:
+    if len(df[ll:latest_end]) >= min_period: #(latest_end - ll).days >= min_period:
       start = ll
-    elif (latest_end - hh).days >= min_period:
+    elif len(df[hh:latest_end]) >= min_period: # (latest_end - hh).days >= min_period:
       start = hh
     else:
       end = max(hh, ll)
 
-  if start != earliest_start:
-    start = start - datetime.timedelta(days=3)
+  # if start != earliest_start:
+  #   # start = start - datetime.timedelta(days=3)
+  #   si = df.index.tolist().index(start)
+  #   si = si - 1
+  #   start = df.index.tolist()[si]
+
   tmp_data = df[start:end].copy()
   tmp_idxs = tmp_data.index.tolist()
   num_points = 4 #int(len(tmp_data) / 3)

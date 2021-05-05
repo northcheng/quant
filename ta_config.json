@@ -34,7 +34,7 @@
         "look_back_window": {
             "day": 300,
             "week": 1260,
-            "month": 5400
+            "month": 5000
         }
     },
     "visualization": {
