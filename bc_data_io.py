@@ -1506,13 +1506,12 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
     signal_image_path = f'{config["result_path"]}signal/'
     images_to_attach['signal'] = f'{signal_image_path}signal.png'
 
-    # # index images
-    # index_image_path = f'{config["result_path"]}etf_idx/day/'
-    # images_to_attach['index'] = f'{index_image_path}index.png'
+    # index images
+    index_image_path = f'{config["result_path"]}etf_idx/day/'
+    images_to_attach['index'] = f'{index_image_path}index.png'
 
     # up_x_resistant and rebound images
-    images_to_attach['up_x_resistant'] = f'{config["result_path"]}up_x_resistant_{signal_file_date}.png'
-    images_to_attach['rebound'] = f'{config["result_path"]}rebound_{signal_file_date}.png'
+    images_to_attach['potential'] = f'{config["result_path"]}potential_symbols.png'
 
     # verify whether images are up-to-date and attach images
     for symbol in images_to_attach.keys():
@@ -1527,6 +1526,7 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
 
         with open(img, 'rb') as fp:
           symbol_image = MIMEImage(fp.read())
+          symbol_image.add_header('Content-Disposition', 'attachment', filename=f'{symbol}')
         images.append(symbol_image)
       else:        
         image_info += f'<li><p>[Not Found]: image for {symbol}</p></li>'

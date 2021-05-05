@@ -31,217 +31,6 @@ default_candlestick_color = {'colorup':'green', 'colordown':'red', 'alpha':0.8}
 default_ohlcv_col = {'close':'Close', 'open':'Open', 'high':'High', 'low':'Low', 'volume':'Volume'}  
 default_plot_args = {'figsize':(25, 5), 'title_rotation':'vertical', 'title_x':-0.05, 'title_y':0.3, 'bbox_to_anchor':(1.02, 0.), 'loc':3, 'ncol':1, 'borderaxespad':0.0}
 
-# ================================================ Target selection ================================================= # 
-# create universe data for symbols in universe
-def create_universe_data(universe, ta_data):
-  """
-  create universe data from the latest rows of ta_data of symbols
-
-  :param universe: the list of symbols
-  :param ta_data: dict of data, with [symbol]_day as keys
-  :returns: universe data
-  :raises: none
-  """
-  
-  # initialize empty dataframe
-  universe_data = pd.DataFrame()
-
-  # process stock data of symbols
-  for symbol in universe:
-    si = f'{symbol}_day'
-    if si in ta_data.keys():
-
-      df = ta_data[si]
-
-      # support and resistant
-      max_idx = df.index.max()
-      linear_fit_support = df.loc[max_idx, 'linear_fit_support']
-      linear_fit_resistant = df.loc[max_idx, 'linear_fit_resistant']
-      candle_gap_support = df.loc[max_idx, 'candle_gap_support']
-      candle_gap_resistant = df.loc[max_idx, 'candle_gap_resistant']
-
-      support = linear_fit_support
-      if np.isnan(support):
-        support = candle_gap_support
-      if not np.isnan(candle_gap_support) and not np.isnan(linear_fit_support):
-        support = max(linear_fit_support, candle_gap_support)
-
-      resistant = linear_fit_resistant
-      if np.isnan(resistant):
-        resistant = candle_gap_resistant
-      if not np.isnan(candle_gap_resistant) and not np.isnan(linear_fit_resistant):
-        resistant = min(linear_fit_resistant, candle_gap_resistant)
-
-      df['support'] = support
-      df['resistant'] = resistant
-
-      # crossover signals between Close and High/Low columns
-      for col in ['linear_fit_high', 'linear_fit_low', 'support', 'resistant']:
-        if col in df.columns:
-          df[f'{col}_signal'] = cal_crossover_signal(df=df, fast_line='Close', slow_line=col, pos_signal=1, neg_signal=-1, none_signal=0)
-        else:
-          print(f'{col} not in df.columns')
-      
-      # number of days since signals triggered
-      for col in ['kijun', 'tankan', 'linear_fit_high', 'linear_fit_low', 'support', 'resistant']:
-        signal_col = f'{col}_signal'
-        if signal_col in df.columns:
-          df[signal_col] = sda(series=df[signal_col], zero_as=1)
-        else:
-          print(f'{signal_col} not in df.columns')
-
-      universe_data = universe_data.append(df.tail(1), sort=False)
-
-  # reset index by symbol
-  universe_data.reset_index(inplace=True)
-  universe_data.set_index('symbol', inplace=True)
-  
-  return universe_data
-
-# classify symbols in universe
-def classify_universe(universe, universe_data, is_plot=False):
-  """
-  classify symbols to different categories by conditions
-
-  :param universe: the list of symbols
-  :param filter_result: dict of symbol list in different conditions
-  :returns: dict of symbol list in different categories
-  :raises: none
-  """
-
-  # define conditions
-  conditions = {
-
-    # 支撑/阻挡
-    '触发买入信号': '(signal=="b")',
-    '触发卖出信号': '(signal=="s")',
-    '突破支撑': '((-5 < support_signal < 0) and (High < support))',
-    '突破阻挡': '((0 < resistant_signal < 5) and (Low > resistant))',
-    '触顶回落': '((linear_fit_high_stop >= 2) and (Close < resistant))',
-    '触底反弹': '((linear_fit_low_stop >= 2) and (Close > support))',
-    
-    # 趋势
-    '强势': '((linear_slope >=0.1 and linear_fit_high_slope > 0 and linear_fit_low_slope > 0) or (linear_slope <= -0.1 and linear_fit_high_slope < 0 and linear_fit_low_slope < 0))',
-    '弱势': '((-0.1 < linear_slope <0.1) or (linear_fit_high_slope > 0 and linear_fit_low_slope < 0) or (linear_fit_high_slope < 0 and linear_fit_low_slope > 0))',
-    '上涨': '((linear_fit_high_slope > 0 and linear_fit_low_slope > 0))',
-    '下跌': '((linear_fit_high_slope < 0 and linear_fit_low_slope < 0))',
-    '波动': '((linear_fit_high_slope >= 0 and linear_fit_low_slope <= 0) or (linear_fit_high_slope <= 0 and linear_fit_low_slope >= 0))',
-    '趋势之中': '((linear_fit_high >= Open >= linear_fit_low) or (linear_fit_high >= Close >= linear_fit_low))',
-    '趋势之上': '((Open > linear_fit_high and Open > linear_fit_low) and (Close > linear_fit_high and Close > linear_fit_low))',
-    '趋势之下': '((Open < linear_fit_high and Open < linear_fit_low) and (Close < linear_fit_high and Close < linear_fit_low))',
-
-    # 技术指标
-    '上穿快线': '(tankan_signal > 0)',
-    '上穿慢线': '(kijun_signal > 0)',
-    '上穿底部': '(linear_fit_low_signal > 0)',
-    '上穿顶部': '(linear_fit_high_signal > 0)',
-    '下穿快线': '(tankan_signal < 0)',
-    '下穿慢线': '(kijun_signal < 0)',
-    '下穿底部': '(linear_fit_low_signal < 0)',
-    '下穿顶部': '(linear_fit_high_signal < 0)'
-  }
-  
-  # filter data
-  filter_result = {}
-  for c in conditions.keys():
-    filter_result[c] = universe_data.query(conditions[c]).index.tolist()
-
-  # initialize empty dict
-  classification = {}
-
-  # 突破阻挡
-  classification['up_x_resistant'] = [x for x in filter_result['上涨'] if (x in filter_result['突破阻挡'] and x in filter_result['强势'])]
-
-  # 突破支撑
-  classification['down_x_support'] = [x for x in filter_result['下跌'] if (x in filter_result['突破支撑'] and x in filter_result['强势'])]
-
-  # 止跌回升
-  classification['rebound'] = list(set(filter_result['下跌']).intersection(filter_result['触底反弹'], filter_result['上穿快线'], set(filter_result['上穿顶部']).union(filter_result['上穿慢线']), )) 
-
-  # 触顶回调
-  classification['hitpeak'] = list(set(filter_result['上涨']).intersection(filter_result['触顶回落'], set(filter_result['下穿底部']).union(filter_result['下穿快线'], filter_result['下穿慢线']), ))
-
-  # 上升趋势中
-  classification['uptrending'] = [x for x in filter_result['上涨'] if ((x in filter_result['趋势之中'] or x in filter_result['趋势之上']) and x in filter_result['强势'] and x not in classification['hitpeak'] and x not in classification['up_x_resistant'])]
-
-  # 下降趋势中
-  classification['downtrending'] = [x for x in filter_result['下跌'] if ((x in filter_result['趋势之中'] or x in filter_result['趋势之下']) and x in filter_result['强势'] and x not in classification['rebound'] and x not in classification['down_x_support'])]
-
-  # 波动中
-  classification['waving'] = [x for x in filter_result['波动'] or x in filter_result['弱势'] if (x not in classification['rebound'] and x not in classification['hitpeak'] and x not in classification['uptrending'] and x not in classification['downtrending'])]
-
-  # 其他
-  classification['others'] = [x for x in universe if ((x not in classification['rebound']) and (x not in classification['hitpeak']) and (x not in classification['uptrending']) and (x not in classification['downtrending']) and (x not in classification['waving']) and (x not in classification['up_x_resistant']) and (x not in classification['down_x_support']))]
-
-  # 信号
-  classification['signal'] = [x for x in (filter_result['触发买入信号'] + filter_result['触发卖出信号'])]
-
-  # plot distribution
-  if is_plot:
-    class_statistics = {}
-    for k in classification.keys():
-      print(f'{k}: {len(classification[k])}')
-      class_statistics[k] = len(classification[k])
-    cls_stat = pd.DataFrame(class_statistics, index=['num'],).T
-    plt.figure(figsize=(20, 5))
-    plt.bar(cls_stat.index, cls_stat.num, alpha=0.5,)  
-
-  return {
-    'filter': filter_result,
-    'class': classification
-    }
-
-# analysis symbols in universe
-def describe_universe(universe, universe_classification):
-
-  filter_result = universe_classification['filter']
-  # classification = universe_classification['class']
-
-  description = {}
-  for symbol in universe:
-  
-    description[symbol] = ''
-
-    for k in filter_result.keys():
-      if symbol in filter_result[k]:
-        
-        segment_s = ''
-        segment_e = ''
-        s = None
-        e = None
-        
-        if k in ['强势', '弱势', '上涨', '下跌', '波动']:
-          segment_s = ''
-          
-        if k in ['趋势之中', '趋势之上', '趋势之下']:
-          segment_e = ', '
-          
-        if k in ['突破支撑', '突破阻挡', '触顶回落', '触底反弹']:
-          segment_s = '['
-          segment_e = '], '
-          
-        if k in ['触发买入信号', '触发卖出信号']:
-          segment_s = '['
-          segment_e = '], '
-          
-        if k in ['上穿快线', '上穿慢线', '上穿底部', '上穿顶部'] and prev_k in ['上穿快线', '上穿慢线', '上穿底部', '上穿顶部']:
-          segment_s = '/'
-          s = 2
-          
-        if k in ['下穿快线', '下穿慢线', '下穿底部', '下穿顶部'] and prev_k in ['下穿快线', '下穿慢线', '下穿底部', '下穿顶部']: 
-          segment_s = '/'
-          s = 2
-          
-        if k in ['下穿快线', '下穿慢线', '下穿底部', '下穿顶部'] and prev_k in ['上穿快线', '上穿慢线', '上穿底部', '上穿顶部']:
-          segment_s = ', '
-          
-        description[symbol] += f'{segment_s}{k[s:e]}{segment_e}'
-        prev_k = k
-
-  description = dict(sorted(description.items(), key=lambda item:item[1]))
-
-  return description
-
 # ================================================ Core calculation ================================================= # 
 # load configuration
 def load_config(root_paths):
@@ -868,7 +657,7 @@ def calculate_ta_data(df, symbol, interval, trend_indicators=['ichimoku', 'aroon
 # visualize ta indicators
 def visualize_ta_data(df, start=None, end=None, title=None, save_path=None, visualization_args={}):
   """
-  visualize ta indicators
+  visualize ta data
   :param df: dataframe with ta indicators
   :param start: start date to draw
   :param end: end date to draw
@@ -896,6 +685,12 @@ def visualize_ta_data(df, start=None, end=None, title=None, save_path=None, visu
 
 # analyze ta_data
 def analyze_ta_data(df):
+  """
+  analysze ta indicators
+  :param df: dataframe with ta indicators
+  :returns: dataframe with analysis columns (resistant, support and several signal columns)
+  :raises: None
+  """
 
   # calculate support and resistant from linear_fit and candle_gap
   max_idx = df.index.max()
@@ -920,7 +715,7 @@ def analyze_ta_data(df):
     resistant = min(linear_fit_resistant, candle_gap_resistant)
   df['resistant'] = resistant
 
-  # crossover signals between Close and linear_fit_high/linear_fit_low, and support/resistant
+  # crossover signals between Close and linear_fit_high/linear_fit_low, support/resistant
   for col in ['linear_fit_high', 'linear_fit_low', 'support', 'resistant']:
     if col in df.columns:
       df[f'{col}_signal'] = cal_crossover_signal(df=df, fast_line='Close', slow_line=col, pos_signal=1, neg_signal=-1, none_signal=0)
@@ -939,7 +734,14 @@ def analyze_ta_data(df):
 
 # describe ta_data
 def describe_ta_data(df):
+  """
+  add technical analysis description for ta data
+  :param df: dataframe with ta indicators and derived analysis
+  :returns: dataframe with additional columns (category, description)
+  :raises: None
+  """
 
+  # classify data and generate description from the most recent data(the last row)
   max_idx = df.index.max()
   row = df.loc[max_idx,].copy()
 
@@ -1008,8 +810,10 @@ def describe_ta_data(df):
   if len(classification) == 0:
     classification.append('others')
 
+  # assign category
   category = '/'.join(classification)
   
+  # generate description
   support = row['support']
   support = '-' if np.isnan(support) else f'{support.round(2)}'
   resistant = row['resistant']
@@ -1089,7 +893,6 @@ def postprocess_ta_result(df, keep_columns, drop_columns):
 
   # reset index(as the index(date) of rows are all the same)
   df = df.reset_index().copy()
-  df['notes'] = ''
 
   # overbuy/oversell
   df['obos'] = df['bb_trend'].replace({'d': '超买', 'u': '超卖', 'n': ''})
@@ -3959,52 +3762,6 @@ def plot_signal(
   if use_ax is not None:
     return ax
 
-# plot signal index
-def plot_signal_index(
-  df, start=None, end=None, 
-  signal_idx_col='prev_si_msum', pos_signal_idx_col='prev_psi_msum', neg_signal_idx_col='prev_nsi_msum', 
-  use_ax=None, title=None, plot_args=default_plot_args):
-  """
-  Plot signals along with the price
-
-  :param df: dataframe with price and signal columns
-  :param start: start row to plot
-  :param end: end row to stop
-  :param signal_idx_col: columnname of the signal index
-  :param pos_signal_idx_col: columnname of the positive signal index
-  :param neg_signal_idx_col: columnname of the negative signal index
-  :param use_ax: the already-created ax to draw on
-  :param title: plot title
-  :param plot_args: other plot arguments
-  :returns: a signal plotted price chart
-  :raises: none
-  """
-  # copy dataframe within the specific period
-  df = df[start:end].copy()
-
-  # create figure
-  ax = use_ax
-  if ax is None:
-    fig = mpf.figure(figsize=plot_args['figsize'])
-    ax = fig.add_subplot(1,1,1, style='yahoo')
-
-  # plot signal indexes
-  ax.plot(df.index, df[signal_idx_col], color='black', label=signal_idx_col, alpha=0.2)
-  ax.plot(df.index, df[pos_signal_idx_col], color='green', label=pos_signal_idx_col, alpha=0)
-  ax.plot(df.index, df[neg_signal_idx_col], color='red', label=neg_signal_idx_col, alpha=0)
-
-  # fill between lines
-  ax.fill_between(df.index, df[signal_idx_col], df[neg_signal_idx_col], facecolor='green', interpolate=True, alpha=0.1)
-  ax.fill_between(df.index, df[signal_idx_col], df[pos_signal_idx_col], facecolor='red', interpolate=True, alpha=0.1)
-  
-  # legend and title
-  ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
-  ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
-
-  # return ax
-  if use_ax is not None:
-    return ax
-
 # plot candlestick chart
 def plot_candlestick(
   df, start=None, end=None, date_col='Date', ohlcv_col=default_ohlcv_col, 
@@ -4072,7 +3829,7 @@ def plot_candlestick(
         break      
       end = i
 
-    # shift gap start 1 day earlier
+    # shift gap-start 1 day earlier
     pre_start = idxs[idxs.index(start)-1]
     tmp_data = df[start:end]
     ax.fill_between(df[pre_start:end].index, top_value, bottom_value, facecolor='purple', interpolate=True, alpha=0.4) #,  linewidth=2,
@@ -4219,7 +3976,7 @@ def plot_main_indicators(
       else:
         end_text = f'L: {y_end_high}, {y_end_low}'
     
-    # gap values and support/resistant
+    # anotations of gap values and support/resistant
     gap_top = df.loc[x_end, 'candle_gap_top'].round(2)
     gap_bottom = df.loc[x_end, 'candle_gap_bottom'].round(2)
     gap_support = df.loc[x_end, 'candle_gap_support'].round(2)
@@ -4735,23 +4492,69 @@ def plot_multiple_indicators(
   plt.clf()
   plt.close(fig)
 
-# plot subplots
-def plot_data_subplots(df, columns, start=None, end=None, title='', num_rows=2, plot_args=default_plot_args):
-  num_subplots = len(columns)
-  num_columns = math.ceil(num_subplots / num_rows)
+# # plot signal index
+# def plot_signal_index(
+#   df, start=None, end=None, 
+#   signal_idx_col='prev_si_msum', pos_signal_idx_col='prev_psi_msum', neg_signal_idx_col='prev_nsi_msum', 
+#   use_ax=None, title=None, plot_args=default_plot_args):
+#   """
+#   Plot signals along with the price
 
-  # create figure
-  fig=plt.figure(figsize=(25, 5*num_rows))
-  subplots = {}
+#   :param df: dataframe with price and signal columns
+#   :param start: start row to plot
+#   :param end: end row to stop
+#   :param signal_idx_col: columnname of the signal index
+#   :param pos_signal_idx_col: columnname of the positive signal index
+#   :param neg_signal_idx_col: columnname of the negative signal index
+#   :param use_ax: the already-created ax to draw on
+#   :param title: plot title
+#   :param plot_args: other plot arguments
+#   :returns: a signal plotted price chart
+#   :raises: none
+#   """
+#   # copy dataframe within the specific period
+#   df = df[start:end].copy()
 
-  for i in range(num_subplots):
-    if i == 0:
-      subplots[f'ax{i+1}'] = plt.subplot(num_rows, num_columns, i+1)
-    else:
-      subplots[f'ax{i+1}'] = plt.subplot(num_rows, num_columns, i+1, sharex = subplots[f'ax1'])
-    plt.plot(df[columns[i]], label=columns[i])
+#   # create figure
+#   ax = use_ax
+#   if ax is None:
+#     fig = mpf.figure(figsize=plot_args['figsize'])
+#     ax = fig.add_subplot(1,1,1, style='yahoo')
 
-    subplots[f'ax{i+1}'].legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
-    # subplots[f'ax{i+1}'].set_title(columns[i], rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
+#   # plot signal indexes
+#   ax.plot(df.index, df[signal_idx_col], color='black', label=signal_idx_col, alpha=0.2)
+#   ax.plot(df.index, df[pos_signal_idx_col], color='green', label=pos_signal_idx_col, alpha=0)
+#   ax.plot(df.index, df[neg_signal_idx_col], color='red', label=neg_signal_idx_col, alpha=0)
+
+#   # fill between lines
+#   ax.fill_between(df.index, df[signal_idx_col], df[neg_signal_idx_col], facecolor='green', interpolate=True, alpha=0.1)
+#   ax.fill_between(df.index, df[signal_idx_col], df[pos_signal_idx_col], facecolor='red', interpolate=True, alpha=0.1)
   
-  fig.suptitle(title, x=0.5, y=0.92, fontsize=20)
+#   # legend and title
+#   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
+#   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
+
+#   # return ax
+#   if use_ax is not None:
+#     return ax
+
+# # plot subplots
+# def plot_data_subplots(df, columns, start=None, end=None, title='', num_rows=2, plot_args=default_plot_args):
+#   num_subplots = len(columns)
+#   num_columns = math.ceil(num_subplots / num_rows)
+
+#   # create figure
+#   fig=plt.figure(figsize=(25, 5*num_rows))
+#   subplots = {}
+
+#   for i in range(num_subplots):
+#     if i == 0:
+#       subplots[f'ax{i+1}'] = plt.subplot(num_rows, num_columns, i+1)
+#     else:
+#       subplots[f'ax{i+1}'] = plt.subplot(num_rows, num_columns, i+1, sharex = subplots[f'ax1'])
+#     plt.plot(df[columns[i]], label=columns[i])
+
+#     subplots[f'ax{i+1}'].legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
+#     # subplots[f'ax{i+1}'].set_title(columns[i], rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
+  
+#   fig.suptitle(title, x=0.5, y=0.92, fontsize=20)
