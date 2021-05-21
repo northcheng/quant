@@ -1499,19 +1499,16 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
     wrong_date = {}
 
     # portfolio images
-    portfolio_image_path = f'{config["result_path"]}portfolio/'
-    images_to_attach['portfolio'] = f'{portfolio_image_path}portfolio.png'
+    images_to_attach['portfolio'] = f'{config["result_path"]}portfolio.png'
     
     # signal images
-    signal_image_path = f'{config["result_path"]}signal/'
-    images_to_attach['signal'] = f'{signal_image_path}signal.png'
+    images_to_attach['signal'] = f'{config["result_path"]}signal.png'
 
     # index images
-    index_image_path = f'{config["result_path"]}etf_idx/day/'
-    images_to_attach['index'] = f'{index_image_path}index.png'
+    # images_to_attach['index'] = f'{config["result_path"]}index.png'
 
     # up_x_resistant and rebound images
-    images_to_attach['potential'] = f'{config["result_path"]}potential_symbols.png'
+    images_to_attach['potential'] = f'{config["result_path"]}potential.png'
 
     # verify whether images are up-to-date and attach images
     for symbol in images_to_attach.keys():

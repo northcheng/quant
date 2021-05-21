@@ -744,6 +744,7 @@ def describe_ta_data(df):
   # classify data and generate description from the most recent data(the last row)
   max_idx = df.index.max()
   row = df.loc[max_idx,].copy()
+  period_threhold = 5
 
   # define conditions
   conditions = {
@@ -751,8 +752,8 @@ def describe_ta_data(df):
     # 支撑/阻挡
     '突破支撑': (row['support_signal'] < 0 and row['support_signal'] > -10) and (row['High'] < row['support']),
     '突破阻挡': (row['resistant_signal'] > 0 and row['resistant_signal'] < 10) and (row['resistant_signal'] < 5) and (row['Low'] > row['resistant']), 
-    '触顶回落': (row['linear_fit_high_stop'] >= 2) and (row['Close'] < row['resistant']) ,
-    '触底反弹': (row['linear_fit_low_stop'] >= 2) and (row['Close'] > row['support']), 
+    '触顶回落': (row['linear_fit_high_stop'] >= 2) and (row['Close'] < row['resistant']) and (row['Close'] < row['tankan']),
+    '触底反弹': (row['linear_fit_low_stop'] >= 2) and (row['Close'] > row['support']) and (row['Close'] > row['tankan']), 
     
     # 趋势
     '强势': (row['linear_slope'] >= 0.1 and row['linear_fit_high_slope'] > 0 and row['linear_fit_low_slope'] > 0) or (row['linear_slope'] <= -0.1 and row['linear_fit_high_slope'] < 0 and row['linear_fit_low_slope'] < 0),
@@ -765,14 +766,14 @@ def describe_ta_data(df):
     '趋势之下': (row['linear_fit_high'] > row['Close']) and (row['linear_fit_low'] > row['Close']),
 
     # 技术指标
-    '上穿快线': (row['tankan_signal'] > 0 and row['tankan_signal'] < 20),
-    '上穿慢线': (row['kijun_signal'] > 0 and row['kijun_signal'] < 20),
-    '上穿底部': (row['linear_fit_low_signal'] > 0 and row['linear_fit_low_signal'] < 20),
-    '上穿顶部': (row['linear_fit_high_signal'] > 0 and row['linear_fit_high_signal'] < 20),
-    '下穿快线': (row['tankan_signal'] < 0 and row['tankan_signal'] > -20),
-    '下穿慢线': (row['kijun_signal'] < 0 and row['kijun_signal'] > -20),
-    '下穿底部': (row['linear_fit_low_signal'] < 0 and row['linear_fit_low_signal'] > -20),
-    '下穿顶部': (row['linear_fit_high_signal'] < 0 and row['linear_fit_high_signal'] > -20)
+    '上穿快线': (row['tankan_signal'] > 0 and row['tankan_signal'] < period_threhold),
+    '上穿慢线': (row['kijun_signal'] > 0 and row['kijun_signal'] < period_threhold),
+    '上穿底部': (row['linear_fit_low_signal'] > 0 and row['linear_fit_low_signal'] < period_threhold),
+    '上穿顶部': (row['linear_fit_high_signal'] > 0 and row['linear_fit_high_signal'] < period_threhold),
+    '下穿快线': (row['tankan_signal'] < 0 and row['tankan_signal'] > -period_threhold),
+    '下穿慢线': (row['kijun_signal'] < 0 and row['kijun_signal'] > -period_threhold),
+    '下穿底部': (row['linear_fit_low_signal'] < 0 and row['linear_fit_low_signal'] > -period_threhold),
+    '下穿顶部': (row['linear_fit_high_signal'] < 0 and row['linear_fit_high_signal'] > -period_threhold)
   }
 
   # initialize empty dict
@@ -889,7 +890,7 @@ def postprocess_ta_result(df, keep_columns, drop_columns):
   """
   if len(df) == 0:
     print(f'No data for postprocessing')
-    return None     
+    return pd.DataFrame()
 
   # reset index(as the index(date) of rows are all the same)
   df = df.reset_index().copy()

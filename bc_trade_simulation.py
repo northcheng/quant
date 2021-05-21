@@ -104,7 +104,7 @@ class FixedPositionTrader:
     end_date = self.end_date if end_date is None else end_date   
 
     # find benchmark data from sec_data
-    benchmark_key = [x for x in self.data['sec_data'].keys() if benchmark in x]
+    benchmark_key = [x for x in self.data['sec_data'].keys() if benchmark == x.split('_')[0]]
     benchmark_num = len(benchmark_key)
     if (benchmark_num > 1) or (benchmark_num==0):
       print(f'{benchmark_num} benchmark data found')

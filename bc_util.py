@@ -232,7 +232,7 @@ def sleep_until(target_time, description=None, check_frequency=3600):
 
 
 #----------------------- Image manipulation ----------------------#
-def concate_image(image_list, adjust_size=False, save_name=None):
+def concate_image(image_list, adjust_size=False, save_name=None, remove_old_image=True):
   """
   Concate images in the image list, save to save_name
 
@@ -242,6 +242,10 @@ def concate_image(image_list, adjust_size=False, save_name=None):
   :returns: none
   :raises: none
   """
+  # remove old image before create new image
+  if remove_old_image and (save_name is not None):
+    if os.path.exists(save_name):
+      os.remove(save_name)
 
   # load images
   images = []
@@ -258,8 +262,8 @@ def concate_image(image_list, adjust_size=False, save_name=None):
   else:
     ims = images
 
+  # concate images
   if len(ims) > 0:
-    # concate images
     width, height = ims[0].size
     result = Image.new(ims[0].mode, (width, height * len(ims)))
     for i, im in enumerate(ims):
@@ -268,8 +272,9 @@ def concate_image(image_list, adjust_size=False, save_name=None):
     # save concated image
     if save_name is None:
       save_name = 'concated_image.png'
-
     result.save(save_name)
+  else:
+    print(f'{save_name}: No image to concate')
   
 
 #----------------------- Script runner ---------------------------#
