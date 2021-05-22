@@ -239,6 +239,7 @@ def concate_image(image_list, adjust_size=False, save_name=None, remove_old_imag
   :param image_list: list of absolute path of images
   :param adjust_size: adjust images to the same size of the first image
   :param save_name: the absolute path of the concated image
+  :param remove_old_image: whether to remove old file with save_name
   :returns: none
   :raises: none
   """
@@ -257,7 +258,7 @@ def concate_image(image_list, adjust_size=False, save_name=None, remove_old_imag
   if adjust_size:
     ims = []
     for i in images:
-      new_img = i.resize((1280, 1280), Image.BILINEAR)
+      new_img = i.resize((2500, 1200), Image.BILINEAR)
       ims.append(new_img)
   else:
     ims = images
@@ -276,6 +277,34 @@ def concate_image(image_list, adjust_size=False, save_name=None, remove_old_imag
   else:
     print(f'{save_name}: No image to concate')
   
+
+def image_2_pdf(image_list, save_name=None, remove_old_pdf=True):
+  """
+  save images in the image list to a pdf file
+
+  :param image_list: list of absolute path of images
+  :param save_name: the absolute path of the concated image
+  :param remove_old_pdf: whether to remove old file with save_name
+  :returns: none
+  :raises: none
+  """
+  # remove old image before create new image
+  if remove_old_pdf and (save_name is not None):
+    if os.path.exists(save_name):
+      os.remove(save_name)
+
+  # load images
+  images = []
+  for image in image_list:
+    if os.path.exists(image):
+      tmp_image = Image.open(image)
+      tmp_image = tmp_image.convert('RGB')
+      images.append(tmp_image)
+
+  if len(images) > 0:
+    images[0].save(save_name, save_all=True, append_images=images[1:])
+  else:
+    print('no images to convert to pdf')
 
 #----------------------- Script runner ---------------------------#
 def run_script(cmd, retry=1, timeout=600):

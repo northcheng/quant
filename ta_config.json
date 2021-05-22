@@ -197,6 +197,8 @@
         "save_data": true,
         "extract_signal_image": true,
         "extract_portfolio_image": true,
+        "extract_index_image": true,
+        "extract_potential_image": true,
         "zip_ta_model_folder": false
     },
     "trade": {

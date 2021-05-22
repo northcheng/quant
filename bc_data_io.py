@@ -22,6 +22,8 @@ from pandas_datareader.nasdaq_trader import get_nasdaq_symbols
 
 # mail process
 import smtplib
+from email import encoders
+from email.mime.base import MIMEBase
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
@@ -1389,7 +1391,7 @@ def pickle_load_data(file_path, file_name):
 #----------------------------- Email sending ------------------------------------#
 def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subject=None, platform=['tiger'], signal_file_date=None, log_file_date=None, position_summary={}, test=False):
   """
-  send automatic_trader's trading result by email
+  send automatic_trader's trading result and technical_analyst's calculation result by email
 
   :param config: dictionary of config, include pathes, etc.
   :param to_addr: destination email address
@@ -1475,7 +1477,6 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
   # attachment 1: log file
   log_info = '<h3>Log</h3><ul>'
   if log_file_date is not None:
-    # log_file_date = util.string_plus_day(string=signal_file_date, diff_days=-1)
 
     log_file = f'{config["log_path"]}automatic_trade_log_{log_file_date}.txt'
     if os.path.exists(log_file):
@@ -1490,48 +1491,31 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
     log_part = None
   log_info += '</ul>'
   
-  # attachment 2: signal images
+  # attachment 2: images in pdf files(signal/portfolio/index/potential)
   image_info = f'<h3> Images</h3><ul>'
-  images_to_attach = {}
-  images = []
+  pdfs = []
   if signal_file_date is not None:
+
+    # initialize header, attach pdfs
     image_info += f'<li>[Requested]: {signal_file_date}</li>'
-    wrong_date = {}
+    pdf_names = ['portfolio', 'signal', 'potential', 'index']
+    for p in pdf_names:
 
-    # portfolio images
-    images_to_attach['portfolio'] = f'{config["result_path"]}portfolio.png'
-    
-    # signal images
-    images_to_attach['signal'] = f'{config["result_path"]}signal.png'
+      # consstruct pdf file path
+      tmp_pdf = f'{config["result_path"]}{p}.pdf'
 
-    # index images
-    # images_to_attach['index'] = f'{config["result_path"]}index.png'
+      # if pdf file exists, get its create date and attach its content
+      if os.path.exists(tmp_pdf):
+        tmp_pdf_create_date = util.timestamp_2_time(timestamp=os.path.getmtime(tmp_pdf), unit='s').date().strftime(format='%Y-%m-%d')
+        with open(tmp_pdf, 'rb') as fp:
+          tmp_pdf_content = MIMEBase('application', "octet-stream")
+          tmp_pdf_content.set_payload(fp.read())
+          tmp_pdf_content.add_header('Content-Disposition', 'attachment', filename=f'{p}_{tmp_pdf_create_date}.pdf')
+          encoders.encode_base64(tmp_pdf_content)
+        pdfs.append(tmp_pdf_content)
 
-    # up_x_resistant and rebound images
-    images_to_attach['potential'] = f'{config["result_path"]}potential.png'
-
-    # verify whether images are up-to-date and attach images
-    for symbol in images_to_attach.keys():
-      img = images_to_attach[symbol]
-      if os.path.exists(img):
-        image_create_date = util.timestamp_2_time(timestamp=os.path.getmtime(img), unit='s').date().strftime(format='%Y-%m-%d')
-        if image_create_date != signal_file_date:
-          if image_create_date not in wrong_date.keys():
-            wrong_date[image_create_date] = [symbol]
-          else:
-            wrong_date[image_create_date].append(symbol)
-
-        with open(img, 'rb') as fp:
-          symbol_image = MIMEImage(fp.read())
-          symbol_image.add_header('Content-Disposition', 'attachment', filename=f'{symbol}')
-        images.append(symbol_image)
       else:        
-        image_info += f'<li><p>[Not Found]: image for {symbol}</p></li>'
-
-    # append information for images that not up-to-date
-    if len(wrong_date) > 0:
-      for wd in wrong_date.keys():
-        image_info += f'<li><p>[Actual Date]: {wd}</p>{", ".join(wrong_date[wd])}</li>'
+        image_info += f'<li><p>[Not Found]: image for {p}</p></li>'
   else:
     image_info += '<li><p>[Not Required]</p></li>'
   image_info += '</ul>'
@@ -1541,10 +1525,12 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
   msg_part = MIMEText(full_info,'html','utf-8')
   m.attach(msg_part)
 
+  # text files (log)
   if log_part is not None:
     m.attach(log_part)
 
-  for i in images:
+  # pdf files (images)
+  for i in pdfs:
     m.attach(i)
 
   # if test, print info parts, else send the email with attachments
