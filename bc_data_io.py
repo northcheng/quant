@@ -18,6 +18,7 @@ import os
 # data source
 import yfinance as yf
 import pandas_datareader.data as web 
+import easyquotation as eq
 from pandas_datareader.nasdaq_trader import get_nasdaq_symbols
 
 # mail process
@@ -392,6 +393,15 @@ def get_real_time_data_from_eod(symbols, api_key=default_eod_key, is_print=False
 
 
 def get_real_time_data_from_yfinance(symbols, period='1d', interval='1m'):
+  """
+  Download real-time stock data from yfinance
+
+  :param symbols: list of symbols
+  :param period: period of the downloaded data
+  :param interval: interval of the downloaded data
+  :returns: dataframe
+  :raises: None
+  """
 
   # initialize result
   latest_data = pd.DataFrame()
@@ -439,6 +449,43 @@ def get_real_time_data_from_yfinance(symbols, period='1d', interval='1m'):
       latest_data = latest_data[['change', 'change_p', 'Close', 'symbol', 'High', 'Low', 'Open', 'previousClose', 'Volume', 'latest_time', 'Date', 'Adj Close', 'Dividend', 'Split']]
 
   return latest_data
+
+
+def get_real_time_data_from_easyquotation(symbols, source='sina'):
+  """
+  Download real-time stock data from easyquotation
+
+  :param symbols: list of symbols
+  :param source: data source, sina/tecent/qq
+  :returns: dataframe or None
+  :raises: exception when downloading failed
+  """
+
+  df = pd.DataFrame()
+
+  # create quoataion entity
+  quotation = eq.use(source)
+
+  # get stock data
+  codes = [x.split('.')[0] for x in symbols]
+  qt = quotation.stocks(codes) 
+  df = pd.DataFrame(qt).T
+
+  # post process
+  df = df.reset_index()
+  df['index'] = symbols
+  
+  columns_to_keep = {'index':'symbol', 'open':'Open', 'high':'High', 'low':'Low', 'now':'Close', 'turnover':'Volume', 'date':'Date'}
+  
+  df = df.rename(columns=columns_to_keep)[columns_to_keep.values()].copy()
+  df = util.df_2_timeseries(df=df, time_col='Date')
+  df['Adj Close'] = df['Close']
+  df['Dividend'] = 0.0
+  df['Split'] = 1.0
+  
+  df[['Open', 'High', 'Low', 'Close', 'Volume']] = df[['Open', 'High', 'Low', 'Close', 'Volume']].astype(float)
+
+  return df
 
 
 def get_stock_briefs_from_eod(symbols, api_key=default_eod_key, batch_size=15):
@@ -679,7 +726,7 @@ def update_stock_data_from_yfinance_by_date(symbols, stock_data_path, file_forma
     return data
 
 
-def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', required_date=None, window_size=3, is_print=False, is_return=False, is_save=True, api_key=default_eod_key, add_dividend=True, add_split=True, batch_size=15, update_mode='eod'):
+def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', required_date=None, window_size=3, is_print=False, is_return=False, is_save=True, api_key=default_eod_key, add_dividend=True, add_split=True, batch_size=15, update_mode='eod', cn_stock=False):
   """
   update local stock data from eod
 
@@ -695,6 +742,7 @@ def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', req
   :param add_split: whether to add split data
   :param batch_size: batch size of symbols of getting real-time data
   :param update_mode: how to update data - realtime/eod/both(eod+realtime)/refresh(delete and redownload)
+  :param cn_stock: whether updating chinese stocks
   :returns: dataframe of latest stock data, per row each symbol
   :raises: none
   """
@@ -764,14 +812,25 @@ def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', req
   if update_mode in ['realtime', 'both']:
     print('***************** querying real-time data *****************')
 
-    # get real-time data from EOD, convert it into time-series data
-    real_time_data = get_real_time_data_from_eod(symbols=symbols, api_key=api_key, is_print=is_print, batch_size=batch_size)
-    real_time_data = util.df_2_timeseries(df=real_time_data, time_col='Date')
+    if not cn_stock:
+      # get real-time data from EOD, convert it into time-series data
+      real_time_data = get_real_time_data_from_eod(symbols=symbols, api_key=api_key, is_print=is_print, batch_size=batch_size)
+      real_time_data = util.df_2_timeseries(df=real_time_data, time_col='Date')
+    else:
+      # get real-time data from easyquotation, convert it into time-series data
+      real_time_data = get_real_time_data_from_easyquotation(symbols=symbols)
 
     # append it corresponding eod data according to symbols
     for symbol in symbols:
-        tmp_data = real_time_data.query(f'symbol == "{symbol}"')[data[symbol].columns].copy()
-        data[symbol] = data[symbol].append(tmp_data)
+      tmp_data = real_time_data.query(f'symbol == "{symbol}"')[data[symbol].columns].copy()
+      if len(tmp_data) == 0:
+        print(f'real-time data not found for {symbol}')
+        continue
+      else:
+        tmp_idx = tmp_data.index.max()
+        for col in data[symbol].columns:
+          data[symbol].loc[tmp_idx, col] = tmp_data.loc[tmp_idx, col]
+        # data[symbol] = data[symbol].append(tmp_data)
         data[symbol] = util.remove_duplicated_index(df=data[symbol], keep='last').dropna()
 
   # return
@@ -779,7 +838,7 @@ def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', req
     return data
 
 
-def update_stock_data(symbols, stock_data_path, file_format='.csv', source='eod', by='date', required_date=None, is_print=False, is_return=False, is_save=True, api_key=default_eod_key, add_dividend=True, add_split=True, batch_size=15, update_mode='eod'):
+def update_stock_data(symbols, stock_data_path, file_format='.csv', source='eod', by='date', required_date=None, is_print=False, is_return=False, is_save=True, api_key=default_eod_key, add_dividend=True, add_split=True, batch_size=15, update_mode='eod', cn_stock=False):
   """
   update local stock data
 
@@ -805,7 +864,7 @@ def update_stock_data(symbols, stock_data_path, file_format='.csv', source='eod'
     elif by == 'stock':
       result = update_stock_data_from_yfinance_by_stock(symbols=symbols, stock_data_path=stock_data_path, file_format=file_format, required_date=required_date, is_print=is_print, is_return=is_return, is_save=is_save)
   elif source == 'eod':
-    result = update_stock_data_from_eod(symbols=symbols, stock_data_path=stock_data_path, file_format=file_format, required_date=required_date, is_print=is_print, is_return=is_return, is_save=is_save, api_key=api_key, add_dividend=add_dividend, add_split=add_split, batch_size=batch_size, update_mode=update_mode)
+    result = update_stock_data_from_eod(symbols=symbols, stock_data_path=stock_data_path, file_format=file_format, required_date=required_date, is_print=is_print, is_return=is_return, is_save=is_save, api_key=api_key, add_dividend=add_dividend, add_split=add_split, batch_size=batch_size, update_mode=update_mode, cn_stock=cn_stock)
   else:
     print(f'unknown source: {source}')
 

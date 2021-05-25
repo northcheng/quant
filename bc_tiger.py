@@ -386,6 +386,11 @@ class Tiger:
       pre_open_time = open_time - datetime.timedelta(hours=5.5)
       post_close_time = close_time + datetime.timedelta(hours=4)
 
+      # open and close time of chinese stock market
+      a_open_time = pre_open_time + datetime.timedelta(hours=9.5-pre_open_time.hour)
+      a_close_time = pre_open_time + datetime.timedelta(hours=15-pre_open_time.hour)
+
+
     except Exception as e:
       self.logger.error(e)
       current_status = None
@@ -397,7 +402,8 @@ class Tiger:
     self.trade_time = {
       'status': current_status, 'tz': tz,
       'pre_open_time': pre_open_time, 'open_time': open_time,
-      'close_time': close_time, 'post_close_time': post_close_time
+      'close_time': close_time, 'post_close_time': post_close_time,
+      'a_open_time': a_open_time, 'a_close_time': a_close_time
     }
 
 

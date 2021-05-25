@@ -29,6 +29,8 @@
             "final_result": "final_result.pkl"
         },
         "update_sec_data": true,
+        "update_mode": "eod",
+        "cn_stock": false,
         "update_ta_data": true,
         "save_sec_data": true,
         "look_back_window": {

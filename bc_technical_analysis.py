@@ -136,7 +136,6 @@ def preprocess_sec_data(df, symbol, interval, print_error=True):
   if interval == 'week':
     max_weekday = df.index[-1].weekday()
     prev_weekday = df.index[-2].weekday()
-
     while prev_weekday < max_weekday:
       df = df[:df.index[-2]].copy()
       max_weekday = df.index[-1].weekday()
@@ -1467,17 +1466,21 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
   
   # gap up
   df['candle_gap'] = 0
-  strict_gap_up_idx = df.query(f'({low}-prev_{high}) >= (0.01*{close})').index
+  df['pct_close'] = df[close] * 0.01
+
+  df['low_prev_high'] = df[low] - df[f'prev_{high}']
+  strict_gap_up_idx = df.query(f'low_prev_high >= pct_close').index
   df.loc[strict_gap_up_idx, 'candle_gap'] = 2
   df.loc[strict_gap_up_idx, 'candle_gap_top'] = df.loc[strict_gap_up_idx, f'{low}']
   df.loc[strict_gap_up_idx, 'candle_gap_bottom'] = df.loc[strict_gap_up_idx, f'prev_{high}']
   
   # gap down
-  strict_gap_down_idx = df.query(f'(prev_{low}-{high}) >= (0.01*{close})').index  
+  df['prev_low_high'] = df[f'prev_{low}'] - df[high]
+  strict_gap_down_idx = df.query(f'prev_low_high >= pct_close').index  
   df.loc[strict_gap_down_idx, 'candle_gap'] = -2
   df.loc[strict_gap_down_idx, 'candle_gap_top'] = df.loc[strict_gap_down_idx, f'prev_{low}']
   df.loc[strict_gap_down_idx, 'candle_gap_bottom'] = df.loc[strict_gap_down_idx, f'{high}']
-
+  
   # gap top and bottom
   df['candle_gap_top'] = df['candle_gap_top'].fillna(method='ffill')#.replace(0, np.NaN)
   df['candle_gap_bottom'] = df['candle_gap_bottom'].fillna(method='ffill')#.replace(0, np.NaN)
@@ -1490,19 +1493,26 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
   df.loc[resistant_idx, 'candle_gap_resistant'] = df.loc[resistant_idx, 'candle_gap_top']
   # df.loc[other_idx, 'candle_gap_support'] = df.loc[other_idx, 'candle_gap_bottom']
   # df.loc[other_idx, 'candle_gap_resistant'] = df.loc[other_idx, 'candle_gap_top']
-
+  
   # ======================================= long/short entities ================================= #
   df['candle_long_entity'] = 0
   df['candle_short_entity'] = 0
   df['candle_entity_ma'] = df['candle_entity'].rolling(50).mean()
-  long_entity_idx = df.query(f'((candle_entity >= 1.5*candle_entity_ma) or (candle_entity > 3*prev_candle_entity))').index
-  short_entity_idx = df.query(f'((candle_entity <= 0.5*candle_entity_ma) or (candle_entity < 0.33*prev_candle_entity))').index
+
+  df['one_third_pce'] = 0.33 * df['prev_candle_entity']
+  df['three_time_pce'] = 3 * df['prev_candle_entity']
+  df['half_cem'] = 0.5 * df['candle_entity_ma']
+  df['one_and_a_half_cem'] = 1.5 * df['candle_entity_ma']
+  
+  long_entity_idx = df.query(f'((candle_entity >= one_and_a_half_cem) or (candle_entity > three_time_pce))').index
+  short_entity_idx = df.query(f'((candle_entity <= half_cem) or (candle_entity < one_third_pce))').index
   df.loc[long_entity_idx, 'candle_long_entity'] = df.loc[long_entity_idx, 'candle_color']
   df.loc[short_entity_idx, 'candle_short_entity'] = df.loc[short_entity_idx, 'candle_color']
   col_to_drop.append('candle_entity_ma')
 
-
   # drop intermidiate columns
+  for c in ['low_prev_high', 'prev_low_high', 'pct_close', 'one_third_pce', 'three_time_pce', 'half_cem', 'one_and_a_half_cem']:
+    col_to_drop.append(c)
   df = df.drop(col_to_drop, axis=1)
 
   return df
