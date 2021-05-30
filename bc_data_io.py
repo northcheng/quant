@@ -760,7 +760,6 @@ def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', req
   start_date = util.string_plus_day(benchmark_date, -window_size)
 
   # get the existed data and its latest date for each symbols
-  print(f'******************** updating eod-data ********************')
   data = {}
   for symbol in symbols:
     
