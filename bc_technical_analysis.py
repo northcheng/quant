@@ -4494,9 +4494,13 @@ def plot_multiple_indicators(
   
   plt.rcParams['font.sans-serif'] = ['KaiTi'] # 指定默认字体
   plt.rcParams['axes.unicode_minus'] = False
-  fig.suptitle(title + f' : {close_price}({close_rate}%)\n{df.loc[df.index.max(), "description"]}', color=title_color, x=0.5, y=0.96, fontsize=20)
-  # plt.annotate(, xy=(0, 0), xytext=(0,0), xycoords='data', textcoords='data', arrowprops=dict(arrowstyle='->', alpha=0.5), bbox=dict(boxstyle="round",fc="1.0", alpha=0.5))
 
+  new_title = title
+  for n in args['sec_name'].keys():
+    if n in title:
+      new_title = title.replace(n, args['sec_name'][n]) 
+  fig.suptitle(new_title + f' : {close_price}({close_rate}%)\n{df.loc[df.index.max(), "description"]}', color=title_color, x=0.5, y=0.96, fontsize=20)
+  # plt.annotate(, xy=(0, 0), xytext=(0,0), xycoords='data', textcoords='data', arrowprops=dict(arrowstyle='->', alpha=0.5), bbox=dict(boxstyle="round",fc="1.0", alpha=0.5))
 
   # save image
   if save_image and (save_path is not None):
