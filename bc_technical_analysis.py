@@ -3979,8 +3979,8 @@ def plot_main_indicators(
     x_end = df.index.max()
     y_end_low = df.loc[x_end, 'linear_fit_low'].round(2)
     y_end_high = df.loc[x_end, 'linear_fit_high'].round(2)
-    y_end_support = df.loc[x_end, 'linear_fit_support']
-    y_end_resistant = df.loc[x_end, 'linear_fit_resistant']
+    y_end_support = df.loc[x_end, 'linear_fit_support'].round(2)
+    y_end_resistant = df.loc[x_end, 'linear_fit_resistant'].round(2)
     end_text = ''
     if not np.isnan(y_end_support):
       end_text += f'LS: {y_end_support}'

@@ -767,25 +767,30 @@ def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', req
     data[symbol] = pd.DataFrame()
     tmp_data_date = None
 
+    # for chinese stocks
+    file_name = symbol
+    splited = file_name.split('.')
+    if len(splited) ==2 and splited[1] in ['SHG', 'SS', 'SHE', 'SZ']:
+      file_name = splited[0]      
+
     # if local data exists, load existed data, update its most current date
-    symbol_file_name = f'{stock_data_path}{symbol}{file_format}'
+    symbol_file_name = f'{stock_data_path}{file_name}{file_format}'
     if os.path.exists(symbol_file_name):
       
       # delete local data if update_mode == refresh
       if update_mode == 'refresh':
         os.remove(symbol_file_name)
         
-      # load local data and update its most recent date
+    # load local data and update its most recent date
+    existed_data = load_stock_data(file_path=stock_data_path, file_name=symbol)
+    if existed_data is not None and len(existed_data) > 0:
+      max_idx = existed_data.index.max()
+      if max_idx > util.string_2_time('2020-01-01'):
+        data[symbol] = existed_data
+        tmp_data_date = util.time_2_string(max_idx)
       else:
-        existed_data = load_stock_data(file_path=stock_data_path, file_name=symbol)
-        if len(existed_data) > 0:
-          max_idx = existed_data.index.max()
-          if max_idx > util.string_2_time('2020-01-01'):
-            data[symbol] = existed_data
-            tmp_data_date = util.time_2_string(max_idx)
-          else:
-            print(f'max index of {symbol} is invalid({max_idx}), refreshing data')
-            os.remove(symbol_file_name)
+        print(f'max index of {symbol} is invalid({max_idx}), refreshing data')
+        os.remove(symbol_file_name)
 
     # update eod data, print updating info
     if (update_mode in ['eod', 'both', 'refresh']) and (tmp_data_date is None or tmp_data_date < benchmark_date):
@@ -884,6 +889,11 @@ def save_stock_data(df, file_path, file_name, file_format='.csv', reset_index=Tr
   :returns: none
   :raises: none
   """
+  # for chinese stocks
+  splited = file_name.split('.')
+  if len(splited) ==2 and splited[1] in ['SHG', 'SS', 'SHE', 'SZ']:
+    file_name = splited[0]
+
   # construct filename
   file_name = f'{file_path}{file_name}{file_format}'
 
@@ -911,6 +921,11 @@ def load_stock_data(file_path, file_name, file_format='.csv', time_col='Date', s
   :returns: none
   :raises: none
   """
+  # for chinese stocks
+  splited = file_name.split('.')
+  if len(splited) ==2 and splited[1] in ['SHG', 'SS', 'SHE', 'SZ']:
+    file_name = splited[0]
+
   # contruct filename
   file_name = f'{file_path}{file_name}{file_format}'
   

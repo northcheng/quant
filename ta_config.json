@@ -42,7 +42,7 @@
     "visualization": {
         "create_image": true,
         "show_image": true,
-        "save_image": false,
+        "save_image": true,
         "plot_window": {
             "day": 200,
             "week": 1260,
@@ -196,12 +196,10 @@
         },
         "drop_columns": [],
         "save_result": true,
-        "save_data": true,
         "extract_signal_image": true,
         "extract_portfolio_image": true,
         "extract_index_image": true,
-        "extract_potential_image": true,
-        "zip_ta_model_folder": false
+        "extract_potential_image": true
     },
     "trade": {
         "init_cash": {
