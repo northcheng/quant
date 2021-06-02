@@ -157,19 +157,17 @@ def preprocess_sec_data(df, symbol, interval, print_error=True):
   for idx, row in df.iterrows():
     df.loc[idx, 'Adj Close'] *= adj_rate
     if row['Split'] != 1:
-      if row['Adj Close'] == row['Close']:
-        if row['adj_rate'] > 2 or row['adj_rate'] < 0.5:
-          adj_rate = 1/row['Split']
+      if row['adj_rate'] > 2 or row['adj_rate'] < 0.5:
+        adj_rate = 1/row['Split']
     elif row['split_n1'] != 1:
-      if row['Adj Close'] == row['Close']:
-        if row['adj_rate'] > 2 or row['adj_rate'] < 0.5:
-          adj_rate = 1/row['split_n1']
+      if row['adj_rate'] > 2 or row['adj_rate'] < 0.5:
+        adj_rate = 1/row['split_n1']
   df = df.sort_index()
   df.drop(['adj_rate', 'adj_close_p1', 'split_n1'], axis=1, inplace=True)
 
   # adjust open/high/low/close/volume values
   adj_rate = df['Adj Close'] / df['Close']
-  for col in ['High', 'Low', 'Open', 'Close','Volume']:
+  for col in ['High', 'Low', 'Open', 'Close']:
     df[col] = df[col] * adj_rate
 
   # check whether 0 or NaN values exists in the latest record
@@ -1735,14 +1733,18 @@ def add_linear_features(df, max_period=60, min_period=15, is_print=False):
     high_linear = (0, highest_high, 0, 0)
   else:
     high_linear = linregress(high['x'], high['y'])
-    if abs(high_linear[0]) < 0.01:
+    high_range = round((max(high['y']) + min(high['y']))/2, 3)
+    slope_score = round(abs(high_linear[0])/high_range, 5)
+    if slope_score < 0.001:
       high_linear = (0, highest_high, 0, 0)
 
   if len(low['x']) < 2:
     low_linear = (0, lowest_low, 0, 0)
   else:
     low_linear = linregress(low['x'], low['y'])
-    if abs(low_linear[0]) < 0.01:
+    low_range = round((max(low['y']) + min(low['y']))/2, 3)
+    slope_score = round(abs(low_linear[0])/low_range, 5)
+    if slope_score < 0.001:
       low_linear = (0, lowest_low, 0, 0)
 
   # add high/low fit values

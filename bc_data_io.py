@@ -897,15 +897,19 @@ def save_stock_data(df, file_path, file_name, file_format='.csv', reset_index=Tr
   # construct filename
   file_name = f'{file_path}{file_name}{file_format}'
 
-  # reset index
-  if reset_index:
-    df = df.sort_index().reset_index()
-  
-  # save file
-  if file_format == '.csv':
-    df.to_csv(file_name, index=index)
+  if len(df) > 0:
+    # reset index
+    if reset_index:
+      df = df.sort_index().reset_index()
+    # save file
+    if file_format == '.csv':
+      df.to_csv(file_name, index=index)
+    else:
+      print(f'Unknown format {file_format}')
   else:
-    print(f'Unknown format {file_format}')
+    print('Empty dataframe to save, skipped')
+  
+  
 
 
 def load_stock_data(file_path, file_name, file_format='.csv', time_col='Date', standard_columns=False, sort_index=True):
