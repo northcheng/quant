@@ -208,6 +208,33 @@ def preprocess_sec_data(df, symbol, interval, print_error=True):
   
   return df
 
+def calculate_ta_indicators(df, trend_indicators, volume_indicators, volatility_indicators, other_indicators, signal_threshold=0.001):
+
+  # copy dataframe
+  df = df.copy()
+  if df is None or len(df) == 0:
+    print(f'No data for calculate_ta_indicator')
+    return None   
+  
+  try:
+    # calculate TA indicators
+    phase = 'cal_ta_indicators' 
+    all_indicators = []
+    all_indicators += [x for x in trend_indicators if x not in all_indicators]
+    all_indicators += [x for x in volume_indicators if x not in all_indicators]
+    all_indicators += [x for x in volatility_indicators if x not in all_indicators]
+    all_indicators += [x for x in other_indicators if x not in all_indicators]
+
+    indicator = None
+    for indicator in all_indicators:
+      to_eval = f'add_{indicator}_features(df=df)'
+      df = eval(to_eval)
+
+  except Exception as e:
+    print(phase, indicator, e)
+
+  return df
+
 # calculate trends from ta indicators
 def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indicators, other_indicators, signal_threshold=0.001):
   """
@@ -398,38 +425,7 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       df.loc[wave_idx, 'renko_trend'] = 'n'
 
     # ================================ linear trend ===========================
-    if 'linear' in trend_indicators:
-
-      # direction means the slope of linear fit of (High/Low)
-      df['linear_direction'] = ''
-      up_idx = df.query('linear_fit_high_slope > 0 and linear_fit_low_slope > 0').index
-      down_idx = df.query('linear_fit_high_slope < 0 and linear_fit_low_slope < 0').index
-      uncertain_idx = df.query('(linear_fit_high_slope > 0 and linear_fit_low_slope < 0) or (linear_fit_high_slope < 0 and linear_fit_low_slope > 0)').index
-      df.loc[up_idx, 'linear_direction'] = 'u'
-      df.loc[down_idx, 'linear_direction'] = 'd'
-      df.loc[uncertain_idx, 'linear_direction'] = 'n'
-
-      # the corresponding position of Close to linear_fit_high and linear_fit_low
-      df['linear_position'] = ''
-      among_idx = df.query('Close <= linear_fit_high and Close >= linear_fit_low').index
-      above_idx = df.query('Close > linear_fit_high').index
-      below_idx = df.query('Close < linear_fit_low').index
-      df.loc[among_idx, 'linear_position'] = 'n'
-      df.loc[above_idx, 'linear_position'] = 'u'
-      df.loc[below_idx, 'linear_position'] = 'd'
-
-      # number of days the Close triggered position change
-      df['linear_triggered'] = sda(series=df['linear_position'].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=None)
-
-      # calculate trend
-      df['linear_trend'] = df['linear_direction']
-      up_idx = df.query('(linear_direction=="u" and linear_position!="d") or (linear_direction=="d" and linear_position=="u" and linear_triggered<=5 and linear_day_count>=5)').index
-      down_idx = df.query('(linear_direction=="d" and linear_position!="u") or (linear_direction=="u" and linear_position=="d" and linear_triggered<=5 and linear_day_count>=5)').index
-      df.loc[up_idx, 'linear_trend'] = 'u'
-      df.loc[down_idx, 'linear_trend'] = 'd'
-
-      # drop intermediate columns
-      df.drop(['linear_direction', 'linear_position', 'linear_triggered', 'linear_day_count'], axis=1, inplace=True)
+    # moved to calculate_ta_signal
 
     # =========================================================================
 
@@ -488,8 +484,8 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
 
   return df
 
-# calculate ta signal
-def calculate_ta_signal(df):
+# calculate ta signal (old version)
+def calculate_ta_signal_old(df):
   """
   Calculate signals from ta features
 
@@ -624,95 +620,94 @@ def calculate_ta_signal(df):
 
   return df
 
-# calculate certain selected ta indicators
-def calculate_ta_data(df, symbol, interval, trend_indicators=['ichimoku', 'aroon', 'adx', 'psar', 'renko', 'linear'], volume_indicators=[], volatility_indicators=['bb'], other_indicators=[], signal_threshold=0.001):
+# calculate ta signal
+def calculate_ta_signal(df):
   """
-  Calculate selected ta features for dataframe
+  Calculate signals from ta features
 
-  :param df: original dataframe with hlocv features
-  :param symbol: symbol of the data
-  :param interval: interval of the data
-  :param trend_indicators: trend indicators
-  :param volumn_indicators: volume indicators
-  :param volatility_indicators: volatility indicators
-  :param other_indicators: other indicators
-  :param signal_threshold: threshold for kama/ichimoku trigerment
-  :returns: dataframe with ta features, derivatives, signals
+  :param df: dataframe with ta features and derived features for calculating signals
+  :raturns: dataframe with signal
   :raises: None
   """
-  # copy dataframe
-  df = df.copy()
-  if df is None or len(df) == 0:
-    print(f'{symbol}: No data for calculate_ta_data')
-    return None   
-  
-  try:
-    # preprocess sec_data
-    phase = 'preprocess_sec_data'
-    df = preprocess_sec_data(df=df, symbol=symbol, interval=interval)
-    
-    # calculate TA indicators
-    phase = 'cal_ta_indicators' 
-    all_indicators = []
-    all_indicators += [x for x in trend_indicators if x not in all_indicators]
-    all_indicators += [x for x in volume_indicators if x not in all_indicators]
-    all_indicators += [x for x in volatility_indicators if x not in all_indicators]
-    all_indicators += [x for x in other_indicators if x not in all_indicators]
-
-    indicator = None
-    for indicator in all_indicators:
-      to_eval = f'add_{indicator}_features(df=df)'
-      df = eval(to_eval)
-
-    # calculate TA derivatives
-    phase = 'cal_ta_derivatives'
-    df = calculate_ta_trend(df=df, trend_indicators=trend_indicators, volume_indicators=volume_indicators, volatility_indicators=volatility_indicators, other_indicators=other_indicators, signal_threshold=signal_threshold)
-
-    # calculate TA final signal
-    phase = 'cal_ta_signals'
-    df = calculate_ta_signal(df=df)
-
-    # TA analysis
-    phase = 'analyze_ta_data'
-    df = analyze_ta_data(df=df)
-
-    # TA description
-    phase = 'describe_ta_data'
-    df = describe_ta_data(df=df)
-
-  except Exception as e:
-    print(symbol, phase, indicator, e)
-
-  return df
-
-# visualize ta indicators
-def visualize_ta_data(df, start=None, end=None, title=None, save_path=None, visualization_args={}):
-  """
-  visualize ta data
-  :param df: dataframe with ta indicators
-  :param start: start date to draw
-  :param end: end date to draw
-  :param title: title of the plot
-  :param save_path: to where the plot will be saved
-  :param visualization_args: arguments for plotting
-  :returns: None
-  :raises: Exception
-  """
   if len(df) == 0:
-    print(f'No data for visualize_ta_data')
+    print(f'No data for calculate_ta_signal')
     return None
 
-  try:
-    # visualize 
-    phase = 'visualization'
-    is_show = visualization_args.get('show_image')
-    is_save = visualization_args.get('save_image')
-    plot_args = visualization_args.get('plot_args')
-    plot_multiple_indicators(
-      df=df, title=title, args=plot_args,  start=start, end=end,
-      show_image=is_show, save_image=is_save, save_path=save_path)
-  except Exception as e:
-    print(phase, e)
+  # copy data, initialize
+  df = df.copy()
+  df['trend'] = ''
+
+  # ================================ linear trend ===========================
+  df = add_linear_features(df=df)
+
+  # direction means the slope of linear fit of (High/Low)
+  df['linear_direction'] = ''
+  up_idx = df.query('linear_fit_high_slope > 0 and linear_fit_low_slope > 0').index
+  down_idx = df.query('linear_fit_high_slope < 0 and linear_fit_low_slope < 0').index
+  uncertain_idx = df.query('(linear_fit_high_slope > 0 and linear_fit_low_slope < 0) or (linear_fit_high_slope < 0 and linear_fit_low_slope > 0)').index
+  df.loc[up_idx, 'linear_direction'] = 'u'
+  df.loc[down_idx, 'linear_direction'] = 'd'
+  df.loc[uncertain_idx, 'linear_direction'] = 'n'
+
+  # the corresponding position of Close to linear_fit_high and linear_fit_low
+  df['linear_position'] = ''
+  among_idx = df.query('Close <= linear_fit_high and Close >= linear_fit_low').index
+  above_idx = df.query('Close > linear_fit_high').index
+  below_idx = df.query('Close < linear_fit_low').index
+  df.loc[among_idx, 'linear_position'] = 'n'
+  df.loc[above_idx, 'linear_position'] = 'u'
+  df.loc[below_idx, 'linear_position'] = 'd'
+
+  # number of days the Close triggered position change
+  df['linear_triggered'] = sda(series=df['linear_position'].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=None)
+
+  # calculate trend
+  df['linear_trend'] = df['linear_direction']
+  up_idx = df.query('(linear_direction=="u" and linear_position!="d") or (linear_direction=="d" and linear_position=="u" and linear_triggered<=5 and linear_day_count>=5)').index
+  down_idx = df.query('(linear_direction=="d" and linear_position!="u") or (linear_direction=="u" and linear_position=="d" and linear_triggered<=5 and linear_day_count>=5)').index
+  df.loc[up_idx, 'linear_trend'] = 'u'
+  df.loc[down_idx, 'linear_trend'] = 'd'
+
+  # calculate support and resistant from linear_fit and candle_gap
+  max_idx = df.index.max()
+  linear_fit_support = df.loc[max_idx, 'linear_fit_support']
+  linear_fit_resistant = df.loc[max_idx, 'linear_fit_resistant']
+  # candle_gap_support = df.loc[max_idx, 'candle_gap_support']
+  # candle_gap_resistant = df.loc[max_idx, 'candle_gap_resistant']
+
+  valid_idxs = df.query('linear_slope == linear_slope').index
+
+  # support
+  support = linear_fit_support
+  # if np.isnan(support):
+  #   support = candle_gap_support
+  # if not np.isnan(candle_gap_support) and not np.isnan(linear_fit_support):
+  #   support = max(linear_fit_support, candle_gap_support)
+  df.loc[valid_idxs, 'support'] = support
+
+  # resistant
+  resistant = linear_fit_resistant
+  # if np.isnan(resistant):
+  #   resistant = candle_gap_resistant
+  # if not np.isnan(candle_gap_resistant) and not np.isnan(linear_fit_resistant):
+  #   resistant = min(linear_fit_resistant, candle_gap_resistant)
+  df.loc[valid_idxs, 'resistant'] = resistant
+
+  # drop redundant columns
+  df.drop(['linear_direction', 'linear_position', 'linear_triggered', 'linear_day_count'], axis=1, inplace=True)
+
+  # ================================ Calculate overall siganl ======================
+  df['signal'] = '' 
+  buy_idx = df.query('(tankan > kijun) and (Close > resistant or (linear_slope > 0 and linear_fit_high_stop == 0) or ((linear_fit_low_stop > 3) and (Low > linear_fit_low)))').index
+  sell_idx = df.query('((tankan < kijun) and (Close < support or (linear_slope < 0 and linear_fit_low_stop == 0))) or ((linear_fit_high_stop > 3) and (High < linear_fit_high))').index
+  
+  if max_idx in buy_idx:
+    df.loc[max_idx, 'signal'] = 'b'
+  
+  if max_idx in sell_idx:
+    df.loc[max_idx, 'signal'] = 's'
+  
+  return df
 
 # analyze ta_data
 def analyze_ta_data(df):
@@ -722,8 +717,6 @@ def analyze_ta_data(df):
   :returns: dataframe with analysis columns (resistant, support and several signal columns)
   :raises: None
   """
-
-  
 
   # crossover signals between Close and linear_fit_high/linear_fit_low, support/resistant
   for col in ['linear_fit_high', 'linear_fit_low', 'support', 'resistant']:
@@ -885,6 +878,106 @@ def describe_ta_data(df):
   df.loc[max_idx, 'description'] = description
 
   return df
+
+# calculate ta derivatives
+def calculate_ta_derivatives(df):
+  
+  # copy dataframe
+  df = df.copy()
+  if df is None or len(df) == 0:
+    print(f'No data for calculate_ta_derivatives')
+    return None  
+
+  try:
+    # calculate TA final signal
+    phase = 'cal_ta_signals'
+    df = calculate_ta_signal(df=df)
+
+    # TA analysis
+    phase = 'analyze_ta_data'
+    df = analyze_ta_data(df=df)
+
+    # TA description
+    phase = 'describe_ta_data'
+    df = describe_ta_data(df=df)
+  
+  except Exception as e:
+    print(phase, e)
+
+  return df
+
+# calculate certain selected ta indicators
+def calculate_ta_data(df, symbol, interval, trend_indicators=['ichimoku', 'aroon', 'adx', 'psar', 'renko'], volume_indicators=[], volatility_indicators=['bb'], other_indicators=[], signal_threshold=0.001):
+  """
+  Calculate selected ta features for dataframe
+
+  :param df: original dataframe with hlocv features
+  :param symbol: symbol of the data
+  :param interval: interval of the data
+  :param trend_indicators: trend indicators
+  :param volumn_indicators: volume indicators
+  :param volatility_indicators: volatility indicators
+  :param other_indicators: other indicators
+  :param signal_threshold: threshold for kama/ichimoku trigerment
+  :returns: dataframe with ta features, derivatives, signals
+  :raises: None
+  """
+  # copy dataframe
+  df = df.copy()
+  if df is None or len(df) == 0:
+    print(f'{symbol}: No data for calculate_ta_data')
+    return None   
+  
+  try:
+    # preprocess sec_data
+    phase = 'preprocess_sec_data'
+    df = preprocess_sec_data(df=df, symbol=symbol, interval=interval)
+    
+    # calculate TA indicators
+    phase = 'cal_ta_indicators' 
+    df = calculate_ta_indicators(df=df, trend_indicators=trend_indicators, volume_indicators=volume_indicators, volatility_indicators=volatility_indicators, other_indicators=other_indicators, signal_threshold=signal_threshold)
+
+    # calculate TA trend
+    phase = 'cal_ta_trend'
+    df = calculate_ta_trend(df=df, trend_indicators=trend_indicators, volume_indicators=volume_indicators, volatility_indicators=volatility_indicators, other_indicators=other_indicators, signal_threshold=signal_threshold)
+
+    # calculate TA derivatives
+    phase = 'cal_ta_derivatives'
+    df = calculate_ta_derivatives(df)
+
+  except Exception as e:
+    print(symbol, phase, e)
+
+  return df
+
+# visualize ta indicators
+def visualize_ta_data(df, start=None, end=None, title=None, save_path=None, visualization_args={}):
+  """
+  visualize ta data
+  :param df: dataframe with ta indicators
+  :param start: start date to draw
+  :param end: end date to draw
+  :param title: title of the plot
+  :param save_path: to where the plot will be saved
+  :param visualization_args: arguments for plotting
+  :returns: None
+  :raises: Exception
+  """
+  if len(df) == 0:
+    print(f'No data for visualize_ta_data')
+    return None
+
+  try:
+    # visualize 
+    phase = 'visualization'
+    is_show = visualization_args.get('show_image')
+    is_save = visualization_args.get('save_image')
+    plot_args = visualization_args.get('plot_args')
+    plot_multiple_indicators(
+      df=df, title=title, args=plot_args,  start=start, end=end,
+      show_image=is_show, save_image=is_save, save_path=save_path)
+  except Exception as e:
+    print(phase, e)
 
 # post-process calculation results
 def postprocess_ta_result(df, keep_columns, drop_columns):
