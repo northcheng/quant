@@ -217,6 +217,7 @@ def calculate_ta_indicators(df, trend_indicators, volume_indicators, volatility_
     return None   
   
   try:
+
     # calculate TA indicators
     phase = 'cal_ta_indicators' 
     all_indicators = []
@@ -906,7 +907,7 @@ def calculate_ta_derivatives(df):
 
   return df
 
-# calculate certain selected ta indicators
+# calculate ta indicators, trend and derivatives fpr latest data
 def calculate_ta_data(df, symbol, interval, trend_indicators=['ichimoku', 'aroon', 'adx', 'psar', 'renko'], volume_indicators=[], volatility_indicators=['bb'], other_indicators=[], signal_threshold=0.001):
   """
   Calculate selected ta features for dataframe
@@ -944,6 +945,65 @@ def calculate_ta_data(df, symbol, interval, trend_indicators=['ichimoku', 'aroon
     # calculate TA derivatives
     phase = 'cal_ta_derivatives'
     df = calculate_ta_derivatives(df)
+
+  except Exception as e:
+    print(symbol, phase, e)
+
+  return df
+
+# calculate ta indicators, trend and derivatives for historical data
+def calculate_ta_data_historical(df, symbol, interval, trend_indicators=['ichimoku', 'aroon', 'adx', 'psar', 'renko'], volume_indicators=[], volatility_indicators=['bb'], other_indicators=[], signal_threshold=0.001, his_start_date=None, his_end_date=None):
+  """
+  Calculate selected ta features for dataframe
+
+  :param df: original dataframe with hlocv features
+  :param symbol: symbol of the data
+  :param interval: interval of the data
+  :param trend_indicators: trend indicators
+  :param volumn_indicators: volume indicators
+  :param volatility_indicators: volatility indicators
+  :param other_indicators: other indicators
+  :param signal_threshold: threshold for kama/ichimoku trigerment
+  :returns: dataframe with ta features, derivatives, signals
+  :raises: None
+  """
+  # copy dataframe
+  df = df.copy()
+  if df is None or len(df) == 0:
+    print(f'{symbol}: No data for calculate_ta_data')
+    return None   
+  
+  try:
+    # preprocess sec_data
+    phase = 'preprocess_sec_data'
+    df = preprocess_sec_data(df=df, symbol=symbol, interval=interval)
+    
+    # calculate TA indicators
+    phase = 'cal_ta_indicators' 
+    df = calculate_ta_indicators(df=df, trend_indicators=trend_indicators, volume_indicators=volume_indicators, volatility_indicators=volatility_indicators, other_indicators=other_indicators, signal_threshold=signal_threshold)
+
+    # calculate TA trend
+    phase = 'cal_ta_trend'
+    df = calculate_ta_trend(df=df, trend_indicators=trend_indicators, volume_indicators=volume_indicators, volatility_indicators=volatility_indicators, other_indicators=other_indicators, signal_threshold=signal_threshold)
+
+    # calculate TA derivatives for historical data
+    phase = 'cal_ta_derivatives(historical)'
+    historical_ta_data = pd.DataFrame()
+    ed = his_start_date
+    while ed <= his_end_date:   
+
+      current_max_idx = df[:ed].index.max()
+      next_ed = util.string_plus_day(string=ed, diff_days=1)
+      next_max_idx = df[:next_ed].index.max()
+
+      if next_max_idx != current_max_idx:
+        ta_data = calculate_ta_derivatives(df=df[:ed])
+        historical_ta_data = historical_ta_data.append(ta_data.tail(1))
+      
+      ed = next_ed
+
+    historical_ta_data = ta_data.append(historical_ta_data)  
+    df = util.remove_duplicated_index(df=historical_ta_data, keep='last')
 
   except Exception as e:
     print(symbol, phase, e)
