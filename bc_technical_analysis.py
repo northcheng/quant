@@ -504,6 +504,32 @@ def calculate_ta_signal(df):
   # copy data, initialize
   df = df.copy()
   df['trend'] = ''
+
+
+  # calculate support and resistant from linear_fit and candle_gap
+  max_idx = df.index.max()
+  linear_fit_support = df.loc[max_idx, 'linear_fit_support']
+  linear_fit_resistant = df.loc[max_idx, 'linear_fit_resistant']
+  # candle_gap_support = df.loc[max_idx, 'candle_gap_support']
+  # candle_gap_resistant = df.loc[max_idx, 'candle_gap_resistant']
+
+  valid_idxs = df.query('linear_slope == linear_slope').index
+
+  # support
+  support = linear_fit_support
+  # if np.isnan(support):
+  #   support = candle_gap_support
+  # if not np.isnan(candle_gap_support) and not np.isnan(linear_fit_support):
+  #   support = max(linear_fit_support, candle_gap_support)
+  df.loc[valid_idxs, 'support'] = support
+
+  # resistant
+  resistant = linear_fit_resistant
+  # if np.isnan(resistant):
+  #   resistant = candle_gap_resistant
+  # if not np.isnan(candle_gap_resistant) and not np.isnan(linear_fit_resistant):
+  #   resistant = min(linear_fit_resistant, candle_gap_resistant)
+  df.loc[valid_idxs, 'resistant'] = resistant
   
   # ================================ buy and sell signals ==========================
   # buy conditions
@@ -568,11 +594,19 @@ def calculate_ta_signal(df):
   #   df.loc[start_idx:end_idx, 'trend'] = ''
 
   # ================================ Calculate overall siganl ======================
-  df['signal'] = '' 
   df['signal_day'] = sda(series=df['trend'].replace({'':0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
-  df.loc[df['signal_day'] == 1, 'signal'] = 'b'
-  df.loc[df['signal_day'] ==-1, 'signal'] = 's'
+  df['signal'] = '' 
+  # df.loc[df['signal_day'] == 1, 'signal'] = 'b'
+  # df.loc[df['signal_day'] ==-1, 'signal'] = 's'
 
+  buy_idx = df.query('(tankan > kijun) and (Close > resistant or (linear_slope > 0 and linear_fit_high_stop == 0) or (linear_fit_low_stop > 3))').index
+  sell_idx = df.query('((tankan < kijun) and (Close < support or (linear_slope < 0 and linear_fit_low_stop == 0))) or (linear_fit_high_stop > 3)').index
+  
+  if max_idx in buy_idx:
+    df.loc[max_idx, 'signal'] = 'b'
+  
+  if max_idx in sell_idx:
+    df.loc[max_idx, 'signal'] = 's'
   
 
   # # due to the uncertainty of renko signal, broadcast the most recent signal
@@ -689,28 +723,7 @@ def analyze_ta_data(df):
   :raises: None
   """
 
-  # calculate support and resistant from linear_fit and candle_gap
-  max_idx = df.index.max()
-  linear_fit_support = df.loc[max_idx, 'linear_fit_support']
-  linear_fit_resistant = df.loc[max_idx, 'linear_fit_resistant']
-  candle_gap_support = df.loc[max_idx, 'candle_gap_support']
-  candle_gap_resistant = df.loc[max_idx, 'candle_gap_resistant']
-
-  # support
-  support = linear_fit_support
-  if np.isnan(support):
-    support = candle_gap_support
-  if not np.isnan(candle_gap_support) and not np.isnan(linear_fit_support):
-    support = max(linear_fit_support, candle_gap_support)
-  df['support'] = support
-
-  # resistant
-  resistant = linear_fit_resistant
-  if np.isnan(resistant):
-    resistant = candle_gap_resistant
-  if not np.isnan(candle_gap_resistant) and not np.isnan(linear_fit_resistant):
-    resistant = min(linear_fit_resistant, candle_gap_resistant)
-  df['resistant'] = resistant
+  
 
   # crossover signals between Close and linear_fit_high/linear_fit_low, support/resistant
   for col in ['linear_fit_high', 'linear_fit_low', 'support', 'resistant']:
