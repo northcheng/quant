@@ -486,7 +486,7 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
   return df
 
 # calculate ta signal (old version)
-def calculate_ta_signal_old(df):
+def calculate_ta_signal_v0(df):
   """
   Calculate signals from ta features
 
@@ -501,32 +501,6 @@ def calculate_ta_signal_old(df):
   # copy data, initialize
   df = df.copy()
   df['trend'] = ''
-
-
-  # calculate support and resistant from linear_fit and candle_gap
-  max_idx = df.index.max()
-  linear_fit_support = df.loc[max_idx, 'linear_fit_support']
-  linear_fit_resistant = df.loc[max_idx, 'linear_fit_resistant']
-  # candle_gap_support = df.loc[max_idx, 'candle_gap_support']
-  # candle_gap_resistant = df.loc[max_idx, 'candle_gap_resistant']
-
-  valid_idxs = df.query('linear_slope == linear_slope').index
-
-  # support
-  support = linear_fit_support
-  # if np.isnan(support):
-  #   support = candle_gap_support
-  # if not np.isnan(candle_gap_support) and not np.isnan(linear_fit_support):
-  #   support = max(linear_fit_support, candle_gap_support)
-  df.loc[valid_idxs, 'support'] = support
-
-  # resistant
-  resistant = linear_fit_resistant
-  # if np.isnan(resistant):
-  #   resistant = candle_gap_resistant
-  # if not np.isnan(candle_gap_resistant) and not np.isnan(linear_fit_resistant):
-  #   resistant = min(linear_fit_resistant, candle_gap_resistant)
-  df.loc[valid_idxs, 'resistant'] = resistant
   
   # ================================ buy and sell signals ==========================
   # buy conditions
@@ -593,17 +567,17 @@ def calculate_ta_signal_old(df):
   # ================================ Calculate overall siganl ======================
   df['signal_day'] = sda(series=df['trend'].replace({'':0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
   df['signal'] = '' 
-  # df.loc[df['signal_day'] == 1, 'signal'] = 'b'
-  # df.loc[df['signal_day'] ==-1, 'signal'] = 's'
+  df.loc[df['signal_day'] == 1, 'signal'] = 'b'
+  df.loc[df['signal_day'] ==-1, 'signal'] = 's'
 
-  buy_idx = df.query('(tankan > kijun) and (Close > resistant or (linear_slope > 0 and linear_fit_high_stop == 0) or (linear_fit_low_stop > 3))').index
-  sell_idx = df.query('((tankan < kijun) and (Close < support or (linear_slope < 0 and linear_fit_low_stop == 0))) or (linear_fit_high_stop > 3)').index
+  # buy_idx = df.query('(tankan > kijun) and (Close > resistant or (linear_slope > 0 and linear_fit_high_stop == 0) or (linear_fit_low_stop > 3))').index
+  # sell_idx = df.query('((tankan < kijun) and (Close < support or (linear_slope < 0 and linear_fit_low_stop == 0))) or (linear_fit_high_stop > 3)').index
   
-  if max_idx in buy_idx:
-    df.loc[max_idx, 'signal'] = 'b'
+  # if max_idx in buy_idx:
+  #   df.loc[max_idx, 'signal'] = 'b'
   
-  if max_idx in sell_idx:
-    df.loc[max_idx, 'signal'] = 's'
+  # if max_idx in sell_idx:
+  #   df.loc[max_idx, 'signal'] = 's'
   
 
   # # due to the uncertainty of renko signal, broadcast the most recent signal
@@ -636,77 +610,47 @@ def calculate_ta_signal(df):
 
   # copy data, initialize
   df = df.copy()
+
+  # ================================ buy and sell signals ==========================
   df['trend'] = ''
 
-  # ================================ linear trend ===========================
-  df = add_linear_features(df=df)
+  # buy conditions
+  buy_conditions = {
+    # # stable version
+    # 'ichimoku/aroon/adx/psar are all up trending': '(trend_idx == 4)',
+    # 'renko is up trending': '(renko_trend == "u")',
+    # 'bb is not over-buying': '(bb_trend != "d")',
 
-  # direction means the slope of linear fit of (High/Low)
-  df['linear_direction'] = ''
-  up_idx = df.query('linear_fit_high_slope > 0 and linear_fit_low_slope > 0').index
-  down_idx = df.query('linear_fit_high_slope < 0 and linear_fit_low_slope < 0').index
-  uncertain_idx = df.query('(linear_fit_high_slope > 0 and linear_fit_low_slope < 0) or (linear_fit_high_slope < 0 and linear_fit_low_slope > 0)').index
-  df.loc[up_idx, 'linear_direction'] = 'u'
-  df.loc[down_idx, 'linear_direction'] = 'd'
-  df.loc[uncertain_idx, 'linear_direction'] = 'n'
+    # developing version
+    'ichimoku/aroon/adx/psar are all up trending': '((trend_idx == 4))',
+    'renko is up trending': '(renko_trend == "u" and (renko_duration<=150 or (below_renko_l > 0 and Close > renko_h)))',
+    'bb is not over-buying': '(bb_trend != "d")',
+  }
+  up_idx = df.query(' and '.join(buy_conditions.values())).index 
+  df.loc[up_idx, 'trend'] = 'u'
 
-  # the corresponding position of Close to linear_fit_high and linear_fit_low
-  df['linear_position'] = ''
-  among_idx = df.query('Close <= linear_fit_high and Close >= linear_fit_low').index
-  above_idx = df.query('Close > linear_fit_high').index
-  below_idx = df.query('Close < linear_fit_low').index
-  df.loc[among_idx, 'linear_position'] = 'n'
-  df.loc[above_idx, 'linear_position'] = 'u'
-  df.loc[below_idx, 'linear_position'] = 'd'
-
-  # number of days the Close triggered position change
-  df['linear_triggered'] = sda(series=df['linear_position'].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=None)
-
-  # calculate trend
-  df['linear_trend'] = df['linear_direction']
-  up_idx = df.query('(linear_direction=="u" and linear_position!="d") or (linear_direction=="d" and linear_position=="u" and linear_triggered<=5 and linear_day_count>=5)').index
-  down_idx = df.query('(linear_direction=="d" and linear_position!="u") or (linear_direction=="u" and linear_position=="d" and linear_triggered<=5 and linear_day_count>=5)').index
-  df.loc[up_idx, 'linear_trend'] = 'u'
-  df.loc[down_idx, 'linear_trend'] = 'd'
-
-  # calculate support and resistant from linear_fit and candle_gap
-  max_idx = df.index.max()
-  linear_fit_support = df.loc[max_idx, 'linear_fit_support']
-  linear_fit_resistant = df.loc[max_idx, 'linear_fit_resistant']
-  # candle_gap_support = df.loc[max_idx, 'candle_gap_support']
-  # candle_gap_resistant = df.loc[max_idx, 'candle_gap_resistant']
-
-  valid_idxs = df.query('linear_slope == linear_slope').index
-
-  # support
-  support = linear_fit_support
-  # if np.isnan(support):
-  #   support = candle_gap_support
-  # if not np.isnan(candle_gap_support) and not np.isnan(linear_fit_support):
-  #   support = max(linear_fit_support, candle_gap_support)
-  df.loc[valid_idxs, 'support'] = support
-
-  # resistant
-  resistant = linear_fit_resistant
-  # if np.isnan(resistant):
-  #   resistant = candle_gap_resistant
-  # if not np.isnan(candle_gap_resistant) and not np.isnan(linear_fit_resistant):
-  #   resistant = min(linear_fit_resistant, candle_gap_resistant)
-  df.loc[valid_idxs, 'resistant'] = resistant
-
-  # drop redundant columns
-  df.drop(['linear_direction', 'linear_position', 'linear_triggered', 'linear_day_count'], axis=1, inplace=True)
+  # sell conditions
+  sell_conditions = {
+    # # stable version
+    # 'High is below kijun line': '(High < kijun)',
+    # 'no individual trend is up and overall trend is down': '(trend_idx < -1 and up_trend_idx == 0)',
+    # 'price went down through brick': '(renko_trend == "d")', 
+    # 'bb is not over-selling': '(bb_trend != "u")',
+    
+    # developing version
+    'High is below kijun line': '(High < kijun)',
+    'no individual trend is up and overall trend is down': '(trend_idx < -1 and up_trend_idx == 0)',
+    'price went down through brick': '(renko_trend == "d")', 
+    'bb is not over-selling': '(bb_trend != "u" or (Close < renko_l and renko_duration >= 150))',
+  } 
+  down_idx = df.query(' and '.join(sell_conditions.values())).index 
+  df.loc[down_idx, 'trend'] = 'd'
 
   # ================================ Calculate overall siganl ======================
+  df['signal_day'] = sda(series=df['trend'].replace({'':0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
   df['signal'] = '' 
-  buy_idx = df.query('(tankan > kijun) and (Close > resistant or (linear_slope > 0 and linear_fit_high_stop == 0) or ((linear_fit_low_stop > 3) and (Low > linear_fit_low)))').index
-  sell_idx = df.query('((tankan < kijun) and (Close < support or (linear_slope < 0 and linear_fit_low_stop == 0))) or ((linear_fit_high_stop > 3) and (High < linear_fit_high))').index
-  
-  if max_idx in buy_idx:
-    df.loc[max_idx, 'signal'] = 'b'
-  
-  if max_idx in sell_idx:
-    df.loc[max_idx, 'signal'] = 's'
+  df.loc[df['signal_day'] == 1, 'signal'] = 'b'
+  df.loc[df['signal_day'] ==-1, 'signal'] = 's'
   
   return df
 
@@ -718,6 +662,34 @@ def analyze_ta_data(df):
   :returns: dataframe with analysis columns (resistant, support and several signal columns)
   :raises: None
   """
+
+  # ================================ linear trend ===========================
+  df = add_linear_features(df=df)
+
+  max_idx = df.index.max()
+  valid_idxs = df.query('linear_slope == linear_slope').index
+
+  # calculate support and resistant from linear_fit and candle_gap
+  linear_fit_support = df.loc[max_idx, 'linear_fit_support']
+  linear_fit_resistant = df.loc[max_idx, 'linear_fit_resistant']
+  candle_gap_support = df.loc[max_idx, 'candle_gap_support']
+  candle_gap_resistant = df.loc[max_idx, 'candle_gap_resistant']
+
+  # support
+  support = linear_fit_support
+  if np.isnan(support):
+    support = candle_gap_support
+  if not np.isnan(candle_gap_support) and not np.isnan(linear_fit_support):
+    support = max(linear_fit_support, candle_gap_support)
+  df.loc[valid_idxs, 'support'] = support
+
+  # resistant
+  resistant = linear_fit_resistant
+  if np.isnan(resistant):
+    resistant = candle_gap_resistant
+  if not np.isnan(candle_gap_resistant) and not np.isnan(linear_fit_resistant):
+    resistant = min(linear_fit_resistant, candle_gap_resistant)
+  df.loc[valid_idxs, 'resistant'] = resistant
 
   # crossover signals between Close and linear_fit_high/linear_fit_low, support/resistant
   for col in ['linear_fit_high', 'linear_fit_low', 'support', 'resistant']:
@@ -733,6 +705,16 @@ def analyze_ta_data(df):
       df[signal_col] = sda(series=df[signal_col], zero_as=1)
     else:
       print(f'{signal_col} not in df.columns')
+
+  df['linear_trend'] = '' 
+  up_idx = df.query('(tankan > kijun) and (Close > resistant or (linear_slope > 0 and linear_fit_high_stop == 0) or ((linear_fit_low_stop > 3) and (Low > linear_fit_low)))').index
+  down_idx = df.query('((tankan < kijun) and (Close < support or (linear_slope < 0 and linear_fit_low_stop == 0))) or ((linear_fit_high_stop > 5) and (High < linear_fit_high))').index
+  df.loc[up_idx, 'linear_trend'] = 'u'
+  df.loc[down_idx, 'linear_trend'] = 'd'
+
+  df['linear_signal'] = df['linear_trend'].replace({'d': 's', 'u': 'b', 'n': ''})
+
+  df = describe_ta_data(df=df)
 
   return df
 
@@ -890,17 +872,13 @@ def calculate_ta_derivatives(df):
     return None  
 
   try:
-    # calculate TA final signal
-    phase = 'cal_ta_signals'
-    df = calculate_ta_signal(df=df)
-
     # TA analysis
     phase = 'analyze_ta_data'
     df = analyze_ta_data(df=df)
 
-    # TA description
-    phase = 'describe_ta_data'
-    df = describe_ta_data(df=df)
+    # calculate TA final signal
+    phase = 'cal_ta_signals'
+    df = calculate_ta_signal(df=df)
   
   except Exception as e:
     print(phase, e)
@@ -991,12 +969,13 @@ def calculate_ta_data_historical(df, symbol, interval, trend_indicators=['ichimo
     historical_ta_data = pd.DataFrame()
     ed = his_start_date
     while ed <= his_end_date:   
-
+      
       current_max_idx = df[:ed].index.max()
       next_ed = util.string_plus_day(string=ed, diff_days=1)
       next_max_idx = df[:next_ed].index.max()
 
       if next_max_idx != current_max_idx:
+        # print(ed)
         ta_data = calculate_ta_derivatives(df=df[:ed])
         historical_ta_data = historical_ta_data.append(ta_data.tail(1))
       
@@ -1973,6 +1952,29 @@ def add_linear_features(df, max_period=60, min_period=15, is_print=False):
   
   # overall slope of High and Low
   df['linear_slope']  = df['linear_fit_high_slope'] + df['linear_fit_low_slope']
+
+  # direction means the slopes of linear fit High/Low
+  df['linear_direction'] = ''
+  up_idx = df.query('linear_fit_high_slope > 0 and linear_fit_low_slope > 0').index
+  down_idx = df.query('linear_fit_high_slope < 0 and linear_fit_low_slope < 0').index
+  uncertain_idx = df.query('(linear_fit_high_slope > 0 and linear_fit_low_slope < 0) or (linear_fit_high_slope < 0 and linear_fit_low_slope > 0)').index
+  df.loc[up_idx, 'linear_direction'] = 'u'
+  df.loc[down_idx, 'linear_direction'] = 'd'
+  df.loc[uncertain_idx, 'linear_direction'] = 'n'
+
+  # the corresponding position of Close to linear_fit_high and linear_fit_low
+  df['linear_position'] = ''
+  among_idx = df.query('Close <= linear_fit_high and Close >= linear_fit_low').index
+  above_idx = df.query('Close > linear_fit_high').index
+  below_idx = df.query('Close < linear_fit_low').index
+  df.loc[among_idx, 'linear_position'] = 'n'
+  df.loc[above_idx, 'linear_position'] = 'u'
+  df.loc[below_idx, 'linear_position'] = 'd'
+
+  # number of days the Close triggered position change
+  df['linear_triggered'] = sda(series=df['linear_position'].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=None)
+  # # drop redundant columns
+  # df.drop(['linear_direction', 'linear_position', 'linear_triggered', 'linear_day_count'], axis=1, inplace=True)
 
   return df
  
@@ -3919,8 +3921,8 @@ def plot_signal(
   # plot signals
   if signal_col in df.columns:
     
-    signal_alpha = 1 if signal_col == 'signal' else 0.3
-    trend_alpha = 0.25 if signal_col == 'signal' else 0.15
+    signal_alpha = 1 if signal_col in ['signal', 'linear_signal'] else 0.3
+    trend_alpha = 0.25 if signal_col in ['signal', 'linear_signal'] else 0.15
     positive_signal = df.query(f'{signal_col} == "{pos_signal}"')
     negative_signal = df.query(f'{signal_col} == "{neg_signal}"')
     wave_signal = df.query(f'{signal_col} == "{wave_signal}"')
