@@ -707,8 +707,8 @@ def analyze_ta_data(df):
       print(f'{signal_col} not in df.columns')
 
   df['linear_trend'] = '' 
-  up_idx = df.query('(tankan > kijun) and (Close > resistant or (linear_slope > 0 and linear_fit_high_stop == 0) or ((linear_fit_low_stop > 3) and (Low > linear_fit_low)))').index
-  down_idx = df.query('((tankan < kijun) and (Close < support or (linear_slope < 0 and linear_fit_low_stop == 0))) or ((linear_fit_high_stop > 5) and (High < linear_fit_high))').index
+  up_idx = df.query('(tankan > kijun) and (Low > resistant or (linear_slope > 0 and linear_fit_high_stop == 0) or ((linear_fit_low_stop > 3) and (Low > linear_fit_low)))').index
+  down_idx = df.query('((tankan < kijun) and (High < support or (linear_slope < 0 and linear_fit_low_stop == 0))) or ((linear_fit_high_stop > 5) and (High < linear_fit_high))').index
   df.loc[up_idx, 'linear_trend'] = 'u'
   df.loc[down_idx, 'linear_trend'] = 'd'
 
@@ -1880,6 +1880,7 @@ def add_linear_features(df, max_period=60, min_period=15, is_print=False):
     high_linear = linregress(high['x'], high['y'])
     high_range = round((max(high['y']) + min(high['y']))/2, 3)
     slope_score = round(abs(high_linear[0])/high_range, 5)
+    print(slope_score)
     if slope_score < 0.001:
       high_linear = (0, highest_high, 0, 0)
 
@@ -1939,11 +1940,11 @@ def add_linear_features(df, max_period=60, min_period=15, is_print=False):
       df.loc[idx, 'linear_fit_low'] = lowest_low
 
   # high/low fit support and resistant
-  reach_top_idx = df.query(f'linear_fit_high == {highest_high}').index
+  reach_top_idx = df.query(f'linear_fit_high == {highest_high} and linear_fit_high_slope > 0').index
   df.loc[reach_top_idx, 'linear_fit_high_stop'] = 1
   df.loc[reach_top_idx, 'linear_fit_resistant'] = highest_high
 
-  reach_bottom_idx = df.query(f'linear_fit_low == {lowest_low}').index
+  reach_bottom_idx = df.query(f'linear_fit_low == {lowest_low} and linear_fit_low_slope < 0').index
   df.loc[reach_bottom_idx, 'linear_fit_low_stop'] = 1
   df.loc[reach_bottom_idx, 'linear_fit_support'] = lowest_low
 
