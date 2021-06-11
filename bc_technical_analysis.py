@@ -1880,7 +1880,6 @@ def add_linear_features(df, max_period=60, min_period=15, is_print=False):
     high_linear = linregress(high['x'], high['y'])
     high_range = round((max(high['y']) + min(high['y']))/2, 3)
     slope_score = round(abs(high_linear[0])/high_range, 5)
-    print(slope_score)
     if slope_score < 0.001:
       high_linear = (0, highest_high, 0, 0)
 
