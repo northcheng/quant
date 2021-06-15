@@ -16,10 +16,11 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 from PIL import Image
 
-
+# default arguments
+default_date_format = '%Y-%m-%d'
 
 #----------------------- Date manipulation -----------------------#
-def string_2_time(string, diff_days=0, date_format='%Y-%m-%d'):
+def string_2_time(string, diff_days=0, date_format=default_date_format):
   """
   Convert a date from string to datetime
 
@@ -35,7 +36,7 @@ def string_2_time(string, diff_days=0, date_format='%Y-%m-%d'):
   return time_object
  
 
-def time_2_string(time_object, diff_days=0, date_format='%Y-%m-%d'):
+def time_2_string(time_object, diff_days=0, date_format=default_date_format):
   """
   Convert datetime instance to date string, with plus/minus certain days
 
@@ -76,7 +77,7 @@ def timestamp_2_time(timestamp, unit='ms', timezone='CN'):
   return time_object
 
 
-def string_plus_day(string, diff_days, date_format='%Y-%m-%d'):
+def string_plus_day(string, diff_days, date_format=default_date_format):
   """
   Add or reduce days on a date string
 
@@ -92,7 +93,7 @@ def string_plus_day(string, diff_days, date_format='%Y-%m-%d'):
   return time_string    
 
 
-def num_days_between(start_date, end_date, date_format='%Y-%m-%d'):
+def num_days_between(start_date, end_date, date_format=default_date_format):
   """
   Calculate the number of days between 2 date strings
 
@@ -234,7 +235,7 @@ def sleep_until(target_time, description=None, check_frequency=3600):
 #----------------------- Image manipulation ----------------------#
 def concate_image(image_list, adjust_size=False, save_name=None, remove_old_image=True):
   """
-  Concate images in the image list, save to save_name
+  Concate images in the image list, save to a image named <save_name>
 
   :param image_list: list of absolute path of images
   :param adjust_size: adjust images to the same size of the first image
@@ -276,7 +277,7 @@ def concate_image(image_list, adjust_size=False, save_name=None, remove_old_imag
     result.save(save_name)
   else:
     print(f'{save_name}: No image to concate')
-  
+
 
 def image_2_pdf(image_list, save_name=None, remove_old_pdf=True):
   """
@@ -307,7 +308,7 @@ def image_2_pdf(image_list, save_name=None, remove_old_pdf=True):
     print('no images to convert to pdf')
 
 #----------------------- Script runner ---------------------------#
-def run_script(cmd, retry=1, timeout=600):
+def run_script(cmd, retry=1, timeout=1800):
   
   # try to run non_visual script, if failed, retry(10 times)
   retry_count = 0
