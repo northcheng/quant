@@ -5,7 +5,7 @@ Utilities used for machine learning perpose
 :autohr: Beichen Chen
 """
 from quant import bc_util as util
-from tensorflow import keras
+# from tensorflow import keras
 import pandas as pd
 from sklearn import preprocessing
 from sklearn.utils import shuffle
@@ -39,6 +39,9 @@ def get_scaler(scale_method='StandardScaler'):
 
   elif scale_method == 'Normalizer':
     scaler = preprocessing.Normalizer()
+
+  elif scale_method == 'PowerTransformer':
+    scaler = preprocessing.PowerTransformer()
 
   else:
     print(scale_method, ' not found')

@@ -736,10 +736,11 @@ def describe_ta_data(df):
   conditions = {
 
     # 支撑/阻挡
+    'T/K': (row['tankan_kijun_signal'] != 0),
     '突破支撑': (row['support_signal'] < 0 and row['support_signal'] > -10) and (row['High'] < row['support']),
     '突破阻挡': (row['resistant_signal'] > 0 and row['resistant_signal'] < 10) and (row['resistant_signal'] < 5) and (row['Low'] > row['resistant']), 
     '触顶回落': (row['linear_fit_high_stop'] >= 2) and (row['Close'] < row['resistant']) and (row['Close'] < row['tankan']),
-    '触底反弹': (row['linear_fit_low_stop'] >= 2) and (row['Close'] > row['support']) and (row['Close'] > row['tankan']), 
+    '触底反弹': (row['tankan_kijun_signal'] > 0) and (row['linear_fit_low_stop'] >= 2) and (row['Close'] > row['support']) and (row['Close'] > row['tankan']), 
     
     # 趋势
     '强势': (row['linear_slope'] >= 0.1 and row['linear_fit_high_slope'] > 0 and row['linear_fit_low_slope'] > 0) or (row['linear_slope'] <= -0.1 and row['linear_fit_high_slope'] < 0 and row['linear_fit_low_slope'] < 0),
@@ -747,9 +748,9 @@ def describe_ta_data(df):
     '上涨': (row['linear_fit_high_slope'] > 0 and row['linear_fit_low_slope'] > 0),
     '下跌': (row['linear_fit_high_slope'] < 0 and row['linear_fit_low_slope'] < 0),
     '波动': (row['linear_fit_high_slope'] * row['linear_fit_low_slope']) < 0,
-    '趋势之中': (row['linear_fit_high'] >= row['Close']) and (row['linear_fit_low'] <= row['Close']),
-    '趋势之上': (row['linear_fit_high'] < row['Close']) and (row['linear_fit_low'] < row['Close']),
-    '趋势之下': (row['linear_fit_high'] > row['Close']) and (row['linear_fit_low'] > row['Close']),
+    '轨道之中': (row['linear_fit_high'] >= row['Close']) and (row['linear_fit_low'] <= row['Close']),
+    '轨道上方': (row['linear_fit_high'] < row['Close']) and (row['linear_fit_low'] < row['Close']),
+    '轨道下方': (row['linear_fit_high'] > row['Close']) and (row['linear_fit_low'] > row['Close']),
 
     # 技术指标
     '上穿快线': (row['tankan_signal'] > 0 and row['tankan_signal'] < period_threhold),
@@ -782,11 +783,11 @@ def describe_ta_data(df):
     classification.append('hitpeak')
 
   # 上升趋势中
-  if conditions['上涨'] and conditions['强势'] and (conditions['趋势之中'] or conditions['趋势之上']) and ('hitpeak' not in classification and 'up_x_resistant' not in classification):
+  if conditions['上涨'] and conditions['强势'] and (conditions['轨道之中'] or conditions['轨道上方']) and ('hitpeak' not in classification and 'up_x_resistant' not in classification):
     classification.append('uptrending')
 
   # 下降趋势中
-  if conditions['下跌'] and conditions['强势'] and (conditions['趋势之中'] or conditions['趋势之下']) and ('rebound' not in classification and 'down_x_support' not in classification):
+  if conditions['下跌'] and conditions['强势'] and (conditions['轨道之中'] or conditions['轨道下方']) and ('rebound' not in classification and 'down_x_support' not in classification):
     classification.append('downtrending')
 
   # 波动中
@@ -813,33 +814,30 @@ def describe_ta_data(df):
     e = None
     addition = ''
 
+    # if condition not triggered, continue
     if not conditions[k]:
       continue
-
-    if k == '上穿快线':
+    
+    # add addition info for conditions
+    if k in ['T/K']:
+      addition = f'({row["tankan_kijun_signal"]})'
+    elif k in ['上穿快线', '下穿快线']:
       addition = f'({row["tankan_signal"]})'
-    elif k == '上穿慢线':
+    elif k in ['上穿慢线', '下穿慢线']:
       addition = f'({row["kijun_signal"]})'
-    elif k == '上穿顶部':
+    elif k in ['上穿顶部', '下穿顶部']:
       addition = f'({row["linear_fit_high_signal"]})'
-    elif k == '上穿底部':
-      addition = f'({row["linear_fit_low_signal"]})'
-    elif k == '下穿快线':
-      addition = f'({row["tankan_signal"]})'
-    elif k == '下穿慢线':
-      addition = f'({row["kijun_signal"]})'
-    elif k == '下穿顶部':
-      addition = f'({row["linear_fit_high_signal"]})'
-    elif k == '下穿底部':
+    elif k in ['上穿底部', '下穿底部']:
       addition = f'({row["linear_fit_low_signal"]})'
 
+    # add segment for conditions
     if k in ['强势', '弱势', '上涨', '下跌', '波动']:
       segment_s = ''
       
-    if k in ['趋势之中', '趋势之上', '趋势之下']:
+    if k in ['轨道之中', '轨道上方', '轨道下方']:
       segment_e = ', '
       
-    if k in ['突破支撑', '突破阻挡', '触顶回落', '触底反弹']:
+    if k in ['突破支撑', '突破阻挡', '触顶回落', '触底反弹', 'T/K']:
       segment_s = '['
       segment_e = '] '
       
@@ -2225,7 +2223,11 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
   if is_shift:
     df['senkou_a'] = df['senkou_a'].shift(n_medium)
     df['senkou_b'] = df['senkou_b'].shift(n_medium)
-  
+
+  # tankan-kijun signal
+  df['tankan_kijun_signal'] = cal_crossover_signal(df=df, fast_line='tankan', slow_line='kijun', pos_signal=1, neg_signal=-1, none_signal=0)
+  df['tankan_kijun_signal'] = sda(series=df['tankan_kijun_signal'], zero_as=1)
+
   if cal_status:
     # ================================ Cloud status ===================================
     # cloud color change, cloud height (how thick is the cloud)
@@ -4008,6 +4010,9 @@ def plot_candlestick(
     start = idx
     top_value = df.loc[start, 'candle_gap_top']
     bottom_value = df.loc[start, 'candle_gap_bottom']
+
+    gap_color = 'grey' # 'purple' if df.loc[start, 'candle_gap'] > 0 else 
+    gap_hatch = '/' if df.loc[start, 'candle_gap'] > 0 else '\\'
     
     # gap end
     end = None
@@ -4020,7 +4025,7 @@ def plot_candlestick(
     # shift gap-start 1 day earlier
     pre_start = idxs[idxs.index(start)-1]
     tmp_data = df[start:end]
-    ax.fill_between(df[pre_start:end].index, top_value, bottom_value, facecolor='purple', interpolate=True, alpha=0.4) #,  linewidth=2,
+    ax.fill_between(df[pre_start:end].index, top_value, bottom_value, facecolor=gap_color, interpolate=True, alpha=0.4, hatch=gap_hatch) #,  linewidth=2,
 
   # transform date to numbers
   df.reset_index(inplace=True)
@@ -4683,70 +4688,3 @@ def plot_multiple_indicators(
   plt.cla()
   plt.clf()
   plt.close(fig)
-
-# # plot signal index
-# def plot_signal_index(
-#   df, start=None, end=None, 
-#   signal_idx_col='prev_si_msum', pos_signal_idx_col='prev_psi_msum', neg_signal_idx_col='prev_nsi_msum', 
-#   use_ax=None, title=None, plot_args=default_plot_args):
-#   """
-#   Plot signals along with the price
-
-#   :param df: dataframe with price and signal columns
-#   :param start: start row to plot
-#   :param end: end row to stop
-#   :param signal_idx_col: columnname of the signal index
-#   :param pos_signal_idx_col: columnname of the positive signal index
-#   :param neg_signal_idx_col: columnname of the negative signal index
-#   :param use_ax: the already-created ax to draw on
-#   :param title: plot title
-#   :param plot_args: other plot arguments
-#   :returns: a signal plotted price chart
-#   :raises: none
-#   """
-#   # copy dataframe within the specific period
-#   df = df[start:end].copy()
-
-#   # create figure
-#   ax = use_ax
-#   if ax is None:
-#     fig = mpf.figure(figsize=plot_args['figsize'])
-#     ax = fig.add_subplot(1,1,1, style='yahoo')
-
-#   # plot signal indexes
-#   ax.plot(df.index, df[signal_idx_col], color='black', label=signal_idx_col, alpha=0.2)
-#   ax.plot(df.index, df[pos_signal_idx_col], color='green', label=pos_signal_idx_col, alpha=0)
-#   ax.plot(df.index, df[neg_signal_idx_col], color='red', label=neg_signal_idx_col, alpha=0)
-
-#   # fill between lines
-#   ax.fill_between(df.index, df[signal_idx_col], df[neg_signal_idx_col], facecolor='green', interpolate=True, alpha=0.1)
-#   ax.fill_between(df.index, df[signal_idx_col], df[pos_signal_idx_col], facecolor='red', interpolate=True, alpha=0.1)
-  
-#   # legend and title
-#   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
-#   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
-
-#   # return ax
-#   if use_ax is not None:
-#     return ax
-
-# # plot subplots
-# def plot_data_subplots(df, columns, start=None, end=None, title='', num_rows=2, plot_args=default_plot_args):
-#   num_subplots = len(columns)
-#   num_columns = math.ceil(num_subplots / num_rows)
-
-#   # create figure
-#   fig=plt.figure(figsize=(25, 5*num_rows))
-#   subplots = {}
-
-#   for i in range(num_subplots):
-#     if i == 0:
-#       subplots[f'ax{i+1}'] = plt.subplot(num_rows, num_columns, i+1)
-#     else:
-#       subplots[f'ax{i+1}'] = plt.subplot(num_rows, num_columns, i+1, sharex = subplots[f'ax1'])
-#     plt.plot(df[columns[i]], label=columns[i])
-
-#     subplots[f'ax{i+1}'].legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
-#     # subplots[f'ax{i+1}'].set_title(columns[i], rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
-  
-#   fig.suptitle(title, x=0.5, y=0.92, fontsize=20)
