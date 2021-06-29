@@ -56,8 +56,8 @@
         "plot_args": {
             "plot_ratio": {
                 "signals": 0.75,
-                "main_indicators": 2.5,
-                "volume": 0.75
+                "main_indicators": 3,
+                "volume": 0.5
             },
             "adx": {
                 "target_col": [
