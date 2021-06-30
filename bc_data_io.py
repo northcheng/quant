@@ -1580,15 +1580,22 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
       # consstruct pdf file path
       tmp_pdf = f'{config["result_path"]}{p}.pdf'
 
-      # if pdf file exists, get its create date and attach its content
+      # if pdf file exists, check its create date and attach its content
       if os.path.exists(tmp_pdf):
         tmp_pdf_create_date = util.timestamp_2_time(timestamp=os.path.getmtime(tmp_pdf), unit='s').date().strftime(format='%Y-%m-%d')
-        with open(tmp_pdf, 'rb') as fp:
-          tmp_pdf_content = MIMEBase('application', "octet-stream")
-          tmp_pdf_content.set_payload(fp.read())
-          tmp_pdf_content.add_header('Content-Disposition', 'attachment', filename=f'{p}_{tmp_pdf_create_date}.pdf')
-          encoders.encode_base64(tmp_pdf_content)
-        pdfs.append(tmp_pdf_content)
+        
+        # if it is not up-to-date, notify in image_info
+        if tmp_pdf_create_date < signal_file_date:
+          image_info += f'<li>[{p}.pdf]: {tmp_pdf_create_date}</li>'
+        
+        # other wise attach it
+        else:
+          with open(tmp_pdf, 'rb') as fp:
+            tmp_pdf_content = MIMEBase('application', "octet-stream")
+            tmp_pdf_content.set_payload(fp.read())
+            tmp_pdf_content.add_header('Content-Disposition', 'attachment', filename=f'{p}_{tmp_pdf_create_date}.pdf')
+            encoders.encode_base64(tmp_pdf_content)
+          pdfs.append(tmp_pdf_content)
 
       else:        
         image_info += f'<li><p>[Not Found]: image for {p}</p></li>'

@@ -77,7 +77,7 @@ def load_config(root_paths):
 
   return config
 
-# load local data
+# load locally saved data(sec_data, ta_data, results)
 def load_data(symbols, config, load_empty_data=False, load_derived_data=False):
   """ 
   Load data from local files
@@ -116,7 +116,7 @@ def load_data(symbols, config, load_empty_data=False, load_derived_data=False):
       
   return data
 
-# remove invalid records from downloaded stock data
+# pre-process downloaded stock data
 def preprocess_sec_data(df, symbol, interval, print_error=True):
   '''
   Preprocess downloaded data
@@ -211,6 +211,7 @@ def preprocess_sec_data(df, symbol, interval, print_error=True):
   
   return df
 
+# calculate technical-analysis indicators
 def calculate_ta_indicators(df, trend_indicators, volume_indicators, volatility_indicators, other_indicators, signal_threshold=0.001):
 
   # copy dataframe
@@ -657,16 +658,17 @@ def calculate_ta_signal(df):
   
   return df
 
-# analyze ta_data
+# technical analyze for ta_data
 def analyze_ta_data(df):
   """
-  analysze ta indicators
+  analysze support and resistant
   :param df: dataframe with ta indicators
   :returns: dataframe with analysis columns (resistant, support and several signal columns)
   :raises: None
   """
 
   # ================================ linear trend ===========================
+  # add linear features
   df = add_linear_features(df=df)
 
   max_idx = df.index.max()
@@ -709,19 +711,19 @@ def analyze_ta_data(df):
     else:
       print(f'{signal_col} not in df.columns')
 
+  # trend from linear fit results
   df['linear_trend'] = '' 
   up_idx = df.query('(tankan > kijun) and (Low > resistant or (linear_slope > 0 and linear_fit_high_stop == 0) or ((linear_fit_low_stop > 3) and (Low > linear_fit_low)))').index
   down_idx = df.query('((tankan < kijun) and (High < support or (linear_slope < 0 and linear_fit_low_stop == 0))) or ((linear_fit_high_stop > 5) and (High < linear_fit_high))').index
   df.loc[up_idx, 'linear_trend'] = 'u'
   df.loc[down_idx, 'linear_trend'] = 'd'
 
+  # signal from linear fit results
   df['linear_signal'] = df['linear_trend'].replace({'d': 's', 'u': 'b', 'n': ''})
-
-  df = describe_ta_data(df=df)
 
   return df
 
-# describe ta_data
+# language describe for ta_data
 def describe_ta_data(df):
   """
   add technical analysis description for ta data
@@ -741,7 +743,7 @@ def describe_ta_data(df):
     # tankan-kijun(ichimoku信号)
     'T/K': (row['tankan_kijun_signal'] != 0),
 
-    # 趋势
+    # trend
     '强势': (row['linear_slope'] >= 0.1 or row['linear_slope'] <= -0.1) and (row['linear_fit_high_slope'] * row['linear_fit_low_slope'] > 0),
     '弱势': (row['linear_slope'] >-0.1 and row['linear_slope'] < 0.1 ) or ((row['linear_fit_high_slope'] * row['linear_fit_low_slope']) < 0),
     '上涨': (row['linear_fit_high_slope'] > 0 and row['linear_fit_low_slope'] >= 0) or (row['linear_fit_high_slope'] >= 0 and row['linear_fit_low_slope'] > 0),
@@ -751,13 +753,13 @@ def describe_ta_data(df):
     '轨道上方': (row['linear_fit_high'] < row['Close']) and (row['linear_fit_low'] < row['Close']),
     '轨道下方': (row['linear_fit_high'] > row['Close']) and (row['linear_fit_low'] > row['Close']),
 
-    # 支撑/阻挡
+    # support and resistant
     '跌破支撑': (row['support_signal'] < 0 and row['support_signal'] > -period_threhold) and (row['Close'] < row['support']),
     '突破阻挡': (row['resistant_signal'] > 0 and row['resistant_signal'] < period_threhold) and (row['Close'] > row['resistant']), 
     '触顶回落': (row['linear_fit_high_stop'] >= 2) and (row['Close'] < row['resistant']) and (row['Close'] < row['tankan'] or row['tankan_kijun_signal'] < 0),
     '触底反弹': (row['linear_fit_low_stop'] >= 2) and (row['Close'] > row['support']) and (row['Close'] > row['tankan']) and (row['tankan_kijun_signal'] > 0), 
 
-    # 技术指标
+    # technical indicators
     '上穿快线': (row['tankan_signal'] > 0 and row['tankan_signal'] < period_threhold),
     '上穿慢线': (row['kijun_signal'] > 0 and row['kijun_signal'] < period_threhold),
     '上穿底部': (row['linear_fit_low_signal'] > 0 and row['linear_fit_low_signal'] < period_threhold),
@@ -771,52 +773,51 @@ def describe_ta_data(df):
   # initialize empty dict
   classification = []
 
-  # 突破阻挡
+  # breakthrough resistant
   if conditions['强势'] and conditions['上涨'] and conditions['突破阻挡']:
     classification.append('up_x_resistant')
 
-  # 跌破支撑
+  # fall below support
   if conditions['强势'] and conditions['下跌'] and conditions['跌破支撑']:
     classification.append('down_x_support')
 
-  # 止跌回升
+  # rebound
   if conditions['下跌'] and conditions['触底反弹'] and conditions['上穿快线'] and (conditions['上穿顶部'] or conditions['上穿慢线']):
     classification.append('rebound')
 
-  # 触顶回调
+  # peak back
   if conditions['上涨'] and conditions['触顶回落'] and (conditions['下穿底部'] or conditions['下穿快线'] or conditions['下穿慢线']):
     classification.append('hitpeak')
 
-  # 上升趋势中
+  # uptrending
   if conditions['上涨'] and (conditions['轨道中'] or conditions['轨道上方']) and ('hitpeak' not in classification and 'up_x_resistant' not in classification):
     classification.append('uptrending')
 
-  # 下降趋势中
+  # downtrending
   if conditions['下跌'] and (conditions['轨道中'] or conditions['轨道下方']) and ('rebound' not in classification and 'down_x_support' not in classification):
     classification.append('downtrending')
 
-  # 波动中
+  # waving
   if (conditions['波动'] or conditions['弱势']) and ('rebound' not in classification and 'hitpeak' not in classification and 'uptrending' not in classification and 'downtrending' not in classification):
     classification.append('waving')
 
-  # 其他
+  # others
   if len(classification) == 0:
     classification.append('others')
 
-  # generate description row1
+  # generate description row1: support and resistant
+  description = ''
   support = row['support']
   resistant = row['resistant']
   support = '-' if np.isnan(support) else f'{support.round(2)}'
   resistant = '-' if np.isnan(resistant) else f'{resistant.round(2)}'
-  description = ''
-  
   if resistant != '-':
     description += f', 阻挡:{resistant}'
   if support != '-':
     description += f', 支撑:{support}'
   description += '\n'
 
-  # generate description row2
+  # generate description row2: trend analysis
   description += ('[+' if row['tankan_kijun_signal'] > 0 else '[') + f'{row["tankan_kijun_signal"]}]'
   prev_k = None
   for k in conditions.keys():
@@ -862,6 +863,7 @@ def describe_ta_data(df):
   df.loc[max_idx, 'category'] = category
 
   # assign description
+  description += '' if (description[-1] == ']') else ']'
   df.loc[max_idx, 'description'] = description
 
   return df
@@ -879,6 +881,7 @@ def calculate_ta_derivatives(df):
     # TA analysis
     phase = 'analyze_ta_data'
     df = analyze_ta_data(df=df)
+    df = describe_ta_data(df=df)
 
     # calculate TA final signal
     phase = 'cal_ta_signals'
@@ -934,7 +937,7 @@ def calculate_ta_data(df, symbol, interval, trend_indicators=['ichimoku', 'aroon
   return df
 
 # calculate ta indicators, trend and derivatives for historical data
-def calculate_ta_data_historical(df, symbol, interval, trend_indicators=['ichimoku', 'aroon', 'adx', 'psar', 'renko'], volume_indicators=[], volatility_indicators=['bb'], other_indicators=[], signal_threshold=0.001, his_start_date=None, his_end_date=None):
+def calculate_ta_data_historical(df, symbol, interval, config, trend_indicators=['ichimoku', 'aroon', 'adx', 'psar', 'renko'], volume_indicators=[], volatility_indicators=['bb'], other_indicators=[], signal_threshold=0.001, his_start_date=None, his_end_date=None, is_print=False, create_gif=False, plot_save_path=None):
   """
   Calculate selected ta features for dataframe
 
@@ -954,6 +957,17 @@ def calculate_ta_data_historical(df, symbol, interval, trend_indicators=['ichimo
   if df is None or len(df) == 0:
     print(f'{symbol}: No data for calculate_ta_data')
     return None   
+
+  if create_gif:
+    if plot_save_path is None:
+      print('Please specify plot save path in parameters, create_gif disable for this time')
+      create_gif = False
+    else:
+      config['visualization']['show_image'] = False
+      config['visualization']['save_image'] = True
+      today = util.time_2_string(time_object=df.index.max())
+      plot_start_date = util.string_plus_day(string=today, diff_days=-config['visualization']['plot_window'][interval])
+      images = []
   
   try:
     # preprocess sec_data
@@ -968,25 +982,45 @@ def calculate_ta_data_historical(df, symbol, interval, trend_indicators=['ichimo
     phase = 'cal_ta_trend'
     df = calculate_ta_trend(df=df, trend_indicators=trend_indicators, volume_indicators=volume_indicators, volatility_indicators=volatility_indicators, other_indicators=other_indicators, signal_threshold=signal_threshold)
 
-    # calculate TA derivatives for historical data
+    # calculate TA derivatives for historical data for period [his_start_date ~ his_end_date]
     phase = 'cal_ta_derivatives(historical)'
     historical_ta_data = pd.DataFrame()
     ed = his_start_date
     while ed <= his_end_date:   
-      
+
+      # current max index     
       current_max_idx = df[:ed].index.max()
+
+      # next_ed = ed + 1day
       next_ed = util.string_plus_day(string=ed, diff_days=1)
       next_max_idx = df[:next_ed].index.max()
 
+      # if next_ed is weekend or holiday(on which no trading happened), skip; else do the calculation
       if next_max_idx != current_max_idx:
-        # print(ed)
+        
+        # print current end_date
+        if is_print:
+          print(ed)
+        
+        # calculate the dynamic part: linear features
         ta_data = calculate_ta_derivatives(df=df[:ed])
         historical_ta_data = historical_ta_data.append(ta_data.tail(1))
-      
+
+        # create image for gif
+        if create_gif:
+          visualize_ta_data(df=ta_data, start=plot_start_date, title=f'{symbol}({ed})', save_path=plot_save_path, visualization_args=config['visualization'])
+          images.append(f'{plot_save_path}{symbol}({ed}).png')
+
+      # update ed
       ed = next_ed
 
     historical_ta_data = ta_data.append(historical_ta_data)  
     df = util.remove_duplicated_index(df=historical_ta_data, keep='last')
+
+    # create gif
+    if create_gif:
+      util.image_2_gif(image_list=images, save_name=f'{plot_save_path}{symbol}({his_start_date}-{his_end_date}).gif')
+      visualize_ta_data(df=df, start=plot_start_date, title=f'{symbol}(final)', save_path=plot_save_path, visualization_args=config['visualization'])
 
   except Exception as e:
     print(symbol, phase, e)
@@ -1247,7 +1281,7 @@ def moving_slope(series, periods):
 
   :param series: series to calculate
   :param periods: size of the moving window
-  :returns: a rolling slope with window size 'periods'
+  :returns: a tuple of series: (slope, intercepts)
   :raises: none
   """  
   # convert series to numpy array
@@ -1260,7 +1294,7 @@ def moving_slope(series, periods):
   padded_slopes = np.concatenate([padding_nan, slopes])
   padded_intercepts = np.concatenate([padding_nan, intercepts])
   
-  return padded_slopes
+  return (padded_slopes, padded_intercepts)
 
 # ================================================ Change calculation =============================================== #
 # calculate change of a column in certain period
@@ -1734,7 +1768,7 @@ def add_heikin_ashi_features(df, ohlcv_col=default_ohlcv_col, replace_ohlc=False
 # linear regression for recent high and low values
 def add_linear_features(df, max_period=60, min_period=15, is_print=False):
 
-  # get index and highest-high / lowest-low
+  # get indexes
   idxs = df.index.tolist()
 
   # get current date, renko_color, earliest-start date, latest-end date
@@ -1802,6 +1836,7 @@ def add_linear_features(df, max_period=60, min_period=15, is_print=False):
   #   si = si - 1
   #   start = df.index.tolist()[si]
 
+  # get peaks and troughs
   tmp_data = df[start:end].copy()
   tmp_idxs = tmp_data.index.tolist()
   num_points = 4 #int(len(tmp_data) / 3)
@@ -1980,26 +2015,12 @@ def add_linear_features(df, max_period=60, min_period=15, is_print=False):
 
   # direction means the slopes of linear fit High/Low
   df['linear_direction'] = ''
-  up_idx = df.query('linear_fit_high_slope > 0 and linear_fit_low_slope > 0').index
-  down_idx = df.query('linear_fit_high_slope < 0 and linear_fit_low_slope < 0').index
-  uncertain_idx = df.query('(linear_fit_high_slope > 0 and linear_fit_low_slope < 0) or (linear_fit_high_slope < 0 and linear_fit_low_slope > 0)').index
+  up_idx = df.query('(linear_fit_high_slope > 0 and linear_fit_low_slope > 0) or (linear_fit_high_slope > 0 and linear_fit_low_slope == 0) or (linear_fit_high_slope == 0 and linear_fit_low_slope > 0)').index
+  down_idx = df.query('(linear_fit_high_slope < 0 and linear_fit_low_slope < 0) or (linear_fit_high_slope < 0 and linear_fit_low_slope == 0) or (linear_fit_high_slope == 0 and linear_fit_low_slope < 0)').index
+  uncertain_idx = df.query('(linear_fit_high_slope > 0 and linear_fit_low_slope < 0) or (linear_fit_high_slope < 0 and linear_fit_low_slope > 0) or (linear_fit_high_slope == 0 and linear_fit_low_slope == 0)').index
   df.loc[up_idx, 'linear_direction'] = 'u'
   df.loc[down_idx, 'linear_direction'] = 'd'
   df.loc[uncertain_idx, 'linear_direction'] = 'n'
-
-  # the corresponding position of Close to linear_fit_high and linear_fit_low
-  df['linear_position'] = ''
-  among_idx = df.query('Close <= linear_fit_high and Close >= linear_fit_low').index
-  above_idx = df.query('Close > linear_fit_high').index
-  below_idx = df.query('Close < linear_fit_low').index
-  df.loc[among_idx, 'linear_position'] = 'n'
-  df.loc[above_idx, 'linear_position'] = 'u'
-  df.loc[below_idx, 'linear_position'] = 'd'
-
-  # number of days the Close triggered position change
-  df['linear_triggered'] = sda(series=df['linear_position'].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=None)
-  # # drop redundant columns
-  # df.drop(['linear_direction', 'linear_position', 'linear_triggered', 'linear_day_count'], axis=1, inplace=True)
 
   return df
  
@@ -4151,20 +4172,12 @@ def plot_main_indicators(
     ax.plot(df.index, df.linear_fit_low, label='linear_fit_low', color='black', alpha=0.5)
 
     # fill between linear_fit_high and linear_fit_low
-    mask_high_up = df.linear_fit_high_slope > 0
-    mask_high_down = df.linear_fit_high_slope < 0
-    mask_high_wave = df.linear_fit_high_slope == 0
-
-    mask_low_up = df.linear_fit_low_slope > 0
-    mask_low_down = df.linear_fit_low_slope < 0
-    mask_low_wave = df.linear_fit_low_slope == 0
-    
-    mask_up = (mask_high_up & mask_low_up) |  (mask_high_up & mask_low_wave) | (mask_high_wave & mask_low_up)
-    mask_down = (mask_high_down & mask_low_down) | (mask_high_down & mask_low_wave) | (mask_low_down & mask_high_wave)
-    mask_wave = (mask_high_up & mask_low_down) | (mask_high_down & mask_low_up) | (mask_high_wave & mask_low_wave)
-    ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=mask_up, facecolor='green', interpolate=True, alpha=0.1)
-    ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=mask_down, facecolor='red', interpolate=True, alpha=0.1)
-    ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=mask_wave, facecolor='yellow', interpolate=True, alpha=0.2)
+    up_direction = df.linear_direction == 'u'
+    down_direction = df.linear_direction == 'd'
+    none_direction = df.linear_direction == 'n'
+    ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=up_direction, facecolor='green', interpolate=True, alpha=0.1)
+    ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=down_direction, facecolor='red', interpolate=True, alpha=0.1)
+    ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=none_direction, facecolor='yellow', interpolate=True, alpha=0.1)
 
     # annotate the start/end values of high/low fit
     text_color = 'black'
@@ -4714,6 +4727,7 @@ def plot_multiple_indicators(
   if show_image:
     plt.show()
 
+  # close figures
   plt.cla()
   plt.clf()
   plt.close(fig)

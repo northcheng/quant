@@ -15,6 +15,7 @@ import matplotlib.cm as cmx
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 from PIL import Image
+import imageio as imio
 
 # default arguments
 default_date_format = '%Y-%m-%d'
@@ -302,10 +303,45 @@ def image_2_pdf(image_list, save_name=None, remove_old_pdf=True):
       tmp_image = tmp_image.convert('RGB')
       images.append(tmp_image)
 
+  # save pdf
   if len(images) > 0:
+    if save_name is None:
+      save_name = 'pdf_from_image.png'
     images[0].save(save_name, save_all=True, append_images=images[1:])
   else:
     print('no images to convert to pdf')
+
+
+def image_2_gif(image_list, save_name=None, remove_old_gif=True, fps=3):
+  """
+  save images in the image list to a gif file
+
+  :param image_list: list of absolute path of images
+  :param save_name: the absolute path of the concated image
+  :param remove_old_gif: whether to remove old file with save_name
+  :returns: none
+  :raises: none
+  """
+  # remove old image before create new image
+  if remove_old_gif and (save_name is not None):
+    if os.path.exists(save_name):
+      os.remove(save_name)
+
+  # load images
+  images = []
+  for image in image_list:
+    if os.path.exists(image):
+      tmp_image = imio.imread(image, format='png')
+      images.append(tmp_image)
+
+  # save gif
+  if len(images) > 0:
+    if save_name is None:
+      save_name = 'gif_from_image.gif'
+    imio.mimsave(save_name, images, fps=fps)
+  else:
+    print('no images to convert to pdf')
+
 
 #----------------------- Script runner ---------------------------#
 def run_script(cmd, retry=1, timeout=1800):

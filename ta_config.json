@@ -41,7 +41,7 @@
     },
     "visualization": {
         "create_image": true,
-        "show_image": true,
+        "show_image": false,
         "save_image": true,
         "plot_window": {
             "day": 200,
