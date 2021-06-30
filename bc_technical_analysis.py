@@ -696,7 +696,7 @@ def describe_ta_data(df):
     classification.append('others')
 
   # generate description row1: support and resistant
-  description = ''
+  description = f'价格:{row["Close"]}'
   support = row['support']
   resistant = row['resistant']
   support = '-' if np.isnan(support) else f'{support.round(2)}'
@@ -4504,7 +4504,6 @@ def plot_multiple_indicators(
 
   # adjust plot layout
   max_idx = df.index.max()
-  close_price = df.loc[max_idx, "Close"].round(2)
   close_rate = (df.loc[max_idx, "rate"]*100).round(2)
   title_color = 'green' if close_rate > 0 else 'red'
   
@@ -4515,7 +4514,7 @@ def plot_multiple_indicators(
   for n in args['sec_name'].keys():
     if n in title:
       new_title = title.replace(n, args['sec_name'][n]) 
-  fig.suptitle(new_title + f'({close_rate}%): {close_price}{df.loc[df.index.max(), "description"]}', color=title_color, x=0.5, y=0.96, fontsize=20)
+  fig.suptitle(f'{title} - {new_title}({close_rate}%)\n{df.loc[df.index.max(), "description"]}', color=title_color, x=0.5, y=0.96, fontsize=20)
   # plt.annotate(, xy=(0, 0), xytext=(0,0), xycoords='data', textcoords='data', arrowprops=dict(arrowstyle='->', alpha=0.5), bbox=dict(boxstyle="round",fc="1.0", alpha=0.5))
 
   # save image
