@@ -489,116 +489,6 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
 
   return df
 
-# calculate ta signal (old version)
-def calculate_ta_signal_v0(df):
-  """
-  Calculate signals from ta features
-
-  :param df: dataframe with ta features and derived features for calculating signals
-  :raturns: dataframe with signal
-  :raises: None
-  """
-  if len(df) == 0:
-    print(f'No data for calculate_ta_signal')
-    return None
-
-  # copy data, initialize
-  df = df.copy()
-  df['trend'] = ''
-  
-  # ================================ buy and sell signals ==========================
-  # buy conditions
-  buy_conditions = {
-    # # stable version
-    # 'ichimoku/aroon/adx/psar are all up trending': '(trend_idx == 4)',
-    # 'renko is up trending': '(renko_trend == "u")',
-    # 'bb is not over-buying': '(bb_trend != "d")',
-
-    # developing version
-    'ichimoku/aroon/adx/psar are all up trending': '((trend_idx == 4))',
-    'renko is up trending': '(renko_trend == "u" and (renko_duration<=150 or (below_renko_l > 0 and Close > renko_h)))',
-    'bb is not over-buying': '(bb_trend != "d")',
-  }
-  up_idx = df.query(' and '.join(buy_conditions.values())).index 
-  df.loc[up_idx, 'trend'] = 'u'
-
-  # sell conditions
-  sell_conditions = {
-    # # stable version
-    # 'High is below kijun line': '(High < kijun)',
-    # 'no individual trend is up and overall trend is down': '(trend_idx < -1 and up_trend_idx == 0)',
-    # 'price went down through brick': '(renko_trend == "d")', 
-    # 'bb is not over-selling': '(bb_trend != "u")',
-    
-    # developing version
-    'High is below kijun line': '(High < kijun)',
-    'no individual trend is up and overall trend is down': '(trend_idx < -1 and up_trend_idx == 0)',
-    'price went down through brick': '(renko_trend == "d")', 
-    'bb is not over-selling': '(bb_trend != "u" or (Close < renko_l and renko_duration >= 150))',
-  } 
-  down_idx = df.query(' and '.join(sell_conditions.values())).index 
-  df.loc[down_idx, 'trend'] = 'd'
-
-  # wave conditions
-  # # developing version
-  # wave_conditions = {
-  #   'kijun_rate is going flatly': '(kijun_rate == 0 and tankan < kijun and tankan_rate_ma <= 0)',
-  #   'renko brick is very long': '(renko_brick_length >=20 and renko_brick_length >= renko_duration_p1*3)',
-  # }
-  # wave_idx = df.query(' and '.join(wave_conditions.values())).index 
-  # df.loc[wave_idx, 'trend'] = 'n'
-
-  # ================================ disable signals in extreme conditions =========
-  # extreme conditions include:
-  # 1. Split
-  # 2. 50% up/down compare to previous close price
-  # extreme_idx = df.query('Split < 1.0 or Split > 1.0 or rate >0.5 or rate < -0.5').index.tolist()
-  # all_idx = df.index.tolist()
-  
-  # # # go through each extreme condition
-  # for ei in extreme_idx:
-
-  #   # disable signals for following 10 trading days
-  #   sp = all_idx.index(ei)
-  #   ep = sp + 10
-  #   if ep > (len(all_idx)-1):
-  #     ep = (len(all_idx)-1)
-
-  #   start_idx = all_idx[sp]
-  #   end_idx = all_idx[ep]
-  #   df.loc[start_idx:end_idx, 'trend'] = ''
-
-  # ================================ Calculate overall siganl ======================
-  df['signal_day'] = sda(series=df['trend'].replace({'':0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
-  df['signal'] = '' 
-  df.loc[df['signal_day'] == 1, 'signal'] = 'b'
-  df.loc[df['signal_day'] ==-1, 'signal'] = 's'
-
-  # buy_idx = df.query('(tankan > kijun) and (Close > resistant or (linear_slope > 0 and linear_fit_high_stop == 0) or (linear_fit_low_stop > 3))').index
-  # sell_idx = df.query('((tankan < kijun) and (Close < support or (linear_slope < 0 and linear_fit_low_stop == 0))) or (linear_fit_high_stop > 3)').index
-  
-  # if max_idx in buy_idx:
-  #   df.loc[max_idx, 'signal'] = 'b'
-  
-  # if max_idx in sell_idx:
-  #   df.loc[max_idx, 'signal'] = 's'
-  
-
-  # # due to the uncertainty of renko signal, broadcast the most recent signal
-  # last_signal_idx = df.query('signal != "n"').index.max()
-  # max_idx = df.index.max()
-  # if last_signal_idx < max_idx:
-  #   counter = 0
-  #   broadcast_range = 3
-  #   for idx, row in df.loc[last_signal_idx:].iterrows():
-  #     counter += 1
-  #     if counter > broadcast_range:
-  #       break
-
-  #     df.loc[idx, 'signal'] = df.loc[last_signal_idx, 'signal']
-
-  return df
-
 # calculate ta signal
 def calculate_ta_signal(df):
   """
@@ -930,97 +820,6 @@ def calculate_ta_data(df, symbol, interval, trend_indicators=['ichimoku', 'aroon
     # calculate TA derivatives
     phase = 'cal_ta_derivatives'
     df = calculate_ta_derivatives(df)
-
-  except Exception as e:
-    print(symbol, phase, e)
-
-  return df
-
-# calculate ta indicators, trend and derivatives for historical data
-def calculate_ta_data_historical(df, symbol, interval, config, trend_indicators=['ichimoku', 'aroon', 'adx', 'psar', 'renko'], volume_indicators=[], volatility_indicators=['bb'], other_indicators=[], signal_threshold=0.001, his_start_date=None, his_end_date=None, is_print=False, create_gif=False, plot_save_path=None):
-  """
-  Calculate selected ta features for dataframe
-
-  :param df: original dataframe with hlocv features
-  :param symbol: symbol of the data
-  :param interval: interval of the data
-  :param trend_indicators: trend indicators
-  :param volumn_indicators: volume indicators
-  :param volatility_indicators: volatility indicators
-  :param other_indicators: other indicators
-  :param signal_threshold: threshold for kama/ichimoku trigerment
-  :returns: dataframe with ta features, derivatives, signals
-  :raises: None
-  """
-  # copy dataframe
-  df = df.copy()
-  if df is None or len(df) == 0:
-    print(f'{symbol}: No data for calculate_ta_data')
-    return None   
-
-  if create_gif:
-    if plot_save_path is None:
-      print('Please specify plot save path in parameters, create_gif disable for this time')
-      create_gif = False
-    else:
-      config['visualization']['show_image'] = False
-      config['visualization']['save_image'] = True
-      today = util.time_2_string(time_object=df.index.max())
-      plot_start_date = util.string_plus_day(string=today, diff_days=-config['visualization']['plot_window'][interval])
-      images = []
-  
-  try:
-    # preprocess sec_data
-    phase = 'preprocess_sec_data'
-    df = preprocess_sec_data(df=df, symbol=symbol, interval=interval)
-    
-    # calculate TA indicators
-    phase = 'cal_ta_indicators' 
-    df = calculate_ta_indicators(df=df, trend_indicators=trend_indicators, volume_indicators=volume_indicators, volatility_indicators=volatility_indicators, other_indicators=other_indicators, signal_threshold=signal_threshold)
-
-    # calculate TA trend
-    phase = 'cal_ta_trend'
-    df = calculate_ta_trend(df=df, trend_indicators=trend_indicators, volume_indicators=volume_indicators, volatility_indicators=volatility_indicators, other_indicators=other_indicators, signal_threshold=signal_threshold)
-
-    # calculate TA derivatives for historical data for period [his_start_date ~ his_end_date]
-    phase = 'cal_ta_derivatives(historical)'
-    historical_ta_data = pd.DataFrame()
-    ed = his_start_date
-    while ed <= his_end_date:   
-
-      # current max index     
-      current_max_idx = df[:ed].index.max()
-
-      # next_ed = ed + 1day
-      next_ed = util.string_plus_day(string=ed, diff_days=1)
-      next_max_idx = df[:next_ed].index.max()
-
-      # if next_ed is weekend or holiday(on which no trading happened), skip; else do the calculation
-      if next_max_idx != current_max_idx:
-        
-        # print current end_date
-        if is_print:
-          print(ed)
-        
-        # calculate the dynamic part: linear features
-        ta_data = calculate_ta_derivatives(df=df[:ed])
-        historical_ta_data = historical_ta_data.append(ta_data.tail(1))
-
-        # create image for gif
-        if create_gif:
-          visualize_ta_data(df=ta_data, start=plot_start_date, title=f'{symbol}({ed})', save_path=plot_save_path, visualization_args=config['visualization'])
-          images.append(f'{plot_save_path}{symbol}({ed}).png')
-
-      # update ed
-      ed = next_ed
-
-    historical_ta_data = ta_data.append(historical_ta_data)  
-    df = util.remove_duplicated_index(df=historical_ta_data, keep='last')
-
-    # create gif
-    if create_gif:
-      util.image_2_gif(image_list=images, save_name=f'{plot_save_path}{symbol}({his_start_date}-{his_end_date}).gif')
-      visualize_ta_data(df=df, start=plot_start_date, title=f'{symbol}(final)', save_path=plot_save_path, visualization_args=config['visualization'])
 
   except Exception as e:
     print(symbol, phase, e)
@@ -4731,3 +4530,94 @@ def plot_multiple_indicators(
   plt.cla()
   plt.clf()
   plt.close(fig)
+
+# calculate ta indicators, trend and derivatives for historical data
+def plot_historical_evolution(df, symbol, interval, config, trend_indicators=['ichimoku', 'aroon', 'adx', 'psar', 'renko'], volume_indicators=[], volatility_indicators=['bb'], other_indicators=[], signal_threshold=0.001, his_start_date=None, his_end_date=None, is_print=False, create_gif=False, plot_save_path=None):
+  """
+  Calculate selected ta features for dataframe
+
+  :param df: original dataframe with hlocv features
+  :param symbol: symbol of the data
+  :param interval: interval of the data
+  :param trend_indicators: trend indicators
+  :param volumn_indicators: volume indicators
+  :param volatility_indicators: volatility indicators
+  :param other_indicators: other indicators
+  :param signal_threshold: threshold for kama/ichimoku trigerment
+  :returns: dataframe with ta features, derivatives, signals
+  :raises: None
+  """
+  # copy dataframe
+  df = df.copy()
+  if df is None or len(df) == 0:
+    print(f'{symbol}: No data for calculate_ta_data')
+    return None   
+
+  if create_gif:
+    if plot_save_path is None:
+      print('Please specify plot save path in parameters, create_gif disable for this time')
+      create_gif = False
+    else:
+      config['visualization']['show_image'] = False
+      config['visualization']['save_image'] = True
+      today = util.time_2_string(time_object=df.index.max())
+      plot_start_date = util.string_plus_day(string=today, diff_days=-config['visualization']['plot_window'][interval])
+      images = []
+  
+  try:
+    # preprocess sec_data
+    phase = 'preprocess_sec_data'
+    df = preprocess_sec_data(df=df, symbol=symbol, interval=interval)
+    
+    # calculate TA indicators
+    phase = 'cal_ta_indicators' 
+    df = calculate_ta_indicators(df=df, trend_indicators=trend_indicators, volume_indicators=volume_indicators, volatility_indicators=volatility_indicators, other_indicators=other_indicators, signal_threshold=signal_threshold)
+
+    # calculate TA trend
+    phase = 'cal_ta_trend'
+    df = calculate_ta_trend(df=df, trend_indicators=trend_indicators, volume_indicators=volume_indicators, volatility_indicators=volatility_indicators, other_indicators=other_indicators, signal_threshold=signal_threshold)
+
+    # calculate TA derivatives for historical data for period [his_start_date ~ his_end_date]
+    phase = 'cal_ta_derivatives(historical)'
+    historical_ta_data = pd.DataFrame()
+    ed = his_start_date
+    while ed <= his_end_date:   
+
+      # current max index     
+      current_max_idx = df[:ed].index.max()
+
+      # next_ed = ed + 1day
+      next_ed = util.string_plus_day(string=ed, diff_days=1)
+      next_max_idx = df[:next_ed].index.max()
+
+      # if next_ed is weekend or holiday(on which no trading happened), skip; else do the calculation
+      if next_max_idx != current_max_idx:
+        
+        # print current end_date
+        if is_print:
+          print(ed)
+        
+        # calculate the dynamic part: linear features
+        ta_data = calculate_ta_derivatives(df=df[:ed])
+        historical_ta_data = historical_ta_data.append(ta_data.tail(1))
+
+        # create image for gif
+        if create_gif:
+          visualize_ta_data(df=ta_data, start=plot_start_date, title=f'{symbol}({ed})', save_path=plot_save_path, visualization_args=config['visualization'])
+          images.append(f'{plot_save_path}{symbol}({ed}).png')
+
+      # update ed
+      ed = next_ed
+
+    historical_ta_data = ta_data.append(historical_ta_data)  
+    df = util.remove_duplicated_index(df=historical_ta_data, keep='last')
+
+    # create gif
+    if create_gif:
+      util.image_2_gif(image_list=images, save_name=f'{plot_save_path}{symbol}({his_start_date}-{his_end_date}).gif')
+      visualize_ta_data(df=df, start=plot_start_date, title=f'{symbol}(final)', save_path=plot_save_path, visualization_args=config['visualization'])
+
+  except Exception as e:
+    print(symbol, phase, e)
+
+  return df
