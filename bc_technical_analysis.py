@@ -646,8 +646,8 @@ def describe_ta_data(df):
     # support and resistant
     '跌破支撑': (row['support_signal'] < 0 and row['support_signal'] > -period_threhold) and (row['Close'] < row['support']),
     '突破阻挡': (row['resistant_signal'] > 0 and row['resistant_signal'] < period_threhold) and (row['Close'] > row['resistant']), 
-    '触顶回落': (row['linear_fit_high_stop'] >= 2 and row['Close'] < row['resistant']) and (row['Close'] < row['tankan'] or row['tankan_kijun_signal'] < 0 or row['price_direction'] <= 0.4),
-    '触底反弹': (row['linear_fit_low_stop'] >= 2 and (row['Close'] > row['support'])) and (row['Close'] > row['tankan'] and row['tankan_kijun_signal'] > 0), 
+    '触顶回落': (row['linear_fit_low_stop'] == 0 and row['linear_fit_high_stop'] >= 2 and row['Close'] < row['resistant']) and (row['Close'] < row['tankan'] or row['tankan_kijun_signal'] < 0 or row['rate_direction'] <= 0.4),
+    '触底反弹': (row['linear_fit_high_stop'] == 0 and row['linear_fit_low_stop'] >= 2 and row['Close'] > row['support']) and (row['Close'] > row['tankan'] and row['tankan_kijun_signal'] > 0 and row['rate_direction'] >= 0.6), 
 
     # technical indicators
     '上穿快线': (row['tankan_signal'] > 0 and row['tankan_signal'] < period_threhold),
@@ -736,7 +736,7 @@ def describe_ta_data(df):
       segment_s = '['
       
     if k in ['轨道中', '轨道上方', '轨道下方']:
-      segment_e = ']'
+      segment_e = f'({row["rate_direction"].round(2)})]'
       
     if k in ['跌破支撑', '突破阻挡', '触顶回落', '触底反弹']:
       segment_s = '['
@@ -1510,9 +1510,6 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
   df.loc[long_entity_idx, 'candle_long_entity'] = df.loc[long_entity_idx, 'candle_color']
   df.loc[short_entity_idx, 'candle_short_entity'] = df.loc[short_entity_idx, 'candle_color']
   col_to_drop.append('candle_entity_ma')
-
-  # ======================================= others ============================================== #
-  # df['price_direction'] = sda(df['candle_color'])
   
   # drop intermidiate columns
   for c in ['low_prev_high', 'prev_low_high', 'pct_close', 'one_third_pce', 'three_time_pce', 'half_cem', 'one_and_a_half_cem']:
@@ -1809,6 +1806,9 @@ def add_linear_features(df, max_period=60, min_period=15, is_print=False):
   df.loc[reach_bottom_idx, 'linear_fit_low_stop'] = 1
   df.loc[reach_bottom_idx, 'linear_fit_support'] = lowest_low
 
+  for col in ['linear_fit_high_stop', 'linear_fit_low_stop', 'linear_fit_support', 'linear_fit_resistant']:
+    df[col] = df[col].fillna(method='ffill')
+
   df['linear_fit_low_stop'] = sda(df['linear_fit_low_stop'], zero_as=1)
   df['linear_fit_high_stop'] = sda(df['linear_fit_high_stop'], zero_as=1)
   
@@ -1826,6 +1826,7 @@ def add_linear_features(df, max_period=60, min_period=15, is_print=False):
 
   # price direction
   df['price_direction'] = 0.5
+  df['rate_direction'] = 0.5
 
   min_idx = tmp_idxs[0]
   reach_top = None
@@ -1846,7 +1847,7 @@ def add_linear_features(df, max_period=60, min_period=15, is_print=False):
     start = max(reach_top, reach_bottom)
 
   stop_data = df[start:].copy()
-  if len(stop_data) >= 5:
+  if len(stop_data) > 0:
     counter = 0
     for index, row in stop_data.iterrows():
       counter += 1
@@ -1854,10 +1855,16 @@ def add_linear_features(df, max_period=60, min_period=15, is_print=False):
         continue
       else:
         
-        x = (df[start:index]['candle_color'] > 0).sum()
-        y = x / counter
-        print(index, x, counter, y)
-        df.loc[index, 'price_direction'] = y#(df[start:index]['candle_color'] > 0).sum() / counter
+        x1 = (df[start:index]['candle_color'] > 0).sum()
+        y1 = x1 / counter
+        # print('price: ', index, x1, counter, y1)
+
+        x2 = (df[start:index]['rate'] > 0).sum()
+        y2 = x2 / counter
+        # print('rate: ', index, x2, counter, y2)
+
+        df.loc[index, 'price_direction'] = y1
+        df.loc[index, 'rate_direction'] = y2
         
   return df
  
