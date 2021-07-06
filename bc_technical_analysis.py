@@ -2552,7 +2552,10 @@ def add_renko_features(df, brick_size_factor=0.1, merge_duplicated=True):
   df = original_df.copy()
 
   # use constant brick size: brick_size_factor * last_year_avg_price
-  df['bsz'] = (df['last_year_avg_price'] * brick_size_factor).round(3) # df['bsz'] = (df['Close'] * brick_size_factor).round(3)
+  # df['bsz'] = (df['last_year_avg_price'] * brick_size_factor).round(3) 
+
+  # use dynamic brick size: brick_size_factor * Close price
+  df['bsz'] = (df['Close'] * brick_size_factor).round(3)
 
   na_bsz = df.query('bsz != bsz').index 
   df = df.drop(index=na_bsz).reset_index()
@@ -4597,9 +4600,14 @@ def plot_historical_evolution(df, symbol, interval, config, trend_indicators=['i
   """
   # copy dataframe
   df = df.copy()
+  today = util.time_2_string(time_object=df.index.max())
+
   if df is None or len(df) == 0:
     print(f'{symbol}: No data for calculate_ta_data')
     return None   
+  else:
+    data_start_date = util.string_plus_day(string=his_start_date, diff_days=-config['calculation']['look_back_window'][interval])
+    df = df[data_start_date:]
 
   if create_gif:
     if plot_save_path is None:
@@ -4608,7 +4616,7 @@ def plot_historical_evolution(df, symbol, interval, config, trend_indicators=['i
     else:
       config['visualization']['show_image'] = False
       config['visualization']['save_image'] = True
-      today = util.time_2_string(time_object=df.index.max())
+      
       plot_start_date = util.string_plus_day(string=today, diff_days=-config['visualization']['plot_window'][interval])
       images = []
   
@@ -4632,21 +4640,23 @@ def plot_historical_evolution(df, symbol, interval, config, trend_indicators=['i
     while ed <= his_end_date:   
 
       # current max index     
-      current_max_idx = df[:ed].index.max()
+      sd = util.string_plus_day(string=ed, diff_days=-config['visualization']['plot_window'][interval])
+      current_max_idx = df[sd:ed].index.max()
 
       # next_ed = ed + 1day
       next_ed = util.string_plus_day(string=ed, diff_days=1)
-      next_max_idx = df[:next_ed].index.max()
+      next_sd = util.string_plus_day(string=next_ed, diff_days=-config['visualization']['plot_window'][interval])
+      next_max_idx = df[next_sd:next_ed].index.max()
 
       # if next_ed is weekend or holiday(on which no trading happened), skip; else do the calculation
       if next_max_idx != current_max_idx:
         
         # print current end_date
         if is_print:
-          print(ed)
+          print(sd, ed)
         
         # calculate the dynamic part: linear features
-        ta_data = calculate_ta_derivatives(df=df[:ed])
+        ta_data = calculate_ta_derivatives(df=df[sd:ed])
         historical_ta_data = historical_ta_data.append(ta_data.tail(1))
 
         # create image for gif

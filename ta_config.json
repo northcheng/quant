@@ -145,11 +145,11 @@
             "signals": {
                 "signal_list": [
                     "bb_signal",
-                    "renko_signal",
                     "psar_signal",
                     "aroon_signal",
                     "adx_signal",
                     "ichimoku_signal",
+                    "renko_signal",
                     "linear_signal",
                     "signal"
                 ],
