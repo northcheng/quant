@@ -135,21 +135,6 @@ def preprocess_sec_data(df, symbol, interval, print_error=True):
   # drop duplicated rows, keep the first
   df = util.remove_duplicated_index(df=df, keep='first')
 
-  # if interval is week, keep only one record in the latest week
-  if interval == 'week':
-    max_weekday = df.index[-1].weekday()
-    prev_weekday = df.index[-2].weekday()
-    while prev_weekday < max_weekday:
-      df = df[:df.index[-2]].copy()
-      max_weekday = df.index[-1].weekday()
-      prev_weekday = df.index[-2].weekday()
-      
-  # process NA and 0 values
-  max_idx = df.index.max()
-  na_cols = []
-  zero_cols = []
-  error_info = ''
-
   # adjust close price manually
   adj_rate = 1
   df['split_n1'] = df['Split'].shift(-1).fillna(1.0)
@@ -173,6 +158,12 @@ def preprocess_sec_data(df, symbol, interval, print_error=True):
   for col in ['High', 'Low', 'Open', 'Close']:
     df[col] = df[col] * adj_rate
 
+  # process NA and 0 values
+  max_idx = df.index.max()
+  na_cols = []
+  zero_cols = []
+  error_info = ''
+
   # check whether 0 or NaN values exists in the latest record
   extra_cols = ['Split', 'Dividend']
   cols = [x for x in df.columns if x not in extra_cols]
@@ -187,7 +178,6 @@ def preprocess_sec_data(df, symbol, interval, print_error=True):
     error_info += 'NaN values found in '
     for col in na_cols:
       error_info += f'{col}'
-  
   df['Split'] = df['Split'].fillna(1)
   df['Dividend'] = df['Dividend'].fillna(0)
   df = df.dropna()
@@ -206,8 +196,22 @@ def preprocess_sec_data(df, symbol, interval, print_error=True):
 
   # add symbol and change rate of close price
   df['symbol'] = symbol
-  df = cal_change_rate(df=df, target_col=default_ohlcv_col['close']) # price change rate
-  df = add_candlestick_features(df=df)
+
+  # add average price of previous year
+  idxs = df.index.tolist()
+  years = [x.year for x in idxs]
+  years = list(set(years))
+  years.sort()
+
+  for i in range(len(years)):
+    if i < 1:
+      avg_price = df['Close'].values[0]
+    else:
+      last_year = years[i-1]
+      avg_price = df[f'{last_year}']['Close'].mean()
+    
+    current_year = years[i]
+    df.loc[f'{current_year}', 'last_year_avg_price'] = avg_price
   
   return df
 
@@ -220,9 +224,12 @@ def calculate_ta_indicators(df, trend_indicators, volume_indicators, volatility_
     print(f'No data for calculate_ta_indicator')
     return None   
   
-  try:
+  # add change rate of Close price and candlestick features
+  df = cal_change_rate(df=df, target_col=default_ohlcv_col['close'])
+  df = add_candlestick_features(df=df)
 
-    # calculate TA indicators
+  # calculate TA indicators
+  try:
     phase = 'cal_ta_indicators' 
     all_indicators = []
     all_indicators += [x for x in trend_indicators if x not in all_indicators]
@@ -230,7 +237,6 @@ def calculate_ta_indicators(df, trend_indicators, volume_indicators, volatility_
     all_indicators += [x for x in volatility_indicators if x not in all_indicators]
     all_indicators += [x for x in other_indicators if x not in all_indicators]
 
-    indicator = None
     for indicator in all_indicators:
       to_eval = f'add_{indicator}_features(df=df)'
       df = eval(to_eval)
@@ -416,22 +422,6 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       df.loc[up_idx, 'psar_trend'] = 'u'
       df.loc[down_idx, 'psar_trend'] = 'd'
 
-    # ================================ renko trend ============================
-    if 'renko' in trend_indicators:
-      df['renko_trend'] = ''
-
-      up_idx = df.query('(Close > Open) and ((renko_color=="red" and Low>renko_h) or (renko_color=="green"))').index
-      df.loc[up_idx, 'renko_trend'] = 'u'
-
-      down_idx = df.query('(renko_color=="red") or (renko_color=="green" and Close<renko_l)').index
-      df.loc[down_idx, 'renko_trend'] = 'd'
-
-      wave_idx = df.query('(renko_trend != "u" and renko_trend != "d") and ((renko_brick_length >= 20 ) and (renko_brick_length>3*renko_duration_p1))').index
-      df.loc[wave_idx, 'renko_trend'] = 'n'
-
-    # ================================ linear trend ===========================
-    # moved to calculate_ta_signal
-
     # =========================================================================
 
     phase = 'cal_volatility_indicator_trend'
@@ -454,18 +444,14 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
 
     # specify all indicators and specify the exclusives
     all_indicators = list(set(trend_indicators + volume_indicators + volatility_indicators + other_indicators))
-    exclude_indicators = ['renko', 'bb', 'linear']
+    exclude_indicators = ['bb']
     for indicator in all_indicators:
       trend_col = f'{indicator}_trend'
       signal_col = f'{indicator}_signal'
       day_col = f'{indicator}_day'
 
       # calculate number of days since trend shifted
-      if indicator == 'linear':
-        zero_as = None
-      else:
-        zero_as = 1
-      df[day_col] = sda(series=df[trend_col].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=zero_as) 
+      df[day_col] = sda(series=df[trend_col].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1) 
       
       # signal of individual indicators are set to 'n'
       if signal_col not in df.columns:
@@ -516,7 +502,7 @@ def calculate_ta_signal(df):
     # 'bb is not over-buying': '(bb_trend != "d")',
 
     # developing version
-    'ichimoku/aroon/adx/psar are all up trending': '((trend_idx == 4))',
+    'ichimoku/aroon/adx/psar are all up trending': '((trend_idx == 3))',
     'renko is up trending': '(renko_trend == "u" and (renko_duration<=150 or (below_renko_l > 0 and Close > renko_h)))',
     'bb is not over-buying': '(bb_trend != "d")',
   }
@@ -556,6 +542,23 @@ def analyze_ta_data(df):
   :returns: dataframe with analysis columns (resistant, support and several signal columns)
   :raises: None
   """
+
+  # ================================ renko trend ============================
+  df = add_renko_features(df=df)
+  df['renko_trend'] = ''
+
+  up_idx = df.query('(Close > Open) and ((renko_color=="red" and Low>renko_h) or (renko_color=="green"))').index
+  df.loc[up_idx, 'renko_trend'] = 'u'
+
+  down_idx = df.query('(renko_color=="red") or (renko_color=="green" and Close<renko_l)').index
+  df.loc[down_idx, 'renko_trend'] = 'd'
+
+  wave_idx = df.query('(renko_trend != "u" and renko_trend != "d") and ((renko_brick_length >= 20 ) and (renko_brick_length>3*renko_duration_p1))').index
+  df.loc[wave_idx, 'renko_trend'] = 'n'
+
+  # signal from renko
+  df['renko_day'] = sda(series=df['renko_trend'].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
+  df['renko_signal'] = 'n'
 
   # ================================ linear trend ===========================
   # add linear features
@@ -609,7 +612,8 @@ def analyze_ta_data(df):
   df.loc[down_idx, 'linear_trend'] = 'd'
 
   # signal from linear fit results
-  df['linear_signal'] = df['linear_trend'].replace({'d': 's', 'u': 'b', 'n': ''})
+  df['linear_day'] = sda(series=df['linear_trend'].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=None)
+  df['linear_signal'] = 'n' #df['linear_trend'].replace({'d': 's', 'u': 'b', 'n': ''})
 
   return df
 
@@ -783,7 +787,7 @@ def calculate_ta_derivatives(df):
   return df
 
 # calculate ta indicators, trend and derivatives fpr latest data
-def calculate_ta_data(df, symbol, interval, trend_indicators=['ichimoku', 'aroon', 'adx', 'psar', 'renko'], volume_indicators=[], volatility_indicators=['bb'], other_indicators=[], signal_threshold=0.001):
+def calculate_ta_data(df, symbol, interval, trend_indicators=['ichimoku', 'aroon', 'adx', 'psar'], volume_indicators=[], volatility_indicators=['bb'], other_indicators=[], signal_threshold=0.001):
   """
   Calculate selected ta features for dataframe
 
@@ -2547,8 +2551,9 @@ def add_renko_features(df, brick_size_factor=0.1, merge_duplicated=True):
   original_df = util.remove_duplicated_index(df=df, keep='last')
   df = original_df.copy()
 
-  # calculate brick size, remove rows with NA value
-  df['bsz'] = (df['Close'] * brick_size_factor).round(3) #((df['Close'].rolling(10).mean() // 10) + (df['Close'].rolling(10).mean() / 10) )
+  # use constant brick size: brick_size_factor * last_year_avg_price
+  df['bsz'] = (df['last_year_avg_price'] * brick_size_factor).round(3) # df['bsz'] = (df['Close'] * brick_size_factor).round(3)
+
   na_bsz = df.query('bsz != bsz').index 
   df = df.drop(index=na_bsz).reset_index()
   brick_size = df['bsz'].values[0]
@@ -2645,7 +2650,7 @@ def add_renko_features(df, brick_size_factor=0.1, merge_duplicated=True):
 
   # renko color(green/red), trend(u/d), flip_point(renko_real), same-direction-accumulation(renko_brick_sda), sda-moving sum(renko_brick_ms), number of bricks(for later calculation)
   renko_df['renko_color'] = renko_df['renko_color'].replace({True: 'green', False:'red'})
-  renko_df['renko_direction'] = renko_df['renko_color'].replace({'green':'u', 'red':'d'})
+  # renko_df['renko_direction'] = renko_df['renko_color'].replace({'green':'u', 'red':'d'})
   renko_df['renko_real'] = renko_df['renko_color'].copy()
   renko_df['renko_brick_number'] = 1
   
@@ -2683,17 +2688,17 @@ def add_renko_features(df, brick_size_factor=0.1, merge_duplicated=True):
         continue
     renko_df = util.remove_duplicated_index(df=renko_df, keep='last')
 
-  # calculate accumulated renko trend (so called renko_series)
-  series_len_short = 4
-  series_len_long = 8
-  renko_df['renko_series_short'] = 'n' * series_len_short
-  renko_df['renko_series_long'] = 'n' * series_len_long
-  prev_idx = None
-  for idx, row in renko_df.iterrows():
-    if prev_idx is not None:
-      renko_df.loc[idx, 'renko_series_short'] = (renko_df.loc[prev_idx, 'renko_series_short'] + renko_df.loc[idx, 'renko_direction'])[-series_len_short:]
-      renko_df.loc[idx, 'renko_series_long'] = (renko_df.loc[prev_idx, 'renko_series_long'] + renko_df.loc[idx, 'renko_direction'])[-series_len_long:]
-    prev_idx = idx
+  # # calculate accumulated renko trend (so called "renko_series")
+  # series_len_short = 4
+  # series_len_long = 8
+  # renko_df['renko_series_short'] = 'n' * series_len_short
+  # renko_df['renko_series_long'] = 'n' * series_len_long
+  # prev_idx = None
+  # for idx, row in renko_df.iterrows():
+  #   if prev_idx is not None:
+  #     renko_df.loc[idx, 'renko_series_short'] = (renko_df.loc[prev_idx, 'renko_series_short'] + renko_df.loc[idx, 'renko_direction'])[-series_len_short:]
+  #     renko_df.loc[idx, 'renko_series_long'] = (renko_df.loc[prev_idx, 'renko_series_long'] + renko_df.loc[idx, 'renko_direction'])[-series_len_long:]
+  #   prev_idx = idx
   # renko_df['renko_series_short_idx'] = renko_df['renko_series_short'].apply(lambda x: x.count('u') - x.count('d'))
   # renko_df['renko_series_long_idx'] = renko_df['renko_series_long'].apply(lambda x: x.count('u') - x.count('d'))
     
@@ -2708,7 +2713,7 @@ def add_renko_features(df, brick_size_factor=0.1, merge_duplicated=True):
   df.loc[red_idx, 'renko_brick_height'] = -df.loc[red_idx, 'renko_brick_height']
 
   # fill na values
-  renko_columns = ['renko_o', 'renko_h','renko_l', 'renko_c', 'renko_color', 'renko_direction', 'renko_brick_height', 'renko_brick_number','renko_start', 'renko_end', 'renko_duration', 'renko_duration_p1', 'renko_series_short', 'renko_series_long'] 
+  renko_columns = ['renko_o', 'renko_h','renko_l', 'renko_c', 'renko_color', 'renko_brick_height', 'renko_brick_number','renko_start', 'renko_end', 'renko_duration', 'renko_duration_p1'] # , 'renko_direction', 'renko_series_short', 'renko_series_long'
   for col in renko_columns:
     df[col] = df[col].fillna(method='ffill')
 
@@ -4575,7 +4580,7 @@ def plot_multiple_indicators(
   plt.close(fig)
 
 # calculate ta indicators, trend and derivatives for historical data
-def plot_historical_evolution(df, symbol, interval, config, trend_indicators=['ichimoku', 'aroon', 'adx', 'psar', 'renko'], volume_indicators=[], volatility_indicators=['bb'], other_indicators=[], signal_threshold=0.001, his_start_date=None, his_end_date=None, is_print=False, create_gif=False, plot_save_path=None):
+def plot_historical_evolution(df, symbol, interval, config, trend_indicators=['ichimoku', 'aroon', 'adx', 'psar'], volume_indicators=[], volatility_indicators=['bb'], other_indicators=[], signal_threshold=0.001, his_start_date=None, his_end_date=None, is_print=False, create_gif=False, plot_save_path=None):
   """
   Calculate selected ta features for dataframe
 
