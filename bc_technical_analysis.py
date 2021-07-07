@@ -470,6 +470,14 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
     # calculate overall trend index
     df['trend_idx'] = df['up_trend_idx'] + df['down_trend_idx']
 
+    df['ta_trend'] = 'n'
+    df['ta_signal'] = ''
+    df['trend_idx_wma'] = sm(series=df['trend_idx'], periods=3).sum()
+    up_idx = df.query('trend_idx_wma > 0').index
+    down_idx = df.query('trend_idx_wma < 0').index
+    df.loc[up_idx, 'ta_trend'] = 'u'
+    df.loc[down_idx, 'ta_trend'] = 'd'
+
   except Exception as e:
     print(phase, e)
 
@@ -502,8 +510,8 @@ def calculate_ta_signal(df):
     # 'bb is not over-buying': '(bb_trend != "d")',
 
     # developing version
-    'ichimoku/aroon/adx/psar are all up trending': '((trend_idx == 3))',
-    'renko is up trending': '(renko_trend == "u" and (renko_duration<=150 or (below_renko_l > 0 and Close > renko_h)))',
+    'ichimoku/aroon/adx/psar are all up trending': '((trend_idx >= 3))',
+    'renko is up trending': '((renko_trend == "u") and (renko_duration<=150 or (below_renko_l > 0 and Close > renko_h)))',
     'bb is not over-buying': '(bb_trend != "d")',
   }
   up_idx = df.query(' and '.join(buy_conditions.values())).index 
@@ -528,6 +536,7 @@ def calculate_ta_signal(df):
 
   # ================================ Calculate overall siganl ======================
   df['signal_day'] = sda(series=df['trend'].replace({'':0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
+
   df['signal'] = '' 
   df.loc[df['signal_day'] == 1, 'signal'] = 'b'
   df.loc[df['signal_day'] ==-1, 'signal'] = 's'
@@ -1021,6 +1030,21 @@ def em(series, periods, fillna=False):
     return series.ewm(span=periods, min_periods=0)
   return series.ewm(span=periods, min_periods=periods)  
 
+# weighted moving average
+def wma(series, periods, fillna=False):
+  """
+  Weighted monving average from simple moving window
+
+  :param series: series to calculate
+  :param periods: size of the moving window
+  :param fillna: make the min_periods = 0
+  :returns: a rolling weighted average of 'series' with window size 'periods'
+  :raises: none
+  """
+  weight = pd.Series([i * 2 / (periods * (periods + 1)) for i in range(1, periods + 1)])
+  weighted_average = sm(series=series, periods=periods).apply(lambda x: (weight * x).sum(), raw=True)
+  return weighted_average
+
 # same direction accumulation
 def sda(series, zero_as=None):
   """
@@ -1076,6 +1100,8 @@ def sda(series, zero_as=None):
   new_series = new_series.set_index(index_col)[target_col].copy()
 
   return new_series
+
+
 
 # moving slope
 def moving_slope(series, periods):
@@ -2531,6 +2557,54 @@ def add_psar_features(df, ohlcv_col=default_ohlcv_col, step=0.02, max_step=0.10,
   if fillna:
     for col in ['psar', 'psar_up', 'psar_down']:
       df[col] = df[col].fillna(method='ffill').fillna(-1)
+
+  return df
+
+# Schaff Trend Cycle
+def add_stc_features(df, n_fast=23, n_slow=50, n_cycle=10, n_smooth=3, ohlcv_col=default_ohlcv_col, fillna=False):
+  """
+  Calculate Schaff Trend Cycle indicator
+
+  :param df: original OHLCV dataframe
+  :param n_fast: short window
+  :param n_slow: long window
+  :param n_cycle: cycle size
+  :param n_smooth: ema period over stoch_d and stock_kd
+  :param fillna: whether to fill na with 0
+  :param cal_signal: whether to calculate signal
+  :returns: dataframe with new features generated
+  """
+  # copy dataframe
+  df = df.copy()
+   
+  # set column names
+  # open = ohlcv_col['open']
+  # high = ohlcv_col['high']
+  # low = ohlcv_col['low']
+  close = ohlcv_col['close']
+  # volume = ohlcv_col['volume']
+
+  # ema and macd
+  ema_fast = em(series=df[close], periods=n_fast, fillna=fillna).mean()
+  ema_slow = em(series=df[close], periods=n_slow, fillna=fillna).mean()
+  macd = ema_fast - ema_slow
+  macd_min = sm(series=macd, periods=n_cycle, fillna=fillna).min()
+  macd_max = sm(series=macd, periods=n_cycle, fillna=fillna).max()
+
+  stoch_k = 100 * (macd - macd_min) / (macd_max - macd_min)
+  stoch_d = em(series=stoch_k, periods=n_smooth, fillna=fillna).mean()
+  stoch_d_min = sm(series=stoch_d, periods=n_cycle).min()
+  stoch_d_max = sm(series=stoch_d, periods=n_cycle).max()
+  stoch_kd = 100 * (stoch_d - stoch_d_min) / (stoch_d_max - stoch_d_min)
+
+  stc = em(series=stoch_kd, periods=n_smooth, fillna=fillna).mean()
+
+  df['stc'] = stc
+  df['25'] = 25
+  df['75'] = 75
+  df['stc_signal'] = cal_boundary_signal(df=df, upper_col='stc', upper_boundary='25', lower_col='stc', lower_boundary='75')
+  
+  df.drop(['25', '75'], axis=1, inplace=True)
 
   return df
 
@@ -4347,7 +4421,7 @@ def plot_indicator(
   """
   # select data
   df = df[start:end].copy()
-  df = df.fillna(0)
+  # df = df.fillna(0)
   
   # create figure
   ax = use_ax

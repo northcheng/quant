@@ -56,8 +56,8 @@
         "plot_args": {
             "plot_ratio": {
                 "signals": 0.75,
-                "main_indicators": 3,
-                "volume": 0.5
+                "trend_wma": 0.5,
+                "main_indicators": 3
             },
             "adx": {
                 "target_col": [
@@ -150,7 +150,6 @@
                     "adx_signal",
                     "ichimoku_signal",
                     "renko_signal",
-                    "linear_signal",
                     "signal"
                 ],
                 "plot_signal_on_price": true,
@@ -168,6 +167,13 @@
                     "trend_idx"
                 ],
                 "benchmark": 0
+            },
+            "trend_wma": {
+                "target_col": [
+                    "trend_idx_wma"
+                ],
+                "benchmark": 0,
+                "color_mode": "benchmark"
             },
             "volume": {
                 "target_col": "Volume",
