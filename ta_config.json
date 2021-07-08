@@ -55,9 +55,9 @@
         },
         "plot_args": {
             "plot_ratio": {
-                "signals": 0.75,
-                "trend_wma": 0.5,
-                "main_indicators": 3
+                "signals": 0.5,
+                "main_indicators": 3,
+                "volume": 0.5
             },
             "adx": {
                 "target_col": [
@@ -479,8 +479,7 @@
                 "513500.SHG": "博时标普500ETF",
                 "513600.SHG": "南方恒指ETF"
             }
-        }
-        
+        }  
     },
     "postprocess": {
         "keep_columns": {

@@ -511,7 +511,7 @@ def calculate_ta_signal(df):
 
     # developing version
     'ichimoku/aroon/adx/psar are all up trending': '((trend_idx >= 3))',
-    'renko is up trending': '((renko_trend == "u") and (renko_duration<=150 or (below_renko_l > 0 and Close > renko_h)))',
+    'renko is up trending': '((renko_trend == "u"))',
     'bb is not over-buying': '(bb_trend != "d")',
   }
   up_idx = df.query(' and '.join(buy_conditions.values())).index 
