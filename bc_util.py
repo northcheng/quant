@@ -144,6 +144,42 @@ def remove_duplicated_index(df, keep='first'):
   return df
 
 
+#----------------------- Http Request/Response -------------------#
+def response_2_json(response, print_status=False):
+  """
+  extract json content from http response
+
+  :param response: response from a http request
+  :returns: json content if response is valid, else None
+  :raises: None
+  """
+  # initialize json_content
+  json_content = None
+  
+  # get status code of the response
+  if response is not None:
+    status = response.status_code
+
+    # print status
+    if print_status:
+      print(f'Response status: {status}')
+  
+    # if the response is valid, get its json content
+    if status == 200:
+      json_content = response.json()
+      
+      # if json content is empty
+      if len(json_content) == 0:
+        json_content = None
+        print(f'Empty json in response')
+        
+    # otherwise print error code of the response
+    else:
+      print(f'Error with code: {status}')
+      
+  return json_content
+
+
 #----------------------- Data visualization ----------------------#
 def plot_data(df, columns, start=None, end=None, figsize=(20, 5), colormap='tab10'):
   """

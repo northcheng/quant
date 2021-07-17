@@ -77,15 +77,14 @@ def get_symbols(remove_invalid=True, save_path=None, save_name='symbol_list.csv'
   return symbols
 
 
-def get_data_from_yahoo(symbol, start_date=None, end_date=None, time_col='Date', interval='d', is_print=False):
+def get_data_from_yahoo(symbol, start_date=None, end_date=None, time_col='Date', is_print=False):
   """
-  Download stock data from Yahoo finance api via pandas_datareader
+  Download daily stock data from Yahoo finance api via pandas_datareader
 
   :param symbol: target symbol
   :param start_date: start date of the data
   :param end_date: end date of the data
   :param time_col: column name of datetime column
-  :param interval: available values - d/w/m/v
   :param is_print: whether to print download information
   :returns: dataframe or None
   :raises: exception when downloading failed
@@ -94,7 +93,7 @@ def get_data_from_yahoo(symbol, start_date=None, end_date=None, time_col='Date',
 
   try:
     # download data
-    data = web.get_data_yahoo(symbol, start_date, end_date, interval=interval)
+    data = web.DataReader(symbol, 'yahoo', start_date, end_date)
     data = post_process_download_data(df=data, source='yahoo')
       
     # print download information
@@ -157,8 +156,6 @@ def get_data_from_eod(symbol, start_date=None, end_date=None, interval='d', is_p
   :returns: dataframe or None
   :raises: exception when downloading failed
   """
-  
-
   data = None
 
   try:
@@ -253,6 +250,119 @@ def get_data_from_eod(symbol, start_date=None, end_date=None, interval='d', is_p
   return data
 
 
+def get_data_from_iex(symbol, interval, api_key, chart_last=None, include_today=True, chart_by_day=True, sandbox=False, is_print=False):
+  """
+  Download stock data from IEX cloud
+  https://iexcloud.io/docs/api/#historical-prices
+
+  :param symbol: target symbol
+  :param interval: dynamic/date/5dm/1mm/5d/1m/3m/6m/ytd/1y/2y/5y/max
+  :param is_print: whether to print download information
+  :param api_key: api token to access eod data
+  :returns: dataframe or None
+  :raises: exception when downloading failed
+  """
+  data = None
+  
+  # select a base url for normal/sandbox mode
+  url = f'https://cloud.iexapis.com/stable/'
+  if sandbox:
+    url = f'https://sandbox.iexapis.com/stable/'  
+    
+  # add symbol, interval and api_key
+  url += f'stock/{symbol}/chart/{interval}?token={api_key}'
+  
+  # add extra parameters
+  if chart_last is not None:
+    url += f'&chartLast={chart_last}'
+  if include_today:
+    url += '&includeToday=true'
+  if chart_by_day:
+    url += '&chartByDay=true'
+  
+  # request data from iex
+  response_code = None
+  try:
+    response = requests.get(url)
+    response_code = response.status_code
+
+    # get data in json format
+    if response_code==200:
+      data_json = response.json()
+
+      # convert json to dataframe
+      if len(data_json) > 0:
+        data = pd.DataFrame(data_json)
+        data = post_process_download_data(df=data, source='iex')
+
+        if is_print:
+          print(f'{symbol:4}: {data.index.min()} - {data.index.max()}, 下载记录 {len(data)} from iex cloud')
+      
+    else:
+      if is_print:
+        print(f'{symbol}({response_code})')
+
+  except Exception as e:
+    print(f'{symbol}({response_code}): {e}')    
+
+  return data
+
+
+def request_marketstack(field, parameters):
+  """
+  request data from marketstack
+
+  :param field: target field, such as eod/intraday/exchanges/currencies/tickers, etc.
+  :param parameters: dictionary of parameters for http request
+  :returns: http response
+  :raises: None
+  """
+
+  base_url = 'http://api.marketstack.com/v1/'
+  url = f'{base_url}{field}'
+  response = requests.get(url, parameters)
+  
+  return response
+
+
+def get_data_from_marketstack(symbol, api_key, start_date=None, end_date=None, limit=1000, is_print=False):
+  """
+  Download stock data from marketstack
+
+  :param symbol: target symbol
+  :param api_key: api token to access eod data
+  :param start_date: start date of the data
+  :param end_date: end date of the data
+  :param limit: number of rows to download, max is 1000
+  :param is_print: whether to print download information
+  :returns: dataframe or None
+  :raises: exception when downloading failed
+  """
+  data = None
+  
+  field = 'eod'
+  parameters = {
+    'access_key': api_key,
+    'symbols': symbol,
+    'date_from': start_date,
+    'date_to': end_date,
+    'limit': limit
+  }
+  
+  response = request_marketstack(field=field, parameters=parameters)
+  response_json = util.response_2_json(response=response, print_status=is_print)
+  
+  if response_json is not None:
+    json_data = response_json.get('data')
+    
+    if json_data is not None:
+      data = pd.DataFrame(json_data)
+      
+  data = post_process_download_data(df=data, source='marketstack')    
+  
+  return data
+
+
 def post_process_download_data(df, source):
   """
   Post process data downloaded from certain data source
@@ -285,11 +395,32 @@ def post_process_download_data(df, source):
     elif source == 'eod':
       df = df.rename(columns={'date':'Date', 'open':'Open', 'high':'High', 'low':'Low', 'close':'Close', 'adjusted_close': 'Adj Close', 'volume': 'Volume', 'dividend':'Dividend', 'split': 'Split'})
       df = util.df_2_timeseries(df=df, time_col='Date')   
+    
+    # post process data downloaded from iex
+    elif source == 'iex':
+      new_cols = {'fOpen': 'Open', 'fHigh': 'High', 'fLow': 'Low', 'fClose': 'Close', 'fVolume': 'Volume', 'date': 'Date'}
+      df = df.rename(columns=new_cols)
+      df['Split'] = 1.0
+      df['Dividend'] = 0.0
+      df['Adj Close'] = df['Close']
+      df = df[['Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume', 'Dividend', 'Split', 'Date']].copy()
+      df = util.df_2_timeseries(df=df, time_col='Date')
+
+    # post process data download from marketstack
+    elif source == 'marketstack':
+      df['date'] = df['date'].apply(lambda x: x[:10])
+      df = df.rename(columns={'open':'Open', 'high':'High', 'low':'Low', 'close':'Close', 'volume':'Volume', 'adj_close': 'Adj Close', 'split_factor':'Split', 'date': 'Date'})
+      df['Dividend'] = 0.0
+      df = df[['Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Adj Close', 'Dividend', 'Split']].copy()
+      df = util.df_2_timeseries(df=df, time_col='Date')
+    
+    # sort data by index
+    df.sort_index(ascending=True, inplace=True)
 
   return df
 
 
-def get_data(symbol, start_date=None, end_date=None, interval='d', is_print=False, source='eod', time_col='Date', api_key=default_eod_key, add_dividend=True, add_split=True):
+def get_data(symbol, start_date=None, end_date=None, interval='d', is_print=False, source='eod', time_col='Date', api_key=default_eod_key, add_dividend=True, add_split=True, chart_last=None, include_today=True, chart_by_day=True, sandbox=False, limit=1000):
   """
   Download stock data from web sources
 
@@ -300,9 +431,14 @@ def get_data(symbol, start_date=None, end_date=None, interval='d', is_print=Fals
   :param time_col: column name of datetime column
   :param interval: period, for yahoo: d/w/m/v; for yfinance: 1d/1wk/1mo; for eod: d/w/m
   :param is_print: whether to print download information
-  :param api_key: api token to access eod data
-  :param add_dividend: whether to add dividend data
-  :param add_split: whether to add split data
+  :param api_key: api token to access eod or iex data
+  :param add_dividend: [eod] whether to add dividend data
+  :param add_split: [eod] whether to add split data
+  :param chart_last: [iex] how many rows to download from current date
+  :param include_today: [iex] include the data of current date
+  :param chart_by_day: [iex] download the data in day interval
+  :param sandbox: [iex] whether to use sandbox environment for testing
+  :param limit: [marketstack] number of rows to download
   :returns: dataframe 
   :raises: exception when downloading failed
   """
@@ -310,17 +446,23 @@ def get_data(symbol, start_date=None, end_date=None, interval='d', is_print=Fals
 
   try:
     # yahoo
-    if source == 'yahoo':
-      data = get_data_from_yahoo(symbol=symbol, interval=interval, start_date=start_date, end_date=end_date, time_col=time_col, is_print=is_print)
-    
-    # yfinance
-    elif source == 'yfinance':
-      data = get_data_from_yfinance(symbol=symbol, interval=interval, start_date=start_date, end_date=end_date, time_col=time_col, is_print=is_print)
-    
+    if source in ['yahoo', 'yfinance']:
+      # data = get_data_from_yahoo(symbol=symbol, interval=interval, start_date=start_date, end_date=end_date, time_col=time_col, is_print=is_print)
+      # data = get_data_from_yfinance(symbol=symbol, interval=interval, start_date=start_date, end_date=end_date, time_col=time_col, is_print=is_print)
+      print('Yahoo finance as the data source is very un-stable, please use other sources')
+      
     # eod
     elif source == 'eod':
       data = get_data_from_eod(symbol=symbol, interval=interval, start_date=start_date, end_date=end_date, is_print=is_print, api_key=api_key, add_dividend=add_dividend, add_split=add_split)
     
+    # iex
+    elif source == 'iex':
+      data = get_data_from_iex(symbol=symbol, interval=interval, api_key=api_key, chart_last=chart_last, include_today=include_today, chart_by_day=chart_by_day, sandbox=sandbox, is_print=is_print)
+
+    # marketstack
+    elif source == 'marketstack':
+      data = get_data_from_marketstack(symbol=symbol, api_key=api_key, start_date=start_date, end_date=end_date, limit=limit, is_print=is_print)
+
     # otherwise
     else:
       print(f'data source {source} not found')
@@ -453,7 +595,7 @@ def get_real_time_data_from_yfinance(symbols, period='1d', interval='1m'):
 
 def get_real_time_data_from_easyquotation(symbols, source='sina'):
   """
-  Download real-time stock data from easyquotation
+  Download real-time stock data (chinese stock only) from easyquotation
 
   :param symbols: list of symbols
   :param source: data source, sina/tecent/qq
