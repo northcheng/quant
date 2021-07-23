@@ -35,6 +35,9 @@ from quant import bc_util as util
 
 # global variables
 default_eod_key = 'OeAFFmMliFG5orCUuwAKQ8l4WWFQ67YX'
+headers = {
+    'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.164 Safari/537.36',
+  }
 
 
 #----------------------------- Stock Data -------------------------------------#
@@ -168,7 +171,7 @@ def get_data_from_eod(symbol, start_date=None, end_date=None, interval='d', is_p
 
     # get eod data (ohlcv)
     url = f'https://eodhistoricaldata.com/api/eod/{symbol}?api_token={api_key}&period={interval}&fmt=json{from_to}'
-    response = requests.get(url)
+    response = requests.get(url, headers=headers)
     if response.status_code==200: 
       eod = response.json()
       response_status = 'o' 
@@ -189,7 +192,7 @@ def get_data_from_eod(symbol, start_date=None, end_date=None, interval='d', is_p
 
         # get dividend data
         url = f'https://eodhistoricaldata.com/api/div/{symbol}?api_token={api_key}&fmt=json{from_to}'
-        response = requests.get(url)
+        response = requests.get(url, headers=headers)
         if response.status_code==200: 
           dividend = response.json()
           response_status = 'o' 
@@ -213,7 +216,7 @@ def get_data_from_eod(symbol, start_date=None, end_date=None, interval='d', is_p
 
         # get split data
         url = f'https://eodhistoricaldata.com/api/splits/{symbol}?api_token={api_key}&fmt=json{from_to}'  
-        response = requests.get(url)
+        response = requests.get(url, headers=headers)
         if response.status_code==200: 
           split = response.json()
           response_status = 'o' 
@@ -283,7 +286,7 @@ def get_data_from_iex(symbol, interval, api_key, chart_last=None, include_today=
   # request data from iex
   response_code = None
   try:
-    response = requests.get(url)
+    response = requests.get(url, headers=headers)
     response_code = response.status_code
 
     # get data in json format
@@ -320,7 +323,7 @@ def request_marketstack(field, parameters):
 
   base_url = 'http://api.marketstack.com/v1/'
   url = f'{base_url}{field}'
-  response = requests.get(url, parameters)
+  response = requests.get(url, parameters, headers=headers)
   
   return response
 
@@ -338,28 +341,56 @@ def get_data_from_marketstack(symbol, api_key, start_date=None, end_date=None, l
   :returns: dataframe or None
   :raises: exception when downloading failed
   """
-  data = None
+  # initialize result
+  data = pd.DataFrame()
   
+  # set request parameters
   field = 'eod'
-  parameters = {
-    'access_key': api_key,
-    'symbols': symbol,
-    'date_from': start_date,
-    'date_to': end_date,
-    'limit': limit
-  }
   
-  response = request_marketstack(field=field, parameters=parameters)
-  response_json = util.response_2_json(response=response, print_status=is_print)
-  
-  if response_json is not None:
-    json_data = response_json.get('data')
-    
-    if json_data is not None:
-      data = pd.DataFrame(json_data)
+  finish_downloading = False
+  while not finish_downloading:
+
+    # request data
+    parameters = {
+      'access_key': api_key,
+      'symbols': symbol,
+      'date_from': start_date,
+      'date_to': end_date,
+      'limit': limit
+    }
+    response = request_marketstack(field=field, parameters=parameters)
+
+    # extract data from response
+    response_json = util.response_2_json(response=response, print_status=False)
+    if response_json is not None:
+
+      tmp_len = 0
+      tmp_end = None
+      json_data = response_json.get('data')
       
+      # get dataframe
+      if json_data is not None:
+        tmp_data = pd.DataFrame(json_data)
+        tmp_len = len(tmp_data)
+        tmp_end = tmp_data.date.max()[:10]
+        data = data.append(tmp_data)
+
+      # print downloading info
+      if is_print:
+        print(f'status({response.status_code}), {symbol:4}: ', end='')
+        if len(tmp_data) > 0:
+          print(f'{tmp_data.date.min()[:10]} - {tmp_data.date.max()[:10]}, 下载记录 {len(tmp_data)}')
+        else:
+          print(f'get empty data')
+
+      if (tmp_len == 0) or (0 < tmp_len and tmp_len < limit) or (tmp_end >= end):
+        finish_downloading = True
+      else:
+        start_date = tmp_end
+
+  # postprocess downloaded data
   data = post_process_download_data(df=data, source='marketstack')    
-  
+
   return data
 
 
@@ -372,7 +403,7 @@ def post_process_download_data(df, source):
   :returns: post processed data
   :raises: none
   """
-  if df is not None:
+  if df is not None and len(df)>0:
 
     # copy dataframe
     df = df.copy()
@@ -505,7 +536,7 @@ def get_real_time_data_from_eod(symbols, api_key=default_eod_key, is_print=False
   
     # get real-time data for current batch
     url = f'https://eodhistoricaldata.com/api/real-time/{first_symbol}?api_token={api_key}&fmt=json&s={other_symbols}'
-    response = requests.get(url)
+    response = requests.get(url, headers=headers)
     real_time = [] if response.status_code!=200 else response.json()
     real_time = [real_time] if isinstance(real_time, dict) else real_time
     
@@ -630,6 +661,96 @@ def get_real_time_data_from_easyquotation(symbols, source='sina'):
   return df
 
 
+def get_real_time_data_from_marketstack(symbols, api_key, is_print=False, batch_size=100, limit=1000):
+  """
+  Download real-time stock data from marketstack
+
+  :param symbols: list of symbols
+  :param api_key: api token to access eod data
+  :param is_print: whether to print download information
+  :param limit: limit of rows for getting real-time data
+  :returns: dataframe or None
+  :raises: exception when downloading failed
+  """
+  # initialize result
+  result = pd.DataFrame()
+  
+  # set request parameters
+  field = 'intraday/latest'
+  parameters = {
+    'access_key': api_key,
+    'symbols': '',
+    'interval': '15min',
+    'limit': limit
+  }
+  
+  # divid symbol list into batches
+  if batch_size > limit:
+    print('Please set batch_size smaller than limit')
+  else:
+    
+    symbol_list_len = len(symbols)
+    batch_start = 0
+    while batch_start < symbol_list_len:
+      
+      # calculate batch end according to batch start and batch size
+      batch_end = batch_start + batch_size
+      if batch_end > symbol_list_len:
+        batch_end = symbol_list_len
+        
+      # get temporal symbol list
+      tmp_list = symbols[batch_start:batch_end]
+      tmp_symbols = ','.join(tmp_list)
+      parameters['symbols'] = tmp_symbols
+      
+      # request data
+      response = request_marketstack(field=field, parameters=parameters)
+      
+      # extract data from response
+      response_json = util.response_2_json(response=response, print_status=False)
+      
+      if is_print:
+        print(f'status({response.status_code}), updating real-time for symbols: {batch_start+1:3} -{batch_end:3}')
+      
+      if response_json is not None:
+        json_data = response_json.get('data')
+        
+        # get dataframe
+        if json_data is not None:
+          data = pd.DataFrame(json_data)
+          
+        # append batch data on the result
+        result = result.append(data)
+        
+      # start next batch
+      batch_start = batch_end
+      
+    # postprocess downloaded data
+    if len(result) > 0:
+      
+      # reset index
+      result.reset_index(inplace=True, drop=True)
+      
+      # convert timezone to EST(-5)
+      tz = datetime.timezone(datetime.timedelta(hours=-5))
+      for index, row in result.iterrows():
+        result.loc[index, 'date'] = util.string_2_time(result.loc[index, 'date'], date_format='%Y-%m-%dT%H:%M:%S%z').astimezone(tz).replace(tzinfo=None)
+           
+      # rename columns
+      result.rename(columns={'open':'Open', 'high':'High', 'low':'Low', 'last':'Close', 'close':'previousClose', 'volume': 'Volume', 'date':'latest_time'}, inplace=True)
+      
+      # create extra columns
+      result['Date'] = result['latest_time'].apply(lambda x: x.date())
+      result['Adj Close'] = result['Close']
+      result['Dividend'] = 0.0
+      result['Split'] = 1.0
+      
+      # drop unnecessary columns
+      result.drop(['exchange'], axis=1, inplace=True)
+      
+    return result
+
+
 def get_stock_briefs_from_eod(symbols, api_key=default_eod_key, batch_size=15):
   """
   Get latest stock data for symbols from eod
@@ -641,6 +762,27 @@ def get_stock_briefs_from_eod(symbols, api_key=default_eod_key, batch_size=15):
   :raises: none
   """
   latest_data = get_real_time_data_from_eod(symbols=symbols, api_key=api_key, batch_size=batch_size, is_print=True)
+
+  if len(latest_data) > 0:
+    latest_data['latest_price'] = latest_data['Close'].copy()
+    latest_data = latest_data[['latest_time', 'Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume', 'symbol', 'latest_price', 'Date']]
+  else:
+    print('real time data from eod is empty')
+
+  return latest_data
+
+
+def get_stock_briefs_from_marketstack(symbols, api_key=default_eod_key, batch_size=100):
+  """
+  Get latest stock data for symbols from marketstack
+
+  :param symbols: list of target symbols
+  :param api_key: api token to access eod data
+  :param batch_size: batch size of symbols of getting real-time data
+  :returns: dataframe of latest data, per row for each symbol
+  :raises: none
+  """
+  latest_data = get_real_time_data_from_marketstack(symbols=symbols, api_key=api_key, batch_size=batch_size, is_print=True)
 
   if len(latest_data) > 0:
     latest_data['latest_price'] = latest_data['Close'].copy()
@@ -984,6 +1126,122 @@ def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', req
     return data
 
 
+def update_stock_data_from_marketstack(symbols, stock_data_path, api_key, file_format='.csv', required_date=None, window_size=3, is_print=False, is_return=False, is_save=True, batch_size=100, update_mode='eod', cn_stock=False):
+  """
+  update local stock data from eod
+
+  :param symbols: list of target symbols
+  :param stock_data_path: where the local stock data files(.csv) stored
+  :param file_format: default is .csv
+  :param required_date: if the local data have already meet the required date, it won't be updated
+  :param is_print: whether to print info when downloading
+  :param is_return: whether to return the updated data
+  :param is_save: whether to save the updated data to local files
+  :param api_key: api token to access eod data
+  :param add_dividend: whether to add dividend data
+  :param add_split: whether to add split data
+  :param batch_size: batch size of symbols of getting real-time data
+  :param update_mode: how to update data - realtime/eod/both(eod+realtime)/refresh(delete and redownload)
+  :param cn_stock: whether updating chinese stocks
+  :returns: dataframe of latest stock data, per row each symbol
+  :raises: none
+  """
+
+  # verify update_mode
+  if update_mode not in ['realtime', 'eod', 'both', 'refresh']:
+    print(f'unknown update mode: {update_mode}')
+    return None
+
+  # get the benchmark of eod data
+  today = util.time_2_string(datetime.datetime.today().date())
+  start_date = util.string_plus_day(today, -window_size)
+  benchmark_data = get_data_from_marketstack(symbol='AAPL', api_key=api_key, start_date=start_date, end_date=today)
+  benchmark_date = util.time_2_string(benchmark_data.index.max())
+  start_date = util.string_plus_day(benchmark_date, -window_size)
+
+  # get the existed data and its latest date for each symbols
+  data = {}
+  for symbol in symbols:
+    
+    # init symbol data and its most recent date
+    data[symbol] = pd.DataFrame()
+    tmp_data_date = None
+
+    # for chinese stocks
+    file_name = symbol
+    splited = file_name.split('.')
+    if len(splited) ==2 and splited[1] in ['XSHG', 'SHG', 'SS', 'XSHE', 'SHE', 'SZ']:
+      file_name = splited[0]      
+
+    # if local data exists, load existed data, update its most current date
+    symbol_file_name = f'{stock_data_path}{file_name}{file_format}'
+    if os.path.exists(symbol_file_name):
+      
+      # delete local data if update_mode == refresh
+      if update_mode == 'refresh':
+        os.remove(symbol_file_name)
+        
+    # load local data and update its most recent date
+    existed_data = load_stock_data(file_path=stock_data_path, file_name=symbol)
+    if existed_data is not None and len(existed_data) > 0:
+      max_idx = existed_data.index.max()
+      if max_idx > util.string_2_time('2020-01-01'):
+        data[symbol] = existed_data
+        tmp_data_date = util.time_2_string(max_idx)
+      else:
+        print(f'max index of {symbol} is invalid({max_idx}), refreshing data')
+        os.remove(symbol_file_name)
+
+    # update eod data, print updating info
+    if (update_mode in ['eod', 'both', 'refresh']) and (tmp_data_date is None or tmp_data_date < benchmark_date):
+      if is_print:
+        print(f'updating from ', end='0000-00-00 ' if tmp_data_date is None else f'{tmp_data_date} ')
+      
+      # download latest data for current symbol
+      new_data = get_data_from_marketstack(symbol, start_date=tmp_data_date, end_date=required_date, is_print=is_print, api_key=api_key)
+    
+      # append new data to the origin
+      data[symbol] = data[symbol].append(new_data, sort=True)
+      data[symbol] = util.remove_duplicated_index(df=data[symbol], keep='last').dropna()
+
+      # save data to local csv files
+      if is_save:
+        save_stock_data(df=data[symbol], file_path=stock_data_path, file_name=symbol, file_format=file_format, reset_index=True, index=False)
+    
+    else:
+      if is_print:
+        print(f'updating from {tmp_data_date} {symbol:4}: already up-to-date, skip')
+
+  # add real-time data when requiring data return and data will NOT be saved
+  if update_mode in ['realtime', 'both']:
+    print('***************** querying real-time data *****************')
+
+    if not cn_stock:
+      # get real-time data from EOD, convert it into time-series data
+      real_time_data = get_real_time_data_from_marketstack(symbols=symbols, api_key=api_key, is_print=is_print, batch_size=batch_size)
+      real_time_data = util.df_2_timeseries(df=real_time_data, time_col='Date')
+    else:
+      # get real-time data from easyquotation, convert it into time-series data
+      real_time_data = get_real_time_data_from_easyquotation(symbols=symbols)
+
+    # append it corresponding eod data according to symbols
+    for symbol in symbols:
+      tmp_data = real_time_data.query(f'symbol == "{symbol}"')[data[symbol].columns].copy()
+      if len(tmp_data) == 0:
+        print(f'real-time data not found for {symbol}')
+        continue
+      else:
+        tmp_idx = tmp_data.index.max()
+        for col in data[symbol].columns:
+          data[symbol].loc[tmp_idx, col] = tmp_data.loc[tmp_idx, col]
+        # data[symbol] = data[symbol].append(tmp_data)
+        data[symbol] = util.remove_duplicated_index(df=data[symbol], keep='last').dropna()
+
+  # return
+  if is_return:
+    return data
+
+
 def update_stock_data(symbols, stock_data_path, file_format='.csv', source='eod', by='date', required_date=None, is_print=False, is_return=False, is_save=True, api_key=default_eod_key, add_dividend=True, add_split=True, batch_size=15, update_mode='eod', cn_stock=False):
   """
   update local stock data
@@ -1300,7 +1558,7 @@ def download_nytimes(year, month, api_key, file_path, file_format='.json', is_pr
   file_name = f'{file_path}{year}-{month:02}{file_format}'
 
   # get data
-  items = requests.get(url)
+  items = requests.get(url, headers=headers)
 
   # resolve data
   try:

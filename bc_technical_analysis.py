@@ -1480,14 +1480,17 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
   # entity
   df['candle_entity'] = abs(df[close] - df[open])
   
-  # ======================================= upper/lower shadow ======================================= #
-  df['candle_upper_shadow'] = 0
-  df['candle_lower_shadow'] = 0
-  df.loc[up_idx, 'candle_upper_shadow'] = (df.loc[up_idx, high] - df.loc[up_idx, close])
-  df.loc[up_idx, 'candle_lower_shadow'] = (df.loc[up_idx, open] - df.loc[up_idx, low])
-  df.loc[down_idx, 'candle_upper_shadow'] = (df.loc[down_idx, high] - df.loc[down_idx, open])
-  df.loc[down_idx, 'candle_lower_shadow'] = (df.loc[down_idx, close] - df.loc[down_idx, low])
-  
+  # ======================================= upper/lower shadow/entity ================================ #
+  df['candle_entity_top'] = 0
+  df['candle_entity_bottom'] = 0
+  df.loc[up_idx, 'candle_entity_top'] = df.loc[up_idx, close]
+  df.loc[up_idx, 'candle_entity_bottom'] = df.loc[up_idx, open]
+  df.loc[down_idx, 'candle_entity_top'] = df.loc[down_idx, open]  
+  df.loc[down_idx, 'candle_entity_bottom'] = df.loc[down_idx, close]
+
+  df['candle_upper_shadow'] = df[high] - df['candle_entity_top']
+  df['candle_lower_shadow'] = df['candle_entity_bottom'] - df[low]
+
   # gap_up / gap_down
   col_to_drop = [] 
   for col in [open, close, high, low, 'candle_color', 'candle_entity']:
