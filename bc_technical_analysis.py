@@ -1448,7 +1448,7 @@ def cal_moving_average(df, target_col, ma_windows=[50, 105], start=None, end=Non
   return df
 
 # add candle stick features 
-def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
+def add_candlestick_features(df, ohlcv_col=default_ohlcv_col, pattern_recognition=False):
   """
   Add candlestick dimentions for dataframe
 
@@ -1529,25 +1529,37 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
   # df.loc[other_idx, 'candle_gap_resistant'] = df.loc[other_idx, 'candle_gap_top']
   
   # ======================================= long/short entities ================================= #
-  df['candle_long_entity'] = 0
-  df['candle_short_entity'] = 0
-  df['candle_entity_ma'] = df['candle_entity'].rolling(50).mean()
+  # df['candle_long_entity'] = 0
+  # df['candle_short_entity'] = 0
+  # df['candle_entity_ma'] = df['candle_entity'].rolling(50).mean()
 
-  df['one_third_pce'] = 0.33 * df['prev_candle_entity']
-  df['three_time_pce'] = 3 * df['prev_candle_entity']
-  df['half_cem'] = 0.5 * df['candle_entity_ma']
-  df['one_and_a_half_cem'] = 1.5 * df['candle_entity_ma']
+  # df['one_third_pce'] = 0.33 * df['prev_candle_entity']
+  # df['three_time_pce'] = 3 * df['prev_candle_entity']
+  # df['half_cem'] = 0.5 * df['candle_entity_ma']
+  # df['one_and_a_half_cem'] = 1.5 * df['candle_entity_ma']
   
-  long_entity_idx = df.query(f'((candle_entity >= one_and_a_half_cem) or (candle_entity > three_time_pce))').index
-  short_entity_idx = df.query(f'((candle_entity <= half_cem) or (candle_entity < one_third_pce))').index
-  df.loc[long_entity_idx, 'candle_long_entity'] = df.loc[long_entity_idx, 'candle_color']
-  df.loc[short_entity_idx, 'candle_short_entity'] = df.loc[short_entity_idx, 'candle_color']
-  col_to_drop.append('candle_entity_ma')
+  # long_entity_idx = df.query(f'((candle_entity >= one_and_a_half_cem) or (candle_entity > three_time_pce))').index
+  # short_entity_idx = df.query(f'((candle_entity <= half_cem) or (candle_entity < one_third_pce))').index
+  # df.loc[long_entity_idx, 'candle_long_entity'] = df.loc[long_entity_idx, 'candle_color']
+  # df.loc[short_entity_idx, 'candle_short_entity'] = df.loc[short_entity_idx, 'candle_color']
+  # col_to_drop.append('candle_entity_ma')
   
   # drop intermidiate columns
-  for c in ['low_prev_high', 'prev_low_high', 'pct_close', 'one_third_pce', 'three_time_pce', 'half_cem', 'one_and_a_half_cem']:
+  for c in ['low_prev_high', 'prev_low_high', 'pct_close']:#, 'one_third_pce', 'three_time_pce', 'half_cem', 'one_and_a_half_cem'
     col_to_drop.append(c)
   df = df.drop(col_to_drop, axis=1)
+
+  # candlestick pattern recognition
+  # long/short entities
+  df['candle_entity_ma'] = sm(series=df['candle_entity'], periods=26).mean()
+  df['candle_entity_pct_ma'] = df['candle_entity'] / df['candle_entity_ma']
+  df['candle_entity_pct'] = df['candle_entity'] / df['candle_shadow']
+
+  long_idx = df.query('candle_entity_pct_ma > 0.85 or candle_entity_pct > 0.85').index
+  short_idx = df.query('candle_entity_pct_ma < 0.15 or candle_entity_pct < 0.15').index
+  df.loc[long_idx, 'candle_trend'] = 'u'
+  df.loc[short_idx, 'candle_trend'] = 'd'
+  df['candle_signal'] = 'n'
 
   return df
 
@@ -2643,7 +2655,7 @@ def add_renko_features(df, brick_size_factor=0.1, merge_duplicated=True):
   renko_df = pd.DataFrame(columns=columns, data=[], )
   renko_df.loc[0, columns] = df.loc[0, columns]
   close = df.loc[0, 'Close'] // brick_size * brick_size
-  renko_df.loc[0, 1:] = [close-brick_size, close, close-brick_size, close]
+  renko_df.loc[0, ['Open', 'High', 'Low', 'Close']] = [close-brick_size, close, close-brick_size, close]
   renko_df['uptrend'] = True
   renko_df['renko_brick_height'] = brick_size
   columns = ['Date', 'Open', 'High', 'Low', 'Close', 'uptrend', 'renko_brick_height']
