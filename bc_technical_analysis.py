@@ -624,6 +624,9 @@ def analyze_ta_data(df):
   df['linear_day'] = sda(series=df['linear_trend'].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=None)
   df['linear_signal'] = 'n' #df['linear_trend'].replace({'d': 's', 'u': 'b', 'n': ''})
 
+  # ================================ candlestick pattern ====================
+  df = recognize_candlestick_pattern(df)
+
   return df
 
 # language describe for ta_data
@@ -768,6 +771,71 @@ def describe_ta_data(df):
   # assign description
   description += '' if (description[-1] == ']') else ']'
   df.loc[max_idx, 'description'] = description
+
+  return df
+
+# candlestick pattern recognition
+def recognize_candlestick_pattern(df):
+  # ======================================= pattern recognition ================================= #
+  # color
+  df['candle_color_trend'] = df['candle_color'].replace({-1:'d', 1: 'u', 0:'n'})
+  df['candle_color_signal'] = 'n'
+
+  # entity/shadow to close
+  df['candle_entity_to_close'] = df['candle_entity'] / df['Close']
+  df['candle_shadow_to_close'] = df['candle_shadow'] / df['Close']
+
+  # 长/短实体
+  # df['candle_entity_trend'] = 'n'
+  df['candle_entity_signal'] = 'n'
+  long_idx = df.query('candle_entity_to_close >= 0.015 and candle_entity_pct >= 0.75').index
+  short_idx = df.query('candle_entity_to_close < 0.005 and candle_entity_pct < 0.25').index
+  df.loc[long_idx, 'candle_entity_trend'] = 'u'
+  df.loc[short_idx, 'candle_entity_trend'] = 'd'
+
+  # 长影线
+  # df['candle_shadow_trend'] = 'n'
+  df['candle_shadow_signal'] = 'n'
+  upper_shadow_idx = df.query('(candle_upper_shadow_pct > 0.5 and candle_lower_shadow_pct < 0.15) and candle_shadow_to_close > 0.05').index
+  lower_shadow_idx = df.query('(candle_lower_shadow_pct > 0.5 and candle_upper_shadow_pct < 0.15) and candle_shadow_to_close > 0.05').index
+  df.loc[upper_shadow_idx, 'candle_shadow_trend'] = 'd'
+  df.loc[lower_shadow_idx, 'candle_shadow_trend'] = 'u'
+  
+  # 锤子线(吊颈线)/流星线
+  # df['candle_hammer_meteor_trend'] = 'n'
+  df['candle_hammer_meteor_signal'] = 'n'
+  hammer_idx = df.query('(candle_upper_shadow_pct < 0.1) and (0.1 < candle_entity_pct < 0.4) and (candle_lower_shadow_pct > 0.6)').index
+  meteor_idx = df.query('(candle_lower_shadow_pct < 0.1) and (0.1 < candle_entity_pct < 0.4) and (candle_upper_shadow_pct > 0.6)').index
+  df.loc[hammer_idx, 'candle_hammer_meteor_trend'] = 'u'
+  df.loc[meteor_idx, 'candle_hammer_meteor_trend'] = 'd'
+  # * renko_color
+
+  # 十字星/高浪线
+  # df['candle_cross_highwave_trend'] = 'n'
+  df['candle_cross_highwave_signal'] = 'n'
+  cross_idx = df.query('(candle_entity_to_close < 0.005 and candle_entity_pct < 0.1)').index 
+  highwave_idx = df.query('(candle_upper_shadow_pct > 0.15 and candle_lower_shadow_pct > 0.15 and candle_entity_pct < 0.15 and candle_shadow_to_close > 0.05)').index 
+  df.loc[cross_idx, 'candle_cross_highwave_trend'] = 'd'
+  df.loc[highwave_idx, 'candle_cross_highwave_trend'] = 'u'
+
+  # 乌云盖顶/穿刺形态
+  # previous_row = None
+  # for index, row in df.iterrows():
+  #   if previous_row is not None:
+      
+
+  #   else:
+  #     pass
+
+  #   previous_row = row
+
+  # 吞噬形态
+
+  # 包孕形态
+
+  # 黄昏星/启明星
+
+  # 风险与收益的平衡
 
   return df
 
@@ -1480,7 +1548,7 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col, pattern_recognitio
   # entity
   df['candle_entity'] = abs(df[close] - df[open])
   
-  # ======================================= upper/lower shadow/entity ================================ #
+  # ======================================= shadow/entity ============================================ #
   df['candle_entity_top'] = 0
   df['candle_entity_bottom'] = 0
   df.loc[up_idx, 'candle_entity_top'] = df.loc[up_idx, close]
@@ -1491,6 +1559,11 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col, pattern_recognitio
   df['candle_upper_shadow'] = df[high] - df['candle_entity_top']
   df['candle_lower_shadow'] = df['candle_entity_bottom'] - df[low]
 
+  df['candle_upper_shadow_pct'] = df['candle_upper_shadow'] / df['candle_shadow']
+  df['candle_lower_shadow_pct'] = df['candle_lower_shadow'] / df['candle_shadow']
+  df['candle_entity_pct'] = df['candle_entity'] / df['candle_shadow']
+
+  # ======================================= gap ====================================================== #
   # gap_up / gap_down
   col_to_drop = [] 
   for col in [open, close, high, low, 'candle_color', 'candle_entity']:
@@ -1522,44 +1595,16 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col, pattern_recognitio
   # gap support and resistant
   support_idx = df.query(f'{open} > candle_gap_bottom').index
   resistant_idx = df.query(f'{open} < candle_gap_top').index
-  other_idx = [x for x in df.index if x not in support_idx and x not in resistant_idx]
   df.loc[support_idx, 'candle_gap_support'] = df.loc[support_idx, 'candle_gap_bottom']
   df.loc[resistant_idx, 'candle_gap_resistant'] = df.loc[resistant_idx, 'candle_gap_top']
+  # other_idx = [x for x in df.index if x not in support_idx and x not in resistant_idx]
   # df.loc[other_idx, 'candle_gap_support'] = df.loc[other_idx, 'candle_gap_bottom']
   # df.loc[other_idx, 'candle_gap_resistant'] = df.loc[other_idx, 'candle_gap_top']
   
-  # ======================================= long/short entities ================================= #
-  # df['candle_long_entity'] = 0
-  # df['candle_short_entity'] = 0
-  # df['candle_entity_ma'] = df['candle_entity'].rolling(50).mean()
-
-  # df['one_third_pce'] = 0.33 * df['prev_candle_entity']
-  # df['three_time_pce'] = 3 * df['prev_candle_entity']
-  # df['half_cem'] = 0.5 * df['candle_entity_ma']
-  # df['one_and_a_half_cem'] = 1.5 * df['candle_entity_ma']
-  
-  # long_entity_idx = df.query(f'((candle_entity >= one_and_a_half_cem) or (candle_entity > three_time_pce))').index
-  # short_entity_idx = df.query(f'((candle_entity <= half_cem) or (candle_entity < one_third_pce))').index
-  # df.loc[long_entity_idx, 'candle_long_entity'] = df.loc[long_entity_idx, 'candle_color']
-  # df.loc[short_entity_idx, 'candle_short_entity'] = df.loc[short_entity_idx, 'candle_color']
-  # col_to_drop.append('candle_entity_ma')
-  
   # drop intermidiate columns
-  for c in ['low_prev_high', 'prev_low_high', 'pct_close']:#, 'one_third_pce', 'three_time_pce', 'half_cem', 'one_and_a_half_cem'
+  for c in ['low_prev_high', 'prev_low_high', 'pct_close']:
     col_to_drop.append(c)
   df = df.drop(col_to_drop, axis=1)
-
-  # candlestick pattern recognition
-  # long/short entities
-  df['candle_entity_ma'] = sm(series=df['candle_entity'], periods=26).mean()
-  df['candle_entity_pct_ma'] = df['candle_entity'] / df['candle_entity_ma']
-  df['candle_entity_pct'] = df['candle_entity'] / df['candle_shadow']
-
-  long_idx = df.query('candle_entity_pct_ma > 0.85 or candle_entity_pct > 0.85').index
-  short_idx = df.query('candle_entity_pct_ma < 0.15 or candle_entity_pct < 0.15').index
-  df.loc[long_idx, 'candle_trend'] = 'u'
-  df.loc[short_idx, 'candle_trend'] = 'd'
-  df['candle_signal'] = 'n'
 
   return df
 

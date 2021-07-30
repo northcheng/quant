@@ -144,7 +144,11 @@
             },
             "signals": {
                 "signal_list": [
-                    "candle_signal",
+                    "candle_cross_highwave_signal",
+                    "candle_hammer_meteor_signal",
+                    "candle_shadow_signal",
+                    "candle_entity_signal",
+                    "candle_color_signal",
                     "bb_signal",
                     "psar_signal",
                     "aroon_signal",
