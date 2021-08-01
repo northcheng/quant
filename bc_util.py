@@ -100,7 +100,7 @@ def num_days_between(start_date, end_date, date_format=default_date_format):
 
   :param start_date: date string of start date
   :param end_date: date string of end date
-  :date_format: format of date strings
+  :param date_format: format of date strings
   :returns: number of days between start/end date
   :raises: none
   """
@@ -110,6 +110,23 @@ def num_days_between(start_date, end_date, date_format=default_date_format):
 
   return diff.days
 
+
+def convert_timezone(time_object, from_tz, to_tz, keep_tzinfo=False):
+  """
+  Convert a time object from one timezone to another
+
+  :param time_object: datetime instance
+  :param from_tz: original timezone
+  :param to_tz: target timezone
+  :param keep_tzinfo: whether to keep the tzinfo in the result
+  :returns: datetime instance with timezone converted
+  :raises: none
+  """
+  result = time_object.replace(tzinfo=from_tz).astimezone(to_tz)
+  if not keep_tzinfo:
+    result = result.replace(tzinfo=None)
+
+  return result
 
 #----------------------- Dataframe manipulation ------------------#
 def df_2_timeseries(df, time_col='date'):
