@@ -55,7 +55,7 @@
         },
         "plot_args": {
             "plot_ratio": {
-                "signals": 0.5,
+                "signals": 1.5,
                 "main_indicators": 3,
                 "volume": 0.5
             },
@@ -144,11 +144,16 @@
             },
             "signals": {
                 "signal_list": [
-                    "candle_cross_highwave_signal",
-                    "candle_hammer_meteor_signal",
-                    "candle_shadow_signal",
-                    "candle_entity_signal",
-                    "candle_color_signal",
+                    "window_signal",
+                    "top_bottom_signal",
+                    "embrace_signal",
+                    "wrap_signal",
+                    "cloud_signal",
+                    "cross_highwave_signal",
+                    "hammer_meteor_signal",
+                    "shadow_signal",
+                    "entity_signal",
+                    "color_signal",
                     "bb_signal",
                     "psar_signal",
                     "aroon_signal",

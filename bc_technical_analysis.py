@@ -777,61 +777,126 @@ def describe_ta_data(df):
 # candlestick pattern recognition
 def recognize_candlestick_pattern(df):
   # ======================================= pattern recognition ================================= #
-  # color
-  df['candle_color_trend'] = df['candle_color'].replace({-1:'d', 1: 'u', 0:'n'})
-  df['candle_color_signal'] = 'n'
+  # 底部/顶部
+  df['close_ma_120'] = sm(series=df['Close'], periods=120).mean()
+  df['close_to_ma_120'] = (df['Low'] - df['close_ma_120'])/df['close_ma_120']
+  tops = df.query('close_to_ma_120 > 0.025').index
+  bottoms = df.query('close_to_ma_120 < -0.025').index
+  df.loc[tops, 'top_bottom_trend'] = 'u'
+  df.loc[bottoms, 'top_bottom_trend'] = 'd'
+  df['top_bottom_signal'] = 'n'
 
-  # entity/shadow to close
+  # 蜡烛颜色
+  df['color_trend'] = df['candle_color'].replace({-1:'d', 1: 'u', 0:'n'})
+  df['color_signal'] = 'n'
+
+  # 实体/影线与收盘价的比值
   df['candle_entity_to_close'] = df['candle_entity'] / df['Close']
   df['candle_shadow_to_close'] = df['candle_shadow'] / df['Close']
 
   # 长/短实体
-  # df['candle_entity_trend'] = 'n'
-  df['candle_entity_signal'] = 'n'
+  # df['entity_trend'] = 'n'
+  df['entity_signal'] = 'n'
   long_idx = df.query('candle_entity_to_close >= 0.015 and candle_entity_pct >= 0.75').index
   short_idx = df.query('candle_entity_to_close < 0.005 and candle_entity_pct < 0.25').index
-  df.loc[long_idx, 'candle_entity_trend'] = 'u'
-  df.loc[short_idx, 'candle_entity_trend'] = 'd'
+  df.loc[long_idx, 'entity_trend'] = 'u'
+  df.loc[short_idx, 'entity_trend'] = 'd'
 
   # 长影线
-  # df['candle_shadow_trend'] = 'n'
-  df['candle_shadow_signal'] = 'n'
+  # df['shadow_trend'] = 'n'
+  df['shadow_signal'] = 'n'
   upper_shadow_idx = df.query('(candle_upper_shadow_pct > 0.5 and candle_lower_shadow_pct < 0.15) and candle_shadow_to_close > 0.05').index
   lower_shadow_idx = df.query('(candle_lower_shadow_pct > 0.5 and candle_upper_shadow_pct < 0.15) and candle_shadow_to_close > 0.05').index
-  df.loc[upper_shadow_idx, 'candle_shadow_trend'] = 'd'
-  df.loc[lower_shadow_idx, 'candle_shadow_trend'] = 'u'
+  df.loc[upper_shadow_idx, 'shadow_trend'] = 'd'
+  df.loc[lower_shadow_idx, 'shadow_trend'] = 'u'
   
   # 锤子线(吊颈线)/流星线
-  # df['candle_hammer_meteor_trend'] = 'n'
-  df['candle_hammer_meteor_signal'] = 'n'
+  # df['hammer_meteor_trend'] = 'n'
+  df['hammer_meteor_signal'] = 'n'
   hammer_idx = df.query('(candle_upper_shadow_pct < 0.1) and (0.1 < candle_entity_pct < 0.4) and (candle_lower_shadow_pct > 0.6)').index
   meteor_idx = df.query('(candle_lower_shadow_pct < 0.1) and (0.1 < candle_entity_pct < 0.4) and (candle_upper_shadow_pct > 0.6)').index
-  df.loc[hammer_idx, 'candle_hammer_meteor_trend'] = 'u'
-  df.loc[meteor_idx, 'candle_hammer_meteor_trend'] = 'd'
+  df.loc[hammer_idx, 'hammer_meteor_trend'] = 'u'
+  df.loc[meteor_idx, 'hammer_meteor_trend'] = 'd'
   # * renko_color
 
   # 十字星/高浪线
-  # df['candle_cross_highwave_trend'] = 'n'
-  df['candle_cross_highwave_signal'] = 'n'
+  # df['cross_highwave_trend'] = 'n'
+  df['cross_highwave_signal'] = 'n'
   cross_idx = df.query('(candle_entity_to_close < 0.005 and candle_entity_pct < 0.1)').index 
   highwave_idx = df.query('(candle_upper_shadow_pct > 0.15 and candle_lower_shadow_pct > 0.15 and candle_entity_pct < 0.15 and candle_shadow_to_close > 0.05)').index 
-  df.loc[cross_idx, 'candle_cross_highwave_trend'] = 'd'
-  df.loc[highwave_idx, 'candle_cross_highwave_trend'] = 'u'
+  df.loc[cross_idx, 'cross_highwave_trend'] = 'd'
+  df.loc[highwave_idx, 'cross_highwave_trend'] = 'u'
 
-  # 乌云盖顶/穿刺形态
-  # previous_row = None
-  # for index, row in df.iterrows():
-  #   if previous_row is not None:
+  
+
+  # 是否为实体, 是否连续实体
+  df['is_entity'] = 0
+  entity_idx = df.query('candle_entity_pct > 0.7 or candle_entity_to_close > 0.02').index
+  df.loc[entity_idx, 'is_entity'] = 1
+  df['is_entity_trend'] = df['is_entity'].replace({0:None, 1:'u'})
+  df['is_entity_signal'] = 'n'
+  df['prev_is_entity'] = df['is_entity'].shift(1)
+  df['continious_entity'] = df['is_entity'] * df['prev_is_entity']
+  df['continious_entity_trend'] = df['continious_entity'].replace({0:None, 1:'u'})
+  df['continious_entity_signal'] = 'n'
+  target_idx = df.query('continious_entity == 1').index
+  idxs = df.index.tolist()
+
+  # 乌云盖顶/穿刺形态, 吞噬形态, 包孕形态
+  # df['cloud_trend'] = 'n'
+  df['cloud_signal'] = 'n'
+  # df['wrap_trend'] = 'n'
+  df['wrap_signal'] = 'n'
+  # df['embrace_trend'] = 'n'
+  df['embrace_signal'] = 'n'
+  previous_row = None
+  df['candle_entity_middle'] = (df['candle_entity_top'] + df['candle_entity_bottom']) * 0.5
+
+  for idx in target_idx:
+    previous_idx = idxs[idxs.index(idx) - 1]
+    previous_row = df.loc[previous_idx]
+    row = df.loc[idx]
+    
+    # 顶部>前顶部
+    if (previous_row['candle_entity_top'] < row['candle_entity_top']):
+      # 底部>前底部
+      if (previous_row['candle_entity_bottom'] < row['candle_entity_bottom']):
+        # 底部穿过前中点
+        if previous_row['candle_entity_middle'] > row['candle_entity_bottom']:
+          # 先绿后红: 乌云盖顶
+          if (previous_row['candle_color'] == 1 and row['candle_color'] == -1):
+            df.loc[idx, 'cloud_trend'] = 'd'
+          # 先红后绿: 穿刺形态
+          elif (previous_row['candle_color'] == -1 and row['candle_color'] == 1):
+            df.loc[idx, 'cloud_trend'] = 'u'
       
+      # 底部<前底部: 吞噬形态
+      else:
+        # 先绿后红: 空头吞噬
+        if (previous_row['candle_color'] == 1 and row['candle_color'] == -1):
+          df.loc[idx, 'wrap_trend'] = 'd'
+        # 先红后绿: 多头吞噬
+        elif (previous_row['candle_color'] == -1 and row['candle_color'] == 1):
+          df.loc[idx, 'wrap_trend'] = 'u'
 
-  #   else:
-  #     pass
-
-  #   previous_row = row
-
-  # 吞噬形态
-
-  # 包孕形态
+    # 顶部<前顶部
+    else:
+      # 底部>前底部
+      if (previous_row['candle_entity_bottom'] < row['candle_entity_bottom']):
+        # 先绿后红: 包孕形态
+        if (previous_row['candle_color'] == 1 and row['candle_color'] == -1):
+          df.loc[idx, 'embrace_trend'] = 'd'
+        # 先红后绿: 包孕形态
+        elif (previous_row['candle_color'] == -1 and row['candle_color'] == 1):
+          df.loc[idx, 'embrace_trend'] = 'u'
+ 
+  # 窗口
+  # df['window_trend'] = 'n'
+  df['window_signal'] = 'n'
+  up_window = df.query('candle_gap > 0').index
+  down_window = df.query('candle_gap < 0').index
+  df.loc[up_window, 'window_trend'] = 'u'
+  df.loc[down_window, 'window_trend'] = 'd'
 
   # 黄昏星/启明星
 
