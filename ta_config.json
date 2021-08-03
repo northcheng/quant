@@ -55,9 +55,11 @@
         },
         "plot_args": {
             "plot_ratio": {
-                "signals": 1.5,
-                "main_indicators": 3,
-                "volume": 0.5
+                "signals": 0.5,
+                "candle": 0.5,
+                "volume": 0.5,
+                "main_indicators": 3
+                
             },
             "adx": {
                 "target_col": [
@@ -144,16 +146,6 @@
             },
             "signals": {
                 "signal_list": [
-                    "window_signal",
-                    "top_bottom_signal",
-                    "embrace_signal",
-                    "wrap_signal",
-                    "cloud_signal",
-                    "cross_highwave_signal",
-                    "hammer_meteor_signal",
-                    "shadow_signal",
-                    "entity_signal",
-                    "color_signal",
                     "bb_signal",
                     "psar_signal",
                     "aroon_signal",
@@ -164,6 +156,20 @@
                 ],
                 "plot_signal_on_price": true,
                 "price_alpha": 0
+            },
+            "candle": {
+                "signal_list": [
+                    
+                    "embrace_signal",
+                    "wrap_signal",
+                    "cloud_signal",
+
+                    "hammer_meteor_signal",
+
+                    "cross_highwave_signal"
+                ],
+                "plot_signal_on_price": true,
+                "price_alpha": 0.02
             },
             "other": {
                 "target_col": [

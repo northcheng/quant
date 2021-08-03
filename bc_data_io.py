@@ -726,9 +726,11 @@ def get_real_time_data_from_marketstack(symbols, api_key, is_print=False, batch_
 
     # if it is valid period
     if valid_period:
-      date_from = utc_now - datetime.timedelta(minutes=30)
+      date_from = utc_now - datetime.timedelta(hours=1)
       date_from = util.time_2_string(date_from, date_format='%Y-%m-%dT%H:%M:%S+0000')
       date_to = util.time_2_string(utc_now, date_format='%Y-%m-%dT%H:%M:%S+0000')
+
+      print(f'from {date_from} to {date_to}')
     
       # set request parameters
       field = 'intraday'

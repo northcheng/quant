@@ -776,73 +776,136 @@ def describe_ta_data(df):
 
 # candlestick pattern recognition
 def recognize_candlestick_pattern(df):
-  # ======================================= pattern recognition ================================= #
-  # 底部/顶部
+  # ======================================= fundamental components ============================== #
+  # tops/bottoms
+  df['top_bottom_signal'] = 'n'
   df['close_ma_120'] = sm(series=df['Close'], periods=120).mean()
   df['close_to_ma_120'] = (df['Low'] - df['close_ma_120'])/df['close_ma_120']
-  tops = df.query('close_to_ma_120 > 0.025').index
-  bottoms = df.query('close_to_ma_120 < -0.025').index
-  df.loc[tops, 'top_bottom_trend'] = 'u'
-  df.loc[bottoms, 'top_bottom_trend'] = 'd'
-  df['top_bottom_signal'] = 'n'
 
-  # 蜡烛颜色
+  conditions = {
+    'top': 'close_to_ma_120 > 0.025 or above_renko_h >= 5 ', 
+    'bottom': 'close_to_ma_120 < -0.025 or below_renko_l >= 5'} 
+  values = {
+    'top': 'u', 
+    'bottom': 'd'}
+  df = assign_condition_value(df=df, column='top_bottom_trend', condition_dict=conditions, value_dict=values)
+
+  # large/small volume 
+  df['volume_signal'] = 'n'
+  df['volume_ma_120'] = sm(series=df['Volume'], periods=120).mean()
+  df = cal_change_rate(df=df, target_col='Volume', add_accumulation=False, add_prefix=True)
+  df['volume_to_ma_120'] = (df['Volume'] - df['volume_ma_120'])/df['volume_ma_120']
+
+  conditions = {
+    'large': 'volume_to_ma_120 > 0.3 or Volume_rate > 0.3', 
+    'small': 'volume_to_ma_120 < -0.3 or Volume_rate < -0.3'}
+  values = {
+    'large': 'u', 
+    'small': 'd'}
+  df = assign_condition_value(df=df, column='volume_trend', condition_dict=conditions, value_dict=values)
+
+  # window(gap)
+  df['window_signal'] = 'n'
+  conditions = {
+    'up': 'candle_gap > 1', 
+    'down': 'candle_gap < -1',
+    'invalid': 'candle_gap == 1 or candle_gap == -1'}
+  values = {
+    'up': 'u', 
+    'down': 'd', 
+    'invalid': 'n'}
+  df = assign_condition_value(df=df, column='window_trend', condition_dict=conditions, value_dict=values)
+
+  # candle colors
   df['color_trend'] = df['candle_color'].replace({-1:'d', 1: 'u', 0:'n'})
-  df['color_signal'] = 'n'
+  df['color_signal'] = 'n'  
 
-  # 实体/影线与收盘价的比值
+  # entity/shadow to close rate
   df['candle_entity_to_close'] = df['candle_entity'] / df['Close']
   df['candle_shadow_to_close'] = df['candle_shadow'] / df['Close']
 
-  # 长/短实体
-  # df['entity_trend'] = 'n'
+  # ======================================= 1 candle pattern  =================================== #
+  # long/short entity
   df['entity_signal'] = 'n'
-  long_idx = df.query('candle_entity_to_close >= 0.015 and candle_entity_pct >= 0.75').index
-  short_idx = df.query('candle_entity_to_close < 0.005 and candle_entity_pct < 0.25').index
-  df.loc[long_idx, 'entity_trend'] = 'u'
-  df.loc[short_idx, 'entity_trend'] = 'd'
+  # conditions = {
+  #   'long': 'candle_entity_to_close >= 0.015', 
+  #   'short': 'candle_entity_to_close < 0.005'}
+  # values = {
+  #   'long': 'u', 
+  #   'short': 'd'}
+  # df = assign_condition_value(df=df, column='entity_trend', condition_dict=conditions, value_dict=values)
+  conditions = {
+    'long': '(candle_entity_pct > 0.7 or candle_entity_to_close > 0.007)', 
+    'short': '(candle_entity_pct < 0.3 or candle_entity_to_close < 0.003)'}
+  values = {
+    'long': 'u', 
+    'short': 'd'}
+  df = assign_condition_value(df=df, column='entity_trend', condition_dict=conditions, value_dict=values)
 
-  # 长影线
-  # df['shadow_trend'] = 'n'
-  df['shadow_signal'] = 'n'
-  upper_shadow_idx = df.query('(candle_upper_shadow_pct > 0.5 and candle_lower_shadow_pct < 0.15) and candle_shadow_to_close > 0.05').index
-  lower_shadow_idx = df.query('(candle_lower_shadow_pct > 0.5 and candle_upper_shadow_pct < 0.15) and candle_shadow_to_close > 0.05').index
-  df.loc[upper_shadow_idx, 'shadow_trend'] = 'd'
-  df.loc[lower_shadow_idx, 'shadow_trend'] = 'u'
-  
-  # 锤子线(吊颈线)/流星线
-  # df['hammer_meteor_trend'] = 'n'
+  # long upper/lower shadow
+  df['upper_shadow_signal'] = 'n'
+  conditions = {
+    'long': '(candle_upper_shadow_pct > 0.4 and candle_upper_shadow_pct > candle_lower_shadow_pct and candle_upper_shadow_pct > candle_entity_pct)', 
+    'short': '(candle_upper_shadow_pct < 0.1 and candle_upper_shadow_pct < candle_lower_shadow_pct and candle_upper_shadow_pct < candle_entity_pct)'}
+  values = {
+    'long': 'u', 
+    'short': 'd'}
+  df = assign_condition_value(df=df, column='upper_shadow_trend', condition_dict=conditions, value_dict=values)
+
+  # long upper/lower shadow
+  df['lower_shadow_signal'] = 'n'
+  conditions = {
+    'long': '(candle_lower_shadow_pct > 0.4 and candle_lower_shadow_pct > candle_upper_shadow_pct and candle_lower_shadow_pct > candle_entity_pct)', 
+    'short': '(candle_lower_shadow_pct < 0.1 and candle_lower_shadow_pct < candle_upper_shadow_pct and candle_lower_shadow_pct < candle_entity_pct)'}
+  values = {
+    'long': 'u', 
+    'short': 'd'}
+  df = assign_condition_value(df=df, column='lower_shadow_trend', condition_dict=conditions, value_dict=values)
+
+  # hammer(hanging)/meteor
   df['hammer_meteor_signal'] = 'n'
-  hammer_idx = df.query('(candle_upper_shadow_pct < 0.1) and (0.1 < candle_entity_pct < 0.4) and (candle_lower_shadow_pct > 0.6)').index
-  meteor_idx = df.query('(candle_lower_shadow_pct < 0.1) and (0.1 < candle_entity_pct < 0.4) and (candle_upper_shadow_pct > 0.6)').index
-  df.loc[hammer_idx, 'hammer_meteor_trend'] = 'u'
-  df.loc[meteor_idx, 'hammer_meteor_trend'] = 'd'
+  conditions = {
+    'hammer': '(candle_entity_pct >= 0.1) and (candle_upper_shadow_pct < 0.15) and (candle_lower_shadow_pct > 0.6) and (renko_color == "red" or top_bottom_trend == "d")', 
+    'hanging': '(candle_entity_pct >= 0.1) and (candle_upper_shadow_pct < 0.15) and (candle_lower_shadow_pct > 0.6) and (renko_color == "green" and top_bottom_trend != "d")', 
+    'meteor': '(candle_entity_pct >= 0.1) and (candle_lower_shadow_pct < 0.15) and (candle_upper_shadow_pct > 0.6) and (renko_color == "green" and top_bottom_trend != "d")'}
+  values = {
+    'hammer': 'u', 
+    'hanging': 'd',
+    'meteor': 'd'}
+  df = assign_condition_value(df=df, column='hammer_meteor_trend', condition_dict=conditions, value_dict=values)
   # * renko_color
 
-  # 十字星/高浪线
-  # df['cross_highwave_trend'] = 'n'
+  # cross/highwave
   df['cross_highwave_signal'] = 'n'
-  cross_idx = df.query('(candle_entity_to_close < 0.005 and candle_entity_pct < 0.1)').index 
-  highwave_idx = df.query('(candle_upper_shadow_pct > 0.15 and candle_lower_shadow_pct > 0.15 and candle_entity_pct < 0.15 and candle_shadow_to_close > 0.05)').index 
-  df.loc[cross_idx, 'cross_highwave_trend'] = 'd'
-  df.loc[highwave_idx, 'cross_highwave_trend'] = 'u'
+  conditions = {
+    'cross': '(candle_entity_pct < 0.05 and candle_shadow_to_close < 0.03)', 
+    'highwave': '(candle_shadow_to_close >= 0.03 and candle_entity_pct < 0.05) or (candle_entity_pct >= 0.05 and candle_upper_shadow_pct > 0.3 and candle_lower_shadow_pct > 0.3 and candle_shadow_to_close > 0.025)'}
+  values = {
+    'cross': 'd', 
+    'highwave': 'u'}
+  df = assign_condition_value(df=df, column='cross_highwave_trend', condition_dict=conditions, value_dict=values)
 
-  
+  # df['1_candle_pattern'] = ''
+  # long_entity = 
 
-  # 是否为实体, 是否连续实体
-  df['is_entity'] = 0
-  entity_idx = df.query('candle_entity_pct > 0.7 or candle_entity_to_close > 0.02').index
-  df.loc[entity_idx, 'is_entity'] = 1
-  df['is_entity_trend'] = df['is_entity'].replace({0:None, 1:'u'})
-  df['is_entity_signal'] = 'n'
-  df['prev_is_entity'] = df['is_entity'].shift(1)
-  df['continious_entity'] = df['is_entity'] * df['prev_is_entity']
-  df['continious_entity_trend'] = df['continious_entity'].replace({0:None, 1:'u'})
+  # ======================================= 2 candle pattern  =================================== #
+  # entity/continious entities
+  # df['is_entity_signal'] = 'n'
+  # conditions = {
+  #   'long': '(candle_entity_pct > 0.7 or candle_entity_to_close > 0.007)', 
+  #   'short': '(candle_entity_pct < 0.3 or candle_entity_to_close < 0.003)'}
+  # values = {
+  #   'long': 'u', 
+  #   'short': 'd'}
+  # df = assign_condition_value(df=df, column='is_entity_trend', condition_dict=conditions, value_dict=values)
+
+  df['is_entity'] = df['entity_trend'].replace({'u':1, 'd': 0})
   df['continious_entity_signal'] = 'n'
+  df['continious_entity'] = df['is_entity'] * df['is_entity'].shift(1)
+  df['continious_entity_trend'] = df['continious_entity'].replace({0:None, 1:'u'})
   target_idx = df.query('continious_entity == 1').index
   idxs = df.index.tolist()
 
-  # 乌云盖顶/穿刺形态, 吞噬形态, 包孕形态
   # df['cloud_trend'] = 'n'
   df['cloud_signal'] = 'n'
   # df['wrap_trend'] = 'n'
@@ -890,17 +953,19 @@ def recognize_candlestick_pattern(df):
         elif (previous_row['candle_color'] == -1 and row['candle_color'] == 1):
           df.loc[idx, 'embrace_trend'] = 'u'
  
-  # 窗口
-  # df['window_trend'] = 'n'
-  df['window_signal'] = 'n'
-  up_window = df.query('candle_gap > 0').index
-  down_window = df.query('candle_gap < 0').index
-  df.loc[up_window, 'window_trend'] = 'u'
-  df.loc[down_window, 'window_trend'] = 'd'
-
+  # ======================================= 3 candle pattern  =================================== #
   # 黄昏星/启明星
 
   # 风险与收益的平衡
+  df['separate_trend'] = 'n'
+  df['separate_signal'] = 'n'
+                    # "separate_signal",
+
+                    # "volume_signal",
+                    # "top_bottom_signal",
+                    # "lower_shadow_signal",
+                    # "entity_trend",
+                    # "upper_shadow_signal"
 
   return df
 
@@ -1106,6 +1171,38 @@ def filter_idx(df, condition_dict):
   result['other'] = other_idx
 
   return result
+
+# set value to column of indeies that meet specific conditions
+def assign_condition_value(df, column, condition_dict, value_dict, default_value=None):
+  """
+  # set value to column of index that meet conditions
+
+  :param df: dataframe to search
+  :param column: target column
+  :param condition_dict: dictionary of conditions
+  :param value_dict: corresponding value to assign to the column
+  :param default_value: default value of the column
+  :returns: dataframe with the column set
+  :raises: None
+  """
+  # copy dataframe
+  df = df.copy()
+  
+  # set default value of column
+  if default_value is not None:
+    df[column] = default_value
+  
+  # set condition value to filterd index
+  filtered_idx = filter_idx(df=df, condition_dict=condition_dict)
+  for k in value_dict.keys():
+    condition_idx = filtered_idx.get(k)
+    condition_value = value_dict[k]
+    if condition_idx is None:
+      print(f'{k} not found in filter')
+    else:
+      df.loc[condition_idx, column] = condition_value
+  
+  return df
 
 # set index-column with specific value
 def set_idx_col_value(df, idx, col, values, set_on_copy=True):
@@ -1641,6 +1738,8 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col, pattern_recognitio
   df['pct_close'] = df[close] * 0.01
 
   df['low_prev_high'] = df[low] - df[f'prev_{high}']
+  gap_up_idx = df.query(f'low_prev_high > 0').index
+  df.loc[gap_up_idx, 'candle_gap'] = 1
   strict_gap_up_idx = df.query(f'low_prev_high >= pct_close').index
   df.loc[strict_gap_up_idx, 'candle_gap'] = 2
   df.loc[strict_gap_up_idx, 'candle_gap_top'] = df.loc[strict_gap_up_idx, f'{low}']
@@ -1648,6 +1747,8 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col, pattern_recognitio
   
   # gap down
   df['prev_low_high'] = df[f'prev_{low}'] - df[high]
+  gap_down_idx = df.query(f'prev_low_high > 0').index  
+  df.loc[gap_down_idx, 'candle_gap'] = -1
   strict_gap_down_idx = df.query(f'prev_low_high >= pct_close').index  
   df.loc[strict_gap_down_idx, 'candle_gap'] = -2
   df.loc[strict_gap_down_idx, 'candle_gap_top'] = df.loc[strict_gap_down_idx, f'prev_{low}']
@@ -2949,7 +3050,7 @@ def add_renko_features(df, brick_size_factor=0.1, merge_duplicated=True):
 
   for col in ['above_renko_h', 'among_renko', 'below_renko_l']:
     df.loc[renko_swift_idx, col] = 0
-    df[col] = sda(df[col], zero_as=0, )   
+    df[col] = sda(df[col], zero_as=None, )   
 
   return df
 
@@ -4102,7 +4203,7 @@ def plot_candlestick(
   
   # annotate gaps
   idxs = df.index.tolist()
-  gap_idxs = df.query('candle_gap != 0').index
+  gap_idxs = df.query('candle_gap == 2 or candle_gap == -2').index
   for idx in gap_idxs:
 
     # gap start and it top/bottom
@@ -4708,8 +4809,32 @@ def plot_multiple_indicators(
     elif tmp_indicator == 'renko':
       plot_renko(df=plot_data, ohlcv_col=default_ohlcv_col, use_ax=axes[tmp_indicator], title=tmp_indicator, plot_args=subplot_args)
 
-    # plot signals
+    # plot ta signals
     elif tmp_indicator == 'signals':
+      signals = tmp_args.get('signal_list')
+      signal_bases = []
+      signal_names = []
+      if signals is not None:
+        for i in range(len(signals)):
+          signal_name = signals[i]
+          trend_name = signal_name.replace('signal', 'trend')
+          signal_names.append(signal_name.split('_')[0])
+
+          plot_data[f'signal_base_{signal_name}'] = i
+          signal_bases.append(i)
+
+          plot_signal(
+            df=plot_data, price_col=f'signal_base_{signal_name}', price_alpha=price_alpha,
+            signal_col=signal_name, trend_col=trend_name, signal_val=signal_val, 
+            title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=subplot_args)
+
+      # legend and title
+      plt.ylim(ymin=min(signal_bases)-1 , ymax=max(signal_bases)+1)
+      plt.yticks(signal_bases, signal_names)
+      axes[tmp_indicator].legend().set_visible(False)
+
+    # plot candlestick pattern signals
+    elif tmp_indicator == 'candle':
       signals = tmp_args.get('signal_list')
       signal_bases = []
       signal_names = []
