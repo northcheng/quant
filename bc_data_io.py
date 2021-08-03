@@ -758,8 +758,9 @@ def get_real_time_data_from_marketstack(symbols, api_key, is_print=False, batch_
           # append latest data of a symbol onto the result
           if len(data) > 0:
             for symbol in tmp_list:
-              symbol_data = data.dropna().query(f'symbol == "{symbol}"').head(1).copy()
-              result = result.append(symbol_data)
+              symbol_data = data.dropna().query(f'symbol == "{symbol}"')
+              if len(symbol_data) > 0:
+                result = result.append(symbol_data.head(1).copy())
 
     # if not in valid period, get latest eod data instead
     else:
