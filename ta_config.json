@@ -57,8 +57,8 @@
             "plot_ratio": {
                 "signals": 0.5,
                 "candle": 0.5,
-                "volume": 0.5,
-                "main_indicators": 3
+                "main_indicators": 3,
+                "volume": 0.5
                 
             },
             "adx": {
