@@ -163,8 +163,8 @@
                     "embrace_signal",
                     "wrap_signal",
                     "cloud_signal",
-                    "hammer_meteor_signal",
-                    "cross_highwave_signal"
+                    "hammer_signal",
+                    "cross_signal"
                 ],
                 "plot_signal_on_price": true,
                 "price_alpha": 0.02
