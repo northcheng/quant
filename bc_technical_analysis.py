@@ -823,83 +823,84 @@ def recognize_candlestick_pattern(df):
   # entity/shadow to close rate
   df['candle_entity_to_close'] = df['candle_entity'] / df['Close']
   df['candle_shadow_to_close'] = df['candle_shadow'] / df['Close']
+  df['candle_shadow_pct_diff'] = df['candle_upper_shadow_pct'] - df['candle_lower_shadow_pct']
 
   # ======================================= 1 candle pattern  =================================== #
   # long/short entity
   df['entity_signal'] = 'n'
-  # conditions = {
-  #   'long': 'candle_entity_to_close >= 0.015', 
-  #   'short': 'candle_entity_to_close < 0.005'}
-  # values = {
-  #   'long': 'u', 
-  #   'short': 'd'}
-  # df = assign_condition_value(df=df, column='entity_trend', condition_dict=conditions, value_dict=values)
   conditions = {
-    'long': '(candle_entity_pct > 0.7 or candle_entity_to_close > 0.007)', 
-    'short': '(candle_entity_pct < 0.3 or candle_entity_to_close < 0.003)'}
+    'long': '(candle_entity_to_close > 0.005)', 
+    'middle': '(0.003 <= candle_entity_to_close <= 0.005)',
+    'short': '(candle_entity_to_close < 0.003)'}
   values = {
     'long': 'u', 
+    'middle': 'n',
     'short': 'd'}
   df = assign_condition_value(df=df, column='entity_trend', condition_dict=conditions, value_dict=values)
 
-  # long upper/lower shadow
-  df['upper_shadow_signal'] = 'n'
+  # long/short shadow
+  df['shadow_signal'] = 'n'
   conditions = {
-    'long': '(candle_upper_shadow_pct > 0.4 and candle_upper_shadow_pct > candle_lower_shadow_pct and candle_upper_shadow_pct > candle_entity_pct)', 
-    'short': '(candle_upper_shadow_pct < 0.1 and candle_upper_shadow_pct < candle_lower_shadow_pct and candle_upper_shadow_pct < candle_entity_pct)'}
+    'long': '(candle_shadow_to_close > 0.010)', 
+    'middle': '(0.005 <= candle_shadow_to_close <= 0.010)',
+    'short': '(candle_shadow_to_close < 0.005)'}
   values = {
     'long': 'u', 
+    'middle': 'n',
+    'short': 'd'}
+  df = assign_condition_value(df=df, column='shadow_trend', condition_dict=conditions, value_dict=values)
+
+  # upper shadow
+  df['upper_shadow_signal'] = 'n'
+  conditions = {
+    'long': '(candle_upper_shadow_pct > 0.3)', 
+    'middle': '(0.1 <= candle_upper_shadow_pct <= 0.3)',
+    'short': '(candle_upper_shadow_pct < 0.1)'}
+  values = {
+    'long': 'u', 
+    'middle': 'n',
     'short': 'd'}
   df = assign_condition_value(df=df, column='upper_shadow_trend', condition_dict=conditions, value_dict=values)
 
-  # long upper/lower shadow
+  # lower shadow
   df['lower_shadow_signal'] = 'n'
   conditions = {
-    'long': '(candle_lower_shadow_pct > 0.4 and candle_lower_shadow_pct > candle_upper_shadow_pct and candle_lower_shadow_pct > candle_entity_pct)', 
-    'short': '(candle_lower_shadow_pct < 0.1 and candle_lower_shadow_pct < candle_upper_shadow_pct and candle_lower_shadow_pct < candle_entity_pct)'}
+    'long': '(candle_lower_shadow_pct > 0.3)', 
+    'middle': '(0.1 <= candle_lower_shadow_pct <= 0.3)',
+    'short': '(candle_lower_shadow_pct < 0.1)'}
   values = {
     'long': 'u', 
+    'middle': 'n',
     'short': 'd'}
   df = assign_condition_value(df=df, column='lower_shadow_trend', condition_dict=conditions, value_dict=values)
 
-  # hammer(hanging)/meteor
-  df['hammer_meteor_signal'] = 'n'
+  # hammer/meteor
+  df['hammer_signal'] = 'n'
   conditions = {
-    'hammer': '(candle_entity_pct >= 0.1) and (candle_upper_shadow_pct < 0.15) and (candle_lower_shadow_pct > 0.6) and (renko_color == "red" or top_bottom_trend == "d")', 
-    'hanging': '(candle_entity_pct >= 0.1) and (candle_upper_shadow_pct < 0.15) and (candle_lower_shadow_pct > 0.6) and (renko_color == "green" and top_bottom_trend != "d")', 
-    'meteor': '(candle_entity_pct >= 0.1) and (candle_lower_shadow_pct < 0.15) and (candle_upper_shadow_pct > 0.6) and (renko_color == "green" and top_bottom_trend != "d")'}
+    'hammer': '(candle_lower_shadow_pct >= 0.6) and (0.3 >= candle_entity_pct >= 0.05) and (shadow_trend == "u") and (upper_shadow_trend != "u")', 
+    'meteor': '(candle_upper_shadow_pct >= 0.6) and (0.3 >= candle_entity_pct >= 0.05) and (shadow_trend == "u") and (lower_shadow_trend != "u")'}
   values = {
     'hammer': 'u', 
-    'hanging': 'd',
     'meteor': 'd'}
-  df = assign_condition_value(df=df, column='hammer_meteor_trend', condition_dict=conditions, value_dict=values)
-  # * renko_color
+  df = assign_condition_value(df=df, column='hammer_trend', condition_dict=conditions, value_dict=values)
 
-  # cross/highwave
-  df['cross_highwave_signal'] = 'n'
+  # cross/spindle/highwave
+  df['cross_signal'] = 'n'
   conditions = {
-    'cross': '(candle_entity_pct < 0.05 and candle_shadow_to_close < 0.03)', 
-    'highwave': '(candle_shadow_to_close >= 0.03 and candle_entity_pct < 0.05) or (candle_entity_pct >= 0.05 and candle_upper_shadow_pct > 0.3 and candle_lower_shadow_pct > 0.3 and candle_shadow_to_close > 0.025)'}
+    'cross': '(candle_entity_pct < 0.05 and entity_trend == "d")',
+    'spindle':'(0.3 >= candle_entity_pct >= 0.05 and entity_trend != "u")',
+    'highwave': '(0.3 >= candle_entity_pct >= 0.05 and shadow_trend == "u" and upper_shadow_trend=="u" and lower_shadow_trend=="u")'}
   values = {
     'cross': 'd', 
+    'spindle': 'n',
     'highwave': 'u'}
-  df = assign_condition_value(df=df, column='cross_highwave_trend', condition_dict=conditions, value_dict=values)
+  df = assign_condition_value(df=df, column='cross_trend', condition_dict=conditions, value_dict=values)
 
   # df['1_candle_pattern'] = ''
   # long_entity = 
 
   # ======================================= 2 candle pattern  =================================== #
-  # entity/continious entities
-  # df['is_entity_signal'] = 'n'
-  # conditions = {
-  #   'long': '(candle_entity_pct > 0.7 or candle_entity_to_close > 0.007)', 
-  #   'short': '(candle_entity_pct < 0.3 or candle_entity_to_close < 0.003)'}
-  # values = {
-  #   'long': 'u', 
-  #   'short': 'd'}
-  # df = assign_condition_value(df=df, column='is_entity_trend', condition_dict=conditions, value_dict=values)
-
-  df['is_entity'] = df['entity_trend'].replace({'u':1, 'd': 0})
+  df['is_entity'] = df['entity_trend'].replace({'u':1, 'd': 0, 'n':0})
   df['continious_entity_signal'] = 'n'
   df['continious_entity'] = df['is_entity'] * df['is_entity'].shift(1)
   df['continious_entity_trend'] = df['continious_entity'].replace({0:None, 1:'u'})
@@ -907,10 +908,10 @@ def recognize_candlestick_pattern(df):
   idxs = df.index.tolist()
 
   # df['cloud_trend'] = 'n'
-  df['cloud_signal'] = 'n'
   # df['wrap_trend'] = 'n'
-  df['wrap_signal'] = 'n'
   # df['embrace_trend'] = 'n'
+  df['cloud_signal'] = 'n'
+  df['wrap_signal'] = 'n'
   df['embrace_signal'] = 'n'
   previous_row = None
   df['candle_entity_middle'] = (df['candle_entity_top'] + df['candle_entity_bottom']) * 0.5
@@ -963,9 +964,7 @@ def recognize_candlestick_pattern(df):
 
                     # "volume_signal",
                     # "top_bottom_signal",
-                    # "lower_shadow_signal",
-                    # "entity_trend",
-                    # "upper_shadow_signal"
+                    
 
   return df
 
