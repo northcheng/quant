@@ -57,8 +57,9 @@
             "plot_ratio": {
                 "signals": 0.5,
                 "candle": 0.5,
-                "volume": 0.5,
-                "main_indicators": 3
+                
+                "main_indicators": 3,
+                "volume": 0.5
                 
             },
             "adx": {
@@ -163,9 +164,7 @@
                     "embrace_signal",
                     "wrap_signal",
                     "cloud_signal",
-
                     "hammer_meteor_signal",
-
                     "cross_highwave_signal"
                 ],
                 "plot_signal_on_price": true,
