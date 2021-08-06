@@ -712,7 +712,7 @@ def describe_ta_data(df):
     classification.append('others')
 
   # generate description row1: support and resistant
-  description = f'价格:{row["Close"]}'
+  description = f'价格:{row["Close"].round(2)}'
   support = row['support']
   resistant = row['resistant']
   support = '-' if np.isnan(support) else f'{support.round(2)}'
@@ -4370,6 +4370,26 @@ def plot_main_indicators(
         end_text = f'L: {y_end_high}, {y_end_low}'
     
     # anotations of gap values and support/resistant
+    gap_top = df.loc[x_end, 'candle_gap_top'].round(2)
+    gap_bottom = df.loc[x_end, 'candle_gap_bottom'].round(2)
+    gap_support = df.loc[x_end, 'candle_gap_support'].round(2)
+    gap_resistant = df.loc[x_end, 'candle_gap_resistant'].round(2)
+    
+    if not np.isnan(gap_support):
+      merge_text = end_text + f'\nGS: {gap_support}'
+    if not np.isnan(gap_resistant):
+      merge_text = f'GR: {gap_resistant}'+ '\n' + end_text
+    if np.isnan(gap_support) and np.isnan(gap_resistant):
+      if not np.isnan(gap_top) or not np.isnan(gap_bottom):
+        merge_text = end_text + f'\nG: {gap_top}, {gap_bottom}'
+      else:
+        merge_text = end_text
+
+    x = x_end + datetime.timedelta(days=1)  
+    y = (y_end_high + y_end_low)/2
+    plt.annotate(merge_text, xy=(x, y), xytext=(x, y), xycoords='data', textcoords='data', color=text_color, bbox=dict(boxstyle="round",fc="1.0", alpha=0.1))
+
+  # anotations of candle patterns
     gap_top = df.loc[x_end, 'candle_gap_top'].round(2)
     gap_bottom = df.loc[x_end, 'candle_gap_bottom'].round(2)
     gap_support = df.loc[x_end, 'candle_gap_support'].round(2)
