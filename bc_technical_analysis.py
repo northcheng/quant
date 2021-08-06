@@ -930,9 +930,6 @@ def recognize_candlestick_pattern(df):
           # 先绿后红: 乌云盖顶
           if (previous_row['candle_color'] == 1 and row['candle_color'] == -1):
             df.loc[idx, 'cloud_trend'] = 'd'
-          # 先红后绿: 穿刺形态
-          elif (previous_row['candle_color'] == -1 and row['candle_color'] == 1):
-            df.loc[idx, 'cloud_trend'] = 'u'
       
       # 底部<前底部: 吞噬形态
       else:
@@ -943,10 +940,18 @@ def recognize_candlestick_pattern(df):
         elif (previous_row['candle_color'] == -1 and row['candle_color'] == 1):
           df.loc[idx, 'wrap_trend'] = 'u'
 
-    # 顶部<前顶部
+    # 顶部<=前顶部
     else:
-      # 底部>前底部
-      if (previous_row['candle_entity_bottom'] < row['candle_entity_bottom']):
+       # 底部<前底部
+      if (previous_row['candle_entity_bottom'] > row['candle_entity_bottom']):
+        # 顶部穿过前中点
+        if previous_row['candle_entity_middle'] < row['candle_entity_top']:
+          # 先红后绿: 穿刺形态
+          if (previous_row['candle_color'] == -1 and row['candle_color'] == 1):
+            df.loc[idx, 'cloud_trend'] = 'u'
+
+      # 底部>=前底部
+      else:
         # 先绿后红: 包孕形态
         if (previous_row['candle_color'] == 1 and row['candle_color'] == -1):
           df.loc[idx, 'embrace_trend'] = 'd'
