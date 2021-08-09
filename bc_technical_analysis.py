@@ -372,55 +372,45 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
 
     # ================================ adx trend ==============================
     if 'adx' in trend_indicators:
-      # initialize
-      df['adx_trend'] = ''
-
-      # it is going up when adx_diff>0
-      up_idx = df.query('adx_diff > 0').index
-      df.loc[up_idx ,'adx_trend'] = 'u'
-
-      # it is going down when adx_diff<0
-      down_idx = df.query('adx_diff <= 0').index
-      df.loc[down_idx ,'adx_trend'] = 'd'
-
-      # it is waving when adx between -20~20
-      wave_idx = df.query('adx < 20').index
-      df.loc[wave_idx, 'adx_trend'] = 'n'
+      conditions = {
+        'up': 'adx_diff > 0', 
+        'down': 'adx_diff <= 0',
+        'none': 'adx < 20'} 
+      values = {
+        'up': 'u', 
+        'down': 'd',
+        'none': 'n'}
+      df = assign_condition_value(df=df, column='adx_trend', condition_dict=conditions, value_dict=values, default_value='')           
 
     # ================================ eom trend ==============================
     if 'eom' in volume_indicators:
-      # initialize
-      # df['eom_trend'] = 'n'
-
-      # it is going up when eom_diff>0
-      up_idx = df.query('eom_diff > 0').index
-      df.loc[up_idx ,'eom_trend'] = 'u'
-
-      # it is going down when eom_diff<0
-      down_idx = df.query('eom_diff <= 0').index
-      df.loc[down_idx ,'eom_trend'] = 'd'
+      conditions = {
+        'up': 'eom_diff > 0', 
+        'down': 'eom_diff <= 0'} 
+      values = {
+        'up': 'u', 
+        'down': 'd'}
+      df = assign_condition_value(df=df, column='eom_trend', condition_dict=conditions, value_dict=values) 
 
     # ================================ kst trend ==============================
     if 'kst' in trend_indicators:
-      # initialize
-      # df['kst_trend'] = 'n'
-
-      # it is going up when kst_diff>0
-      up_idx = df.query('kst_diff > 0').index
-      df.loc[up_idx ,'kst_trend'] = 'u'
-
-      # it is going down when kst_diff<0
-      down_idx = df.query('kst_diff <= 0').index
-      df.loc[down_idx ,'kst_trend'] = 'd'
+      conditions = {
+        'up': 'kst_diff > 0', 
+        'down': 'kst_diff <= 0'} 
+      values = {
+        'up': 'u', 
+        'down': 'd'}
+      df = assign_condition_value(df=df, column='kst_trend', condition_dict=conditions, value_dict=values) 
 
     # ================================ psar trend =============================
     if 'psar' in trend_indicators:
-      df['psar_trend'] = ''
-
-      up_idx = df.query('psar_up > 0').index
-      down_idx = df.query('psar_down > 0').index
-      df.loc[up_idx, 'psar_trend'] = 'u'
-      df.loc[down_idx, 'psar_trend'] = 'd'
+      conditions = {
+        'up': 'psar_up > 0', 
+        'down': 'psar_down > 0'} 
+      values = {
+        'up': 'u', 
+        'down': 'd'}
+      df = assign_condition_value(df=df, column='psar_trend', condition_dict=conditions, value_dict=values, default_value='')
 
     # =========================================================================
 
@@ -428,16 +418,20 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
 
     # ================================ bb trend ===============================
     if 'bb' in volatility_indicators:
-      df['bb_trend'] = ''
-      up_idx = df.query(f'Close < bb_low_band').index
-      down_idx = df.query(f'Close > bb_high_band').index
-      df.loc[up_idx, 'bb_trend'] = 'u'
-      df.loc[down_idx, 'bb_trend'] = 'd'
+      conditions = {
+        'up': 'Close < bb_low_band', 
+        'down': 'Close > bb_high_band'} 
+      values = {
+        'up': 'u', 
+        'down': 'd'}
+      df = assign_condition_value(df=df, column='bb_trend', condition_dict=conditions, value_dict=values, default_value='')
+
     # =========================================================================
 
     phase = 'cal_overall_trend'
 
     # ================================ overall trend ==========================
+    df['ta_signal'] = ''
     df['trend_idx'] = 0
     df['up_trend_idx'] = 0
     df['down_trend_idx'] = 0
@@ -469,14 +463,14 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
     
     # calculate overall trend index
     df['trend_idx'] = df['up_trend_idx'] + df['down_trend_idx']
-
-    df['ta_trend'] = 'n'
-    df['ta_signal'] = ''
     df['trend_idx_wma'] = sm(series=df['trend_idx'], periods=3).sum()
-    up_idx = df.query('trend_idx_wma > 0').index
-    down_idx = df.query('trend_idx_wma < 0').index
-    df.loc[up_idx, 'ta_trend'] = 'u'
-    df.loc[down_idx, 'ta_trend'] = 'd'
+    conditions = {
+      'up': 'trend_idx_wma > 0', 
+      'down': 'trend_idx_wma < 0'} 
+    values = {
+      'up': 'u', 
+      'down': 'd'}
+    df = assign_condition_value(df=df, column='ta_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
   except Exception as e:
     print(phase, e)
@@ -554,13 +548,13 @@ def analyze_ta_data(df):
 
   # ================================ renko trend ============================
   df = add_renko_features(df=df)
-  df['renko_trend'] = ''
-
-  up_idx = df.query('(Close > Open) and ((renko_color=="red" and Low>renko_h) or (renko_color=="green"))').index
-  df.loc[up_idx, 'renko_trend'] = 'u'
-
-  down_idx = df.query('(renko_color=="red") or (renko_color=="green" and Close<renko_l)').index
-  df.loc[down_idx, 'renko_trend'] = 'd'
+  conditions = {
+    'up': '(Close > Open) and ((renko_color=="red" and Low>renko_h) or (renko_color=="green"))', 
+    'down': '(renko_color=="red") or (renko_color=="green" and Close<renko_l)'} 
+  values = {
+    'up': 'u', 
+    'down': 'd'}
+  df = assign_condition_value(df=df, column='renko_trend', condition_dict=conditions, value_dict=values, default_value='')
 
   wave_idx = df.query('(renko_trend != "u" and renko_trend != "d") and ((renko_brick_length >= 20 ) and (renko_brick_length>3*renko_duration_p1))').index
   df.loc[wave_idx, 'renko_trend'] = 'n'
@@ -614,18 +608,17 @@ def analyze_ta_data(df):
       print(f'{signal_col} not in df.columns')
 
   # trend from linear fit results
-  df['linear_trend'] = '' 
-  up_idx = df.query('(tankan > kijun) and (Low > resistant or (linear_slope > 0 and linear_fit_high_stop == 0) or ((linear_fit_low_stop > 3) and (Low > linear_fit_low)))').index
-  down_idx = df.query('((tankan < kijun) and (High < support or (linear_slope < 0 and linear_fit_low_stop == 0))) or ((linear_fit_high_stop > 5) and (High < linear_fit_high))').index
-  df.loc[up_idx, 'linear_trend'] = 'u'
-  df.loc[down_idx, 'linear_trend'] = 'd'
+  conditions = {
+    'up': '(tankan > kijun) and (Low > resistant or (linear_slope > 0 and linear_fit_high_stop == 0) or ((linear_fit_low_stop > 3) and (Low > linear_fit_low)))', 
+    'down': '((tankan < kijun) and (High < support or (linear_slope < 0 and linear_fit_low_stop == 0))) or ((linear_fit_high_stop > 5) and (High < linear_fit_high))'} 
+  values = {
+    'up': 'u', 
+    'down': 'd'}
+  df = assign_condition_value(df=df, column='linear_trend', condition_dict=conditions, value_dict=values, default_value='')
 
   # signal from linear fit results
   df['linear_day'] = sda(series=df['linear_trend'].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=None)
   df['linear_signal'] = 'n' #df['linear_trend'].replace({'d': 's', 'u': 'b', 'n': ''})
-
-  # ================================ candlestick pattern ====================
-  df = recognize_candlestick_pattern(df)
 
   return df
 
@@ -783,8 +776,8 @@ def recognize_candlestick_pattern(df):
   df['close_to_ma_120'] = (df['Low'] - df['close_ma_120'])/df['close_ma_120']
 
   conditions = {
-    'top': 'close_to_ma_120 > 0.025 or above_renko_h >= 5 ', 
-    'bottom': 'close_to_ma_120 < -0.025 or below_renko_l >= 5'} 
+    'top': 'close_to_ma_120 > 0.025',  #  or above_renko_h >= 5 
+    'bottom': 'close_to_ma_120 < -0.025'} #  or below_renko_l >= 5
   values = {
     'top': 'u', 
     'bottom': 'd'}
@@ -793,12 +786,12 @@ def recognize_candlestick_pattern(df):
   # large/small volume 
   df['volume_signal'] = 'n'
   df['volume_ma_120'] = sm(series=df['Volume'], periods=120).mean()
-  df = cal_change_rate(df=df, target_col='Volume', add_accumulation=False, add_prefix=True)
   df['volume_to_ma_120'] = (df['Volume'] - df['volume_ma_120'])/df['volume_ma_120']
+  # df = cal_change_rate(df=df, target_col='Volume', add_accumulation=False, add_prefix=True)
 
   conditions = {
-    'large': 'volume_to_ma_120 > 0.3 or Volume_rate > 0.3', 
-    'small': 'volume_to_ma_120 < -0.3 or Volume_rate < -0.3'}
+    'large': 'volume_to_ma_120 > 1',  #  or Volume_rate > 0.3
+    'small': 'volume_to_ma_120 < -0.5'} #  or Volume_rate < -0.3
   values = {
     'large': 'u', 
     'small': 'd'}
@@ -807,14 +800,13 @@ def recognize_candlestick_pattern(df):
   # window(gap)
   df['window_signal'] = 'n'
   conditions = {
-    'up': 'candle_gap > 1', 
-    'down': 'candle_gap < -1',
-    'invalid': 'candle_gap == 1 or candle_gap == -1'}
+    'up': 'Low > candle_gap_top', 
+    'down': 'High < candle_gap_bottom'}
   values = {
     'up': 'u', 
-    'down': 'd', 
-    'invalid': 'n'}
-  df = assign_condition_value(df=df, column='window_trend', condition_dict=conditions, value_dict=values)
+    'down': 'd'}
+  df = assign_condition_value(df=df, column='window_trend', condition_dict=conditions, value_dict=values, default_value='n')
+  df['window_trend'] = df['window_trend'].fillna(method='ffill')
 
   # candle colors
   df['color_trend'] = df['candle_color'].replace({-1:'d', 1: 'u', 0:'n'})
@@ -829,8 +821,8 @@ def recognize_candlestick_pattern(df):
   # long/short entity
   df['entity_signal'] = 'n'
   conditions = {
-    'long': '(candle_entity_to_close > 0.005)', 
-    'middle': '(0.003 <= candle_entity_to_close <= 0.005)',
+    'long': '(candle_entity_to_close >= 0.015)', 
+    'middle': '(0.003 <= candle_entity_to_close <= 0.015)',
     'short': '(candle_entity_to_close < 0.003)'}
   values = {
     'long': 'u', 
@@ -888,7 +880,7 @@ def recognize_candlestick_pattern(df):
   df['cross_signal'] = 'n'
   conditions = {
     'cross': '(candle_entity_pct < 0.05 and entity_trend == "d")',
-    'spindle':'(0.3 >= candle_entity_pct >= 0.05 and entity_trend != "u")',
+    'spindle':'(0.3 >= candle_entity_pct >= 0.05 and entity_trend != "u" and hammer_trend != "u" and hammer_trend != "d")',
     'highwave': '(0.3 >= candle_entity_pct >= 0.05 and shadow_trend == "u" and upper_shadow_trend=="u" and lower_shadow_trend=="u")'}
   values = {
     'cross': 'd', 
@@ -900,7 +892,17 @@ def recognize_candlestick_pattern(df):
   # long_entity = 
 
   # ======================================= 2 candle pattern  =================================== #
-  df['is_entity'] = df['entity_trend'].replace({'u':1, 'd': 0, 'n':0})
+  # long/short entity
+  conditions = {
+    'long': '(candle_entity_to_close > 0.005)', 
+    'middle': '(0.003 <= candle_entity_to_close <= 0.005)',
+    'short': '(candle_entity_to_close < 0.003)'}
+  values = {
+    'long': 1, 
+    'middle': 0,
+    'short': 0}
+  df = assign_condition_value(df=df, column='is_entity', condition_dict=conditions, value_dict=values)
+
   df['continious_entity_signal'] = 'n'
   df['continious_entity'] = df['is_entity'] * df['is_entity'].shift(1)
   df['continious_entity_trend'] = df['continious_entity'].replace({0:None, 1:'u'})
@@ -963,13 +965,44 @@ def recognize_candlestick_pattern(df):
   # 黄昏星/启明星
 
   # 风险与收益的平衡
-  df['separate_trend'] = 'n'
-  df['separate_signal'] = 'n'
-                    # "separate_signal",
 
-                    # "volume_signal",
-                    # "top_bottom_signal",
-                    
+  # ======================================= overall results  ==================================== #
+  trend_info = {
+    'window_trend': {'u': '窗口之上, ', 'd': '窗口之下, ', 'n': ''},
+    'top_bottom_trend': {'u': '顶部, ', 'd': '底部, ', 'n': ''},
+    'hammer_trend': {'u': '锤子线, ', 'd': '流星线, ', 'n': ''},
+    'cross_trend': {'u': '高浪线, ', 'd': '十字星, ', 'n': '纺锤线, '},
+    'cloud_trend': {'u': '穿刺形态, ', 'd': '乌云盖顶, ', 'n': ''},
+    'wrap_trend': {'u': '多头吞噬, ', 'd': '空头吞噬, ', 'n': ''},
+    'embrace_trend': {'u': '多头包孕, ', 'd': '空头包孕, ', 'n': ''},
+    'volume_trend': {'u': '成交量大, ', 'd': '成交量少, ', 'n': ''},
+    
+    'color_trend': {'u': '绿色', 'd': '红色', 'n': ''},
+    'entity_trend': {'u': '长实体, ', 'd': '短实体, ', 'n': '实体, '},
+    'upper_shadow_trend': {'u': '长上影线, ', 'd': '短上影线, ', 'n': ''},
+    'lower_shadow_trend': {'u': '长下影线, ', 'd': '短下影线, ', 'n': ''},
+    'shadow_trend': {'u': '波动范围大,', 'd': '波动范围小,', 'n': ''},
+    }
+
+  df['candle_patterns'] = ''
+  for index, row in df.iterrows():
+    
+    candle_pattern_trend = trend_info.keys()
+    enough_info = False
+    if enough_info:
+      continue
+
+    for t in candle_pattern_trend:
+      if t == 'color_trend' and len(df.loc[index, 'candle_patterns']) > 4:
+        enough_info = True
+        break
+
+      if t in df.columns:
+        tmp_trend = df.loc[index, t]
+        if tmp_trend is not None:
+          tmp_info = trend_info[t].get(tmp_trend)
+          if tmp_info is not None:
+            df.loc[index, 'candle_patterns'] += tmp_info
 
   return df
 
@@ -987,6 +1020,7 @@ def calculate_ta_derivatives(df):
     phase = 'analyze_ta_data'
     df = analyze_ta_data(df=df)
     df = describe_ta_data(df=df)
+    df = recognize_candlestick_pattern(df)
 
     # calculate TA final signal
     phase = 'cal_ta_signals'
@@ -1489,14 +1523,13 @@ def cal_crossover_signal(df, fast_line, slow_line, result_col='signal', pos_sign
   df['diff_prev'] = df['diff'].shift(1)
 
   # get signals from fast/slow lines cross over
-  df[result_col] = none_signal
-  pos_idx = df.query('(diff >= 0 and diff_prev < 0) or (diff > 0 and diff_prev <= 0)').index
-  neg_idx = df.query('(diff <= 0 and diff_prev > 0) or (diff < 0 and diff_prev >= 0)').index
-
-  # assign signal values
-  df[result_col] = none_signal
-  df.loc[pos_idx, result_col] = pos_signal
-  df.loc[neg_idx, result_col] = neg_signal
+  conditions = {
+    'up': '(diff >= 0 and diff_prev < 0) or (diff > 0 and diff_prev <= 0)', 
+    'down': '(diff <= 0 and diff_prev > 0) or (diff < 0 and diff_prev >= 0)'} 
+  values = {
+    'up': pos_signal, 
+    'down': neg_signal}
+  df = assign_condition_value(df=df, column=result_col, condition_dict=conditions, value_dict=values, default_value=none_signal)
   
   return df[[result_col]]
 
@@ -1523,13 +1556,13 @@ def cal_boundary_signal(df, upper_col, lower_col, upper_boundary, lower_boundary
   df = df.copy()
 
   # calculate signals
-  pos_idx = df.query(f'{upper_col} > {upper_boundary}').index
-  neg_idx = df.query(f'{lower_col} < {lower_boundary}').index
-
-  # assign signal values
-  df[result_col] = none_signal
-  df.loc[pos_idx, result_col] = pos_signal
-  df.loc[neg_idx, result_col] = neg_signal
+  conditions = {
+    'up': f'{upper_col} > {upper_boundary}', 
+    'down': f'{lower_col} < {lower_boundary}'} 
+  values = {
+    'up': pos_signal, 
+    'down': neg_signal}
+  df = assign_condition_value(df=df, column=result_col, condition_dict=conditions, value_dict=values, default_value=none_signal)
 
   return df[[result_col]]
 
@@ -2076,13 +2109,15 @@ def add_linear_features(df, max_period=60, min_period=15, is_print=False):
   df['linear_slope']  = df['linear_fit_high_slope'] + df['linear_fit_low_slope']
 
   # direction means the slopes of linear fit High/Low
-  df['linear_direction'] = ''
-  up_idx = df.query('(linear_fit_high_slope > 0 and linear_fit_low_slope > 0) or (linear_fit_high_slope > 0 and linear_fit_low_slope == 0) or (linear_fit_high_slope == 0 and linear_fit_low_slope > 0)').index
-  down_idx = df.query('(linear_fit_high_slope < 0 and linear_fit_low_slope < 0) or (linear_fit_high_slope < 0 and linear_fit_low_slope == 0) or (linear_fit_high_slope == 0 and linear_fit_low_slope < 0)').index
-  uncertain_idx = df.query('(linear_fit_high_slope > 0 and linear_fit_low_slope < 0) or (linear_fit_high_slope < 0 and linear_fit_low_slope > 0) or (linear_fit_high_slope == 0 and linear_fit_low_slope == 0)').index
-  df.loc[up_idx, 'linear_direction'] = 'u'
-  df.loc[down_idx, 'linear_direction'] = 'd'
-  df.loc[uncertain_idx, 'linear_direction'] = 'n'
+  conditions = {
+    'up': '(linear_fit_high_slope > 0 and linear_fit_low_slope > 0) or (linear_fit_high_slope > 0 and linear_fit_low_slope == 0) or (linear_fit_high_slope == 0 and linear_fit_low_slope > 0)', 
+    'down': '(linear_fit_high_slope < 0 and linear_fit_low_slope < 0) or (linear_fit_high_slope < 0 and linear_fit_low_slope == 0) or (linear_fit_high_slope == 0 and linear_fit_low_slope < 0)',
+    'none': '(linear_fit_high_slope > 0 and linear_fit_low_slope < 0) or (linear_fit_high_slope < 0 and linear_fit_low_slope > 0) or (linear_fit_high_slope == 0 and linear_fit_low_slope == 0)'} 
+  values = {
+    'up': 'u', 
+    'down': 'd',
+    'none': 'n'}
+  df = assign_condition_value(df=df, column='linear_direction', condition_dict=conditions, value_dict=values, default_value='')
 
   # price direction
   df['price_direction'] = 0.5
@@ -2595,11 +2630,13 @@ def add_mi_features(df, n=9, n2=25, ohlcv_col=default_ohlcv_col, fillna=False, c
     df['benchmark'] = 26.5
     df['complete_signal'] = cal_crossover_signal(df=df, fast_line='mi', slow_line='benchmark', pos_signal='n', neg_signal='s', none_signal='n')
 
-    up_idx = df.query('triger_signal == "b"').index
-    down_idx = df.query('complete_signal == "s"').index
-    df['mi_signal'] = 'n'
-    df.loc[up_idx, 'mi_signal'] = 'b'
-    df.loc[down_idx, 'mi_signal'] = 's'
+    conditions = {
+      'up': 'triger_signal == "b"', 
+      'down': 'complete_signal == "s"'} 
+    values = {
+      'up': 'b', 
+      'down': 's'}
+    df = assign_condition_value(df=df, column='mi_signal', condition_dict=conditions, value_dict=values, default_value='n')
 
     df.drop(['benchmark', 'triger_signal', 'complete_signal'], axis=1, inplace=True)
 
@@ -3042,7 +3079,7 @@ def add_renko_features(df, brick_size_factor=0.1, merge_duplicated=True):
   # number of days below/among/above renko bricks
   for col in ['above_renko_h', 'among_renko', 'below_renko_l']:
     df[col] = 0
-
+  
   above_idx = df.query('Close > renko_h').index
   among_idx = df.query('renko_l <= Close <= renko_h').index
   below_idx = df.query('Close < renko_l').index
@@ -4008,11 +4045,13 @@ def add_dc_features(df, n=20, ohlcv_col=default_ohlcv_col, fillna=False, cal_sig
 
   # calculate signals
   if cal_signal:
-    df['dc_signal'] = 'n'
-    buy_idx = df.query(f'{close} <= dc_low_band').index
-    sell_idx = df.query(f'{close} >= dc_high_band').index
-    df.loc[buy_idx, 'dc_signal'] = 'b'
-    df.loc[sell_idx, 'dc_signal'] = 's'
+    conditions = {
+      'up': f'{close} <= dc_low_band', 
+      'down': f'{close} >= dc_high_band'} 
+    values = {
+      'up': 'b', 
+      'down': 's'}
+    df = assign_condition_value(df=df, column='dc_signal', condition_dict=conditions, value_dict=values, default_value='n')
 
   return df
 
@@ -4068,11 +4107,13 @@ def add_kc_features(df, n=10, ohlcv_col=default_ohlcv_col, method='atr', fillna=
 
   # calculate signals
   if cal_signal:
-    df['kc_signal'] = 'n'
-    buy_idx = df.query(f'{close} < kc_low_band').index
-    sell_idx = df.query(f'{close} > kc_high_band').index
-    df.loc[buy_idx, 'kc_signal'] = 'b'
-    df.loc[sell_idx, 'kc_signal'] = 's'
+    conditions = {
+      'up': f'{close} < kc_low_band', 
+      'down': f'{close} > kc_high_band'} 
+    values = {
+      'up': 'b', 
+      'down': 's'}
+    df = assign_condition_value(df=df, column='kc_signal', condition_dict=conditions, value_dict=values, default_value='n')
 
   return df
 
@@ -4915,7 +4956,7 @@ def plot_multiple_indicators(
   new_title = args['sec_name'].get(title)
   if new_title is None:
     new_title == ''
-  fig.suptitle(f'{title} - {new_title}({close_rate}%)\n{df.loc[df.index.max(), "description"]}', color=title_color, x=0.5, y=0.96, fontsize=20)
+  fig.suptitle(f'{title} - {new_title}({close_rate}%)\n{df.loc[df.index.max(), "description"]}\n{df.loc[df.index.max(), "candle_patterns"]}', color=title_color, x=0.5, y=0.96, fontsize=20)
   
   # save image
   if save_image and (save_path is not None):
