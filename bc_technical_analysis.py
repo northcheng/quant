@@ -32,7 +32,7 @@ except Exception as e:
 default_signal_val = {'pos_signal':'b', 'neg_signal':'s', 'none_signal':'', 'wave_signal': 'n'}
 default_candlestick_color = {'colorup':'green', 'colordown':'red', 'alpha':0.8}
 default_ohlcv_col = {'close':'Close', 'open':'Open', 'high':'High', 'low':'Low', 'volume':'Volume'}  
-default_plot_args = {'figsize':(25, 5), 'title_rotation':'vertical', 'title_x':-0.05, 'title_y':0.3, 'bbox_to_anchor':(1.02, 0.), 'loc':3, 'ncol':1, 'borderaxespad':0.0}
+default_plot_args = {'figsize':(30, 5), 'title_rotation':'vertical', 'title_x':-0.05, 'title_y':0.3, 'bbox_to_anchor':(1.02, 0.), 'loc':3, 'ncol':1, 'borderaxespad':0.0}
 
 # ================================================ Core calculation ================================================= # 
 # load configuration
@@ -968,34 +968,32 @@ def recognize_candlestick_pattern(df):
 
   # ======================================= overall results  ==================================== #
   trend_info = {
-    'window_trend': {'u': '窗口之上, ', 'd': '窗口之下, ', 'n': ''},
-    'top_bottom_trend': {'u': '顶部, ', 'd': '底部, ', 'n': ''},
-    'hammer_trend': {'u': '锤子线, ', 'd': '流星线, ', 'n': ''},
-    'cross_trend': {'u': '高浪线, ', 'd': '十字星, ', 'n': '纺锤线, '},
-    'cloud_trend': {'u': '穿刺形态, ', 'd': '乌云盖顶, ', 'n': ''},
-    'wrap_trend': {'u': '多头吞噬, ', 'd': '空头吞噬, ', 'n': ''},
-    'embrace_trend': {'u': '多头包孕, ', 'd': '空头包孕, ', 'n': ''},
-    'volume_trend': {'u': '成交量大, ', 'd': '成交量少, ', 'n': ''},
-    
-    'color_trend': {'u': '绿色', 'd': '红色', 'n': ''},
-    'entity_trend': {'u': '长实体, ', 'd': '短实体, ', 'n': '实体, '},
-    'upper_shadow_trend': {'u': '长上影线, ', 'd': '短上影线, ', 'n': ''},
-    'lower_shadow_trend': {'u': '长下影线, ', 'd': '短下影线, ', 'n': ''},
-    'shadow_trend': {'u': '波动范围大,', 'd': '波动范围小,', 'n': ''},
-    }
+    'window_trend': {'u': '窗口之上/', 'd': '窗口之下/', 'n': ''},
+    'top_bottom_trend': {'u': '顶部/', 'd': '底部/', 'n': ''},
+    'hammer_trend': {'u': '锤子线/', 'd': '流星线/', 'n': ''},
+    'cross_trend': {'u': '高浪线/', 'd': '十字星/', 'n': '纺锤线/'},
+    'cloud_trend': {'u': '穿刺形态/', 'd': '乌云盖顶/', 'n': ''},
+    'wrap_trend': {'u': '多头吞噬/', 'd': '空头吞噬/', 'n': ''},
+    'embrace_trend': {'u': '多头包孕/', 'd': '空头包孕/', 'n': ''},
+    'volume_trend': {'u': '成交量大/', 'd': '成交量少/', 'n': ''},
 
-  df['candle_patterns'] = ''
+    'color_trend': {'u': '绿色', 'd': '红色', 'n': ''},
+    'entity_trend': {'u': '长实体/', 'd': '短实体/', 'n': '实体/'},
+    'upper_shadow_trend': {'u': '长上影线/', 'd': '短上影线/', 'n': ''},
+    'lower_shadow_trend': {'u': '长下影线/', 'd': '短下影线/', 'n': ''},
+    # 'shadow_trend': {'u': '波动范围大', 'd': '波动范围小', 'n': ''}
+  }
+
+  df['candle_patterns'] = '['
   for index, row in df.iterrows():
     
     candle_pattern_trend = trend_info.keys()
-    enough_info = False
-    if enough_info:
-      continue
-
     for t in candle_pattern_trend:
-      if t == 'color_trend' and len(df.loc[index, 'candle_patterns']) > 4:
-        enough_info = True
-        break
+      if t == 'color_trend':
+        p_end = df.loc[index, 'candle_patterns'][-1]
+        if p_end == '/':
+          df.loc[index, 'candle_patterns'] = df.loc[index, 'candle_patterns'][:-1]
+        df.loc[index, 'candle_patterns'] += ']['
 
       if t in df.columns:
         tmp_trend = df.loc[index, t]
@@ -1003,6 +1001,10 @@ def recognize_candlestick_pattern(df):
           tmp_info = trend_info[t].get(tmp_trend)
           if tmp_info is not None:
             df.loc[index, 'candle_patterns'] += tmp_info
+    
+    df.loc[index, 'candle_patterns'] = df.loc[index, 'candle_patterns'][:-1]
+
+  df['candle_patterns'] += ']'
 
   return df
 
@@ -4781,7 +4783,7 @@ def plot_indicator(
 # plot multiple indicators on a same chart
 def plot_multiple_indicators(
   df, args={}, start=None, end=None, save_path=None, save_image=False, show_image=False, 
-  title=None, width=25, unit_size=4, wspace=0, hspace=0.15, subplot_args=default_plot_args):
+  title=None, width=30, unit_size=3.5, wspace=0, hspace=0.15, subplot_args=default_plot_args):
   """
   Plot Ichimoku and mean reversion in a same plot
   :param df: dataframe with ichimoku and mean reversion columns
@@ -4956,7 +4958,7 @@ def plot_multiple_indicators(
   new_title = args['sec_name'].get(title)
   if new_title is None:
     new_title == ''
-  fig.suptitle(f'{title} - {new_title}({close_rate}%)\n{df.loc[df.index.max(), "description"]}\n{df.loc[df.index.max(), "candle_patterns"]}', color=title_color, x=0.5, y=0.96, fontsize=20)
+  fig.suptitle(f'{title} - {new_title}({close_rate}%)\n{df.loc[df.index.max(), "description"]}\n{df.loc[df.index.max(), "candle_patterns"]}', color=title_color, x=0.5, y=0.97, fontsize=20)
   
   # save image
   if save_image and (save_path is not None):

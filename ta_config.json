@@ -55,11 +55,10 @@
         },
         "plot_args": {
             "plot_ratio": {
-                "signals": 0.5,
-                "candle": 0.5,
-                "main_indicators": 3,
-                "volume": 0.5
-                
+              "signals": 0.7,
+              "candle": 0.6, 
+              "main_indicators": 3,
+              "volume": 0.5
             },
             "adx": {
                 "target_col": [
