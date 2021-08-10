@@ -800,13 +800,23 @@ def recognize_candlestick_pattern(df):
   # window(gap)
   df['window_signal'] = 'n'
   conditions = {
+    'up': 'candle_gap > 1', 
+    'down': 'candle_gap < -1'}
+  values = {
+    'up': 'u', 
+    'down': 'd'}
+  df = assign_condition_value(df=df, column='window_trend', condition_dict=conditions, value_dict=values)
+
+  # window position(beyond/below window)
+  df['window_position_signal'] = 'n'
+  conditions = {
     'up': 'Low > candle_gap_top', 
     'down': 'High < candle_gap_bottom'}
   values = {
     'up': 'u', 
     'down': 'd'}
-  df = assign_condition_value(df=df, column='window_trend', condition_dict=conditions, value_dict=values, default_value='n')
-  df['window_trend'] = df['window_trend'].fillna(method='ffill')
+  df = assign_condition_value(df=df, column='window_position_trend', condition_dict=conditions, value_dict=values, default_value='n')
+  df['window_position_trend'] = df['window_position_trend'].fillna(method='ffill')
 
   # candle colors
   df['color_trend'] = df['candle_color'].replace({-1:'d', 1: 'u', 0:'n'})
@@ -968,7 +978,7 @@ def recognize_candlestick_pattern(df):
 
   # ======================================= overall results  ==================================== #
   trend_info = {
-    'window_trend': {'u': '窗口之上/', 'd': '窗口之下/', 'n': ''},
+    'window_position_trend': {'u': '窗口之上/', 'd': '窗口之下/', 'n': ''},
     'top_bottom_trend': {'u': '顶部/', 'd': '底部/', 'n': ''},
     'hammer_trend': {'u': '锤子线/', 'd': '流星线/', 'n': ''},
     'cross_trend': {'u': '高浪线/', 'd': '十字星/', 'n': '纺锤线/'},
@@ -993,7 +1003,8 @@ def recognize_candlestick_pattern(df):
         p_end = df.loc[index, 'candle_patterns'][-1]
         if p_end == '/':
           df.loc[index, 'candle_patterns'] = df.loc[index, 'candle_patterns'][:-1]
-        df.loc[index, 'candle_patterns'] += ']['
+        if p_end != '[':
+          df.loc[index, 'candle_patterns'] += ']['
 
       if t in df.columns:
         tmp_trend = df.loc[index, t]

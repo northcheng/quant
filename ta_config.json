@@ -56,7 +56,7 @@
         "plot_args": {
             "plot_ratio": {
               "signals": 0.7,
-              "candle": 0.6, 
+              "candle": 0.7, 
               "main_indicators": 3,
               "volume": 0.5
             },
@@ -159,6 +159,7 @@
             "candle": {
                 "signal_list": [
                     "top_bottom_signal",
+                    "window_signal",
                     "embrace_signal",
                     "wrap_signal",
                     "cloud_signal",
