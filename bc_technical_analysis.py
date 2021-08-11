@@ -1007,7 +1007,7 @@ def recognize_candlestick_pattern(df):
         pass
       else:
         # 1 绿色, 3红色
-        if (previous_previous_row['candle_color'] == 1 and row['candle_color'] == -1):
+        if (row['candle_color'] == -1):
           # 1, 3为长实体
           if False: # (row['entity_trend'] != 'u') or (previous_previous_row['entity_trend'] != 'u'):
             pass
@@ -1039,7 +1039,7 @@ def recognize_candlestick_pattern(df):
         pass
       else:
         # 1 红色, 3绿色
-        if (previous_previous_row['candle_color'] == -1 and row['candle_color'] == 1):
+        if (row['candle_color'] == 1):
           # 1, 3为长实体
           if False: # (row['entity_trend'] != 'u') or (previous_previous_row['entity_trend'] != 'u'):
             pass
