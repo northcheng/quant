@@ -56,7 +56,7 @@
         "plot_args": {
             "plot_ratio": {
               "signals": 0.7,
-              "candle": 0.7, 
+              "candle": 0.2, 
               "main_indicators": 3,
               "volume": 0.5
             },
@@ -158,13 +158,9 @@
             },
             "candle": {
                 "signal_list": [
-                    "top_bottom_signal",
-                    "window_signal",
-                    "embrace_signal",
-                    "wrap_signal",
-                    "cloud_signal",
-                    "hammer_signal",
-                    "cross_signal"
+                    "cross_signal",
+                    "position_signal"
+                    
                 ],
                 "plot_signal_on_price": true,
                 "price_alpha": 0.02
