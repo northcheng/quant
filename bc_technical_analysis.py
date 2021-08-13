@@ -477,71 +477,6 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
 
   return df
 
-# calculate ta signal
-def calculate_ta_signal(df):
-  """
-  Calculate signals from ta features
-
-  :param df: dataframe with ta features and derived features for calculating signals
-  :raturns: dataframe with signal
-  :raises: None
-  """
-  if len(df) == 0:
-    print(f'No data for calculate_ta_signal')
-    return None
-
-  # copy data, initialize
-  df = df.copy()
-
-  # ================================ buy and sell signals ==========================
-  df['trend'] = ''
-
-  # buy conditions
-  buy_conditions = {
-    # # stable version
-    # 'ichimoku/aroon/adx/psar are all up trending': '(trend_idx == 4)',
-    # 'renko is up trending': '(renko_trend == "u")',
-    # 'bb is not over-buying': '(bb_trend != "d")',
-
-    # developing version
-    'ichimoku/aroon/adx/psar are all up trending': '(trend_idx >= 3)',
-    'renko is up trending': '(renko_trend == "u")',
-    'bb is not over-buying': '(bb_trend != "d")',
-
-    'candle color is green': '(candle_color == 1)',
-    'not a cross or highwave': '(cross_trend != "u" and cross_trend != "d")',
-    'not hanging or meteor on the top': '((position_trend != "u") or (position_trend == "u" and hammer_trend != "d" and hammer_trend != "u"))',
-
-  }
-  up_idx = df.query(' and '.join(buy_conditions.values())).index 
-  df.loc[up_idx, 'trend'] = 'u'
-
-  # sell conditions
-  sell_conditions = {
-    # # stable version
-    # 'High is below kijun line': '(High < kijun)',
-    # 'no individual trend is up and overall trend is down': '(trend_idx < -1 and up_trend_idx == 0)',
-    # 'price went down through brick': '(renko_trend == "d")', 
-    # 'bb is not over-selling': '(bb_trend != "u")',
-    
-    # developing version
-    'High is below kijun line': '(High < kijun)',
-    'no individual trend is up and overall trend is down': '(trend_idx < -1 and up_trend_idx == 0)',
-    'price went down through brick': '(renko_trend == "d")', 
-    'bb is not over-selling': '(bb_trend != "u" or (Close < renko_l and renko_duration >= 150))',
-  } 
-  down_idx = df.query(' and '.join(sell_conditions.values())).index 
-  df.loc[down_idx, 'trend'] = 'd'
-
-  # ================================ Calculate overall siganl ======================
-  df['signal_day'] = sda(series=df['trend'].replace({'':0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
-
-  df['signal'] = '' 
-  df.loc[df['signal_day'] == 1, 'signal'] = 'b'
-  df.loc[df['signal_day'] ==-1, 'signal'] = 's'
-  
-  return df
-
 # technical analyze for ta_data
 def analyze_ta_data(df):
   """
@@ -1134,6 +1069,71 @@ def calculate_ta_derivatives(df):
   except Exception as e:
     print(phase, e)
 
+  return df
+
+# calculate ta signal
+def calculate_ta_signal(df):
+  """
+  Calculate signals from ta features
+
+  :param df: dataframe with ta features and derived features for calculating signals
+  :raturns: dataframe with signal
+  :raises: None
+  """
+  if len(df) == 0:
+    print(f'No data for calculate_ta_signal')
+    return None
+
+  # copy data, initialize
+  df = df.copy()
+
+  # ================================ buy and sell signals ==========================
+  df['trend'] = ''
+
+  # buy conditions
+  buy_conditions = {
+    # # stable version
+    # 'ichimoku/aroon/adx/psar are all up trending': '(trend_idx == 4)',
+    # 'renko is up trending': '(renko_trend == "u")',
+    # 'bb is not over-buying': '(bb_trend != "d")',
+
+    # developing version
+    'ichimoku/aroon/adx/psar are all up trending': '(trend_idx >= 3)',
+    'renko is up trending': '(renko_trend == "u")',
+    'bb is not over-buying': '(bb_trend != "d")',
+
+    'candle color is green': '(candle_color == 1)',
+    'not a cross or highwave': '(cross_trend != "u" and cross_trend != "d")',
+    'not hanging or meteor on the top': '((position_trend != "u") or (position_trend == "u" and hammer_trend != "d" and hammer_trend != "u"))',
+
+  }
+  up_idx = df.query(' and '.join(buy_conditions.values())).index 
+  df.loc[up_idx, 'trend'] = 'u'
+
+  # sell conditions
+  sell_conditions = {
+    # # stable version
+    # 'High is below kijun line': '(High < kijun)',
+    # 'no individual trend is up and overall trend is down': '(trend_idx < -1 and up_trend_idx == 0)',
+    # 'price went down through brick': '(renko_trend == "d")', 
+    # 'bb is not over-selling': '(bb_trend != "u")',
+    
+    # developing version
+    'High is below kijun line': '(High < kijun)',
+    'no individual trend is up and overall trend is down': '(trend_idx < -1 and up_trend_idx == 0)',
+    'price went down through brick': '(renko_trend == "d")', 
+    'bb is not over-selling': '(bb_trend != "u" or (Close < renko_l and renko_duration >= 150))',
+  } 
+  down_idx = df.query(' and '.join(sell_conditions.values())).index 
+  df.loc[down_idx, 'trend'] = 'd'
+
+  # ================================ Calculate overall siganl ======================
+  df['signal_day'] = sda(series=df['trend'].replace({'':0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
+
+  df['signal'] = '' 
+  df.loc[df['signal_day'] == 1, 'signal'] = 'b'
+  df.loc[df['signal_day'] ==-1, 'signal'] = 's'
+  
   return df
 
 # calculate ta indicators, trend and derivatives fpr latest data
