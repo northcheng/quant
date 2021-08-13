@@ -60,43 +60,6 @@
               "main_indicators": 3,
               "volume": 0.5
             },
-            "adx": {
-                "target_col": [
-                    "adx",
-                    "pdi",
-                    "mdi"
-                ],
-                "benchmark": 20
-            },
-            "aroon": {},
-            "aroon_gap_sda": {
-                "target_col": [
-                    "aroon_sda"
-                ],
-                "benchmark": 0,
-                "color_mode": "benchmark"
-            },
-            "cci": {
-                "target_col": [
-                    "cci"
-                ],
-                "benchmark": 0,
-                "color_mode": "benchmark"
-            },
-            "dpo": {
-                "target_col": [
-                    "dpo"
-                ],
-                "benchmark": 0,
-                "color_mode": "benchmark"
-            },
-            "eom": {
-                "target_col": [
-                    "eom_diff"
-                ],
-                "benchmark": 0,
-                "color_mode": "benchmark"
-            },
             "main_indicators": {
                 "target_indicator": [
                     "candlestick",
@@ -110,38 +73,6 @@
                     "colordown": "red",
                     "alpha": 1
                 }
-            },
-            "kst": {
-                "target_col": [
-                    "kst_diff"
-                ],
-                "benchmark": 0,
-                "color_mode": "up_down"
-            },
-            "mi": {
-                "target_col": [
-                    "mi"
-                ]
-            },
-            "psar": {
-                "target_col": [
-                    "psar_up_indicator",
-                    "psar_down_indicator"
-                ],
-                "benchmark": 0,
-                "color_mode": "benchmark"
-            },
-            "renko": {
-                "plot_in_date": true
-            },
-            "rsi": {
-                "target_col": [
-                    "rsi"
-                ],
-                "boundary": [
-                    30,
-                    70
-                ]
             },
             "signals": {
                 "signal_list": [
@@ -159,31 +90,12 @@
             "candle": {
                 "signal_list": [
                     "cross_signal",
+                    "belt_signal",
                     "position_signal"
                     
                 ],
                 "plot_signal_on_price": true,
                 "price_alpha": 0.02
-            },
-            "other": {
-                "target_col": [
-                    "rsi"
-                ]
-            },
-            "trend_idx": {
-                "target_col": [
-                    "up_trend_idx",
-                    "down_trend_idx",
-                    "trend_idx"
-                ],
-                "benchmark": 0
-            },
-            "trend_wma": {
-                "target_col": [
-                    "trend_idx_wma"
-                ],
-                "benchmark": 0,
-                "color_mode": "benchmark"
             },
             "volume": {
                 "target_col": "Volume",

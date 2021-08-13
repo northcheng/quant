@@ -894,10 +894,22 @@ def recognize_candlestick_pattern(df):
   # meteor
   df['meteor_signal'] = 'n'
   conditions = {
-    'meteor': '(position_trend == "u") and (candle_upper_shadow_pct >= 0.6) and (0.3 >= candle_entity_pct >= 0.05) and (shadow_trend == "u") and (lower_shadow_trend != "u")'}
+    'meteor': '(position_trend == "u") and (candle_upper_shadow_pct >= 0.6) and (0.3 >= candle_entity_pct >= 0.05) and (shadow_trend == "u") and (lower_shadow_trend != "u")',
+    'reverse_hammer': '(position_trend == "d") and (candle_upper_shadow_pct >= 0.6) and (0.3 >= candle_entity_pct >= 0.05) and (shadow_trend == "u") and (lower_shadow_trend != "u")'}
   values = {
-    'meteor': 'd'}
+    'meteor': 'd',
+    'reverse_hammer': 'u'}
   df = assign_condition_value(df=df, column='meteor_trend', condition_dict=conditions, value_dict=values)
+
+  # belt
+  df['belt_signal'] = 'n'
+  conditions = {
+    'up': '(position_trend == "d") and (candle_lower_shadow_pct <= 0.05) and (entity_trend == "u") and (candle_color == 1)',
+    'down': '(position_trend == "u") and (candle_upper_shadow_pct <= 0.05) and (entity_trend == "u") and (candle_color == -1)'}
+  values = {
+    'up': 'u',
+    'down': 'd'}
+  df = assign_condition_value(df=df, column='belt_trend', condition_dict=conditions, value_dict=values)
 
   # cross/spindle/highwave
   df['cross_signal'] = 'n'
@@ -912,23 +924,7 @@ def recognize_candlestick_pattern(df):
   # df['1_candle_pattern'] = ''
   # long_entity = 
 
-  # ======================================= 2 candle pattern  =================================== #
-  # long/short entity
-  # conditions = {
-  #   'long': '(candle_entity_to_close > 0.007)', 
-  #   'middle': '(0.003 <= candle_entity_to_close <= 0.007)',
-  #   'short': '(candle_entity_to_close < 0.003)'}
-  # values = {
-  #   'long': 1, 
-  #   'middle': 0,
-  #   'short': 0}
-  # df = assign_condition_value(df=df, column='is_entity', condition_dict=conditions, value_dict=values)
-  df['is_entity'] = 1
-  df['continious_entity_signal'] = 'n'
-  df['continious_entity'] = df['is_entity'] * df['is_entity'].shift(1)
-  df['continious_entity_trend'] = df['continious_entity'].replace({0:None, 1:'u'})
-  target_idx = df.query('continious_entity == 1').index
-  
+  # ======================================= 2 candle pattern  =================================== #  
   idxs = df.index.tolist()
   # df['cloud_trend'] = 'n'
   # df['wrap_trend'] = 'n'
@@ -968,11 +964,31 @@ def recognize_candlestick_pattern(df):
     else:
       # 底部<前底部 & 顶部>前顶部: 吞噬形态
       if (previous_row['candle_entity_top'] < row['candle_entity_top']) and (previous_row['candle_entity_bottom'] > row['candle_entity_bottom']):
-        # 先绿后红: 空头吞噬
+        
+        # 先绿后红
         if (previous_row['candle_color'] == 1 and row['candle_color'] == -1):
-          df.loc[idx, 'wrap_trend'] = 'd'
-        # 先红后绿: 多头吞噬
+          # 在底部: 最后底吞噬
+          if (row['position_trend'] == "d" and previous_row['position_trend'] == "d"):
+            df.loc[idx, 'wrap_trend'] = 'u'
+          # 在非底部: 空头吞噬
+          elif (row['position_trend'] != "d" or previous_row['position_trend'] != "d"):
+            df.loc[idx, 'wrap_trend'] = 'd'
+
+        # 先红后绿
         elif (previous_row['candle_color'] == -1 and row['candle_color'] == 1):
+          # 在顶部: 最后顶吞噬
+          if (row['position_trend'] == "u" and previous_row['position_trend'] == "u"):
+            df.loc[idx, 'wrap_trend'] = 'd'
+          # 在非顶部: 多头吞噬
+          elif (row['position_trend'] != "u" or previous_row['position_trend'] != "u"):
+            df.loc[idx, 'wrap_trend'] = 'u'
+
+        # 顶部-全绿-小实体被大实体吞噬: 顶吞噬
+        elif ((row['position_trend'] == "u" and previous_row['entity_trend'] == "d") and (previous_row['candle_color'] == -1 and row['candle_color'] == -1)):
+          df.loc[idx, 'wrap_trend'] = 'd'  
+       
+        # 底部-全红-小实体被大实体吞噬: 底吞噬
+        elif ((row['position_trend'] == "d" and previous_row['entity_trend'] == "d") and (previous_row['candle_color'] == 1 and row['candle_color'] == 1)):
           df.loc[idx, 'wrap_trend'] = 'u'  
 
       # 底部>前底部 & 顶部<前顶部: 包孕形态
@@ -1014,7 +1030,7 @@ def recognize_candlestick_pattern(df):
           else:
             # 2 底部 > 1, 3顶部
             if (previous_row['candle_entity_bottom'] > previous_previous_row['candle_entity_top']) and (previous_row['candle_entity_bottom'] > row['candle_entity_top']):
-              df.loc[idx, 'star_trend'] = 'd'
+              df.loc[previous_idx, 'star_trend'] = 'd'
 
     # 底部
     elif row['position_trend'] == 'd':
@@ -1046,7 +1062,7 @@ def recognize_candlestick_pattern(df):
           else:
             # 2 顶部 < 1, 3底部
             if (previous_row['candle_entity_top'] < previous_previous_row['candle_entity_bottom']) and (previous_row['candle_entity_top'] < row['candle_entity_bottom']):
-              df.loc[idx, 'star_trend'] = 'u'
+              df.loc[previous_idx, 'star_trend'] = 'u'
   
   # ======================================= 3 candle pattern  =================================== #
 
@@ -4364,21 +4380,15 @@ def plot_candlestick(
   # annotate candle patterns
   pattern_info = {
     # 'window_trend': {'u': '上升窗口', 'd': '下降窗口', 'n': ''},
-    'hammer_trend': {'u': '锤子线', 'd': '吊颈线', 'n': ''},
-    'meteor_trend': {'u': '', 'd': '流星线', 'n': ''},
-    'cross_trend': {'u': '高浪线', 'd': '', 'n': ''},
-    'cloud_trend': {'u': '穿刺形态', 'd': '乌云盖顶', 'n': ''},
-    'wrap_trend': {'u': '多头吞噬', 'd': '空头吞噬', 'n': ''},
+    'hammer_trend': {'u': '锤子', 'd': '吊颈', 'n': ''},
+    'meteor_trend': {'u': '倒锤', 'd': '流星', 'n': ''},
+    'cross_trend': {'u': '高浪', 'd': '', 'n': ''},
+    'cloud_trend': {'u': '穿刺', 'd': '乌云', 'n': ''},
+    'wrap_trend': {'u': '吞噬', 'd': '吞噬', 'n': ''},
     'star_trend': {'u': '启明星', 'd': '黄昏星', 'n': ''},
     'embrace_trend': {'u': '包孕', 'd': '包孕', 'n': ''},
+    # 'belt_trend': {'u': '看涨', 'd': '看跌', 'n': ''}
     # 'volume_trend': {'u': '成交量大/', 'd': '成交量少/', 'n': ''},
-
-    # 'position_trend': {'u': '顶部/', 'd': '底部/', 'n': ''},
-    # 'color_trend': {'u': '绿色', 'd': '红色', 'n': ''},
-    # 'entity_trend': {'u': '长实体/', 'd': '短实体/', 'n': '实体/'},
-    # 'upper_shadow_trend': {'u': '长上影线/', 'd': '短上影线/', 'n': ''},
-    # 'lower_shadow_trend': {'u': '长下影线/', 'd': '短下影线/', 'n': ''},
-    # 'shadow_trend': {'u': '波动范围大', 'd': '波动范围小', 'n': ''}
   }
   for p in pattern_info.keys():
     if p in df.columns:
@@ -4389,10 +4399,10 @@ def plot_candlestick(
       if len(tmp_up_info) > 0:
         for i in tmp_up_idx:
           x = i
-          y = df.loc[x, 'High']
+          y = df.loc[x, 'Low']
           x_text = i
-          y_text = y + df.High.max()*0.03
-          plt.annotate(f'{tmp_up_info}', xy=(x, y), xytext=(x_text,y_text), xycoords='data', textcoords='data', arrowprops=dict(arrowstyle='->', alpha=0.5), bbox=dict(boxstyle="round",fc="1.0", alpha=0.5))
+          y_text = y - df.High.max()*0.03
+          plt.annotate(f'{tmp_up_info}', xy=(x, y), xytext=(x_text,y_text), fontsize=12, color="black", va="center",  ha="center", xycoords='data', textcoords='data', arrowprops=dict(arrowstyle='->', alpha=0.5), bbox=dict(boxstyle="round", facecolor='green', alpha=0.1))
 
       tmp_down_info = pattern_info[p]['d']
       if len(tmp_down_info) > 0:
@@ -4401,7 +4411,7 @@ def plot_candlestick(
           y = df.loc[x, 'High']
           x_text = i
           y_text = y + df.High.max()*0.03
-          plt.annotate(f'{tmp_down_info}', xy=(x, y), xytext=(x_text,y_text), xycoords='data', textcoords='data', arrowprops=dict(arrowstyle='->', alpha=0.5), bbox=dict(boxstyle="round",fc="1.0", alpha=0.5))
+          plt.annotate(f'{tmp_down_info}', xy=(x, y), xytext=(x_text,y_text), fontsize=12, color="black", va="center",  ha="center", xycoords='data', textcoords='data', arrowprops=dict(arrowstyle='->', alpha=0.5), bbox=dict(boxstyle="round", facecolor='red', alpha=0.1))
 
 
   # transform date to numbers
