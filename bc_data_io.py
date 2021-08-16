@@ -1916,7 +1916,7 @@ def pickle_load_data(file_path, file_name):
 
 
 #----------------------------- Email sending ------------------------------------#
-def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subject=None, platform=['tiger'], signal_file_date=None, log_file_date=None, position_summary={}, test=False):
+def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subject=None, platform=['tiger'], signal_file_date=None, log_file_date=None, position_summary={}, test=False, cn_stock=False):
   """
   send automatic_trader's trading result and technical_analyst's calculation result by email
 
@@ -2025,7 +2025,7 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
 
     # initialize header, attach pdfs
     image_info += f'<li>[Requested]: {signal_file_date}</li>'
-    pdf_names = ['portfolio', 'signal', 'potential', 'index']
+    pdf_names = ['portfolio', 'signal', 'potential', 'index'] if not cn_stock else ['signal_a', 'potential_a']
     for p in pdf_names:
 
       # consstruct pdf file path
