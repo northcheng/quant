@@ -196,22 +196,6 @@ def preprocess_sec_data(df, symbol, interval, print_error=True):
 
   # add symbol and change rate of close price
   df['symbol'] = symbol
-
-  # add average price of previous year
-  idxs = df.index.tolist()
-  years = [x.year for x in idxs]
-  years = list(set(years))
-  years.sort()
-
-  for i in range(len(years)):
-    if i < 1:
-      avg_price = df['Close'].values[0]
-    else:
-      last_year = years[i-1]
-      avg_price = df[f'{last_year}']['Close'].mean()
-    
-    current_year = years[i]
-    df.loc[f'{current_year}', 'last_year_avg_price'] = avg_price
   
   return df
 
@@ -225,7 +209,7 @@ def calculate_ta_indicators(df, trend_indicators, volume_indicators, volatility_
     return None   
   
   # add change rate of Close price and candlestick features
-  df = cal_change_rate(df=df, target_col=default_ohlcv_col['close'])
+  df = cal_change_rate(df=df, target_col=default_ohlcv_col['close'], add_accumulation=False)
   df = add_candlestick_features(df=df)
 
   # calculate TA indicators
@@ -431,7 +415,6 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
     phase = 'cal_overall_trend'
 
     # ================================ overall trend ==========================
-    df['ta_signal'] = ''
     df['trend_idx'] = 0
     df['up_trend_idx'] = 0
     df['down_trend_idx'] = 0
@@ -463,14 +446,14 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
     
     # calculate overall trend index
     df['trend_idx'] = df['up_trend_idx'] + df['down_trend_idx']
-    df['trend_idx_wma'] = sm(series=df['trend_idx'], periods=3).sum()
-    conditions = {
-      'up': 'trend_idx_wma > 0', 
-      'down': 'trend_idx_wma < 0'} 
-    values = {
-      'up': 'u', 
-      'down': 'd'}
-    df = assign_condition_value(df=df, column='ta_trend', condition_dict=conditions, value_dict=values, default_value='n')
+    # df['trend_idx_wma'] = sm(series=df['trend_idx'], periods=3).sum()
+    # conditions = {
+    #   'up': 'trend_idx_wma > 0', 
+    #   'down': 'trend_idx_wma < 0'} 
+    # values = {
+    #   'up': 'u', 
+    #   'down': 'd'}
+    # df = assign_condition_value(df=df, column='ta_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
   except Exception as e:
     print(phase, e)
@@ -748,15 +731,25 @@ def recognize_candlestick_pattern(df):
   df = assign_condition_value(df=df, column='window_trend', condition_dict=conditions, value_dict=values)
 
   # window position(beyond/below window)
-  df['window_position_trend'] = 'n'
+  df['window_position_signal'] = ''
   conditions = {
-    'up': 'Low > candle_gap_top', 
-    'down': 'High < candle_gap_bottom'}
+    'up': '(candle_entity_bottom > candle_gap_top)',
+    'middle': '((candle_entity_top > candle_gap_top and candle_entity_bottom <= candle_gap_top) or (candle_entity_top <= candle_gap_top and candle_entity_bottom >= candle_gap_bottom) or (candle_entity_top >= candle_gap_bottom and candle_entity_bottom < candle_gap_bottom))',
+    'down': '(candle_entity_top < candle_gap_bottom)'}
+  values = {
+    'up': 1, 
+    'middle': 0,
+    'down': -1}
+  df = assign_condition_value(df=df, column='window_position_trend', condition_dict=conditions, value_dict=values)
+  df['window_position_day'] = sda(series=df['window_position_trend'], zero_as=None)
+  df['window_position_trend'] = ''
+  conditions = {
+    'up': '(window_position_day == 1 and candle_gap != 2)', 
+    'down': '(window_position_day == -1 and candle_gap != -2)'}
   values = {
     'up': 'u', 
     'down': 'd'}
-  df = assign_condition_value(df=df, column='window_position_trend', condition_dict=conditions, value_dict=values, default_value='n')
-  df['window_position_trend'] = df['window_position_trend'].fillna(method='ffill')
+  df = assign_condition_value(df=df, column='window_position_trend', condition_dict=conditions, value_dict=values)
 
   # candle colors
   df['color_trend'] = df['candle_color'].replace({-1:'d', 1: 'u', 0:'n'})
@@ -860,10 +853,24 @@ def recognize_candlestick_pattern(df):
   # long_entity = 
 
   # ======================================= 2 candle pattern  =================================== #  
+  df['previous_high'] = df['High'].shift(1)
+  df['previous_low'] = df['Low'].shift(1)
+  df['high_diff'] = abs(df['High'] - df['previous_high'])/df['High']
+  df['low_diff'] = abs(df['Low'] - df['previous_low'])/df['Low']
+  df['flat_signal'] = 'n'
+  conditions = {
+    'top': '(position_trend == "u" and high_diff <= 0.01 )',
+    'bottom': '(position_trend == "d" and low_diff <= 0.01 )'}
+  values = {
+    'top': 'd', 
+    'bottom': 'u'}
+  df = assign_condition_value(df=df, column='flat_trend', condition_dict=conditions, value_dict=values)
+
   idxs = df.index.tolist()
   # df['cloud_trend'] = 'n'
   # df['wrap_trend'] = 'n'
   # df['embrace_trend'] = 'n'
+  # df['star_trend'] = 'n'
   df['cloud_signal'] = 'n'
   df['wrap_signal'] = 'n'
   df['embrace_signal'] = 'n'
@@ -902,22 +909,24 @@ def recognize_candlestick_pattern(df):
         
         # 先绿后红
         if (previous_row['candle_color'] == 1 and row['candle_color'] == -1):
-          # 在底部: 最后底吞噬
-          if (row['position_trend'] == "d" and previous_row['position_trend'] == "d"):
-            df.loc[idx, 'wrap_trend'] = 'u'
+          
           # 在非底部: 空头吞噬
-          elif (row['position_trend'] != "d" or previous_row['position_trend'] != "d"):
+          if (row['position_trend'] != "d" or previous_row['position_trend'] != "d"):
             df.loc[idx, 'wrap_trend'] = 'd'
+          # 在底部: 最后底吞噬
+          # elif (row['position_trend'] == "d" and previous_row['position_trend'] == "d"):
+            # df.loc[idx, 'wrap_trend'] = 'u'
 
         # 先红后绿
         elif (previous_row['candle_color'] == -1 and row['candle_color'] == 1):
-          # 在顶部: 最后顶吞噬
-          if (row['position_trend'] == "u" and previous_row['position_trend'] == "u"):
-            df.loc[idx, 'wrap_trend'] = 'd'
+          
           # 在非顶部: 多头吞噬
-          elif (row['position_trend'] != "u" or previous_row['position_trend'] != "u"):
+          if (row['position_trend'] != "u" or previous_row['position_trend'] != "u"):
             df.loc[idx, 'wrap_trend'] = 'u'
-
+          # 在顶部: 最后顶吞噬
+          # elif (row['position_trend'] == "u" and previous_row['position_trend'] == "u"):
+          #   df.loc[idx, 'wrap_trend'] = 'd'
+          
         # 顶部-全绿-小实体被大实体吞噬: 顶吞噬
         elif ((row['position_trend'] == "u" and previous_row['entity_trend'] == "d") and (previous_row['candle_color'] == -1 and row['candle_color'] == -1)):
           df.loc[idx, 'wrap_trend'] = 'd'  
@@ -965,7 +974,7 @@ def recognize_candlestick_pattern(df):
           else:
             # 2 底部 > 1, 3顶部
             if (previous_row['candle_entity_bottom'] > previous_previous_row['candle_entity_top']) and (previous_row['candle_entity_bottom'] > row['candle_entity_top']):
-              df.loc[previous_idx, 'star_trend'] = 'd'
+              df.loc[idx, 'star_trend'] = 'd'
 
     # 底部
     elif row['position_trend'] == 'd':
@@ -997,7 +1006,7 @@ def recognize_candlestick_pattern(df):
           else:
             # 2 顶部 < 1, 3底部
             if (previous_row['candle_entity_top'] < previous_previous_row['candle_entity_bottom']) and (previous_row['candle_entity_top'] < row['candle_entity_bottom']):
-              df.loc[previous_idx, 'star_trend'] = 'u'
+              df.loc[idx, 'star_trend'] = 'u'
   
   # ======================================= 3 candle pattern  =================================== #
 
@@ -1005,7 +1014,6 @@ def recognize_candlestick_pattern(df):
 
   # ======================================= overall results  ==================================== #
   trend_info = {
-    'window_position_trend': {'u': '窗口之上/', 'd': '窗口之下/', 'n': ''},
     'position_trend': {'u': '顶部/', 'd': '底部/', 'n': ''},
     'hammer_trend': {'u': '锤子线/', 'd': '流星线/', 'n': ''},
     'cross_trend': {'u': '高浪线/', 'd': '十字星/', 'n': '纺锤线/'},
@@ -1044,6 +1052,16 @@ def recognize_candlestick_pattern(df):
 
   df['candle_patterns'] += ']'
 
+  # drop unnecessary columns
+  for col in [
+    # 'position_signal', 'belt_signal', 'cross_signal', 'flat_signal', 
+    'volume_signal', 'color_signal', 'entity_signal', 'shadow_signal', 'upper_shadow_signal', 'lower_shadow_signal', 
+    'hammer_signal', 'meteor_signal', 'window_signal', 'window_position_signal', 'window_position_day', 
+    'cloud_signal', 'wrap_signal', 'embrace_signal', 'star_signal', 
+    'close_ma_120', 'close_to_ma_120', 'volume_ma_120', 'volume_to_ma_120', 'candle_entity_to_close', 'candle_shadow_to_close', 'candle_shadow_pct_diff', 'candle_entity_middle' ]:
+    if col in df.columns:
+      df.drop(col, axis=1, inplace=True)
+  
   return df
 
 # calculate ta derivatives
@@ -2997,9 +3015,6 @@ def add_renko_features(df, brick_size_factor=0.1, merge_duplicated=True):
   original_df = util.remove_duplicated_index(df=df, keep='last')
   df = original_df.copy()
 
-  # use constant brick size: brick_size_factor * last_year_avg_price
-  # df['bsz'] = (df['last_year_avg_price'] * brick_size_factor).round(3) 
-
   # use dynamic brick size: brick_size_factor * Close price
   df['bsz'] = (df['Close'] * brick_size_factor).round(3)
 
@@ -4379,7 +4394,8 @@ def plot_candlestick(
 
   # annotate candle patterns
   pattern_info = {
-    # 'window_trend': {'u': '上升窗口', 'd': '下降窗口', 'n': ''},
+    'window_trend': {'u': '窗口', 'd': '窗口', 'n': ''},
+    'window_position_trend': {'u': '突破', 'd': '跌落', 'n': ''},
     'hammer_trend': {'u': '锤子', 'd': '吊颈', 'n': ''},
     'meteor_trend': {'u': '倒锤', 'd': '流星', 'n': ''},
     'cross_trend': {'u': '高浪', 'd': '', 'n': ''},
@@ -4388,21 +4404,27 @@ def plot_candlestick(
     'star_trend': {'u': '启明星', 'd': '黄昏星', 'n': ''},
     'embrace_trend': {'u': '包孕', 'd': '包孕', 'n': ''},
     # 'belt_trend': {'u': '看涨', 'd': '看跌', 'n': ''}
-    # 'volume_trend': {'u': '成交量大/', 'd': '成交量少/', 'n': ''},
   }
+  settings = {
+    'normal': {'fontsize':12, 'fontcolor':'black', 'va':'center', 'ha':'center', 'boxcolor_u':'green', 'boxcolor_d':'red', 'alpha': 0.25},
+    'emphasis': {'fontsize':12, 'fontcolor':'black', 'va':'center', 'ha':'center', 'boxcolor_u':'green', 'boxcolor_d':'red', 'alpha': 0.5},
+  }
+
   for p in pattern_info.keys():
+    stn = settings['normal'] if p not in ['window_trend', 'window_position_trend'] else settings['emphasis']
     if p in df.columns:
       tmp_up_idx = df.query(f'{p} == "u"').index
       tmp_down_idx = df.query(f'{p} == "d"').index
-
       tmp_up_info = pattern_info[p]['u']
+
+      
       if len(tmp_up_info) > 0:
         for i in tmp_up_idx:
           x = i
           y = df.loc[x, 'Low']
           x_text = i
-          y_text = y - df.High.max()*0.03
-          plt.annotate(f'{tmp_up_info}', xy=(x, y), xytext=(x_text,y_text), fontsize=12, color="black", va="center",  ha="center", xycoords='data', textcoords='data', arrowprops=dict(arrowstyle='->', alpha=0.5), bbox=dict(boxstyle="round", facecolor='green', alpha=0.1))
+          y_text = y - df.High.max()*0.05
+          plt.annotate(f'{tmp_up_info}', xy=(x, y), xytext=(x_text,y_text), fontsize=stn['fontsize'], color=stn['fontcolor'], va=stn['va'],  ha=stn['ha'], xycoords='data', textcoords='data', arrowprops=dict(arrowstyle='-', alpha=stn['alpha']), bbox=dict(boxstyle="round", facecolor=stn['boxcolor_u'], alpha=stn['alpha']))
 
       tmp_down_info = pattern_info[p]['d']
       if len(tmp_down_info) > 0:
@@ -4410,8 +4432,8 @@ def plot_candlestick(
           x = i
           y = df.loc[x, 'High']
           x_text = i
-          y_text = y + df.High.max()*0.03
-          plt.annotate(f'{tmp_down_info}', xy=(x, y), xytext=(x_text,y_text), fontsize=12, color="black", va="center",  ha="center", xycoords='data', textcoords='data', arrowprops=dict(arrowstyle='->', alpha=0.5), bbox=dict(boxstyle="round", facecolor='red', alpha=0.1))
+          y_text = y + df.High.max()*0.05
+          plt.annotate(f'{tmp_down_info}', xy=(x, y), xytext=(x_text,y_text), fontsize=stn['fontsize'], color=stn['fontcolor'], va=stn['va'],  ha=stn['ha'], xycoords='data', textcoords='data', arrowprops=dict(arrowstyle='-', alpha=stn['alpha']), bbox=dict(boxstyle="round", facecolor=stn['boxcolor_d'], alpha=stn['alpha']))
 
 
   # transform date to numbers
@@ -4963,10 +4985,12 @@ def plot_multiple_indicators(
     tmp_indicator = indicators[i]
     tmp_args = args.get(tmp_indicator)
 
+    zorder = 10 if tmp_indicator == 'main_indicators' else 1
+
     if i == 0:
-      axes[tmp_indicator] = plt.subplot(gs[i])     
+      axes[tmp_indicator] = plt.subplot(gs[i], zorder=zorder)     
     else:
-      axes[tmp_indicator] = plt.subplot(gs[i], sharex=axes[indicators[0]])
+      axes[tmp_indicator] = plt.subplot(gs[i], sharex=axes[indicators[0]], zorder=zorder)
       
     if i%2 != 0:
       axes[tmp_indicator].xaxis.set_ticks_position("top")

@@ -56,7 +56,7 @@
         "plot_args": {
             "plot_ratio": {
               "signals": 0.7,
-              "candle": 0.2, 
+              "candle": 0.3, 
               "main_indicators": 3,
               "volume": 0.5
             },
@@ -91,6 +91,7 @@
                 "signal_list": [
                     "cross_signal",
                     "belt_signal",
+                    "flat_signal",
                     "position_signal"
                     
                 ],
