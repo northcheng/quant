@@ -409,7 +409,6 @@
             "symbol": "代码",
             "Close": "收盘",
             "rate": "涨跌",
-            "acc_rate": "累计",
             "obos": "超买超卖",
             "break_up": "上穿",
             "break_down": "下穿",
