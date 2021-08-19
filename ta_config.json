@@ -55,10 +55,10 @@
         },
         "plot_args": {
             "plot_ratio": {
-              "signals": 0.7,
-              "candle": 0.3, 
-              "main_indicators": 3,
-              "volume": 0.5
+                "volume": 0.5,
+                "candle": 0.4, 
+                "main_indicators": 3,
+                "signals": 0.7
             },
             "main_indicators": {
                 "target_indicator": [
@@ -89,11 +89,10 @@
             },
             "candle": {
                 "signal_list": [
-                    "cross_signal",
-                    "belt_signal",
+                    "position_signal",
                     "flat_signal",
-                    "position_signal"
-                    
+                    "cross_signal",
+                    "belt_signal"
                 ],
                 "plot_signal_on_price": true,
                 "price_alpha": 0.02
@@ -419,7 +418,8 @@
             "resistant": "阻挡",
             "category": "类别",
             "description": "描述",
-            "signal": "交易信号"
+            "signal": "交易信号",
+            "label": "分类"
         },
         "drop_columns": [],
         "save_result": true,

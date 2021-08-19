@@ -859,8 +859,8 @@ def recognize_candlestick_pattern(df):
   df['low_diff'] = abs(df['Low'] - df['previous_low'])/df['Low']
   df['flat_signal'] = 'n'
   conditions = {
-    'top': '(position_trend == "u" and high_diff <= 0.01 )',
-    'bottom': '(position_trend == "d" and low_diff <= 0.01 )'}
+    'top': '(position_trend == "u" and high_diff <= 0.005)',
+    'bottom': '(position_trend == "d" and low_diff <= 0.005)'}
   values = {
     'top': 'd', 
     'bottom': 'u'}
@@ -1228,7 +1228,7 @@ def visualize_ta_data(df, start=None, end=None, title=None, save_path=None, visu
     print(phase, e)
 
 # post-process calculation results
-def postprocess_ta_result(df, keep_columns, drop_columns):
+def postprocess_ta_result(df, keep_columns, drop_columns, target_interval=''):
   """
   Postprocess reulst data (last rows of symbols in a list)
 
@@ -1246,6 +1246,26 @@ def postprocess_ta_result(df, keep_columns, drop_columns):
   # reset index(as the index(date) of rows are all the same)
   df = df.reset_index().copy()
 
+  # add final label for symbols
+  conditions = {
+    'breakthrough or rebound': '(category == "up_x_resistant" or category == "rebound")',
+    'ichimoku signal': '(0 < tankan_kijun_signal < 5)',
+    'long upper shadow': '(upper_shadow_trend == "u")',
+    'long red entity': '(candle_color == -1 and entity_trend != "d")',
+    'under candlestick window': '(candle_gap_resistant == candle_gap_resistant and Low < candle_gap_resistant)',
+    'waving falling or hitpeak': '(category == "waving" or category == "down_x_support" or category == "hitpeak")',
+    'up window': '(window_trend == "u" or window_position_trend == "u")',
+    'signal': '(signal == "u" or signal == "d")'}
+  values = {
+    'breakthrough or rebound': 'potential',
+    'ichimoku signal': 'potential',
+    'long red entity': '',
+    'long upper shadow': '',
+    'under candlestick window': '',
+    'waving falling or hitpeak': '',
+    'signal': 'signal'}
+  df = assign_condition_value(df=df, column='label', condition_dict=conditions, value_dict=values, default_value='')
+
   # overbuy/oversell
   df['obos'] = df['bb_trend'].replace({'d': '超买', 'u': '超卖', 'n': ''})
 
@@ -1257,6 +1277,7 @@ def postprocess_ta_result(df, keep_columns, drop_columns):
   
   # sort by operation and symbol
   df = df.sort_values(['交易信号', '代码'], ascending=[True, True])
+  df['ti'] = target_interval
   
   return df
 
@@ -1590,7 +1611,6 @@ def cal_change_rate(df, target_col, periods=1, add_accumulation=True, add_prefix
   acc_rate_col = f'{prefix}acc_rate'
   acc_day_col = f'{prefix}acc_day'
 
-  
   # calculate change rate within the period
   df[rate_col] = df[target_col].pct_change(periods=periods)
   
@@ -4339,7 +4359,7 @@ def plot_candlestick(
   """
   # copy dataframe within a specific period
   df = df[start:end].copy()
-
+  
   # set column names
   open = ohlcv_col['open']
   high = ohlcv_col['high']
@@ -4376,23 +4396,24 @@ def plot_candlestick(
     top_value = df.loc[start, 'candle_gap_top']
     bottom_value = df.loc[start, 'candle_gap_bottom']
 
-    gap_color = 'grey' # 'purple' if df.loc[start, 'candle_gap'] > 0 else 
+    gap_color = 'grey' # 'green' if df.loc[start, 'candle_gap'] > 0 else 'red' # 
     gap_hatch = '/' if df.loc[start, 'candle_gap'] > 0 else '\\'
     
     # gap end
     end = None
     tmp_data = df[start:]
-    for i, r in tmp_data.iterrows():
-      if r['candle_gap_top'] != top_value:
+    for i, r in tmp_data.iterrows(): 
+      if (r['candle_gap_top'] != top_value) or (r['candle_gap_bottom'] != bottom_value):  
         break      
       end = i
 
     # shift gap-start 1 day earlier
-    pre_start = idxs[idxs.index(start)-1]
+    pre_i = idxs.index(start)-1
+    pre_start = idxs[pre_i] if pre_i > 0 else start
     tmp_data = df[start:end]
-    ax.fill_between(df[pre_start:end].index, top_value, bottom_value, facecolor=gap_color, interpolate=True, alpha=0.4, hatch=gap_hatch) #,  linewidth=2,
+    ax.fill_between(df[pre_start:end].index, top_value, bottom_value, facecolor=gap_color, interpolate=True, alpha=0.25, hatch=gap_hatch) #,  
 
-  # annotate candle patterns
+  # settings for annotate candle patterns
   pattern_info = {
     'window_trend': {'u': '窗口', 'd': '窗口', 'n': ''},
     'window_position_trend': {'u': '突破', 'd': '跌落', 'n': ''},
@@ -4402,39 +4423,57 @@ def plot_candlestick(
     'cloud_trend': {'u': '穿刺', 'd': '乌云', 'n': ''},
     'wrap_trend': {'u': '吞噬', 'd': '吞噬', 'n': ''},
     'star_trend': {'u': '启明星', 'd': '黄昏星', 'n': ''},
-    'embrace_trend': {'u': '包孕', 'd': '包孕', 'n': ''},
-    # 'belt_trend': {'u': '看涨', 'd': '看跌', 'n': ''}
+    'embrace_trend': {'u': '包孕', 'd': '包孕', 'n': ''}
   }
   settings = {
-    'normal': {'fontsize':12, 'fontcolor':'black', 'va':'center', 'ha':'center', 'boxcolor_u':'green', 'boxcolor_d':'red', 'alpha': 0.25},
-    'emphasis': {'fontsize':12, 'fontcolor':'black', 'va':'center', 'ha':'center', 'boxcolor_u':'green', 'boxcolor_d':'red', 'alpha': 0.5},
+    'normal': {'fontsize':12, 'fontcolor':'black', 'va':'center', 'ha':'center', 'up':'green', 'down':'red', 'alpha': 0.25},
+    'emphasis': {'fontsize':12, 'fontcolor':'black', 'va':'center', 'ha':'center', 'up':'green', 'down':'red', 'alpha': 0.5},
   }
-
+  up_pattern_annotations = {}
+  down_pattern_annotations = {}
+  padding = df.High.max()*0.01
   for p in pattern_info.keys():
-    stn = settings['normal'] if p not in ['window_trend', 'window_position_trend'] else settings['emphasis']
+    stn = 'normal' if p not in ['window_trend', 'window_position_trend'] else 'emphasis'
     if p in df.columns:
       tmp_up_idx = df.query(f'{p} == "u"').index
       tmp_down_idx = df.query(f'{p} == "d"').index
-      tmp_up_info = pattern_info[p]['u']
 
-      
+      # positive patterns
+      tmp_up_info = pattern_info[p]['u']
       if len(tmp_up_info) > 0:
         for i in tmp_up_idx:
-          x = i
-          y = df.loc[x, 'Low']
-          x_text = i
-          y_text = y - df.High.max()*0.05
-          plt.annotate(f'{tmp_up_info}', xy=(x, y), xytext=(x_text,y_text), fontsize=stn['fontsize'], color=stn['fontcolor'], va=stn['va'],  ha=stn['ha'], xycoords='data', textcoords='data', arrowprops=dict(arrowstyle='-', alpha=stn['alpha']), bbox=dict(boxstyle="round", facecolor=stn['boxcolor_u'], alpha=stn['alpha']))
+          k = util.time_2_string(i.date())
+          if k not in up_pattern_annotations:
+            up_pattern_annotations[k] = {'x': k, 'y': df.loc[i, 'Low'] - padding, 'y_text': df.loc[i, 'Low'] - padding*5, 'text': tmp_up_info, 'stn': stn}
+          else:
+            up_pattern_annotations[k]['text'] = up_pattern_annotations[k]['text']  + f'/{tmp_up_info}'
+            if up_pattern_annotations[k]['stn'] == 'normal':
+              up_pattern_annotations[k]['stn'] = stn 
 
+      # negative patterns
       tmp_down_info = pattern_info[p]['d']
       if len(tmp_down_info) > 0:
         for i in tmp_down_idx:
-          x = i
-          y = df.loc[x, 'High']
-          x_text = i
-          y_text = y + df.High.max()*0.05
-          plt.annotate(f'{tmp_down_info}', xy=(x, y), xytext=(x_text,y_text), fontsize=stn['fontsize'], color=stn['fontcolor'], va=stn['va'],  ha=stn['ha'], xycoords='data', textcoords='data', arrowprops=dict(arrowstyle='-', alpha=stn['alpha']), bbox=dict(boxstyle="round", facecolor=stn['boxcolor_d'], alpha=stn['alpha']))
+          k = util.time_2_string(i.date())
+          if k not in down_pattern_annotations:
+            down_pattern_annotations[k] = {'x': k, 'y': df.loc[i, 'High'] + padding, 'y_text': df.loc[i, 'High'] + padding*5, 'text': tmp_down_info, 'stn': stn}
+          else:
+            down_pattern_annotations[k]['text'] = down_pattern_annotations[k]['text']  + f'/{tmp_down_info}'
+            if down_pattern_annotations[k]['stn'] == 'normal':
+              down_pattern_annotations[k]['stn'] = stn 
 
+  # candle pattern annotation
+  annotations = {'up': up_pattern_annotations, 'down': down_pattern_annotations}
+  for a in annotations.keys():
+    tmp_annotation = annotations[a]
+
+    for k in tmp_annotation.keys():
+      x = tmp_annotation[k]['x']
+      y = tmp_annotation[k]['y']
+      y_text = tmp_annotation[k]['y_text']
+      text = tmp_annotation[k]['text']
+      stn = settings[tmp_annotation[k]['stn']]
+      plt.annotate(f'{text}', xy=(x, y), xytext=(x,y_text), fontsize=stn['fontsize'], color=stn['fontcolor'], va=stn['va'],  ha=stn['ha'], xycoords='data', textcoords='data', arrowprops=dict(arrowstyle='->', alpha=stn['alpha']), bbox=dict(boxstyle="round", facecolor=stn[a], alpha=stn['alpha']))
 
   # transform date to numbers
   df.reset_index(inplace=True)
