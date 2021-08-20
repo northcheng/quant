@@ -655,8 +655,8 @@ def describe_ta_data(df):
     if k in ['强势', '弱势', '上行', '下行', '波动']:
       segment_s = '['
       
-    # if k in ['轨道中', '轨道上方', '轨道下方']:
-    #   segment_e = f'({row["rate_direction"].round(2)})]'
+    if k in ['轨道中', '轨道上方', '轨道下方']:
+      segment_e = f']' # ({row["rate_direction"].round(2)})
       
     if k in ['跌破支撑', '突破阻挡', '触顶回落', '触底反弹']:
       segment_s = '['
@@ -752,7 +752,7 @@ def recognize_candlestick_pattern(df):
   # long/short entity
   df['entity_signal'] = 'n'
   conditions = {
-    'long': '(candle_entity_to_close >= 0.01)', 
+    'long': '(candle_entity_to_close >= 0.01 and candle_entity_pct >= 0.5)', 
     'middle': '(0.003 <= candle_entity_to_close <= 0.01)',
     'short': '(candle_entity_to_close < 0.003)'}
   values = {
@@ -1046,7 +1046,8 @@ def recognize_candlestick_pattern(df):
     'hammer_signal', 'meteor_signal', 'window_signal', 'window_position_signal', 'window_position_value', 'window_position_day', 
     'cloud_signal', 'wrap_signal', 'star_signal', # 'embrace_signal', 
     'previous_high', 'previous_low', 'high_diff', 'low_diff',
-    'close_ma_120', 'close_to_ma_120', 'volume_ma_120', 'volume_to_ma_120', 'candle_entity_to_close', 'candle_shadow_to_close', 'candle_shadow_pct_diff', 'candle_entity_middle' ]:
+    'close_ma_120', 'close_to_ma_120', 'volume_ma_120', 'volume_to_ma_120',# 'candle_entity_to_close', 'candle_shadow_to_close', 'candle_shadow_pct_diff', 'candle_entity_middle' 
+    ]:
     if col in df.columns:
       df.drop(col, axis=1, inplace=True)
   
@@ -4354,6 +4355,7 @@ def plot_candlestick(
   low = ohlcv_col['low']
   close = ohlcv_col['close']
   volume = ohlcv_col['volume']
+  padding = df.High.max()*0.01
 
   # create figure
   ax = use_ax
@@ -4404,24 +4406,29 @@ def plot_candlestick(
     tmp_data = df[start:end]
     ax.fill_between(df[pre_start:end].index, top_value, bottom_value, facecolor=gap_color, interpolate=True, alpha=0.25, hatch=gap_hatch) #,  
 
-  # annotate close price
-  y = df.loc[max_idx, 'Close'].round(2)
-  rate = (df.loc[max_idx, 'rate'] * 100).round(2)
-  plt.annotate(f' {y}({rate}%)', xy=(max_idx, y), xytext=(max_idx, y), fontsize=13, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor='yellow', alpha=0.1))
-
-  # annotate support and resistant
-  support = df.query('support == support')
-  if len(support) > 0:
-    ax.plot(support.index, support['support'], color='green', linestyle='--', label='support')
-    y = df.loc[max_idx, 'support'].round(2)
-    plt.annotate(f' 支撑: {y}', xy=(max_idx, y), xytext=(max_idx, y), fontsize=13, xycoords='data', textcoords='data', color='black', va='top',  ha='left', bbox=dict(boxstyle="round", facecolor='green', alpha=0.1))
-
+  # annotate resistant
   resistant = df.query('resistant == resistant')
   if len(resistant) > 0:
     ax.plot(resistant.index, resistant['resistant'], color='red', linestyle='--', label='resistant')
     y = df.loc[max_idx, 'resistant'].round(2)
-    plt.annotate(f' 阻挡: {y}', xy=(max_idx, y), xytext=(max_idx, y), fontsize=13, xycoords='data', textcoords='data', color='black', va='bottom',  ha='left', bbox=dict(boxstyle="round", facecolor='red', alpha=0.1))
+    y1 = y
+    plt.annotate(f' 阻挡: {y}', xy=(max_idx, y1), xytext=(max_idx, y1), fontsize=13, xycoords='data', textcoords='data', color='black', va='bottom',  ha='left', bbox=dict(boxstyle="round", facecolor='red', alpha=0.1))
 
+  # annotate close price
+  y = df.loc[max_idx, 'Close'].round(2)
+  y2 = y if abs(y1-y) > padding else y-padding
+  rate = (df.loc[max_idx, 'rate'] * 100).round(2)
+  plt.annotate(f' 收盘: {y}({rate}%)', xy=(max_idx, y2), xytext=(max_idx, y2), fontsize=13, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor='yellow', alpha=0.1))
+
+  # annotate support 
+  support = df.query('support == support')
+  if len(support) > 0:
+    ax.plot(support.index, support['support'], color='green', linestyle='--', label='support')
+    y = df.loc[max_idx, 'support'].round(2)
+    y3 = y if abs(y2-y) > padding else y-padding
+    plt.annotate(f' 支撑: {y}', xy=(max_idx, y3), xytext=(max_idx, y3), fontsize=13, xycoords='data', textcoords='data', color='black', va='top',  ha='left', bbox=dict(boxstyle="round", facecolor='green', alpha=0.1))
+
+  
   # settings for annotate candle patterns
   pattern_info = {
     'window_trend': {'u': '窗口', 'd': '窗口', 'n': ''},
@@ -4439,7 +4446,6 @@ def plot_candlestick(
   }
   up_pattern_annotations = {}
   down_pattern_annotations = {}
-  padding = df.High.max()*0.01
   for p in pattern_info.keys():
     stn = 'normal' if p not in ['window_trend', 'window_position_trend'] else 'emphasis'
     if p in df.columns:
