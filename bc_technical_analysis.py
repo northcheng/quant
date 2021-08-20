@@ -752,7 +752,7 @@ def recognize_candlestick_pattern(df):
   # long/short entity
   df['entity_signal'] = 'n'
   conditions = {
-    'long': '(candle_entity_to_close >= 0.01 and candle_entity_pct >= 0.5)', 
+    'long': '(candle_entity_to_close >= 0.02 and candle_entity_pct >= 0.5)', 
     'middle': '(0.003 <= candle_entity_to_close <= 0.01)',
     'short': '(candle_entity_to_close < 0.003)'}
   values = {
@@ -1994,6 +1994,9 @@ def add_linear_features(df, max_period=60, min_period=15, is_print=False):
 
   # get indexes
   idxs = df.index.tolist()
+
+  # get price
+  latest_price = df['Close'].values[-1]
 
   # get current date, renko_color, earliest-start date, latest-end date
   current_date = df.index.max()
@@ -4406,37 +4409,46 @@ def plot_candlestick(
     tmp_data = df[start:end]
     ax.fill_between(df[pre_start:end].index, top_value, bottom_value, facecolor=gap_color, interpolate=True, alpha=0.25, hatch=gap_hatch) #,  
 
+  y_resistant = None
+  y_text_resistant = None
+  y_close = None
+  y_text_close = None
+  y_support = None
+  y_text_support = None
+
   # annotate resistant
   resistant = df.query('resistant == resistant')
   if len(resistant) > 0:
     ax.plot(resistant.index, resistant['resistant'], color='red', linestyle='--', label='resistant')
-    y = df.loc[max_idx, 'resistant'].round(2)
-    y1 = y
-    plt.annotate(f' 阻挡: {y}', xy=(max_idx, y1), xytext=(max_idx, y1), fontsize=13, xycoords='data', textcoords='data', color='black', va='bottom',  ha='left', bbox=dict(boxstyle="round", facecolor='red', alpha=0.1))
+    y_resistant = df.loc[max_idx, 'resistant'].round(2)
+    y_text_resistant = y_resistant
+    plt.annotate(f' 阻挡: {y_resistant}', xy=(max_idx, y_text_resistant), xytext=(max_idx, y_text_resistant), fontsize=13, xycoords='data', textcoords='data', color='black', va='bottom',  ha='left', bbox=dict(boxstyle="round", facecolor='red', alpha=0.1))
 
   # annotate close price
-  y = df.loc[max_idx, 'Close'].round(2)
-  y2 = y
-  if y1 - y > padding*2:
-    y2 = y - padding
-  elif y1 - y < -padding*2:
-    y2 = y + padding
+  y_close = df.loc[max_idx, 'Close'].round(2)
+  y_text_close = y_close
+  if y_text_resistant is not None:
+    diff = y_text_resistant - y_text_close
+    if diff > 0 and diff < padding*2:
+      y_text_close -= padding*2
+    elif diff < 0 and diff > -padding*2:
+      y_text_close += padding*2
   rate = (df.loc[max_idx, 'rate'] * 100).round(2)
-  plt.annotate(f' 收盘: {y}({rate}%)', xy=(max_idx, y2), xytext=(max_idx, y2), fontsize=13, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor='yellow', alpha=0.1))
+  plt.annotate(f' 收盘: {y_close}({rate}%)', xy=(max_idx, y_text_close), xytext=(max_idx, y_text_close), fontsize=13, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor='yellow', alpha=0.1))
 
   # annotate support 
   support = df.query('support == support')
   if len(support) > 0:
     ax.plot(support.index, support['support'], color='green', linestyle='--', label='support')
-    y = df.loc[max_idx, 'support'].round(2)
-    y3 = y
-    if y2 - y > padding*2:
-      y3 = y - padding
-    elif y2 - y < -padding*2:
-      y3 = y + padding
-    plt.annotate(f' 支撑: {y}', xy=(max_idx, y3), xytext=(max_idx, y3), fontsize=13, xycoords='data', textcoords='data', color='black', va='top',  ha='left', bbox=dict(boxstyle="round", facecolor='green', alpha=0.1))
+    y_support = df.loc[max_idx, 'support'].round(2)
+    y_text_support = y_support
+    diff = y_text_close - y_text_support
+    if diff > 0 and diff < padding*2:
+      y_text_support -= padding*2
+    elif diff < 0 and diff > -padding*2:
+      y_text_support += padding*2
+    plt.annotate(f' 支撑: {y_support}', xy=(max_idx, y_text_support), xytext=(max_idx, y_text_support), fontsize=13, xycoords='data', textcoords='data', color='black', va='top',  ha='left', bbox=dict(boxstyle="round", facecolor='green', alpha=0.1))
 
-  
   # settings for annotate candle patterns
   pattern_info = {
     'window_trend': {'u': '窗口', 'd': '窗口', 'n': ''},
