@@ -752,7 +752,7 @@ def recognize_candlestick_pattern(df):
   # long/short entity
   df['entity_signal'] = 'n'
   conditions = {
-    'long': '(candle_entity_to_close >= 0.02 and candle_entity_pct >= 0.5)', 
+    'long': '(candle_entity_to_close >= 0.01)', 
     'middle': '(0.003 <= candle_entity_to_close <= 0.01)',
     'short': '(candle_entity_to_close < 0.003)'}
   values = {
@@ -901,9 +901,9 @@ def recognize_candlestick_pattern(df):
           # 在非底部: 空头吞噬
           if (row['position_trend'] != "d" or previous_row['position_trend'] != "d"):
             df.loc[idx, 'wrap_trend'] = 'd'
-          # 在底部: 最后底吞噬
+          # # 在底部: 最后底吞噬
           # elif (row['position_trend'] == "d" and previous_row['position_trend'] == "d"):
-            # df.loc[idx, 'wrap_trend'] = 'u'
+          #   df.loc[idx, 'wrap_trend'] = 'u'
 
         # 先红后绿
         elif (previous_row['candle_color'] == -1 and row['candle_color'] == 1):
@@ -911,7 +911,7 @@ def recognize_candlestick_pattern(df):
           # 在非顶部: 多头吞噬
           if (row['position_trend'] != "u" or previous_row['position_trend'] != "u"):
             df.loc[idx, 'wrap_trend'] = 'u'
-          # 在顶部: 最后顶吞噬
+          # # 在顶部: 最后顶吞噬
           # elif (row['position_trend'] == "u" and previous_row['position_trend'] == "u"):
           #   df.loc[idx, 'wrap_trend'] = 'd'
           
@@ -4434,6 +4434,10 @@ def plot_candlestick(
     elif diff < 0 and diff > -padding*2:
       y_text_close += padding*2
   rate = (df.loc[max_idx, 'rate'] * 100).round(2)
+  if y_text_close >= df.High.max():
+    y_text_close = df.High.max()
+  elif y_text_close <= df.Low.min():
+    y_text_close = df.Low.min()
   plt.annotate(f' 收盘: {y_close}({rate}%)', xy=(max_idx, y_text_close), xytext=(max_idx, y_text_close), fontsize=13, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor='yellow', alpha=0.1))
 
   # annotate support 
