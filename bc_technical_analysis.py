@@ -4416,7 +4416,11 @@ def plot_candlestick(
 
   # annotate close price
   y = df.loc[max_idx, 'Close'].round(2)
-  y2 = y if abs(y1-y) > padding else y-padding
+  y2 = y
+  if y1 - y > padding*2:
+    y2 = y - padding
+  elif y1 - y < -padding*2:
+    y2 = y + padding
   rate = (df.loc[max_idx, 'rate'] * 100).round(2)
   plt.annotate(f' 收盘: {y}({rate}%)', xy=(max_idx, y2), xytext=(max_idx, y2), fontsize=13, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor='yellow', alpha=0.1))
 
@@ -4425,7 +4429,11 @@ def plot_candlestick(
   if len(support) > 0:
     ax.plot(support.index, support['support'], color='green', linestyle='--', label='support')
     y = df.loc[max_idx, 'support'].round(2)
-    y3 = y if abs(y2-y) > padding else y-padding
+    y3 = y
+    if y2 - y > padding*2:
+      y3 = y - padding
+    elif y2 - y < -padding*2:
+      y3 = y + padding
     plt.annotate(f' 支撑: {y}', xy=(max_idx, y3), xytext=(max_idx, y3), fontsize=13, xycoords='data', textcoords='data', color='black', va='top',  ha='left', bbox=dict(boxstyle="round", facecolor='green', alpha=0.1))
 
   
