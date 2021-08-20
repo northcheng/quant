@@ -568,8 +568,8 @@ def describe_ta_data(df):
     # trend
     '强势': (row['linear_slope'] >= 0.1 or row['linear_slope'] <= -0.1) and (row['linear_fit_high_slope'] * row['linear_fit_low_slope'] > 0),
     '弱势': (row['linear_slope'] >-0.1 and row['linear_slope'] < 0.1 ) or ((row['linear_fit_high_slope'] * row['linear_fit_low_slope']) < 0),
-    '上涨': (row['linear_fit_high_slope'] > 0 and row['linear_fit_low_slope'] >= 0) or (row['linear_fit_high_slope'] >= 0 and row['linear_fit_low_slope'] > 0),
-    '下跌': (row['linear_fit_high_slope'] < 0 and row['linear_fit_low_slope'] <= 0) or (row['linear_fit_high_slope'] <= 0 and row['linear_fit_low_slope'] < 0),
+    '上行': (row['linear_fit_high_slope'] > 0 and row['linear_fit_low_slope'] >= 0) or (row['linear_fit_high_slope'] >= 0 and row['linear_fit_low_slope'] > 0),
+    '下行': (row['linear_fit_high_slope'] < 0 and row['linear_fit_low_slope'] <= 0) or (row['linear_fit_high_slope'] <= 0 and row['linear_fit_low_slope'] < 0),
     '波动': (row['linear_fit_high_slope'] * row['linear_fit_low_slope'] < 0) or (row['linear_fit_high_slope']==0 and row['linear_fit_low_slope']==0),
     '轨道中': (row['linear_fit_high'] >= row['Close']) and (row['linear_fit_low'] <= row['Close']),
     '轨道上方': (row['linear_fit_high'] < row['Close']) and (row['linear_fit_low'] < row['Close']),
@@ -596,27 +596,27 @@ def describe_ta_data(df):
   classification = []
 
   # breakthrough resistant
-  if conditions['强势'] and conditions['上涨'] and conditions['突破阻挡']:
+  if conditions['强势'] and conditions['上行'] and conditions['突破阻挡']:
     classification.append('up_x_resistant')
 
   # fall below support
-  if conditions['强势'] and conditions['下跌'] and conditions['跌破支撑']:
+  if conditions['强势'] and conditions['下行'] and conditions['跌破支撑']:
     classification.append('down_x_support')
 
   # rebound
-  if conditions['下跌'] and conditions['触底反弹'] and conditions['上穿快线'] and (conditions['上穿顶部'] or conditions['上穿慢线']):
+  if conditions['下行'] and conditions['触底反弹'] and conditions['上穿快线'] and (conditions['上穿顶部'] or conditions['上穿慢线']):
     classification.append('rebound')
 
   # peak back
-  if conditions['上涨'] and conditions['触顶回落'] and (conditions['下穿底部'] or conditions['下穿快线'] or conditions['下穿慢线']):
+  if conditions['上行'] and conditions['触顶回落'] and (conditions['下穿底部'] or conditions['下穿快线'] or conditions['下穿慢线']):
     classification.append('hitpeak')
 
   # uptrending
-  if conditions['上涨'] and (conditions['轨道中'] or conditions['轨道上方']) and ('hitpeak' not in classification and 'up_x_resistant' not in classification):
+  if conditions['上行'] and (conditions['轨道中'] or conditions['轨道上方']) and ('hitpeak' not in classification and 'up_x_resistant' not in classification):
     classification.append('uptrending')
 
   # downtrending
-  if conditions['下跌'] and (conditions['轨道中'] or conditions['轨道下方']) and ('rebound' not in classification and 'down_x_support' not in classification):
+  if conditions['下行'] and (conditions['轨道中'] or conditions['轨道下方']) and ('rebound' not in classification and 'down_x_support' not in classification):
     classification.append('downtrending')
 
   # waving
@@ -627,20 +627,8 @@ def describe_ta_data(df):
   if len(classification) == 0:
     classification.append('others')
 
-  # generate description row1: support and resistant
-  description = f'价格:{row["Close"].round(2)}'
-  support = row['support']
-  resistant = row['resistant']
-  support = '-' if np.isnan(support) else f'{support.round(2)}'
-  resistant = '-' if np.isnan(resistant) else f'{resistant.round(2)}'
-  if resistant != '-':
-    description += f', 阻挡:{resistant}'
-  if support != '-':
-    description += f', 支撑:{support}'
-  description += '\n'
-
-  # generate description row2: trend analysis
-  description += ('[+' if row['tankan_kijun_signal'] > 0 else '[') + f'{row["tankan_kijun_signal"]}]'
+  # generate description: trend analysis
+  description = ('[+' if row['tankan_kijun_signal'] > 0 else '[') + f'{row["tankan_kijun_signal"]}]'
   prev_k = None
   for k in conditions.keys():
     segment_s = ''
@@ -664,17 +652,17 @@ def describe_ta_data(df):
       addition = f'({row["resistant"]})'
 
     # add segment for conditions
-    if k in ['强势', '弱势', '上涨', '下跌', '波动']:
+    if k in ['强势', '弱势', '上行', '下行', '波动']:
       segment_s = '['
       
-    if k in ['轨道中', '轨道上方', '轨道下方']:
-      segment_e = f'({row["rate_direction"].round(2)})]'
+    # if k in ['轨道中', '轨道上方', '轨道下方']:
+    #   segment_e = f'({row["rate_direction"].round(2)})]'
       
     if k in ['跌破支撑', '突破阻挡', '触顶回落', '触底反弹']:
       segment_s = '['
       segment_e = ']'
       
-    if k in ['上涨', '下跌', '波动'] and prev_k in ['强势', '弱势']:
+    if k in ['上行', '下行', '波动'] and prev_k in ['强势', '弱势']:
       segment_s = ''
       
     description += f'{segment_s}{k[s:e]}{addition}{segment_e}'
@@ -740,8 +728,8 @@ def recognize_candlestick_pattern(df):
     'up': 1, 
     'middle': 0,
     'down': -1}
-  df = assign_condition_value(df=df, column='window_position_trend', condition_dict=conditions, value_dict=values)
-  df['window_position_day'] = sda(series=df['window_position_trend'], zero_as=None)
+  df = assign_condition_value(df=df, column='window_position_value', condition_dict=conditions, value_dict=values, default_value=0)
+  df['window_position_day'] = sda(series=df['window_position_value'], zero_as=1)
   df['window_position_trend'] = ''
   conditions = {
     'up': '(window_position_day == 1 and candle_gap != 2)', 
@@ -1025,8 +1013,7 @@ def recognize_candlestick_pattern(df):
     'color_trend': {'u': '绿色', 'd': '红色', 'n': ''},
     'entity_trend': {'u': '长实体/', 'd': '短实体/', 'n': '实体/'},
     'upper_shadow_trend': {'u': '长上影线/', 'd': '短上影线/', 'n': ''},
-    'lower_shadow_trend': {'u': '长下影线/', 'd': '短下影线/', 'n': ''},
-    # 'shadow_trend': {'u': '波动范围大', 'd': '波动范围小', 'n': ''}
+    'lower_shadow_trend': {'u': '长下影线/', 'd': '短下影线/', 'n': ''}
   }
 
   df['candle_patterns'] = '['
@@ -1056,8 +1043,9 @@ def recognize_candlestick_pattern(df):
   for col in [
     # 'position_signal', 'belt_signal', 'cross_signal', 'flat_signal', 
     'volume_signal', 'color_signal', 'entity_signal', 'shadow_signal', 'upper_shadow_signal', 'lower_shadow_signal', 
-    'hammer_signal', 'meteor_signal', 'window_signal', 'window_position_signal', 'window_position_day', 
-    'cloud_signal', 'wrap_signal', 'embrace_signal', 'star_signal', 
+    'hammer_signal', 'meteor_signal', 'window_signal', 'window_position_signal', 'window_position_value', 'window_position_day', 
+    'cloud_signal', 'wrap_signal', 'star_signal', # 'embrace_signal', 
+    'previous_high', 'previous_low', 'high_diff', 'low_diff',
     'close_ma_120', 'close_to_ma_120', 'volume_ma_120', 'volume_to_ma_120', 'candle_entity_to_close', 'candle_shadow_to_close', 'candle_shadow_pct_diff', 'candle_entity_middle' ]:
     if col in df.columns:
       df.drop(col, axis=1, inplace=True)
@@ -1939,8 +1927,8 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col, pattern_recognitio
   df['candle_gap_bottom'] = df['candle_gap_bottom'].fillna(method='ffill')#.replace(0, np.NaN)
 
   # gap support and resistant
-  support_idx = df.query(f'{open} > candle_gap_bottom').index
-  resistant_idx = df.query(f'{open} < candle_gap_top').index
+  support_idx = df.query(f'{close} > candle_gap_bottom').index
+  resistant_idx = df.query(f'{close} < candle_gap_top').index
   df.loc[support_idx, 'candle_gap_support'] = df.loc[support_idx, 'candle_gap_bottom']
   df.loc[resistant_idx, 'candle_gap_resistant'] = df.loc[resistant_idx, 'candle_gap_top']
   # other_idx = [x for x in df.index if x not in support_idx and x not in resistant_idx]
@@ -4386,8 +4374,11 @@ def plot_candlestick(
       sp = round(df.loc[s, 'Split'], 4)
       plt.annotate(f'splited {sp}', xy=(x, y), xytext=(x_text,y_text), xycoords='data', textcoords='data', arrowprops=dict(arrowstyle='->', alpha=0.5), bbox=dict(boxstyle="round",fc="1.0", alpha=0.5))
   
-  # annotate gaps
+  # get indexes and max index
   idxs = df.index.tolist()
+  max_idx = idxs[-1]
+
+  # annotate gaps
   gap_idxs = df.query('candle_gap == 2 or candle_gap == -2').index
   for idx in gap_idxs:
 
@@ -4413,6 +4404,24 @@ def plot_candlestick(
     tmp_data = df[start:end]
     ax.fill_between(df[pre_start:end].index, top_value, bottom_value, facecolor=gap_color, interpolate=True, alpha=0.25, hatch=gap_hatch) #,  
 
+  # annotate close price
+  y = df.loc[max_idx, 'Close'].round(2)
+  rate = (df.loc[max_idx, 'rate'] * 100).round(2)
+  plt.annotate(f' {y}({rate}%)', xy=(max_idx, y), xytext=(max_idx, y), fontsize=13, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor='yellow', alpha=0.1))
+
+  # annotate support and resistant
+  support = df.query('support == support')
+  if len(support) > 0:
+    ax.plot(support.index, support['support'], color='green', linestyle='--', label='support')
+    y = df.loc[max_idx, 'support'].round(2)
+    plt.annotate(f' 支撑: {y}', xy=(max_idx, y), xytext=(max_idx, y), fontsize=13, xycoords='data', textcoords='data', color='black', va='top',  ha='left', bbox=dict(boxstyle="round", facecolor='green', alpha=0.1))
+
+  resistant = df.query('resistant == resistant')
+  if len(resistant) > 0:
+    ax.plot(resistant.index, resistant['resistant'], color='red', linestyle='--', label='resistant')
+    y = df.loc[max_idx, 'resistant'].round(2)
+    plt.annotate(f' 阻挡: {y}', xy=(max_idx, y), xytext=(max_idx, y), fontsize=13, xycoords='data', textcoords='data', color='black', va='bottom',  ha='left', bbox=dict(boxstyle="round", facecolor='red', alpha=0.1))
+
   # settings for annotate candle patterns
   pattern_info = {
     'window_trend': {'u': '窗口', 'd': '窗口', 'n': ''},
@@ -4422,8 +4431,7 @@ def plot_candlestick(
     'cross_trend': {'u': '高浪', 'd': '', 'n': ''},
     'cloud_trend': {'u': '穿刺', 'd': '乌云', 'n': ''},
     'wrap_trend': {'u': '吞噬', 'd': '吞噬', 'n': ''},
-    'star_trend': {'u': '启明星', 'd': '黄昏星', 'n': ''},
-    'embrace_trend': {'u': '包孕', 'd': '包孕', 'n': ''}
+    'star_trend': {'u': '启明星', 'd': '黄昏星', 'n': ''}
   }
   settings = {
     'normal': {'fontsize':12, 'fontcolor':'black', 'va':'center', 'ha':'center', 'up':'green', 'down':'red', 'alpha': 0.25},
@@ -4578,80 +4586,6 @@ def plot_main_indicators(
     ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=up_direction, facecolor='green', interpolate=True, alpha=0.1)
     ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=down_direction, facecolor='red', interpolate=True, alpha=0.1)
     ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=none_direction, facecolor='yellow', interpolate=True, alpha=0.1)
-
-    # annotate the start/end values of high/low fit
-    text_color = 'black'
-
-    # start values
-    x_start = df.query('linear_fit_low == linear_fit_low').index.min()  
-    y_start_low = df.loc[x_start, 'linear_fit_low'].round(3)
-    y_start_high = df.loc[x_start, 'linear_fit_high'].round(3)
-    start_text = ''
-    if y_start_low == y_start_high:
-      start_text = f'{y_start_high}'
-    else:
-      start_text = f'{y_start_high}\n{y_start_low}'
-
-    x = x_start - datetime.timedelta(days=6)
-    y = y_start_high if df.linear_fit_high_slope.values[-1] < 0 else y_start_low
-    plt.annotate(start_text, xy=(x, y), xytext=(x, y), xycoords='data', textcoords='data', bbox=dict(boxstyle="round",fc="1.0", alpha=0.1))
-    
-    # end values and support/resistant
-    x_end = df.index.max()
-    y_end_low = df.loc[x_end, 'linear_fit_low'].round(2)
-    y_end_high = df.loc[x_end, 'linear_fit_high'].round(2)
-    y_end_support = df.loc[x_end, 'linear_fit_support'].round(2)
-    y_end_resistant = df.loc[x_end, 'linear_fit_resistant'].round(2)
-    end_text = ''
-    if not np.isnan(y_end_support):
-      end_text += f'LS: {y_end_support} '
-    if not np.isnan(y_end_resistant):
-      end_text += f'LR: {y_end_resistant} '
-    if np.isnan(y_end_support) and np.isnan(y_end_resistant):
-      if y_end_low == y_end_high:
-        end_text = f'L: {y_end_high}'
-      else:
-        end_text = f'L: {y_end_high}, {y_end_low}'
-    
-    # anotations of gap values and support/resistant
-    gap_top = df.loc[x_end, 'candle_gap_top'].round(2)
-    gap_bottom = df.loc[x_end, 'candle_gap_bottom'].round(2)
-    gap_support = df.loc[x_end, 'candle_gap_support'].round(2)
-    gap_resistant = df.loc[x_end, 'candle_gap_resistant'].round(2)
-    
-    if not np.isnan(gap_support):
-      merge_text = end_text + f'\nGS: {gap_support}'
-    if not np.isnan(gap_resistant):
-      merge_text = f'GR: {gap_resistant}'+ '\n' + end_text
-    if np.isnan(gap_support) and np.isnan(gap_resistant):
-      if not np.isnan(gap_top) or not np.isnan(gap_bottom):
-        merge_text = end_text + f'\nG: {gap_top}, {gap_bottom}'
-      else:
-        merge_text = end_text
-
-    x = x_end + datetime.timedelta(days=1)  
-    y = (y_end_high + y_end_low)/2
-    plt.annotate(merge_text, xy=(x, y), xytext=(x, y), xycoords='data', textcoords='data', color=text_color, bbox=dict(boxstyle="round",fc="1.0", alpha=0.1))
-
-  # anotations of candle patterns
-    gap_top = df.loc[x_end, 'candle_gap_top'].round(2)
-    gap_bottom = df.loc[x_end, 'candle_gap_bottom'].round(2)
-    gap_support = df.loc[x_end, 'candle_gap_support'].round(2)
-    gap_resistant = df.loc[x_end, 'candle_gap_resistant'].round(2)
-    
-    if not np.isnan(gap_support):
-      merge_text = end_text + f'\nGS: {gap_support}'
-    if not np.isnan(gap_resistant):
-      merge_text = f'GR: {gap_resistant}'+ '\n' + end_text
-    if np.isnan(gap_support) and np.isnan(gap_resistant):
-      if not np.isnan(gap_top) or not np.isnan(gap_bottom):
-        merge_text = end_text + f'\nG: {gap_top}, {gap_bottom}'
-      else:
-        merge_text = end_text
-
-    x = x_end + datetime.timedelta(days=1)  
-    y = (y_end_high + y_end_low)/2
-    plt.annotate(merge_text, xy=(x, y), xytext=(x, y), xycoords='data', textcoords='data', color=text_color, bbox=dict(boxstyle="round",fc="1.0", alpha=0.1))
 
   # plot candlestick
   if 'candlestick' in target_indicator:
@@ -5161,7 +5095,7 @@ def plot_multiple_indicators(
   new_title = args['sec_name'].get(title)
   if new_title is None:
     new_title == ''
-  fig.suptitle(f'{title} - {new_title}({close_rate}%)\n{df.loc[df.index.max(), "description"]}\n{df.loc[df.index.max(), "candle_patterns"]}', color=title_color, x=0.5, y=0.97, fontsize=20)
+  fig.suptitle(f'{title} - {new_title}\n{df.loc[df.index.max(), "description"]}\n{df.loc[df.index.max(), "candle_patterns"]}', color=title_color, x=0.5, y=0.95, fontsize=20)
   
   # save image
   if save_image and (save_path is not None):
@@ -5174,7 +5108,7 @@ def plot_multiple_indicators(
   # close figures
   plt.cla()
   plt.clf()
-  plt.close(fig)
+  plt.close()
 
 # calculate ta indicators, trend and derivatives for historical data
 def plot_historical_evolution(df, symbol, interval, config, trend_indicators=['ichimoku', 'aroon', 'adx', 'psar'], volume_indicators=[], volatility_indicators=['bb'], other_indicators=[], signal_threshold=0.001, his_start_date=None, his_end_date=None, is_print=False, create_gif=False, plot_save_path=None):

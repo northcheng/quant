@@ -333,7 +333,7 @@ def concate_image(image_list, adjust_size=False, save_name=None, remove_old_imag
     print(f'{save_name}: No image to concate')
 
 
-def image_2_pdf(image_list, save_name=None, remove_old_pdf=True):
+def image_2_pdf(image_list, save_name=None, remove_old_pdf=True, is_print=False):
   """
   save images in the image list to a pdf file
 
@@ -362,7 +362,8 @@ def image_2_pdf(image_list, save_name=None, remove_old_pdf=True):
       save_name = 'pdf_from_image.png'
     images[0].save(save_name, save_all=True, append_images=images[1:])
   else:
-    print('no images to convert to pdf')
+    if is_print:
+      print('no images to convert to pdf')
 
 
 def image_2_gif(image_list, save_name=None, remove_old_gif=True, fps=3):

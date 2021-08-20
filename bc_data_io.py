@@ -1128,7 +1128,7 @@ def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', req
     # update eod data, print updating info
     if (update_mode in ['eod', 'both', 'refresh']) and (tmp_data_date is None or tmp_data_date < benchmark_date):
       if is_print:
-        print(f'updating from ', end='0000-00-00 ' if tmp_data_date is None else f'{tmp_data_date} ')
+        print(f'from ', end='0000-00-00 ' if tmp_data_date is None else f'{tmp_data_date} ')
       
       # download latest data for current symbol
       new_data = get_data_from_eod(symbol, start_date=tmp_data_date, end_date=required_date, interval='d', is_print=is_print, api_key=api_key, add_dividend=add_dividend, add_split=add_split)
@@ -1143,7 +1143,7 @@ def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', req
     
     else:
       if is_print:
-        print(f'updating from {tmp_data_date} {symbol:4}: already up-to-date, skip')
+        print(f'from {tmp_data_date} {symbol:4}: already up-to-date, skip')
 
   # add real-time data when requiring data return and data will NOT be saved
   if update_mode in ['realtime', 'both']:
@@ -1244,7 +1244,7 @@ def update_stock_data_from_marketstack(symbols, stock_data_path, api_key, file_f
     # update eod data, print updating info
     if (update_mode in ['eod', 'both', 'refresh']) and (tmp_data_date is None or tmp_data_date < benchmark_date):
       if is_print:
-        print(f'updating from ', end='0000-00-00 ' if tmp_data_date is None else f'{tmp_data_date} ')
+        print(f'from ', end='0000-00-00 ' if tmp_data_date is None else f'{tmp_data_date} ')
       
       # download latest data for current symbol
       new_data = get_data_from_marketstack(symbol, start_date=tmp_data_date, end_date=required_date, is_print=is_print, api_key=api_key)
@@ -1259,7 +1259,7 @@ def update_stock_data_from_marketstack(symbols, stock_data_path, api_key, file_f
     
     else:
       if is_print:
-        print(f'updating from {tmp_data_date} {symbol:4}: already up-to-date, skip')
+        print(f'from {tmp_data_date} {symbol:4}: already up-to-date, skip')
 
   # add real-time data when requiring data return and data will NOT be saved
   if update_mode in ['realtime', 'both']:
@@ -1913,6 +1913,94 @@ def pickle_load_data(file_path, file_name):
     data = pickle.load(f)
 
   return data
+
+
+#----------------------------- portfolio updating -------------------------------#
+def update_portfolio_support_resistant(config, data, portfolio_file_name='portfolio.json', is_return=False):
+  
+  # read portfolio information from file
+  portfolio = read_config(file_path=config['config_path'], file_name=portfolio_file_name)
+
+  # get ta result data
+  ta_result = pd.DataFrame()
+  for ti in data['result'].keys():
+    ta_result = ta_result.append(data['result'][ti], sort=True)
+  ta_result = ta_result.set_index('symbol')
+  ta_result = util.remove_duplicated_index(df=ta_result)
+  
+  # iterate through portfolios of different platform and account
+  for platform in portfolio.keys():
+    
+    # get portfolio for current platform-account
+    tmp_platform = portfolio[platform]
+    for account in tmp_platform.keys():
+      tmp_account = tmp_platform[account]
+      tmp_portfolio = tmp_account.get('portfolio')
+
+      # if portfolio not exists, continue for next account
+      if tmp_portfolio is None:
+        print(f'portfolio for {account} not exists')
+        continue
+
+      # get quantity and price of symbols in portfolio
+      else:  
+        tmp_price = tmp_portfolio.get('latest_price')
+
+        # update support and resistant for symbols in current portfolio
+        if tmp_price is not None:
+
+          # get current support 
+          tmp_support = tmp_portfolio.get('support')      
+          if tmp_support is not None:
+            expired_symbols = [x for x in tmp_support.keys() if x not in tmp_price.keys()]
+            for symbol in expired_symbols:
+              tmp_support.pop(symbol)
+          else:
+            tmp_support = {}
+
+          # get current resistant
+          tmp_resistant = tmp_portfolio.get('resistant')
+          if tmp_resistant is not None:
+            expired_symbols = [x for x in tmp_resistant.keys() if x not in tmp_price.keys()]
+            for symbol in expired_symbols:
+              tmp_resistant.pop(symbol)
+          else:
+            tmp_resistant = {}
+
+          # looking for symbol info from the ta result  
+          for symbol in tmp_price.keys():
+            close = None
+            support = None   
+            resistant = None
+            
+            # remove prefix for symbol in futu portfolios (e.g. US.AAPL)
+            if platform == 'futu':
+              converted_symbol = ''.join(symbol.split('.')[1:])
+            else:
+              converted_symbol = symbol
+            
+            # get support, resistant and latest price
+            if converted_symbol in ta_result.index:
+              support = ta_result.loc[converted_symbol, 'support'].round(2)
+              resistant = ta_result.loc[converted_symbol, 'resistant'].round(2)
+              close = ta_result.loc[converted_symbol, 'Close'].round(2)
+            
+            # record support, resistant and latest price
+            tmp_support[symbol] = None if (support is None or np.isnan(support)) else support
+            tmp_resistant[symbol] = None if (resistant is None or np.isnan(resistant)) else resistant
+            tmp_price[symbol] = tmp_price[symbol] if (close is None or np.isnan(close)) else close
+
+          # update portfolio
+          portfolio[platform][account]['portfolio']['latest_price'] = tmp_price
+          portfolio[platform][account]['portfolio']['support'] = tmp_support
+          portfolio[platform][account]['portfolio']['resistant'] = tmp_resistant
+
+  # update portfolio file
+  create_config_file(config_dict=portfolio, file_path=config['config_path'], file_name=portfolio_file_name)
+  
+  # return portfolios
+  if is_return:
+    return portfolio
 
 
 #----------------------------- Email sending ------------------------------------#
