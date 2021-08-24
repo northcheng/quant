@@ -2113,7 +2113,7 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
 
     # initialize header, attach pdfs
     image_info += f'<li>[Requested]: {signal_file_date}</li>'
-    pdf_names = ['portfolio', 'signal', 'potential', 'index'] if not cn_stock else ['signal_a', 'potential_a']
+    pdf_names = ['portfolio', 'signal', 'potential', 'index'] if not cn_stock else ['a_signal', 'a_potential']
     for p in pdf_names:
 
       # consstruct pdf file path

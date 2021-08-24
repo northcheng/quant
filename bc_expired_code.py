@@ -237,61 +237,61 @@
       # df['aroon_sda_signal'] = 'n'
 
 
-# # 2021-08-20
-# # original columns
-# 'Open', 'High', 'Low', 'Close', 'Volume', 'Adj Close', 'Dividend', 'Split', 
+# 2021-08-20
+# original columns
+'Open', 'High', 'Low', 'Close', 'Volume', 'Adj Close', 'Dividend', 'Split', 
 
-# # L1 derived columns
-# 'symbol', 'rate', 
+# L1 derived columns
+'symbol', 'rate', 
        
-# # candlestick derived columns
-# 'candle_color', 'candle_shadow', 'candle_entity', 
-# 'candle_entity_top', 'candle_entity_bottom', 'candle_upper_shadow', 'candle_lower_shadow', 
-# 'candle_upper_shadow_pct', 'candle_lower_shadow_pct', 'candle_entity_pct', 
-# 'candle_gap', 'candle_gap_top', 'candle_gap_bottom', 'candle_gap_support', 'candle_gap_resistant', 
+# candlestick derived columns
+'candle_color', 'candle_shadow', 'candle_entity', 
+'candle_entity_top', 'candle_entity_bottom', 'candle_upper_shadow', 'candle_lower_shadow', 
+'candle_upper_shadow_pct', 'candle_lower_shadow_pct', 'candle_entity_pct', 
+'candle_gap', 'candle_gap_top', 'candle_gap_bottom', 'candle_gap_support', 'candle_gap_resistant', 
 
-# # L2 ichimoku derived columns
-# 'tankan', 'kijun', 'senkou_a', 'senkou_b', 'chikan', 
-# 'cloud_height', 'cloud_width', 'cloud_top', 'cloud_bottom', 
-# 'break_up', 'break_down', 
-# 'close_to_kijun', 'close_to_tankan', 'close_to_cloud_top', 'close_to_cloud_bottom', 
-# 'tankan_signal', 'kijun_signal', 'tankan_kijun_signal', 'cloud_top_signal', 'cloud_bottom_signal',
+# L2 ichimoku derived columns
+'tankan', 'kijun', 'senkou_a', 'senkou_b', 'chikan', 
+'cloud_height', 'cloud_width', 'cloud_top', 'cloud_bottom', 
+'break_up', 'break_down', 
+'close_to_kijun', 'close_to_tankan', 'close_to_cloud_top', 'close_to_cloud_bottom', 
+'tankan_signal', 'kijun_signal', 'tankan_kijun_signal', 'cloud_top_signal', 'cloud_bottom_signal',
 
-# # L2 other technical indicators derived columns
-# 'aroon_up', 'aroon_down', 'aroon_gap', 
-# 'tr', 'atr'
-# 'pdi', 'mdi', 
-# 'dx', 'adx', 'adx_diff', 
-# 'psar', 'psar_up', 'psar_down',
-# 'mavg', 'mstd', 
-# 'bb_high_band', 'bb_low_band', 
+# L2 other technical indicators derived columns
+'aroon_up', 'aroon_down', 'aroon_gap', 
+'tr', 'atr',
+'pdi', 'mdi', 
+'dx', 'adx', 'adx_diff', 
+'psar', 'psar_up', 'psar_down',
+'mavg', 'mstd', 
+'bb_high_band', 'bb_low_band', 
 
-# # L3 technical indicators trend derived columns
-# 'ichimoku_trend', 'aroon_trend', 'adx_trend', 'psar_trend', 'bb_trend', 'trend_idx', 'up_trend_idx', 'down_trend_idx', 
-# 'ichimoku_day', 'aroon_day', 'adx_day', 'psar_day', 'bb_day', 
-# 'ichimoku_signal', 'aroon_signal', 'adx_signal', 'psar_signal', 'bb_signal', 
+# L3 technical indicators trend derived columns
+'ichimoku_trend', 'aroon_trend', 'adx_trend', 'psar_trend', 'bb_trend', 'trend_idx', 'up_trend_idx', 'down_trend_idx', 
+'ichimoku_day', 'aroon_day', 'adx_day', 'psar_day', 'bb_day', 
+'ichimoku_signal', 'aroon_signal', 'adx_signal', 'psar_signal', 'bb_signal', 
 
-# # L3 renko derived columns
-# 'renko_o', 'renko_h', 'renko_l', 'renko_c', 'renko_color', 'renko_brick_height', 'renko_brick_length', 'renko_brick_number', 
-# 'renko_start', 'renko_end', 'renko_duration', 'renko_duration_p1','renko_real', 'renko_countdown_days', 'above_renko_h', 'among_renko', 'below_renko_l',
-# 'renko_trend', 'renko_day', 'renko_signal',
+# L3 renko derived columns
+'renko_o', 'renko_h', 'renko_l', 'renko_c', 'renko_color', 'renko_brick_height', 'renko_brick_length', 'renko_brick_number', 
+'renko_start', 'renko_end', 'renko_duration', 'renko_duration_p1','renko_real', 'renko_countdown_days', 'above_renko_h', 'among_renko', 'below_renko_l',
+'renko_trend', 'renko_day', 'renko_signal',
 
-# # L3 linear fit derived columns
-# 'linear_fit_high', 'linear_fit_low', 'linear_fit_high_slope', 'linear_fit_low_slope', 'linear_slope', 'linear_fit_high_signal', 'linear_fit_low_signal', 'linear_fit_high_stop', 'linear_fit_low_stop', 
-# 'linear_day_count', 'linear_fit_resistant', 'linear_fit_support', 
-# 'linear_direction', 'price_direction', 'rate_direction',
-# 'linear_trend', 'linear_day', 'linear_signal', 
+# L3 linear fit derived columns
+'linear_fit_high', 'linear_fit_low', 'linear_fit_high_slope', 'linear_fit_low_slope', 'linear_slope', 'linear_fit_high_signal', 'linear_fit_low_signal', 'linear_fit_high_stop', 'linear_fit_low_stop', 
+'linear_day_count', 'linear_fit_resistant', 'linear_fit_support', 
+'linear_direction', 'price_direction', 'rate_direction',
+'linear_trend', 'linear_day', 'linear_signal', 
 
-# # L3 candlestick patterns derived columns
-# 'position_signal', 'belt_signal', 'flat_signal', 'embrace_signal',
-# 'position_trend', 'volume_trend',
-# 'window_trend', 'window_position_trend', 
-# 'color_trend', 'entity_trend',
-# 'shadow_trend', 'upper_shadow_trend', 'lower_shadow_trend',
-# 'hammer_trend', 'meteor_trend', 'belt_trend', 'cross_signal', 'cross_trend',
-# 'flat_trend', 'wrap_trend', 'embrace_trend', 
-# 'star_trend', 
+# L3 candlestick patterns derived columns
+'position_signal', 'belt_signal', 'flat_signal',
 
-# # L4 ultimate results
-# 'support', 'resistant', 'support_signal', 'resistant_signal',
-# 'candle_patterns', 'category', 'description', 'trend', 'signal_day', 'signal'
+'position_trend', 'volume_trend', 'window_trend', 'window_position_trend', 
+'color_trend', 'entity_trend',
+'shadow_trend', 'upper_shadow_trend', 'lower_shadow_trend',
+'hammer_trend', 'meteor_trend', 'belt_trend', 'cross_signal', 'cross_trend',
+'flat_trend', 'wrap_trend', 'embrace_trend', 'cloud_trend',
+'star_trend', 
+
+# L4 ultimate results
+'support', 'resistant', 'support_signal', 'resistant_signal',
+'candle_patterns', 'category', 'description', 'trend', 'signal_day', 'signal'

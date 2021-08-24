@@ -32,8 +32,7 @@
     "ABT", "AMGN", "ATI", "BMY", "BAX", "CI", "CVS", "GSK", "JNJ", "MDT", "MRK", "PFE", "UNH", "NVO", "AZN", "ABBV",
     "HD", "WY", "TGT", "WMT", "MCD", "YUM", "GRPN", "SBUX", "CCU", "KO", "PEP", "MO", "CPB", "EL", "PG", "CL", "NKE", 
     "BAC", "BK", "C", "WFC", "USB", "RF", "V", "MA", "AXP", "HSBC", "AIG", "MET", "TRV", "HIG", "ALL",  "JPM", "MS", "GS", "NMR", "COF", "MFG", 
-    "COP", "DUK", "CVX", "XOM", "WMB", "SLB", "HAL", "BP", "ETR", "EXC", "SO", "AEP", "AES", 
-    "UXIN", "NIO", "PDD", "HUYA", "QTT", "IQ", "BILI"
+    "COP", "DUK", "CVX", "XOM", "WMB", "SLB", "HAL", "BP", "ETR", "EXC", "SO", "AEP", "AES"
   ],
 
   "etf": [
