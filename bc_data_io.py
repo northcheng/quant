@@ -2083,6 +2083,12 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
         font_color = signal_color[s]
         tmp_signals = signals.query(f'交易信号 == "{s}"')['代码'].tolist()
         signal_info += f'<li>[ <b>{s}</b> ]: <font color="{font_color}">{", ".join(tmp_signals)}</font></li>'
+
+      potentials = pd.read_excel(signal_file, sheet_name='potential')
+      if len(potentials) > 0:
+        potentials = potentials[['代码', '蜡烛分数', '蜡烛形态']].to_html()
+        signal_info += f'</b></p>{potentials}'
+
     else:
       signal_info += f'<li><p>[Not Found]: {signal_file}</p></li>'
   else:

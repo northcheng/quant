@@ -858,6 +858,7 @@ def recognize_candlestick_pattern(df):
 
   # ======================================= 2+ candle pattern =================================== #  
   if 'multi_candle' > '':
+    
     # flat top/bottom 
     df['previous_high'] = df['High'].shift(1)
     df['previous_low'] = df['Low'].shift(1)
@@ -1031,8 +1032,8 @@ def recognize_candlestick_pattern(df):
     # candle pattern weight
     pattern_weight = {
       'window_trend': {'u': 2, 'd': -2},
-      'window_position_trend': {'u': 2, 'd': -2},
-      'window_support_resistant_trend': {'u': 1, 'd': -1},
+      'window_position_trend': {'u': 2.5, 'd': -2.5},
+      'window_support_resistant_trend': {'u': 3, 'd': -3},
       'hammer_trend': {'u': 0.5, 'd': -0.5},
       'cross_trend': {'u': 0, 'd': 0},
       'cloud_trend': {'u': 1, 'd': -1},
