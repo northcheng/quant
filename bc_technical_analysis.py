@@ -62,8 +62,6 @@ def load_config(root_paths):
   config['futu_path'] = config['quant_path'] + 'futuopen/'
   config['result_path'] = config['quant_path'] + 'ta_model/'
   config['log_path'] = config['quant_path'] + 'logs/'
-  config['signal_path'] = config['result_path'] + 'signal/'
-  config['portfolio_path'] = config['result_path'] + 'portfolio/'
   
   # load sec lists
   config['selected_sec_list'] = io_util.read_config(file_path=config['config_path'], file_name='selected_sec_list.json')
@@ -1263,9 +1261,11 @@ def postprocess_ta_result(df, keep_columns, drop_columns, target_interval=''):
   # candle pattern index and description
   
   conditions = {
-    'breakthrough or rebound': '(category == "up_x_resistant" or category == "rebound" or window_support_resistant_trend == "u" or window_position_trend == "u")',
+    'breakthrough or rebound': '(category == "up_x_resistant" or category == "rebound")',
+    'candlestick window': '(window_support_resistant_trend == "u" or window_position_trend == "u" or window_trend == "u")',
     'ichimoku signal': '(0 < tankan_kijun_signal < 5)',
     'morning star': '(star_trend == "u")',
+    'negative candle patterns': 'candle_pattern_idx < 0',
     'long upper shadow': '(upper_shadow_trend == "u")',
     'long red entity': '(candle_color == -1 and entity_trend != "d")',
     'under candlestick window': '(candle_gap_resistant == candle_gap_resistant and Low < candle_gap_resistant)',
@@ -1273,8 +1273,10 @@ def postprocess_ta_result(df, keep_columns, drop_columns, target_interval=''):
     'signal': '(signal == "u" or signal == "d")'}
   values = {
     'breakthrough or rebound': 'potential',
+    'candlestick window': 'potential',
     'ichimoku signal': 'potential',
     'morning star': 'potential',
+    'negative candle patterns': '',
     'long red entity': '',
     'long upper shadow': '',
     'under candlestick window': '',
@@ -1284,13 +1286,15 @@ def postprocess_ta_result(df, keep_columns, drop_columns, target_interval=''):
 
   # rename columns, keep 3 digits
   df = df[list(keep_columns.keys())].rename(columns=keep_columns).round(3)
-    
+  
+  # add target-interval info
+  df['ti'] = target_interval
+
   # drop columns
   df = df.drop(drop_columns, axis=1)
   
   # sort by operation and symbol
   df = df.sort_values(['交易信号', '代码'], ascending=[True, True])
-  df['ti'] = target_interval
   
   return df
 
