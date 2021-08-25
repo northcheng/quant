@@ -660,6 +660,7 @@ def get_real_time_data_from_easyquotation(symbols, source='sina'):
 
   # create quoataion entity
   quotation = eq.use(source)
+  print(f'updating real-time for symbols from easyquotation({source})')
 
   # get stock data
   codes = [x.split('.')[0] for x in symbols]
@@ -2076,7 +2077,8 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
   signal_info = '<h3>Signals</h3><ul>'
   signal_color = {'b':'green', 's':'red', 'n':'grey'}
   if signal_file_date is not None:
-    signal_file = f'{config["result_path"]}{signal_file_date}.xlsx'
+    prefix = 'a_' if cn_stock else ''
+    signal_file = f'{config["result_path"]}{prefix}{signal_file_date}.xlsx'
     if os.path.exists(signal_file):
       signals = pd.read_excel(signal_file, sheet_name='signal')
       for s in ['b', 's', 'n']:
