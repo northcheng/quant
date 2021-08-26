@@ -1259,7 +1259,6 @@ def postprocess_ta_result(df, keep_columns, drop_columns, target_interval=''):
   df['obos'] = df['bb_trend'].replace({'d': '超买', 'u': '超卖', 'n': ''})
 
   # candle pattern index and description
-  
   conditions = {
     'breakthrough or rebound': '(category == "up_x_resistant" or category == "rebound")',
     'candlestick window': '(window_support_resistant_trend == "u" or window_position_trend == "u" or window_trend == "u")',
@@ -1270,7 +1269,7 @@ def postprocess_ta_result(df, keep_columns, drop_columns, target_interval=''):
     'long red entity': '(candle_color == -1 and entity_trend != "d")',
     'under candlestick window': '(candle_gap_resistant == candle_gap_resistant and Low < candle_gap_resistant)',
     'waving falling or hitpeak': '(category == "waving" or category == "down_x_support" or category == "hitpeak")',
-    'signal': '(signal == "u" or signal == "d")'}
+    'signal': '(signal == "b" or signal == "s")'}
   values = {
     'breakthrough or rebound': 'potential',
     'candlestick window': 'potential',
