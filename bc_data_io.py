@@ -1918,7 +1918,16 @@ def pickle_load_data(file_path, file_name):
 
 #----------------------------- portfolio updating -------------------------------#
 def update_portfolio_support_resistant(config, data, portfolio_file_name='portfolio.json', is_return=False):
-  
+  """
+  record support and resistant for symbols in portfolio
+  :param config: config dict
+  :param data: data dict
+  :param portfolio_file_name: portfolio file name, default "portfolio.json"
+  :param is_return: whether to return portfolio
+  :raises: None
+  :returns: portfolio dict if is_return
+  """
+
   # read portfolio information from file
   portfolio = read_config(file_path=config['config_path'], file_name=portfolio_file_name)
 
@@ -2005,7 +2014,7 @@ def update_portfolio_support_resistant(config, data, portfolio_file_name='portfo
 
 
 #----------------------------- Email sending ------------------------------------#
-def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subject=None, platform=['tiger'], signal_file_date=None, log_file_date=None, position_summary={}, test=False, cn_stock=False):
+def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subject=None, platform=['tiger'], signal_file_date=None, log_file_date=None, test=False, cn_stock=False):
   """
   send automatic_trader's trading result and technical_analyst's calculation result by email
 
@@ -2018,7 +2027,6 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
   :param platform: trading platforms include ['tiger', 'futu']
   :param signal_file_date: date of signal file which will be attached on email
   :param log_file_date: date of log file which will be attached on email
-  :param position_summary: dictionary of dataframes which contain position info
   :param test: whether on test mode(print message rather than send the email)
   :return: smtp ret code
   :raise: none
@@ -2054,10 +2062,15 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
     if assets[portfolio] is not None:
       net_value = assets[portfolio].get('net_value')
       updated = assets[portfolio].get('updated')
-
+      position = assets[portfolio].get('portfolio')
+      if position is not None:
+        position = pd.DataFrame(position)
+        if len(position) > 0:
+          position = position.drop('latest_time', axis=1)[['quantity', 'rate', 'market_value', 'average_cost', 'latest_price', 'support', 'resistant']]
+        else:
+          position = None
       # add position summary if provided
-      position = position_summary.get(portfolio)
-      position = position.drop('latest_time', axis=1).to_html() if position is not None else ''
+      position = position.to_html() if position is not None else ''
     else:
       net_value = '--'
       updated = '--'  

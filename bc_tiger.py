@@ -199,9 +199,24 @@ class Tiger:
     # load portfolio record
     portfolio_record = io_util.read_config(file_path=config['config_path'], file_name='portfolio.json')
     old_net_value = portfolio_record['tiger'][self.account_type].get('net_value')
+    support = portfolio_record['tiger'][self.account_type].get('portfolio').get('support')
+    resistant = portfolio_record['tiger'][self.account_type].get('portfolio').get('resistant')
 
     # update portfolio record for current account
     portfolio_record['tiger'][self.account_type]['portfolio'] = position_summary.to_dict()
+    portfolio_record['tiger'][self.account_type]['portfolio']['support'] = {}
+    portfolio_record['tiger'][self.account_type]['portfolio']['resistant'] = {}
+
+    quantity = portfolio_record['tiger'][self.account_type]['portfolio'].get('quantity')
+    if quantity is not None:
+      if support is not None:
+        for symbol in quantity.keys():
+          portfolio_record['tiger'][self.account_type]['portfolio']['support'][symbol] = support.get(symbol)
+
+      if resistant is not None:
+        for symbol in quantity.keys():
+          portfolio_record['tiger'][self.account_type]['portfolio']['resistant'][symbol] = resistant.get(symbol)
+
     portfolio_record['tiger'][self.account_type]['market_value'] = market_value
     portfolio_record['tiger'][self.account_type]['net_value'] = net_value
     portfolio_record['tiger'][self.account_type]['cash'] = cash
