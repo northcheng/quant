@@ -2066,11 +2066,17 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
       if position is not None:
         position = pd.DataFrame(position)
         if len(position) > 0:
-          position = position.drop('latest_time', axis=1)[['quantity', 'rate', 'market_value', 'average_cost', 'latest_price', 'support', 'resistant']]
+          lower_than_support = position.query('latest_price <= support').index.tolist()
+          higher_than_resistant = position.query('latest_price >= resistant').index.tolist()
+          position = position.drop('latest_time', axis=1)[['quantity', 'rate', 'market_value', 'average_cost', 'latest_price', 'support', 'resistant']].to_html()
+          for l in lower_than_support:
+            position = position.replace(l, f'<font color="red">{l}</front>')
+          for h in higher_than_resistant:
+            position = position.replace(h, f'<font color="green">{h}</front>')
         else:
           position = None
       # add position summary if provided
-      position = position.to_html() if position is not None else ''
+      position = position if position is not None else ''
     else:
       net_value = '--'
       updated = '--'  
