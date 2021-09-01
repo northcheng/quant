@@ -1060,10 +1060,10 @@ def recognize_candlestick_pattern(df):
 
   # drop unnecessary columns
   for col in [
-    # 'position_signal', 'belt_signal', 'cross_signal', 'flat_signal', 'embrace_signal', 
+    # 'position_signal', 'belt_signal', 'cross_signal', 'flat_signal', 'embrace_signal', 'wrap_signal', 
     'window_signal', 'window_position_signal', 'window_position_value', 'window_position_status',
     'volume_signal', 'color_signal', 'entity_signal', 'shadow_signal', 'upper_shadow_signal', 'lower_shadow_signal', 
-    'hammer_signal', 'meteor_signal', 'cloud_signal', 'wrap_signal', 'star_signal', 
+    'hammer_signal', 'meteor_signal', 'cloud_signal', 'star_signal', 
     'candle_entity_to_close', 'candle_shadow_to_close', 'candle_shadow_pct_diff', 'candle_entity_middle',
     'previous_high', 'previous_low', 'high_diff', 'low_diff', 'close_ma_120', 'close_to_ma_120', 'volume_ma_120', 'volume_to_ma_120' 
     
@@ -4484,7 +4484,7 @@ def plot_candlestick(
     'hammer_trend': {'u': '锤子', 'd': '吊颈'},
     'meteor_trend': {'u': '倒锤', 'd': '流星'},
     'cloud_trend': {'u': '穿刺', 'd': '乌云'},
-    'wrap_trend': {'u': '吞噬', 'd': '吞噬'},
+    # 'wrap_trend': {'u': '吞噬', 'd': '吞噬'},
     'star_trend': {'u': '启明', 'd': '黄昏'}
   }
   settings = {
