@@ -94,8 +94,8 @@
                 "price_alpha": 0
             },
             "trend": {
-                "target_col": "trend_idx",
-                "color_mode": "benchmark",
+                "target_col": "trend_idx_ma",
+                "color_mode": "up_down",
                 "benchmark": 0,
                 "bar_width": 1,
                 "alpha": 0.8

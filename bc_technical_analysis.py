@@ -444,7 +444,7 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
     
     # calculate overall trend index
     df['trend_idx'] = df['up_trend_idx'] + df['down_trend_idx']
-    df['trend_idx_ma'] = sm(series=df['trend_idx'], periods=5).sum()
+    df['trend_idx_ma'] = sm(series=df['trend_idx'], periods=10).sum()
 
   except Exception as e:
     print(phase, e)
