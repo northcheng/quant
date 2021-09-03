@@ -444,14 +444,7 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
     
     # calculate overall trend index
     df['trend_idx'] = df['up_trend_idx'] + df['down_trend_idx']
-    # df['trend_idx_wma'] = sm(series=df['trend_idx'], periods=3).sum()
-    # conditions = {
-    #   'up': 'trend_idx_wma > 0', 
-    #   'down': 'trend_idx_wma < 0'} 
-    # values = {
-    #   'up': 'u', 
-    #   'down': 'd'}
-    # df = assign_condition_value(df=df, column='ta_trend', condition_dict=conditions, value_dict=values, default_value='n')
+    df['trend_idx_ma'] = sm(series=df['trend_idx'], periods=5).sum()
 
   except Exception as e:
     print(phase, e)
@@ -1062,11 +1055,11 @@ def recognize_candlestick_pattern(df):
   # drop unnecessary columns
   for col in [
     # 'position_signal', 'belt_signal', 'cross_signal', 'flat_signal', 'embrace_signal', 'wrap_signal', 
-    # 'window_signal', 'window_position_signal', 'window_position_value', 'window_position_status',
-    # 'volume_signal', 'color_signal', 'entity_signal', 'shadow_signal', 'upper_shadow_signal', 'lower_shadow_signal', 
-    # 'hammer_signal', 'meteor_signal', 'cloud_signal', 'star_signal', 
-    # 'candle_entity_to_close', 'candle_shadow_to_close', 'candle_shadow_pct_diff', 'candle_entity_middle',
-    # 'previous_high', 'previous_low', 'high_diff', 'low_diff', 'close_ma_120', 'close_to_ma_120', 'volume_ma_120', 'volume_to_ma_120' 
+    'window_signal', 'window_position_signal', 'window_position_value', 'window_position_status', 'previous_window_position_value', 
+    'volume_signal', 'color_signal', 'entity_signal', 'shadow_signal', 'upper_shadow_signal', 'lower_shadow_signal', 
+    'hammer_signal', 'meteor_signal', 'cloud_signal', 'star_signal', 
+    'candle_entity_to_close', 'candle_shadow_to_close', 'candle_shadow_pct_diff', 'candle_entity_middle',
+    'previous_high', 'previous_low', 'high_diff', 'low_diff', 'close_ma_120', 'close_to_ma_120', 'volume_ma_120', 'volume_to_ma_120' 
     
     ]:
     if col in df.columns:
@@ -4417,7 +4410,8 @@ def plot_candlestick(
     bottom_value = df.loc[start, 'candle_gap_bottom']
 
     gap_color = 'grey' # 'green' if df.loc[start, 'candle_gap'] > 0 else 'red' # 
-    gap_hatch = '/' if df.loc[start, 'candle_gap'] > 0 else '\\'
+    # gap_hatch = '/' if df.loc[start, 'candle_gap'] > 0 else '\\'
+    gap_hatch_color = 'green' if df.loc[start, 'candle_gap'] > 0 else 'red'
     
     # gap end
     end = None
@@ -4431,7 +4425,7 @@ def plot_candlestick(
     pre_i = idxs.index(start)-1
     pre_start = idxs[pre_i] if pre_i > 0 else start
     tmp_data = df[start:end]
-    ax.fill_between(df[pre_start:end].index, top_value, bottom_value, facecolor=gap_color, interpolate=True, alpha=0.25, hatch=gap_hatch) #,  
+    ax.fill_between(df[pre_start:end].index, top_value, bottom_value, facecolor=gap_color, interpolate=True, alpha=0.25, edgecolor=gap_hatch_color, linewidth=3) #,  
 
   y_resistant = None
   y_text_resistant = None
@@ -4892,7 +4886,7 @@ def plot_bar(
 def plot_indicator(
   df, target_col, start=None, end=None, price_col='Close', price_alpha=1,
   signal_col='signal', signal_val=default_signal_val, 
-  plot_price_in_twin_ax=False, plot_signal_on_price=None,  
+  plot_price_in_twin_ax=False, plot_signal_on_price=None,
   benchmark=None, boundary=None, color_mode=None, 
   use_ax=None, title=None, plot_args=default_plot_args):
   """
@@ -5136,6 +5130,12 @@ def plot_multiple_indicators(
       alpha = tmp_args.get('alpha') if tmp_args.get('alpha') is not None else 1
       plot_bar(df=plot_data, target_col=target_col, width=width, alpha=alpha, color_mode=color_mode, benchmark=None, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
     
+    elif tmp_indicator == 'trend':
+      width = tmp_args.get('bar_width') if tmp_args.get('bar_width') is not None else 1
+      alpha = tmp_args.get('alpha') if tmp_args.get('alpha') is not None else 1
+      benchmark = tmp_args.get('benchmark')
+      plot_bar(df=plot_data, target_col=target_col, width=width, alpha=alpha, color_mode=color_mode, benchmark=benchmark, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
+
     # plot renko
     elif tmp_indicator == 'renko':
       plot_in_date = tmp_args.get('plot_in_date') if tmp_args.get('plot_in_date') is not None else True

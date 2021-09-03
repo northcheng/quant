@@ -57,6 +57,7 @@
             "plot_ratio": {
                 
                 "signals": 3,
+                "trend": 1,
                 "main_indicators": 10,
                 "volume": 1
             },
@@ -91,6 +92,13 @@
                 ],
                 "plot_signal_on_price": true,
                 "price_alpha": 0
+            },
+            "trend": {
+                "target_col": "trend_idx",
+                "color_mode": "benchmark",
+                "benchmark": 0,
+                "bar_width": 1,
+                "alpha": 0.8
             },
             "candle": {
                 "signal_list": [
