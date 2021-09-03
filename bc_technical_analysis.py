@@ -739,9 +739,9 @@ def recognize_candlestick_pattern(df):
     # window position(beyond/below/among window)
     conditions = {
       'up': '(candle_entity_bottom > candle_gap_top)',
-      'mid_up': '(candle_entity_top > candle_gap_top and candle_entity_bottom < candle_gap_top)',
-      'mid': '(candle_entity_top > candle_gap_bottom and candle_entity_top < candle_gap_top)',
-      'mid_down': '(candle_entity_top > candle_gap_bottom and candle_entity_bottom < candle_gap_bottom)',
+      'mid_up': '(candle_entity_top > candle_gap_top and candle_entity_bottom < candle_gap_top and candle_entity_bottom > candle_gap_bottom)',
+      'mid': '((candle_entity_top > candle_gap_bottom and candle_entity_top < candle_gap_top) or (candle_entity_bottom < candle_gap_bottom and candle_entity_top > candle_gap_top))',
+      'mid_down': '(candle_entity_top < candle_gap_top and candle_entity_top > candle_gap_bottom and candle_entity_bottom < candle_gap_bottom)',
       'down': '(candle_entity_top < candle_gap_bottom)'}
     values = {
       'up': 'up', 
@@ -750,12 +750,13 @@ def recognize_candlestick_pattern(df):
       'mid_down': 'mid_down',
       'down': 'down'}
     df = assign_condition_value(df=df, column='window_position_value', condition_dict=conditions, value_dict=values, default_value='')#, default_value=0)
-    
+    df['previous_window_position_value'] = df['window_position_value'].shift(1)
+
     # rebound or hitpeak
     df['window_support_resistant_trend'] = ''
     conditions = {
-      'rebound': '(window_position_value == "mid_up" and window_position_status > 0 and candle_color == 1)', 
-      'hitpeak': '(window_position_value == "mid_up" or window_position_value == "mid_down") and (window_position_status < 0 and candle_color == -1)'} 
+      'rebound': '(window_position_status > 0) and ((candle_color == 1 and window_position_value == "mid_up") or ((previous_window_position_value == "mid_up" or previous_window_position_value == "mid") and window_position_value == "up" and window_position_status != 1))', 
+      'hitpeak': '(window_position_status < 0) and ((candle_color ==-1 and window_position_value == "mid_down") or ((previous_window_position_value == "mid_down" or previous_window_position_value == "mid") and window_position_value == "down" and window_position_status != -1))'} 
     values = {
       'rebound': 'u',
       'hitpeak': 'd'}
@@ -1061,11 +1062,11 @@ def recognize_candlestick_pattern(df):
   # drop unnecessary columns
   for col in [
     # 'position_signal', 'belt_signal', 'cross_signal', 'flat_signal', 'embrace_signal', 'wrap_signal', 
-    'window_signal', 'window_position_signal', 'window_position_value', 'window_position_status',
-    'volume_signal', 'color_signal', 'entity_signal', 'shadow_signal', 'upper_shadow_signal', 'lower_shadow_signal', 
-    'hammer_signal', 'meteor_signal', 'cloud_signal', 'star_signal', 
-    'candle_entity_to_close', 'candle_shadow_to_close', 'candle_shadow_pct_diff', 'candle_entity_middle',
-    'previous_high', 'previous_low', 'high_diff', 'low_diff', 'close_ma_120', 'close_to_ma_120', 'volume_ma_120', 'volume_to_ma_120' 
+    # 'window_signal', 'window_position_signal', 'window_position_value', 'window_position_status',
+    # 'volume_signal', 'color_signal', 'entity_signal', 'shadow_signal', 'upper_shadow_signal', 'lower_shadow_signal', 
+    # 'hammer_signal', 'meteor_signal', 'cloud_signal', 'star_signal', 
+    # 'candle_entity_to_close', 'candle_shadow_to_close', 'candle_shadow_pct_diff', 'candle_entity_middle',
+    # 'previous_high', 'previous_low', 'high_diff', 'low_diff', 'close_ma_120', 'close_to_ma_120', 'volume_ma_120', 'volume_to_ma_120' 
     
     ]:
     if col in df.columns:
