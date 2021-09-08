@@ -521,7 +521,28 @@ def analyze_ta_data(df):
     else:
       print(f'{signal_col} not in df.columns')
 
-  # trend from linear fit results
+  # trends from linear fit results
+  # hitpeak or rebound
+  conditions = {
+    'up': '((linear_fit_support > 0 and 5 >= linear_fit_low_stop > 1 and Close > linear_fit_support) and (tankan_kijun_signal > 0 or Close > tankan or renko_color=="green"))', 
+    'down': '((linear_fit_resistant >0 and 5 >= linear_fit_high_stop > 1 and Close < linear_fit_resistant))'} 
+  values = {
+    'up': 'u', 
+    'down': 'd'}
+  df = assign_condition_value(df=df, column='linear_bounce_trend', condition_dict=conditions, value_dict=values, default_value='')
+  df = remove_redundant_signal(df=df, signal_col='linear_bounce_trend', pos_signal='u', neg_signal='d', none_signal='', keep='last')
+
+  # break through up or down
+  conditions = {
+    'up': '((linear_fit_resistant > 0 and linear_fit_high_stop > 0 and linear_fit_high_signal == 1))', 
+    'down': '((linear_fit_resistant > 0 and linear_fit_low_stop > 0 and linear_fit_low_signal == -1))'} 
+  values = {
+    'up': 'u', 
+    'down': 'd'}
+  df = assign_condition_value(df=df, column='linear_break_trend', condition_dict=conditions, value_dict=values, default_value='')
+  # df = remove_redundant_signal(df=df, signal_col='linear_break_trend', pos_signal='u', neg_signal='d', none_signal='', keep='last')
+
+  # overall trend
   conditions = {
     'up': '(tankan > kijun) and (Low > resistant or (linear_slope > 0 and linear_fit_high_stop == 0) or ((linear_fit_low_stop > 3) and (Low > linear_fit_low)))', 
     'down': '((tankan < kijun) and (High < support or (linear_slope < 0 and linear_fit_low_stop == 0))) or ((linear_fit_high_stop > 5) and (High < linear_fit_high))'} 
@@ -533,6 +554,24 @@ def analyze_ta_data(df):
   # signal from linear fit results
   df['linear_day'] = sda(series=df['linear_trend'].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=None)
   df['linear_signal'] = 'n' #df['linear_trend'].replace({'d': 's', 'u': 'b', 'n': ''})
+
+  # linear fit description and score
+  df['linear_fit_description'] = ''
+  df['linear_fit_idx'] = 0
+  rebound_idx = df.query('linear_bounce_trend == "u"').index
+  hitpeak_idx = df.query('linear_bounce_trend == "d"').index
+  break_up_idx = df.query('linear_break_trend == "u"').index
+  break_down_idx = df.query('linear_break_trend == "d"').index
+
+  df.loc[rebound_idx, 'linear_fit_description'] = 'rebound'
+  df.loc[hitpeak_idx, 'linear_fit_description'] = 'hitpeak'
+  df.loc[break_up_idx, 'linear_fit_description'] = 'break_up'
+  df.loc[break_down_idx, 'linear_fit_description'] = 'break_down'
+
+  df.loc[rebound_idx, 'linear_fit_idx'] += 1
+  df.loc[hitpeak_idx, 'linear_fit_idx'] -= 1
+  df.loc[break_up_idx, 'linear_fit_idx'] += 1
+  df.loc[break_down_idx, 'linear_fit_idx'] -= 1
 
   return df
 
@@ -718,11 +757,12 @@ def recognize_candlestick_pattern(df):
       'up': 'u', 
       'down': 'd'}
     df = assign_condition_value(df=df, column='window_trend', condition_dict=conditions, value_dict=values, default_value='n')
+    df['previous_window_trend'] = df['window_trend'].shift(1)
 
     # window position status(beyond/below window)
     conditions = {
-      'up': '(candle_entity_bottom > candle_gap_top)',
-      'down': '(candle_entity_top < candle_gap_bottom)'}
+      'up': '(candle_entity_bottom >= candle_gap_top)',
+      'down': '(candle_entity_top <= candle_gap_bottom)'}
     values = {
       'up': 1, 
       'down': -1}
@@ -731,34 +771,38 @@ def recognize_candlestick_pattern(df):
 
     # window position(beyond/below/among window)
     conditions = {
-      'up': '(candle_entity_bottom > candle_gap_top)',
-      'mid_up': '(candle_entity_top > candle_gap_top and candle_entity_bottom < candle_gap_top and candle_entity_bottom > candle_gap_bottom)',
-      'mid': '((candle_entity_top > candle_gap_bottom and candle_entity_top < candle_gap_top) or (candle_entity_bottom < candle_gap_bottom and candle_entity_top > candle_gap_top))',
-      'mid_down': '(candle_entity_top < candle_gap_top and candle_entity_top > candle_gap_bottom and candle_entity_bottom < candle_gap_bottom)',
-      'down': '(candle_entity_top < candle_gap_bottom)'}
+      'up': '(candle_entity_bottom >= candle_gap_top)',
+      'mid_up': '((candle_entity_top > candle_gap_top) and (candle_gap_top > candle_entity_bottom >= candle_gap_bottom))',
+      'mid': '((candle_entity_top <= candle_gap_top) and (candle_entity_bottom >= candle_gap_bottom))',
+      'out': '((candle_entity_top > candle_gap_top) and (candle_entity_bottom < candle_gap_bottom))',
+      'mid_down': '((candle_entity_bottom < candle_gap_bottom) and (candle_gap_top >= candle_entity_top > candle_gap_bottom))',
+      'down': '(candle_entity_top <= candle_gap_bottom)'}
     values = {
       'up': 'up', 
       'mid_up': 'mid_up',
       'mid': 'mid',
+      'out': 'out',
       'mid_down': 'mid_down',
       'down': 'down'}
     df = assign_condition_value(df=df, column='window_position_value', condition_dict=conditions, value_dict=values, default_value='')#, default_value=0)
     df['previous_window_position_value'] = df['window_position_value'].shift(1)
+    df['previous_candle_color'] = df['candle_color'].shift(1)
 
     # rebound or hitpeak
     df['window_support_resistant_trend'] = ''
     conditions = {
-      'rebound': '(window_position_status > 0) and ((candle_color == 1 and window_position_value == "mid_up") or ((previous_window_position_value == "mid_up" or previous_window_position_value == "mid") and window_position_value == "up" and window_position_status != 1))', 
-      'hitpeak': '(window_position_status < 0) and ((candle_color ==-1 and window_position_value == "mid_down") or ((previous_window_position_value == "mid_down" or previous_window_position_value == "mid") and window_position_value == "down" and window_position_status != -1))'} 
+      'rebound': '(candle_gap != 2 and window_position_status > 1) and ((window_position_value == "up") and ((previous_window_position_value == "mid_up" and previous_candle_color == -1) or previous_window_position_value == "mid_down" or previous_window_position_value == "mid" or previous_window_position_value == "out"))', 
+      'hitpeak': '(candle_gap !=-2 and window_position_status <-1) and ((window_position_value == "down") and (previous_window_position_value == "mid_up" or (previous_window_position_value == "mid_down" and previous_candle_color == 1) or previous_window_position_value == "mid" or previous_window_position_value == "out"))'} 
     values = {
       'rebound': 'u',
       'hitpeak': 'd'}
     df = assign_condition_value(df=df, column='window_support_resistant_trend', condition_dict=conditions, value_dict=values, default_value='n')
-
+    
+    # break through up or down
     df['window_position_trend'] = ''
     conditions = {
-      'break_up': '(window_position_value == "up" and window_trend != "u") and (window_position_status == 1)',
-      'break_down': '(window_position_value == "down" and window_trend != "d") and (window_position_status == -1)'}
+      'break_up': '(candle_gap != 2 and window_position_value == "up" and window_position_status == 1)',
+      'break_down': '(candle_gap != -2 and window_position_value == "down" and window_position_status ==-1)'}
     values = {
       'break_up': 'u', 
       'break_down': 'd'}
@@ -1054,10 +1098,10 @@ def recognize_candlestick_pattern(df):
 
   # drop unnecessary columns
   for col in [
-    # 'position_signal', 'belt_signal', 'cross_signal', 'flat_signal', 'embrace_signal', 'wrap_signal', 
-    'window_signal', 'window_position_signal', 'window_position_value', 'window_position_status', 'previous_window_position_value', 
+    # 'position_signal', 'belt_signal', 'cross_signal', 'flat_signal', 'embrace_signal', 'wrap_signal', 'hammer_signal', 'meteor_signal', 
+    'window_signal', 'window_position_signal', 'window_position_value', 'window_position_status', 'previous_window_position_value', 'previous_candle_color',
     'volume_signal', 'color_signal', 'entity_signal', 'shadow_signal', 'upper_shadow_signal', 'lower_shadow_signal', 
-    'hammer_signal', 'meteor_signal', 'cloud_signal', 'star_signal', 
+    'cloud_signal', 'star_signal', 
     'candle_entity_to_close', 'candle_shadow_to_close', 'candle_shadow_pct_diff', 'candle_entity_middle',
     'previous_high', 'previous_low', 'high_diff', 'low_diff', 'close_ma_120', 'close_to_ma_120', 'volume_ma_120', 'volume_to_ma_120' 
     
@@ -1930,6 +1974,7 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col, pattern_recognitio
   df.loc[gap_up_idx, 'candle_gap'] = 1
   strict_gap_up_idx = df.query(f'low_prev_high >= pct_close').index
   df.loc[strict_gap_up_idx, 'candle_gap'] = 2
+  df.loc[strict_gap_up_idx, 'candle_gap_color'] = 1
   df.loc[strict_gap_up_idx, 'candle_gap_top'] = df.loc[strict_gap_up_idx, f'{low}']
   df.loc[strict_gap_up_idx, 'candle_gap_bottom'] = df.loc[strict_gap_up_idx, f'prev_{high}']
   
@@ -1939,21 +1984,33 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col, pattern_recognitio
   df.loc[gap_down_idx, 'candle_gap'] = -1
   strict_gap_down_idx = df.query(f'prev_low_high >= pct_close').index  
   df.loc[strict_gap_down_idx, 'candle_gap'] = -2
+  df.loc[strict_gap_down_idx, 'candle_gap_color'] = -1
   df.loc[strict_gap_down_idx, 'candle_gap_top'] = df.loc[strict_gap_down_idx, f'prev_{low}']
   df.loc[strict_gap_down_idx, 'candle_gap_bottom'] = df.loc[strict_gap_down_idx, f'{high}']
-  
-  # gap top and bottom
-  df['candle_gap_top'] = df['candle_gap_top'].fillna(method='ffill')#.replace(0, np.NaN)
-  df['candle_gap_bottom'] = df['candle_gap_bottom'].fillna(method='ffill')#.replace(0, np.NaN)
+
+  # if there's too many gaps, disnote all gaps
+  up_gaps = df.query('candle_gap == 2').index
+  down_gaps = df.query('candle_gap == -2').index
+  disnote_gaps = []
+  if len(up_gaps) >= 10:
+    disnote_gaps += up_gaps
+  if len(down_gaps) >= 10:
+    disnote_gaps += down_gaps
+  for g in disnote_gaps:
+    df.loc[g, 'candle_gap'] = 0
+    for col in ['candle_gap_color', 'candle_gap_top', 'candle_gap_bottom']:
+      df.loc[g, col] = np.NaN
+
+  # gap color, top and bottom
+  df['candle_gap_top'] = df['candle_gap_top'].fillna(method='ffill') 
+  df['candle_gap_bottom'] = df['candle_gap_bottom'].fillna(method='ffill') 
+  df['candle_gap_color'] = df['candle_gap_color'].fillna(method='ffill')
 
   # gap support and resistant
   support_idx = df.query(f'{close} > candle_gap_bottom').index
   resistant_idx = df.query(f'{close} < candle_gap_top').index
   df.loc[support_idx, 'candle_gap_support'] = df.loc[support_idx, 'candle_gap_bottom']
   df.loc[resistant_idx, 'candle_gap_resistant'] = df.loc[resistant_idx, 'candle_gap_top']
-  # other_idx = [x for x in df.index if x not in support_idx and x not in resistant_idx]
-  # df.loc[other_idx, 'candle_gap_support'] = df.loc[other_idx, 'candle_gap_bottom']
-  # df.loc[other_idx, 'candle_gap_resistant'] = df.loc[other_idx, 'candle_gap_top']
   
   # drop intermidiate columns
   for c in ['low_prev_high', 'prev_low_high', 'pct_close']:
@@ -2013,9 +2070,6 @@ def add_linear_features(df, max_period=60, min_period=15, is_print=False):
 
   # get indexes
   idxs = df.index.tolist()
-
-  # get price
-  latest_price = df['Close'].values[-1]
 
   # get current date, renko_color, earliest-start date, latest-end date
   current_date = df.index.max()
@@ -2306,11 +2360,9 @@ def add_linear_features(df, max_period=60, min_period=15, is_print=False):
         
         x1 = (df[start:index]['candle_color'] > 0).sum()
         y1 = x1 / counter
-        # print('price: ', index, x1, counter, y1)
 
         x2 = (df[start:index]['rate'] > 0).sum()
         y2 = x2 / counter
-        # print('rate: ', index, x2, counter, y2)
 
         df.loc[index, 'price_direction'] = y1
         df.loc[index, 'rate_direction'] = y2
@@ -4332,9 +4384,9 @@ def plot_signal(
       pos_trend = df.query(f'{trend_col} == "u"')
       neg_trend = df.query(f'{trend_col} == "d"') 
       wave_trend = df.query(f'{trend_col} == "n"')
-      ax.scatter(pos_trend.index, pos_trend['signal_base'], label=None, marker='o', color='green', alpha=trend_alpha)
-      ax.scatter(neg_trend.index, neg_trend['signal_base'], label=None, marker='o', color='red', alpha=trend_alpha)
-      ax.scatter(wave_trend.index, wave_trend['signal_base'], label=None, marker='o', color='orange', alpha=trend_alpha/2)
+      ax.scatter(pos_trend.index, pos_trend['signal_base'], label=None, marker='s', color='green', alpha=trend_alpha)
+      ax.scatter(neg_trend.index, neg_trend['signal_base'], label=None, marker='s', color='red', alpha=trend_alpha)
+      ax.scatter(wave_trend.index, wave_trend['signal_base'], label=None, marker='s', color='orange', alpha=trend_alpha/2)
 
   # legend and title
   ax.legend(loc='upper left')  
@@ -4367,6 +4419,11 @@ def plot_candlestick(
   """
   # copy dataframe within a specific period
   df = df[start:end].copy()
+  
+  # for gap which start before 'start_date'
+  min_idx = df.index.min()
+  if df.loc[min_idx, 'candle_gap_top'] > df.loc[min_idx, 'candle_gap_bottom']:
+    df.loc[min_idx, 'candle_gap'] = df.loc[min_idx, 'candle_gap_color'] * 2
   
   # set column names
   open = ohlcv_col['open']
@@ -4474,13 +4531,14 @@ def plot_candlestick(
   # settings for annotate candle patterns
   pattern_info = {
     'window_trend': {'u': '窗口', 'd': '窗口'},
-    'window_support_resistant_trend': {'u': '反弹', 'd': '触顶'},
+    'window_support_resistant_trend': {'u': '反弹', 'd': '回落'},
     'window_position_trend': {'u': '突破', 'd': '跌落'},
-    'hammer_trend': {'u': '锤子', 'd': '吊颈'},
-    'meteor_trend': {'u': '倒锤', 'd': '流星'},
+
     'cloud_trend': {'u': '穿刺', 'd': '乌云'},
-    # 'wrap_trend': {'u': '吞噬', 'd': '吞噬'},
-    'star_trend': {'u': '启明', 'd': '黄昏'}
+    'star_trend': {'u': '启明星', 'd': '黄昏星'},
+
+    'linear_bounce_trend': {'u': '反弹', 'd': '回落'},
+    'linear_break_trend': {'u': '突破', 'd': '跌落'}
   }
   settings = {
     'normal': {'fontsize':12, 'fontcolor':'black', 'va':'center', 'ha':'center', 'up':'green', 'down':'red', 'alpha': 0.15},

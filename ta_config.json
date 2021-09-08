@@ -78,9 +78,11 @@
             "signals": {
                 "signal_list": [
                     "position_signal",
-                    "wrap_signal",
                     "flat_signal",
+                    "meteor_signal",
+                    "hammer_signal",
                     "cross_signal",
+                    "wrap_signal",
                     "embrace_signal",
                     "bb_signal",
                     "psar_signal",
@@ -429,6 +431,8 @@
             "description": "描述",
             "candle_pattern_description": "蜡烛形态",
             "candle_pattern_idx": "蜡烛分数",
+            "linear_fit_description": "拟合形态",
+            "linear_fit_idx": "拟合分数",
             "signal": "交易信号",
             "label": "分类"
             
