@@ -2107,7 +2107,7 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
 
       potentials = pd.read_excel(signal_file, sheet_name='potential')
       if len(potentials) > 0:
-        potentials = potentials[['代码', '蜡烛分数', '蜡烛形态']].to_html()
+        potentials = potentials[['代码', '蜡烛分数', '蜡烛形态', '拟合分数', '拟合形态']].to_html()
         signal_info += f'</b></p>{potentials}'
 
     else:
