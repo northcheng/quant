@@ -1,27 +1,26 @@
 {
   
   "test": [
-    "AAPL", "TQQQ", "SQQQ"
+    "TQQQ", "AAPL"
   ],
 
   "etf_idx": [
     "SPY", "UVXY", "GLD",
-    "XTN", "XTL", "XSW", "XSD", "XWEB", "XLK", 
-    "XPH", "XBI", "XHS", "XHE",  
-    "XLP", "XLY", "XLU", "XLI", "XLF", "XLE", "XLB", "XLV",
-    "XRT", "XITK", "XHB", "XOP", "XES", "XME", "XAR"
+    "XSD", "XTL", "XLK", "XWEB", 
+    "XPH", "XBI", "XHS", "XHE", "XLV",
+    "XLP", "XLY", "XRT", "XTN", "XLU", 
+    "XLI", "XLF", "XHB", "XLE", "XLB", "XAR"
   ],
 
   "etf_3x":[
-    "EDC", "EDZ", "CHAU", "CHAD", "YINN", "YANG", "CQQQ",
-    "TQQQ", "SQQQ", "UPRO", "SPXU", "UDOW", "SDOW",
-    "TECL", "TECS", "SOXL", "SOXS", "LABU", "LABD",
-    "FAS", "FAZ", "BNKU", "BNKD", "DRN", "DRV", "GDXU", "GDXD",
-    "CURE", "TNA"
+    "TQQQ", "UPRO", "UDOW",
+    "TECL", "SOXL", "LABU",
+    "FAS", "BNKU", "DRN", "TNA",
+    "EDC", "CHAU", "YINN", "CQQQ"
   ],
 
   "company_star":[
-    "AAPL", "AMZN", "MSFT", "DIS", "NFLX", "EBAY", "FB", "GOOG", "TWTR", "YNDX", 
+    "AAPL", "AMZN", "MSFT", "DIS", "NFLX", "EBAY", "FB", "GOOG", "TWTR", "YNDX", "SE",
     "ADBE", "U", "CSCO", "CTSH", "IBM", "ORCL", "SAP", "TRI", "ADS", "CMCSA", "HAS", "NWS", "ZNGA", "ACN",
     "AMD", "INTC", "NVDA", "QCOM", "TXN", "AVGO", "TSM",
     "CAJ", "HPQ", 
@@ -37,27 +36,12 @@
 
   "etf": [
     "SPY", "GLD",
-    "TQQQ", "SQQQ", "UPRO", "SPXU", "UDOW", "SDOW",
-    "TECL", "TECS", "SOXL", "SOXS", "FAS", "FAZ", "LABU", "LABD",
-    "CHAU", "CHAD", "YINN", "YANG", "CQQQ"
+    "TQQQ", "UPRO", "UDOW", 
+    "TECL", "SOXL", "LABU", "FAS", 
+    "CHAU", "YINN", "CQQQ"
   ],
 
   "company": [
-    "AAPL", "MSFT", "FB", "ADBE", "NFLX", "DIS", "U",
-    "INTC", "NVDA", "AMD", "QCOM", "AVGO", "TXN", "TSM",
-    "TSLA", "LMT", "GE", "BA", "HON",
-    "JPM", "ACN", "MS", "GS", 
-    "BAC", "WFC", "HSBC", "C",
-    "MRK", "PFE", "NVO", "GSK", "AZN", "ABBV", 
-    "ABT", "MDT", "AMGN", "JNJ", "UNH"
-  ],
-  
-  "universe": [
-    "SPY", "GLD",
-    "TQQQ", "SQQQ", "UPRO", "SPXU", "UDOW", "SDOW",
-    "TECL", "TECS", "SOXL", "SOXS", "FAS", "FAZ", "LABU", "LABD",
-    "CHAU", "CHAD", "YINN", "YANG", "CQQQ",
-    
     "AAPL", "MSFT", "FB", "ADBE", "NFLX", "DIS", "U",
     "INTC", "NVDA", "AMD", "QCOM", "AVGO", "TXN", "TSM",
     "TSLA", "LMT", "GE", "BA", "HON",

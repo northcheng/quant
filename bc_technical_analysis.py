@@ -54,19 +54,19 @@ def load_config(root_paths):
 
   # add derived paths
   config['config_path'] = config['git_path'] + 'quant/'
-  config['desktop_path'] = config['home_path'] + 'Desktop/'
   config['quant_path'] = config['home_path'] + 'quant/'
-  config['data_path'] = config['quant_path'] + 'stock_data/'
-  config['api_path'] = config['quant_path'] + 'api_key/'
-  config['tiger_path'] = config['quant_path'] + 'tigeropen/'
-  config['futu_path'] = config['quant_path'] + 'futuopen/'
-  config['result_path'] = config['quant_path'] + 'ta_model/'
+
   config['log_path'] = config['quant_path'] + 'logs/'
+  config['api_path'] = config['quant_path'] + 'api_key/'
+  config['futu_path'] = config['quant_path'] + 'futuopen/'
+  config['tiger_path'] = config['quant_path'] + 'tigeropen/'
+  config['data_path'] = config['quant_path'] + 'stock_data/'
+  config['result_path'] = config['quant_path'] + 'ta_model/'
   
   # load sec lists
   config['selected_sec_list'] = io_util.read_config(file_path=config['config_path'], file_name='selected_sec_list.json')
 
-  # load data api
+  # load data-spurce api
   config['api_key'] = io_util.read_config(file_path=config['api_path'], file_name='api_key.json')
 
   # load calculation and visulization parameters
@@ -89,7 +89,7 @@ def load_data(symbols, config, load_empty_data=False, load_derived_data=False):
   :raises: None
   """
   # init data
-  data = { 'sec_data': {}, 'ta_data': {}, 'result': {}, 'final_result': {} }
+  data = {'sec_data': {}, 'ta_data': {}, 'result': {}, 'final_result': {}}
 
   # load local data
   if not load_empty_data:
@@ -117,17 +117,17 @@ def load_data(symbols, config, load_empty_data=False, load_derived_data=False):
 
 # ================================================ Core calculation ================================================= # 
 # pre-process downloaded stock data
-def preprocess_sec_data(df, symbol, interval, print_error=True):
+def preprocess_sec_data(df, symbol, print_error=True):
   '''
   Preprocess downloaded data
 
   :param df: downloaded stock data
   :param symbol: symbol
-  :param interval: interval of the downloaded data
   :param print_error: whether print error information or not
   :returns: preprocessed dataframe
   :raises: None
   '''
+  # if raw data is empty
   if len(df) == 0:
     print(f'No data for preprocessing')
     return None
@@ -141,7 +141,7 @@ def preprocess_sec_data(df, symbol, interval, print_error=True):
   df['adj_close_p1'] = df['Adj Close'].shift(1)
   df['adj_rate'] = df['adj_close_p1'] / df['Adj Close']
   df = df.sort_index(ascending=False)
-
+  
   for idx, row in df.iterrows():
     df.loc[idx, 'Adj Close'] *= adj_rate
     if row['Split'] != 1:
@@ -178,8 +178,8 @@ def preprocess_sec_data(df, symbol, interval, print_error=True):
     error_info += 'NaN values found in '
     for col in na_cols:
       error_info += f'{col}'
-  df['Split'] = df['Split'].fillna(1)
-  df['Dividend'] = df['Dividend'].fillna(0)
+  df['Split'] = df['Split'].fillna(1.0)
+  df['Dividend'] = df['Dividend'].fillna(0.0)
   df = df.dropna()
     
   # process 0 values
@@ -200,21 +200,23 @@ def preprocess_sec_data(df, symbol, interval, print_error=True):
   return df
 
 # calculate technical-analysis indicators
-def calculate_ta_indicators(df, trend_indicators, volume_indicators, volatility_indicators, other_indicators, signal_threshold=0.001):
+def calculate_ta_indicators(df, trend_indicators, volume_indicators, volatility_indicators, other_indicators):
 
   # copy dataframe
   df = df.copy()
   if df is None or len(df) == 0:
     print(f'No data for calculate_ta_indicator')
-    return None   
-  
-  # add change rate of Close price and candlestick features
-  df = cal_change_rate(df=df, target_col=default_ohlcv_col['close'], add_accumulation=False)
-  df = add_candlestick_features(df=df)
+    return None  
 
-  # calculate TA indicators
+  # indicator calculation
   try:
-    phase = 'cal_ta_indicators' 
+    phase = 'calculate close rate' 
+    df = cal_change_rate(df=df, target_col=default_ohlcv_col['close'], add_accumulation=False)
+    
+    phase = 'calculate candlestick' 
+    df = add_candlestick_features(df=df)
+
+    phase = 'calculate indicators' 
     all_indicators = []
     all_indicators += [x for x in trend_indicators if x not in all_indicators]
     all_indicators += [x for x in volume_indicators if x not in all_indicators]
@@ -226,7 +228,7 @@ def calculate_ta_indicators(df, trend_indicators, volume_indicators, volatility_
       df = eval(to_eval)
 
   except Exception as e:
-    print(phase, indicator, e)
+    print(f'[Exception]: @ {phase} - {indicator}, {e}')
 
   return df
 
@@ -243,12 +245,14 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
   :returns: dataframe with extra fetures
   :raises: Exception 
   """
+  # if df is empty
   if len(df) == 0:
     print(f'No data for calculate_ta_trend')
     return None
   
+  # trend calculation
   try:
-    phase = 'cal_trend_indicator_trend'
+    phase = 'calculate trend for trend_indicators'
 
     # ================================ ichimoku trend =========================
     if 'ichimoku' in trend_indicators:
@@ -398,7 +402,7 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
 
     # =========================================================================
 
-    phase = 'cal_volatility_indicator_trend'
+    phase = 'calculate trend for volatility_indicators'
 
     # ================================ bb trend ===============================
     if 'bb' in volatility_indicators:
@@ -412,7 +416,7 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
 
     # =========================================================================
 
-    phase = 'cal_overall_trend'
+    phase = 'calculate trend overall'
 
     # ================================ overall trend ==========================
     df['trend_idx'] = 0
@@ -449,8 +453,8 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
     df['trend_idx_ma'] = sm(series=df['trend_idx'], periods=10).sum()
 
   except Exception as e:
-    print(phase, e)
-
+    print(f'[Exception]: @ {phase}, {e}')
+    
   return df
 
 # technical analyze for ta_data
@@ -458,7 +462,8 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
   """
   analysze support and resistant
   :param df: dataframe with ta indicators
-  :returns: dataframe with analysis columns (resistant, support and several signal columns)
+  :param perspective: for which indicators, derivative columns that need to calculated 
+  :returns: dataframe with derivative columns
   :raises: None
   """
 
@@ -468,9 +473,8 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
     print(f'No data for calculate_ta_derivatives')
     return None  
   
-  # TA analysis
+  # derivatives calculation
   try:
-
     phase = 'renko analysis'
     # ================================ renko analysis ============================
     if 'renko' in perspective:
@@ -490,12 +494,13 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
       df.loc[wave_idx, 'renko_trend'] = 'n'
 
       # calculate renko signal
-      df['renko_day'] = sda(series=df['renko_trend'].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
       df['renko_signal'] = 'n'
-
+      df['renko_day'] = sda(series=df['renko_trend'].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
+      
     phase = 'linear analysis'
     # ================================ linear analysis ===========================
     if 'linear' in perspective:
+
       # add linear features
       df = add_linear_features(df=df)
 
@@ -521,6 +526,7 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         'up': 'u', 
         'down': 'd'}
       df = assign_condition_value(df=df, column='linear_bounce_trend', condition_dict=conditions, value_dict=values, default_value='')
+      df['linear_bounce_day'] = sda(series=df['linear_bounce_trend'].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
       df = remove_redundant_signal(df=df, signal_col='linear_bounce_trend', pos_signal='u', neg_signal='d', none_signal='', keep='first')
 
       # break through up or down
@@ -531,52 +537,64 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         'up': 'u', 
         'down': 'd'}
       df = assign_condition_value(df=df, column='linear_break_trend', condition_dict=conditions, value_dict=values, default_value='')
-      # df = remove_redundant_signal(df=df, signal_col='linear_break_trend', pos_signal='u', neg_signal='d', none_signal='', keep='last')
+      df['linear_break_day'] = sda(series=df['linear_break_trend'].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
 
       # linear fit description and score
       df['linear_fit_description'] = ''
       df['linear_fit_idx'] = 0
-      rebound_idx = df.query('linear_bounce_trend == "u"').index
-      hitpeak_idx = df.query('linear_bounce_trend == "d"').index
-      break_up_idx = df.query('linear_break_trend == "u"').index
-      break_down_idx = df.query('linear_break_trend == "d"').index
 
-      df.loc[rebound_idx, 'linear_fit_description'] = 'rebound'
-      df.loc[hitpeak_idx, 'linear_fit_description'] = 'hitpeak'
-      df.loc[break_up_idx, 'linear_fit_description'] = 'break_up'
-      df.loc[break_down_idx, 'linear_fit_description'] = 'break_down'
-
-      df.loc[rebound_idx, 'linear_fit_idx'] += 1
-      df.loc[hitpeak_idx, 'linear_fit_idx'] -= 1
-      df.loc[break_up_idx, 'linear_fit_idx'] += 1
-      df.loc[break_down_idx, 'linear_fit_idx'] -= 1
-
+      conditions = {
+        'rebound': 'linear_bounce_trend == "u"', 
+        'hitpeak': 'linear_bounce_trend == "d"',
+        'break_up': 'linear_break_trend == "u"',
+        'break_down': 'linear_break_trend == "d"'} 
+      dscription_values = {
+        'rebound': 'rebound', 
+        'hitpeak': 'hitpeak',
+        'break_up': 'break_up',
+        'break_down': 'break_down'}
+      idx_values = {
+        'rebound': '1', 
+        'hitpeak': '-1',
+        'break_up': '2',
+        'break_down': '-2'}
+      trend_values = {
+        'rebound': 'u', 
+        'hitpeak': 'd',
+        'break_up': 'u',
+        'break_down': 'd'} 
+      df = assign_condition_value(df=df, column='linear_fit_description', condition_dict=conditions, value_dict=dscription_values, default_value='')
+      df = assign_condition_value(df=df, column='linear_fit_idx', condition_dict=conditions, value_dict=idx_values, default_value='')
+      df = assign_condition_value(df=df, column='linear_trend', condition_dict=conditions, value_dict=trend_values, default_value='')
+      df['linear_signal'] = 'n' #df['linear_trend'].replace({'d': 's', 'u': 'b', 'n': ''})
+      
     phase = 'candle analysis'
     # ================================ candle analysis ===========================
     if 'candle' in perspective:
-      # ======================================= fundamental components ============================== #
+
+      # ============================== fundamental components ====================
       if 'basics' > '':
+        
         # tops/bottoms
         df['position_signal'] = 'n'
-        df['close_ma_120'] = sm(series=df['Close'], periods=120).mean()
-        df['close_to_ma_120'] = (df['Low'] - df['close_ma_120'])/df['close_ma_120']
-
         conditions = {
-          'top': 'close_to_ma_120 > 0.025',  #  or above_renko_h >= 5 
-          'bottom': 'close_to_ma_120 < -0.025'} #  or below_renko_l >= 5
+          'top': 'Close > tankan > kijun', 
+          'middle': '(Close <= tankan and Close >= kijun) or (Close <= kijun and Close >= tankan)', 
+          'bottom': 'Close < tankan < kijun'}
         values = {
           'top': 'u', 
+          'middle': 'n',
           'bottom': 'd'}
-        df = assign_condition_value(df=df, column='position_trend', condition_dict=conditions, value_dict=values, default_value='n')
+        df = assign_condition_value(df=df, column='position_trend', condition_dict=conditions, value_dict=values, default_value='')
 
         # large/small volume 
         df['volume_signal'] = 'n'
-        df['volume_ma_120'] = sm(series=df['Volume'], periods=120).mean()
-        df['volume_to_ma_120'] = (df['Volume'] - df['volume_ma_120'])/df['volume_ma_120']
+        df['volume_ma'] = sm(series=df['Volume'], periods=30).mean()
+        df['volume_to_ma'] = (df['Volume'] - df['volume_ma'])/df['volume_ma']
 
         conditions = {
-          'large': 'volume_to_ma_120 > 1',  #  or Volume_rate > 0.3
-          'small': 'volume_to_ma_120 < -0.5'} #  or Volume_rate < -0.3
+          'large': 'volume_to_ma > 1',  #  or Volume_rate > 0.3
+          'small': 'volume_to_ma < -0.5'} #  or Volume_rate < -0.3
         values = {
           'large': 'u', 
           'small': 'd'}
@@ -592,6 +610,7 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         df['candle_shadow_pct_diff'] = df['candle_upper_shadow_pct'] - df['candle_lower_shadow_pct']
 
       if 'windows' > '':
+        
         # window(gap)
         df['window_signal'] = 'n'
         conditions = {
@@ -601,7 +620,6 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
           'up': 'u', 
           'down': 'd'}
         df = assign_condition_value(df=df, column='window_trend', condition_dict=conditions, value_dict=values, default_value='n')
-        df['previous_window_trend'] = df['window_trend'].shift(1)
 
         # window position status(beyond/below window)
         conditions = {
@@ -612,6 +630,7 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
           'down': -1}
         df = assign_condition_value(df=df, column='window_position_status', condition_dict=conditions, value_dict=values, default_value=0)
         df['window_position_status'] = sda(series=df['window_position_status'], zero_as=1)
+        df['previous_window_position_status'] = df['window_position_status'].shift(1)
 
         # window position(beyond/below/among window)
         conditions = {
@@ -633,7 +652,7 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         df['previous_candle_color'] = df['candle_color'].shift(1)
 
         # rebound or hitpeak
-        df['window_support_resistant_trend'] = ''
+        df['window_support_resistant_signal'] = ''
         conditions = {
           'rebound': '(candle_gap != 2 and window_position_status > 1) and ((window_position_value == "up") and ((previous_window_position_value == "mid_up" and previous_candle_color == -1) or previous_window_position_value == "mid_down" or previous_window_position_value == "mid" or previous_window_position_value == "out"))', 
           'hitpeak': '(candle_gap !=-2 and window_position_status <-1) and ((window_position_value == "down") and (previous_window_position_value == "mid_up" or (previous_window_position_value == "mid_down" and previous_candle_color == 1) or previous_window_position_value == "mid" or previous_window_position_value == "out"))'} 
@@ -645,15 +664,16 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         # break through up or down
         df['window_position_trend'] = ''
         conditions = {
-          'break_up': '(candle_gap != 2 and window_position_value == "up" and window_position_status == 1)',
-          'break_down': '(candle_gap != -2 and window_position_value == "down" and window_position_status ==-1)'}
+          'break_up': '((candle_gap != 2 and previous_window_position_status < 0) and ((candle_color == 1 and (window_position_value == "up" or window_position_value == "mid_up" or window_position_value == "out")) or (candle_color == -1 and window_position_value == "up")))',
+          'break_down': '((candle_gap != -2 and previous_window_position_status > 0) and ((candle_color ==-1 and (window_position_value == "down" or window_position_value == "mid_down" or window_position_value == "out")) or (candle_color == 1 and window_position_value == "down")))'}
         values = {
           'break_up': 'u', 
           'break_down': 'd'}
         df = assign_condition_value(df=df, column='window_position_trend', condition_dict=conditions, value_dict=values, default_value='n')
+        df = remove_redundant_signal(df=df, signal_col='window_position_trend', pos_signal='u', neg_signal='d', none_signal='n', keep='first')
         df['window_position_signal'] = ''
 
-      # ======================================= 1 candle pattern  =================================== #
+      # ============================== 1 candle pattern  =========================
       if '1_candle' > '':
         
         # long/short entity
@@ -729,21 +749,21 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         # cross/spindle/highwave
         df['cross_signal'] = 'n'
         conditions = {
-          'cross': '(entity_trend == "d" and shadow_trend != "u") and (candle_entity_pct < 0.05 or candle_entity_to_close < 0.0015)',
-          'highwave': '(shadow_trend == "u" and upper_shadow_trend=="u" and lower_shadow_trend=="u")'}
+          'cross': '((position_trend == "u" or position_trend == "d") and ((shadow_trend != "u" and upper_shadow_trend=="u" and lower_shadow_trend=="u") or (entity_trend == "d" and shadow_trend != "u")) and (candle_entity_pct < 0.05 or candle_entity_to_close < 0.0015))',
+          'highwave': '(entity_trend == "d" and shadow_trend == "u") and (upper_shadow_trend=="u" or lower_shadow_trend=="u") and (position_trend == "u" or position_trend == "d")'}
         values = {
           'cross': 'd', 
           'highwave': 'u'}
         df = assign_condition_value(df=df, column='cross_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
-      # ======================================= 2+ candle pattern =================================== #  
+      # ============================== 2+ candle pattern =========================  
       if 'multi_candle' > '':
         
         # flat top/bottom 
         df['previous_high'] = df['High'].shift(1)
         df['previous_low'] = df['Low'].shift(1)
-        df['high_diff'] = abs(df['High'] - df['previous_high'])/df['High']
-        df['low_diff'] = abs(df['Low'] - df['previous_low'])/df['Low']
+        df['high_diff'] = abs(df['High'] - df['previous_high'])/df['Close']
+        df['low_diff'] = abs(df['Low'] - df['previous_low'])/df['Close']
         df['flat_signal'] = 'n'
         conditions = {
           'top': '(position_trend == "u" and high_diff <= 0.0025)',
@@ -763,16 +783,14 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         df['wrap_signal'] = 'n'
         df['embrace_signal'] = 'n'
         df['star_signal'] = 'n'
-        previous_row = None
-        previous_previous_row = None
         df['candle_entity_middle'] = (df['candle_entity_top'] + df['candle_entity_bottom']) * 0.5
 
+        previous_row = None
+        previous_previous_row = None
         for idx in idxs:
           
-          # current row
+          # current row and previous row
           row = df.loc[idx]
-
-          # previous row
           previous_i = idxs.index(idx) - 1
           if previous_i < 0:
             continue
@@ -798,23 +816,23 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
               # 先绿后红
               if (previous_row['candle_color'] == 1 and row['candle_color'] == -1):
                 
-                # 在非底部: 空头吞噬
-                if (row['position_trend'] != "d" or previous_row['position_trend'] != "d"):
+                # 在顶部: 空头吞噬
+                if (row['position_trend'] == "u" and previous_row['position_trend'] != "d"):
                   df.loc[idx, 'wrap_trend'] = 'd'
 
               # 先红后绿
               elif (previous_row['candle_color'] == -1 and row['candle_color'] == 1):
                 
-                # 在非顶部: 多头吞噬
-                if (row['position_trend'] != "u" or previous_row['position_trend'] != "u"):
+                # 在底部: 多头吞噬
+                if (row['position_trend'] == "d" and previous_row['position_trend'] != "u"):
                   df.loc[idx, 'wrap_trend'] = 'u'
                 
               # 顶部-全绿-小实体被大实体吞噬: 顶吞噬
-              elif ((row['position_trend'] == "u" and previous_row['entity_trend'] == "d") and (previous_row['candle_color'] == -1 and row['candle_color'] == -1)):
+              elif ((row['position_trend'] == "u" and previous_row['entity_trend'] != "d") and (previous_row['candle_color'] == 1 and row['candle_color'] == 1)):
                 df.loc[idx, 'wrap_trend'] = 'd'  
             
               # 底部-全红-小实体被大实体吞噬: 底吞噬
-              elif ((row['position_trend'] == "d" and previous_row['entity_trend'] == "d") and (previous_row['candle_color'] == 1 and row['candle_color'] == 1)):
+              elif ((row['position_trend'] == "d" and previous_row['entity_trend'] != "u") and (previous_row['candle_color'] ==-1 and row['candle_color'] ==-1)):
                 df.loc[idx, 'wrap_trend'] = 'u'  
 
           # 包孕
@@ -824,14 +842,13 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
             # 底部>前底部 & 顶部<前顶部: 包孕形态
             if (previous_row['candle_entity_top'] > row['candle_entity_top']) and (previous_row['candle_entity_bottom'] < row['candle_entity_bottom']):
               # 顶部: 空头包孕
-              if row['position_trend'] == 'u':
+              if row['position_trend'] in ['u']:
                 df.loc[idx, 'embrace_trend'] = 'd'
-              # 底部: 多头包孕
-              elif row['position_trend'] == 'd':
+              elif row['position_trend'] in ['d']:
                 df.loc[idx, 'embrace_trend'] = 'u'
           
           # 顶部
-          if row['position_trend'] == 'u':
+          if row['position_trend'] in ['u']:
 
             # =================================== 双线形态  =================================== #
             # 2 是长实体
@@ -861,9 +878,11 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
                   # 2 底部 > 1, 3顶部
                   if (previous_row['candle_entity_bottom'] > previous_previous_row['candle_entity_top']) and (previous_row['candle_entity_bottom'] > row['candle_entity_top']):
                     df.loc[idx, 'star_trend'] = 'd'
+                  elif ((previous_row['cross_trend'] == "d" or previous_row['cross_trend'] == "u") and previous_row['High'] > previous_previous_row['High']) and (previous_row['High'] > row['High']):
+                    df.loc[idx, 'star_trend'] = 'd'
 
           # 底部
-          elif row['position_trend'] == 'd':
+          elif row['position_trend'] in ['d']:
 
             # =================================== 双线形态  =================================== #
             # 2 是长实体
@@ -877,7 +896,7 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
                   # 顶部穿过前中点
                   if previous_row['candle_entity_middle'] < row['candle_entity_top']:
                     # 先红后绿: 穿刺形态
-                    if (row['position_trend'] == 'd' and previous_row['candle_color'] == -1 and row['candle_color'] == 1):
+                    if (row['position_trend'] != 'u' and previous_row['candle_color'] == -1 and row['candle_color'] == 1):
                       df.loc[idx, 'cloud_trend'] = 'u'
             
             # =================================== 三线形态  =================================== #
@@ -893,8 +912,10 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
                   # 2 顶部 < 1, 3底部
                   if (previous_row['candle_entity_top'] < previous_previous_row['candle_entity_bottom']) and (previous_row['candle_entity_top'] < row['candle_entity_bottom']):
                     df.loc[idx, 'star_trend'] = 'u'
-        
-      # ======================================= overall results  ==================================== #
+                  elif ((previous_row['cross_trend'] == "d" or previous_row['cross_trend'] == "u") and previous_row['Low'] < previous_previous_row['Low']) and (previous_row['Low'] < row['Low']):
+                    df.loc[idx, 'star_trend'] = 'u'
+
+      # ============================== overall results  ==========================
       if 'overall' > '':  
 
         # candle pattern description
@@ -929,7 +950,7 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         df['candle_pattern_idx'] = 0
         df['candle_pattern_description'] = ''
 
-        target_df = df.query('window_trend != "n" or window_position_trend != "n" or window_support_resistant_trend != "n" or hammer_trend != "n" or cross_trend != "n" or cloud_trend != "n" or wrap_trend != "n" or embrace_trend != "n"')
+        target_df = df.query('window_trend != "n" or window_position_trend != "n" or window_support_resistant_trend != "n" or hammer_trend != "n" or cross_trend != "n" or cloud_trend != "n" or wrap_trend != "n" or embrace_trend != "n" or star_trend != "n"')
         for index, row in target_df.iterrows():
           candle_pattern_trend = pattern_info.keys()
           for t in candle_pattern_trend:
@@ -945,14 +966,25 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         df.loc[index, 'candle_pattern_description'] = df.loc[index, 'candle_pattern_description'][1:]
         df.loc[index, 'candle_pattern_description'] = '[' + df.loc[index, 'candle_pattern_description'] + ']'
 
+        conditions = {
+          'up': '(candle_pattern_idx >=2)',
+          'down': '(candle_pattern_idx <= -2)'}
+        values = {
+          'up': 'u', 
+          'down': 'd'}
+        df = assign_condition_value(df=df, column='candle_pattern_trend', condition_dict=conditions, value_dict=values, default_value='n')
+        df['candle_pattern_signal'] = 'n'
+
       # drop unnecessary columns
       for col in [
-        # 'position_signal', 'belt_signal', 'cross_signal', 'flat_signal', 'embrace_signal', 'wrap_signal', 'hammer_signal', 'meteor_signal', 
-        'window_signal', 'window_position_signal', 'window_position_value', 'window_position_status', 'previous_window_position_value', 'previous_candle_color',
-        'volume_signal', 'color_signal', 'entity_signal', 'shadow_signal', 'upper_shadow_signal', 'lower_shadow_signal', 
-        'cloud_signal', 'star_signal', 
+        # 'position_signal', 'volume_signal', 
+        # 'belt_signal', 'cross_signal', 'flat_signal', 'embrace_signal', 'wrap_signal', 'hammer_signal', 'meteor_signal', 
+        # 'star_signal', 'window_position_signal', 'cloud_signal', 
+        'window_signal', 'window_position_value', 'window_position_status', 'previous_window_position_status', 'previous_window_position_value', 'previous_candle_color',
+        'color_signal', 'entity_signal', 'shadow_signal', 'upper_shadow_signal', 'lower_shadow_signal', 
+        
         'candle_entity_to_close', 'candle_shadow_to_close', 'candle_shadow_pct_diff', 'candle_entity_middle',
-        'previous_high', 'previous_low', 'high_diff', 'low_diff', 'close_ma_120', 'close_to_ma_120', 'volume_ma_120', 'volume_to_ma_120' 
+        'previous_high', 'previous_low', 'high_diff', 'low_diff',# 'close_ma_120', 'close_to_ma_120', 'volume_ma_120', 'volume_to_ma_120' 
         
         ]:
         if col in df.columns:
@@ -967,8 +999,8 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
       valid_idxs = df.query('linear_slope == linear_slope').index
 
       # calculate support and resistant from renko, linear_fit and candle_gap
-      support_candidates = {'renko': df.loc[max_idx, 'renko_support'], 'linear': df.loc[max_idx, 'linear_fit_support'], 'candle': df.loc[max_idx, 'candle_gap_support']}
-      resistant_candidates = {'renko': df.loc[max_idx, 'renko_resistant'], 'linear': df.loc[max_idx, 'linear_fit_resistant'], 'candle': df.loc[max_idx, 'candle_gap_resistant']}
+      support_candidates = {'linear': df.loc[max_idx, 'linear_fit_support'], 'candle': df.loc[max_idx, 'candle_gap_support']}
+      resistant_candidates = {'linear': df.loc[max_idx, 'linear_fit_resistant'], 'candle': df.loc[max_idx, 'candle_gap_resistant']}
 
       # support
       to_pop = []
@@ -1014,19 +1046,6 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
             df[signal_col] = sda(series=df[signal_col], zero_as=1)
         else:
           print(f'{col} not in df.columns')
-
-      # # overall trend
-      # conditions = {
-      #   'up': '(tankan > kijun) and (Low > resistant or (linear_slope > 0 and linear_fit_high_stop == 0) or ((linear_fit_low_stop > 3) and (Low > linear_fit_low)))', 
-      #   'down': '((tankan < kijun) and (High < support or (linear_slope < 0 and linear_fit_low_stop == 0))) or ((linear_fit_high_stop > 5) and (High < linear_fit_high))'} 
-      # values = {
-      #   'up': 'u', 
-      #   'down': 'd'}
-      # df = assign_condition_value(df=df, column='linear_trend', condition_dict=conditions, value_dict=values, default_value='')
-
-      # # signal from linear fit results
-      # df['linear_day'] = sda(series=df['linear_trend'].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=None)
-      # df['linear_signal'] = 'n' #df['linear_trend'].replace({'d': 's', 'u': 'b', 'n': ''})
 
     # ================================ overall description =======================
     if 'overall' in perspective:
@@ -1160,6 +1179,8 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
       description += '' if (description[-1] == ']') else ']'
       df.loc[max_idx, 'description'] = description
 
+      df['ta_score'] = df['trend_idx'] + df['candle_pattern_idx']
+
     
   except Exception as e:
     print(phase, e)
@@ -1232,13 +1253,12 @@ def calculate_ta_signal(df):
   return df
 
 # calculate ta indicators, trend and derivatives fpr latest data
-def calculate_ta_data(df, symbol, interval, trend_indicators=['ichimoku', 'aroon', 'adx', 'psar'], volume_indicators=[], volatility_indicators=['bb'], other_indicators=[], signal_threshold=0.001):
+def calculation(df, symbol, start_date=None, end_date=None, trend_indicators=['ichimoku', 'aroon', 'adx', 'psar'], volume_indicators=[], volatility_indicators=['bb'], other_indicators=[], signal_threshold=0.001):
   """
   Calculate selected ta features for dataframe
 
   :param df: original dataframe with hlocv features
   :param symbol: symbol of the data
-  :param interval: interval of the data
   :param trend_indicators: trend indicators
   :param volumn_indicators: volume indicators
   :param volatility_indicators: volatility indicators
@@ -1254,13 +1274,13 @@ def calculate_ta_data(df, symbol, interval, trend_indicators=['ichimoku', 'aroon
     return None   
   
   try:
-    # preprocess sec_data
+    # # preprocess sec_data
     phase = 'preprocess_sec_data'
-    df = preprocess_sec_data(df=df, symbol=symbol, interval=interval)
+    df = preprocess_sec_data(df=df, symbol=symbol)[start_date:end_date].copy()
     
     # calculate TA indicators
     phase = 'cal_ta_indicators' 
-    df = calculate_ta_indicators(df=df, trend_indicators=trend_indicators, volume_indicators=volume_indicators, volatility_indicators=volatility_indicators, other_indicators=other_indicators, signal_threshold=signal_threshold)
+    df = calculate_ta_indicators(df=df, trend_indicators=trend_indicators, volume_indicators=volume_indicators, volatility_indicators=volatility_indicators, other_indicators=other_indicators)
 
     # calculate TA trend
     phase = 'cal_ta_trend'
@@ -1280,7 +1300,7 @@ def calculate_ta_data(df, symbol, interval, trend_indicators=['ichimoku', 'aroon
   return df
 
 # visualize ta indicators
-def visualize_ta_data(df, start=None, end=None, title=None, save_path=None, visualization_args={}):
+def visualization(df, start=None, end=None, title=None, save_path=None, visualization_args={}):
   """
   visualize ta data
   :param df: dataframe with ta indicators
@@ -1309,7 +1329,7 @@ def visualize_ta_data(df, start=None, end=None, title=None, save_path=None, visu
     print(phase, e)
 
 # post-process calculation results
-def postprocess_ta_data(df, keep_columns, drop_columns, target_interval=''):
+def postprocess(df, keep_columns, drop_columns, target_interval=''):
   """
   Postprocess reulst data (last rows of symbols in a list)
 
@@ -2102,7 +2122,7 @@ def add_heikin_ashi_features(df, ohlcv_col=default_ohlcv_col, replace_ohlc=False
 # linear regression for recent high and low values
 def add_linear_features(df, max_period=60, min_period=15, is_print=False):
 
-  # get indexes
+  # get all indexes
   idxs = df.index.tolist()
 
   # get current date, renko_color, earliest-start date, latest-end date
@@ -2190,9 +2210,9 @@ def add_linear_features(df, max_period=60, min_period=15, is_print=False):
   distance = math.floor(len(tmp_data) / num_points)
   distance = 1 if distance < 1 else distance
   day_gap = math.floor(len(tmp_data) / 2)
-  highest_high = tmp_data['High'].max()
+  highest_high = df[start:]['High'].max() # tmp_data['High'].max()
   highest_high_idx = tmp_data['High'].idxmax()
-  lowest_low = tmp_data['Low'].min()
+  lowest_low = df[start:]['Low'].min()# tmp_data['Low'].min()
   lowest_low_idx = tmp_data['Low'].idxmin()
 
   # peaks
@@ -2303,8 +2323,6 @@ def add_linear_features(df, max_period=60, min_period=15, is_print=False):
   counter = 0
   idx_max = len(idxs)
   idx_min = min(min(high['x']), min(low['x']))
-  df['linear_fit_high_stop'] = 0
-  df['linear_fit_low_stop'] = 0
   for x in range(idx_min, idx_max):
     
     idx = idxs[x]
@@ -2345,21 +2363,35 @@ def add_linear_features(df, max_period=60, min_period=15, is_print=False):
     if  low_linear[0] < 0 and idx >= lowest_low_idx and df.loc[idx, 'linear_fit_low'] >= lowest_low:
       df.loc[idx, 'linear_fit_low'] = lowest_low
 
-  # high/low fit support and resistant
+  # high/low fit stop
+  df['linear_fit_high_stop'] = 0
+  df['linear_fit_low_stop'] = 0
   reach_top_idx = df.query(f'High=={highest_high} and linear_fit_high == {highest_high} and linear_fit_high_slope >= 0').index
-  df.loc[reach_top_idx, 'linear_fit_high_stop'] = 1
-  df.loc[reach_top_idx, 'linear_fit_resistant'] = highest_high
-
   reach_bottom_idx = df.query(f'Low=={lowest_low} and linear_fit_low == {lowest_low} and linear_fit_low_slope <= 0').index
+  df.loc[reach_top_idx, 'linear_fit_high_stop'] = 1
   df.loc[reach_bottom_idx, 'linear_fit_low_stop'] = 1
-  df.loc[reach_bottom_idx, 'linear_fit_support'] = lowest_low
-
-  for col in ['linear_fit_high_stop', 'linear_fit_low_stop', 'linear_fit_support', 'linear_fit_resistant']:
+  
+  for col in ['linear_fit_high_stop', 'linear_fit_low_stop']:
     df[col] = df[col].fillna(method='ffill')
-
   df['linear_fit_low_stop'] = sda(df['linear_fit_low_stop'], zero_as=1)
   df['linear_fit_high_stop'] = sda(df['linear_fit_high_stop'], zero_as=1)
-  
+
+  # support and resistant
+  resistant_idx = df.query(f'linear_fit_high == {highest_high} and linear_fit_high_stop > 3').index
+  if len(resistant_idx) > 0:
+    df.loc[min(resistant_idx), 'linear_fit_resistant'] = highest_high
+  else:
+    df['linear_fit_resistant'] = np.nan
+
+  support_idx = df.query(f'linear_fit_low == {lowest_low} and linear_fit_low_stop > 3').index
+  if len(support_idx) > 0:
+    df.loc[min(support_idx), 'linear_fit_support'] = lowest_low
+  else:
+    df['linear_fit_support'] = np.nan
+
+  for col in ['linear_fit_support', 'linear_fit_resistant']:
+    df[col] = df[col].fillna(method='ffill')
+
   # overall slope of High and Low
   df['linear_slope']  = df['linear_fit_high_slope'] + df['linear_fit_low_slope']
 
@@ -5241,7 +5273,7 @@ def plot_multiple_indicators(
       alpha = tmp_args.get('alpha') if tmp_args.get('alpha') is not None else 1
       plot_bar(df=plot_data, target_col=target_col, width=width, alpha=alpha, color_mode=color_mode, benchmark=None, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
     
-    elif tmp_indicator == 'trend':
+    elif tmp_indicator == 'trend' or tmp_indicator == 'pattern' or tmp_indicator == 'linear':
       width = tmp_args.get('bar_width') if tmp_args.get('bar_width') is not None else 1
       alpha = tmp_args.get('alpha') if tmp_args.get('alpha') is not None else 1
       benchmark = tmp_args.get('benchmark')
@@ -5291,7 +5323,7 @@ def plot_multiple_indicators(
   plt.close()
 
 # calculate ta indicators, trend and derivatives for historical data
-def plot_historical_evolution(df, symbol, interval, config, trend_indicators=['ichimoku', 'aroon', 'adx', 'psar'], volume_indicators=[], volatility_indicators=['bb'], other_indicators=[], signal_threshold=0.001, his_start_date=None, his_end_date=None, is_print=False, create_gif=False, plot_save_path=None):
+def plot_historical_evolution(df, symbol, interval, config, his_start_date=None, his_end_date=None, trend_indicators=['ichimoku', 'aroon', 'adx', 'psar'], volume_indicators=[], volatility_indicators=['bb'], other_indicators=[], signal_threshold=0.001, is_print=False, create_gif=False, plot_save_path=None):
   """
   Calculate selected ta features for dataframe
 
@@ -5325,17 +5357,17 @@ def plot_historical_evolution(df, symbol, interval, config, trend_indicators=['i
       config['visualization']['show_image'] = False
       config['visualization']['save_image'] = True
       
-      plot_start_date = util.string_plus_day(string=today, diff_days=-config['visualization']['plot_window'][interval])
+      plot_start_date = data_start_date # util.string_plus_day(string=today, diff_days=-config['visualization']['plot_window'][interval])
       images = []
   
   try:
     # preprocess sec_data
     phase = 'preprocess_sec_data'
-    df = preprocess_sec_data(df=df, symbol=symbol, interval=interval)
+    df = preprocess_sec_data(df=df, symbol=symbol)
     
     # calculate TA indicators
     phase = 'cal_ta_indicators' 
-    df = calculate_ta_indicators(df=df, trend_indicators=trend_indicators, volume_indicators=volume_indicators, volatility_indicators=volatility_indicators, other_indicators=other_indicators, signal_threshold=signal_threshold)
+    df = calculate_ta_indicators(df=df, trend_indicators=trend_indicators, volume_indicators=volume_indicators, volatility_indicators=volatility_indicators, other_indicators=other_indicators)
 
     # calculate TA trend
     phase = 'cal_ta_trend'
@@ -5369,19 +5401,20 @@ def plot_historical_evolution(df, symbol, interval, config, trend_indicators=['i
 
         # create image for gif
         if create_gif:
-          visualize_ta_data(df=ta_data, start=plot_start_date, title=f'{symbol}({ed})', save_path=plot_save_path, visualization_args=config['visualization'])
+          visualization(df=ta_data, start=plot_start_date, title=f'{symbol}({ed})', save_path=plot_save_path, visualization_args=config['visualization'])
           images.append(f'{plot_save_path}{symbol}({ed}).png')
 
       # update ed
       ed = next_ed
 
+    # append data
     historical_ta_data = ta_data.append(historical_ta_data)  
     df = util.remove_duplicated_index(df=historical_ta_data, keep='last')
 
     # create gif
     if create_gif:
       util.image_2_gif(image_list=images, save_name=f'{plot_save_path}{symbol}({his_start_date}-{his_end_date}).gif')
-      visualize_ta_data(df=df, start=plot_start_date, title=f'{symbol}(final)', save_path=plot_save_path, visualization_args=config['visualization'])
+      visualization(df=df, start=plot_start_date, title=f'{symbol}(final)', save_path=plot_save_path, visualization_args=config['visualization'])
 
   except Exception as e:
     print(symbol, phase, e)

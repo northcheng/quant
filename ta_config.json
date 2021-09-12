@@ -77,24 +77,47 @@
             },
             "signals": {
                 "signal_list": [
-                    "position_signal",
                     "flat_signal",
+                    "wrap_signal",
+                    "embrace_signal",
                     "meteor_signal",
                     "hammer_signal",
                     "cross_signal",
-                    "wrap_signal",
-                    "embrace_signal",
+
                     "bb_signal",
-                    "psar_signal",
-                    "aroon_signal",
-                    "adx_signal",
-                    "ichimoku_signal",
-                    "renko_signal",
-                    "signal"
+                    "volume_signal",
+
+                    "cloud_signal",
+                    "star_signal",
+                    "window_support_resistant_signal",
+                    "window_position_signal",
+                    "position_signal",
+                    "linear_signal"
                 ],
                 "plot_signal_on_price": true,
                 "price_alpha": 0
             },
+            "signals_old": {
+              "signal_list": [
+                  "position_signal",
+                  "volume_signal",
+                  "flat_signal",
+                  "meteor_signal",
+                  "hammer_signal",
+                  "cross_signal",
+                  "wrap_signal",
+                  "embrace_signal",
+                  "bb_signal",
+                  "psar_signal",
+                  "aroon_signal",
+                  "adx_signal",
+                  "ichimoku_signal",
+                  "renko_signal",
+                  "linear_signal"
+              ],
+              "plot_signal_on_price": true,
+              "price_alpha": 0
+          },
             "trend": {
                 "target_col": "trend_idx_ma",
                 "color_mode": "up_down",
