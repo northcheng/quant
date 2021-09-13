@@ -490,16 +490,16 @@
         "pool": {
             "tiger": {
                 "real": "tiger_pool",
-                "simu": "universe"
+                "simu": "univertiger_poolse"
             },
             "futu":{
                 "real": "futu_pool",
-                "simu": "universe"
+                "simu": "futu_pool"
             },
-            "simulation_account": "universe",
+            "simulation_account": "tiger_pool",
             "global_account": "tiger_pool",
             "standard_account": "tiger_pool",
-            "SIMULATE": "universe",
+            "SIMULATE": "futu_pool",
             "REAL": "futu_pool"
         },
         "stop_profit": {
