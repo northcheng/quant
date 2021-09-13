@@ -56,10 +56,10 @@
         "plot_args": {
             "plot_ratio": {
                 
-                "signals": 3,
-                "trend": 1,
-                "main_indicators": 10,
-                "volume": 1
+                "signals": 4,
+                "indicators": 1,
+                "overall": 1,
+                "main_indicators": 10
             },
             "main_indicators": {
                 "target_indicator": [
@@ -77,22 +77,23 @@
             },
             "signals": {
                 "signal_list": [
-                    "flat_signal",
-                    "wrap_signal",
-                    "embrace_signal",
-                    "meteor_signal",
-                    "hammer_signal",
-                    "cross_signal",
+                    "平头_signal",
+                    "吞噬_signal",
+                    "包孕_signal",
+                    "流星_signal",
+                    "锤子_signal",
+                    "十字星_signal",
+
+                    "穿刺_signal",
+                    "启明黄昏_signal",
+                    "反弹_signal",
+                    "突破_signal",
+                    "窗口_signal",
 
                     "bb_signal",
-                    "volume_signal",
-
-                    "cloud_signal",
-                    "star_signal",
-                    "window_support_resistant_signal",
-                    "window_position_signal",
-                    "position_signal",
-                    "linear_signal"
+                    "成交量_signal",
+                    "位置_signal",
+                    "拟合_signal"
                 ],
                 "plot_signal_on_price": true,
                 "price_alpha": 0
@@ -118,13 +119,18 @@
               "plot_signal_on_price": true,
               "price_alpha": 0
           },
-            "trend": {
-                "target_col": "trend_idx_ma",
+            "indicators": {
+                "target_col":[ "trend_idx_ma"],
                 "color_mode": "up_down",
                 "benchmark": 0,
-                "bar_width": 1,
                 "alpha": 0.8
             },
+            "overall": {
+                "target_col": ["overall_trend"],
+                "color_mode": "up_down",
+                "benchmark": 0,
+                "alpha": 0.8
+          },
             "candle": {
                 "signal_list": [
                     "position_signal",
