@@ -463,12 +463,16 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
     df.loc[up_idx, 'trend_direction'] = 1
     df.loc[down_idx, 'trend_direction'] = -1
 
-    df['trend_direction'] = sda(series=df['trend_direction'], zero_as=None)
+    non_idx = df.query('(trend_direction == 1 and trend_idx < 0) or (trend_direction ==-1 and trend_idx > 0)').index
+    df.loc[non_idx, 'trend_direction'] = 0
+
+    df['trend_direction'] = sda(series=df['trend_direction'], zero_as=1)
     df['trend_direction'] = sm(series=df['trend_direction'], periods=2).sum()
 
     df['0'] = 0
-    df['indicator_signal'] = 'n'
+    # df['indicator_signal'] = 'n'
     df['indicator_trend'] = cal_crossover_signal(df=df, fast_line='trend_direction', slow_line='0', pos_signal='u', neg_signal='d', none_signal=np.nan)
+    df['indicator_signal'] = df['indicator_trend']
     df['indicator_trend'] = df['indicator_trend'].fillna(method='ffill')
     non_trend_idx = df.query('adx_trend == "n" and indicator_trend == "u"').index
     df.loc[non_trend_idx, 'indicator_trend'] = 'n'
@@ -1272,6 +1276,8 @@ def calculate_ta_signal(df):
   df['signal'] = '' 
   df.loc[df['signal_day'] == 1, 'signal'] = 'b'
   df.loc[df['signal_day'] ==-1, 'signal'] = 's'
+
+  df['signal'] = '' 
   
   return df
 
