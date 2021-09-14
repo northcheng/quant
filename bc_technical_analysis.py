@@ -643,8 +643,8 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
 
         # window position days (days beyond/below window)
         conditions = {
-          'up': '(candle_entity_bottom >= candle_gap_top)',
-          'down': '(candle_entity_top <= candle_gap_bottom)'}
+          'up': '(Close >= candle_gap_top)',
+          'down': '(Close <= candle_gap_bottom)'}
         values = {
           'up': 1, 
           'down': -1}
@@ -955,8 +955,8 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         # candle pattern weight
         pattern_weight = {
           '窗口_trend': {'u': 2, 'd': -2},
-          '突破_trend': {'u': 2.5, 'd': -2.5},
-          '反弹_trend': {'u': 3, 'd': -3},
+          '突破_trend': {'u': 2, 'd': -2},
+          '反弹_trend': {'u': 2, 'd': -2},
           '锤子_trend': {'u': 0.5, 'd': -0.5},
           '十字星_trend': {'u': 0, 'd': 0},
           '平头_trend': {'u': 0.5, 'd': -0.5},
@@ -1239,8 +1239,8 @@ def calculate_ta_signal(df):
     # 'not hanging or meteor on the top': '((位置_trend != "u") or (位置_trend == "u" and 锤子_trend != "d" and 锤子_trend != "u"))',
 
     # new version
-    'ta trend is up-trending': '(indicator_trend == "u" or (adx_trend == "u" and trend_idx >0))',
-    'candle or linear trend is triggered': '((candle_pattern_idx >= 1) or (trend_idx == 4))' #  or 拟合_trend == "u"
+    'ta trend is up-trending': '(indicator_trend == "u" or (renko_trend == "u" and trend_idx >= 3))',
+    'candle or linear trend is triggered': '(candle_pattern_idx >= 2)' #  or 拟合_trend == "u"
   }
   up_idx = df.query(' and '.join(buy_conditions.values())).index 
   df.loc[up_idx, 'trend'] = 'u'
@@ -1260,10 +1260,10 @@ def calculate_ta_signal(df):
     # 'bb is not over-selling': '(bb_trend != "u" or (Close < renko_l and renko_duration >= 150))',
 
     # new version
-    'ta trend is up-trending': '(indicator_trend == "d" or indicator_trend == "n")',
-    'candle or linear trend is triggered': '((candle_pattern_idx <= -1) or (trend_idx < 0))'
+    'negative candle patterns': '(窗口_trend == "d" or 突破_trend == "d" or 反弹_trend == "d" or 启明黄昏_trend == "d")',
+    'candle or linear trend is triggered': '((trend_idx < -1 and up_trend_idx == 0 and renko_trend == "d"))'
   } 
-  down_idx = df.query(' and '.join(sell_conditions.values())).index 
+  down_idx = df.query(' or '.join(sell_conditions.values())).index 
   df.loc[down_idx, 'trend'] = 'd'
 
   # ================================ Calculate overall siganl ======================
