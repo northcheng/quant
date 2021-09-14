@@ -56,9 +56,8 @@
         "plot_args": {
             "plot_ratio": {
                 
-                "signals": 4,
-                "indicators": 1,
-                "overall": 1,
+                "signals": 5,
+                "direction": 1,
                 "main_indicators": 10
             },
             "main_indicators": {
@@ -77,6 +76,15 @@
             },
             "signals": {
                 "signal_list": [
+                    "bb_signal",
+                    "psar_signal",
+                    "aroon_signal",
+                    "adx_signal",
+                    "ichimoku_signal",
+                    "renko_signal",
+                    "indicator_signal",
+                    " ",
+
                     "平头_signal",
                     "吞噬_signal",
                     "包孕_signal",
@@ -89,11 +97,13 @@
                     "反弹_signal",
                     "突破_signal",
                     "窗口_signal",
-
-                    "bb_signal",
+                    
                     "成交量_signal",
                     "位置_signal",
-                    "拟合_signal"
+                    "拟合_signal",
+
+                    "signal"
+
                 ],
                 "plot_signal_on_price": true,
                 "price_alpha": 0
@@ -125,9 +135,9 @@
                 "benchmark": 0,
                 "alpha": 0.8
             },
-            "overall": {
-                "target_col": ["overall_trend"],
-                "color_mode": "up_down",
+            "direction": {
+                "target_col": ["trend_direction"],
+                "color_mode": "benchmark",
                 "benchmark": 0,
                 "alpha": 0.8
           },

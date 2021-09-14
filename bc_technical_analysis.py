@@ -450,20 +450,30 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
     
     # calculate overall trend index
     df['trend_idx'] = df['up_trend_idx'] + df['down_trend_idx']
-    df['trend_idx_ma'] = sm(series=df['trend_idx'], periods=10).sum()
+    df['trend_idx_ma'] = sm(series=df['trend_idx'], periods=5).sum()
 
-    df['overall_trend'] = 0
+    df['trend_direction'] = 0
     up_mask = df['trend_idx_ma'] > df['trend_idx_ma'].shift(1)
     down_mask = df['trend_idx_ma'] < df['trend_idx_ma'].shift(1)
-    df.loc[up_mask, 'overall_trend'] = 1
-    df.loc[down_mask, 'overall_trend'] = -1
+    df.loc[up_mask, 'trend_direction'] = 1
+    df.loc[down_mask, 'trend_direction'] = -1
      
-    up_idx = df.query('overall_trend == 0 and trend_idx_ma >= 20').index
-    down_idx = df.query('overall_trend == 0 and trend_idx_ma <=-20').index
-    df.loc[up_idx, 'overall_trend'] = 1
-    df.loc[down_idx, 'overall_trend'] = -1
+    up_idx = df.query('trend_direction == 0 and trend_idx_ma >= 20').index
+    down_idx = df.query('trend_direction == 0 and trend_idx_ma <=-20').index
+    df.loc[up_idx, 'trend_direction'] = 1
+    df.loc[down_idx, 'trend_direction'] = -1
 
-    df['overall_trend'] = sda(series=df['overall_trend'], zero_as=None)
+    df['trend_direction'] = sda(series=df['trend_direction'], zero_as=None)
+    df['trend_direction'] = sm(series=df['trend_direction'], periods=2).sum()
+
+    df['0'] = 0
+    df['indicator_signal'] = 'n'
+    df['indicator_trend'] = cal_crossover_signal(df=df, fast_line='trend_direction', slow_line='0', pos_signal='u', neg_signal='d', none_signal=np.nan)
+    df['indicator_trend'] = df['indicator_trend'].fillna(method='ffill')
+    non_trend_idx = df.query('adx_trend == "n" and indicator_trend == "u"').index
+    df.loc[non_trend_idx, 'indicator_trend'] = 'n'
+
+    df.drop(['0'], axis=1, inplace=True)
 
   except Exception as e:
     print(f'[Exception]: @ {phase}, {e}')
@@ -680,7 +690,9 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
           'break_up': 'u', 
           'break_down': 'd'}
         df = assign_condition_value(df=df, column='突破_trend', condition_dict=conditions, value_dict=values, default_value='n')
-        df = remove_redundant_signal(df=df, signal_col='突破_trend', pos_signal='u', neg_signal='d', none_signal='n', keep='first')
+        df['next_突破_trend'] = df['突破_trend'].shift(-1)
+        redundant_idx = df.query('(突破_trend == "u" and next_突破_trend == "u") or (突破_trend == "d" and next_突破_trend == "d")').index
+        df.loc[redundant_idx, '突破_trend'] = 'n'
         
       # ============================== 1 candle pattern  =========================
       if '1_candle' > '':
@@ -784,14 +796,9 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
 
         # interate through dataframe by window size of 2 and 3
         idxs = df.index.tolist()
-        df['穿刺_trend'] = 'n'
-        df['吞噬_trend'] = 'n'
-        df['包孕_trend'] = 'n'
-        df['启明黄昏_trend'] = 'n'
-        df['穿刺_signal'] = 'n'
-        df['吞噬_signal'] = 'n'
-        df['包孕_signal'] = 'n'
-        df['启明黄昏_signal'] = 'n'
+        for t in ['穿刺', '吞噬', '包孕', '启明黄昏']:
+          df[f'{t}_trend'] = 'n'
+          # df[f'{t}_signal'] = np.nan
         df['candle_entity_middle'] = (df['candle_entity_top'] + df['candle_entity_bottom']) * 0.5
 
         previous_row = None
@@ -924,8 +931,12 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
                   elif ((previous_row['十字星_trend'] == "d" or previous_row['十字星_trend'] == "u") and previous_row['Low'] < previous_previous_row['Low']) and (previous_row['Low'] < row['Low']):
                     df.loc[idx, '启明黄昏_trend'] = 'u'
 
+        # multi-candle signals
+        for t in ['穿刺', '吞噬', '包孕', '启明黄昏']:
+          df[f'{t}_signal'] = df[f'{t}_trend']
+
       # ============================== overall results  ==========================
-      if 'overall' > '':  
+      if 'candle pattern description and index' > '':  
 
         # candle pattern description
         pattern_info = {
@@ -989,7 +1000,7 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         # '位置_signal', '成交量_signal', 
         # '腰带_signal', '十字星_signal', '平头_signal', '包孕_signal', '吞噬_signal', '锤子_signal', '流星_signal', 
         # '启明黄昏_signal', '突破_signal', '窗口_signal', '穿刺_signal', 
-        'window_position_status', 'window_position_days', 'previous_window_position_days', 'previous_window_position_status', 'previous_candle_color',
+        # 'window_position_status', 'window_position_days', 'previous_window_position_days', 'previous_window_position_status', 'previous_candle_color', 'next_突破_trend',
         'entity_signal', 'shadow_signal', 'upper_shadow_signal', 'lower_shadow_signal', 
         'candle_entity_to_close', 'candle_shadow_to_close', 'candle_shadow_pct_diff', 'candle_entity_middle'
         'previous_high', 'previous_low', 'high_diff', 'low_diff'
@@ -1054,6 +1065,7 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         else:
           print(f'{col} not in df.columns')
 
+    phase = 'overall'
     # ================================ overall description =======================
     if 'overall' in perspective:
       # ================================ linear analysis ========================
@@ -1218,14 +1230,17 @@ def calculate_ta_signal(df):
     # 'bb is not over-buying': '(bb_trend != "d")',
 
     # developing version
-    'ichimoku/aroon/adx/psar are all up trending': '(trend_idx >= 3)',
-    'renko is up trending': '(renko_trend == "u")',
-    'bb is not over-buying': '(bb_trend != "d")',
+    # 'ichimoku/aroon/adx/psar are all up trending': '(trend_idx >= 3)',
+    # 'renko is up trending': '(renko_trend == "u")',
+    # 'bb is not over-buying': '(bb_trend != "d")',
 
-    'candle color is green': '(candle_color == 1)',
-    'not a cross or highwave': '(十字星_trend != "u" and 十字星_trend != "d")',
-    'not hanging or meteor on the top': '((位置_trend != "u") or (位置_trend == "u" and 锤子_trend != "d" and 锤子_trend != "u"))',
+    # 'candle color is green': '(candle_color == 1)',
+    # 'not a cross or highwave': '(十字星_trend != "u" and 十字星_trend != "d")',
+    # 'not hanging or meteor on the top': '((位置_trend != "u") or (位置_trend == "u" and 锤子_trend != "d" and 锤子_trend != "u"))',
 
+    # new version
+    'ta trend is up-trending': '(indicator_trend == "u" or (adx_trend == "u" and trend_idx >0))',
+    'candle or linear trend is triggered': '((candle_pattern_idx >= 1) or (trend_idx == 4))' #  or 拟合_trend == "u"
   }
   up_idx = df.query(' and '.join(buy_conditions.values())).index 
   df.loc[up_idx, 'trend'] = 'u'
@@ -1239,10 +1254,14 @@ def calculate_ta_signal(df):
     # 'bb is not over-selling': '(bb_trend != "u")',
     
     # developing version
-    'High is below kijun line': '(High < kijun)',
-    'no individual trend is up and overall trend is down': '(trend_idx < -1 and up_trend_idx == 0)',
-    'price went down through brick': '(renko_trend == "d")', 
-    'bb is not over-selling': '(bb_trend != "u" or (Close < renko_l and renko_duration >= 150))',
+    # 'High is below kijun line': '(High < kijun)',
+    # 'no individual trend is up and overall trend is down': '(trend_idx < -1 and up_trend_idx == 0)',
+    # 'price went down through brick': '(renko_trend == "d")', 
+    # 'bb is not over-selling': '(bb_trend != "u" or (Close < renko_l and renko_duration >= 150))',
+
+    # new version
+    'ta trend is up-trending': '(indicator_trend == "d" or indicator_trend == "n")',
+    'candle or linear trend is triggered': '((candle_pattern_idx <= -1) or (trend_idx < 0))'
   } 
   down_idx = df.query(' and '.join(sell_conditions.values())).index 
   df.loc[down_idx, 'trend'] = 'd'
@@ -5342,7 +5361,7 @@ def plot_multiple_indicators(
   plt.close()
 
 # calculate ta indicators, trend and derivatives for historical data
-def plot_historical_evolution(df, symbol, interval, config, his_start_date=None, his_end_date=None, trend_indicators=['ichimoku', 'aroon', 'adx', 'psar'], volume_indicators=[], volatility_indicators=['bb'], other_indicators=[], signal_threshold=0.001, is_print=False, create_gif=False, plot_save_path=None):
+def plot_historical_evolution(df, symbol, interval, config, his_start_date=None, his_end_date=None, trend_indicators=['ichimoku', 'aroon', 'adx', 'psar'], volume_indicators=[], volatility_indicators=['bb'], other_indicators=[], signal_threshold=0.001, is_print=False, create_gif=False, plot_final=False, plot_save_path=None):
   """
   Calculate selected ta features for dataframe
 
@@ -5360,6 +5379,7 @@ def plot_historical_evolution(df, symbol, interval, config, his_start_date=None,
   # copy dataframe
   df = df.copy()
   today = util.time_2_string(time_object=df.index.max())
+  
 
   if df is None or len(df) == 0:
     print(f'{symbol}: No data for calculate_ta_data')
@@ -5367,6 +5387,7 @@ def plot_historical_evolution(df, symbol, interval, config, his_start_date=None,
   else:
     data_start_date = util.string_plus_day(string=his_start_date, diff_days=-config['calculation']['look_back_window'][interval])
     df = df[data_start_date:]
+    plot_start_date = data_start_date
 
   if create_gif:
     if plot_save_path is None:
@@ -5375,8 +5396,6 @@ def plot_historical_evolution(df, symbol, interval, config, his_start_date=None,
     else:
       config['visualization']['show_image'] = False
       config['visualization']['save_image'] = True
-      
-      plot_start_date = data_start_date # util.string_plus_day(string=today, diff_days=-config['visualization']['plot_window'][interval])
       images = []
   
   try:
@@ -5416,6 +5435,7 @@ def plot_historical_evolution(df, symbol, interval, config, his_start_date=None,
         
         # calculate the dynamic part: linear features
         ta_data = calculate_ta_derivatives(df=df[sd:ed])
+        ta_data = calculate_ta_signal(ta_data)
         historical_ta_data = historical_ta_data.append(ta_data.tail(1))
 
         # create image for gif
@@ -5433,6 +5453,9 @@ def plot_historical_evolution(df, symbol, interval, config, his_start_date=None,
     # create gif
     if create_gif:
       util.image_2_gif(image_list=images, save_name=f'{plot_save_path}{symbol}({his_start_date}-{his_end_date}).gif')
+
+    # if plot final data
+    if plot_final: 
       visualization(df=df, start=plot_start_date, title=f'{symbol}(final)', save_path=plot_save_path, visualization_args=config['visualization'])
 
   except Exception as e:
