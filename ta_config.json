@@ -58,6 +58,7 @@
                 
                 "signals": 5,
                 "direction": 1,
+                "indicators": 1,
                 "main_indicators": 10
             },
             "main_indicators": {
@@ -140,7 +141,13 @@
                 "color_mode": "benchmark",
                 "benchmark": 0,
                 "alpha": 0.8
-          },
+            },
+            "trend": {
+                "target_col": ["trend_idx"],
+                "color_mode": "up_down",
+                "benchmark": 0,
+                "alpha": 0.8
+            },
             "candle": {
                 "signal_list": [
                     "position_signal",

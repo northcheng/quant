@@ -635,6 +635,9 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
 
       if 'windows' > '':
         
+        # candle entity middle
+        df['candle_entity_middle'] = (df['candle_entity_top'] + df['candle_entity_bottom']) * 0.5
+        
         # window(gap)
         df['窗口_signal'] = 'n'
         conditions = {
@@ -678,8 +681,8 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         # rebound or hitpeak
         df['反弹_signal'] = ''
         conditions = {
-          'rebound': '(candle_gap != 2 and window_position_days > 1) and ((window_position_status == "up") and ((previous_window_position_status == "mid_up" and previous_candle_color == -1) or previous_window_position_status == "mid_down" or previous_window_position_status == "mid" or previous_window_position_status == "out"))', 
-          'hitpeak': '(candle_gap !=-2 and window_position_days <-1) and ((window_position_status == "down") and (previous_window_position_status == "mid_up" or (previous_window_position_status == "mid_down" and previous_candle_color == 1) or previous_window_position_status == "mid" or previous_window_position_status == "out"))'} 
+          'rebound': '(candle_gap != 2 and window_position_days > 2) and ((window_position_status == "up") and ((previous_window_position_status == "mid_up" and previous_candle_color == -1) or previous_window_position_status == "mid_down" or previous_window_position_status == "mid" or previous_window_position_status == "out"))', 
+          'hitpeak': '(candle_gap !=-2 and window_position_days <-2) and ((window_position_status == "down") and (previous_window_position_status == "mid_up" or (previous_window_position_status == "mid_down" and previous_candle_color == 1) or previous_window_position_status == "mid" or previous_window_position_status == "out"))'} 
         values = {
           'rebound': 'u',
           'hitpeak': 'd'}
@@ -688,8 +691,8 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         # break through up or down
         df['突破_signal'] = ''
         conditions = {
-          'break_up': '((candle_gap != 2 and previous_window_position_days < 0) and ((candle_color == 1 and (window_position_status == "up" or window_position_status == "mid_up" or window_position_status == "out")) or (candle_color == -1 and window_position_status == "up")))',
-          'break_down': '((candle_gap != -2 and previous_window_position_days > 0) and ((candle_color ==-1 and (window_position_status == "down" or window_position_status == "mid_down" or window_position_status == "out")) or (candle_color == 1 and window_position_status == "down")))'}
+          'break_up': '((candle_gap != 2 and previous_window_position_days < 0) and ((candle_color == 1 and (window_position_status == "up" or window_position_status == "out")) or (candle_color == -1 and window_position_status == "up")))',
+          'break_down': '((candle_gap != -2 and previous_window_position_days > 0) and ((candle_color ==-1 and (window_position_status == "down" or window_position_status == "out")) or (candle_color == 1 and window_position_status == "down")))'}
         values = {
           'break_up': 'u', 
           'break_down': 'd'}
@@ -891,8 +894,8 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
             else:
               # 1 绿色, 3红色
               if (row['candle_color'] == -1):
-                # 1, 3为长实体
-                if False: # (row['entity_trend'] != 'u') or (previous_previous_row['entity_trend'] != 'u'):
+                # 3为长实体
+                if (row['十字星_trend'] == 'u' or row['十字星_trend'] == 'd'):
                   pass
                 else:
                   # 2 底部 > 1, 3顶部
@@ -925,8 +928,8 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
             else:
               # 1 红色, 3绿色
               if (row['candle_color'] == 1):
-                # 1, 3为长实体
-                if False: # (row['entity_trend'] != 'u') or (previous_previous_row['entity_trend'] != 'u'):
+                # 3为长实体
+                if (row['十字星_trend'] == 'u' or row['十字星_trend'] == 'd'):
                   pass
                 else:
                   # 2 顶部 < 1, 3底部
@@ -998,6 +1001,19 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
           'down': 'd'}
         df = assign_condition_value(df=df, column='candle_pattern_trend', condition_dict=conditions, value_dict=values, default_value='n')
         df['candle_pattern_signal'] = 'n'
+
+      # days since signal triggered
+      up_window_idx = df['candle_gap'].shift(-1) == 2
+      down_window_idx = df['candle_gap'].shift(-1) == -2
+      for col in ['窗口', '突破', '反弹', '启明黄昏']:
+        df[f'{col}_day'] = df[f'{col}_trend'].replace({'u':1, 'd':-1, 'n':0})
+        
+        df.loc[up_window_idx, f'{col}_day'] = np.nan
+        df.loc[down_window_idx, f'{col}_day'] = np.nan
+
+        df[f'{col}_day'] = sda(df[f'{col}_day'], zero_as=1)
+
+
 
       # drop unnecessary columns
       for col in [
@@ -1243,8 +1259,9 @@ def calculate_ta_signal(df):
     # 'not hanging or meteor on the top': '((位置_trend != "u") or (位置_trend == "u" and 锤子_trend != "d" and 锤子_trend != "u"))',
 
     # new version
-    'ta trend is up-trending': '(indicator_trend == "u" or (renko_trend == "u" and trend_idx >= 3))',
-    'candle or linear trend is triggered': '(candle_pattern_idx >= 2)' #  or 拟合_trend == "u"
+    'ta trend is up-trending': '(indicator_trend == "u" or (trend_idx == 4))',
+    'positive candle pattern triggered': '((0< 窗口_day <=3) or (0< 突破_day <=3) or (0< 反弹_day <=3) or (0< 启明黄昏_day <=3))',
+    'negative candle pattern not triggered': '(not (-3<= 窗口_day <0) and not (-3<= 突破_day <0) and not (-3<= 反弹_day <0) and not (-3<= 启明黄昏_day <0))'
   }
   up_idx = df.query(' and '.join(buy_conditions.values())).index 
   df.loc[up_idx, 'trend'] = 'u'
@@ -1264,8 +1281,9 @@ def calculate_ta_signal(df):
     # 'bb is not over-selling': '(bb_trend != "u" or (Close < renko_l and renko_duration >= 150))',
 
     # new version
-    'negative candle patterns': '(窗口_trend == "d" or 突破_trend == "d" or 反弹_trend == "d" or 启明黄昏_trend == "d")',
-    'candle or linear trend is triggered': '((trend_idx < -1 and up_trend_idx == 0 and renko_trend == "d"))'
+    'negative candle patterns': '((trend_idx_ma < 15 or trend_direction < 0 or trend_idx < 4) and (((-3<= 窗口_day <0) or (-3<= 突破_day <0) or (-3<= 反弹_day <0) or (-3<= 启明黄昏_day <0))))',
+    'technical indicator 1': '(trend_idx < -1 and up_trend_idx == 0 and renko_trend == "d")',
+    'technical indicator 2': '(trend_idx == -4)',
   } 
   down_idx = df.query(' or '.join(sell_conditions.values())).index 
   df.loc[down_idx, 'trend'] = 'd'
@@ -5313,11 +5331,11 @@ def plot_multiple_indicators(
       alpha = tmp_args.get('alpha') if tmp_args.get('alpha') is not None else 1
       plot_bar(df=plot_data, target_col=target_col, width=width, alpha=alpha, color_mode=color_mode, benchmark=None, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
     
-    elif tmp_indicator == 'trend' or tmp_indicator == 'pattern' or tmp_indicator == 'linear':
-      width = tmp_args.get('bar_width') if tmp_args.get('bar_width') is not None else 1
-      alpha = tmp_args.get('alpha') if tmp_args.get('alpha') is not None else 1
-      benchmark = tmp_args.get('benchmark')
-      plot_bar(df=plot_data, target_col=target_col, width=width, alpha=alpha, color_mode=color_mode, benchmark=benchmark, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
+    # elif tmp_indicator == 'trend' or tmp_indicator == 'pattern' or tmp_indicator == 'linear':
+    #   width = tmp_args.get('bar_width') if tmp_args.get('bar_width') is not None else 1
+    #   alpha = tmp_args.get('alpha') if tmp_args.get('alpha') is not None else 1
+    #   benchmark = tmp_args.get('benchmark')
+    #   plot_bar(df=plot_data, target_col=target_col, width=width, alpha=alpha, color_mode=color_mode, benchmark=benchmark, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
 
     # plot renko
     elif tmp_indicator == 'renko':
