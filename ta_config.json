@@ -77,13 +77,11 @@
             },
             "signals": {
                 "signal_list": [
+                    
                     "bb_signal",
-                    "psar_signal",
-                    "aroon_signal",
-                    "adx_signal",
-                    "ichimoku_signal",
-                    "renko_signal",
                     "indicator_signal",
+                    "renko_signal",
+                    "拟合_signal",
                     " ",
 
                     "平头_signal",
@@ -101,8 +99,7 @@
                     
                     "成交量_signal",
                     "位置_signal",
-                    "拟合_signal",
-
+                    
                     "signal"
 
                 ],

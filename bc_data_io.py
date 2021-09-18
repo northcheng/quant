@@ -2064,8 +2064,9 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
       updated = assets[portfolio].get('updated')
       position = assets[portfolio].get('portfolio')
       if position is not None:
-        position = pd.DataFrame(position)
+        position = pd.DataFrame(position).fillna(np.nan)
         if len(position) > 0:
+
           lower_than_support = position.query('latest_price <= support').index.tolist()
           higher_than_resistant = position.query('latest_price >= resistant').index.tolist()
           position = position.drop('latest_time', axis=1)[['quantity', 'rate', 'market_value', 'average_cost', 'latest_price', 'support', 'resistant']].to_html()

@@ -212,7 +212,7 @@ class FixedPositionTrader:
       symbol, interval = symbol_interval.split('_')
       if symbol in recalculate_trend:
         if len(sec_data[symbol_interval][start_date:end_date]) > 0:
-          self.record[symbol] = ta_util.calculate_ta_data(df=sec_data[symbol_interval][start_date:end_date], symbol=symbol, interval=interval)
+          self.record[symbol] = ta_util.calculation(df=sec_data[symbol_interval][start_date:end_date], symbol=symbol)
         else:
           print(f'{symbol} has no data, remove it from record')
           self.record.pop(symbol)
