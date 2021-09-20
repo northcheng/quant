@@ -448,36 +448,26 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       df.loc[up_idx, 'up_trend_idx'] += 1
       df.loc[down_idx, 'down_trend_idx'] -= 1
     
-    # calculate overall trend index
+    # calculate overall trend index and its moving average
     df['trend_idx'] = df['up_trend_idx'] + df['down_trend_idx']
     df['trend_idx_ma'] = sm(series=df['trend_idx'], periods=5).sum()
 
+    # calculate direction of overall trend
     df['trend_direction'] = 0
     df['pre_trend_idx_ma'] = df['trend_idx_ma'].shift(1)
     up_mask = df.query('trend_idx >=3 and (trend_idx_ma > pre_trend_idx_ma or (trend_idx_ma == pre_trend_idx_ma and trend_idx_ma > 0))').index
     down_mask = df.query('trend_idx <=-2 and (trend_idx_ma < pre_trend_idx_ma or (trend_idx_ma == pre_trend_idx_ma and trend_idx_ma < 0))').index
     df.loc[up_mask, 'trend_direction'] = 1
     df.loc[down_mask, 'trend_direction'] = -1
-     
-    # up_idx = df.query('trend_direction == 0 and trend_idx_ma >= 20').index
-    # down_idx = df.query('trend_direction == 0 and trend_idx_ma <=-20').index
-    # df.loc[up_idx, 'trend_direction'] = 1
-    # df.loc[down_idx, 'trend_direction'] = -1
-
-    # non_idx = df.query('(trend_direction == 1 and trend_idx < 0) or (trend_direction ==-1 and trend_idx > 0)').index
-    # df.loc[non_idx, 'trend_direction'] = 0
-
     df['trend_direction'] = sda(series=df['trend_direction'], zero_as=1)
-    # df['trend_direction'] = sm(series=df['trend_direction'], periods=2).mean()
 
+    # overall trend and signal of ta indicators
     df['0'] = 0
-    # df['indicator_signal'] = 'n'
     df['indicator_trend'] = cal_crossover_signal(df=df, fast_line='trend_direction', slow_line='0', pos_signal='u', neg_signal='d', none_signal=np.nan)
     df['indicator_signal'] = df['indicator_trend']
     df['indicator_trend'] = df['indicator_trend'].fillna(method='ffill')
     non_trend_idx = df.query('adx_trend == "n" and indicator_trend == "u"').index
     df.loc[non_trend_idx, 'indicator_trend'] = 'n'
-
     df.drop(['0'], axis=1, inplace=True)
 
   except Exception as e:
@@ -528,6 +518,9 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
     phase = 'candle analysis'
     # ================================ candle analysis ===========================
     if 'candle' in perspective:
+      
+      ma_period = 30
+      std_factor = 0.75
 
       # ============================== fundamental components ====================
       if 'basics' > '':
@@ -547,7 +540,7 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
 
         # large/small volume 
         df['成交量_signal'] = 'n'
-        df['volume_ma'] = sm(series=df['Volume'], periods=30).mean()
+        df['volume_ma'] = sm(series=df['Volume'], periods=ma_period).mean()
         df['volume_to_ma'] = (df['Volume'] - df['volume_ma'])/df['volume_ma']
 
         conditions = {
@@ -631,14 +624,16 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         redundant_idx = df.query('(突破_trend == "u" and next_突破_trend == "u") or (突破_trend == "d" and next_突破_trend == "d")').index
         df.loc[redundant_idx, '突破_trend'] = 'n'
         
-      # ============================== 1 candle pattern  =========================
-      if '1_candle' > '':
+      if 'shadow_entity' > '':
         
         # long/short entity
         df['entity_signal'] = 'n'
+        df['entity_ma'] = sm(series=df['candle_entity'], periods=ma_period).mean()
+        df['entity_std'] = sm(series=df['candle_entity'], periods=ma_period).std()
+        df['entity_diff'] = (df['candle_entity'] - df['entity_ma'])/df['entity_std']
         conditions = {
-          'long': '(candle_entity_to_close >= 0.01)', 
-          'short': '(candle_entity_to_close < 0.003)'}
+          'long': f'entity_diff >= {std_factor}', 
+          'short': f'entity_diff <= {-std_factor}'} 
         values = {
           'long': 'u', 
           'short': 'd'}
@@ -646,9 +641,12 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
 
         # long/short shadow
         df['shadow_signal'] = 'n'
+        df['shadow_ma'] = sm(series=df['candle_shadow'], periods=ma_period).mean()
+        df['shadow_std'] = sm(series=df['candle_shadow'], periods=ma_period).std()
+        df['shadow_diff'] = (df['candle_shadow'] - df['shadow_ma'])/df['shadow_std']
         conditions = {
-          'long': '(candle_shadow_to_close > 0.05)', 
-          'short': '(candle_shadow_to_close < 0.005)'}
+          'long': f'shadow_diff >= {std_factor}', 
+          'short': f'shadow_diff <= {-std_factor}'}
         values = {
           'long': 'u', 
           'short': 'd'}
@@ -657,8 +655,8 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         # upper shadow
         df['upper_shadow_signal'] = 'n'
         conditions = {
-          'long': '(candle_shadow_to_close > 0.015 and candle_upper_shadow_pct > 0.3)', 
-          'short': '(candle_upper_shadow_pct < 0.15)'}
+          'long': '(candle_upper_shadow_pct > 0.3)', 
+          'short': '(candle_upper_shadow_pct < 0.1)'}
         values = {
           'long': 'u', 
           'short': 'd'}
@@ -667,33 +665,39 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         # lower shadow
         df['lower_shadow_signal'] = 'n'
         conditions = {
-          'long': '(candle_shadow_to_close > 0.015 and candle_lower_shadow_pct > 0.3)', 
-          'short': '(candle_lower_shadow_pct < 0.15)'}
+          'long': '(candle_lower_shadow_pct > 0.3)', 
+          'short': '(candle_lower_shadow_pct < 0.1)'}
         values = {
           'long': 'u', 
           'short': 'd'}
         df = assign_condition_value(df=df, column='lower_shadow_trend', condition_dict=conditions, value_dict=values, default_value='n')
+      
+      # ============================== 1 candle shape  ===========================
+      if 'shape' > '':
 
-        # hammer
-        df['锤子_signal'] = 'n'
+        # cross
         conditions = {
-          'hammer': '(位置_trend == "d") and (candle_lower_shadow_pct >= 0.7) and (0.3 >= candle_entity_pct >= 0.05) and (upper_shadow_trend == "d" and lower_shadow_trend == "u")', 
-          'hanging': '(位置_trend == "u") and (candle_lower_shadow_pct >= 0.7) and (0.3 >= candle_entity_pct >= 0.05) and (upper_shadow_trend == "d" and lower_shadow_trend == "u")'}
+          'cross': '(entity_trend == "d" and shadow_trend == "d" and candle_entity_pct <= 0.1)',
+          'spindle': '(entity_trend == "d" and shadow_trend == "n" and candle_entity_pct <= 0.3)',
+          'highwave': '(entity_trend == "d" and shadow_trend == "u" and candle_entity_pct <= 0.3)'}
+        values = {
+          'cross': 'd', 
+          'spindle': 'n',
+          'highwave': 'u'}
+        df = assign_condition_value(df=df, column='十字星', condition_dict=conditions, value_dict=values, default_value='')
+
+        # hammer/meteor
+        conditions = {
+          'hammer': '(entity_trend != "u" and shadow_trend == "u") and (upper_shadow_trend == "d" and candle_lower_shadow_pct >= 0.5)',
+          'meteor': '(entity_trend != "u" and shadow_trend == "u") and (lower_shadow_trend == "d" and candle_upper_shadow_pct >= 0.5)'}
         values = {
           'hammer': 'u', 
-          'hanging': 'd'}
-        df = assign_condition_value(df=df, column='锤子_trend', condition_dict=conditions, value_dict=values, default_value='n')
+          'meteor': 'd'}
+        df = assign_condition_value(df=df, column='锤子', condition_dict=conditions, value_dict=values, default_value='n')
 
-        # meteor
-        df['流星_signal'] = 'n'
-        conditions = {
-          'meteor': '(位置_trend == "u") and (candle_upper_shadow_pct >= 0.7) and (0.3 >= candle_entity_pct >= 0.05) and (upper_shadow_trend == "u" and lower_shadow_trend == "d")',
-          'reverse_hammer': '(位置_trend == "d") and (candle_upper_shadow_pct >= 0.7) and (0.3 >= candle_entity_pct >= 0.05) and (upper_shadow_trend == "u" and lower_shadow_trend == "d")'}
-        values = {
-          'meteor': 'd',
-          'reverse_hammer': 'u'}
-        df = assign_condition_value(df=df, column='流星_trend', condition_dict=conditions, value_dict=values, default_value='n')
-
+      # ============================== 1 candle pattern  =========================
+      if '1_candle' > '':
+        
         # belt
         df['腰带_signal'] = 'n'
         conditions = {
@@ -707,12 +711,32 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         # cross/spindle/highwave
         df['十字星_signal'] = 'n'
         conditions = {
-          'cross': '((位置_trend == "u" or 位置_trend == "d") and ((shadow_trend != "u" and upper_shadow_trend=="u" and lower_shadow_trend=="u") or (entity_trend == "d" and shadow_trend != "u")) and (candle_entity_pct < 0.05 or candle_entity_to_close < 0.0015))',
-          'highwave': '(entity_trend == "d" and shadow_trend == "u") and (upper_shadow_trend=="u" or lower_shadow_trend=="u") and (位置_trend == "u" or 位置_trend == "d")'}
+          'cross': '(位置_trend != "n") and (十字星 == "d")',
+          'highwave': '(位置_trend != "n") and (十字星 == "u")'}
         values = {
           'cross': 'd', 
           'highwave': 'u'}
         df = assign_condition_value(df=df, column='十字星_trend', condition_dict=conditions, value_dict=values, default_value='n')
+
+        # hammer
+        df['锤子_signal'] = 'n'
+        conditions = {
+          'hammer': '(位置_trend == "d" and 锤子 == "u")', 
+          'hanging': '(位置_trend == "u" and 锤子 == "u")'}
+        values = {
+          'hammer': 'u', 
+          'hanging': 'd'}
+        df = assign_condition_value(df=df, column='锤子_trend', condition_dict=conditions, value_dict=values, default_value='n')
+
+        # meteor
+        df['流星_signal'] = 'n'
+        conditions = {
+          'meteor': '(位置_trend == "u" and 锤子 == "d")',
+          'reverse_hammer': '(位置_trend == "d" and 锤子 == "d")'}
+        values = {
+          'meteor': 'd',
+          'reverse_hammer': 'u'}
+        df = assign_condition_value(df=df, column='流星_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
       # ============================== 2+ candle pattern =========================  
       if 'multi_candle' > '':
@@ -720,12 +744,14 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         # flat top/bottom 
         df['previous_high'] = df['High'].shift(1)
         df['previous_low'] = df['Low'].shift(1)
+        df['previous_entity_top'] = df['candle_entity_top'].shift(1)
+        df['previous_entity_bottom'] = df['candle_entity_bottom'].shift(1)
         df['high_diff'] = abs(df['High'] - df['previous_high'])/df['Close']
         df['low_diff'] = abs(df['Low'] - df['previous_low'])/df['Close']
         df['平头_signal'] = 'n'
         conditions = {
-          'top': '(位置_trend == "u" and high_diff <= 0.0025)',
-          'bottom': '(位置_trend == "d" and low_diff <= 0.0025)'}
+          'top': '(位置_trend == "u" and high_diff <= 0.0025 and entity_trend != "d" and (candle_color == -1 and candle_entity_top <= previous_entity_top))',
+          'bottom': '(位置_trend == "d" and low_diff <= 0.0025 and entity_trend != "d" and (candle_color == 1 and candle_entity_bottom >= previous_entity_bottom))'}
         values = {
           'top': 'd', 
           'bottom': 'u'}
@@ -938,8 +964,8 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         # '腰带_signal', '十字星_signal', '平头_signal', '包孕_signal', '吞噬_signal', '锤子_signal', '流星_signal', 
         # '启明黄昏_signal', '突破_signal', '窗口_signal', '穿刺_signal', 'window_position_status', 
         'window_position_days', 'previous_window_position_days', 'previous_window_position_status', 'previous_candle_color', 'next_突破_trend',
-        'entity_signal', 'shadow_signal', 'upper_shadow_signal', 'lower_shadow_signal', 
-        'candle_entity_to_close', 'candle_shadow_to_close', 'candle_shadow_pct_diff', 'candle_entity_middle'
+        # 'entity_signal', 'shadow_signal', 'upper_shadow_signal', 'lower_shadow_signal', 
+        # 'candle_entity_to_close', 'candle_shadow_to_close', 'candle_shadow_pct_diff', 'candle_entity_middle'
         'previous_high', 'previous_low', 'high_diff', 'low_diff'
         ]:
         if col in df.columns:
@@ -1018,7 +1044,7 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
       valid_idxs = df.query('linear_slope == linear_slope and 拟合_trend == ""').index
       df.loc[valid_idxs, '拟合_trend'] = 'n'
       df['拟合_signal'] = 'n' #df['拟合_trend'].replace({'d': 's', 'u': 'b', 'n': ''})
-      
+
     phase = 'support and resistant'
     # ================================ support and resistant =====================
     if 'support_resistant' in perspective:
@@ -1081,7 +1107,7 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
     if 'overall' in perspective:
 
       # days since signal triggered
-      for col in ['窗口', '突破', '反弹', '启明黄昏', '穿刺', '十字星', '锤子', '流星', '包孕', '吞噬', '平头']:
+      for col in ['窗口', '突破', '反弹', '启明黄昏', '穿刺', '包孕', '吞噬', '平头', '十字星', '锤子', '流星', '腰带']:
         df[f'{col}_day'] = df[f'{col}_trend'].replace({'u':1, 'd':-1, 'n':0, '': 0}).fillna(0).astype(int)
 
       # iterate through df
@@ -1092,7 +1118,7 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         if previous_idx is not None:
 
           # iterate through columns
-          for col in ['窗口', '突破', '反弹', '启明黄昏', '穿刺', '十字星', '锤子', '流星', '包孕', '吞噬', '平头']:
+          for col in ['窗口', '突破', '反弹', '启明黄昏', '穿刺', '包孕', '吞噬', '平头', '十字星', '锤子', '流星', '腰带']:
             
             # get current day and previous day
             day_col = f'{col}_day'
@@ -1114,7 +1140,7 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         # update previous index
         previous_idx = index
 
-      for col in ['窗口', '突破', '反弹', '启明黄昏', '穿刺', '十字星', '锤子', '流星', '包孕', '吞噬', '平头']:
+      for col in ['窗口', '突破', '反弹', '启明黄昏', '穿刺', '包孕', '吞噬', '平头']: # '十字星', '锤子', '流星', 
         valid_up_idx = df.query(f'(0 < {col}_day <= 3)').index
         valid_down_idx = df.query(f'(0 > {col}_day >= -3)').index
         valid_wave_idx = df.query(f'({col}_day == 0)').index
@@ -1252,6 +1278,7 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
       description += '' if (description[-1] == ']') else ']'
       df.loc[max_idx, 'description'] = description
 
+    
   except Exception as e:
     print(phase, e)
 
@@ -1286,20 +1313,12 @@ def calculate_ta_signal(df):
     # 'bb is not over-buying': '(bb_trend != "d")',
 
     # developing version
-    'ichimoku/aroon/adx/psar are all up trending': '(trend_idx >= 3)',
+    'at least 4 in ichimoku/aroon/adx/kst/psar are up trending': '(trend_idx >= 3)',
     'renko is up trending': '(renko_trend == "u")',
     'bb is not over-buying': '(bb_trend != "d")',
-
-    'candle color is green': '(candle_color == 1)',
+    'positive candle patterns': '((candle_color == 1) or (0< 窗口_day <=3) or (0< 突破_day <=3) or (0< 反弹_day <=3) or (0< 启明黄昏_day <=3))',
     'not a cross or highwave': '(十字星_trend != "u" and 十字星_trend != "d")',
     'not hanging or meteor on the top': '((位置_trend != "u") or (位置_trend == "u" and 锤子_trend != "d" and 锤子_trend != "u"))',
-
-    # # new version
-    # 'positive window trend or star trend': '((0< 窗口_day <=3) or (0< 突破_day <=3) or (0< 反弹_day <=3) or (0< 启明黄昏_day <=3))',
-    # 'positive renko trend': '(renko_series_short_idx > 0)',
-    # 'positive ichimoku trend': '(tankan_acc_rate > 0.025  or (0< 启明黄昏_day <=3))',
-    # 'bb is not over-buying': '(bb_trend != "d")',
-    # 'not in negative window position': '((candle_color == -1 and (window_position_status == "up")) or (candle_color == 1 and (window_position_status != "mid")))',
   }
   up_idx = df.query(' and '.join(buy_conditions.values())).index 
   df.loc[up_idx, 'trend'] = 'u'
@@ -1317,12 +1336,6 @@ def calculate_ta_signal(df):
     'no individual trend is up and overall trend is down': '(trend_idx < -1 and up_trend_idx == 0)',
     'price went down through brick': '(renko_trend == "d")', 
     'bb is not over-selling': '(bb_trend != "u" or (Close < renko_l and renko_duration >= 150))',
-
-    # new version
-    # 'negative window trend or star trend': '((-3<= 窗口_day <0) or (-3<= 突破_day <0) or (-3<= 反弹_day <0) or (-3<= 启明黄昏_day <0) or (tankan_acc_rate < -0.025))',
-    # 'negative indicator trend and renko trend': '(renko_trend == "d" and trend_idx < -1 and up_trend_idx == 0)',
-    # 'negative ichimoku trend': '(tankan_acc_rate < -0.02)',
-    # 'bb is not over-selling': '(bb_trend != "u" or (Close < renko_l and renko_duration >= 150))',
   } 
   down_idx = df.query(' and '.join(sell_conditions.values())).index 
   df.loc[down_idx, 'trend'] = 'd'
@@ -4723,6 +4736,12 @@ def plot_candlestick(
     '反弹_day': {1: '反弹', -1: '回落'},
     '突破_day': {1: '突破', -1: '跌落'},
     '启明黄昏_day': {1: '启明星', -1: '黄昏星'},
+
+    # '腰带_day': {1: '腰带', -1: '腰带'},
+    '十字星_day': {1: '高浪线', -1: '十字星'},
+    '锤子_day': {1: '锤子', -1: '吊颈'},
+    '流星_day': {1: '倒锤', -1: '流星'},
+    '平头_day': {1: '平底', -1: '平顶'},
 
     '穿刺_day': {1: '穿刺', -1: '乌云'},
     'linear_bounce_day': {1: '反弹', -1: '回落'},
