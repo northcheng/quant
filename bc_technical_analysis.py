@@ -671,9 +671,6 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
           'long': 'u', 
           'short': 'd'}
         df = assign_condition_value(df=df, column='lower_shadow_trend', condition_dict=conditions, value_dict=values, default_value='n')
-      
-      # ============================== 1 candle shape  ===========================
-      if 'shape' > '':
 
         # cross
         conditions = {
@@ -740,30 +737,33 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
 
       # ============================== 2+ candle pattern =========================  
       if 'multi_candle' > '':
-        
-        # flat top/bottom 
-        df['previous_high'] = df['High'].shift(1)
-        df['previous_low'] = df['Low'].shift(1)
+
+        # initialize multi-candle pattern trend
+        idxs = df.index.tolist()
+        for t in ['平头', '穿刺', '吞噬', '包孕', '启明黄昏']:
+          df[f'{t}_trend'] = 'n'
+          # df[f'{t}_signal'] = np.nan
+
+        df['candle_entity_middle'] = (df['candle_entity_top'] + df['candle_entity_bottom']) * 0.5
         df['previous_entity_top'] = df['candle_entity_top'].shift(1)
         df['previous_entity_bottom'] = df['candle_entity_bottom'].shift(1)
-        df['high_diff'] = abs(df['High'] - df['previous_high'])/df['Close']
-        df['low_diff'] = abs(df['Low'] - df['previous_low'])/df['Close']
+        df['previous_candle_color'] = df['candle_color'].shift(1)
+        df['previous_high'] = df['High'].shift(1)
+        df['previous_low'] = df['Low'].shift(1)
+        df['top_diff'] = abs(df['candle_entity_top'] - df['previous_entity_top'])/df['Close']
+        df['bottom_diff'] = abs(df['candle_entity_bottom'] - df['previous_entity_bottom'])/df['Close']
+
+        # flat top/bottom 
         df['平头_signal'] = 'n'
         conditions = {
-          'top': '(位置_trend == "u" and high_diff <= 0.0025 and entity_trend != "d" and (candle_color == -1 and candle_entity_top <= previous_entity_top))',
-          'bottom': '(位置_trend == "d" and low_diff <= 0.0025 and entity_trend != "d" and (candle_color == 1 and candle_entity_bottom >= previous_entity_bottom))'}
+          'top': '(位置_trend == "u" and top_diff <= 0.001 and entity_trend != "d" and (candle_color == 1 and previous_candle_color == 1))', 
+          'bottom': '(位置_trend == "d" and bottom_diff <= 0.001 and entity_trend != "d" and (candle_color == -1 and previous_candle_color == -1))'}
         values = {
           'top': 'd', 
           'bottom': 'u'}
         df = assign_condition_value(df=df, column='平头_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
-        # interate through dataframe by window size of 2 and 3
-        idxs = df.index.tolist()
-        for t in ['穿刺', '吞噬', '包孕', '启明黄昏']:
-          df[f'{t}_trend'] = 'n'
-          # df[f'{t}_signal'] = np.nan
-        df['candle_entity_middle'] = (df['candle_entity_top'] + df['candle_entity_bottom']) * 0.5
-
+        # iterate through dataframe by window_size of 2 and 3
         previous_row = None
         previous_previous_row = None
         for idx in idxs:
@@ -786,32 +786,28 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
             previous_previous_row = df.loc[previous_previous_idx]
 
           # 吞噬
-          if row['entity_trend'] != 'u':
+          if row['entity_trend'] != 'u': #  or previous_row['entity_trend'] == "d"
               pass
           else:
             # 底部<前底部 & 顶部>前顶部: 吞噬形态
             if (previous_row['candle_entity_top'] < row['candle_entity_top']) and (previous_row['candle_entity_bottom'] > row['candle_entity_bottom']):
               
-              # 先绿后红
-              if (previous_row['candle_color'] == 1 and row['candle_color'] == -1):
+              # 顶部 - 红吞绿
+              if ((previous_row['candle_color'] == 1 and row['candle_color'] == -1) and (row['位置_trend'] == "u")):
                 
-                # 在顶部: 空头吞噬
-                if (row['位置_trend'] == "u" and previous_row['位置_trend'] != "d"):
-                  df.loc[idx, '吞噬_trend'] = 'd'
+                df.loc[idx, '吞噬_trend'] = 'd'
 
-              # 先红后绿
-              elif (previous_row['candle_color'] == -1 and row['candle_color'] == 1):
+              # 底部 - 绿吞红
+              elif ((previous_row['candle_color'] == -1 and row['candle_color'] == 1) and (row['位置_trend'] == "d")):
+
+                df.loc[idx, '吞噬_trend'] = 'u'
                 
-                # 在底部: 多头吞噬
-                if (row['位置_trend'] == "d" and previous_row['位置_trend'] != "u"):
-                  df.loc[idx, '吞噬_trend'] = 'u'
-                
-              # 顶部-全绿-小实体被大实体吞噬: 顶吞噬
-              elif ((row['位置_trend'] == "u" and previous_row['entity_trend'] != "d") and (previous_row['candle_color'] == 1 and row['candle_color'] == 1)):
+              # 顶部 - 大绿吞小绿: 最后顶吞噬
+              elif ((row['位置_trend'] == "u" and previous_row['entity_trend'] == "u") and (previous_row['candle_color'] == 1 and row['candle_color'] == 1)):
                 df.loc[idx, '吞噬_trend'] = 'd'  
             
-              # 底部-全红-小实体被大实体吞噬: 底吞噬
-              elif ((row['位置_trend'] == "d" and previous_row['entity_trend'] != "u") and (previous_row['candle_color'] ==-1 and row['candle_color'] ==-1)):
+              # 底部 - 大红吞小红: 最后底吞噬
+              elif ((row['位置_trend'] == "d" and previous_row['entity_trend'] == "d") and (previous_row['candle_color'] ==-1 and row['candle_color'] ==-1)):
                 df.loc[idx, '吞噬_trend'] = 'u'  
 
           # 包孕
@@ -820,77 +816,69 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
           else:
             # 底部>前底部 & 顶部<前顶部: 包孕形态
             if (previous_row['candle_entity_top'] > row['candle_entity_top']) and (previous_row['candle_entity_bottom'] < row['candle_entity_bottom']):
+              
               # 顶部: 空头包孕
               if row['位置_trend'] in ['u']:
                 df.loc[idx, '包孕_trend'] = 'd'
+
+              # 底部: 多头包孕
               elif row['位置_trend'] in ['d']:
                 df.loc[idx, '包孕_trend'] = 'u'
           
-          # 穿刺
-          if (row['位置_trend'] == "u") or (row['位置_trend'] == "n" and previous_row['位置_trend'] == "u"):
+          # 2/3 线形态
+          # 顶部:乌云盖顶, 黄昏星
+          if (previous_row['位置_trend'] == "u"):
 
-            # =================================== 双线形态  =================================== #
-            # 2 是长实体
-            if row['entity_trend'] != 'u':
+            # =================================== 乌云盖顶  =================================== #
+            # 1-必须为绿色, 2-必须为红色长实体
+            if (row['entity_trend'] != 'u' or row['candle_color'] != -1 or previous_row['candle_color'] != 1):
               pass
             else:
-              # 顶部>前顶部
-              if (previous_row['candle_entity_top'] < row['candle_entity_top']):
-                # 底部>前底部
-                if (previous_row['candle_entity_bottom'] < row['candle_entity_bottom']):
-                  # 底部穿过前中点
-                  if previous_row['candle_entity_middle'] > row['candle_entity_bottom']:
-                    # 先绿后红: 乌云盖顶
-                    if (previous_row['candle_color'] == 1 and row['candle_color'] == -1):
-                      df.loc[idx, '穿刺_trend'] = 'd'
+              # 顶部>前顶部, 底部>前底部, 底部穿过前中点
+              if (previous_row['candle_entity_top'] < row['candle_entity_top']) and (previous_row['candle_entity_bottom'] < row['candle_entity_bottom']) and (previous_row['candle_entity_middle'] > row['candle_entity_bottom']):
+                df.loc[idx, '穿刺_trend'] = 'd'
 
-            # =================================== 三线形态  =================================== #
+            # =================================== 黄昏星  ===================================== #
             if previous_previous_row is None:
               pass
             else:
-              # 1 绿色, 3红色
-              if (row['candle_color'] == -1):
-                # 3为长实体
-                if (row['十字星_trend'] == 'u' or row['十字星_trend'] == 'd' or row['candle_entity_pct'] <= 0.3):
-                  pass
-                else:
-                  # 2 底部 > 1, 3顶部
-                  if (previous_row['candle_entity_bottom'] > previous_previous_row['candle_entity_top']) and (previous_row['candle_entity_bottom'] > row['candle_entity_top']):
+              # 1-绿色非小实体, 2-高位, 3-红色非小实体
+              if (previous_row['位置_trend'] == "u") and (previous_previous_row['candle_color'] == 1 and previous_previous_row['entity_trend'] != 'd') and (row['candle_color'] == -1 and row['entity_trend'] != 'd'):
+                # 3-长实体 或 3-Low < 1-Low 或 3-top < 1-bottom
+                if row['entity_trend'] == 'u' or (row['Low'] < previous_previous_row['Low']) or (row['candle_entity_top'] < previous_previous_row['candle_entity_bottom']):
+                  # 2-小实体, 2-底部 > 1/3-顶部
+                  if (previous_row['entity_trend'] == 'd') and (previous_row['candle_entity_bottom'] > previous_previous_row['candle_entity_top']) and (previous_row['candle_entity_bottom'] > row['candle_entity_top']): #(previous_row['High'] > previous_previous_row['High']) and (previous_row['High'] > row['High']):
                     df.loc[idx, '启明黄昏_trend'] = 'd'
-                  elif ((previous_row['十字星_trend'] == "d" or previous_row['十字星_trend'] == "u") and previous_row['High'] > previous_previous_row['High']) and (previous_row['High'] > row['High']):
-                    df.loc[idx, '启明黄昏_trend'] = 'd'
-          elif (row['位置_trend'] == "d") or (row['位置_trend'] == "n" and previous_row['位置_trend'] == "d"):
+                  # # 2-非小实体, 2-底部 > 1/3-顶部
+                  # elif (previous_row['entity_trend'] == 'n') and (previous_row['candle_entity_bottom'] > previous_previous_row['candle_entity_top']) and (previous_row['candle_entity_bottom'] > row['candle_entity_top']):
+                  #     df.loc[idx, '启明黄昏_trend'] = 'd'
 
-            # =================================== 双线形态  =================================== #
-            # 2 是长实体
-            if row['candle_entity_pct'] < 0.6 and row['candle_entity_to_close'] < 0.01:
+          # 底部:穿刺形态, 启明星
+          elif (previous_row['位置_trend'] == "d"):
+
+            # =================================== 穿刺形态  =================================== #
+            # 1-必须为红色, 2-必须为绿色长实体
+            if (row['entity_trend'] != 'u' or row['candle_color'] != 1 or previous_row['candle_color'] != -1):
               pass
             else:
-              # 顶部<=前顶部
-              if (previous_row['candle_entity_top'] >= row['candle_entity_top']):
-                # 底部<前底部
-                if (previous_row['candle_entity_bottom'] > row['candle_entity_bottom']):
-                  # 顶部穿过前中点
-                  if previous_row['candle_entity_middle'] < row['candle_entity_top']:
-                    # 先红后绿: 穿刺形态
-                    if (row['位置_trend'] != 'u' and previous_row['candle_color'] == -1 and row['candle_color'] == 1):
-                      df.loc[idx, '穿刺_trend'] = 'u'
+              # 顶部<=前顶部, 底部<前底部, 顶部穿过前中点
+              if (previous_row['candle_entity_top'] >= row['candle_entity_top']) and (previous_row['candle_entity_bottom'] > row['candle_entity_bottom']) and (previous_row['candle_entity_middle'] < row['candle_entity_top']):
+                df.loc[idx, '穿刺_trend'] = 'u'
             
-            # =================================== 三线形态  =================================== #
+            # =================================== 启明星  ===================================== #
             if previous_previous_row is None:
               pass
             else:
-              # 1 红色, 3绿色
-              if (row['candle_color'] == 1):
-                # 3为长实体
-                if (row['十字星_trend'] == 'u' or row['十字星_trend'] == 'd' or row['candle_entity_pct'] <= 0.3):
-                  pass
-                else:
-                  # 2 顶部 < 1, 3底部
-                  if (previous_row['candle_entity_top'] < previous_previous_row['candle_entity_bottom']) and (previous_row['candle_entity_top'] < row['candle_entity_bottom']):
+              # 必要条件: 1-红色非小实体, 2-高位, 3-绿色非小实体
+              if (previous_row['位置_trend'] == "d") and (previous_previous_row['candle_color'] == -1 and previous_previous_row['entity_trend'] != 'd') and (row['candle_color'] == 1 and row['entity_trend'] != 'd'):
+                # 3-长实体 或 3-High > 1-High 或 3-bottom > 1-top
+                if row['entity_trend'] == 'u' or (row['High'] > previous_previous_row['High']) or (row['candle_entity_bottom'] > previous_previous_row['candle_entity_top']):
+                  # 2-小实体, 2-顶部 < 1/3-底部
+                  if (previous_row['entity_trend'] == 'd') and (previous_row['candle_entity_top'] < previous_previous_row['candle_entity_bottom']) and (previous_row['candle_entity_top'] < row['candle_entity_bottom']): #(previous_row['Low'] < previous_previous_row['Low']) and (previous_row['Low'] < row['Low']):
                     df.loc[idx, '启明黄昏_trend'] = 'u'
-                  elif ((previous_row['十字星_trend'] == "d" or previous_row['十字星_trend'] == "u") and previous_row['Low'] < previous_previous_row['Low']) and (previous_row['Low'] < row['Low']):
-                    df.loc[idx, '启明黄昏_trend'] = 'u'
+                  # # 2-非小实体, 2-顶部 < 1/3-底部
+                  # elif (previous_row['entity_trend'] == 'n') and (previous_row['candle_entity_top'] < previous_previous_row['candle_entity_bottom']) and (previous_row['candle_entity_top'] < row['candle_entity_bottom']):
+                  #     df.loc[idx, '启明黄昏_trend'] = 'u'
 
         # multi-candle signals
         for t in ['穿刺', '吞噬', '包孕', '启明黄昏']:
@@ -1140,7 +1128,7 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         # update previous index
         previous_idx = index
 
-      for col in ['窗口', '突破', '反弹', '启明黄昏', '穿刺', '包孕', '吞噬', '平头']: # '十字星', '锤子', '流星', 
+      for col in ['窗口', '突破', '反弹', '启明黄昏']: # '十字星', '锤子', '流星', '穿刺', '包孕', '吞噬', '平头'
         valid_up_idx = df.query(f'(0 < {col}_day <= 3)').index
         valid_down_idx = df.query(f'(0 > {col}_day >= -3)').index
         valid_wave_idx = df.query(f'({col}_day == 0)').index
@@ -4738,12 +4726,16 @@ def plot_candlestick(
     '启明黄昏_day': {1: '启明星', -1: '黄昏星'},
 
     # '腰带_day': {1: '腰带', -1: '腰带'},
-    '十字星_day': {1: '高浪线', -1: '十字星'},
-    '锤子_day': {1: '锤子', -1: '吊颈'},
-    '流星_day': {1: '倒锤', -1: '流星'},
-    '平头_day': {1: '平底', -1: '平顶'},
+    # '十字星_day': {1: '高浪线', -1: '十字星'},
+    # '锤子_day': {1: '锤子', -1: '吊颈'},
+    # '流星_day': {1: '倒锤', -1: '流星'},
 
+    '平头_day': {1: '平底', -1: '平顶'},
     '穿刺_day': {1: '穿刺', -1: '乌云'},
+    '吞噬_day': {1: '吞噬', -1: '吞噬'},
+    '包孕_day': {1: '包孕', -1: '包孕'},
+
+
     'linear_bounce_day': {1: '反弹', -1: '回落'},
     'linear_break_day': {1: '突破', -1: '跌落'}
   }
