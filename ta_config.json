@@ -56,8 +56,7 @@
         "plot_args": {
             "plot_ratio": {
                 
-                "signals": 5,
-                "direction": 1,
+                "signals": 7,
                 "indicators": 1,
                 "main_indicators": 10
             },
@@ -77,37 +76,37 @@
             },
             "signals": {
                 "signal_list": [
+                    
+                    "启明黄昏_signal",
+                    "反弹_signal",
+                    "突破_signal",
+                    "窗口_signal",
+                    "穿刺_signal",
+                    " ",
 
-                    "平头_signal",
                     "吞噬_signal",
                     "包孕_signal",
-                    
+                    "平头_signal",
+
                     "流星_signal",
                     "锤子_signal",
                     "十字星_signal",
-                    "腰带_signal",
+                    " ",
+
+                    "成交量_signal",
                     "lower_shadow_signal",
+                    "entity_signal",
                     "upper_shadow_signal",
                     "shadow_signal",
-                    "entity_signal",
+                    "位置_signal",
                     " ",
 
                     "bb_signal",
-                    "psar_signal",
-                    "aroon_signal",
-                    "adx_signal",
-                    "ichimoku_signal",
-                    "indicator_signal",
                     "renko_signal",
                     "拟合_signal",
                     " ",
-
-                    
-                    "成交量_signal",
-                    "位置_signal",
                     
                     "signal"
-
                 ],
                 "plot_signal_on_price": true,
                 "price_alpha": 0
@@ -134,7 +133,6 @@
                   "吞噬_signal",
                   "包孕_signal",
                   
-
                   "穿刺_signal",
                   "启明黄昏_signal",
                   "反弹_signal",
@@ -143,16 +141,10 @@
               ],
               "plot_signal_on_price": true,
               "price_alpha": 0
-          },
-            "indicators": {
-                "target_col":[ "trend_idx_ma"],
-                "color_mode": "up_down",
-                "benchmark": 0,
-                "alpha": 0.8
             },
-            "direction": {
-                "target_col": ["trend_direction"],
-                "color_mode": "benchmark",
+            "indicators": {
+                "target_col": ["trend_idx", "trend_idx_ma"],
+                "color_mode": "up_down",
                 "benchmark": 0,
                 "alpha": 0.8
             },

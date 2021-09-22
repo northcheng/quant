@@ -318,7 +318,6 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       df.drop(['tankan_day', 'tankan_rate', 'tankan_rate_ma', 'kijun_day', 'kijun_rate', 'kijun_rate_ma'], axis=1, inplace=True)
 
     # ================================ aroon trend ============================
-    # calculate aroon_diff
     if 'aroon' in trend_indicators:
       aroon_col = ['aroon_up', 'aroon_down', 'aroon_gap']
       df[aroon_col] = df[aroon_col].round(1)
@@ -370,16 +369,6 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
         'none': 'n'}
       df = assign_condition_value(df=df, column='adx_trend', condition_dict=conditions, value_dict=values, default_value='')           
 
-    # ================================ eom trend ==============================
-    if 'eom' in volume_indicators:
-      conditions = {
-        'up': 'eom_diff > 0', 
-        'down': 'eom_diff <= 0'} 
-      values = {
-        'up': 'u', 
-        'down': 'd'}
-      df = assign_condition_value(df=df, column='eom_trend', condition_dict=conditions, value_dict=values) 
-
     # ================================ kst trend ==============================
     if 'kst' in trend_indicators:
       conditions = {
@@ -402,6 +391,20 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
 
     # =========================================================================
 
+    phase = 'calculate trend for volume_indicators'
+
+    # ================================ eom trend ==============================
+    if 'eom' in volume_indicators:
+      conditions = {
+        'up': 'eom_diff > 0', 
+        'down': 'eom_diff <= 0'} 
+      values = {
+        'up': 'u', 
+        'down': 'd'}
+      df = assign_condition_value(df=df, column='eom_trend', condition_dict=conditions, value_dict=values) 
+
+    # =========================================================================
+    
     phase = 'calculate trend for volatility_indicators'
 
     # ================================ bb trend ===============================
@@ -450,25 +453,18 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
     
     # calculate overall trend index and its moving average
     df['trend_idx'] = df['up_trend_idx'] + df['down_trend_idx']
-    df['trend_idx_ma'] = sm(series=df['trend_idx'], periods=5).sum()
-
+    
     # calculate direction of overall trend
-    df['trend_direction'] = 0
+    df['trend_idx_ma'] = sm(series=df['trend_idx'], periods=5).mean()
     df['pre_trend_idx_ma'] = df['trend_idx_ma'].shift(1)
-    up_mask = df.query('trend_idx >=3 and (trend_idx_ma > pre_trend_idx_ma or (trend_idx_ma == pre_trend_idx_ma and trend_idx_ma > 0))').index
-    down_mask = df.query('trend_idx <=-2 and (trend_idx_ma < pre_trend_idx_ma or (trend_idx_ma == pre_trend_idx_ma and trend_idx_ma < 0))').index
-    df.loc[up_mask, 'trend_direction'] = 1
-    df.loc[down_mask, 'trend_direction'] = -1
+    conditions = {
+      'up': 'trend_idx >=3 and (trend_idx_ma > pre_trend_idx_ma or (trend_idx_ma == pre_trend_idx_ma and trend_idx_ma > 0))', 
+      'down': 'trend_idx <=-2 and (trend_idx_ma < pre_trend_idx_ma or (trend_idx_ma == pre_trend_idx_ma and trend_idx_ma < 0))'} 
+    values = {
+      'up': 1, 
+      'down': -1}
+    df = assign_condition_value(df=df, column='trend_direction', condition_dict=conditions, value_dict=values, default_value=0) 
     df['trend_direction'] = sda(series=df['trend_direction'], zero_as=1)
-
-    # overall trend and signal of ta indicators
-    df['0'] = 0
-    df['indicator_trend'] = cal_crossover_signal(df=df, fast_line='trend_direction', slow_line='0', pos_signal='u', neg_signal='d', none_signal=np.nan)
-    df['indicator_signal'] = df['indicator_trend']
-    df['indicator_trend'] = df['indicator_trend'].fillna(method='ffill')
-    non_trend_idx = df.query('adx_trend == "n" and indicator_trend == "u"').index
-    df.loc[non_trend_idx, 'indicator_trend'] = 'n'
-    df.drop(['0'], axis=1, inplace=True)
 
   except Exception as e:
     print(f'[Exception]: @ {phase}, {e}')
@@ -748,8 +744,6 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         df['previous_entity_top'] = df['candle_entity_top'].shift(1)
         df['previous_entity_bottom'] = df['candle_entity_bottom'].shift(1)
         df['previous_candle_color'] = df['candle_color'].shift(1)
-        df['previous_high'] = df['High'].shift(1)
-        df['previous_low'] = df['Low'].shift(1)
         df['top_diff'] = abs(df['candle_entity_top'] - df['previous_entity_top'])/df['Close']
         df['bottom_diff'] = abs(df['candle_entity_bottom'] - df['previous_entity_bottom'])/df['Close']
 
@@ -768,8 +762,9 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         previous_previous_row = None
         for idx in idxs:
           
-          # current row and previous row
+          # current row(3), previous row(2) and previous previous row(1)
           row = df.loc[idx]
+
           previous_i = idxs.index(idx) - 1
           if previous_i < 0:
             continue
@@ -777,7 +772,6 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
             previous_idx = idxs[previous_i]
             previous_row = df.loc[previous_idx]
 
-          # previous_previous_row
           previous_previous_i = previous_i - 1
           if previous_previous_i < 0:
             previous_previous_row = None
@@ -785,47 +779,50 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
             previous_previous_idx = idxs[previous_previous_i]
             previous_previous_row = df.loc[previous_previous_idx]
 
-          # 吞噬
-          if row['entity_trend'] != 'u': #  or previous_row['entity_trend'] == "d"
-              pass
+          # 当前蜡烛为长实体
+          if row['entity_trend'] != 'u':
+            pass
           else:
-            # 底部<前底部 & 顶部>前顶部: 吞噬形态
+            # 吞噬形态: 2-底部 < 1-底部 & 2-顶部 > 1-顶部
             if (previous_row['candle_entity_top'] < row['candle_entity_top']) and (previous_row['candle_entity_bottom'] > row['candle_entity_bottom']):
-              
-              # 顶部 - 红吞绿
-              if ((previous_row['candle_color'] == 1 and row['candle_color'] == -1) and (row['位置_trend'] == "u")):
-                
-                df.loc[idx, '吞噬_trend'] = 'd'
-
-              # 底部 - 绿吞红
-              elif ((previous_row['candle_color'] == -1 and row['candle_color'] == 1) and (row['位置_trend'] == "d")):
-
-                df.loc[idx, '吞噬_trend'] = 'u'
-                
-              # 顶部 - 大绿吞小绿: 最后顶吞噬
-              elif ((row['位置_trend'] == "u" and previous_row['entity_trend'] == "u") and (previous_row['candle_color'] == 1 and row['candle_color'] == 1)):
-                df.loc[idx, '吞噬_trend'] = 'd'  
             
-              # 底部 - 大红吞小红: 最后底吞噬
-              elif ((row['位置_trend'] == "d" and previous_row['entity_trend'] == "d") and (previous_row['candle_color'] ==-1 and row['candle_color'] ==-1)):
-                df.loc[idx, '吞噬_trend'] = 'u'  
+              # 位于顶部
+              if (row['位置_trend'] == "u"):
+                # 空头吞噬: 1-绿, 2-红
+                if (previous_row['candle_color'] == 1 and row['candle_color'] == -1):
+                  df.loc[idx, '吞噬_trend'] = 'd'
+                # 最后顶吞噬: 1-绿, 2-绿, 都在顶部
+                elif (previous_row['candle_color'] == 1 and row['candle_color'] == 1) and (previous_row['位置_trend'] == "u"):
+                  df.loc[idx, '吞噬_trend'] = 'd'
 
-          # 包孕
+              # 位于底部
+              elif (row['位置_trend'] == "d"):
+                # 多头吞噬: 位于底部, 1-红, 2-绿
+                if (previous_row['candle_color'] == -1 and row['candle_color'] == 1):
+                  df.loc[idx, '吞噬_trend'] = 'u'
+                # 最后底吞噬: 1-红, 2-红, 都在底部
+                elif (previous_row['candle_color'] == -1 and row['candle_color'] == -1) and (previous_row['位置_trend'] == "d"):
+                  df.loc[idx, '吞噬_trend'] = 'u'  
+
+          # 前一蜡烛为长实体 
           if previous_row['entity_trend'] != 'u':
-              pass
+            pass
           else:
-            # 底部>前底部 & 顶部<前顶部: 包孕形态
+            # 包孕形态: 2-底部 > 1-底部 & 2-顶部 < 1-顶部
             if (previous_row['candle_entity_top'] > row['candle_entity_top']) and (previous_row['candle_entity_bottom'] < row['candle_entity_bottom']):
               
-              # 顶部: 空头包孕
-              if row['位置_trend'] in ['u']:
-                df.loc[idx, '包孕_trend'] = 'd'
+              # 位于顶部
+              if row['位置_trend'] == 'u':
+                # 空头包孕: 1-绿, 2-红
+                if (previous_row['candle_color'] == 1 and row['candle_color'] == -1):
+                  df.loc[idx, '包孕_trend'] = 'd'
 
-              # 底部: 多头包孕
-              elif row['位置_trend'] in ['d']:
-                df.loc[idx, '包孕_trend'] = 'u'
+              # 位于底部
+              elif row['位置_trend'] == 'd':
+                # 多头包孕: 1-红, 2-绿
+                if (previous_row['candle_color'] == -1 and row['candle_color'] == 1):
+                  df.loc[idx, '包孕_trend'] = 'u'
           
-          # 2/3 线形态
           # 顶部:乌云盖顶, 黄昏星
           if (previous_row['位置_trend'] == "u"):
 
@@ -953,7 +950,7 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         # '启明黄昏_signal', '突破_signal', '窗口_signal', '穿刺_signal', 'window_position_status', 
         'window_position_days', 'previous_window_position_days', 'previous_window_position_status', 'previous_candle_color', 'next_突破_trend',
         # 'entity_signal', 'shadow_signal', 'upper_shadow_signal', 'lower_shadow_signal', 
-        # 'candle_entity_to_close', 'candle_shadow_to_close', 'candle_shadow_pct_diff', 'candle_entity_middle'
+        'candle_entity_to_close', 'candle_shadow_to_close', 'candle_shadow_pct_diff', 'candle_entity_middle'
         'previous_high', 'previous_low', 'high_diff', 'low_diff'
         ]:
         if col in df.columns:
@@ -1095,17 +1092,14 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
     if 'overall' in perspective:
 
       # days since signal triggered
-      for col in ['窗口', '突破', '反弹', '启明黄昏', '穿刺', '包孕', '吞噬', '平头', '十字星', '锤子', '流星', '腰带']:
+      for col in ['位置', '窗口', '突破', '反弹', '启明黄昏', '穿刺', '包孕', '吞噬', '平头', '十字星', '锤子', '流星', '腰带']:
         df[f'{col}_day'] = df[f'{col}_trend'].replace({'u':1, 'd':-1, 'n':0, '': 0}).fillna(0).astype(int)
+      df['位置_day'] = sda(series=df['位置_day'], zero_as=1)
 
       # iterate through df
       previous_idx = None
       for index, row in df.iterrows():
-
-        # for the first row
         if previous_idx is not None:
-
-          # iterate through columns
           for col in ['窗口', '突破', '反弹', '启明黄昏', '穿刺', '包孕', '吞噬', '平头', '十字星', '锤子', '流星', '腰带']:
             
             # get current day and previous day
@@ -1113,7 +1107,7 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
             current_day = row[day_col]
             previous_day = df.loc[previous_idx, day_col]
  
-            # only operate when current tmp_day
+            # only operate when current day is 0
             if current_day == 0 and previous_day >= 1:
               df.loc[index, day_col] = previous_day + 1
             elif current_day == 0 and previous_day <= -1:
@@ -1128,13 +1122,13 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         # update previous index
         previous_idx = index
 
-      for col in ['窗口', '突破', '反弹', '启明黄昏']: # '十字星', '锤子', '流星', '穿刺', '包孕', '吞噬', '平头'
-        valid_up_idx = df.query(f'(0 < {col}_day <= 3)').index
-        valid_down_idx = df.query(f'(0 > {col}_day >= -3)').index
-        valid_wave_idx = df.query(f'({col}_day == 0)').index
-        df.loc[valid_up_idx, f'{col}_trend'] = 'u'
-        df.loc[valid_down_idx, f'{col}_trend'] = 'd'    
-        df.loc[valid_wave_idx, f'{col}_trend'] = 'n'      
+      # for col in ['窗口', '突破', '反弹', '启明黄昏']: # '十字星', '锤子', '流星', '穿刺', '包孕', '吞噬', '平头'
+      #   valid_up_idx = df.query(f'(0 < {col}_day <= 3)').index
+      #   valid_down_idx = df.query(f'(0 > {col}_day >= -3)').index
+      #   valid_wave_idx = df.query(f'({col}_day == 0)').index
+      #   df.loc[valid_up_idx, f'{col}_trend'] = 'u'
+      #   df.loc[valid_down_idx, f'{col}_trend'] = 'd'    
+      #   df.loc[valid_wave_idx, f'{col}_trend'] = 'n'      
 
       # ================================ linear analysis ========================
       row = df.loc[max_idx,].copy()
@@ -1266,7 +1260,6 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
       description += '' if (description[-1] == ']') else ']'
       df.loc[max_idx, 'description'] = description
 
-    
   except Exception as e:
     print(phase, e)
 
@@ -1335,20 +1328,6 @@ def calculate_ta_signal(df):
   df.loc[df['signal_day'] == 1, 'signal'] = 'b'
   df.loc[df['signal_day'] ==-1, 'signal'] = 's'
 
-  # # keep only 1 buy signal in red renko brick
-  # redundant_signal_idx = []
-  # red_brick = df.query('renko_real == "red"').index
-  # if len(red_brick) > 0:
-  #   for idx in red_brick:
-  #     renko_start = df.loc[idx, 'renko_start']
-  #     renko_end = df.loc[idx, 'renko_end']
-
-  #     buy_idx = df[renko_start:renko_end].query('signal == "b"').index
-  #     if len(buy_idx) > 1:
-  #       redundant_signal_idx += buy_idx[1:]
-  
-  # df.loc[redundant_signal_idx, 'signal'] = 'n'
-  # df['signal'] = ''
 
   return df
 
@@ -4727,14 +4706,13 @@ def plot_candlestick(
 
     # '腰带_day': {1: '腰带', -1: '腰带'},
     # '十字星_day': {1: '高浪线', -1: '十字星'},
-    # '锤子_day': {1: '锤子', -1: '吊颈'},
-    # '流星_day': {1: '倒锤', -1: '流星'},
+    '锤子_day': {1: '锤子', -1: '吊颈'},
+    '流星_day': {1: '倒锤', -1: '流星'},
 
-    '平头_day': {1: '平底', -1: '平顶'},
+    # '平头_day': {1: '平底', -1: '平顶'},
     '穿刺_day': {1: '穿刺', -1: '乌云'},
-    '吞噬_day': {1: '吞噬', -1: '吞噬'},
-    '包孕_day': {1: '包孕', -1: '包孕'},
-
+    # '吞噬_day': {1: '吞噬', -1: '吞噬'},
+    # '包孕_day': {1: '包孕', -1: '包孕'},
 
     'linear_bounce_day': {1: '反弹', -1: '回落'},
     'linear_break_day': {1: '突破', -1: '跌落'}
