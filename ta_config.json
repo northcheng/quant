@@ -55,9 +55,8 @@
         },
         "plot_args": {
             "plot_ratio": {
-                
                 "signals": 7,
-                "indicators": 1,
+                "TA_overall": 2,
                 "main_indicators": 10
             },
             "main_indicators": {
@@ -81,9 +80,9 @@
                     "反弹_signal",
                     "突破_signal",
                     "窗口_signal",
-                    "穿刺_signal",
+                    
                     " ",
-
+                    "穿刺_signal",
                     "吞噬_signal",
                     "包孕_signal",
                     "平头_signal",
@@ -94,10 +93,6 @@
                     " ",
 
                     "成交量_signal",
-                    "lower_shadow_signal",
-                    "entity_signal",
-                    "upper_shadow_signal",
-                    "shadow_signal",
                     "位置_signal",
                     " ",
 
@@ -111,38 +106,7 @@
                 "plot_signal_on_price": true,
                 "price_alpha": 0
             },
-            "signals_old": {
-              "signal_list": [
-                  "position_signal",
-                  "volume_signal",
-                  "flat_signal",
-                  "meteor_signal",
-                  "hammer_signal",
-                  "cross_signal",
-                  "wrap_signal",
-                  "embrace_signal",
-                  "bb_signal",
-                  "psar_signal",
-                  "aroon_signal",
-                  "adx_signal",
-                  "ichimoku_signal",
-                  "renko_signal",
-                  "linear_signal",
-
-                  "平头_signal",
-                  "吞噬_signal",
-                  "包孕_signal",
-                  
-                  "穿刺_signal",
-                  "启明黄昏_signal",
-                  "反弹_signal",
-                  "突破_signal",
-                  "窗口_signal"
-              ],
-              "plot_signal_on_price": true,
-              "price_alpha": 0
-            },
-            "indicators": {
+            "TA_overall": {
                 "target_col": ["trend_idx", "trend_idx_ma"],
                 "color_mode": "up_down",
                 "benchmark": 0,
