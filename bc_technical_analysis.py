@@ -496,10 +496,17 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
       # add renko features
       df = add_renko_features(df=df)
 
+      # cross signal of Close and renko_h/renko_l
+      # df['renko_h_trend'] = cal_crossover_signal(df=df, fast_line='Close', slow_line='renko_h', pos_signal='u', neg_signal='d', none_signal=np.nan)
+      # df['renko_l_trend'] = cal_crossover_signal(df=df, fast_line='Close', slow_line='renko_l', pos_signal='u', neg_signal='d', none_signal=np.nan)
+
+      # df['renko_h_trend'] = df['renko_h_trend'].fillna(method='ffill').fillna('n')
+      # df['renko_l_trend'] = df['renko_l_trend'].fillna(method='ffill').fillna('n')
+
       # calculate renko trend
       conditions = {
-        'up': '(Close > Open) and ((renko_color=="red" and Low>renko_h) or (renko_color=="green"))', 
-        'down': '(renko_color=="red") or (renko_color=="green" and Close<renko_l)'} 
+        'up': '(candle_color == 1) and ((renko_color == "red" and Low > renko_h) or (renko_color == "green"))', 
+        'down': '(renko_color == "red") or (renko_color == "green" and Close < renko_l)'} 
       values = {
         'up': 'u', 
         'down': 'd'}
@@ -533,6 +540,8 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
           'bottom': 'd',
           'middle': 'n'}
         df = assign_condition_value(df=df, column='位置_trend', condition_dict=conditions, value_dict=values, default_value='')
+        df['位置_day'] = df['位置_trend'].replace({'u':1, 'd':-1, 'n':0, '': 0}).fillna(0).astype(int)
+        df['位置_day'] = sda(series=df['位置_day'], zero_as=None)
 
         # large/small volume 
         df['成交量_signal'] = 'n'
@@ -551,6 +560,74 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         df['candle_entity_to_close'] = df['candle_entity'] / df['Close']
         df['candle_shadow_to_close'] = df['candle_shadow'] / df['Close']
         df['candle_shadow_pct_diff'] = df['candle_upper_shadow_pct'] - df['candle_lower_shadow_pct']
+
+      if 'shadow_entity' > '':
+        
+        # long/short entity
+        df['entity_signal'] = 'n'
+        df['entity_ma'] = sm(series=df['candle_entity'], periods=ma_period).mean()
+        df['entity_std'] = sm(series=df['candle_entity'], periods=ma_period).std()
+        df['entity_diff'] = (df['candle_entity'] - df['entity_ma'])/df['entity_std']
+        conditions = {
+          'long': f'entity_diff >= {std_factor}', 
+          'short': f'entity_diff <= {-std_factor}'} 
+        values = {
+          'long': 'u', 
+          'short': 'd'}
+        df = assign_condition_value(df=df, column='entity_trend', condition_dict=conditions, value_dict=values, default_value='n')
+
+        # long/short shadow
+        df['shadow_signal'] = 'n'
+        df['shadow_ma'] = sm(series=df['candle_shadow'], periods=ma_period).mean()
+        df['shadow_std'] = sm(series=df['candle_shadow'], periods=ma_period).std()
+        df['shadow_diff'] = (df['candle_shadow'] - df['shadow_ma'])/df['shadow_std']
+        conditions = {
+          'long': f'shadow_diff >= {std_factor}', 
+          'short': f'shadow_diff <= {-std_factor}'}
+        values = {
+          'long': 'u', 
+          'short': 'd'}
+        df = assign_condition_value(df=df, column='shadow_trend', condition_dict=conditions, value_dict=values, default_value='n')
+
+        # upper shadow
+        df['upper_shadow_signal'] = 'n'
+        conditions = {
+          'long': '(candle_upper_shadow_pct > 0.3)', 
+          'short': '(candle_upper_shadow_pct < 0.1)'}
+        values = {
+          'long': 'u', 
+          'short': 'd'}
+        df = assign_condition_value(df=df, column='upper_shadow_trend', condition_dict=conditions, value_dict=values, default_value='n')
+
+        # lower shadow
+        df['lower_shadow_signal'] = 'n'
+        conditions = {
+          'long': '(candle_lower_shadow_pct > 0.3)', 
+          'short': '(candle_lower_shadow_pct < 0.1)'}
+        values = {
+          'long': 'u', 
+          'short': 'd'}
+        df = assign_condition_value(df=df, column='lower_shadow_trend', condition_dict=conditions, value_dict=values, default_value='n')
+
+        # cross
+        conditions = {
+          'cross': '(entity_trend == "d" and candle_entity_pct <= 0.1 and shadow_trend == "d")',
+          'spindle': '(entity_trend == "d" and candle_entity_pct <= 0.25 and shadow_trend == "n")',
+          'highwave': '(entity_trend == "d" and candle_entity_pct <= 0.25 and shadow_trend == "u")'}
+        values = {
+          'cross': 'd', 
+          'spindle': 'n',
+          'highwave': 'u'}
+        df = assign_condition_value(df=df, column='十字星', condition_dict=conditions, value_dict=values, default_value='')
+
+        # hammer/meteor
+        conditions = {
+          'hammer': '(entity_trend != "u" and candle_entity_pct <= 0.25) and (shadow_trend == "u" and upper_shadow_trend == "d" and candle_lower_shadow_pct >= 0.5)',
+          'meteor': '(entity_trend != "u" and candle_entity_pct <= 0.25) and (shadow_trend == "u" and lower_shadow_trend == "d" and candle_upper_shadow_pct >= 0.5)'}
+        values = {
+          'hammer': 'u', 
+          'meteor': 'd'}
+        df = assign_condition_value(df=df, column='锤子', condition_dict=conditions, value_dict=values, default_value='n')
 
       if 'windows' > '':
         
@@ -610,8 +687,8 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         # break through up or down
         df['突破_signal'] = ''
         conditions = {
-          'break_up': '((candle_gap != 2 and previous_window_position_days < 0) and ((candle_color == 1 and (window_position_status == "out")) or (window_position_status == "up")))',
-          'break_down': '((candle_gap != -2 and previous_window_position_days > 0) and ((candle_color ==-1 and window_position_status == "out") or (window_position_status == "down")))'}
+          'break_up': '((candle_gap != 2 and previous_window_position_days < 0) and ((candle_color == 1 and (window_position_status == "out" or (entity_trend != "d" and candle_entity_middle > candle_gap_top))) or (window_position_status == "up")))',
+          'break_down': '((candle_gap != -2 and previous_window_position_days > 0) and ((candle_color ==-1 and window_position_status == "out" or (entity_trend != "d" and candle_entity_middle < candle_gap_bottom)) or (window_position_status == "down")))'}
         values = {
           'break_up': 'u', 
           'break_down': 'd'}
@@ -620,74 +697,6 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         redundant_idx = df.query('(突破_trend == "u" and next_突破_trend == "u") or (突破_trend == "d" and next_突破_trend == "d")').index
         df.loc[redundant_idx, '突破_trend'] = 'n'
         
-      if 'shadow_entity' > '':
-        
-        # long/short entity
-        df['entity_signal'] = 'n'
-        df['entity_ma'] = sm(series=df['candle_entity'], periods=ma_period).mean()
-        df['entity_std'] = sm(series=df['candle_entity'], periods=ma_period).std()
-        df['entity_diff'] = (df['candle_entity'] - df['entity_ma'])/df['entity_std']
-        conditions = {
-          'long': f'entity_diff >= {std_factor}', 
-          'short': f'entity_diff <= {-std_factor}'} 
-        values = {
-          'long': 'u', 
-          'short': 'd'}
-        df = assign_condition_value(df=df, column='entity_trend', condition_dict=conditions, value_dict=values, default_value='n')
-
-        # long/short shadow
-        df['shadow_signal'] = 'n'
-        df['shadow_ma'] = sm(series=df['candle_shadow'], periods=ma_period).mean()
-        df['shadow_std'] = sm(series=df['candle_shadow'], periods=ma_period).std()
-        df['shadow_diff'] = (df['candle_shadow'] - df['shadow_ma'])/df['shadow_std']
-        conditions = {
-          'long': f'shadow_diff >= {std_factor}', 
-          'short': f'shadow_diff <= {-std_factor}'}
-        values = {
-          'long': 'u', 
-          'short': 'd'}
-        df = assign_condition_value(df=df, column='shadow_trend', condition_dict=conditions, value_dict=values, default_value='n')
-
-        # upper shadow
-        df['upper_shadow_signal'] = 'n'
-        conditions = {
-          'long': '(candle_upper_shadow_pct > 0.3)', 
-          'short': '(candle_upper_shadow_pct < 0.1)'}
-        values = {
-          'long': 'u', 
-          'short': 'd'}
-        df = assign_condition_value(df=df, column='upper_shadow_trend', condition_dict=conditions, value_dict=values, default_value='n')
-
-        # lower shadow
-        df['lower_shadow_signal'] = 'n'
-        conditions = {
-          'long': '(candle_lower_shadow_pct > 0.3)', 
-          'short': '(candle_lower_shadow_pct < 0.1)'}
-        values = {
-          'long': 'u', 
-          'short': 'd'}
-        df = assign_condition_value(df=df, column='lower_shadow_trend', condition_dict=conditions, value_dict=values, default_value='n')
-
-        # cross
-        conditions = {
-          'cross': '(entity_trend == "d" and shadow_trend == "d" and candle_entity_pct <= 0.1)',
-          'spindle': '(entity_trend == "d" and shadow_trend == "n" and candle_entity_pct <= 0.3)',
-          'highwave': '(entity_trend == "d" and shadow_trend == "u" and candle_entity_pct <= 0.3)'}
-        values = {
-          'cross': 'd', 
-          'spindle': 'n',
-          'highwave': 'u'}
-        df = assign_condition_value(df=df, column='十字星', condition_dict=conditions, value_dict=values, default_value='')
-
-        # hammer/meteor
-        conditions = {
-          'hammer': '(entity_trend != "u" and shadow_trend == "u") and (upper_shadow_trend == "d" and candle_lower_shadow_pct >= 0.5)',
-          'meteor': '(entity_trend != "u" and shadow_trend == "u") and (lower_shadow_trend == "d" and candle_upper_shadow_pct >= 0.5)'}
-        values = {
-          'hammer': 'u', 
-          'meteor': 'd'}
-        df = assign_condition_value(df=df, column='锤子', condition_dict=conditions, value_dict=values, default_value='n')
-
       # ============================== 1 candle pattern  =========================
       if '1_candle' > '':
         
@@ -714,8 +723,8 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         # hammer
         df['锤子_signal'] = 'n'
         conditions = {
-          'hammer': '(位置_trend == "d" and 锤子 == "u")', 
-          'hanging': '(位置_trend == "u" and 锤子 == "u")'}
+          'hammer': '((位置_trend == "d" and 位置_day < -5) and (锤子 == "u"))', 
+          'hanging': '((位置_trend == "u" and 位置_day > 5) and (锤子 == "u"))'}
         values = {
           'hammer': 'u', 
           'hanging': 'd'}
@@ -724,8 +733,8 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         # meteor
         df['流星_signal'] = 'n'
         conditions = {
-          'meteor': '(位置_trend == "u" and 锤子 == "d")',
-          'reverse_hammer': '(位置_trend == "d" and 锤子 == "d")'}
+          'meteor': '((位置_trend == "u" and 位置_day > 5) and (锤子 == "d"))',
+          'reverse_hammer': '((位置_trend == "d" and 位置_day < -5) and (锤子 == "d"))'}
         values = {
           'meteor': 'd',
           'reverse_hammer': 'u'}
@@ -740,7 +749,6 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
           df[f'{t}_trend'] = 'n'
           # df[f'{t}_signal'] = np.nan
 
-        df['candle_entity_middle'] = (df['candle_entity_top'] + df['candle_entity_bottom']) * 0.5
         df['previous_entity_top'] = df['candle_entity_top'].shift(1)
         df['previous_entity_bottom'] = df['candle_entity_bottom'].shift(1)
         df['previous_candle_color'] = df['candle_color'].shift(1)
@@ -866,7 +874,7 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
             if previous_previous_row is None:
               pass
             else:
-              # 必要条件: 1-红色非小实体, 2-高位, 3-绿色非小实体
+              # 1-红色非小实体, 2-高位, 3-绿色非小实体
               if (previous_row['位置_trend'] == "d") and (previous_previous_row['candle_color'] == -1 and previous_previous_row['entity_trend'] != 'd') and (row['candle_color'] == 1 and row['entity_trend'] != 'd'):
                 # 3-长实体 或 3-High > 1-High 或 3-bottom > 1-top
                 if row['entity_trend'] == 'u' or (row['High'] > previous_previous_row['High']) or (row['candle_entity_bottom'] > previous_previous_row['candle_entity_top']):
@@ -918,8 +926,8 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
 
         target_df = df.query('窗口_trend != "n" or 突破_trend != "n" or 反弹_trend != "n" or 锤子_trend != "n" or 十字星_trend != "n" or 穿刺_trend != "n" or 吞噬_trend != "n" or 包孕_trend != "n" or 启明黄昏_trend != "n"')
         for index, row in target_df.iterrows():
-          candle_pattern_trend = pattern_info.keys()
-          for t in candle_pattern_trend:
+          candle_patterns = pattern_info.keys()
+          for t in candle_patterns:
             if t in df.columns:
               tmp_trend = df.loc[index, t]
               if tmp_trend is not None:
@@ -930,18 +938,8 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
                 if tmp_weight is not None:
                   df.loc[index, 'candle_pattern_idx'] += tmp_weight
         df.loc[index, 'candle_pattern_description'] = df.loc[index, 'candle_pattern_description'][1:]
-        df.loc[index, 'candle_pattern_description'] = '[' + df.loc[index, 'candle_pattern_description'] + ']'
-
-        conditions = {
-          'up': '(candle_pattern_idx >=2)',
-          'down': '(candle_pattern_idx <= -2)'}
-        values = {
-          'up': 'u', 
-          'down': 'd'}
-        df = assign_condition_value(df=df, column='candle_pattern_trend', condition_dict=conditions, value_dict=values, default_value='n')
-        df['candle_pattern_signal'] = 'n'
-
-      df['candle_pattern_idx_ma'] = sm(df['candle_pattern_idx'], periods=3).sum()
+        empty_description_idx = df.query('candle_pattern_description == ""').index
+        df.loc[empty_description_idx, 'candle_pattern_description'] = ' '
 
       # drop unnecessary columns
       for col in [
@@ -1013,17 +1011,17 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         'break_up': 'u',
         'break_down': 'd'} 
       dscription_values = {
-        'rebound': 'rebound', 
-        'hitpeak': 'hitpeak',
-        'break_up': 'break_up',
-        'break_down': 'break_down'}
+        'rebound': '触底反弹', 
+        'hitpeak': '触顶回落',
+        'break_up': '突破阻挡',
+        'break_down': '跌落支撑'}
       idx_values = {
         'rebound': 1, 
         'hitpeak': -1,
         'break_up': 2,
         'break_down': -2}
-      df = assign_condition_value(df=df, column='拟合_trend', condition_dict=conditions, value_dict=trend_values, default_value='')
-      df = assign_condition_value(df=df, column='linear_fit_description', condition_dict=conditions, value_dict=dscription_values, default_value='')
+      df = assign_condition_value(df=df, column='拟合_trend', condition_dict=conditions, value_dict=trend_values, default_value=' ')
+      df = assign_condition_value(df=df, column='linear_fit_description', condition_dict=conditions, value_dict=dscription_values, default_value=' ')
       df = assign_condition_value(df=df, column='linear_fit_idx', condition_dict=conditions, value_dict=idx_values, default_value=0)
       
       valid_idxs = df.query('linear_slope == linear_slope and 拟合_trend == ""').index
@@ -1092,9 +1090,8 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
     if 'overall' in perspective:
 
       # days since signal triggered
-      for col in ['位置', '窗口', '突破', '反弹', '启明黄昏', '穿刺', '包孕', '吞噬', '平头', '十字星', '锤子', '流星', '腰带']:
+      for col in ['窗口', '突破', '反弹', '启明黄昏', '穿刺', '包孕', '吞噬', '平头', '十字星', '锤子', '流星', '腰带']:
         df[f'{col}_day'] = df[f'{col}_trend'].replace({'u':1, 'd':-1, 'n':0, '': 0}).fillna(0).astype(int)
-      df['位置_day'] = sda(series=df['位置_day'], zero_as=1)
 
       # iterate through df
       previous_idx = None
@@ -5112,6 +5109,43 @@ def plot_bar(
   if add_line:
     ax.plot(df.index, df[target_col], color='black', linestyle='--', marker='.', alpha=alpha)
 
+  # title and legend
+  ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
+  ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
+  ax.grid(True, axis='y', linestyle='-', linewidth=1)
+
+  ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
+
+  # return ax
+  if use_ax is not None:
+    return ax
+
+# plot overall trend of ta indicators
+def plot_trend_idx(
+  df, start=None, end=None, title=None, use_ax=None, plot_args=default_plot_args):
+
+  # copy dataframe within a specific period
+  df = df[start:end].copy()
+
+  # create figure
+  ax = use_ax
+  if ax is None:
+    fig = mpf.figure(figsize=plot_args['figsize'])
+    ax = fig.add_subplot(1,1,1, style='yahoo')
+
+  # plot trend_idx and trend_idx_ma
+  if 'trend_idx' in df.columns:
+    df['0'] = 0
+    ax.plot(df.index, df['trend_idx'], color='black', linestyle='-', label='trend_idx', alpha=0.1)
+
+    above_0 = df.query('trend_idx > 0')
+    below_0 = df.query('trend_idx <= 0')
+
+    alpha=0.25
+    ax.fill_between(df.index, df['trend_idx'], df['0'], where=df['trend_idx'] > 0, facecolor='green', interpolate=True, alpha=alpha)
+    ax.fill_between(df.index, df['trend_idx'], df['0'], where=df['trend_idx'] < 0, facecolor='red', interpolate=True, alpha=alpha)
+  if 'trend_idx_ma' in df.columns:
+    ax.plot(df.index, df['trend_idx_ma'], color='blue', linestyle='--', label='trend_idx_ma', alpha=0.5)
 
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
@@ -5374,11 +5408,8 @@ def plot_multiple_indicators(
       alpha = tmp_args.get('alpha') if tmp_args.get('alpha') is not None else 1
       plot_bar(df=plot_data, target_col=target_col, width=width, alpha=alpha, color_mode=color_mode, benchmark=None, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
     
-    # elif tmp_indicator == 'trend' or tmp_indicator == 'pattern' or tmp_indicator == 'linear':
-    #   width = tmp_args.get('bar_width') if tmp_args.get('bar_width') is not None else 1
-    #   alpha = tmp_args.get('alpha') if tmp_args.get('alpha') is not None else 1
-    #   benchmark = tmp_args.get('benchmark')
-    #   plot_bar(df=plot_data, target_col=target_col, width=width, alpha=alpha, color_mode=color_mode, benchmark=benchmark, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
+    elif tmp_indicator == 'TA_overall':
+      plot_trend_idx(plot_data, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
 
     # plot renko
     elif tmp_indicator == 'renko':
