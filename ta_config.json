@@ -80,18 +80,13 @@
                     "反弹_signal",
                     "突破_signal",
                     "窗口_signal",
-                    
-                    " ",
                     "穿刺_signal",
                     "吞噬_signal",
                     "包孕_signal",
                     "平头_signal",
-
                     "流星_signal",
                     "锤子_signal",
                     "十字星_signal",
-                    " ",
-
                     "成交量_signal",
                     "位置_signal",
                     " ",
@@ -99,8 +94,6 @@
                     "bb_signal",
                     "renko_signal",
                     "拟合_signal",
-                    " ",
-                    
                     "signal"
                 ],
                 "plot_signal_on_price": true,
