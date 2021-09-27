@@ -496,13 +496,6 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
       # add renko features
       df = add_renko_features(df=df)
 
-      # cross signal of Close and renko_h/renko_l
-      # df['renko_h_trend'] = cal_crossover_signal(df=df, fast_line='Close', slow_line='renko_h', pos_signal='u', neg_signal='d', none_signal=np.nan)
-      # df['renko_l_trend'] = cal_crossover_signal(df=df, fast_line='Close', slow_line='renko_l', pos_signal='u', neg_signal='d', none_signal=np.nan)
-
-      # df['renko_h_trend'] = df['renko_h_trend'].fillna(method='ffill').fillna('n')
-      # df['renko_l_trend'] = df['renko_l_trend'].fillna(method='ffill').fillna('n')
-
       # calculate renko trend
       conditions = {
         'up': '(candle_color == 1) and ((renko_color == "red" and Low > renko_h) or (renko_color == "green"))', 
@@ -510,7 +503,7 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
       values = {
         'up': 'u', 
         'down': 'd'}
-      df = assign_condition_value(df=df, column='renko_trend', condition_dict=conditions, value_dict=values, default_value='')
+      df = assign_condition_value(df=df, column='renko_trend', condition_dict=conditions, value_dict=values, default_value='n')
       wave_idx = df.query('(renko_trend != "u" and renko_trend != "d") and ((renko_brick_length >= 20 ) and (renko_brick_length>3*renko_duration_p1))').index
       df.loc[wave_idx, 'renko_trend'] = 'n'
 
@@ -977,8 +970,8 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
       # trends from linear fit 
       # hitpeak or rebound
       conditions = {
-        'up': '((linear_fit_low_stop > 0 and linear_fit_support < Close) and (tankan_kijun_signal > 0 or Close > tankan or candle_entity_bottom > linear_fit_high))', 
-        'down': '((linear_fit_high_stop > 0 and linear_fit_resistant > Close) and ((tankan_kijun_signal < 0) or (Close < tankan) or (candle_entity_top < linear_fit_low) or (candle_pattern_idx < 0)))'} 
+        'up': '((candle_color == 1 and linear_fit_low_stop > 1 and linear_fit_support < Close) and ((candle_color_day >= 3) or (candle_color == 1 and shadow_trend == "u" and lower_shadow_trend == "u") or (吞噬_trend == "u" or 穿刺_trend == "u") or (tankan_kijun_signal > 0 or Close > tankan) or (candle_entity_bottom > linear_fit_high)))', 
+        'down': '((candle_color == -1 and linear_fit_high_stop > 1 and linear_fit_resistant > Close) and ((candle_color_day <= -3) or (candle_color == -1 and shadow_trend == "u" and upper_shadow_trend == "u") or (吞噬_trend == "d" or 穿刺_trend == "d") or (tankan_kijun_signal < 0 or Close < tankan) or (candle_entity_top < linear_fit_low)))'} 
       values = {
         'up': 'u', 
         'down': 'd'}
@@ -2065,6 +2058,7 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col, pattern_recognitio
   down_idx = df[open] >= df[close]
   df.loc[up_idx, 'candle_color'] = 1
   df.loc[down_idx, 'candle_color'] = -1
+  df['candle_color_day'] = sda(series=df['candle_color'], zero_as=1)
   
   # shadow
   df['candle_shadow'] = (df[high] - df[low])
@@ -2446,8 +2440,12 @@ def add_linear_features(df, max_period=60, min_period=15, is_print=False):
   reach_bottom_idx = df.query(f'Low=={lowest_low} and linear_fit_low == {lowest_low} and linear_fit_low_slope <= 0').index
   df.loc[reach_top_idx, 'linear_fit_high_stop'] = 1
   df.loc[reach_bottom_idx, 'linear_fit_low_stop'] = 1
+  df.loc[reach_top_idx, 'linear_top_entity_top'] = df.loc[reach_top_idx, 'candle_entity_top']
+  df.loc[reach_top_idx, 'linear_top_entity_bottom'] = df.loc[reach_top_idx, 'candle_entity_bottom']
+  df.loc[reach_bottom_idx, 'linear_bottom_entity_top'] = df.loc[reach_bottom_idx, 'candle_entity_top']
+  df.loc[reach_bottom_idx, 'linear_bottom_entity_bottom'] = df.loc[reach_bottom_idx, 'candle_entity_bottom']
   
-  for col in ['linear_fit_high_stop', 'linear_fit_low_stop']:
+  for col in ['linear_fit_high_stop', 'linear_fit_low_stop', 'linear_top_entity_top', 'linear_top_entity_bottom', 'linear_bottom_entity_top', 'linear_bottom_entity_bottom']:
     df[col] = df[col].fillna(method='ffill')
   df['linear_fit_low_stop'] = sda(df['linear_fit_low_stop'], zero_as=1)
   df['linear_fit_high_stop'] = sda(df['linear_fit_high_stop'], zero_as=1)
