@@ -194,6 +194,9 @@ def preprocess_sec_data(df, symbol, print_error=True):
     error_info = f'[{symbol}]: on {max_idx.date()}, {error_info}'
     print(error_info)
 
+  # # calculate heikin ashi features
+  # df = add_heikin_ashi_features(df=df, ohlcv_col=default_ohlcv_col, replace_ohlc=True, dropna=True)
+
   # add symbol and change rate of close price
   df['symbol'] = symbol
   
@@ -315,7 +318,7 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       df.loc[wave_idx, trend_col] = 'n'
 
       # drop intermediate columns
-      df.drop(['tankan_day', 'tankan_rate', 'tankan_rate_ma', 'kijun_day', 'kijun_rate', 'kijun_rate_ma'], axis=1, inplace=True)
+      # df.drop(['tankan_day', 'tankan_rate', 'tankan_rate_ma', 'kijun_day', 'kijun_rate', 'kijun_rate_ma'], axis=1, inplace=True)
 
     # ================================ aroon trend ============================
     if 'aroon' in trend_indicators:
@@ -419,6 +422,19 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
 
     # =========================================================================
 
+    # ================================ atr trend ==============================
+    if 'atr' in volatility_indicators:
+      df['atr_trend'] = 'n'
+      # conditions = {
+      #   'up': 'Close < bb_low_band', 
+      #   'down': 'Close > bb_high_band'} 
+      # values = {
+      #   'up': 'u', 
+      #   'down': 'd'}
+      # df = assign_condition_value(df=df, column='bb_trend', condition_dict=conditions, value_dict=values, default_value='')
+
+    # =========================================================================
+
     phase = 'calculate trend overall'
 
     # ================================ overall trend ==========================
@@ -428,7 +444,7 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
 
     # specify all indicators and specify the exclusives
     all_indicators = list(set(trend_indicators + volume_indicators + volatility_indicators + other_indicators))
-    exclude_indicators = ['bb']
+    exclude_indicators = ['bb', 'atr']
     for indicator in all_indicators:
       trend_col = f'{indicator}_trend'
       signal_col = f'{indicator}_signal'
@@ -604,14 +620,12 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
 
         # cross
         conditions = {
-          'cross': '(entity_trend == "d" and candle_entity_pct <= 0.1 and shadow_trend == "d")',
-          'spindle': '(entity_trend == "d" and candle_entity_pct <= 0.25 and shadow_trend == "n")',
-          'highwave': '(entity_trend == "d" and candle_entity_pct <= 0.25 and shadow_trend == "u")'}
+          'cross': '(entity_trend == "d" and ((candle_entity_pct <= 0.1 and shadow_trend != "u") or shadow_trend == "d"))',
+          'highwave': '(entity_trend == "d" and candle_entity_pct <= 0.3 and shadow_trend == "u")'}
         values = {
           'cross': 'd', 
-          'spindle': 'n',
           'highwave': 'u'}
-        df = assign_condition_value(df=df, column='十字星', condition_dict=conditions, value_dict=values, default_value='')
+        df = assign_condition_value(df=df, column='十字星', condition_dict=conditions, value_dict=values, default_value='n')
 
         # hammer/meteor
         conditions = {
@@ -626,7 +640,7 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         
         # candle entity middle
         df['candle_entity_middle'] = (df['candle_entity_top'] + df['candle_entity_bottom']) * 0.5
-        
+
         # window(gap)
         df['窗口_signal'] = 'n'
         conditions = {
@@ -685,7 +699,7 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         values = {
           'break_up': 'u', 
           'break_down': 'd'}
-        df = assign_condition_value(df=df, column='突破_trend', condition_dict=conditions, value_dict=values, default_value='n')
+        df = assign_condition_value(df=df, column='突破_trend', condition_dict=conditions, value_dict=values)
         df['prev_突破_trend'] = df['突破_trend'].shift(1)
         redundant_idx = df.query('(突破_trend == "u" and prev_突破_trend == "u") or (突破_trend == "d" and prev_突破_trend == "d")').index
         df.loc[redundant_idx, '突破_trend'] = 'n'
@@ -883,6 +897,38 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
           df[f'{t}_signal'] = df[f'{t}_trend']
 
       # ============================== overall results  ==========================
+      
+      # days since signal triggered
+      all_candle_patterns = ['窗口', '突破', '反弹', '启明黄昏', '穿刺', '包孕', '吞噬', '平头', '十字星', '锤子', '流星', '腰带']
+      for col in all_candle_patterns:
+        df[f'{col}_day'] = df[f'{col}_trend'].replace({'u':1, 'd':-1, 'n':0, '': 0}).fillna(0).astype(int)
+
+      # iterate through df
+      previous_idx = None
+      for index, row in df.iterrows():
+        if previous_idx is not None:
+          for col in all_candle_patterns:
+            
+            # get current day and previous day
+            day_col = f'{col}_day'
+            current_day = row[day_col]
+            previous_day = df.loc[previous_idx, day_col]
+ 
+            # only operate when current day is 0
+            if current_day == 0 and previous_day >= 1:
+              df.loc[index, day_col] = previous_day + 1
+            elif current_day == 0 and previous_day <= -1:
+              df.loc[index, day_col] = previous_day - 1
+            elif current_day == 1 and previous_day == -1:
+              df.loc[index, day_col] = 0
+            else:
+              pass
+        else:
+          pass
+
+        # update previous index
+        previous_idx = index   
+      
       if 'candle pattern description and index' > '':  
 
         # candle pattern description
@@ -938,12 +984,12 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
 
       # drop unnecessary columns
       for col in [
-        # '位置_signal', '成交量_signal', 
-        # '腰带_signal', '十字星_signal', '锤子_signal', '流星_signal', 
-        # '穿刺_signal', '平头_signal', '包孕_signal', '吞噬_signal', 
-        # '启明黄昏_signal', '窗口_signal', '突破_signal', '反弹_signal'
+        '位置_signal', '成交量_signal', 
+        '腰带_signal', '十字星_signal', '锤子_signal', '流星_signal', 
+        '穿刺_signal', '平头_signal', '包孕_signal', '吞噬_signal', 
+        '启明黄昏_signal', '窗口_signal', '突破_signal', '反弹_signal'
         'volume_ma', 'volume_to_ma', 
-        'window_position_status', 'window_position_days', 'previous_window_position_days', 'previous_window_position_status', 'previous_candle_color', 'next_突破_trend',
+        'window_upper_limit', 'window_lower_limit', 'window_position_status', 'window_position_days', 'previous_window_position_days', 'previous_window_position_status', 'previous_candle_color', 'next_突破_trend',
         'entity_signal', 'shadow_signal', 'upper_shadow_signal', 'lower_shadow_signal', 
         'candle_entity_to_close', 'candle_shadow_to_close', 'candle_shadow_pct_diff', 'candle_entity_middle'
         'previous_high', 'previous_low', 'high_diff', 'low_diff',
@@ -976,8 +1022,8 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
       # trends from linear fit 
       # hitpeak or rebound
       conditions = {
-        'up': '((candle_color == 1 and linear_fit_low_stop > 1 and linear_fit_support < Close) and ((5 >= tankan_signal > 0) or (candle_entity_bottom > linear_fit_high)))', 
-        'down': '((candle_color == -1 and linear_fit_high_stop > 1 and linear_fit_resistant > Close) and ((0 > tankan_signal >= -5) or (candle_entity_top < linear_fit_low)))',
+        'up': '((candle_color == 1 and linear_fit_low_stop > 1 and linear_fit_support < candle_entity_bottom) and ((5 >= tankan_signal > 0) or (candle_entity_bottom > linear_fit_high) or (entity_trend == "u" and upper_shadow_trend == "d" and lower_shadow_trend == "u")))', 
+        'down': '((candle_color == -1 and linear_fit_high_stop > 1 and linear_fit_resistant > candle_entity_top) and ((0 > tankan_signal >= -5) or (candle_entity_top < linear_fit_low) or (entity_trend == "u" and upper_shadow_trend == "u" and lower_shadow_trend == "d")))',
         'wave': '(linear_fit_high_slope == 0 and linear_fit_low_slope == 0)'} 
       values = {
         'up': 'u', 
@@ -990,8 +1036,8 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
 
       # break through up or down
       conditions = {
-        'up': '((linear_fit_high_stop >= 10 or linear_fit_high_slope == 0) and linear_fit_high_signal >= 1 and ((candle_color == 1 and entity_trend == "u" and candle_entity_middle > linear_fit_resistant) or (candle_entity_bottom > linear_fit_resistant)))', 
-        'down': '((linear_fit_low_stop >= 10 or linear_fit_low_slope == 0) and linear_fit_low_signal <= -1 and ((candle_color == -1 and entity_trend == "u" and candle_entity_middle < linear_fit_support) or (candle_entity_top < linear_fit_support)))'} 
+        'up': '((linear_fit_high_stop >= 5 or linear_fit_high_slope == 0) and linear_fit_high_signal >= 1 and ((candle_color == 1 and entity_trend == "u" and candle_entity_middle > linear_fit_resistant) or (candle_entity_bottom > linear_fit_resistant)))', 
+        'down': '((linear_fit_low_stop >= 5 or linear_fit_low_slope == 0) and linear_fit_low_signal <= -1 and ((candle_color == -1 and entity_trend == "u" and candle_entity_middle < linear_fit_support) or (candle_entity_top < linear_fit_support)))'} 
       values = {
         'up': 'u', 
         'down': 'd'}
@@ -1000,7 +1046,6 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
       df['linear_break_day'] = sda(series=df['linear_break_trend'].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
 
       # linear fit description and score
-      df['linear_fit_description'] = ''
       df['linear_fit_idx'] = 0
 
       conditions = {
@@ -1013,23 +1058,154 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         'hitpeak': 'd',
         'break_up': 'u',
         'break_down': 'd'} 
-      dscription_values = {
-        'rebound': '触底反弹', 
-        'hitpeak': '触顶回落',
-        'break_up': '突破阻挡',
-        'break_down': '跌落支撑'}
       idx_values = {
         'rebound': 1, 
         'hitpeak': -1,
         'break_up': 2,
         'break_down': -2}
       df = assign_condition_value(df=df, column='拟合_trend', condition_dict=conditions, value_dict=trend_values, default_value=' ')
-      df = assign_condition_value(df=df, column='linear_fit_description', condition_dict=conditions, value_dict=dscription_values, default_value=' ')
       df = assign_condition_value(df=df, column='linear_fit_idx', condition_dict=conditions, value_dict=idx_values, default_value=0)
       
       valid_idxs = df.query('linear_slope == linear_slope and 拟合_trend == " "').index
       df.loc[valid_idxs, '拟合_trend'] = 'n'
       df['拟合_signal'] = 'n' #df['拟合_trend'].replace({'d': 's', 'u': 'b', 'n': ''})
+
+      # if 'overall' in perspective:
+      # focus on the last row only
+      max_idx = df.index.max()
+      valid_idxs = df.query('linear_slope == linear_slope').index
+
+      # overall linear pattern and index
+      row = df.loc[max_idx,].copy()
+      period_threhold = 5
+      # df['category'] = ''
+      # df['description'] = ''
+      df['linear_fit_category'] = ''
+      df['linear_fit_description'] = ''
+
+      for col in ['tankan', 'kijun']:
+        signal_col = f'{col}_signal'
+        if signal_col in df.columns:
+          df[signal_col] = sda(series=df[signal_col], zero_as=1)
+        else:
+          print(f'{signal_col} not in df.columns')
+
+      # define conditions
+      conditions = {
+
+        # tankan-kijun(ichimoku信号)
+        'T/K': (row['tankan_kijun_signal'] > 0 and row['tankan_kijun_signal'] <= 10) or (row['tankan_kijun_signal'] < 0 and row['tankan_kijun_signal'] >= -10),
+
+        # linear trend
+        '强势': (row['linear_slope'] >= 0.1 or row['linear_slope'] <= -0.1) and (row['linear_fit_high_slope'] * row['linear_fit_low_slope'] > 0),
+        '弱势': (row['linear_slope'] >-0.1 and row['linear_slope'] < 0.1 ) or ((row['linear_fit_high_slope'] * row['linear_fit_low_slope']) < 0),
+        '上行': (row['linear_fit_high_slope'] > 0 and row['linear_fit_low_slope'] >= 0) or (row['linear_fit_high_slope'] >= 0 and row['linear_fit_low_slope'] > 0),
+        '下行': (row['linear_fit_high_slope'] < 0 and row['linear_fit_low_slope'] <= 0) or (row['linear_fit_high_slope'] <= 0 and row['linear_fit_low_slope'] < 0),
+        '波动': (row['linear_fit_high_slope'] * row['linear_fit_low_slope'] < 0) or (row['linear_fit_high_slope']==0 and row['linear_fit_low_slope']==0),
+        '轨道中': (row['linear_fit_high'] >= row['Close']) and (row['linear_fit_low'] <= row['Close']),
+        '轨道上方': (row['linear_fit_high'] < row['Close']) and (row['linear_fit_low'] < row['Close']),
+        '轨道下方': (row['linear_fit_high'] > row['Close']) and (row['linear_fit_low'] > row['Close']),
+
+        # linear support and resistant
+        '跌破支撑': (row['linear_break_trend'] == "d"),
+        '突破阻挡': (row['linear_break_trend'] == "u"), 
+        '触顶回落': (row['linear_bounce_trend'] == "d"),
+        '触底反弹': (row['linear_bounce_trend'] == "u"), 
+
+        # technical indicators
+        '上穿快线': (row['tankan_signal'] > 0 and row['tankan_signal'] < period_threhold),
+        '上穿慢线': (row['kijun_signal'] > 0 and row['kijun_signal'] < period_threhold),
+        '上穿底部': (row['linear_fit_low_signal'] > 0 and row['linear_fit_low_signal'] < period_threhold),
+        '上穿顶部': (row['linear_fit_high_signal'] > 0 and row['linear_fit_high_signal'] < period_threhold),
+        '下穿快线': (row['tankan_signal'] < 0 and row['tankan_signal'] > -period_threhold),
+        '下穿慢线': (row['kijun_signal'] < 0 and row['kijun_signal'] > -period_threhold),
+        '下穿底部': (row['linear_fit_low_signal'] < 0 and row['linear_fit_low_signal'] > -period_threhold),
+        '下穿顶部': (row['linear_fit_high_signal'] < 0 and row['linear_fit_high_signal'] > -period_threhold)
+      }
+
+      # initialize empty dict
+      classification = []
+
+      # breakthrough resistant
+      if conditions['强势'] and conditions['上行'] and conditions['突破阻挡']:
+        classification.append('突破阻挡')
+
+      # fall below support
+      if conditions['强势'] and conditions['下行'] and conditions['跌破支撑']:
+        classification.append('跌落支撑')
+
+      # rebound
+      if conditions['下行'] and conditions['触底反弹'] and conditions['上穿快线'] and (conditions['上穿顶部'] or conditions['上穿慢线']):
+        classification.append('触底反弹')
+
+      # peak back
+      if conditions['上行'] and conditions['触顶回落'] and (conditions['下穿底部'] or conditions['下穿快线'] or conditions['下穿慢线']):
+        classification.append('触顶回落')
+
+      # uptrending
+      if conditions['上行'] and (conditions['轨道中'] or conditions['轨道上方']) and ('hitpeak' not in classification and 'up_x_resistant' not in classification):
+        classification.append('上行趋势')
+
+      # downtrending
+      if conditions['下行'] and (conditions['轨道中'] or conditions['轨道下方']) and ('rebound' not in classification and 'down_x_support' not in classification):
+        classification.append('下行趋势')
+
+      # waving
+      if (conditions['波动'] or conditions['弱势']) and ('rebound' not in classification and 'hitpeak' not in classification and 'uptrending' not in classification and 'downtrending' not in classification):
+        classification.append('波动趋势')
+
+      # others
+      if len(classification) == 0:
+        classification.append('其他')
+
+      # generate description: trend analysis
+      description = (f'[{row["tankan_kijun_signal"]}]')
+      prev_k = None
+      for k in conditions.keys():
+        segment_s = ''
+        segment_e = ''
+        s = None
+        e = None
+        addition = ''
+
+        # if condition not triggered, continue
+        if not conditions[k] or ('上穿' in k) or ('下穿' in k) or k =='T/K':
+          continue
+        
+        # add addition info for conditions
+        elif k in ['触底反弹']:
+          addition = f'({row["linear_fit_low_stop"]})'
+        elif k in ['触顶回落']:
+          addition = f'({row["linear_fit_high_stop"]})'
+        elif k in ['跌破支撑']:
+          addition = f'({row["linear_fit_support"]})'
+        elif k in ['突破阻挡']:
+          addition = f'({row["linear_fit_resistant"]})'
+
+        # add segment for conditions
+        if k in ['强势', '弱势', '上行', '下行', '波动']:
+          segment_s = '['
+          
+        if k in ['轨道中', '轨道上方', '轨道下方']:
+          segment_e = f']' # ({row["rate_direction"].round(2)})
+          
+        if k in ['跌破支撑', '突破阻挡', '触顶回落', '触底反弹']:
+          segment_s = '['
+          segment_e = ']'
+          
+        if k in ['上行', '下行', '波动'] and prev_k in ['强势', '弱势']:
+          segment_s = ''
+          
+        description += f'{segment_s}{k[s:e]}{addition}{segment_e}'
+        prev_k = k
+
+      # assign category
+      category = '/'.join(classification)
+      df.loc[max_idx, 'linear_fit_category'] = category
+
+      # assign description
+      description += '' if (description[-1] == ']') else ']'
+      df.loc[max_idx, 'linear_fit_description'] = description
 
     phase = 'support and resistant'
     # ================================ support and resistant =====================
@@ -1090,175 +1266,7 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
 
     phase = 'overall'
     # ================================ overall description =======================
-    if 'overall' in perspective:
-
-      # days since signal triggered
-      for col in ['窗口', '突破', '反弹', '启明黄昏', '穿刺', '包孕', '吞噬', '平头', '十字星', '锤子', '流星', '腰带']:
-        df[f'{col}_day'] = df[f'{col}_trend'].replace({'u':1, 'd':-1, 'n':0, '': 0}).fillna(0).astype(int)
-
-      # iterate through df
-      previous_idx = None
-      for index, row in df.iterrows():
-        if previous_idx is not None:
-          for col in ['窗口', '突破', '反弹', '启明黄昏', '穿刺', '包孕', '吞噬', '平头', '十字星', '锤子', '流星', '腰带']:
-            
-            # get current day and previous day
-            day_col = f'{col}_day'
-            current_day = row[day_col]
-            previous_day = df.loc[previous_idx, day_col]
- 
-            # only operate when current day is 0
-            if current_day == 0 and previous_day >= 1:
-              df.loc[index, day_col] = previous_day + 1
-            elif current_day == 0 and previous_day <= -1:
-              df.loc[index, day_col] = previous_day - 1
-            elif current_day == 1 and previous_day == -1:
-              df.loc[index, day_col] = 0
-            else:
-              pass
-        else:
-          pass
-
-        # update previous index
-        previous_idx = index
-
-      # for col in ['窗口', '突破', '反弹', '启明黄昏']: # '十字星', '锤子', '流星', '穿刺', '包孕', '吞噬', '平头'
-      #   valid_up_idx = df.query(f'(0 < {col}_day <= 3)').index
-      #   valid_down_idx = df.query(f'(0 > {col}_day >= -3)').index
-      #   valid_wave_idx = df.query(f'({col}_day == 0)').index
-      #   df.loc[valid_up_idx, f'{col}_trend'] = 'u'
-      #   df.loc[valid_down_idx, f'{col}_trend'] = 'd'    
-      #   df.loc[valid_wave_idx, f'{col}_trend'] = 'n'      
-
-      # ================================ linear analysis ========================
-      row = df.loc[max_idx,].copy()
-      period_threhold = 5
-      df['category'] = ''
-      df['description'] = ''
-
-      for col in ['tankan', 'kijun']:
-        signal_col = f'{col}_signal'
-        if signal_col in df.columns:
-          df[signal_col] = sda(series=df[signal_col], zero_as=1)
-        else:
-          print(f'{signal_col} not in df.columns')
-
-      # define conditions
-      conditions = {
-
-        # tankan-kijun(ichimoku信号)
-        'T/K': (row['tankan_kijun_signal'] > 0 and row['tankan_kijun_signal'] <= 10) or (row['tankan_kijun_signal'] < 0 and row['tankan_kijun_signal'] >= -10),
-
-        # linear trend
-        '强势': (row['linear_slope'] >= 0.1 or row['linear_slope'] <= -0.1) and (row['linear_fit_high_slope'] * row['linear_fit_low_slope'] > 0),
-        '弱势': (row['linear_slope'] >-0.1 and row['linear_slope'] < 0.1 ) or ((row['linear_fit_high_slope'] * row['linear_fit_low_slope']) < 0),
-        '上行': (row['linear_fit_high_slope'] > 0 and row['linear_fit_low_slope'] >= 0) or (row['linear_fit_high_slope'] >= 0 and row['linear_fit_low_slope'] > 0),
-        '下行': (row['linear_fit_high_slope'] < 0 and row['linear_fit_low_slope'] <= 0) or (row['linear_fit_high_slope'] <= 0 and row['linear_fit_low_slope'] < 0),
-        '波动': (row['linear_fit_high_slope'] * row['linear_fit_low_slope'] < 0) or (row['linear_fit_high_slope']==0 and row['linear_fit_low_slope']==0),
-        '轨道中': (row['linear_fit_high'] >= row['Close']) and (row['linear_fit_low'] <= row['Close']),
-        '轨道上方': (row['linear_fit_high'] < row['Close']) and (row['linear_fit_low'] < row['Close']),
-        '轨道下方': (row['linear_fit_high'] > row['Close']) and (row['linear_fit_low'] > row['Close']),
-
-        # linear support and resistant
-        '跌破支撑': (row['linear_break_trend'] == "d"),
-        '突破阻挡': (row['linear_break_trend'] == "u"), 
-        '触顶回落': (row['linear_bounce_trend'] == "d"),
-        '触底反弹': (row['linear_bounce_trend'] == "u"), 
-
-        # technical indicators
-        '上穿快线': (row['tankan_signal'] > 0 and row['tankan_signal'] < period_threhold),
-        '上穿慢线': (row['kijun_signal'] > 0 and row['kijun_signal'] < period_threhold),
-        '上穿底部': (row['linear_fit_low_signal'] > 0 and row['linear_fit_low_signal'] < period_threhold),
-        '上穿顶部': (row['linear_fit_high_signal'] > 0 and row['linear_fit_high_signal'] < period_threhold),
-        '下穿快线': (row['tankan_signal'] < 0 and row['tankan_signal'] > -period_threhold),
-        '下穿慢线': (row['kijun_signal'] < 0 and row['kijun_signal'] > -period_threhold),
-        '下穿底部': (row['linear_fit_low_signal'] < 0 and row['linear_fit_low_signal'] > -period_threhold),
-        '下穿顶部': (row['linear_fit_high_signal'] < 0 and row['linear_fit_high_signal'] > -period_threhold)
-      }
-
-      # initialize empty dict
-      classification = []
-
-      # breakthrough resistant
-      if conditions['强势'] and conditions['上行'] and conditions['突破阻挡']:
-        classification.append('up_x_resistant')
-
-      # fall below support
-      if conditions['强势'] and conditions['下行'] and conditions['跌破支撑']:
-        classification.append('down_x_support')
-
-      # rebound
-      if conditions['下行'] and conditions['触底反弹'] and conditions['上穿快线'] and (conditions['上穿顶部'] or conditions['上穿慢线']):
-        classification.append('rebound')
-
-      # peak back
-      if conditions['上行'] and conditions['触顶回落'] and (conditions['下穿底部'] or conditions['下穿快线'] or conditions['下穿慢线']):
-        classification.append('hitpeak')
-
-      # uptrending
-      if conditions['上行'] and (conditions['轨道中'] or conditions['轨道上方']) and ('hitpeak' not in classification and 'up_x_resistant' not in classification):
-        classification.append('uptrending')
-
-      # downtrending
-      if conditions['下行'] and (conditions['轨道中'] or conditions['轨道下方']) and ('rebound' not in classification and 'down_x_support' not in classification):
-        classification.append('downtrending')
-
-      # waving
-      if (conditions['波动'] or conditions['弱势']) and ('rebound' not in classification and 'hitpeak' not in classification and 'uptrending' not in classification and 'downtrending' not in classification):
-        classification.append('waving')
-
-      # others
-      if len(classification) == 0:
-        classification.append('others')
-
-      # generate description: trend analysis
-      description = (f'[{row["tankan_kijun_signal"]}]')
-      prev_k = None
-      for k in conditions.keys():
-        segment_s = ''
-        segment_e = ''
-        s = None
-        e = None
-        addition = ''
-
-        # if condition not triggered, continue
-        if not conditions[k] or ('上穿' in k) or ('下穿' in k) or k =='T/K':
-          continue
-        
-        # add addition info for conditions
-        elif k in ['触底反弹']:
-          addition = f'({row["linear_fit_low_stop"]})'
-        elif k in ['触顶回落']:
-          addition = f'({row["linear_fit_high_stop"]})'
-        elif k in ['跌破支撑']:
-          addition = f'({row["support"]})'
-        elif k in ['突破阻挡']:
-          addition = f'({row["resistant"]})'
-
-        # add segment for conditions
-        if k in ['强势', '弱势', '上行', '下行', '波动']:
-          segment_s = '['
-          
-        if k in ['轨道中', '轨道上方', '轨道下方']:
-          segment_e = f']' # ({row["rate_direction"].round(2)})
-          
-        if k in ['跌破支撑', '突破阻挡', '触顶回落', '触底反弹']:
-          segment_s = '['
-          segment_e = ']'
-          
-        if k in ['上行', '下行', '波动'] and prev_k in ['强势', '弱势']:
-          segment_s = ''
-          
-        description += f'{segment_s}{k[s:e]}{addition}{segment_e}'
-        prev_k = k
-
-      # assign category
-      category = '/'.join(classification)
-      df.loc[max_idx, 'category'] = category
-
-      # assign description
-      description += '' if (description[-1] == ']') else ']'
-      df.loc[max_idx, 'description'] = description
+    
 
   except Exception as e:
     print(phase, e)
@@ -1281,17 +1289,11 @@ def calculate_ta_signal(df):
   # copy data, initialize
   df = df.copy()
 
-  df = cal_change_rate(df=df, target_col='tankan', periods=1, add_accumulation=True, add_prefix='tankan', drop_na=False)
-
   # ================================ buy and sell signals ==========================
   df['trend'] = ''
 
   # buy conditions
   buy_conditions = {
-    # # stable version
-    # 'ichimoku/aroon/adx/psar are all up trending': '(trend_idx == 4)',
-    # 'renko is up trending': '(renko_trend == "u")',
-    # 'bb is not over-buying': '(bb_trend != "d")',
 
     # developing version
     'at least 4 in ichimoku/aroon/adx/kst/psar are up trending': '(trend_idx >= 3)',
@@ -1306,20 +1308,21 @@ def calculate_ta_signal(df):
 
   # sell conditions
   sell_conditions = {
-    # # stable version
-    # 'High is below kijun line': '(High < kijun)',
-    # 'no individual trend is up and overall trend is down': '(trend_idx < -1 and up_trend_idx == 0)',
-    # 'price went down through brick': '(renko_trend == "d")', 
-    # 'bb is not over-selling': '(bb_trend != "u")',
     
     # developing version
-    'High is below kijun line': '(High < kijun)',
+    'High is below kijun line': '((High < kijun) or (0 > 窗口_day >= -3) or (0 > 突破_day >= -3) or (0 > 反弹_day >= -3) or (0 > 启明黄昏_day >= -3))',
     'no individual trend is up and overall trend is down': '(trend_idx < -1 and up_trend_idx == 0)',
     'price went down through brick': '(renko_trend == "d")', 
     'bb is not over-selling': '(bb_trend != "u" or (Close < renko_l and renko_duration >= 150))',
   } 
   down_idx = df.query(' and '.join(sell_conditions.values())).index 
   df.loc[down_idx, 'trend'] = 'd'
+
+  # ichimoku signals
+  # buy_idx = df.query('tankan_kijun_signal == 1').index
+  # sell_idx = df.query('tankan_kijun_signal == -1').index
+  # df.loc[buy_idx, 'trend'] = 'u'
+  # df.loc[sell_idx, 'trend'] = 'd'
 
   # ================================ Calculate overall siganl ======================
   df['signal_day'] = sda(series=df['trend'].replace({'':0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
@@ -2122,6 +2125,7 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col, pattern_recognitio
   df.loc[strict_gap_down_idx, 'candle_gap_top'] = df.loc[strict_gap_down_idx, f'prev_{low}']
   df.loc[strict_gap_down_idx, 'candle_gap_bottom'] = df.loc[strict_gap_down_idx, f'{high}']
 
+  df['candle_gap_height'] = df['candle_gap_top'] - df['candle_gap_bottom']
   # # if there's too many gaps, disnote all gaps
   # up_gaps = df.query('candle_gap == 2').index
   # down_gaps = df.query('candle_gap == -2').index
@@ -2139,6 +2143,7 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col, pattern_recognitio
   df['candle_gap_top'] = df['candle_gap_top'].fillna(method='ffill') 
   df['candle_gap_bottom'] = df['candle_gap_bottom'].fillna(method='ffill') 
   df['candle_gap_color'] = df['candle_gap_color'].fillna(method='ffill')
+  df['candle_gap_height'] = df['candle_gap_height'].fillna(method='ffill')
 
   # gap support and resistant
   support_idx = df.query(f'{close} > candle_gap_bottom').index
@@ -4081,7 +4086,7 @@ def add_atr_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_si
 
   # calculate signal
   if cal_signal:
-    df['atr_signal'] = df['tr'] - df['atr']
+    df['atr_diff'] = df['tr'] - df['atr']
 
   df.drop(['h_l', 'h_pc', 'l_pc'], axis=1, inplace=True)
 
@@ -4491,7 +4496,7 @@ def plot_candlestick(
     pre_i = idxs.index(start)-1
     pre_start = idxs[pre_i] if pre_i > 0 else start
     tmp_data = df[start:end]
-    ax.fill_between(df[pre_start:end].index, top_value, bottom_value, facecolor=gap_color, interpolate=True, alpha=0.25, edgecolor=gap_hatch_color, linewidth=3) #,  
+    ax.fill_between(df[pre_start:end].index, top_value, bottom_value, facecolor=gap_color, interpolate=True, alpha=0.15, edgecolor=gap_hatch_color, linewidth=1) #,  
 
   y_resistant = None
   y_text_resistant = None
@@ -4571,7 +4576,7 @@ def plot_candlestick(
 
       # positive patterns
       tmp_up_info = pattern_info[p][1]
-      if len(tmp_up_info) > 0:
+      if len(tmp_up_info) > 0 and len(tmp_up_idx) < 10:
         for i in tmp_up_idx:
           k = util.time_2_string(i.date())
           if k not in up_pattern_annotations: 
@@ -4583,7 +4588,7 @@ def plot_candlestick(
 
       # negative patterns
       tmp_down_info = pattern_info[p][-1]
-      if len(tmp_down_info) > 0:
+      if len(tmp_down_info) > 0 and len(tmp_down_idx) < 10:
         for i in tmp_down_idx:
           k = util.time_2_string(i.date())
           if k not in down_pattern_annotations:
@@ -4608,7 +4613,7 @@ def plot_candlestick(
     # annotate patterns
     counter = 0
     for k in tmp_annotation.keys():
-      
+
       x = tmp_annotation[k]['x']
       y = tmp_annotation[k]['y']
       if a == 'up':
@@ -4700,6 +4705,16 @@ def plot_main_indicators(
     ax.plot(df.index, df.mavg, label='mavg', color='grey', alpha=alpha)
     ax.fill_between(df.index, df.mavg, df.bb_high_band, facecolor='green', interpolate=True, alpha=0.1)
     ax.fill_between(df.index, df.mavg, df.bb_low_band, facecolor='red', interpolate=True, alpha=0.2)
+
+  # plot average true range
+  if 'atr' in target_indicator:
+    alpha = 0.6
+    ax.plot(df.index, df.atr, label='atr', color='green', alpha=alpha)
+    # ax.plot(df.index, df.bb_low_band, label='bb_low_band', color='red', alpha=alpha)
+    # ax.plot(df.index, df.mavg, label='mavg', color='grey', alpha=alpha)
+    # ax.fill_between(df.index, df.mavg, df.bb_high_band, facecolor='green', interpolate=True, alpha=0.1)
+    # ax.fill_between(df.index, df.mavg, df.bb_low_band, facecolor='red', interpolate=True, alpha=0.2)
+  
   
   # plot psar dots
   if 'psar' in target_indicator:
@@ -5281,7 +5296,7 @@ def plot_multiple_indicators(
   # get name of the symbol
   new_title = args['sec_name'].get(title)
   rate = (df.loc[df.index.max(), "rate"] * 100).round(2)
-  linear_desc = f'\n[拟合]: {df.loc[df.index.max(), "description"]}'
+  linear_desc = f'\n[拟合]: {df.loc[df.index.max(), "linear_fit_description"]}'
   candle_desc = f'\n[蜡烛]: {df.loc[df.index.max(), "candle_pattern_description"]}'
   candle_desc = '' if candle_desc[-2] == ':' else candle_desc
   if new_title is None:

@@ -55,7 +55,7 @@
         },
         "plot_args": {
             "plot_ratio": {
-                "signals": 7,
+                "signals": 3,
                 "TA_overall": 2,
                 "main_indicators": 10
             },
@@ -64,7 +64,7 @@
                     "candlestick",
                     "ichimoku",
                     "renko",
-                    "linear"              
+                    "linear"        
                 ],
                 "candlestick_width": 1,
                 "candlestick_color": {
@@ -75,23 +75,12 @@
             },
             "signals": {
                 "signal_list": [
-                    
-                    "启明黄昏_signal",
-                    "反弹_signal",
-                    "突破_signal",
-                    "窗口_signal",
-                    "穿刺_signal",
-                    "吞噬_signal",
-                    "包孕_signal",
-                    "平头_signal",
-                    "流星_signal",
-                    "锤子_signal",
-                    "十字星_signal",
-                    "成交量_signal",
-                    "位置_signal",
-                    " ",
-
+                
                     "bb_signal",
+                    "adx_signal",
+                    "psar_signal",
+                    "aroon_signal",
+                    "ichimoku_signal",
                     "renko_signal",
                     "拟合_signal",
                     "signal"
@@ -127,6 +116,21 @@
                 "color_mode": "up_down",
                 "bar_width": 1,
                 "alpha": 0.8
+            },
+            "atr": {
+                "name":["启明黄昏_signal",
+                "反弹_signal",
+                "突破_signal",
+                "窗口_signal",
+                "穿刺_signal",
+                "吞噬_signal",
+                "包孕_signal",
+                "平头_signal",
+                "流星_signal",
+                "锤子_signal",
+                "十字星_signal",
+                "位置_signal"]
+                
             },
             "sec_name": {
                 "AA":    "美国铝业(制造业)",
@@ -436,12 +440,11 @@
             "obos": "超买超卖",
             "support": "支撑",
             "resistant": "阻挡",
-            "category": "类别",
-            "description": "描述",
             "candle_pattern_description": "蜡烛形态",
             "candle_pattern_idx": "蜡烛分数",
             "linear_fit_description": "拟合形态",
             "linear_fit_idx": "拟合分数",
+            "linear_fit_category": "拟合类别",
             "signal": "交易信号",
             "label": "分类"
             
