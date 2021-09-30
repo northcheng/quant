@@ -47,38 +47,8 @@ class Futu:
       self.assets = None
       self.logger.error('trade_context not available')
     
-    # initialize position record for symbols that not in position record
-    init_cash = config['trade']['init_cash'][account_type]
-    pool = config['selected_sec_list'][config['trade']['pool'][account_type]]  
-    for symbol in pool:
-      if symbol not in self.record.keys():
-        self.record[symbol] = {'cash': init_cash, 'position': 0}
-
-    # get record position and real position then compare to each other
-    record_conflicted = False
-    position_dict = dict([(x[0].split('.')[1], x[1]) for x in self.positions[['code', 'qty']].values])
-    for symbol in self.record.keys():
-
-      record_position = self.record[symbol]['position']
-      current_position = 0 if (symbol not in position_dict.keys()) else position_dict[symbol]
-      if current_position != record_position:
-        record_conflicted = True
-        if current_position > 0:
-          self.record[symbol] = {'cash': 0, 'position': current_position}
-        else:
-          self.record[symbol] = {'cash': init_cash, 'position': 0}
-        self.logger.error(f'[{account_type[:4]}]: {symbol} position({current_position}) rather than ({record_position}), reset record')
-
-    # add record for symbol in position but not in record
-    for symbol in [x for x in position_dict.keys() if x not in self.record.keys()]:
-      record_conflicted = True
-      self.record[symbol] = {'cash': 0, 'position': position_dict[symbol]}
-      self.logger.error(f'[{account_type[:4]}]: {symbol} position({position_dict[symbol]}) not in record, add record')
-
-    # update __position_record
-    if record_conflicted:
-      self.__position_record[self.account_type] = self.record.copy()
-      io_util.create_config_file(config_dict=self.__position_record, file_path=config['config_path'], file_name='futu_position_record.json')
+    # update position record
+    self.synchronize_position_record(config=config, account_type=account_type)
 
     self.logger.info(f'[futu]: Futu instance created: {logger_name}')
 
@@ -150,6 +120,47 @@ class Futu:
   # get position record
   def get_position_record(self):
     return self.__position_record
+
+
+  # synchronize position record with real position status
+  def synchronize_position_record(self, config, account_type):
+    
+    # initialize position record for symbols that not in position record
+    init_cash = config['trade']['init_cash'][account_type]
+    pool = config['selected_sec_list'][config['trade']['pool'][account_type]]  
+    for symbol in pool:
+      if symbol not in self.record.keys():
+        self.record[symbol] = {'cash': init_cash, 'position': 0}
+
+    # get record position and real position then compare to each other
+    record_conflicted = False
+    position_dict = dict([(x[0].split('.')[1], x[1]) for x in self.positions[['code', 'qty']].values])
+    for symbol in self.record.keys():
+
+      # skip symbols that not in auto-trade pool
+      if symbol not in pool:
+        continue 
+
+      record_position = self.record[symbol]['position']
+      current_position = 0 if (symbol not in position_dict.keys()) else position_dict[symbol]
+      if current_position != record_position:
+        record_conflicted = True
+        if current_position > 0:
+          self.record[symbol] = {'cash': 0, 'position': current_position}
+        else:
+          self.record[symbol] = {'cash': init_cash, 'position': 0}
+        self.logger.error(f'[{account_type[:4]}]: {symbol} position({current_position}) rather than ({record_position}), reset record')
+
+    # add record for symbol in position but not in record
+    for symbol in [x for x in position_dict.keys() if (x in pool and x not in self.record.keys())]:
+      record_conflicted = True
+      self.record[symbol] = {'cash': 0, 'position': position_dict[symbol]}
+      self.logger.error(f'[{account_type[:4]}]: {symbol} position({position_dict[symbol]}) not in record, add record')
+
+    # update __position_record
+    if record_conflicted:
+      self.__position_record[self.account_type] = self.record.copy()
+      io_util.create_config_file(config_dict=self.__position_record, file_path=config['config_path'], file_name='futu_position_record.json')
 
 
   # update position for an account
