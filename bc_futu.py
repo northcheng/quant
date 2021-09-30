@@ -48,7 +48,7 @@ class Futu:
       self.logger.error('trade_context not available')
     
     # update position record
-    self.synchronize_position_record(config=config, account_type=account_type)
+    self.synchronize_position_record(config=config)
 
     self.logger.info(f'[futu]: Futu instance created: {logger_name}')
 
@@ -123,7 +123,9 @@ class Futu:
 
 
   # synchronize position record with real position status
-  def synchronize_position_record(self, config, account_type):
+  def synchronize_position_record(self, config):
+
+    account_type = self.account_type
     
     # initialize position record for symbols that not in position record
     init_cash = config['trade']['init_cash'][account_type]
