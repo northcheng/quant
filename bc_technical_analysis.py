@@ -1033,11 +1033,11 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
       df['linear_bounce_trend'] = df['linear_bounce_trend'].fillna(method='ffill').fillna('')
       df['linear_bounce_day'] = sda(series=df['linear_bounce_trend'].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
       # df = remove_redundant_signal(df=df, signal_col='linear_bounce_trend', pos_signal='u', neg_signal='d', none_signal='', keep='first')
-
+ 
       # break through up or down
       conditions = {
-        'up': '((linear_fit_high_stop >= 5 or linear_fit_high_slope == 0) and linear_fit_high_signal >= 1 and ((candle_color == 1 and entity_trend == "u" and candle_entity_middle > linear_fit_resistant) or (candle_entity_bottom > linear_fit_resistant)))', 
-        'down': '((linear_fit_low_stop >= 5 or linear_fit_low_slope == 0) and linear_fit_low_signal <= -1 and ((candle_color == -1 and entity_trend == "u" and candle_entity_middle < linear_fit_support) or (candle_entity_top < linear_fit_support)))'} 
+        'up': '((linear_fit_high_stop >= 5 or linear_fit_high_slope == 0) and linear_fit_high_signal >= 1 and ((candle_color == 1 and candle_entity_top > linear_fit_resistant) or (candle_entity_bottom > linear_fit_resistant)))', 
+        'down': '((linear_fit_low_stop >= 5 or linear_fit_low_slope == 0) and linear_fit_low_signal <= -1 and ((candle_color == -1 and candle_entity_bottom < linear_fit_support) or (candle_entity_top < linear_fit_support)))'} 
       values = {
         'up': 'u', 
         'down': 'd'}
@@ -1049,10 +1049,10 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
       df['linear_fit_idx'] = 0
 
       conditions = {
-        'rebound': 'linear_bounce_trend == "u"', 
-        'hitpeak': 'linear_bounce_trend == "d"',
-        'break_up': 'linear_break_trend == "u"',
-        'break_down': 'linear_break_trend == "d"'} 
+        'rebound': 'linear_bounce_day == 1', 
+        'hitpeak': 'linear_bounce_day == -1',
+        'break_up': 'linear_break_day == 1',
+        'break_down': 'linear_break_day == -1'} 
       trend_values = {
         'rebound': 'u', 
         'hitpeak': 'd',
@@ -1107,10 +1107,10 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         '轨道下方': (row['linear_fit_high'] > row['Close']) and (row['linear_fit_low'] > row['Close']),
 
         # linear support and resistant
-        '跌破支撑': (row['linear_break_trend'] == "d"),
-        '突破阻挡': (row['linear_break_trend'] == "u"), 
-        '触顶回落': (row['linear_bounce_trend'] == "d"),
-        '触底反弹': (row['linear_bounce_trend'] == "u"), 
+        '跌破支撑': (row['linear_break_day'] == -1),
+        '突破阻挡': (row['linear_break_day'] == 1), 
+        '触顶回落': (row['linear_bounce_day'] == -1),
+        '触底反弹': (row['linear_bounce_day'] == 1), 
 
         # technical indicators
         '上穿快线': (row['tankan_signal'] > 0 and row['tankan_signal'] < period_threhold),
@@ -1317,12 +1317,6 @@ def calculate_ta_signal(df):
   } 
   down_idx = df.query(' and '.join(sell_conditions.values())).index 
   df.loc[down_idx, 'trend'] = 'd'
-
-  # ichimoku signals
-  # buy_idx = df.query('tankan_kijun_signal == 1').index
-  # sell_idx = df.query('tankan_kijun_signal == -1').index
-  # df.loc[buy_idx, 'trend'] = 'u'
-  # df.loc[sell_idx, 'trend'] = 'd'
 
   # ================================ Calculate overall siganl ======================
   df['signal_day'] = sda(series=df['trend'].replace({'':0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
