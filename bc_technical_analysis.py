@@ -363,14 +363,15 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
     # ================================ adx trend ==============================
     if 'adx' in trend_indicators:
       conditions = {
-        'up': 'adx_diff > 0', 
-        'down': 'adx_diff <= 0',
-        'none': 'adx < 20'} 
+        'up': 'adx_diff_ma > 10', 
+        'down': 'adx_diff_ma < -10',
+        'none': '(-10 <= adx_diff_ma <= 10) or (adx < 15)'} 
       values = {
         'up': 'u', 
         'down': 'd',
-        'none': 'n'}
-      df = assign_condition_value(df=df, column='adx_trend', condition_dict=conditions, value_dict=values, default_value='')           
+        'none': np.NaN}
+      df = assign_condition_value(df=df, column='adx_trend', condition_dict=conditions, value_dict=values)           
+      df['adx_trend'] = df['adx_trend'].fillna(method='ffill')
 
     # ================================ kst trend ==============================
     if 'kst' in trend_indicators:
@@ -1296,12 +1297,11 @@ def calculate_ta_signal(df):
   buy_conditions = {
 
     # developing version
-    'at least 4 in ichimoku/aroon/adx/kst/psar are up trending': '(trend_idx >= 3)',
+    'at least 3/4 (ichimoku/aroon/adx/psar) are up trending and no down trending': '(trend_idx >= 3)',
     'renko is up trending': '(renko_trend == "u")',
     'bb is not over-buying': '(bb_trend != "d")',
-    'positive candle patterns': '((candle_color == 1) or (0< 窗口_day <=3) or (0< 突破_day <=3) or (0< 反弹_day <=3) or (0< 启明黄昏_day <=3))',
-    'not a cross or highwave': '(十字星_trend != "u" and 十字星_trend != "d")',
-    'not hanging or meteor on the top': '((位置_trend != "u") or (位置_trend == "u" and 锤子_trend != "d" and 锤子_trend != "u"))',
+    
+    'not negative candle patterns': '(十字星_trend != "u" and 十字星_trend != "d")'
   }
   up_idx = df.query(' and '.join(buy_conditions.values())).index 
   df.loc[up_idx, 'trend'] = 'u'
@@ -1310,10 +1310,11 @@ def calculate_ta_signal(df):
   sell_conditions = {
     
     # developing version
-    'High is below kijun line': '((High < kijun) or (0 > 窗口_day >= -3) or (0 > 突破_day >= -3) or (0 > 反弹_day >= -3) or (0 > 启明黄昏_day >= -3))',
-    'no individual trend is up and overall trend is down': '(trend_idx < -1 and up_trend_idx == 0)',
-    'price went down through brick': '(renko_trend == "d")', 
+    'majority of indicators are down trending': '(trend_idx < -1)',
+    'renko is down trending': '(renko_trend == "d")', 
     'bb is not over-selling': '(bb_trend != "u" or (Close < renko_l and renko_duration >= 150))',
+    
+    'nagative candle patterns': '((High < kijun) or (0 > 窗口_day >= -3) or (0 > 突破_day >= -3) or (0 > 反弹_day >= -3) or (0 > 启明黄昏_day >= -3))',
   } 
   down_idx = df.query(' and '.join(sell_conditions.values())).index 
   df.loc[down_idx, 'trend'] = 'd'
@@ -1324,7 +1325,6 @@ def calculate_ta_signal(df):
   df['signal'] = '' 
   df.loc[df['signal_day'] == 1, 'signal'] = 'b'
   df.loc[df['signal_day'] ==-1, 'signal'] = 's'
-
 
   return df
 
@@ -2422,7 +2422,7 @@ def add_adx_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, adx_th
 
   # (pdi-mdi) / (adx/25)
   df['adx_diff'] = (df['pdi'] - df['mdi'])# * (df['adx']/adx_threshold)
-  # df['adx_diff'] = (df['adx_diff'] - df['adx_diff'].mean()) / df['adx_diff'].std()
+  df['adx_diff_ma'] = em(series=df['adx_diff'], periods=8).mean()
 
   # fill na values
   if fillna:
@@ -4831,25 +4831,33 @@ def plot_adx(
     fig = mpf.figure(figsize=plot_args['figsize'])
     ax = fig.add_subplot(1,1,1, style='yahoo')
 
-  # # plot pdi/mdi/adx 
+  # plot pdi/mdi/adx 
   # ax.plot(df.index, df.pdi, label='pdi', color='green', marker='.', alpha=0.3)
   # ax.plot(df.index, df.mdi, label='mdi', color='red', marker='.', alpha=0.3)
-  # ax.plot(df.index, df.adx, label='adx', color='black', marker='.', alpha=0.3)
+  # ax.plot(df.index, df.adx, label='adx', color='magenta', linestyle='-', alpha=0.5)
   
   # # fill between pdi/mdi
   # ax.fill_between(df.index, df.pdi, df.mdi, where=df.pdi > df.mdi, facecolor='green', interpolate=True, alpha=0.1)
   # ax.fill_between(df.index, df.pdi, df.mdi, where=df.pdi <= df.mdi, facecolor='red', interpolate=True, alpha=0.1)
 
-  # plot adx_diff
-  ax.plot(df.index, df['adx_diff'], label='adx_diff', color='black', linestyle='--', marker='.', alpha=0.5)
+  # plot trend_idx_ma
+  ax.plot(df.index, df['trend_idx_ma']*10, color='blue', linestyle='--', label='trend_idx_ma', alpha=0.5)
+
+  # plot boundaries
+  ax.fill_between(df.index, 15, -15, facecolor='grey', interpolate=True, alpha=0.25)
+
+  # plot adx_diff ma
+  ax.plot(df.index, df['adx_diff_ma'], label='adx_diff_ma', color='grey', alpha=0.2) # marker='.',
   df['zero'] = 0
-  ax.fill_between(df.index, df.adx_diff, df.zero, where=df.adx_diff > df.zero, facecolor='green', interpolate=True, alpha=0.1)
-  ax.fill_between(df.index, df.adx_diff, df.zero, where=df.adx_diff <= df.zero, facecolor='red', interpolate=True, alpha=0.1)
+  ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=df.adx_diff_ma > df.zero, facecolor='green', interpolate=True, alpha=0.25)
+  ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=df.adx_diff_ma <= df.zero, facecolor='red', interpolate=True, alpha=0.25)
 
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
   ax.grid(True, axis='both', linestyle='--', linewidth=0.5)
+
+  ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
 
   # return ax
   if use_ax is not None:

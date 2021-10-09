@@ -56,7 +56,7 @@
         "plot_args": {
             "plot_ratio": {
                 "signals": 3,
-                "TA_overall": 2,
+                "adx": 2,
                 "main_indicators": 10
             },
             "main_indicators": {
@@ -117,19 +117,9 @@
                 "bar_width": 1,
                 "alpha": 0.8
             },
-            "atr": {
-                "name":["启明黄昏_signal",
-                "反弹_signal",
-                "突破_signal",
-                "窗口_signal",
-                "穿刺_signal",
-                "吞噬_signal",
-                "包孕_signal",
-                "平头_signal",
-                "流星_signal",
-                "锤子_signal",
-                "十字星_signal",
-                "位置_signal"]
+            "adx": {
+                "target_col": ["pdi", "mdi", "adx"],
+                "alpha": 0.8
                 
             },
             "sec_name": {
