@@ -362,16 +362,17 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
 
     # ================================ adx trend ==============================
     if 'adx' in trend_indicators:
+      adx_threshold = 15
       conditions = {
-        'up': 'adx_diff_ma > 10', 
-        'down': 'adx_diff_ma < -10',
-        'none': '(-10 <= adx_diff_ma <= 10) or (adx < 15)'} 
+        'up': f'adx_diff_ma > {adx_threshold}', 
+        'down': f'adx_diff_ma < {-adx_threshold}',
+        'none': f'({-adx_threshold} <= adx_diff_ma <= {adx_threshold}) or (adx < {adx_threshold})'} 
       values = {
         'up': 'u', 
         'down': 'd',
         'none': np.NaN}
       df = assign_condition_value(df=df, column='adx_trend', condition_dict=conditions, value_dict=values)           
-      df['adx_trend'] = df['adx_trend'].fillna(method='ffill')
+      df['adx_trend'] = df['adx_trend'].fillna(method='ffill')   
 
     # ================================ kst trend ==============================
     if 'kst' in trend_indicators:
@@ -1298,10 +1299,11 @@ def calculate_ta_signal(df):
 
     # developing version
     'at least 3/4 (ichimoku/aroon/adx/psar) are up trending and no down trending': '(trend_idx >= 3)',
-    'renko is up trending': '(renko_trend == "u")',
+    'renko is up trending': '(renko_trend == "u" and renko_series_long_idx > 0)',
+    'adx is up trending': '(adx_trend == "u" and adx_diff > 10)',
     'bb is not over-buying': '(bb_trend != "d")',
     
-    'not negative candle patterns': '(十字星_trend != "u" and 十字星_trend != "d")'
+    'positive candle patterns': '((十字星_trend == "n") and (窗口_trend != "d") and (突破_trend != "d") and (反弹_trend != "d") and (启明黄昏_trend != "d"))'
   }
   up_idx = df.query(' and '.join(buy_conditions.values())).index 
   df.loc[up_idx, 'trend'] = 'u'
@@ -1310,13 +1312,20 @@ def calculate_ta_signal(df):
   sell_conditions = {
     
     # developing version
-    'majority of indicators are down trending': '(trend_idx < -1)',
-    'renko is down trending': '(renko_trend == "d")', 
+    'majority of indicators are down trending': '(trend_idx < 0)',
+    'renko is down trending': '(renko_trend == "d" and renko_color == "red")', 
+    'adx is down trending': '(adx_trend == "d")',
     'bb is not over-selling': '(bb_trend != "u" or (Close < renko_l and renko_duration >= 150))',
     
     'nagative candle patterns': '((High < kijun) or (0 > 窗口_day >= -3) or (0 > 突破_day >= -3) or (0 > 反弹_day >= -3) or (0 > 启明黄昏_day >= -3))',
   } 
   down_idx = df.query(' and '.join(sell_conditions.values())).index 
+  df.loc[down_idx, 'trend'] = 'd'
+
+  # candle pattern signals # trend != "u" and trend != "d" and 
+  up_idx = df.query('trend != "u" and trend != "d" and ((3 >= 窗口_day > 0) or (3 >= 突破_day > 0) or (3 >= 启明黄昏_day > 0))').index
+  down_idx = df.query('trend != "u" and trend != "d" and ((0 > 窗口_day >= -3) or (0 > 突破_day >= -3) or (0 > 启明黄昏_day >= -3))').index
+  df.loc[up_idx, 'trend'] = 'u'
   df.loc[down_idx, 'trend'] = 'd'
 
   # ================================ Calculate overall siganl ======================
@@ -4834,7 +4843,7 @@ def plot_adx(
   # plot pdi/mdi/adx 
   # ax.plot(df.index, df.pdi, label='pdi', color='green', marker='.', alpha=0.3)
   # ax.plot(df.index, df.mdi, label='mdi', color='red', marker='.', alpha=0.3)
-  # ax.plot(df.index, df.adx, label='adx', color='magenta', linestyle='-', alpha=0.5)
+  ax.plot(df.index, df.adx, label='adx', color='magenta', linestyle='--', alpha=0.5)
   
   # # fill between pdi/mdi
   # ax.fill_between(df.index, df.pdi, df.mdi, where=df.pdi > df.mdi, facecolor='green', interpolate=True, alpha=0.1)
