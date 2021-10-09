@@ -180,47 +180,51 @@ class Futu:
       ret_orders, orders = self.trade_context.history_order_list_query(trd_env=self.account_type, status_filter_list=[OrderStatus.FILLED_PART, OrderStatus.FILLED_ALL], start=start_time, end=end_time)
 
       # update position records
-      for index, row in orders.iterrows():
-        symbol = row['code'].split('.')[1] # order.contract.symbol
-        action = row['trd_side'] # order.action
-        quantity = row['dealt_qty'] # order.quantity - order.remaining
-        commission = 3 # order.commission
-        avg_fill_price = row['dealt_avg_price'] # order.avg_fill_price
+      if ret_orders == 0:
+        for index, row in orders.iterrows():
+          symbol = row['code'].split('.')[1] # order.contract.symbol
+          action = row['trd_side'] # order.action
+          quantity = row['dealt_qty'] # order.quantity - order.remaining
+          commission = 3 # order.commission
+          avg_fill_price = row['dealt_avg_price'] # order.avg_fill_price
 
-        # init record if not exist
-        if symbol not in self.record.keys():
-          self.record[symbol] = {'cash': init_cash, 'position': init_position}
-        record_cash = self.record[symbol]['cash']
-        record_position = self.record[symbol]['position']
+          # init record if not exist
+          if symbol not in self.record.keys():
+            self.record[symbol] = {'cash': init_cash, 'position': init_position}
+          record_cash = self.record[symbol]['cash']
+          record_position = self.record[symbol]['position']
 
-        # calculate new cash and position
-        if action == 'BUY':
-          cost = avg_fill_price * quantity + commission
-          new_cash = record_cash - cost
-          new_position = record_position + quantity
-        
-        elif action == 'SELL':
-          acquire = avg_fill_price * quantity - commission
-          new_cash = record_cash + acquire
-          new_position = record_position - quantity
+          # calculate new cash and position
+          if action == 'BUY':
+            cost = avg_fill_price * quantity + commission
+            new_cash = record_cash - cost
+            new_position = record_position + quantity
+          
+          elif action == 'SELL':
+            acquire = avg_fill_price * quantity - commission
+            new_cash = record_cash + acquire
+            new_position = record_position - quantity
 
-        else:
-          new_cash = self.record[symbol]['cash']
-          new_position = self.record[symbol]['position']
+          else:
+            new_cash = self.record[symbol]['cash']
+            new_position = self.record[symbol]['position']
 
-        # update record
-        if new_cash >= 0 and new_position >= 0:
-          self.record[symbol]['cash'] = new_cash
-          self.record[symbol]['position'] = new_position
-          if is_print:
-            self.logger.info(f'[{self.account_type[:4]}]: updating position record for {symbol} {record_cash, record_position} -> {new_cash, new_position}')
+          # update record
+          if new_cash >= 0 and new_position >= 0:
+            self.record[symbol]['cash'] = new_cash
+            self.record[symbol]['position'] = new_position
+            if is_print:
+              self.logger.info(f'[{self.account_type[:4]}]: updating position record for {symbol} {record_cash, record_position} -> {new_cash, new_position}')
 
-      # update __position_record
-      # self.record['updated'] = datetime.now().strftime(format="%Y-%m-%d %H:%M:%S")
-      self.__position_record = io_util.read_config(file_path=config['config_path'], file_name='futu_position_record.json')
-      self.__position_record[self.account_type] = self.record.copy()
-      self.__position_record['updated'][self.account_type] = datetime.now().strftime(format="%Y-%m-%d %H:%M:%S")
-      io_util.create_config_file(config_dict=self.__position_record, file_path=config['config_path'], file_name='futu_position_record.json')
+        # update __position_record
+        # self.record['updated'] = datetime.now().strftime(format="%Y-%m-%d %H:%M:%S")
+        self.__position_record = io_util.read_config(file_path=config['config_path'], file_name='futu_position_record.json')
+        self.__position_record[self.account_type] = self.record.copy()
+        self.__position_record['updated'][self.account_type] = datetime.now().strftime(format="%Y-%m-%d %H:%M:%S")
+        io_util.create_config_file(config_dict=self.__position_record, file_path=config['config_path'], file_name='futu_position_record.json')
+      
+      elif ret_orders == -1:
+        self.logger.error(f'[erro]: fail getting orders - {orders}')
       
     except Exception as e:
       self.logger.exception(f'[erro]: fail updating position records for {self.account_type}, {e}')
