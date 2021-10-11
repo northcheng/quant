@@ -1297,36 +1297,50 @@ def calculate_ta_signal(df):
   # buy conditions
   buy_conditions = {
 
+    # # stable version
+    # 'at least 4 in ichimoku/aroon/adx/kst/psar are up trending': '(trend_idx >= 3)',
+    # 'renko is up trending': '(renko_trend == "u")',
+    # 'bb is not over-buying': '(bb_trend != "d")',
+    # 'positive candle patterns': '((candle_color == 1) or (0< 窗口_day <=3) or (0< 突破_day <=3) or (0< 反弹_day <=3) or (0< 启明黄昏_day <=3))',
+    # 'not a cross or highwave': '(十字星_trend != "u" and 十字星_trend != "d")',
+    # 'not hanging or meteor on the top': '((位置_trend != "u") or (位置_trend == "u" and 锤子_trend != "d" and 锤子_trend != "u"))',
+
     # developing version
     'at least 3/4 (ichimoku/aroon/adx/psar) are up trending and no down trending': '(trend_idx >= 3)',
-    'renko is up trending': '(renko_trend == "u" and renko_series_long_idx > 0)',
-    'adx is up trending': '(adx_trend == "u" and adx_diff > 10)',
+    'renko is up trending': '(renko_trend == "u")', #  
+    'adx is up trending': '(adx_trend == "u")',
     'bb is not over-buying': '(bb_trend != "d")',
     
-    'positive candle patterns': '((十字星_trend == "n") and (窗口_trend != "d") and (突破_trend != "d") and (反弹_trend != "d") and (启明黄昏_trend != "d"))'
+    # 'positive candle patterns': '((窗口_trend != "d") and (突破_trend != "d") and (反弹_trend != "d") and (启明黄昏_trend != "d"))'# '((窗口_trend != "d") and (突破_trend != "d") and (反弹_trend != "d") and (启明黄昏_trend != "d"))'
   }
   up_idx = df.query(' and '.join(buy_conditions.values())).index 
   df.loc[up_idx, 'trend'] = 'u'
 
   # sell conditions
   sell_conditions = {
+
+    # # # stable version
+    # 'High is below kijun line': '((High < kijun) or (0 > 窗口_day >= -3) or (0 > 突破_day >= -3) or (0 > 反弹_day >= -3) or (0 > 启明黄昏_day >= -3))',
+    # 'no individual trend is up and overall trend is down': '(trend_idx < -1 and up_trend_idx == 0)',
+    # 'price went down through brick': '(renko_trend == "d")', 
+    # 'bb is not over-selling': '(bb_trend != "u" or (Close < renko_l and renko_duration >= 150))',
     
     # developing version
-    'majority of indicators are down trending': '(trend_idx < 0)',
-    'renko is down trending': '(renko_trend == "d" and renko_color == "red")', 
+    'majority of indicators are down trending': '(trend_idx < -1 and up_trend_idx == 0)',
+    'renko is down trending': '(renko_trend == "d" and renko_color == "red")',  # or (Close < renko_l and renko_duration >= 150)
     'adx is down trending': '(adx_trend == "d")',
-    'bb is not over-selling': '(bb_trend != "u" or (Close < renko_l and renko_duration >= 150))',
+    'bb is not over-selling': '(bb_trend != "u")',
     
-    'nagative candle patterns': '((High < kijun) or (0 > 窗口_day >= -3) or (0 > 突破_day >= -3) or (0 > 反弹_day >= -3) or (0 > 启明黄昏_day >= -3))',
+    # 'nagative candle patterns': '((High < kijun) or (0 > 窗口_day >= -3) or (0 > 突破_day >= -3) or (0 > 反弹_day >= -3) or (0 > 启明黄昏_day >= -3))',
   } 
   down_idx = df.query(' and '.join(sell_conditions.values())).index 
   df.loc[down_idx, 'trend'] = 'd'
 
-  # candle pattern signals # trend != "u" and trend != "d" and 
-  up_idx = df.query('trend != "u" and trend != "d" and ((3 >= 窗口_day > 0) or (3 >= 突破_day > 0) or (3 >= 启明黄昏_day > 0))').index
-  down_idx = df.query('trend != "u" and trend != "d" and ((0 > 窗口_day >= -3) or (0 > 突破_day >= -3) or (0 > 启明黄昏_day >= -3))').index
-  df.loc[up_idx, 'trend'] = 'u'
-  df.loc[down_idx, 'trend'] = 'd'
+  # # developing version additional buy/sell conditions
+  # up_idx = df.query('trend != "u" and trend != "d" and (renko_series_short_idx > 0 or renko_series_long_idx > 0) and ((3 >= 窗口_day > 0) or (3 >= 启明黄昏_day > 0))').index
+  # down_idx = df.query('trend != "u" and trend != "d" and ((0 > 窗口_day >= -3) or (0 > 启明黄昏_day >= -3))').index
+  # df.loc[up_idx, 'trend'] = 'u'
+  # df.loc[down_idx, 'trend'] = 'd'
 
   # ================================ Calculate overall siganl ======================
   df['signal_day'] = sda(series=df['trend'].replace({'':0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
@@ -2294,6 +2308,7 @@ def add_linear_features(df, max_period=60, min_period=10, is_print=False):
   counter = 0
   idx_max = len(idxs)
   idx_min = min(min(high['x']), min(low['x']))
+  std_ma = df[idx_min:idx_max]['Close'].std()
   for x in range(idx_min, idx_max):
     
     idx = idxs[x]
@@ -2301,8 +2316,8 @@ def add_linear_features(df, max_period=60, min_period=10, is_print=False):
     df.loc[idx, 'linear_day_count'] = counter
 
     # predicted high/low values    
-    linear_fit_high = high_linear[0] * x + high_linear[1]
-    linear_fit_low = low_linear[0] * x + low_linear[1]
+    linear_fit_high = high_linear[0] * x + high_linear[1] + 0.3 * std_ma
+    linear_fit_low = low_linear[0] * x + low_linear[1] - 0.3 * std_ma
 
     # linear fit high
     df.loc[idx, 'linear_fit_high_slope'] = high_linear[0]
@@ -3242,8 +3257,8 @@ def add_renko_features(df, brick_size_factor=0.1, merge_duplicated=True):
     renko_df = util.remove_duplicated_index(df=renko_df, keep='last')
 
   # calculate accumulated renko trend (so called "renko_series")
-  series_len_short = 4
-  series_len_long = 8
+  series_len_short = 3
+  series_len_long = 5
   renko_df['renko_series_short'] = 'n' * series_len_short
   renko_df['renko_series_long'] = 'n' * series_len_long
   prev_idx = None
@@ -3266,7 +3281,7 @@ def add_renko_features(df, brick_size_factor=0.1, merge_duplicated=True):
   df.loc[red_idx, 'renko_brick_height'] = -df.loc[red_idx, 'renko_brick_height']
 
   # fill na values
-  renko_columns = ['renko_o', 'renko_h','renko_l', 'renko_c', 'renko_color', 'renko_brick_height', 'renko_brick_number','renko_start', 'renko_end', 'renko_duration', 'renko_duration_p1', 'renko_direction', 'renko_series_short_idx', 'renko_series_long_idx'] # , 'renko_direction', 'renko_series_short', 'renko_series_long'
+  renko_columns = ['renko_o', 'renko_h','renko_l', 'renko_c', 'renko_color', 'renko_brick_height', 'renko_brick_number','renko_start', 'renko_end', 'renko_duration', 'renko_duration_p1', 'renko_direction', 'renko_series_short', 'renko_series_long', 'renko_series_short_idx', 'renko_series_long_idx'] # , 'renko_direction', 'renko_series_short', 'renko_series_long'
   for col in renko_columns:
     df[col] = df[col].fillna(method='ffill')
 
@@ -4702,12 +4717,13 @@ def plot_main_indicators(
   
   # plot bollinger bands
   if 'bb' in target_indicator:
-    alpha = 0.6
-    ax.plot(df.index, df.bb_high_band, label='bb_high_band', color='green', alpha=alpha)
-    ax.plot(df.index, df.bb_low_band, label='bb_low_band', color='red', alpha=alpha)
-    ax.plot(df.index, df.mavg, label='mavg', color='grey', alpha=alpha)
-    ax.fill_between(df.index, df.mavg, df.bb_high_band, facecolor='green', interpolate=True, alpha=0.1)
-    ax.fill_between(df.index, df.mavg, df.bb_low_band, facecolor='red', interpolate=True, alpha=0.2)
+    alpha = 0.1
+    alpha_fill = 0.1
+    # ax.plot(df.index, df.bb_high_band, label='bb_high_band', color='green', alpha=alpha)
+    # ax.plot(df.index, df.bb_low_band, label='bb_low_band', color='red', alpha=alpha)
+    # ax.plot(df.index, df.mavg, label='mavg', color='grey', alpha=alpha)
+    ax.fill_between(df.index, df.mavg, df.bb_high_band, facecolor='green', interpolate=True, alpha=alpha_fill)
+    ax.fill_between(df.index, df.mavg, df.bb_low_band, facecolor='red', interpolate=True, alpha=alpha_fill)
 
   # plot average true range
   if 'atr' in target_indicator:
@@ -4840,17 +4856,12 @@ def plot_adx(
     fig = mpf.figure(figsize=plot_args['figsize'])
     ax = fig.add_subplot(1,1,1, style='yahoo')
 
-  # plot pdi/mdi/adx 
+  # plot pdi/mdi
   # ax.plot(df.index, df.pdi, label='pdi', color='green', marker='.', alpha=0.3)
   # ax.plot(df.index, df.mdi, label='mdi', color='red', marker='.', alpha=0.3)
-  ax.plot(df.index, df.adx, label='adx', color='magenta', linestyle='--', alpha=0.5)
-  
-  # # fill between pdi/mdi
-  # ax.fill_between(df.index, df.pdi, df.mdi, where=df.pdi > df.mdi, facecolor='green', interpolate=True, alpha=0.1)
-  # ax.fill_between(df.index, df.pdi, df.mdi, where=df.pdi <= df.mdi, facecolor='red', interpolate=True, alpha=0.1)
 
-  # plot trend_idx_ma
-  ax.plot(df.index, df['trend_idx_ma']*10, color='blue', linestyle='--', label='trend_idx_ma', alpha=0.5)
+  # plot adx
+  ax.plot(df.index, df.adx, label='adx', color='black', linestyle='--', alpha=0.5)
 
   # plot boundaries
   ax.fill_between(df.index, 15, -15, facecolor='grey', interpolate=True, alpha=0.25)

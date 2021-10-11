@@ -64,7 +64,7 @@
                     "candlestick",
                     "ichimoku",
                     "renko",
-                    "linear"        
+                    "linear"    
                 ],
                 "candlestick_width": 1,
                 "candlestick_color": {
