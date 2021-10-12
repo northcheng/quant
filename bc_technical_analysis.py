@@ -204,7 +204,17 @@ def preprocess_sec_data(df, symbol, print_error=True):
 
 # calculate technical-analysis indicators
 def calculate_ta_indicators(df, trend_indicators, volume_indicators, volatility_indicators, other_indicators):
+  '''
+  Add technical indicators
 
+  :param df: preprocessed stock data
+  :param trend_indicators: list of trend indicators
+  :param volume_indicators: list of volume indicators
+  :param volatility_indicators: list of volatility indicators
+  :param other_indicators: list of other indicators
+  :returns: dataframe with technical indicator features
+  :raises: None
+  '''
   # copy dataframe
   df = df.copy()
   if df is None or len(df) == 0:
@@ -238,14 +248,15 @@ def calculate_ta_indicators(df, trend_indicators, volume_indicators, volatility_
 # calculate trends from ta indicators
 def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indicators, other_indicators, signal_threshold=0.001):
   """
-  Adding derived features such as trend, momentum, etc.
+  Adding derived features from basic technical indicators.
 
   :param df: dataframe with several ta features
-  :param trend_indicators: trend indicators such as ichimoku, kama, aroon, adx, psar, renko, etc
-  :param volatility_indicators: volatility indicators bollinger bands
-  :param other_indicators: other indicators
+  :param trend_indicators: list of trend indicators
+  :param volume_indicators: list of volume indicators
+  :param volatility_indicators: list of volatility indicators
+  :param other_indicators: list other indicators
   :param signal_threshold: threshold for main indicators trigerments
-  :returns: dataframe with extra fetures
+  :returns: dataframe with derived tachnical indiactor fetures
   :raises: Exception 
   """
   # if df is empty
@@ -492,13 +503,12 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
 # technical analyze for ta_data
 def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'support_resistant', 'overall']):
   """
-  analysze support and resistant
-  :param df: dataframe with ta indicators
+  calculate derived features from all current features, such as support, resistant
+  :param df: dataframe with technical indicators and their derivatives
   :param perspective: for which indicators, derivative columns that need to calculated 
   :returns: dataframe with derivative columns
   :raises: None
   """
-
   # copy dataframe
   df = df.copy()
   if df is None or len(df) == 0:
@@ -1278,7 +1288,7 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
 # calculate ta signal
 def calculate_ta_signal(df):
   """
-  Calculate signals from ta features
+  Calculate trading signals
 
   :param df: dataframe with ta features and derived features for calculating signals
   :raturns: dataframe with signal
@@ -1354,10 +1364,12 @@ def calculate_ta_signal(df):
 # calculate ta indicators, trend and derivatives fpr latest data
 def calculation(df, symbol, start_date=None, end_date=None, trend_indicators=['ichimoku', 'aroon', 'adx', 'psar'], volume_indicators=[], volatility_indicators=['bb'], other_indicators=[], signal_threshold=0.001):
   """
-  Calculate selected ta features for dataframe
+  Calculation process
 
   :param df: original dataframe with hlocv features
   :param symbol: symbol of the data
+  :param start_date: start date of calculation
+  :param end_date: end date of calculation
   :param trend_indicators: trend indicators
   :param volumn_indicators: volume indicators
   :param volatility_indicators: volatility indicators
@@ -1401,7 +1413,7 @@ def calculation(df, symbol, start_date=None, end_date=None, trend_indicators=['i
 # visualize ta indicators
 def visualization(df, start=None, end=None, title=None, save_path=None, visualization_args={}):
   """
-  visualize ta data
+  visualization process
   :param df: dataframe with ta indicators
   :param start: start date to draw
   :param end: end date to draw
@@ -1430,7 +1442,7 @@ def visualization(df, start=None, end=None, title=None, save_path=None, visualiz
 # post-process calculation results
 def postprocess(df, keep_columns, drop_columns, target_interval=''):
   """
-  Postprocess reulst data (last rows of symbols in a list)
+  Postprocess reulst data (last rows of data for each symbol in a list)
 
   :param df: dataframe with ta features and ta derived features
   :param keep_columns: columns to keep for the final result
