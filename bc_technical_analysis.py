@@ -1225,11 +1225,26 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
 
       # focus on the last row only
       max_idx = df.index.max()
-      valid_idxs = df.query('linear_slope == linear_slope').index
+      
+      # linear fit support/resistant
+      if 'linear' in perspective:
+        linear_fit_support = df.loc[max_idx, 'linear_fit_support']
+        linear_fit_resistant = df.loc[max_idx, 'linear_fit_resistant']
+      else:
+        linear_fit_support = np.nan
+        linear_fit_resistant = np.nan
+
+      # renko support/resistant
+      if 'renko' in perspective:
+        renko_support = df.loc[max_idx, 'renko_support']
+        renko_resistant = df.loc[max_idx, 'renko_resistant']
+      else:
+        renko_support = np.nan
+        renko_resistant = np.nan
 
       # calculate support and resistant from renko, linear_fit and candle_gap
-      support_candidates = {'linear': df.loc[max_idx, 'linear_fit_support'], 'candle': df.loc[max_idx, 'candle_gap_support']}
-      resistant_candidates = {'linear': df.loc[max_idx, 'linear_fit_resistant'], 'candle': df.loc[max_idx, 'candle_gap_resistant']}
+      support_candidates = {'linear': linear_fit_support, 'gap': df.loc[max_idx, 'candle_gap_support'], 'renko': renko_support}
+      resistant_candidates = {'linear':linear_fit_resistant, 'gap': df.loc[max_idx, 'candle_gap_resistant'], 'renko': renko_resistant}
 
       # support
       to_pop = []
@@ -1244,6 +1259,15 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
       if len(support_candidates) > 0:
         supporter = max(support_candidates, key=support_candidates.get)
         support = support_candidates[supporter]
+
+      if supporter == 'linear':
+        valid_idxs = df.query('linear_slope == linear_slope').index
+      elif supporter == 'gap':
+        valid_idxs = df[df.query('candle_gap == 2 or candle_gap == -2').index[-1]:].index
+      elif supporter == 'renko':
+        valid_idxs = df[df.loc[max_idx, 'renko_start']:].index
+      else:
+        valid_idxs = []
       df.loc[valid_idxs, 'support'] = support
       df.loc[valid_idxs, 'supporter'] = supporter
 
@@ -1260,21 +1284,18 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
       if len(resistant_candidates) > 0:
         resistanter = min(resistant_candidates, key=resistant_candidates.get)
         resistant = resistant_candidates[resistanter]
+      
+      if resistanter == 'linear':
+        valid_idxs = df.query('linear_slope == linear_slope').index
+      elif resistanter == 'gap':
+        valid_idxs = df[df.query('candle_gap == 2 or candle_gap == -2').index[-1]:].index
+      elif resistanter == 'renko':
+        valid_idxs = df[df.loc[max_idx, 'renko_start']:].index
+      else:
+        valid_idxs = []
+
       df.loc[valid_idxs, 'resistant'] = resistant
       df.loc[valid_idxs, 'resistanter'] = resistanter
-
-      # crossover signals between Close and linear_fit_high/linear_fit_low, # , 'support', 'resistant'
-      for col in ['support', 'resistant']:
-        signal_col = None
-
-        if col in df.columns:
-          signal_col = f'{col}_signal'
-          df[signal_col] = cal_crossover_signal(df=df, fast_line='Close', slow_line=col, pos_signal=1, neg_signal=-1, none_signal=0)
-
-          if signal_col in df.columns:
-            df[signal_col] = sda(series=df[signal_col], zero_as=1)
-        else:
-          print(f'{col} not in df.columns')
 
     phase = 'overall'
     # ================================ overall description =======================
@@ -2234,7 +2255,7 @@ def add_heikin_ashi_features(df, ohlcv_col=default_ohlcv_col, replace_ohlc=False
   return df
 
 # linear regression for recent high and low values
-def add_linear_features(df, max_period=60, min_period=10, is_print=False):
+def add_linear_features(df, max_period=60, min_period=5, is_print=False):
 
   # get all indexes
   idxs = df.index.tolist()
@@ -2342,8 +2363,8 @@ def add_linear_features(df, max_period=60, min_period=10, is_print=False):
     else:
       df.loc[idx, 'linear_fit_high'] = np.NaN
     
-    if  high_linear[0] > 0 and idx >= highest_high_idx and df.loc[idx, 'linear_fit_high'] <= highest_high:
-      df.loc[idx, 'linear_fit_high'] = highest_high
+    # if  high_linear[0] > 0 and idx > highest_high_idx and df.loc[idx, 'linear_fit_high'] <= highest_high:
+    #   df.loc[idx, 'linear_fit_high'] = highest_high
 
     # linear fit low
     df.loc[idx, 'linear_fit_low_slope'] = low_linear[0]
@@ -2356,14 +2377,14 @@ def add_linear_features(df, max_period=60, min_period=10, is_print=False):
     else:
       df.loc[idx, 'linear_fit_low'] = np.NaN
 
-    if  low_linear[0] < 0 and idx >= lowest_low_idx and df.loc[idx, 'linear_fit_low'] >= lowest_low:
-      df.loc[idx, 'linear_fit_low'] = lowest_low
+    # if  low_linear[0] < 0 and idx > lowest_low_idx and df.loc[idx, 'linear_fit_low'] >= lowest_low:
+    #   df.loc[idx, 'linear_fit_low'] = lowest_low
 
   # high/low fit stop
   df['linear_fit_high_stop'] = 0
   df['linear_fit_low_stop'] = 0
-  reach_top_idx = df.query(f'High=={highest_high} and linear_fit_high == {highest_high} and linear_fit_high_slope >= 0').index
-  reach_bottom_idx = df.query(f'Low=={lowest_low} and linear_fit_low == {lowest_low} and linear_fit_low_slope <= 0').index
+  reach_top_idx = df.query(f'High=={highest_high} and linear_fit_high_slope >= 0').index
+  reach_bottom_idx = df.query(f'Low=={lowest_low} and linear_fit_low_slope <= 0').index
   df.loc[reach_top_idx, 'linear_fit_high_stop'] = 1
   df.loc[reach_bottom_idx, 'linear_fit_low_stop'] = 1
   for col in ['linear_fit_high_stop', 'linear_fit_low_stop']:
@@ -4443,7 +4464,7 @@ def plot_signal(
 
 # plot candlestick chart
 def plot_candlestick(
-  df, start=None, end=None, date_col='Date', ohlcv_col=default_ohlcv_col, 
+  df, start=None, end=None, date_col='Date', ohlcv_col=default_ohlcv_col, add_on=['split', 'gap', 'support_resistant', 'pattern'],
   width=0.8, color=default_candlestick_color, 
   use_ax=None, plot_args=default_plot_args):
   """
@@ -4454,6 +4475,7 @@ def plot_candlestick(
   :param end: end row to stop
   :param date_col: columnname of the date values
   :param ohlcv_col: columns names of Open/High/Low/Close/Volume
+  :param add_on: add ons beyond basic candlesticks
   :param width: width of candlestick
   :param color: up/down color of candlestick
   :param use_ax: the already-created ax to draw on
@@ -4463,7 +4485,12 @@ def plot_candlestick(
   """
   # copy dataframe within a specific period
   df = df[start:end].copy()
-  
+    
+  # get indexes and max index
+  idxs = df.index.tolist()
+  max_idx = idxs[-1]
+  max_x = max_idx + datetime.timedelta(days=1)
+
   # for gap which start before 'start_date'
   min_idx = df.index.min()
   if df.loc[min_idx, 'candle_gap_top'] > df.loc[min_idx, 'candle_gap_bottom']:
@@ -4484,10 +4511,9 @@ def plot_candlestick(
     ax = fig.add_subplot(1,1,1, style='yahoo')
   
   # annotate split
-  if 'Split' in df.columns:
+  if 'split' in add_on and 'Split' in df.columns:
     splited = df.query('Split != 1.0').index
     all_idx = df.index.tolist()
-
     for s in splited:
       x = s
       x_text = all_idx[max(0, all_idx.index(s)-2)]
@@ -4496,165 +4522,173 @@ def plot_candlestick(
       sp = round(df.loc[s, 'Split'], 4)
       plt.annotate(f'splited {sp}', xy=(x, y), xytext=(x_text,y_text), xycoords='data', textcoords='data', arrowprops=dict(arrowstyle='->', alpha=0.5), bbox=dict(boxstyle="round",fc="1.0", alpha=0.5))
   
-  # get indexes and max index
-  idxs = df.index.tolist()
-  max_idx = idxs[-1]
-  max_x = max_idx + datetime.timedelta(days=1)
-
   # annotate gaps
-  gap_idxs = df.query('candle_gap == 2 or candle_gap == -2').index
-  for idx in gap_idxs:
+  if 'gap' in add_on:
 
-    # gap start and it top/bottom
-    start = idx
-    top_value = df.loc[start, 'candle_gap_top']
-    bottom_value = df.loc[start, 'candle_gap_bottom']
+    # annotate gaps
+    up_gap_idxs = df.query('candle_gap == 2').index.tolist()
+    down_gap_idxs = df.query('candle_gap == -2').index.tolist()
+    if len(up_gap_idxs) > 10:
+      up_gap_idxs = []
+    if len(down_gap_idxs) > 10:
+      down_gap_idxs = []
 
-    gap_color = 'yellow' if df.loc[start, 'candle_gap'] > 0 else 'purple' # 
-    # gap_hatch = '/' if df.loc[start, 'candle_gap'] > 0 else '\\'
-    gap_hatch_color = 'green' if df.loc[start, 'candle_gap'] > 0 else 'red'
+    gap_idxs = up_gap_idxs + down_gap_idxs
+    for idx in gap_idxs:
+
+      # gap start and it top/bottom
+      start = idx
+      top_value = df.loc[start, 'candle_gap_top']
+      bottom_value = df.loc[start, 'candle_gap_bottom']
+
+      gap_color = 'lightyellow' if df.loc[start, 'candle_gap'] > 0 else 'grey' # 
+      gap_hatch = None # '/' if df.loc[start, 'candle_gap'] > 0 else '\\'
+      gap_hatch_color = 'black' #'green' if df.loc[start, 'candle_gap'] > 0 else 'red'
+      
+      # gap end
+      end = None
+      tmp_data = df[start:]
+      for i, r in tmp_data.iterrows(): 
+        if (r['candle_gap_top'] != top_value) or (r['candle_gap_bottom'] != bottom_value):  
+          break      
+        end = i
+
+      # shift gap-start 1 day earlier
+      pre_i = idxs.index(start)-1
+      pre_start = idxs[pre_i] if pre_i > 0 else start
+      tmp_data = df[start:end]
+      ax.fill_between(df[pre_start:end].index, top_value, bottom_value, hatch=gap_hatch, facecolor=gap_color, interpolate=True, alpha=0.5, edgecolor=gap_hatch_color, linewidth=1) #,  
+
+  # annotate close price, support/resistant(if exists)
+  if 'support_resistant' in add_on:
+
+    y_resistant = None
+    y_text_resistant = None
+    y_close = None
+    y_text_close = None
+    y_support = None
+    y_text_support = None
     
-    # gap end
-    end = None
-    tmp_data = df[start:]
-    for i, r in tmp_data.iterrows(): 
-      if (r['candle_gap_top'] != top_value) or (r['candle_gap_bottom'] != bottom_value):  
-        break      
-      end = i
+    y_close_padding = padding*5
+    y_close = df.loc[max_idx, 'Close'].round(2)
+    y_text_close = y_close
+    close_color = 'blue'
+    plt.annotate(f'{y_close}', xy=(max_x, y_text_close), xytext=(max_x, y_text_close), fontsize=13, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=close_color, alpha=0.1))
 
-    # shift gap-start 1 day earlier
-    pre_i = idxs.index(start)-1
-    pre_start = idxs[pre_i] if pre_i > 0 else start
-    tmp_data = df[start:end]
-    ax.fill_between(df[pre_start:end].index, top_value, bottom_value, facecolor=gap_color, interpolate=True, alpha=0.15, edgecolor=gap_hatch_color, linewidth=1) #,  
+    # annotate resistant
+    resistant = df.query('resistant == resistant')
+    if len(resistant) > 0:
+      resistant_to_plot = resistant.tail(30)
+      # ax.plot(resistant_to_plot.index, resistant_to_plot['resistant'], color='red', linestyle=':', label=f'resistant')
+      y_resistant = df.loc[max_idx, 'resistant'].round(2)
+      resistanter = df.loc[max_idx, 'resistanter'][0]
+      y_text_resistant = y_resistant
 
-  y_resistant = None
-  y_text_resistant = None
-  y_close = None
-  y_text_close = None
-  y_support = None
-  y_text_support = None
+      diff = y_text_resistant - y_text_close
+      if diff < y_close_padding:
+        y_text_resistant = y_text_close + y_close_padding
+      plt.annotate(f'{y_resistant}({resistanter})', xy=(max_x, y_text_resistant), xytext=(max_x, y_text_resistant), fontsize=13, xycoords='data', textcoords='data', color='black', va='bottom',  ha='left', bbox=dict(boxstyle="round", facecolor='red', alpha=0.1))
+      
+    # annotate support 
+    support = df.query('support == support')
+    if len(support) > 0:
+      support_to_plot = support.tail(30)
+      # ax.plot(support_to_plot.index, support_to_plot['support'], color='green', linestyle=':', label='support')
+      y_support = df.loc[max_idx, 'support'].round(2)
+      supporter = df.loc[max_idx, 'supporter'][0]
+      y_text_support = y_support
+      
+      diff = y_text_close - y_text_support
+      if diff < y_close_padding:
+        y_text_support = y_text_close - y_close_padding
+      plt.annotate(f'{y_support}({supporter})', xy=(max_x, y_text_support), xytext=(max_x, y_text_support), fontsize=13, xycoords='data', textcoords='data', color='black', va='top',  ha='left', bbox=dict(boxstyle="round", facecolor='green', alpha=0.1))
 
-  # annotate resistant
-  resistant = df.query('resistant == resistant')
-  if len(resistant) > 0:
-    resistant_to_plot = resistant.tail(30)
-    ax.plot(resistant_to_plot.index, resistant_to_plot['resistant'], color='red', linestyle='--', label='resistant')
-    y_resistant = df.loc[max_idx, 'resistant'].round(2)
-    y_text_resistant = y_resistant
-    plt.annotate(f'{y_resistant}', xy=(max_x, y_text_resistant), xytext=(max_x, y_text_resistant), fontsize=13, xycoords='data', textcoords='data', color='black', va='bottom',  ha='left', bbox=dict(boxstyle="round", facecolor='red', alpha=0.1))
+  # annotate candle patterns
+  if 'pattern' in add_on:
 
-  # annotate close price
-  y_close_padding = padding*5
-  y_close = df.loc[max_idx, 'Close'].round(2)
-  y_text_close = y_close
-  if y_text_resistant is not None:
-    diff = y_text_resistant - y_text_close
-    if diff > 0 and diff < y_close_padding:
-      y_text_close -= y_close_padding
-    elif diff < 0 and diff > -y_close_padding:
-      y_text_close += y_close_padding
-  # rate = (df.loc[max_idx, 'rate'] * 100).round(2)
-  close_color = 'blue'
-  plt.annotate(f'{y_close}', xy=(max_x, y_text_close), xytext=(max_x, y_text_close), fontsize=13, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=close_color, alpha=0.1))
-  
-  # annotate support 
-  support = df.query('support == support')
-  if len(support) > 0:
-    support_to_plot = support.tail(30)
-    ax.plot(support_to_plot.index, support_to_plot['support'], color='green', linestyle='--', label='support')
-    y_support = df.loc[max_idx, 'support'].round(2)
-    y_text_support = y_support
-    diff = y_text_close - y_text_support
-    if diff > 0 and diff < y_close_padding:
-      y_text_support -= y_close_padding
-    elif diff < 0 and diff > -y_close_padding:
-      y_text_support += y_close_padding
-    plt.annotate(f'{y_support}', xy=(max_x, y_text_support), xytext=(max_x, y_text_support), fontsize=13, xycoords='data', textcoords='data', color='black', va='top',  ha='left', bbox=dict(boxstyle="round", facecolor='green', alpha=0.1))
+    # settings for annotate candle patterns
+    pattern_info = {
+      # '窗口_day': {1: '窗口', -1: '窗口'},
+      # '反弹_day': {1: '反弹', -1: '回落'},
+      # '突破_day': {1: '突破', -1: '跌落'},
+      '启明黄昏_day': {1: '启明星', -1: '黄昏星'},
 
-  # settings for annotate candle patterns
-  pattern_info = {
-    # '窗口_day': {1: '窗口', -1: '窗口'},
-    # '反弹_day': {1: '反弹', -1: '回落'},
-    # '突破_day': {1: '突破', -1: '跌落'},
-    '启明黄昏_day': {1: '启明星', -1: '黄昏星'},
+      # '腰带_day': {1: '腰带', -1: '腰带'},
+      # '十字星_day': {1: '高浪线', -1: '十字星'},
+      '锤子_day': {1: '锤子', -1: '吊颈'},
+      '流星_day': {1: '倒锤', -1: '流星'},
 
-    # '腰带_day': {1: '腰带', -1: '腰带'},
-    # '十字星_day': {1: '高浪线', -1: '十字星'},
-    '锤子_day': {1: '锤子', -1: '吊颈'},
-    '流星_day': {1: '倒锤', -1: '流星'},
+      # '平头_day': {1: '平底', -1: '平顶'},
+      '穿刺_day': {1: '穿刺', -1: '乌云'},
+      # '吞噬_day': {1: '吞噬', -1: '吞噬'},
+      # '包孕_day': {1: '包孕', -1: '包孕'},
 
-    # '平头_day': {1: '平底', -1: '平顶'},
-    '穿刺_day': {1: '穿刺', -1: '乌云'},
-    # '吞噬_day': {1: '吞噬', -1: '吞噬'},
-    # '包孕_day': {1: '包孕', -1: '包孕'},
+      'linear_bounce_day': {1: '反弹', -1: '回落'},
+      'linear_break_day': {1: '突破', -1: '跌落'}
+    }
+    settings = {
+      'normal': {'fontsize':12, 'fontcolor':'black', 'va':'center', 'ha':'center', 'up':'green', 'down':'red', 'alpha': 0.15},
+      'emphasis': {'fontsize':12, 'fontcolor':'black', 'va':'center', 'ha':'center', 'up':'yellow', 'down':'purple', 'alpha': 0.15},
+    }
+    up_pattern_annotations = {}
+    down_pattern_annotations = {}
+    for p in pattern_info.keys():
+      stn = 'normal' if p not in ['窗口_day', '突破_day', '反弹_day'] else 'emphasis'
+      if p in df.columns:
+        tmp_up_idx = df.query(f'{p} == 1').index
+        tmp_down_idx = df.query(f'{p} == -1').index
 
-    'linear_bounce_day': {1: '反弹', -1: '回落'},
-    'linear_break_day': {1: '突破', -1: '跌落'}
-  }
-  settings = {
-    'normal': {'fontsize':12, 'fontcolor':'black', 'va':'center', 'ha':'center', 'up':'green', 'down':'red', 'alpha': 0.15},
-    'emphasis': {'fontsize':12, 'fontcolor':'black', 'va':'center', 'ha':'center', 'up':'yellow', 'down':'purple', 'alpha': 0.15},
-  }
-  up_pattern_annotations = {}
-  down_pattern_annotations = {}
-  for p in pattern_info.keys():
-    stn = 'normal' if p not in ['窗口_day', '突破_day', '反弹_day'] else 'emphasis'
-    if p in df.columns:
-      tmp_up_idx = df.query(f'{p} == 1').index
-      tmp_down_idx = df.query(f'{p} == -1').index
+        # positive patterns
+        tmp_up_info = pattern_info[p][1]
+        if len(tmp_up_info) > 0 and len(tmp_up_idx) < 10:
+          for i in tmp_up_idx:
+            k = util.time_2_string(i.date())
+            if k not in up_pattern_annotations: 
+              up_pattern_annotations[k] = {'x': k, 'y': df.loc[i, 'Low'] - padding, 'text': tmp_up_info, 'stn': stn}
+            else:
+              up_pattern_annotations[k]['text'] = up_pattern_annotations[k]['text']  + f'/{tmp_up_info}'
+              if up_pattern_annotations[k]['stn'] == 'normal':
+                up_pattern_annotations[k]['stn'] = stn 
 
-      # positive patterns
-      tmp_up_info = pattern_info[p][1]
-      if len(tmp_up_info) > 0 and len(tmp_up_idx) < 10:
-        for i in tmp_up_idx:
-          k = util.time_2_string(i.date())
-          if k not in up_pattern_annotations: 
-            up_pattern_annotations[k] = {'x': k, 'y': df.loc[i, 'Low'] - padding, 'text': tmp_up_info, 'stn': stn}
-          else:
-            up_pattern_annotations[k]['text'] = up_pattern_annotations[k]['text']  + f'/{tmp_up_info}'
-            if up_pattern_annotations[k]['stn'] == 'normal':
-              up_pattern_annotations[k]['stn'] = stn 
+        # negative patterns
+        tmp_down_info = pattern_info[p][-1]
+        if len(tmp_down_info) > 0 and len(tmp_down_idx) < 10:
+          for i in tmp_down_idx:
+            k = util.time_2_string(i.date())
+            if k not in down_pattern_annotations:
+              down_pattern_annotations[k] = {'x': k, 'y': df.loc[i, 'High'] + padding, 'text': tmp_down_info, 'stn': stn}
+            else:
+              down_pattern_annotations[k]['text'] = down_pattern_annotations[k]['text']  + f'/{tmp_down_info}'
+              if down_pattern_annotations[k]['stn'] == 'normal':
+                down_pattern_annotations[k]['stn'] = stn 
 
-      # negative patterns
-      tmp_down_info = pattern_info[p][-1]
-      if len(tmp_down_info) > 0 and len(tmp_down_idx) < 10:
-        for i in tmp_down_idx:
-          k = util.time_2_string(i.date())
-          if k not in down_pattern_annotations:
-            down_pattern_annotations[k] = {'x': k, 'y': df.loc[i, 'High'] + padding, 'text': tmp_down_info, 'stn': stn}
-          else:
-            down_pattern_annotations[k]['text'] = down_pattern_annotations[k]['text']  + f'/{tmp_down_info}'
-            if down_pattern_annotations[k]['stn'] == 'normal':
-              down_pattern_annotations[k]['stn'] = stn 
+    # candle pattern annotation
+    annotations = {'up': up_pattern_annotations, 'down': down_pattern_annotations}
+    y_text_padding = {0 : padding*0, 1: padding*5}
+    for a in annotations.keys():
+      
+      # sort dictionary by date
+      tmp_a = annotations[a]
+      tmp_annotation = {}
+      sorted_keys = sorted(tmp_a.keys())
+      for sk in sorted_keys:
+        tmp_annotation[sk] = tmp_a[sk]
 
-  # candle pattern annotation
-  annotations = {'up': up_pattern_annotations, 'down': down_pattern_annotations}
-  y_text_padding = {0 : padding*0, 1: padding*5}
-  for a in annotations.keys():
-    
-    # sort dictionary by date
-    tmp_a = annotations[a]
-    tmp_annotation = {}
-    sorted_keys = sorted(tmp_a.keys())
-    for sk in sorted_keys:
-      tmp_annotation[sk] = tmp_a[sk]
+      # annotate patterns
+      counter = 0
+      for k in tmp_annotation.keys():
 
-    # annotate patterns
-    counter = 0
-    for k in tmp_annotation.keys():
-
-      x = tmp_annotation[k]['x']
-      y = tmp_annotation[k]['y']
-      if a == 'up':
-        y_text = df.Low.min() - y_text_padding[counter % 2]
-      else:
-        y_text = df.High.max() + y_text_padding[counter % 2]
-        
-      text = tmp_annotation[k]['text']
-      stn = settings[tmp_annotation[k]['stn']]
-      plt.annotate(f'{text}', xy=(x, y), xytext=(x,y_text), fontsize=stn['fontsize'], rotation=0, color=stn['fontcolor'], va=stn['va'],  ha=stn['ha'], xycoords='data', textcoords='data', arrowprops=dict(arrowstyle='-|>', alpha=0.3, color='black'), bbox=dict(boxstyle="round", facecolor=stn[a], alpha=stn['alpha']))
-      counter += 1
+        x = tmp_annotation[k]['x']
+        y = tmp_annotation[k]['y']
+        if a == 'up':
+          y_text = df.Low.min() - y_text_padding[counter % 2]
+        else:
+          y_text = df.High.max() + y_text_padding[counter % 2]
+          
+        text = tmp_annotation[k]['text']
+        stn = settings[tmp_annotation[k]['stn']]
+        plt.annotate(f'{text}', xy=(x, y), xytext=(x,y_text), fontsize=stn['fontsize'], rotation=0, color=stn['fontcolor'], va=stn['va'],  ha=stn['ha'], xycoords='data', textcoords='data', arrowprops=dict(arrowstyle='-|>', alpha=0.3, color='black'), bbox=dict(boxstyle="round", facecolor=stn[a], alpha=stn['alpha']))
+        counter += 1
 
   # transform date to numbers
   df.reset_index(inplace=True)
@@ -4746,7 +4780,6 @@ def plot_main_indicators(
     # ax.fill_between(df.index, df.mavg, df.bb_high_band, facecolor='green', interpolate=True, alpha=0.1)
     # ax.fill_between(df.index, df.mavg, df.bb_low_band, facecolor='red', interpolate=True, alpha=0.2)
   
-  
   # plot psar dots
   if 'psar' in target_indicator:
     alpha = 0.6
@@ -4760,17 +4793,19 @@ def plot_main_indicators(
 
   # plot high/low trend
   if 'linear' in target_indicator:
-    # plot aroon_up/aroon_down lines 
-    ax.plot(df.index, df.linear_fit_high, label='linear_fit_high', color='black', alpha=0.5)
-    ax.plot(df.index, df.linear_fit_low, label='linear_fit_low', color='black', alpha=0.5)
+    # # plot aroon_up/aroon_down lines 
+    line_alpha = 0.3
+    ax.plot(df.index, df.linear_fit_high, label='linear_fit_high', color='black', alpha=line_alpha)
+    ax.plot(df.index, df.linear_fit_low, label='linear_fit_low', color='black', alpha=line_alpha)
 
     # fill between linear_fit_high and linear_fit_low
+    fill_alpha = 0.2
     up_direction = df.linear_direction == 'u'
     down_direction = df.linear_direction == 'd'
     none_direction = df.linear_direction == 'n'
-    ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=up_direction, facecolor='green', interpolate=True, alpha=0.1)
-    ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=down_direction, facecolor='red', interpolate=True, alpha=0.1)
-    ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=none_direction, facecolor='yellow', interpolate=True, alpha=0.1)
+    ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=up_direction, facecolor='green', interpolate=True, alpha=fill_alpha)
+    ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=down_direction, facecolor='red', interpolate=True, alpha=fill_alpha)
+    ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=none_direction, facecolor='yellow', interpolate=True, alpha=fill_alpha)
 
   # plot candlestick
   if 'candlestick' in target_indicator:
@@ -4928,7 +4963,7 @@ def plot_renko(
   # plot renko
   legends = {'u': 'u', 'd': 'd', 'n':'n', '':''}
   for index, row in df.iterrows():
-    renko = Rectangle((index, row['renko_o']), row['renko_countdown_days'], row['renko_brick_height'], facecolor=row['renko_color'], edgecolor=None, linestyle='-', linewidth=2, fill=True, alpha=0.15, label=legends[row['renko_trend']]) #  edgecolor=row['renko_color'], linestyle='-', linewidth=5, 
+    renko = Rectangle((index, row['renko_o']), row['renko_countdown_days'], row['renko_brick_height'], facecolor=row['renko_color'], edgecolor='black', linestyle='-', linewidth=1, fill=True, alpha=0.15, label=legends[row['renko_trend']]) #  edgecolor=row['renko_color'], linestyle='-', linewidth=5, 
     legends[row['renko_trend']] = "_nolegend_"
     ax.add_patch(renko)
   
@@ -5194,7 +5229,7 @@ def plot_multiple_indicators(
     zorder = 10 if tmp_indicator == 'main_indicators' else 1
 
     if i == 0:
-      axes[tmp_indicator] = plt.subplot(gs[i], zorder=zorder)     
+      axes[tmp_indicator] = plt.subplot(gs[i], zorder=zorder) 
     else:
       axes[tmp_indicator] = plt.subplot(gs[i], sharex=axes[indicators[0]], zorder=zorder)
       
