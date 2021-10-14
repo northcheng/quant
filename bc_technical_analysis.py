@@ -1018,7 +1018,8 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         '穿刺_signal', '平头_signal', '包孕_signal', '吞噬_signal', 
         '启明黄昏_signal', '窗口_signal', '突破_signal', '反弹_signal'
         'volume_ma', 'volume_to_ma', 
-        'window_upper_limit', 'window_lower_limit', 'window_position_status', 'window_position_days', 'previous_window_position_days', 'previous_window_position_status', 'previous_candle_color', 'next_突破_trend',
+        # 'window_position_status', 
+        'window_upper_limit', 'window_lower_limit', 'window_position_days', 'previous_window_position_days', 'previous_window_position_status', 'previous_candle_color', 'next_突破_trend',
         'entity_signal', 'shadow_signal', 'upper_shadow_signal', 'lower_shadow_signal', 
         'candle_entity_to_close', 'candle_shadow_to_close', 'candle_shadow_pct_diff', 'candle_entity_middle'
         'previous_high', 'previous_low', 'high_diff', 'low_diff',
@@ -1499,26 +1500,26 @@ def postprocess(df, keep_columns, drop_columns, target_interval=''):
 
   # candle pattern index and description
   conditions = {
-    # 'breakthrough or rebound': '(category == "up_x_resistant" or category == "rebound")',
     'candlestick window': '(反弹_trend == "u" or 突破_trend == "u" or 窗口_trend == "u" or 启明黄昏_trend == "u")',
-    # 'ichimoku signal': '(0 < tankan_kijun_signal < 5)',
+    'ichimoku signal': '(0 < tankan_kijun_signal < 5)',
     'linear uptrend': 'linear_bounce_day == 1 or linear_break_day == 1',
     # 'negative candle patterns': 'candle_pattern_idx < 0',
     # 'long upper shadow': '(upper_shadow_trend == "u")',
     # 'long red entity': '(candle_color == -1 and entity_trend != "d")',
     # 'under candlestick window': '(candle_gap_resistant == candle_gap_resistant and Low < candle_gap_resistant)',
     # 'waving falling or hitpeak': '(category == "waving" or category == "down_x_support" or category == "hitpeak")',
+    'all trend is down': '(0 > tankan_kijun_signal >= -5) or (linear_slope < 0 and tankan_kijun_signal < 0) or ((window_position_status == "mid" or window_position_status == "mid_down" or window_position_status == "down" or (candle_color == -1 and (window_position_status == "mid_up" or window_position_status == "out"))))',
     'signal': '(signal == "b" or signal == "s")'}
   values = {
-    # 'breakthrough or rebound': 'potential',
     'candlestick window': 'potential',
-    # 'ichimoku signal': 'potential',
+    'ichimoku signal': 'potential',
     'linear uptrend': 'potential',
     # 'negative candle patterns': '',
     # 'long red entity': '',
     # 'long upper shadow': '',
     # 'under candlestick window': '',
     # 'waving falling or hitpeak': '',
+    'all trend is down': '',
     'signal': 'signal'}
   df = assign_condition_value(df=df, column='label', condition_dict=conditions, value_dict=values, default_value='')
 
