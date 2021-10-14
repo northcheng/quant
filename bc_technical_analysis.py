@@ -38,7 +38,7 @@ default_plot_args = {'figsize':(30, 5), 'title_rotation':'vertical', 'xaxis_posi
 # load configuration
 def load_config(root_paths):
   """ 
-  Load configuration from file
+  Load configuration from json file
 
   :param root_paths: a dictionary contains home_path and git_path, differ by platforms
   :returns: dictionary of config arguments
@@ -80,11 +80,10 @@ def load_data(symbols, config, load_empty_data=False, load_derived_data=False):
   """ 
   Load data from local files
   
+  :param symbols: list of symbols
   :param config: dictionary of config arguments
   :param load_empty_data: whether to load empyt data dict
-  :param update: whether to update local data
-  :param required_date: the required date to update
-  :param is_print: whether to print update information
+  :param load_derived_data: whether to load ta_data, result, final_result besides sec_data
   :returns: dictionary of data load from local files
   :raises: None
   """
@@ -101,7 +100,7 @@ def load_data(symbols, config, load_empty_data=False, load_derived_data=False):
       else:
         data['sec_data'][f'{symbol}_day'] = None
 
-    # load derived data
+    # load derived data (ta_data, result, final_result)
     if load_derived_data:
       file_path = config["quant_path"]
       file_names = config["calculation"]["file_name"]
@@ -141,7 +140,6 @@ def preprocess_sec_data(df, symbol, print_error=True):
   df['adj_close_p1'] = df['Adj Close'].shift(1)
   df['adj_rate'] = df['adj_close_p1'] / df['Adj Close']
   df = df.sort_index(ascending=False)
-  
   for idx, row in df.iterrows():
     df.loc[idx, 'Adj Close'] *= adj_rate
     if row['Split'] != 1:
@@ -194,16 +192,13 @@ def preprocess_sec_data(df, symbol, print_error=True):
     error_info = f'[{symbol}]: on {max_idx.date()}, {error_info}'
     print(error_info)
 
-  # # calculate heikin ashi features
-  # df = add_heikin_ashi_features(df=df, ohlcv_col=default_ohlcv_col, replace_ohlc=True, dropna=True)
-
   # add symbol and change rate of close price
   df['symbol'] = symbol
   
   return df
 
 # calculate technical-analysis indicators
-def calculate_ta_indicators(df, trend_indicators, volume_indicators, volatility_indicators, other_indicators):
+def calculate_ta_data(df, trend_indicators, volume_indicators, volatility_indicators, other_indicators):
   '''
   Add technical indicators
 
@@ -331,6 +326,12 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       # drop intermediate columns
       # df.drop(['tankan_day', 'tankan_rate', 'tankan_rate_ma', 'kijun_day', 'kijun_rate', 'kijun_rate_ma'], axis=1, inplace=True)
 
+    # ================================ kama trend =============================
+    if 'kama' in trend_indicators:
+      df['kama_trend'] = 'n'
+      df['kama_signal'] = 'n'
+      df['kama_day'] = 0
+    
     # ================================ aroon trend ============================
     if 'aroon' in trend_indicators:
       aroon_col = ['aroon_up', 'aroon_down', 'aroon_gap']
@@ -457,7 +458,7 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
 
     # specify all indicators and specify the exclusives
     all_indicators = list(set(trend_indicators + volume_indicators + volatility_indicators + other_indicators))
-    exclude_indicators = ['bb', 'atr']
+    exclude_indicators = ['bb', 'atr', 'kama']
     for indicator in all_indicators:
       trend_col = f'{indicator}_trend'
       signal_col = f'{indicator}_signal'
@@ -482,8 +483,6 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
     
     # calculate overall trend index and its moving average
     df['trend_idx'] = df['up_trend_idx'] + df['down_trend_idx']
-    
-    # calculate direction of overall trend
     df['trend_idx_ma'] = sm(series=df['trend_idx'], periods=5).mean()
     df['pre_trend_idx_ma'] = df['trend_idx_ma'].shift(1)
     conditions = {
@@ -534,6 +533,24 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
       df = assign_condition_value(df=df, column='renko_trend', condition_dict=conditions, value_dict=values, default_value='n')
       wave_idx = df.query('(renko_trend != "u" and renko_trend != "d") and ((renko_brick_length >= 20 ) and (renko_brick_length>3*renko_duration_p1))').index
       df.loc[wave_idx, 'renko_trend'] = 'n'
+
+      # # renko position status
+      # conditions = {
+      #   'up': '(Close > renko_h)', 
+      #   'down': '(Close < renko_l)',
+      #   'middle': '(renko_l <= Close <= renko_h)'
+      # } 
+      # values = {
+      #   'up': 1, 
+      #   'down': -1,
+      #   'middle': 0}
+      # df = assign_condition_value(df=df, column='renko_position_status', condition_dict=conditions, value_dict=values, default_value=0)
+
+      # green_idx = df.query('renko_real == "green"').index
+      # red_idx = df.query('renko_real == "red"').index
+      # df.loc[green_idx, 'renko_position_status'] = 1
+      # df.loc[red_idx, 'renko_position_status'] = -1
+      # df['renko_status'] = sm(series=df['renko_position_status'], periods=3).mean()
 
       # calculate renko signal
       df['renko_signal'] = 'n'
@@ -1339,9 +1356,8 @@ def calculate_ta_signal(df):
     # developing version
     'at least 3/4 (ichimoku/aroon/adx/psar) are up trending and no down trending': '(trend_idx >= 3)',
     'renko is up trending': '(renko_trend == "u")', #  
-    'adx is up trending': '(adx_trend == "u")',
+    # 'adx is up trending': '(adx_trend == "u")',
     'bb is not over-buying': '(bb_trend != "d")',
-    
     # 'positive candle patterns': '((窗口_trend != "d") and (突破_trend != "d") and (反弹_trend != "d") and (启明黄昏_trend != "d"))'# '((窗口_trend != "d") and (突破_trend != "d") and (反弹_trend != "d") and (启明黄昏_trend != "d"))'
   }
   up_idx = df.query(' and '.join(buy_conditions.values())).index 
@@ -1350,7 +1366,7 @@ def calculate_ta_signal(df):
   # sell conditions
   sell_conditions = {
 
-    # # # stable version
+    # # stable version
     # 'High is below kijun line': '((High < kijun) or (0 > 窗口_day >= -3) or (0 > 突破_day >= -3) or (0 > 反弹_day >= -3) or (0 > 启明黄昏_day >= -3))',
     # 'no individual trend is up and overall trend is down': '(trend_idx < -1 and up_trend_idx == 0)',
     # 'price went down through brick': '(renko_trend == "d")', 
@@ -1359,9 +1375,8 @@ def calculate_ta_signal(df):
     # developing version
     'majority of indicators are down trending': '(trend_idx < -1 and up_trend_idx == 0)',
     'renko is down trending': '(renko_trend == "d" and renko_color == "red")',  # or (Close < renko_l and renko_duration >= 150)
-    'adx is down trending': '(adx_trend == "d")',
+    # 'adx is down trending': '(adx_trend == "d")',
     'bb is not over-selling': '(bb_trend != "u")',
-    
     # 'nagative candle patterns': '((High < kijun) or (0 > 窗口_day >= -3) or (0 > 突破_day >= -3) or (0 > 反弹_day >= -3) or (0 > 启明黄昏_day >= -3))',
   } 
   down_idx = df.query(' and '.join(sell_conditions.values())).index 
@@ -1412,7 +1427,7 @@ def calculation(df, symbol, start_date=None, end_date=None, trend_indicators=['i
     
     # calculate TA indicators
     phase = 'cal_ta_indicators' 
-    df = calculate_ta_indicators(df=df, trend_indicators=trend_indicators, volume_indicators=volume_indicators, volatility_indicators=volatility_indicators, other_indicators=other_indicators)
+    df = calculate_ta_data(df=df, trend_indicators=trend_indicators, volume_indicators=volume_indicators, volatility_indicators=volatility_indicators, other_indicators=other_indicators)
 
     # calculate TA trend
     phase = 'cal_ta_trend'
@@ -5152,7 +5167,14 @@ def plot_indicator(
       df['color'] = 'red'
       previous_target_col = 'previous_' + tar
       df[previous_target_col] = df[tar].shift(1)
-      df.loc[df[tar] >= df[previous_target_col], 'color'] = 'green'
+      df.loc[df[tar] > df[previous_target_col], 'color'] = 'green'
+      df.loc[df[tar] == df[previous_target_col], 'color'] = 'yellow'
+
+      target_max = df[target_col].values.max()
+      target_min = df[target_col].values.min()
+
+      df.loc[df[tar] >= target_max, 'color'] = 'green'
+      df.loc[df[tar] <= target_min, 'color'] = 'red'
 
     # plot in benchmark mode
     elif color_mode == 'benchmark' and benchmark is not None:
@@ -5429,7 +5451,7 @@ def plot_historical_evolution(df, symbol, interval, config, his_start_date=None,
     
     # calculate TA indicators
     phase = 'cal_ta_indicators' 
-    df = calculate_ta_indicators(df=df, trend_indicators=trend_indicators, volume_indicators=volume_indicators, volatility_indicators=volatility_indicators, other_indicators=other_indicators)
+    df = calculate_ta_data(df=df, trend_indicators=trend_indicators, volume_indicators=volume_indicators, volatility_indicators=volatility_indicators, other_indicators=other_indicators)
 
     # calculate TA trend
     phase = 'cal_ta_trend'
