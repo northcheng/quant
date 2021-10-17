@@ -458,11 +458,19 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
 
     # specify all indicators and specify the exclusives
     all_indicators = list(set(trend_indicators + volume_indicators + volatility_indicators + other_indicators))
-    exclude_indicators = ['bb', 'atr', 'kama']
+    include_indicators = ['ichimoku', 'aroon', 'adx', 'psar']
+    exclude_indicators = [x for x in all_indicators if x not in include_indicators]
     for indicator in all_indicators:
       trend_col = f'{indicator}_trend'
       signal_col = f'{indicator}_signal'
       day_col = f'{indicator}_day'
+
+      if trend_col not in df.columns:
+        df[trend_col] = 'n'
+      if signal_col not in df.columns:
+        df[signal_col] = 'n'
+      if day_col not in df.columns:
+        df[day_col] = 0
 
       # calculate number of days since trend shifted
       df[day_col] = sda(series=df[trend_col].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1) 
@@ -471,15 +479,14 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       if signal_col not in df.columns:
         df[signal_col] = 'n'
 
-      # skype the exclusive indicators
-      if indicator in exclude_indicators:
-        continue
+      # calculate overall indicator index according to certain important indicators
+      if indicator in include_indicators:
 
-      # calculate the overall trend value
-      up_idx = df.query(f'{trend_col} == "u"').index
-      down_idx = df.query(f'{trend_col} == "d"').index
-      df.loc[up_idx, 'up_trend_idx'] += 1
-      df.loc[down_idx, 'down_trend_idx'] -= 1
+        # calculate the overall trend value
+        up_idx = df.query(f'{trend_col} == "u"').index
+        down_idx = df.query(f'{trend_col} == "d"').index
+        df.loc[up_idx, 'up_trend_idx'] += 1
+        df.loc[down_idx, 'down_trend_idx'] -= 1
     
     # calculate overall trend index and its moving average
     df['trend_idx'] = df['up_trend_idx'] + df['down_trend_idx']
@@ -1399,7 +1406,7 @@ def calculate_ta_signal(df):
   return df
 
 # calculate ta indicators, trend and derivatives fpr latest data
-def calculation(df, symbol, start_date=None, end_date=None, trend_indicators=['ichimoku', 'aroon', 'adx', 'psar'], volume_indicators=[], volatility_indicators=['bb'], other_indicators=[], signal_threshold=0.001):
+def calculation(df, symbol, start_date=None, end_date=None, trend_indicators=['ichimoku', 'aroon', 'adx', 'psar', 'kst'], volume_indicators=[], volatility_indicators=['bb'], other_indicators=[], signal_threshold=0.001):
   """
   Calculation process
 
@@ -4634,8 +4641,8 @@ def plot_candlestick(
       '锤子_day': {1: '锤子', -1: '吊颈'},
       '流星_day': {1: '倒锤', -1: '流星'},
 
-      # '平头_day': {1: '平底', -1: '平顶'},
       '穿刺_day': {1: '穿刺', -1: '乌云'},
+      # '平头_day': {1: '平底', -1: '平顶'},
       # '吞噬_day': {1: '吞噬', -1: '吞噬'},
       # '包孕_day': {1: '包孕', -1: '包孕'},
 
@@ -4924,7 +4931,15 @@ def plot_adx(
   # ax.plot(df.index, df.mdi, label='mdi', color='red', marker='.', alpha=0.3)
 
   # plot adx
-  ax.plot(df.index, df.adx, label='adx', color='black', linestyle='--', alpha=0.5)
+  conditions = {
+    'strong': 'adx >= 25', 
+    'weak': 'adx <25'} 
+  color_values = {
+    'strong': 'blue', 
+    'weak': 'orange'}
+  df = assign_condition_value(df=df, column='adx_color', condition_dict=conditions, value_dict=color_values, default_value='grey')
+  ax.scatter(df.index, df.adx, label='adx', color=df['adx_color'], marker='.')
+  # ax.plot(df.index, df.adx, label='adx', color='black', linestyle='--', alpha=0.5)
 
   # plot boundaries
   ax.fill_between(df.index, 15, -15, facecolor='grey', interpolate=True, alpha=0.25)

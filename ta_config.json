@@ -59,6 +59,12 @@
                 "adx": 2,
                 "main_indicators": 10
             },
+            "test": {
+                "target_col": ["kst", "kst_sign"],
+                "color_mode": "benchmark",
+                "benchmark": 0,
+                "alpha": 0.8
+            },
             "main_indicators": {
                 "target_indicator": [
                     "candlestick",
