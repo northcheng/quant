@@ -55,14 +55,13 @@
         },
         "plot_args": {
             "plot_ratio": {
-                "signals": 3,
+                "signals": 4,
                 "adx": 2,
                 "main_indicators": 10
             },
             "test": {
-                "target_col": ["kst", "kst_sign"],
-                "color_mode": "benchmark",
-                "benchmark": 0,
+                "target_col": ["kama_fast", "kama_slow"],
+                "color_mode": "up_down",
                 "alpha": 0.8
             },
             "main_indicators": {
@@ -83,6 +82,12 @@
                 "signal_list": [
                 
                     "bb_signal",
+                    "kama_signal",
+                    "ao_signal",
+                    "fi_signal",
+                    "trix_signal",
+                    "cci_signal",
+                    "kst_signal",
                     "adx_signal",
                     "psar_signal",
                     "aroon_signal",
@@ -124,7 +129,6 @@
                 "alpha": 0.8
             },
             "adx": {
-                "target_col": ["pdi", "mdi", "adx"],
                 "alpha": 0.8
                 
             },
@@ -236,6 +240,7 @@
                 "RF":    "地区金融",
                 "RIO":   "力拓(矿业)",
                 "ROK":   "罗克韦尔自动化",
+                "SE":    "Sea Limit(互联网)",
                 "SAP":   "思爱普(软件)",
                 "SBUX":  "星巴克",
                 "SLB":   "斯伦贝谢(油气能源)",

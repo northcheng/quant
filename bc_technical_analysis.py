@@ -326,12 +326,6 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       # drop intermediate columns
       # df.drop(['tankan_day', 'tankan_rate', 'tankan_rate_ma', 'kijun_day', 'kijun_rate', 'kijun_rate_ma'], axis=1, inplace=True)
 
-    # ================================ kama trend =============================
-    if 'kama' in trend_indicators:
-      df['kama_trend'] = 'n'
-      df['kama_signal'] = 'n'
-      df['kama_day'] = 0
-    
     # ================================ aroon trend ============================
     if 'aroon' in trend_indicators:
       aroon_col = ['aroon_up', 'aroon_down', 'aroon_gap']
@@ -374,17 +368,23 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
 
     # ================================ adx trend ==============================
     if 'adx' in trend_indicators:
+
+      df['prev_adx_diff_ma'] = df['adx_diff_ma'].shift(1)
+      df['adx_diff_ma_diff'] = df['adx_diff_ma'] - df['prev_adx_diff_ma']
+      wave_idx = df.query('-1 < adx_diff_ma_diff < 1').index
+      df.loc[wave_idx, 'adx_diff_ma'] = df.loc[wave_idx, 'prev_adx_diff_ma']
+      df['adx_diff_ma_diff'] = df['adx_diff_ma'] - df['prev_adx_diff_ma']
+      df['adx_direction'] = sda(series=df['adx_diff_ma_diff'], zero_as=0)
+      df = df.drop(['prev_adx_diff_ma', 'adx_diff_ma_diff'], axis=1)
+
       adx_threshold = 15
       conditions = {
-        'up': f'adx_diff_ma > {adx_threshold}', 
-        'down': f'adx_diff_ma < {-adx_threshold}',
-        'none': f'({-adx_threshold} <= adx_diff_ma <= {adx_threshold}) or (adx < {adx_threshold})'} 
+        'up': f'adx_diff_ma > {adx_threshold} or (adx_direction > 0 and adx_diff_ma > {-adx_threshold})', 
+        'down': f'adx_diff_ma < {-adx_threshold} or (adx_direction < 0 and adx_diff_ma < {adx_threshold})'} 
       values = {
         'up': 'u', 
-        'down': 'd',
-        'none': np.NaN}
-      df = assign_condition_value(df=df, column='adx_trend', condition_dict=conditions, value_dict=values)           
-      df['adx_trend'] = df['adx_trend'].fillna(method='ffill')   
+        'down': 'd'}
+      df = assign_condition_value(df=df, column='adx_trend', condition_dict=conditions, value_dict=values, default_value='n')           
 
     # ================================ kst trend ==============================
     if 'kst' in trend_indicators:
@@ -395,6 +395,24 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
         'up': 'u', 
         'down': 'd'}
       df = assign_condition_value(df=df, column='kst_trend', condition_dict=conditions, value_dict=values) 
+    
+    # ================================ cci trend ==============================
+    if 'cci' in trend_indicators:
+      conditions = {
+        'up': 'cci_ma > 0', 
+        'down': 'cci_ma <= 0'} 
+      values = {
+        'up': 'u', 
+        'down': 'd'}
+      df = assign_condition_value(df=df, column='cci_trend', condition_dict=conditions, value_dict=values) 
+
+    # ================================ trix trend =============================
+    if 'trix' in trend_indicators:
+      df['trix_trend'] = 'n'
+      up_mask = df['trix'] > df['trix'].shift(1)
+      down_mask = df['trix'] < df['trix'].shift(1)
+      df.loc[up_mask, 'trix_trend'] = 'u'
+      df.loc[down_mask, 'trix_trend'] = 'd'
 
     # ================================ psar trend =============================
     if 'psar' in trend_indicators:
@@ -419,6 +437,16 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
         'up': 'u', 
         'down': 'd'}
       df = assign_condition_value(df=df, column='eom_trend', condition_dict=conditions, value_dict=values) 
+
+    # ================================ fi trend ===============================
+    if 'fi' in volume_indicators:
+      conditions = {
+        'up': 'fi_ema > 0', 
+        'down': 'fi_ema <= 0'} 
+      values = {
+        'up': 'u', 
+        'down': 'd'}
+      df = assign_condition_value(df=df, column='fi_trend', condition_dict=conditions, value_dict=values) 
 
     # =========================================================================
     
@@ -447,6 +475,32 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       #   'down': 'd'}
       # df = assign_condition_value(df=df, column='bb_trend', condition_dict=conditions, value_dict=values, default_value='')
 
+    # =========================================================================
+    
+    phase = 'calculate trend for other_indicators'
+
+    # ================================ ao trend ===============================
+    if 'ao' in other_indicators:
+      df['ao_trend'] = 'n'
+      up_mask = df['ao'] > df['ao'].shift(1)
+      down_mask = df['ao'] < df['ao'].shift(1)
+      df.loc[up_mask, 'ao_trend'] = 'u'
+      df.loc[down_mask, 'ao_trend'] = 'd'
+
+    # ================================ kama trend =============================
+    if 'kama' in other_indicators:
+      conditions = {
+        'up': 'kama_fast > kama_slow', 
+        'down': 'kama_fast < kama_slow',
+        'down_1': 'Close < kama_slow',
+        'none': 'kama_fast > Close > kama_slow'} 
+      values = {
+        'up': 'u', 
+        'down': 'd',
+        'down_1': 'd',
+        'none': 'n'}
+      df = assign_condition_value(df=df, column='kama_trend', condition_dict=conditions, value_dict=values, default_value='n')
+    
     # =========================================================================
 
     phase = 'calculate trend overall'
@@ -1406,7 +1460,7 @@ def calculate_ta_signal(df):
   return df
 
 # calculate ta indicators, trend and derivatives fpr latest data
-def calculation(df, symbol, start_date=None, end_date=None, trend_indicators=['ichimoku', 'aroon', 'adx', 'psar', 'kst'], volume_indicators=[], volatility_indicators=['bb'], other_indicators=[], signal_threshold=0.001):
+def calculation(df, symbol, start_date=None, end_date=None, trend_indicators=['ichimoku', 'aroon', 'adx', 'psar', 'kst', 'cci', 'trix'], volume_indicators=['fi'], volatility_indicators=['ao', 'bb'], other_indicators=['ao', 'kama'], signal_threshold=0.001):
   """
   Calculation process
 
@@ -2588,7 +2642,7 @@ def add_cci_features(df, n=20, c=0.015, ohlcv_col=default_ohlcv_col, fillna=Fals
   df['cci'] = cci
 
   # calculate siganl
-  df = cal_moving_average(df=df, target_col='cci', ma_windows=[3, 5])
+  df['cci_ma'] = sm(series=df['cci'], periods=5).mean() #cal_moving_average(df=df, target_col='cci', ma_windows=[3, 5])
 
   return df
 
@@ -3006,7 +3060,7 @@ def add_vortex_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal
   df['vortex_pos'] = vip
   df['vortex_neg'] = vin
   df['vortex_diff'] = df['vortex_pos'] - df['vortex_neg']
-  df['vortex_diff'] = df['vortex_diff'] - df['vortex_diff'].shift(1)
+  # df['vortex_diff'] = df['vortex_diff'] - df['vortex_diff'].shift(1)
 
   # calculate signal
   if cal_signal:
@@ -3720,7 +3774,7 @@ def add_ao_features(df, n_short=5, n_long=34, ohlcv_col=default_ohlcv_col, filln
 
   # assign ao to df
   df['ao'] = ao
-  df['ao_diff'] = df['ao'] - df['ao'].shift(1)
+  df['ao_ma'] = sm(series=df['ao'], periods=2).mean()
 
   return df
 
@@ -4942,13 +4996,20 @@ def plot_adx(
   # ax.plot(df.index, df.adx, label='adx', color='black', linestyle='--', alpha=0.5)
 
   # plot boundaries
-  ax.fill_between(df.index, 15, -15, facecolor='grey', interpolate=True, alpha=0.25)
+  ax.fill_between(df.index, 15, -15, facecolor='grey', interpolate=True, alpha=0.2, label='[-15, 15]')
 
   # plot adx_diff ma
-  ax.plot(df.index, df['adx_diff_ma'], label='adx_diff_ma', color='grey', alpha=0.2) # marker='.',
+  # ax.plot(df.index, df['adx_diff_ma'], label='adx_diff_ma', color='grey', alpha=0.2) # marker='.',
   df['zero'] = 0
-  ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=df.adx_diff_ma > df.zero, facecolor='green', interpolate=True, alpha=0.25)
-  ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=df.adx_diff_ma <= df.zero, facecolor='red', interpolate=True, alpha=0.25)
+  # green_mask = df.query('adx_direction > 0 or adx_diff_ma > 15').index # df['adx_direction'] >= df['zero']
+  # red_mask = df.query('adx_direction < 0 or adx_diff_ma < -15').index # df['adx_direction'] <= df['zero']
+  # ax.bar(green_mask, df.loc[green_mask, 'adx_diff_ma'], color='green', alpha=0.3)
+  # ax.bar(red_mask, df.loc[red_mask, 'adx_diff_ma'], color='red', alpha=0.3)
+
+  green_mask = (df.adx_direction > 0)# | (df.adx_diff_ma > 15) # df['adx_direction'] >= df['zero']
+  red_mask = (df.adx_direction < 0)# | (df.adx_diff_ma < -15) # df['adx_direction'] <= df['zero']
+  ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=green_mask,  facecolor='green', interpolate=False, alpha=0.25)
+  ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=red_mask, facecolor='red', interpolate=False, alpha=0.25)
 
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
