@@ -277,7 +277,7 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       sl = 'kijun'
       fld = 'tankan_day'
       sld = 'kijun_day'
-      df[trend_col] = ''
+      df[trend_col] = 'n'
 
       # it is going up when
       ichimoku_up_conditions = {
@@ -512,7 +512,7 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
 
     # specify all indicators and specify the exclusives
     all_indicators = list(set(trend_indicators + volume_indicators + volatility_indicators + other_indicators))
-    include_indicators = ['ichimoku', 'aroon', 'adx', 'psar']
+    include_indicators = [x for x in all_indicators if x != 'bb'] # ['ichimoku', 'aroon', 'adx', 'psar']
     exclude_indicators = [x for x in all_indicators if x not in include_indicators]
     for indicator in all_indicators:
       trend_col = f'{indicator}_trend'
@@ -1403,46 +1403,59 @@ def calculate_ta_signal(df):
 
   # ================================ buy and sell signals ==========================
   df['trend'] = ''
+  df['signal'] = ''
 
-  # buy conditions
-  buy_conditions = {
+  # # buy conditions
+  # buy_conditions = {
 
-    # # stable version
-    # 'at least 4 in ichimoku/aroon/adx/kst/psar are up trending': '(trend_idx >= 3)',
-    # 'renko is up trending': '(renko_trend == "u")',
-    # 'bb is not over-buying': '(bb_trend != "d")',
-    # 'positive candle patterns': '((candle_color == 1) or (0< 窗口_day <=3) or (0< 突破_day <=3) or (0< 反弹_day <=3) or (0< 启明黄昏_day <=3))',
-    # 'not a cross or highwave': '(十字星_trend != "u" and 十字星_trend != "d")',
-    # 'not hanging or meteor on the top': '((位置_trend != "u") or (位置_trend == "u" and 锤子_trend != "d" and 锤子_trend != "u"))',
+  #   # # stable version
+  #   # 'at least 4 in ichimoku/aroon/adx/kst/psar are up trending': '(trend_idx >= 3)',
+  #   # 'renko is up trending': '(renko_trend == "u")',
+  #   # 'bb is not over-buying': '(bb_trend != "d")',
+  #   # 'positive candle patterns': '((candle_color == 1) or (0< 窗口_day <=3) or (0< 突破_day <=3) or (0< 反弹_day <=3) or (0< 启明黄昏_day <=3))',
+  #   # 'not a cross or highwave': '(十字星_trend != "u" and 十字星_trend != "d")',
+  #   # 'not hanging or meteor on the top': '((位置_trend != "u") or (位置_trend == "u" and 锤子_trend != "d" and 锤子_trend != "u"))',
 
-    # developing version
-    'at least 3/4 (ichimoku/aroon/adx/psar) are up trending and no down trending': '(trend_idx >= 3)',
-    'renko is up trending': '(renko_trend == "u")', #  
-    # 'adx is up trending': '(adx_trend == "u")',
-    'bb is not over-buying': '(bb_trend != "d")',
-    # 'positive candle patterns': '((窗口_trend != "d") and (突破_trend != "d") and (反弹_trend != "d") and (启明黄昏_trend != "d"))'# '((窗口_trend != "d") and (突破_trend != "d") and (反弹_trend != "d") and (启明黄昏_trend != "d"))'
-  }
-  up_idx = df.query(' and '.join(buy_conditions.values())).index 
-  df.loc[up_idx, 'trend'] = 'u'
+  #   # developing version 1 - expired 20211022
+  #   # 'at least 3/4 (ichimoku/aroon/adx/psar) are up trending and no down trending': '(trend_idx >= 3)',
+  #   # 'renko is up trending': '(renko_trend == "u")', #  
+  #   # 'adx is up trending': '(adx_trend == "u")',
+  #   # 'bb is not over-buying': '(bb_trend != "d")',
+  #   # 'positive candle patterns': '((窗口_trend != "d") and (突破_trend != "d") and (反弹_trend != "d") and (启明黄昏_trend != "d"))'# '((窗口_trend != "d") and (突破_trend != "d") and (反弹_trend != "d") and (启明黄昏_trend != "d"))'
+  
+  #   # developing version 2 - started 20211022
+  #   'adx': '(adx_direction > 0 and adx >= 25)',
+  #   'ichimoku': '(tankan_kijun_signal > 0)',
+  #   'bb': '(bb_trend != "d")',
+  #   'candle pattern': '(突破_day >=0)'
 
-  # sell conditions
-  sell_conditions = {
+  # }
+  # up_idx = df.query(' and '.join(buy_conditions.values())).index 
+  # df.loc[up_idx, 'trend'] = 'u'
 
-    # # stable version
-    # 'High is below kijun line': '((High < kijun) or (0 > 窗口_day >= -3) or (0 > 突破_day >= -3) or (0 > 反弹_day >= -3) or (0 > 启明黄昏_day >= -3))',
-    # 'no individual trend is up and overall trend is down': '(trend_idx < -1 and up_trend_idx == 0)',
-    # 'price went down through brick': '(renko_trend == "d")', 
-    # 'bb is not over-selling': '(bb_trend != "u" or (Close < renko_l and renko_duration >= 150))',
+  # # sell conditions
+  # sell_conditions = {
+
+  #   # # stable version
+  #   # 'High is below kijun line': '((High < kijun) or (0 > 窗口_day >= -3) or (0 > 突破_day >= -3) or (0 > 反弹_day >= -3) or (0 > 启明黄昏_day >= -3))',
+  #   # 'no individual trend is up and overall trend is down': '(trend_idx < -1 and up_trend_idx == 0)',
+  #   # 'price went down through brick': '(renko_trend == "d")', 
+  #   # 'bb is not over-selling': '(bb_trend != "u" or (Close < renko_l and renko_duration >= 150))',
     
-    # developing version
-    'majority of indicators are down trending': '(trend_idx < -1 and up_trend_idx == 0)',
-    'renko is down trending': '(renko_trend == "d" and renko_color == "red")',  # or (Close < renko_l and renko_duration >= 150)
-    # 'adx is down trending': '(adx_trend == "d")',
-    'bb is not over-selling': '(bb_trend != "u")',
-    # 'nagative candle patterns': '((High < kijun) or (0 > 窗口_day >= -3) or (0 > 突破_day >= -3) or (0 > 反弹_day >= -3) or (0 > 启明黄昏_day >= -3))',
-  } 
-  down_idx = df.query(' and '.join(sell_conditions.values())).index 
-  df.loc[down_idx, 'trend'] = 'd'
+  #   # developing version 1 - expired 20211022
+  #   # 'majority of indicators are down trending': '(trend_idx < -1 and up_trend_idx == 0)',
+  #   # 'renko is down trending': '(renko_trend == "d" and renko_color == "red")',  # or (Close < renko_l and renko_duration >= 150)
+  #   # 'adx is down trending': '(adx_trend == "d")',
+  #   # 'bb is not over-selling': '(bb_trend != "u")',
+  #   # 'nagative candle patterns': '((High < kijun) or (0 > 窗口_day >= -3) or (0 > 突破_day >= -3) or (0 > 反弹_day >= -3) or (0 > 启明黄昏_day >= -3))',
+
+  #   # developing version 2 - started 20211022
+  #   'adx': '(adx_direction < 0)',
+  #   'ichimoku': '(ichimoku_trend == "d" or (ichimoku_trend == "n" and trend_idx < 0))',
+  #   'candle pattern': '((-10 <= 突破_day <= 0) or (-10 <= 窗口_day <= 0))'
+  # } 
+  # down_idx = df.query(' and '.join(sell_conditions.values())).index 
+  # df.loc[down_idx, 'trend'] = 'd'
 
   # # developing version additional buy/sell conditions
   # up_idx = df.query('trend != "u" and trend != "d" and (renko_series_short_idx > 0 or renko_series_long_idx > 0) and ((3 >= 窗口_day > 0) or (3 >= 启明黄昏_day > 0))').index
@@ -1451,11 +1464,9 @@ def calculate_ta_signal(df):
   # df.loc[down_idx, 'trend'] = 'd'
 
   # ================================ Calculate overall siganl ======================
-  df['signal_day'] = sda(series=df['trend'].replace({'':0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
-
-  df['signal'] = '' 
-  df.loc[df['signal_day'] == 1, 'signal'] = 'b'
-  df.loc[df['signal_day'] ==-1, 'signal'] = 's'
+  # df['signal_day'] = sda(series=df['trend'].replace({'':0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
+  # df.loc[df['signal_day'] == 1, 'signal'] = 'b'
+  # df.loc[df['signal_day'] ==-1, 'signal'] = 's'
 
   return df
 
@@ -4511,6 +4522,7 @@ def plot_signal(
   # plot signals
   if signal_col in df.columns:
     
+    signal_marker = 'o' if signal_col in ['signal'] else 's'
     signal_alpha = 1 if signal_col in ['signal'] else 0.3
     trend_alpha = 0.5 if signal_col in ['signal'] else 0.25
     positive_signal = df.query(f'{signal_col} == "{pos_signal}"')
@@ -4524,9 +4536,9 @@ def plot_signal(
       pos_trend = df.query(f'{trend_col} == "u"')
       neg_trend = df.query(f'{trend_col} == "d"') 
       wave_trend = df.query(f'{trend_col} == "n"')
-      ax.scatter(pos_trend.index, pos_trend['signal_base'], label=None, marker='s', color='green', alpha=trend_alpha)
-      ax.scatter(neg_trend.index, neg_trend['signal_base'], label=None, marker='s', color='red', alpha=trend_alpha)
-      ax.scatter(wave_trend.index, wave_trend['signal_base'], label=None, marker='s', color='orange', alpha=trend_alpha/2)
+      ax.scatter(pos_trend.index, pos_trend['signal_base'], label=None, marker=signal_marker, color='green', alpha=trend_alpha)
+      ax.scatter(neg_trend.index, neg_trend['signal_base'], label=None, marker=signal_marker, color='red', alpha=trend_alpha)
+      ax.scatter(wave_trend.index, wave_trend['signal_base'], label=None, marker=signal_marker, color='orange', alpha=trend_alpha/2)
 
   # legend and title
   ax.legend(loc='upper left')  
@@ -4985,9 +4997,10 @@ def plot_adx(
   # ax.plot(df.index, df.mdi, label='mdi', color='red', marker='.', alpha=0.3)
 
   # plot adx
+  adx_threhold = 25
   conditions = {
-    'strong': 'adx >= 25', 
-    'weak': 'adx <25'} 
+    'strong': f'adx >= {adx_threhold}', 
+    'weak': f'adx < {adx_threhold}'} 
   color_values = {
     'strong': 'blue', 
     'weak': 'orange'}
@@ -4998,14 +5011,9 @@ def plot_adx(
   # plot boundaries
   ax.fill_between(df.index, 15, -15, facecolor='grey', interpolate=True, alpha=0.2, label='[-15, 15]')
 
-  # plot adx_diff ma
-  # ax.plot(df.index, df['adx_diff_ma'], label='adx_diff_ma', color='grey', alpha=0.2) # marker='.',
+  # plot adx_diff_ma and adx_direction
+  # ax.plot(df.index, df.adx_diff_ma, label='adx_diff_ma_8', color='black', linestyle='-', alpha=0.1)
   df['zero'] = 0
-  # green_mask = df.query('adx_direction > 0 or adx_diff_ma > 15').index # df['adx_direction'] >= df['zero']
-  # red_mask = df.query('adx_direction < 0 or adx_diff_ma < -15').index # df['adx_direction'] <= df['zero']
-  # ax.bar(green_mask, df.loc[green_mask, 'adx_diff_ma'], color='green', alpha=0.3)
-  # ax.bar(red_mask, df.loc[red_mask, 'adx_diff_ma'], color='red', alpha=0.3)
-
   green_mask = (df.adx_direction > 0)# | (df.adx_diff_ma > 15) # df['adx_direction'] >= df['zero']
   red_mask = (df.adx_direction < 0)# | (df.adx_diff_ma < -15) # df['adx_direction'] <= df['zero']
   ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=green_mask,  facecolor='green', interpolate=False, alpha=0.25)
