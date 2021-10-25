@@ -572,5 +572,7 @@ class Futu:
       # cash out
       if len(cash_out_list) > 0:
         cash_out_position =  position.loc[cash_out_list, ].copy()
+        self.logger.info(f'[STOP]: LOSS: {stop_loss_list}, PROFIT: {stop_profit_list}')
+        
         for index, row in cash_out_position.iterrows():
           self.trade(symbol=index, action='SELL', quantity=row['quantity'], print_summary=print_summary)

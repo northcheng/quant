@@ -4997,32 +4997,36 @@ def plot_adx(
   # ax.plot(df.index, df.mdi, label='mdi', color='red', marker='.', alpha=0.3)
 
   # plot adx
-  adx_threhold = 25
+  adx_threshold = 25
   conditions = {
-    'strong': f'adx >= {adx_threhold}', 
-    'weak': f'adx < {adx_threhold}'} 
+    'strong': f'adx >= {adx_threshold}', 
+    'weak': f'adx < {adx_threshold}'} 
   color_values = {
     'strong': 'blue', 
     'weak': 'orange'}
   df = assign_condition_value(df=df, column='adx_color', condition_dict=conditions, value_dict=color_values, default_value='grey')
   ax.scatter(df.index, df.adx, label='adx', color=df['adx_color'], marker='.')
-  # ax.plot(df.index, df.adx, label='adx', color='black', linestyle='--', alpha=0.5)
 
   # plot boundaries
-  ax.fill_between(df.index, 15, -15, facecolor='grey', interpolate=True, alpha=0.2, label='[-15, 15]')
+  df['zero'] = 0
+  # ax.fill_between(df.index, 15, -15, facecolor='grey', interpolate=False, alpha=0.2, label='[-15, 15]')
+  df['next_tankan_kijun_signal'] = df['tankan_kijun_signal'].shift(-1)
+  ax.fill_between(df.index, 15, -15, where=(df.tankan_kijun_signal > 0) | (df.next_tankan_kijun_signal > 0), hatch='', linewidth=1, facecolor='lightgray', alpha=0.3, label='+')
+  ax.fill_between(df.index, 15, -15, where=(df.tankan_kijun_signal < 0) | (df.next_tankan_kijun_signal < 0), hatch='\\\\\\\\', linewidth=1, edgecolor='red', facecolor='white', alpha=0.3, label='-')
 
   # plot adx_diff_ma and adx_direction
   # ax.plot(df.index, df.adx_diff_ma, label='adx_diff_ma_8', color='black', linestyle='-', alpha=0.1)
-  df['zero'] = 0
-  green_mask = (df.adx_direction > 0)# | (df.adx_diff_ma > 15) # df['adx_direction'] >= df['zero']
-  red_mask = (df.adx_direction < 0)# | (df.adx_diff_ma < -15) # df['adx_direction'] <= df['zero']
-  ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=green_mask,  facecolor='green', interpolate=False, alpha=0.25)
-  ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=red_mask, facecolor='red', interpolate=False, alpha=0.25)
+  
+  df['next_adx_direction'] = df['adx_direction'].shift(-1)
+  green_mask = (df.adx_direction > 0) | (df.next_adx_direction > 0) # df['adx_direction'] >= df['zero']
+  red_mask = (df.adx_direction < 0) | (df.next_adx_direction < 0) # df['adx_direction'] <= df['zero']
+  ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=green_mask,  facecolor='green', interpolate=False, alpha=0.3)
+  ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=red_mask, facecolor='red', interpolate=False, alpha=0.3)
 
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
-  ax.grid(True, axis='both', linestyle='--', linewidth=0.5)
+  ax.grid(True, axis='x', linestyle='--', linewidth=0.5)
 
   ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
 
