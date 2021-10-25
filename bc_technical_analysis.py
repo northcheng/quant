@@ -76,7 +76,7 @@ def load_config(root_paths):
   return config
 
 # load locally saved data(sec_data, ta_data, results)
-def load_data(symbols, config, load_empty_data=False, load_derived_data=False):
+def load_data(symbols, config, load_empty_data=False, load_derived_data=False, derived_data_prefix=''):
   """ 
   Load data from local files
   
@@ -95,7 +95,8 @@ def load_data(symbols, config, load_empty_data=False, load_derived_data=False):
 
     # load stock data
     for symbol in symbols:
-      if os.path.exists(config['data_path']+f'{symbol}.csv'):
+
+      if os.path.exists(config['data_path']+f'{symbol.split(".")[0]}.csv'):
         data['sec_data'][f'{symbol}_day'] = io_util.load_stock_data(file_path=config['data_path'], file_name=symbol, standard_columns=True)
       else:
         data['sec_data'][f'{symbol}_day'] = None
@@ -106,7 +107,7 @@ def load_data(symbols, config, load_empty_data=False, load_derived_data=False):
       file_names = config["calculation"]["file_name"]
       for f in file_names.keys():
         file_name = file_names[f]
-        if os.path.exists(f'{file_path}{file_name}'):
+        if os.path.exists(f'{file_path}{derived_data_prefix}{file_name}'):
           data[f] = io_util.pickle_load_data(file_path=file_path, file_name=file_name)
         else:
           print(f'{file_name} not exists')
@@ -375,7 +376,11 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       df.loc[wave_idx, 'adx_diff_ma'] = df.loc[wave_idx, 'prev_adx_diff_ma']
       df['adx_diff_ma_diff'] = df['adx_diff_ma'] - df['prev_adx_diff_ma']
       df['adx_direction'] = sda(series=df['adx_diff_ma_diff'], zero_as=0)
-      df = df.drop(['prev_adx_diff_ma', 'adx_diff_ma_diff'], axis=1)
+
+      df['0'] = 0
+      df['adx_direction_day'] = cal_crossover_signal(df=df, fast_line='adx_direction', slow_line='0', pos_signal=1, neg_signal=-1, none_signal=0)
+      df['adx_direction_day'] = sda(series=df['adx_direction_day'], zero_as=1)
+      df = df.drop(['prev_adx_diff_ma', 'adx_diff_ma_diff', '0'], axis=1)
 
       adx_threshold = 15
       conditions = {
@@ -1471,7 +1476,7 @@ def calculate_ta_signal(df):
   return df
 
 # calculate ta indicators, trend and derivatives fpr latest data
-def calculation(df, symbol, start_date=None, end_date=None, trend_indicators=['ichimoku', 'aroon', 'adx', 'psar', 'kst', 'cci', 'trix'], volume_indicators=['fi'], volatility_indicators=['ao', 'bb'], other_indicators=['ao', 'kama'], signal_threshold=0.001):
+def calculation(df, symbol, start_date=None, end_date=None, trend_indicators=['ichimoku', 'aroon', 'adx', 'psar'], volume_indicators=[], volatility_indicators=['bb'], other_indicators=[], signal_threshold=0.001):
   """
   Calculation process
 
@@ -1580,6 +1585,7 @@ def postprocess(df, keep_columns, drop_columns, target_interval=''):
     # 'long red entity': '(candle_color == -1 and entity_trend != "d")',
     # 'under candlestick window': '(candle_gap_resistant == candle_gap_resistant and Low < candle_gap_resistant)',
     # 'waving falling or hitpeak': '(category == "waving" or category == "down_x_support" or category == "hitpeak")',
+    'adx trend is down': '(adx_direction < 0 and adx < 25)',
     'all trend is down': '(0 > tankan_kijun_signal >= -5) or (linear_slope < 0 and tankan_kijun_signal < 0) or ((window_position_status == "mid" or window_position_status == "mid_down" or window_position_status == "down" or (candle_color == -1 and (window_position_status == "mid_up" or window_position_status == "out"))))',
     'signal': '(signal == "b" or signal == "s")'}
   values = {
@@ -1591,6 +1597,7 @@ def postprocess(df, keep_columns, drop_columns, target_interval=''):
     # 'long upper shadow': '',
     # 'under candlestick window': '',
     # 'waving falling or hitpeak': '',
+    'adx trend is down': '',
     'all trend is down': '',
     'signal': 'signal'}
   df = assign_condition_value(df=df, column='label', condition_dict=conditions, value_dict=values, default_value='')
@@ -4543,7 +4550,7 @@ def plot_signal(
   # legend and title
   ax.legend(loc='upper left')  
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
-  ax.grid(True, axis='both', linestyle='-', linewidth=0.5)
+  ax.grid(True, axis='both', linestyle='-', linewidth=0.5, alpha=0.3)
 
   ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
 
@@ -5026,7 +5033,7 @@ def plot_adx(
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
-  ax.grid(True, axis='x', linestyle='--', linewidth=0.5)
+  ax.grid(True, axis='both', linestyle='--', linewidth=0.5, alpha=0.3)
 
   ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
 

@@ -55,8 +55,8 @@
         },
         "plot_args": {
             "plot_ratio": {
-                "signals": 2.6,
-                "adx": 2.4,
+                "signals": 1.5,
+                "adx": 2.5,
                 "main_indicators": 10
             },
             "test": {
@@ -83,17 +83,10 @@
                 "signal_list": [
                 
                     "bb_signal",
-                    
-                    "cci_signal",
-                    "fi_signal",
-                    "trix_signal",
-                    "ao_signal",
                     "adx_signal",
-                    "kst_signal",
                     "psar_signal",
                     "aroon_signal",
                     "ichimoku_signal",
-                    "kama_signal",
                     
                     "renko_signal",
                     "拟合_signal",
@@ -163,6 +156,7 @@
                 "BK":    "纽约梅隆银行",
                 "BMY":   "施贵宝(医疗健康)",
                 "BP":    "英国石油",
+                "BX":    "黑石集团",
                 "C":     "花旗集团",
                 "CAJ":   "佳能",
                 "CAT":   "卡特彼勒(机械制造)",
