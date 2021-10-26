@@ -4512,13 +4512,12 @@ def plot_signal(
 
   # plot price
   if not plot_on_price:
-    df['signal_base'] = df[price_col].min() - 1
+    df['signal_y'] = df[price_col].min() - 1
     label = None
-
   else:
-    df['signal_base'] = df[price_col]
+    df['signal_y'] = df[price_col]
     label = price_col
-  ax.plot(df.index, df['signal_base'], color='black', marker='.', label=label, alpha=price_alpha)
+  ax.plot(df.index, df['signal_y'], color='black', marker='.', label=label, alpha=price_alpha)
 
   # get signal values
   pos_signal = signal_val['pos_signal']
@@ -4536,16 +4535,16 @@ def plot_signal(
     negative_signal = df.query(f'{signal_col} == "{neg_signal}"')
     wave_signal = df.query(f'{signal_col} == "{wave_signal}"')
     none_signal = df.query(f'{signal_col} == "{none_signal}"')
-    ax.scatter(positive_signal.index, positive_signal['signal_base'], label=None, marker='^', color='green', alpha=signal_alpha)
-    ax.scatter(negative_signal.index, negative_signal['signal_base'], label=None, marker='v', color='red', alpha=signal_alpha)
+    ax.scatter(positive_signal.index, positive_signal['signal_y'], label=None, marker='^', color='green', alpha=signal_alpha)
+    ax.scatter(negative_signal.index, negative_signal['signal_y'], label=None, marker='v', color='red', alpha=signal_alpha)
     
     if trend_col in df.columns:
       pos_trend = df.query(f'{trend_col} == "u"')
       neg_trend = df.query(f'{trend_col} == "d"') 
       wave_trend = df.query(f'{trend_col} == "n"')
-      ax.scatter(pos_trend.index, pos_trend['signal_base'], label=None, marker=signal_marker, color='green', alpha=trend_alpha)
-      ax.scatter(neg_trend.index, neg_trend['signal_base'], label=None, marker=signal_marker, color='red', alpha=trend_alpha)
-      ax.scatter(wave_trend.index, wave_trend['signal_base'], label=None, marker=signal_marker, color='orange', alpha=trend_alpha/2)
+      ax.scatter(pos_trend.index, pos_trend['signal_y'], label=None, marker=signal_marker, color='green', alpha=trend_alpha)
+      ax.scatter(neg_trend.index, neg_trend['signal_y'], label=None, marker=signal_marker, color='red', alpha=trend_alpha)
+      ax.scatter(wave_trend.index, wave_trend['signal_y'], label=None, marker=signal_marker, color='orange', alpha=trend_alpha/2)
 
   # legend and title
   ax.legend(loc='upper left')  
@@ -4636,7 +4635,6 @@ def plot_candlestick(
       start = idx
       top_value = df.loc[start, 'candle_gap_top']
       bottom_value = df.loc[start, 'candle_gap_bottom']
-
       gap_color = 'lightyellow' if df.loc[start, 'candle_gap'] > 0 else 'grey' # 
       gap_hatch = None # '/' if df.loc[start, 'candle_gap'] > 0 else '\\'
       gap_hatch_color = 'black' #'green' if df.loc[start, 'candle_gap'] > 0 else 'red'
@@ -5225,8 +5223,7 @@ def plot_indicator(
   :raises: none
   """
   # select data
-  df = df[start:end].copy()
-  # df = df.fillna(0)
+  df = df[start:end].copy() 
   
   # create figure
   ax = use_ax
@@ -5239,6 +5236,7 @@ def plot_indicator(
     df['benchmark'] = benchmark
     ax.plot(df.index, df['benchmark'], color='black', linestyle='--', label='%s'%benchmark, alpha=0.5)
 
+  # plot boundary
   if boundary is not None:
     if len(boundary) > 0:
       df['upper_boundary'] = max(boundary)
@@ -5447,12 +5445,13 @@ def plot_multiple_indicators(
       plt.yticks(signal_bases, signal_names)
       axes[tmp_indicator].legend().set_visible(False)
 
-    # plot Volume  
+    # plot volume  
     elif tmp_indicator == 'volume':
       width = tmp_args.get('bar_width') if tmp_args.get('bar_width') is not None else 1
       alpha = tmp_args.get('alpha') if tmp_args.get('alpha') is not None else 1
       plot_bar(df=plot_data, target_col=target_col, width=width, alpha=alpha, color_mode=color_mode, benchmark=None, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
     
+    # plot overall technical indicators
     elif tmp_indicator == 'TA_overall':
       plot_trend_idx(plot_data, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
 
