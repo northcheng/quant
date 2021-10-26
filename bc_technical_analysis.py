@@ -30,6 +30,7 @@ except Exception as e:
 
 # default values
 default_signal_val = {'pos_signal':'b', 'neg_signal':'s', 'none_signal':'', 'wave_signal': 'n'}
+default_trend_val = {'pos_trend':'u', 'neg_trend':'d', 'none_trend':'', 'wave_trend':'n'}
 default_candlestick_color = {'colorup':'green', 'colordown':'red', 'alpha':0.8}
 default_ohlcv_col = {'close':'Close', 'open':'Open', 'high':'High', 'low':'Low', 'volume':'Volume'}  
 default_plot_args = {'figsize':(30, 5), 'title_rotation':'vertical', 'xaxis_position': 'bottom', 'yaxis_position': 'right', 'title_x':-0.01, 'title_y':0.3, 'bbox_to_anchor':(1.02, 0.), 'loc':3, 'ncol':1, 'borderaxespad':0.0}
@@ -4481,22 +4482,19 @@ def add_kc_features(df, n=10, ohlcv_col=default_ohlcv_col, method='atr', fillna=
 
 # ================================================ Indicator visualization  ========================================= #
 # plot signals on price line
-def plot_signal(
-  df, start=None, end=None, price_col='Close', price_alpha=1,
-  signal_col='signal', trend_col='trend', signal_val=default_signal_val, plot_on_price=True, 
-  use_ax=None, title=None, plot_args=default_plot_args):
+def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', use_ax=None, title=None, trend_val=default_trend_val, signal_val=default_signal_val, plot_args=default_plot_args):
   """
   Plot signals along with the price
 
   :param df: dataframe with price and signal columns
   :param start: start row to plot
   :param end: end row to stop
-  :param price_col: columnname of the price values
-  :param signal_col: columnname of the signal values
-  :param signal_val: value of different kind of signals
-  :param plot_on_price: whether plot signal on price line
+  :param signal_x: columnname of the signal x values (default 'signal')
+  :param signal_y: columnname of the signal y values (default 'Close')
   :param use_ax: the already-created ax to draw on
   :param title: plot title
+  :param trend_val: value of different kind of trends (e.g. 'u'/'d'/'n')
+  :param signal_val: value of different kind of signals (e.g. 'b'/'s'/'n')
   :param plot_args: other plot arguments
   :returns: a signal plotted price chart
   :raises: none
@@ -4504,53 +4502,40 @@ def plot_signal(
   # copy dataframe within the specific period
   df = df[start:end].copy()
 
-  # create figure
+  # use existed figure or create figure
   ax = use_ax
   if ax is None:
     fig = mpf.figure(figsize=plot_args['figsize'])
     ax = fig.add_subplot(1,1,1, style='yahoo')
 
-  # plot price
-  if not plot_on_price:
-    df['signal_y'] = df[price_col].min() - 1
-    label = None
-  else:
-    df['signal_y'] = df[price_col]
-    label = price_col
-  ax.plot(df.index, df['signal_y'], color='black', marker='.', label=label, alpha=price_alpha)
+  # plot settings
+  settings = {
+    'main': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'trend_marker': 'o', 'signal_alpha': 1, 'trend_alpha': 0.5, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'},
+    'other': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'trend_marker': 's', 'signal_alpha': 0.3, 'trend_alpha': 0.25, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'}}
+  style = settings['main'] if signal_x == 'signal' else settings['other']
 
-  # get signal values
-  pos_signal = signal_val['pos_signal']
-  neg_signal = signal_val['neg_signal']
-  wave_signal = signal_val['wave_signal']
-  none_signal = signal_val['none_signal']
+  # plot signal base line
+  ax.plot(df.index, df[signal_y], label=signal_y, alpha=0)
 
-  # plot signals
-  if signal_col in df.columns:
+  # plot trend
+  trend_col = signal_x.replace('signal', 'trend')
+  if trend_col in df.columns:
+    for i in ['pos', 'neg', 'wave']:
+      tmp_trend_value = trend_val[f'{i}_trend']
+      tmp_data = df.query(f'{trend_col} == "{tmp_trend_value}"')
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=style['trend_marker'], color=style[f'{i}_color'], alpha=style['trend_alpha'])
+
+  # plot signal
+  if signal_x in df.columns:
+    for i in ['pos', 'neg']:
+      tmp_signal_value = signal_val[f'{i}_signal']
+      tmp_data = df.query(f'{signal_x} == "{tmp_signal_value}"')
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=style[f'{i}_signal_marker'], color=style[f'{i}_color'], alpha=style['signal_alpha'])
     
-    signal_marker = 'o' if signal_col in ['signal'] else 's'
-    signal_alpha = 1 if signal_col in ['signal'] else 0.3
-    trend_alpha = 0.5 if signal_col in ['signal'] else 0.25
-    positive_signal = df.query(f'{signal_col} == "{pos_signal}"')
-    negative_signal = df.query(f'{signal_col} == "{neg_signal}"')
-    wave_signal = df.query(f'{signal_col} == "{wave_signal}"')
-    none_signal = df.query(f'{signal_col} == "{none_signal}"')
-    ax.scatter(positive_signal.index, positive_signal['signal_y'], label=None, marker='^', color='green', alpha=signal_alpha)
-    ax.scatter(negative_signal.index, negative_signal['signal_y'], label=None, marker='v', color='red', alpha=signal_alpha)
-    
-    if trend_col in df.columns:
-      pos_trend = df.query(f'{trend_col} == "u"')
-      neg_trend = df.query(f'{trend_col} == "d"') 
-      wave_trend = df.query(f'{trend_col} == "n"')
-      ax.scatter(pos_trend.index, pos_trend['signal_y'], label=None, marker=signal_marker, color='green', alpha=trend_alpha)
-      ax.scatter(neg_trend.index, neg_trend['signal_y'], label=None, marker=signal_marker, color='red', alpha=trend_alpha)
-      ax.scatter(wave_trend.index, wave_trend['signal_y'], label=None, marker=signal_marker, color='orange', alpha=trend_alpha/2)
-
   # legend and title
   ax.legend(loc='upper left')  
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
   ax.grid(True, axis='both', linestyle='-', linewidth=0.5, alpha=0.3)
-
   ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
 
   # return ax
@@ -4558,10 +4543,7 @@ def plot_signal(
     return ax
 
 # plot candlestick chart
-def plot_candlestick(
-  df, start=None, end=None, date_col='Date', ohlcv_col=default_ohlcv_col, add_on=['split', 'gap', 'support_resistant', 'pattern'],
-  width=0.8, color=default_candlestick_color, 
-  use_ax=None, plot_args=default_plot_args):
+def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split', 'gap', 'support_resistant', 'pattern'], width=0.8, use_ax=None, ohlcv_col=default_ohlcv_col, color=default_candlestick_color, plot_args=default_plot_args):
   """
   Plot candlestick chart
 
@@ -4569,11 +4551,11 @@ def plot_candlestick(
   :param start: start row to plot
   :param end: end row to stop
   :param date_col: columnname of the date values
-  :param ohlcv_col: columns names of Open/High/Low/Close/Volume
   :param add_on: add ons beyond basic candlesticks
   :param width: width of candlestick
-  :param color: up/down color of candlestick
   :param use_ax: the already-created ax to draw on
+  :param ohlcv_col: columns names of Open/High/Low/Close/Volume
+  :param color: up/down color of candlestick
   :param plot_args: other plot arguments
   :returns: a candlestick chart
   :raises: none
@@ -4581,46 +4563,46 @@ def plot_candlestick(
   # copy dataframe within a specific period
   df = df[start:end].copy()
     
-  # get indexes and max index
-  idxs = df.index.tolist()
-  max_idx = idxs[-1]
-  max_x = max_idx + datetime.timedelta(days=1)
-
-  # for gap which start before 'start_date'
-  min_idx = df.index.min()
-  if df.loc[min_idx, 'candle_gap_top'] > df.loc[min_idx, 'candle_gap_bottom']:
-    df.loc[min_idx, 'candle_gap'] = df.loc[min_idx, 'candle_gap_color'] * 2
-  
-  # set column names
-  open = ohlcv_col['open']
-  high = ohlcv_col['high']
-  low = ohlcv_col['low']
-  close = ohlcv_col['close']
-  # volume = ohlcv_col['volume']
-  padding = (df.High.max() - df.Low.min()) / 100
-
   # create figure
   ax = use_ax
   if ax is None:
     fig = mpf.figure(figsize=plot_args['figsize'])
     ax = fig.add_subplot(1,1,1, style='yahoo')
   
+  # set column names
+  open = ohlcv_col['open']
+  high = ohlcv_col['high']
+  low = ohlcv_col['low']
+  close = ohlcv_col['close']
+  
+  # get indexes and max index
+  idxs = df.index.tolist()
+  max_idx = idxs[-1]
+  max_x = max_idx + datetime.timedelta(days=1)
+  padding = (df.High.max() - df.Low.min()) / 100
+
+  # for gap which start before 'start_date'
+  min_idx = df.index.min()
+  if df.loc[min_idx, 'candle_gap_top'] > df.loc[min_idx, 'candle_gap_bottom']:
+    df.loc[min_idx, 'candle_gap'] = df.loc[min_idx, 'candle_gap_color'] * 2
+  
   # annotate split
   if 'split' in add_on and 'Split' in df.columns:
+    
     splited = df.query('Split != 1.0').index
     all_idx = df.index.tolist()
     for s in splited:
       x = s
-      x_text = all_idx[max(0, all_idx.index(s)-2)]
       y = df.loc[s, 'High']
+      x_text = all_idx[max(0, all_idx.index(s)-2)]
       y_text = y + df.High.max()*0.1
       sp = round(df.loc[s, 'Split'], 4)
-      plt.annotate(f'splited {sp}', xy=(x, y), xytext=(x_text,y_text), xycoords='data', textcoords='data', arrowprops=dict(arrowstyle='->', alpha=0.5), bbox=dict(boxstyle="round",fc="1.0", alpha=0.5))
+      plt.annotate(f'splited {sp}', xy=(x, y), xytext=(x_text,y_text), xycoords='data', textcoords='data', arrowprops=dict(arrowstyle='->', alpha=0.5), bbox=dict(boxstyle="round", fc="1.0", alpha=0.5))
   
   # annotate gaps
   if 'gap' in add_on:
 
-    # annotate gaps
+    # invalidate all gaps if there are too many gaps in the data
     up_gap_idxs = df.query('candle_gap == 2').index.tolist()
     down_gap_idxs = df.query('candle_gap == -2').index.tolist()
     if len(up_gap_idxs) > 10:
@@ -4628,10 +4610,11 @@ def plot_candlestick(
     if len(down_gap_idxs) > 10:
       down_gap_idxs = []
 
+    # plot valid gaps
     gap_idxs = up_gap_idxs + down_gap_idxs
     for idx in gap_idxs:
 
-      # gap start and it top/bottom
+      # gap start
       start = idx
       top_value = df.loc[start, 'candle_gap_top']
       bottom_value = df.loc[start, 'candle_gap_bottom']
@@ -4724,10 +4707,12 @@ def plot_candlestick(
       'normal': {'fontsize':12, 'fontcolor':'black', 'va':'center', 'ha':'center', 'up':'green', 'down':'red', 'alpha': 0.15},
       'emphasis': {'fontsize':12, 'fontcolor':'black', 'va':'center', 'ha':'center', 'up':'yellow', 'down':'purple', 'alpha': 0.15},
     }
+
     up_pattern_annotations = {}
     down_pattern_annotations = {}
     for p in pattern_info.keys():
-      stn = 'normal' if p not in ['窗口_day', '突破_day', '反弹_day'] else 'emphasis'
+      style = 'normal' if p not in ['窗口_day', '突破_day', '反弹_day'] else 'emphasis'
+
       if p in df.columns:
         tmp_up_idx = df.query(f'{p} == 1').index
         tmp_down_idx = df.query(f'{p} == -1').index
@@ -4738,11 +4723,11 @@ def plot_candlestick(
           for i in tmp_up_idx:
             k = util.time_2_string(i.date())
             if k not in up_pattern_annotations: 
-              up_pattern_annotations[k] = {'x': k, 'y': df.loc[i, 'Low'] - padding, 'text': tmp_up_info, 'stn': stn}
+              up_pattern_annotations[k] = {'x': k, 'y': df.loc[i, 'Low'] - padding, 'text': tmp_up_info, 'style': style}
             else:
               up_pattern_annotations[k]['text'] = up_pattern_annotations[k]['text']  + f'/{tmp_up_info}'
-              if up_pattern_annotations[k]['stn'] == 'normal':
-                up_pattern_annotations[k]['stn'] = stn 
+              if up_pattern_annotations[k]['style'] == 'normal':
+                up_pattern_annotations[k]['style'] = style 
 
         # negative patterns
         tmp_down_info = pattern_info[p][-1]
@@ -4750,18 +4735,18 @@ def plot_candlestick(
           for i in tmp_down_idx:
             k = util.time_2_string(i.date())
             if k not in down_pattern_annotations:
-              down_pattern_annotations[k] = {'x': k, 'y': df.loc[i, 'High'] + padding, 'text': tmp_down_info, 'stn': stn}
+              down_pattern_annotations[k] = {'x': k, 'y': df.loc[i, 'High'] + padding, 'text': tmp_down_info, 'style': style}
             else:
               down_pattern_annotations[k]['text'] = down_pattern_annotations[k]['text']  + f'/{tmp_down_info}'
-              if down_pattern_annotations[k]['stn'] == 'normal':
-                down_pattern_annotations[k]['stn'] = stn 
+              if down_pattern_annotations[k]['style'] == 'normal':
+                down_pattern_annotations[k]['style'] = style 
 
     # candle pattern annotation
     annotations = {'up': up_pattern_annotations, 'down': down_pattern_annotations}
     y_text_padding = {0 : padding*0, 1: padding*5}
     for a in annotations.keys():
       
-      # sort dictionary by date
+      # sort patterns by date
       tmp_a = annotations[a]
       tmp_annotation = {}
       sorted_keys = sorted(tmp_a.keys())
@@ -4780,8 +4765,8 @@ def plot_candlestick(
           y_text = df.High.max() + y_text_padding[counter % 2]
           
         text = tmp_annotation[k]['text']
-        stn = settings[tmp_annotation[k]['stn']]
-        plt.annotate(f'{text}', xy=(x, y), xytext=(x,y_text), fontsize=stn['fontsize'], rotation=0, color=stn['fontcolor'], va=stn['va'],  ha=stn['ha'], xycoords='data', textcoords='data', arrowprops=dict(arrowstyle='-|>', alpha=0.3, color='black'), bbox=dict(boxstyle="round", facecolor=stn[a], alpha=stn['alpha']))
+        style = settings[tmp_annotation[k]['style']]
+        plt.annotate(f'{text}', xy=(x, y), xytext=(x,y_text), fontsize=style['fontsize'], rotation=0, color=style['fontcolor'], va=style['va'],  ha=style['ha'], xycoords='data', textcoords='data', arrowprops=dict(arrowstyle='-|>', alpha=0.3, color='black'), bbox=dict(boxstyle="round", facecolor=style[a], alpha=style['alpha']))
         counter += 1
 
   # transform date to numbers
@@ -4790,10 +4775,7 @@ def plot_candlestick(
   plot_data = df[[date_col, open, high, low, close]]
   
   # plot candlesticks
-  candlestick_ohlc(
-    ax=ax, quotes=plot_data.values, width=width, 
-    colorup=color['colorup'], colordown=color['colordown'], alpha=color['alpha']
-  )
+  candlestick_ohlc(ax=ax, quotes=plot_data.values, width=width, colorup=color['colorup'], colordown=color['colordown'], alpha=color['alpha'])
   ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
   ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
 
@@ -4802,11 +4784,7 @@ def plot_candlestick(
     return ax
 
 # plot ichimoku chart
-def plot_main_indicators(
-  df, start=None, end=None, date_col='Date', ohlcv_col=default_ohlcv_col, 
-  target_indicator = ['price', 'ichimoku', 'kama', 'candlestick', 'bb', 'psar', 'renko', 'linear'],
-  candlestick_width=0.8, candlestick_color=default_candlestick_color, 
-  use_ax=None, title=None, plot_args=default_plot_args):
+def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['split', 'gap', 'support_resistant', 'pattern'], target_indicator = ['price', 'ichimoku', 'kama', 'candlestick', 'bb', 'psar', 'renko', 'linear'], candlestick_width=0.8, use_ax=None, title=None, candlestick_color=default_candlestick_color, ohlcv_col=default_ohlcv_col, plot_args=default_plot_args):
   """
   Plot ichimoku chart
 
@@ -4814,11 +4792,13 @@ def plot_main_indicators(
   :param start: start row to plot
   :param end: end row to plot
   :param date_col: column name of Date
-  :param ohlcv_col: columns names of Open/High/Low/Close/Volume
+  :param add_on: additional parts on candlestick
+  :param target_indicator: indicators need to be ploted on the chart
   :param candlestick_width: width of candlestick
-  :param candlestick_color: up/down color of candlestick
   :param use_ax: the already-created ax to draw on
   :param title: plot title
+  :param ohlcv_col: columns names of Open/High/Low/Close/Volume
+  :param candlestick_color: up/down color of candlestick
   :param plot_args: other plot arguments
   :returns: ichimoku plot
   :raises: none
@@ -4893,7 +4873,7 @@ def plot_main_indicators(
     ax.plot(df.index, df.linear_fit_low, label='linear_fit_low', color='black', alpha=line_alpha)
 
     # fill between linear_fit_high and linear_fit_low
-    fill_alpha = 0.2
+    fill_alpha = 0.1
     up_direction = df.linear_direction == 'u'
     down_direction = df.linear_direction == 'd'
     none_direction = df.linear_direction == 'n'
@@ -4903,7 +4883,7 @@ def plot_main_indicators(
 
   # plot candlestick
   if 'candlestick' in target_indicator:
-    ax = plot_candlestick(df=df, start=start, end=end, date_col=date_col, ohlcv_col=ohlcv_col, width=candlestick_width, color=candlestick_color, use_ax=ax, plot_args=plot_args)
+    ax = plot_candlestick(df=df, start=start, end=end, date_col=date_col, add_on=add_on, width=candlestick_width, ohlcv_col=ohlcv_col, color=candlestick_color, use_ax=ax, plot_args=plot_args)
   
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
@@ -4917,9 +4897,7 @@ def plot_main_indicators(
     return ax
 
 # plot aroon chart
-def plot_aroon(
-  df, start=None, end=None, ohlcv_col=default_ohlcv_col, 
-  use_ax=None, title=None, plot_args=default_plot_args):
+def plot_aroon(df, start=None, end=None, use_ax=None, title=None, plot_args=default_plot_args):
   """
   Plot aroon chart
 
@@ -4971,9 +4949,7 @@ def plot_aroon(
     return ax
 
 # plot adx chart
-def plot_adx(
-  df, start=None, end=None, ohlcv_col=default_ohlcv_col, 
-  use_ax=None, title=None, plot_args=default_plot_args):
+def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=default_plot_args):
   """
   Plot adx chart
 
@@ -4981,7 +4957,6 @@ def plot_adx(
   :param start: start row to plot
   :param end: end row to plot
   :param date_col: column name of Date
-  :param ohlcv_col: columns names of Open/High/Low/Close/Volume
   :param use_ax: the already-created ax to draw on
   :param title: plot title
   :param plot_args: other plot arguments
@@ -5040,10 +5015,7 @@ def plot_adx(
     return ax
 
 # plot renko chart
-def plot_renko(
-  df, start=None, end=None, ohlcv_col=default_ohlcv_col, 
-  use_ax=None, title=None, plot_args=default_plot_args, plot_in_date=True, close_alpha=0.5, 
-  save_path=None, save_image=False, show_image=False):
+def plot_renko(df, start=None, end=None, use_ax=None, title=None, plot_in_date=True, close_alpha=0.5, save_path=None, save_image=False, show_image=False, plot_args=default_plot_args):
 
   # copy data frame
   df = df[start:end].copy()
@@ -5112,9 +5084,7 @@ def plot_renko(
       plt.show()
 
 # plot volume
-def plot_bar(
-  df, target_col, start=None, end=None, width=0.8, alpha=1, color_mode='up_down', benchmark=None, 
-  add_line=False, title=None, use_ax=None, plot_args=default_plot_args):
+def plot_bar(df, target_col, start=None, end=None, width=0.8, alpha=1, color_mode='up_down', benchmark=None, add_line=False, title=None, use_ax=None, plot_args=default_plot_args):
 
   # copy dataframe within a specific period
   df = df[start:end].copy()
@@ -5157,8 +5127,7 @@ def plot_bar(
     return ax
 
 # plot overall trend of ta indicators
-def plot_trend_idx(
-  df, start=None, end=None, title=None, use_ax=None, plot_args=default_plot_args):
+def plot_trend_idx(df, start=None, end=None, title=None, use_ax=None, plot_args=default_plot_args):
 
   # copy dataframe within a specific period
   df = df[start:end].copy()
@@ -5173,9 +5142,6 @@ def plot_trend_idx(
   if 'trend_idx' in df.columns:
     df['0'] = 0
     ax.plot(df.index, df['trend_idx'], color='black', linestyle='-', label='trend_idx', alpha=0.1)
-
-    above_0 = df.query('trend_idx > 0')
-    below_0 = df.query('trend_idx <= 0')
 
     alpha=0.25
     ax.fill_between(df.index, df['trend_idx'], df['0'], where=df['trend_idx'] > 0, facecolor='green', interpolate=True, alpha=alpha)
@@ -5195,12 +5161,7 @@ def plot_trend_idx(
     return ax
 
 # plot general ta indicators
-def plot_indicator(
-  df, target_col, start=None, end=None, price_col='Close', price_alpha=1,
-  signal_col='signal', signal_val=default_signal_val, 
-  plot_price_in_twin_ax=False, plot_signal_on_price=None,
-  benchmark=None, boundary=None, color_mode=None, 
-  use_ax=None, title=None, plot_args=default_plot_args):
+def plot_indicator(df, target_col, start=None, end=None, signal_x='signal', signal_y='Close', benchmark=None, boundary=None, color_mode=None, use_ax=None, title=None, plot_price_in_twin_ax=False, trend_val=default_trend_val, signal_val=default_signal_val, plot_args=default_plot_args):
   """
   Plot indicators around a benchmark
 
@@ -5208,16 +5169,16 @@ def plot_indicator(
   :param target_col: columnname of the target indicator
   :param start: start date of the data
   :param end: end of the data
-  :param price_col: columnname of the price
-  :param plot_price_in_twin_ax: whether plot price and signal in a same ax or in a twin ax
-  :param signal_col: columnname of signal values
-  :param signal_val: values of different kind of signals
-  :param plot_signal_on_price: if not None, plot signal on (true) or under (false) price line 
+  :param signal_x: columnname of the signal x values (default 'signal')
+  :param signal_y: columnname of the signal y values (default 'Close')
   :param benchmark: benchmark, a fixed value
   :param boundary: upper/lower boundaries, a list of fixed values
   :param color_mode: which color mode to use: benckmark/up_down
   :param use_ax: the already-created ax to draw on
   :param title: title of the plot
+  :param plot_price_in_twin_ax: whether plot price and signal in a same ax or in a twin ax
+  :param trend_val: value of different kind of trends (e.g. 'u'/'d'/'n')
+  :param signal_val: values of different kind of signals
   :param plot_args: other plot arguments
   :returns: figure with indicators and close price plotted
   :raises: none
@@ -5280,14 +5241,13 @@ def plot_indicator(
       ax.bar(df.index, height=df[tar], color=df.color, alpha=0.3)
 
   # plot close price
-  plot_on_price = plot_signal_on_price if plot_signal_on_price is not None else True
-  if price_col in df.columns:
+  if signal_y in df.columns:
     if plot_price_in_twin_ax:
       ax2=ax.twinx()
-      plot_signal(df, price_col=price_col, price_alpha=price_alpha, signal_col=signal_col, signal_val=signal_val, plot_on_price=plot_on_price, use_ax=ax2)
+      plot_signal(df, signal_x=signal_x, signal_y=signal_y, trend_val=trend_val, signal_val=signal_val, use_ax=ax2)
       ax2.legend(loc='lower left')
     else:
-      plot_signal(df, price_col=price_col, price_alpha=price_alpha, signal_col=signal_col, signal_val=signal_val, plot_on_price=plot_on_price, use_ax=ax)
+      plot_signal(df, signal_x=signal_x, signal_y=signal_y, trend_val=trend_val, signal_val=signal_val, use_ax=ax)
 
   # plot title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
@@ -5300,9 +5260,7 @@ def plot_indicator(
     return ax
 
 # plot multiple indicators on a same chart
-def plot_multiple_indicators(
-  df, args={}, start=None, end=None, save_path=None, save_image=False, show_image=False, 
-  title=None, width=25, unit_size=4, wspace=0, hspace=0.15, subplot_args=default_plot_args):
+def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, save_image=False, show_image=False, title=None, width=25, unit_size=4, wspace=0, hspace=0.15, subplot_args=default_plot_args):
   """
   Plot Ichimoku and mean reversion in a same plot
   :param df: dataframe with ichimoku and mean reversion columns
@@ -5361,16 +5319,15 @@ def plot_multiple_indicators(
 
     # get extra arguments
     target_col = tmp_args.get('target_col')
-    price_col = tmp_args.get('price_col')
-    price_alpha = tmp_args.get('price_alpha')
-    signal_col = tmp_args.get('signal_col')
+    signal_y = tmp_args.get('signal_y')
+    signal_x = tmp_args.get('signal_x')
+    trend_val = tmp_args.get('trend_val')
     signal_val = tmp_args.get('signal_val')
     benchmark = tmp_args.get('benchmark')
     boundary = tmp_args.get('boundary')
     color_mode = tmp_args.get('color_mode')
-    plot_signal_on_price = tmp_args.get('plot_signal_on_price')
     plot_price_in_twin_ax = tmp_args.get('plot_price_in_twin_ax')
-    price_alpha = price_alpha if price_alpha is not None else 1
+    trend_val = trend_val if trend_val is not None else default_trend_val
     signal_val = signal_val if signal_val is not None else default_signal_val
     plot_price_in_twin_ax = plot_price_in_twin_ax if plot_price_in_twin_ax is not None else False
     
@@ -5387,15 +5344,15 @@ def plot_multiple_indicators(
 
     # plot aroon
     elif tmp_indicator == 'aroon':
-      plot_aroon(df=plot_data, ohlcv_col=default_ohlcv_col, use_ax=axes[tmp_indicator], title=tmp_indicator, plot_args=subplot_args)
+      plot_aroon(df=plot_data, use_ax=axes[tmp_indicator], title=tmp_indicator, plot_args=subplot_args)
 
     # plot adx
     elif tmp_indicator == 'adx':
-      plot_adx(df=plot_data, ohlcv_col=default_ohlcv_col, use_ax=axes[tmp_indicator], title=tmp_indicator, plot_args=subplot_args)
+      plot_adx(df=plot_data, use_ax=axes[tmp_indicator], title=tmp_indicator, plot_args=subplot_args)
 
     # plot renko
     elif tmp_indicator == 'renko':
-      plot_renko(df=plot_data, ohlcv_col=default_ohlcv_col, use_ax=axes[tmp_indicator], title=tmp_indicator, plot_args=subplot_args)
+      plot_renko(df=plot_data, use_ax=axes[tmp_indicator], title=tmp_indicator, plot_args=subplot_args)
 
     # plot ta signals
     elif tmp_indicator == 'signals':
@@ -5405,16 +5362,12 @@ def plot_multiple_indicators(
       if signals is not None:
         for i in range(len(signals)):
           signal_name = signals[i]
-          trend_name = signal_name.replace('signal', 'trend')
           signal_names.append(signal_name.split('_')[0])
-
           plot_data[f'signal_base_{signal_name}'] = i
           signal_bases.append(i)
-
           plot_signal(
-            df=plot_data, price_col=f'signal_base_{signal_name}', price_alpha=price_alpha,
-            signal_col=signal_name, trend_col=trend_name, signal_val=signal_val, 
-            title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=subplot_args)
+            df=plot_data, signal_x=signal_name, signal_y=f'signal_base_{signal_name}', 
+            title=tmp_indicator, use_ax=axes[tmp_indicator], trend_val=trend_val, signal_val=signal_val, plot_args=subplot_args)
 
       # legend and title
       plt.ylim(ymin=min(signal_bases)-1 , ymax=max(signal_bases)+1)
@@ -5429,16 +5382,12 @@ def plot_multiple_indicators(
       if signals is not None:
         for i in range(len(signals)):
           signal_name = signals[i]
-          trend_name = signal_name.replace('signal', 'trend')
           signal_names.append(signal_name.split('_')[0])
-
           plot_data[f'signal_base_{signal_name}'] = i
           signal_bases.append(i)
-
           plot_signal(
-            df=plot_data, price_col=f'signal_base_{signal_name}', price_alpha=price_alpha,
-            signal_col=signal_name, trend_col=trend_name, signal_val=signal_val, 
-            title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=subplot_args)
+            df=plot_data, signal_x=signal_name, signal_y=f'signal_base_{signal_name}', 
+            title=tmp_indicator, use_ax=axes[tmp_indicator], trend_val=trend_val, signal_val=signal_val, plot_args=subplot_args)
 
       # legend and title
       plt.ylim(ymin=min(signal_bases)-1 , ymax=max(signal_bases)+1)
@@ -5464,10 +5413,8 @@ def plot_multiple_indicators(
     else:
       plot_indicator(
         df=plot_data, target_col=target_col, 
-        price_col=price_col, price_alpha=price_alpha, 
-        signal_col=signal_col, signal_val=signal_val, 
+        signal_x=signal_x, signal_y=signal_y, signal_val=signal_val, 
         plot_price_in_twin_ax=plot_price_in_twin_ax, 
-        plot_signal_on_price=plot_signal_on_price, 
         benchmark=benchmark, boundary=boundary, color_mode=color_mode,
         title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=subplot_args)
 

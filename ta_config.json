@@ -91,9 +91,7 @@
                     "renko_signal",
                     "拟合_signal",
                     "signal"
-                ],
-                "plot_signal_on_price": true,
-                "price_alpha": 0
+                ]
             },
             "TA_overall": {
                 "target_col": ["trend_idx", "trend_idx_ma"],
@@ -115,8 +113,7 @@
                     "cross_signal",
                     "belt_signal"
                 ],
-                "plot_signal_on_price": true,
-                "price_alpha": 0.02
+                "plot_signal_on_price": true
             },
             "volume": {
                 "target_col": "Volume",
