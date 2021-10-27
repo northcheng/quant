@@ -1,99 +1,168 @@
 {
-  
-  "test": [
-    "TQQQ", "AAPL"
-  ],
-
-  "etf_idx": [
-    "SPY", "UVXY", "GLD",
-    "XSD", "XTL", "XLK", "XWEB", 
-    "XPH", "XBI", "XHS", "XHE", "XLV",
-    "XLP", "XLY", "XRT", "XTN", "XLU", 
-    "XLI", "XLF", "XHB", "XLE", "XLB", "XAR"
-  ],
-
-  "etf_3x":[
-    "TQQQ", "UPRO", "UDOW",
-    "TECL", "SOXL", "LABU",
-    "FAS", "BNKU", "DRN", "TNA",
-    "EDC", "CHAU", "YINN", "CQQQ"
-  ],
-
-  "company_star":[
-    "AAPL", "AMZN", "MSFT", "DIS", "NFLX", "EBAY", "FB", "GOOG", "TWTR", "YNDX", "SE",
-    "ADBE", "U", "CSCO", "CTSH", "IBM", "ORCL", "SAP", "TRI", "ADS", "CMCSA", "HAS", "NWS", "ZNGA", "ACN",
-    "AMD", "INTC", "NVDA", "QCOM", "TXN", "AVGO", "TSM",
-    "CAJ", "HPQ", 
-    "AA", "RIO", "IP", 
-    "NSC", "UPS", "FDX",
-    "AKAM", "CHT", "ERIC", "MSI", "NOK", "T", "VOD",
-    "B", "BA", "CAT", "F", "GD", "GE", "GM", "HMC", "HON", "LMT", "MMM", "ROK", "TM", "TSLA", 
-    "ABT", "AMGN", "ATI", "BMY", "BAX", "CI", "CVS", "GSK", "JNJ", "MDT", "MRK", "PFE", "UNH", "NVO", "AZN", "ABBV",
-    "HD", "WY", "TGT", "WMT", "MCD", "YUM", "GRPN", "SBUX", "CCU", "KO", "PEP", "MO", "CPB", "EL", "PG", "CL", "NKE", 
-    "BAC", "BK", "BX", "C", "WFC", "USB", "RF", "V", "MA", "AXP", "HSBC", "AIG", "MET", "TRV", "HIG", "ALL",  "JPM", "MS", "GS", "NMR", "COF", "MFG", 
-    "COP", "DUK", "CVX", "XOM", "WMB", "SLB", "HAL", "BP", "ETR", "EXC", "SO", "AEP", "AES"
-  ],
-
-  "etf": [
-    "SPY", "GLD",
-    "TQQQ", "UPRO", "UDOW", 
-    "TECL", "SOXL", "LABU", "FAS", 
-    "CHAU", "YINN", "CQQQ"
-  ],
-
-  "company": [
-    "AAPL", "MSFT", "FB", "ADBE", "NFLX", "DIS", "U",
-    "INTC", "NVDA", "AMD", "QCOM", "AVGO", "TXN", "TSM",
-    "TSLA", "LMT", "GE", "BA", "HON",
-    "JPM", "ACN", "MS", "GS", 
-    "BAC", "WFC", "HSBC", "C",
-    "MRK", "PFE", "NVO", "GSK", "AZN", "ABBV", 
-    "ABT", "MDT", "AMGN", "JNJ", "UNH"
-  ],
-  
-  "tiger_pool": [
-    "UPRO", "UDOW", "TQQQ",
-    "CHAU", "CQQQ", "YINN",
-    "SOXL", "TECL", "GLD"
-  ],
-
-  "futu_pool": [
-    "TQQQ", "SQQQ", "UPRO", "SPXU", "UDOW", "SDOW",
-    "TECL", "TECS", "SOXL", "SOXS", "FAS", "FAZ", "LABU", "LABD",
-    "CHAU", "CHAD", "YINN", "YANG", "CQQQ",
-    "SPY", "GLD",
-    "AAPL", "MSFT", "FB", "ADBE", "NFLX", "DIS", "U",
-    "INTC", "NVDA", "AMD", "QCOM", "AVGO", "TXN", "TSM",
-    "TSLA", "LMT", "GE", "BA", "HON",
-    "JPM", "ACN", "MS", "GS", 
-    "BAC", "WFC", "HSBC", "C",
-    "MRK", "PFE", "NVO", "GSK", "AZN", "ABBV",  
-    "ABT", "MDT", "AMGN", "JNJ", "UNH" 
-  ],
-
-  "a_company": [
-    "000002.SHE", "000050.SHE", "000063.SHE", "000166.SHE", "000333.SHE", "000338.SHE", 
-    "000568.SHE", "000625.SHE", "000651.SHE", "000661.SHE", "000725.SHE", "000776.SHE", 
-    "000997.SHE", "002007.SHE", "002008.SHE", "002019.SHE", "002027.SHE", 
-    "002032.SHE", "002049.SHE", "002152.SHE", "002153.SHE", "002230.SHE", "002241.SHE", 
-    "002271.SHE", "002281.SHE", "002352.SHE", "002371.SHE", "002372.SHE", "002396.SHE", 
-    "002405.SHE", "002410.SHE", "002415.SHE", "002439.SHE", "002456.SHE", "002459.SHE", 
-    "002460.SHE", "002463.SHE", "002466.SHE", "002475.SHE", "002493.SHE", "002594.SHE", 
-    "002709.SHE", "002714.SHE", "002736.SHE", "002841.SHE", "002916.SHE", "300014.SHE", 
-    "300015.SHE", "300059.SHE", "300274.SHE", "300347.SHE", "300450.SHE", "300750.SHE", 
-    "300782.SHE", "600010.SHG", "600030.SHG", "600036.SHG", "600050.SHG", "600111.SHG", 
-    "600276.SHG", "600406.SHG", "600436.SHG", "600438.SHG", "600529.SHG", "600585.SHG", 
-    "600588.SHG", "600600.SHG", "600660.SHG", "600690.SHG", "600703.SHG", "600745.SHG", 
-    "600760.SHG", "600763.SHG", "600837.SHG", "600845.SHG", "600887.SHG", "600893.SHG", 
-    "600900.SHG", "600958.SHG", "600999.SHG", "601012.SHG", "601066.SHG", "601138.SHG", 
-    "601186.SHG", "601211.SHG", "601238.SHG", "601318.SHG", "601328.SHG", "601360.SHG", 
-    "601633.SHG", "601668.SHG", "601669.SHG", "601688.SHG", "601800.SHG", 
-    "601857.SHG", "601877.SHG", "601881.SHG", "601888.SHG", "601985.SHG", "601995.SHG", 
-    "601998.SHG", "603019.SHG", "603160.SHG", "603288.SHG", "603659.SHG", "603799.SHG", 
-    "603806.SHG", "603866.SHG", "688036.SHG", "688111.SHG", "688599.SHG"
-  ],
-
-  "a_etf": [
-
-  ]
+    "test": [
+        "TQQQ", "AAPL"
+    ],
+    "etf_idx": [
+        "SPY", "UVXY", "GLD",
+        "XSD", "XTL", "XLK", "XWEB",
+        "XPH", "XBI", "XHS", "XHE", "XLV",
+        "XLP", "XLY", "XRT", "XTN",
+        "XLU", "XLI", "XLB", "XLF", "XHB", "XLE", "XAR"
+    ],
+    "etf_3x": [
+        "TQQQ", "UPRO", "UDOW",
+        "TECL", "SOXL", "LABU",
+        "FAS", "BNKU", "DRN", "TNA",
+        "EDC", "CHAU", "YINN", "CQQQ"
+    ],
+    "company_star": [
+        "AAPL", "AMZN", "MSFT", "GOOG", "DIS", "NFLX", "ADBE", "U", "NWS",
+        "EBAY", "FB", "TWTR", "YNDX", "SE", "CSCO", "CTSH", "IBM", "ORCL", 
+        "SAP", "TRI", "ADS", "CMCSA", "HAS", "ZNGA", "ACN", "AMD", "INTC", 
+        "NVDA", "QCOM", "TXN", "AVGO", "TSM", "CAJ", "HPQ", "AA", "RIO", 
+        "IP", "NSC", "UPS", "FDX", "AKAM", "CHT", "ERIC", "MSI", "NOK", "T", 
+        "VOD", "B", "BA", "CAT", "F", "GD", "GE", "GM", "HMC", "HON", "LMT", 
+        "MMM", "ROK", "TM", "TSLA", "ABT", "AMGN", "ATI", "BMY", "BAX", "CI",
+        "CVS", "GSK", "JNJ", "MDT", "MRK", "PFE", "UNH", "NVO", "AZN", "ABBV",
+        "HD", "WY", "TGT", "WMT", "MCD", "YUM", "GRPN", "SBUX", "CCU", "KO",
+        "PEP", "MO", "CPB", "EL", "PG", "CL", "NKE", "BAC", "BK", "BX", "C",
+        "WFC", "USB", "RF", "V", "MA", "AXP", "HSBC", "AIG", "MET", "TRV",
+        "HIG", "ALL", "JPM", "MS", "GS", "NMR", "COF", "MFG", "COP", "DUK",
+        "CVX", "XOM", "WMB", "SLB", "HAL", "BP", "ETR", "EXC", "SO", "AEP", "AES"
+    ],
+    "etf": [
+        "SPY", "GLD", "TQQQ", "UPRO", "UDOW",
+        "TECL",  "SOXL", "LABU", "FAS", "CHAU", "YINN", "CQQQ"
+    ],
+    "company": [
+        "AAPL", "MSFT", "FB", "ADBE", "NFLX", "DIS", "U", "INTC", "NVDA", "AMD",
+        "QCOM", "AVGO", "TXN", "TSM", "TSLA", "LMT", "GE", "BA", "HON", "JPM", 
+        "ACN", "MS", "GS", "BAC", "WFC", "HSBC", "C", "MRK", "PFE", "NVO", "GSK", 
+        "AZN", "ABBV", "ABT", "MDT", "AMGN", "JNJ", "UNH"
+    ],
+    "tiger_pool": [
+        "UPRO", "UDOW", "TQQQ", "CHAU", "CQQQ", "YINN", "SOXL", "TECL", "GLD"
+    ],
+    "futu_pool": [
+        "TQQQ", "SQQQ", "UPRO", "SPXU", "UDOW", "SDOW", "TECL", "TECS", "SOXL", "SOXS", 
+        "FAS", "FAZ", "LABU", "LABD", "CHAU", "CHAD", "YINN", "YANG", "CQQQ", 
+        "SPY", "GLD", "AAPL", "MSFT", "FB", "ADBE", "NFLX", "DIS", "U", 
+        "INTC", "NVDA", "AMD", "QCOM", "AVGO", "TXN", "TSM", "TSLA", "LMT", "GE", "BA", "HON", 
+        "JPM", "ACN", "MS", "GS", "BAC", "WFC", "HSBC", "C", 
+        "MRK", "PFE", "NVO", "GSK", "AZN", "ABBV", "ABT", "MDT", "AMGN", "JNJ", "UNH"
+    ],
+    "a_company": [
+        "000002.SHE",
+        "000050.SHE",
+        "000063.SHE",
+        "000166.SHE",
+        "000333.SHE",
+        "000338.SHE",
+        "000568.SHE",
+        "000625.SHE",
+        "000651.SHE",
+        "000661.SHE",
+        "000725.SHE",
+        "000776.SHE",
+        "000997.SHE",
+        "002007.SHE",
+        "002008.SHE",
+        "002019.SHE",
+        "002027.SHE",
+        "002032.SHE",
+        "002049.SHE",
+        "002152.SHE",
+        "002153.SHE",
+        "002230.SHE",
+        "002241.SHE",
+        "002271.SHE",
+        "002281.SHE",
+        "002352.SHE",
+        "002371.SHE",
+        "002372.SHE",
+        "002396.SHE",
+        "002405.SHE",
+        "002410.SHE",
+        "002415.SHE",
+        "002439.SHE",
+        "002456.SHE",
+        "002459.SHE",
+        "002460.SHE",
+        "002463.SHE",
+        "002466.SHE",
+        "002475.SHE",
+        "002493.SHE",
+        "002594.SHE",
+        "002709.SHE",
+        "002714.SHE",
+        "002736.SHE",
+        "002841.SHE",
+        "002916.SHE",
+        "300014.SHE",
+        "300015.SHE",
+        "300059.SHE",
+        "300274.SHE",
+        "300347.SHE",
+        "300450.SHE",
+        "300750.SHE",
+        "300782.SHE",
+        "600010.SHG",
+        "600030.SHG",
+        "600036.SHG",
+        "600050.SHG",
+        "600111.SHG",
+        "600276.SHG",
+        "600406.SHG",
+        "600436.SHG",
+        "600438.SHG",
+        "600529.SHG",
+        "600585.SHG",
+        "600588.SHG",
+        "600600.SHG",
+        "600660.SHG",
+        "600690.SHG",
+        "600703.SHG",
+        "600745.SHG",
+        "600760.SHG",
+        "600763.SHG",
+        "600837.SHG",
+        "600845.SHG",
+        "600887.SHG",
+        "600893.SHG",
+        "600900.SHG",
+        "600958.SHG",
+        "600999.SHG",
+        "601012.SHG",
+        "601066.SHG",
+        "601138.SHG",
+        "601186.SHG",
+        "601211.SHG",
+        "601238.SHG",
+        "601318.SHG",
+        "601328.SHG",
+        "601360.SHG",
+        "601633.SHG",
+        "601668.SHG",
+        "601669.SHG",
+        "601688.SHG",
+        "601800.SHG",
+        "601857.SHG",
+        "601877.SHG",
+        "601881.SHG",
+        "601888.SHG",
+        "601985.SHG",
+        "601995.SHG",
+        "601998.SHG",
+        "603019.SHG",
+        "603160.SHG",
+        "603288.SHG",
+        "603659.SHG",
+        "603799.SHG",
+        "603806.SHG",
+        "603866.SHG",
+        "688036.SHG",
+        "688111.SHG",
+        "688599.SHG"
+    ],
+    "a_etf": []
 }

@@ -107,9 +107,9 @@ def load_data(symbols, config, load_empty_data=False, load_derived_data=False, d
       file_path = config["quant_path"]
       file_names = config["calculation"]["file_name"]
       for f in file_names.keys():
-        file_name = file_names[f]
-        if os.path.exists(f'{file_path}{derived_data_prefix}{file_name}'):
-          data[f] = io_util.pickle_load_data(file_path=file_path, file_name=file_name)
+        file_name = derived_data_prefix + file_names[f]
+        if os.path.exists(f'{file_path}{file_name}'):
+          data[f] = io_util.pickle_load_data(file_path=file_path, file_name=f'{file_name}')
         else:
           print(f'{file_name} not exists')
       
@@ -567,7 +567,7 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
   return df
 
 # technical analyze for ta_data
-def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'support_resistant', 'overall']):
+def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'support_resistant']):
   """
   calculate derived features from all current features, such as support, resistant
   :param df: dataframe with technical indicators and their derivatives
@@ -600,24 +600,6 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
       df = assign_condition_value(df=df, column='renko_trend', condition_dict=conditions, value_dict=values, default_value='n')
       wave_idx = df.query('(renko_trend != "u" and renko_trend != "d") and ((renko_brick_length >= 20 ) and (renko_brick_length>3*renko_duration_p1))').index
       df.loc[wave_idx, 'renko_trend'] = 'n'
-
-      # # renko position status
-      # conditions = {
-      #   'up': '(Close > renko_h)', 
-      #   'down': '(Close < renko_l)',
-      #   'middle': '(renko_l <= Close <= renko_h)'
-      # } 
-      # values = {
-      #   'up': 1, 
-      #   'down': -1,
-      #   'middle': 0}
-      # df = assign_condition_value(df=df, column='renko_position_status', condition_dict=conditions, value_dict=values, default_value=0)
-
-      # green_idx = df.query('renko_real == "green"').index
-      # red_idx = df.query('renko_real == "red"').index
-      # df.loc[green_idx, 'renko_position_status'] = 1
-      # df.loc[red_idx, 'renko_position_status'] = -1
-      # df['renko_status'] = sm(series=df['renko_position_status'], periods=3).mean()
 
       # calculate renko signal
       df['renko_signal'] = 'n'
@@ -1165,7 +1147,7 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
       
       valid_idxs = df.query('linear_slope == linear_slope and 拟合_trend == " "').index
       df.loc[valid_idxs, '拟合_trend'] = 'n'
-      df['拟合_signal'] = 'n' #df['拟合_trend'].replace({'d': 's', 'u': 'b', 'n': ''})
+      df['拟合_signal'] = 'n' 
 
       # if 'overall' in perspective:
       # focus on the last row only
@@ -1175,8 +1157,6 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
       # overall linear pattern and index
       row = df.loc[max_idx,].copy()
       period_threhold = 5
-      # df['category'] = ''
-      # df['description'] = ''
       df['linear_fit_category'] = ''
       df['linear_fit_description'] = ''
 
@@ -1256,7 +1236,7 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         classification.append('其他')
 
       # generate description: trend analysis
-      description = (f'[{row["tankan_kijun_signal"]}]')
+      description = '' # (f'[{row["tankan_kijun_signal"]}]')
       prev_k = None
       for k in conditions.keys():
         segment_s = ''
@@ -1381,10 +1361,6 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
 
       df.loc[valid_idxs, 'resistant'] = resistant
       df.loc[valid_idxs, 'resistanter'] = resistanter
-
-    phase = 'overall'
-    # ================================ overall description =======================
-    
 
   except Exception as e:
     print(phase, e)
@@ -1579,26 +1555,30 @@ def postprocess(df, keep_columns, drop_columns, target_interval=''):
   # candle pattern index and description
   conditions = {
     'candlestick window': '(反弹_trend == "u" or 突破_trend == "u" or 窗口_trend == "u" or 启明黄昏_trend == "u")',
+    'linear uptrend': '(linear_bounce_day == 1 or linear_break_day == 1)',
     'ichimoku signal': '(0 < tankan_kijun_signal < 5)',
-    'linear uptrend': 'linear_bounce_day == 1 or linear_break_day == 1',
+    'adx trend turned up': '(adx >= 25 and (0 < adx_direction_day < 5))',
     # 'negative candle patterns': 'candle_pattern_idx < 0',
     # 'long upper shadow': '(upper_shadow_trend == "u")',
     # 'long red entity': '(candle_color == -1 and entity_trend != "d")',
     # 'under candlestick window': '(candle_gap_resistant == candle_gap_resistant and Low < candle_gap_resistant)',
     # 'waving falling or hitpeak': '(category == "waving" or category == "down_x_support" or category == "hitpeak")',
-    'adx trend is down': '(adx_direction < 0 and adx < 25)',
+    'adx trend is weak': '(adx_direction < 0 and adx < 25)',
+    'long after signal': 'tankan_kijun_signal > 15',
     'all trend is down': '(0 > tankan_kijun_signal >= -5) or (linear_slope < 0 and tankan_kijun_signal < 0) or ((window_position_status == "mid" or window_position_status == "mid_down" or window_position_status == "down" or (candle_color == -1 and (window_position_status == "mid_up" or window_position_status == "out"))))',
     'signal': '(signal == "b" or signal == "s")'}
   values = {
     'candlestick window': 'potential',
     'ichimoku signal': 'potential',
+    'adx trend turned up': 'potential',
     'linear uptrend': 'potential',
     # 'negative candle patterns': '',
     # 'long red entity': '',
     # 'long upper shadow': '',
     # 'under candlestick window': '',
     # 'waving falling or hitpeak': '',
-    'adx trend is down': '',
+    'adx trend is weak': '',
+    'long after signal': '',
     'all trend is down': '',
     'signal': 'signal'}
   df = assign_condition_value(df=df, column='label', condition_dict=conditions, value_dict=values, default_value='')
@@ -4510,8 +4490,8 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
   # plot settings
   settings = {
-    'main': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'trend_marker': 'o', 'signal_alpha': 1, 'trend_alpha': 0.5, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'},
-    'other': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'trend_marker': 's', 'signal_alpha': 0.3, 'trend_alpha': 0.25, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'}}
+    'main': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': 'o', 'neg_trend_marker': 'o', 'wave_trend_marker': 'o', 'signal_alpha': 1, 'trend_alpha': 0.5, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'},
+    'other': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': 's', 'neg_trend_marker': 'x', 'wave_trend_marker': '_', 'signal_alpha': 0.3, 'trend_alpha': 0.3, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'}}
   style = settings['main'] if signal_x == 'signal' else settings['other']
 
   # plot signal base line
@@ -4523,7 +4503,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     for i in ['pos', 'neg', 'wave']:
       tmp_trend_value = trend_val[f'{i}_trend']
       tmp_data = df.query(f'{trend_col} == "{tmp_trend_value}"')
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=style['trend_marker'], color=style[f'{i}_color'], alpha=style['trend_alpha'])
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=style[f'{i}_trend_marker'], color=style[f'{i}_color'], alpha=style['trend_alpha'])
 
   # plot signal
   if signal_x in df.columns:
@@ -4994,6 +4974,14 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   ax.fill_between(df.index, 15, -15, where=(df.tankan_kijun_signal > 0) | (df.next_tankan_kijun_signal > 0), hatch='', linewidth=1, facecolor='lightgray', alpha=0.3, label='+')
   ax.fill_between(df.index, 15, -15, where=(df.tankan_kijun_signal < 0) | (df.next_tankan_kijun_signal < 0), hatch='\\\\\\\\', linewidth=1, edgecolor='red', facecolor='white', alpha=0.3, label='-')
 
+  # annotate tankan_kijun_signal
+  max_idx = df.index.max()
+  x_signal = max_idx + datetime.timedelta(days=1)
+  y_signal = 0
+  text_signal = df.loc[max_idx, 'tankan_kijun_signal']
+  text_color = 'red' if text_signal < 0 else 'green'
+  plt.annotate(f'  {text_signal}  ', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=14, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.1))
+
   # plot adx_diff_ma and adx_direction
   # ax.plot(df.index, df.adx_diff_ma, label='adx_diff_ma_8', color='black', linestyle='-', alpha=0.1)
   
@@ -5002,6 +4990,8 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   red_mask = (df.adx_direction < 0) | (df.next_adx_direction < 0) # df['adx_direction'] <= df['zero']
   ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=green_mask,  facecolor='green', interpolate=False, alpha=0.3)
   ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=red_mask, facecolor='red', interpolate=False, alpha=0.3)
+
+  
 
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
@@ -5126,40 +5116,6 @@ def plot_bar(df, target_col, start=None, end=None, width=0.8, alpha=1, color_mod
   if use_ax is not None:
     return ax
 
-# plot overall trend of ta indicators
-def plot_trend_idx(df, start=None, end=None, title=None, use_ax=None, plot_args=default_plot_args):
-
-  # copy dataframe within a specific period
-  df = df[start:end].copy()
-
-  # create figure
-  ax = use_ax
-  if ax is None:
-    fig = mpf.figure(figsize=plot_args['figsize'])
-    ax = fig.add_subplot(1,1,1, style='yahoo')
-
-  # plot trend_idx and trend_idx_ma
-  if 'trend_idx' in df.columns:
-    df['0'] = 0
-    ax.plot(df.index, df['trend_idx'], color='black', linestyle='-', label='trend_idx', alpha=0.1)
-
-    alpha=0.25
-    ax.fill_between(df.index, df['trend_idx'], df['0'], where=df['trend_idx'] > 0, facecolor='green', interpolate=True, alpha=alpha)
-    ax.fill_between(df.index, df['trend_idx'], df['0'], where=df['trend_idx'] < 0, facecolor='red', interpolate=True, alpha=alpha)
-  if 'trend_idx_ma' in df.columns:
-    ax.plot(df.index, df['trend_idx_ma'], color='blue', linestyle='--', label='trend_idx_ma', alpha=0.5)
-
-  # title and legend
-  ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
-  ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
-  ax.grid(True, axis='y', linestyle='-', linewidth=1)
-
-  ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
-
-  # return ax
-  if use_ax is not None:
-    return ax
-
 # plot general ta indicators
 def plot_indicator(df, target_col, start=None, end=None, signal_x='signal', signal_y='Close', benchmark=None, boundary=None, color_mode=None, use_ax=None, title=None, plot_price_in_twin_ax=False, trend_val=default_trend_val, signal_val=default_signal_val, plot_args=default_plot_args):
   """
@@ -5260,7 +5216,7 @@ def plot_indicator(df, target_col, start=None, end=None, signal_x='signal', sign
     return ax
 
 # plot multiple indicators on a same chart
-def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, save_image=False, show_image=False, title=None, width=25, unit_size=4, wspace=0, hspace=0.15, subplot_args=default_plot_args):
+def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, save_image=False, show_image=False, title=None, width=25, unit_size=4, wspace=0, hspace=0.01, subplot_args=default_plot_args):
   """
   Plot Ichimoku and mean reversion in a same plot
   :param df: dataframe with ichimoku and mean reversion columns
@@ -5285,37 +5241,39 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
   if plot_ratio is None :
     print('No indicator to plot')
     return None
-
   indicators = list(plot_ratio.keys())
   ratios = list(plot_ratio.values())
   num_indicators = len(indicators)
   
-  # create figures
+  # create axes for each indicator
   fig = plt.figure(figsize=(width, num_indicators*unit_size))  
   gs = gridspec.GridSpec(num_indicators, 1, height_ratios=ratios)
   gs.update(wspace=wspace, hspace=hspace)
-
   axes = {}
   for i in range(num_indicators):
     tmp_indicator = indicators[i]
     tmp_args = args.get(tmp_indicator)
 
+    # put the main_indicators at the bottom, share_x
     zorder = 10 if tmp_indicator == 'main_indicators' else 1
-
     if i == 0:
       axes[tmp_indicator] = plt.subplot(gs[i], zorder=zorder) 
     else:
       axes[tmp_indicator] = plt.subplot(gs[i], sharex=axes[indicators[0]], zorder=zorder)
       
-    if i%2 != 0:
-      axes[tmp_indicator].xaxis.set_ticks_position("top")
+    # shows the x_ticklabels on the top at the first ax
+    if i != 0: #i%2 == 0: # 
+      axes[tmp_indicator].xaxis.set_ticks_position("none")
       plt.setp(axes[tmp_indicator].get_xticklabels(), visible=False)
       axes[tmp_indicator].patch.set_alpha(0.5)
+    else:
+      axes[tmp_indicator].xaxis.set_ticks_position("top")
+      axes[tmp_indicator].patch.set_alpha(0.5)
 
-    axes[tmp_indicator].spines['top'].set_alpha(0.2)
-    axes[tmp_indicator].spines['bottom'].set_alpha(0.2)
-    axes[tmp_indicator].spines['left'].set_alpha(0.2)
-    axes[tmp_indicator].spines['right'].set_alpha(0.2)
+    # set border color
+    spine_alpha = 0.2
+    for position in ['top', 'bottom', 'left', 'right']:
+      axes[tmp_indicator].spines[position].set_alpha(spine_alpha)
 
     # get extra arguments
     target_col = tmp_args.get('target_col')
@@ -5350,64 +5308,36 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
     elif tmp_indicator == 'adx':
       plot_adx(df=plot_data, use_ax=axes[tmp_indicator], title=tmp_indicator, plot_args=subplot_args)
 
-    # plot renko
-    elif tmp_indicator == 'renko':
-      plot_renko(df=plot_data, use_ax=axes[tmp_indicator], title=tmp_indicator, plot_args=subplot_args)
-
-    # plot ta signals
-    elif tmp_indicator == 'signals':
-      signals = tmp_args.get('signal_list')
-      signal_bases = []
-      signal_names = []
-      if signals is not None:
-        for i in range(len(signals)):
-          signal_name = signals[i]
-          signal_names.append(signal_name.split('_')[0])
-          plot_data[f'signal_base_{signal_name}'] = i
-          signal_bases.append(i)
-          plot_signal(
-            df=plot_data, signal_x=signal_name, signal_y=f'signal_base_{signal_name}', 
-            title=tmp_indicator, use_ax=axes[tmp_indicator], trend_val=trend_val, signal_val=signal_val, plot_args=subplot_args)
-
-      # legend and title
-      plt.ylim(ymin=min(signal_bases)-1 , ymax=max(signal_bases)+1)
-      plt.yticks(signal_bases, signal_names)
-      axes[tmp_indicator].legend().set_visible(False)
-
-    # plot candlestick pattern signals
-    elif tmp_indicator == 'candle':
-      signals = tmp_args.get('signal_list')
-      signal_bases = []
-      signal_names = []
-      if signals is not None:
-        for i in range(len(signals)):
-          signal_name = signals[i]
-          signal_names.append(signal_name.split('_')[0])
-          plot_data[f'signal_base_{signal_name}'] = i
-          signal_bases.append(i)
-          plot_signal(
-            df=plot_data, signal_x=signal_name, signal_y=f'signal_base_{signal_name}', 
-            title=tmp_indicator, use_ax=axes[tmp_indicator], trend_val=trend_val, signal_val=signal_val, plot_args=subplot_args)
-
-      # legend and title
-      plt.ylim(ymin=min(signal_bases)-1 , ymax=max(signal_bases)+1)
-      plt.yticks(signal_bases, signal_names)
-      axes[tmp_indicator].legend().set_visible(False)
-
     # plot volume  
     elif tmp_indicator == 'volume':
-      width = tmp_args.get('bar_width') if tmp_args.get('bar_width') is not None else 1
+      width = tmp_args.get('bar_width') if tmp_args.get('bar_width') is not None else 0.62
       alpha = tmp_args.get('alpha') if tmp_args.get('alpha') is not None else 1
       plot_bar(df=plot_data, target_col=target_col, width=width, alpha=alpha, color_mode=color_mode, benchmark=None, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
     
-    # plot overall technical indicators
-    elif tmp_indicator == 'TA_overall':
-      plot_trend_idx(plot_data, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
-
     # plot renko
     elif tmp_indicator == 'renko':
       plot_in_date = tmp_args.get('plot_in_date') if tmp_args.get('plot_in_date') is not None else True
       plot_renko(plot_data, use_ax=axes[tmp_indicator], title=tmp_indicator, plot_args=default_plot_args, plot_in_date=plot_in_date)
+
+    # plot ta signals or candle patterns
+    elif tmp_indicator == 'signals' or tmp_indicator == 'candle':
+      signals = tmp_args.get('signal_list')
+      signal_bases = []
+      signal_names = []
+      if signals is not None:
+        for i in range(len(signals)):
+          signal_name = signals[i]
+          signal_names.append(signal_name.split('_')[0])
+          plot_data[f'signal_base_{signal_name}'] = i
+          signal_bases.append(i)
+          plot_signal(
+            df=plot_data, signal_x=signal_name, signal_y=f'signal_base_{signal_name}', 
+            title=tmp_indicator, use_ax=axes[tmp_indicator], trend_val=trend_val, signal_val=signal_val, plot_args=subplot_args)
+
+      # legend and title
+      plt.ylim(ymin=min(signal_bases)-1 , ymax=max(signal_bases)+1)
+      plt.yticks(signal_bases, signal_names)
+      axes[tmp_indicator].legend().set_visible(False)
 
     # plot other indicators
     else:
@@ -5422,19 +5352,18 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
   max_idx = df.index.max()
   close_rate = (df.loc[max_idx, "rate"]*100).round(2)
   title_color = 'green' if close_rate > 0 else 'red'
-  
   plt.rcParams['font.sans-serif'] = ['KaiTi'] # 指定默认字体
   plt.rcParams['axes.unicode_minus'] = False
 
   # get name of the symbol
   new_title = args['sec_name'].get(title)
-  rate = (df.loc[df.index.max(), "rate"] * 100).round(2)
-  linear_desc = f'\n[拟合]: {df.loc[df.index.max(), "linear_fit_description"]}'
-  candle_desc = f'\n[蜡烛]: {df.loc[df.index.max(), "candle_pattern_description"]}'
-  candle_desc = '' if candle_desc[-2] == ':' else candle_desc
+  linear_desc = f'{df.loc[df.index.max(), "linear_fit_description"]}'
+  candle_desc = f'{df.loc[df.index.max(), "candle_pattern_description"]}'
+  desc = '\n' + linear_desc + (f'[{df.loc[df.index.max(), "candle_pattern_description"]}]' if candle_desc > ' ' else '')
+
   if new_title is None:
     new_title == ''
-  fig.suptitle(f'{title} - {new_title}({rate}%){linear_desc}{candle_desc}', color=title_color, x=0.5, y=0.97, fontsize=20)
+  fig.suptitle(f'{title} - {new_title}({close_rate}%){desc}', x=0.5, y=0.98, fontsize=22, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.05))
   
   # save image
   if save_image and (save_path is not None):

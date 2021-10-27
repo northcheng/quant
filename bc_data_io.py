@@ -2046,15 +2046,24 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
   assets = {}
   if os.path.exists(config['config_path']+'portfolio.json'):
     portfolio_record = read_config(file_path=config['config_path'], file_name='portfolio.json')
-    if 'tiger' in platform:
-      pr = portfolio_record.get('tiger')
-      assets['glob'] = pr.get('global_account')
-      # assets['simu'] = pr.get('simulation_account') 
+    
+    # for us_stock
+    if not cn_stock:
+      if 'tiger' in platform:
+        pr = portfolio_record.get('tiger')
+        assets['glob'] = pr.get('global_account')
+        # assets['simu'] = pr.get('simulation_account') 
 
-    if 'futu' in platform:
-      pr = portfolio_record.get('futu')
-      assets['REAL'] = pr.get('REAL')
-      # assets['SIMU'] = pr.get('SIMULATE')
+      if 'futu' in platform:
+        pr = portfolio_record.get('futu')
+        assets['REAL'] = pr.get('REAL')
+        # assets['SIMU'] = pr.get('SIMULATE')
+    
+    # for cn_stock
+    else:
+      pr = portfolio_record.get('pingan')
+      assets['snowball'] = pr.get('snowball')
+
 
   # construct asset summary
   asset_info = '<h3>Assets</h3><ul>'
@@ -2066,18 +2075,30 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
       if position is not None:
         position = pd.DataFrame(position).fillna(np.nan)
         if len(position) > 0:
-
+          
+          # support and resistant
           lower_than_support = position.query('latest_price <= support').index.tolist()
           higher_than_resistant = position.query('latest_price >= resistant').index.tolist()
-          position = position.drop('latest_time', axis=1)[['quantity', 'rate', 'market_value', 'average_cost', 'latest_price', 'support', 'resistant']].to_html()
+          
+          # symbol name (for cn stocks only)
+          if cn_stock:
+            position['name'] = position.index.tolist()
+            position['name'] = position['name'].apply(lambda x: config['visualization']['plot_args']['sec_name'][x])
+
+          # convert to html format
+          position = position.drop('latest_time', axis=1)[['name', 'quantity', 'rate', 'market_value', 'average_cost', 'latest_price', 'support', 'resistant']].to_html()
+          
           for l in lower_than_support:
             position = position.replace(l, f'<font color="red">{l}</front>')
           for h in higher_than_resistant:
             position = position.replace(h, f'<font color="green">{h}</front>')
+
         else:
           position = None
+
       # add position summary if provided
       position = position if position is not None else ''
+
     else:
       net_value = '--'
       updated = '--'  
@@ -2096,11 +2117,15 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
   # get signal summary
   signal_info = '<h3>Signals</h3><ul>'
   signal_color = {'b':'green', 's':'red', 'n':'grey'}
+  
   if signal_file_date is not None:
+    
     prefix = 'a_' if cn_stock else ''
     signal_file = f'{config["result_path"]}{prefix}{signal_file_date}.xlsx'
+    
     if os.path.exists(signal_file):
       signals = pd.read_excel(signal_file, sheet_name='signal')
+      
       for s in ['b', 's', 'n']:
         font_color = signal_color[s]
         tmp_signals = signals.query(f'交易信号 == "{s}"')['代码'].tolist()
@@ -2108,11 +2133,18 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
 
       potentials = pd.read_excel(signal_file, sheet_name='potential')
       if len(potentials) > 0:
-        potentials = potentials[['代码', '蜡烛分数', '蜡烛形态', '拟合分数', '拟合形态']].to_html()
+
+        # symbol name (for cn stocks only)
+        if cn_stock:
+          potentials['名称'] = potentials['代码']
+          potentials['名称'] = potentials['名称'].apply(lambda x: config['visualization']['plot_args']['sec_name'][x])
+
+        potentials = potentials.set_index('代码')[['名称', '蜡烛分数', '蜡烛形态', '拟合分数', '拟合形态']].to_html()
         signal_info += f'</b></p>{potentials}'
 
     else:
-      signal_info += f'<li><p>[Not Found]: {signal_file}</p></li>'
+      signal_info += f'<li><p>[Not Found]: {prefix}{signal_file_date}.xlsx</p></li>'
+  
   else:
     signal_info += '<li><p>[Not Required]</p></li>'
   signal_info += '</ul>'
@@ -2122,13 +2154,16 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
   if log_file_date is not None:
 
     log_file = f'{config["log_path"]}automatic_trade_log_{log_file_date}.txt'
+    
     if os.path.exists(log_file):
       log_part = MIMEApplication(open(log_file, 'rb').read())
       log_part.add_header('Content-Disposition', 'attachment', filename=log_file)
       log_info += f'<li><p>[Attached]</p></li>'
+    
     else:
-      log_info += f'<li><p>[Not Found]: {log_file}</p></li>'
+      log_info += f'<li><p>[Not Found]: automatic_trade_log_{log_file_date}.txt</p></li>'
       log_part = None
+  
   else:
     log_info += '<li><p>[Not Required]</p></li>'
     log_part = None
@@ -2141,7 +2176,7 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
 
     # initialize header, attach pdfs
     image_info += f'<li>[Requested]: {signal_file_date}</li>'
-    pdf_names = ['portfolio', 'signal', 'potential', 'index'] if not cn_stock else ['a_signal', 'a_potential']
+    pdf_names = ['portfolio', 'signal', 'potential', 'index'] if not cn_stock else ['a_portfolio', 'a_signal', 'a_potential']
     for p in pdf_names:
 
       # consstruct pdf file path
@@ -2165,7 +2200,7 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
           pdfs.append(tmp_pdf_content)
 
       else:        
-        image_info += f'<li><p>[Not Found]: image for {p}</p></li>'
+        image_info += f'<li><p>[{p}.pdf]: Not Found</p></li>'
   else:
     image_info += '<li><p>[Not Required]</p></li>'
   image_info += '</ul>'
