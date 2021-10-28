@@ -1946,14 +1946,57 @@ def update_portfolio_support_resistant(config, data, portfolio_file_name='portfo
     for account in tmp_platform.keys():
       tmp_account = tmp_platform[account]
       tmp_portfolio = tmp_account.get('portfolio')
-
+            
       # if portfolio not exists, continue for next account
       if tmp_portfolio is None:
         print(f'portfolio for {account} not exists')
         continue
 
-      # get quantity and price of symbols in portfolio
       else:  
+
+        # update price related fields for chinese stocks
+        if platform in ['pingan'] and account in ['snowball']:
+          cn_stock = {}
+          cn_stock['quantity'] = tmp_portfolio.get('quantity')
+          cn_stock['latest_price'] = tmp_portfolio.get('latest_price')
+          cn_stock['average_cost'] = tmp_portfolio.get('average_cost')
+          cn_stock['market_value'] = tmp_portfolio.get('market_value')
+          cn_stock['rate'] = tmp_portfolio.get('rate')
+
+          # manually update portfolio(except quantity) for chinese stocks
+          if cn_stock['quantity'] is not None:
+
+            # remove symbols that no longer in position
+            for d in ['latest_price', 'average_cost', 'market_value', 'rate']:
+              if cn_stock[d] is None:
+                cn_stock[d] = {}
+              else:
+                to_pop = [x for x in cn_stock[d].keys() if x not in cn_stock['quantity'].keys()]
+                for symbol in to_pop:
+                  cn_stock[d].pop(symbol)                
+
+            # update latest_price, market_value and earning_rate
+            for symbol in cn_stock['quantity'].keys():
+              if symbol in ta_result.index:
+                cn_stock['latest_price'][symbol] = ta_result.loc[symbol, 'Close']
+                cn_stock['market_value'][symbol] = cn_stock['latest_price'][symbol] * cn_stock['quantity'][symbol]
+                if symbol in cn_stock['average_cost'].keys():
+                  cn_stock['rate'][symbol] = round((cn_stock['latest_price'][symbol] - cn_stock['average_cost'][symbol]) / cn_stock['average_cost'][symbol], 2)
+                else:
+                  print(f'please update average_cost for {symbol}')
+                  cn_stock['average_cost'][symbol] = None
+                  cn_stock['rate'][symbol] = None
+            
+            # assign the updated values to original portfolio, and update tmp_portfolio
+            for d in cn_stock.keys():
+              portfolio[platform][account]['portfolio'][d] = cn_stock[d]
+
+            portfolio[platform][account]['market_value'] = sum(cn_stock['market_value'].values())
+            portfolio[platform][account]['net_value'] = portfolio[platform][account]['market_value'] + portfolio[platform][account]['cash']
+            portfolio[platform][account]['updated'] = datetime.datetime.now().strftime(format='%Y-%m-%d %H:%M:%S')
+            tmp_portfolio = tmp_account.get('portfolio')
+
+        # for all portfolios (us and cn)
         tmp_price = tmp_portfolio.get('latest_price')
 
         # update support and resistant for symbols in current portfolio
@@ -1979,9 +2022,9 @@ def update_portfolio_support_resistant(config, data, portfolio_file_name='portfo
 
           # looking for symbol info from the ta result  
           for symbol in tmp_price.keys():
-            close = None
-            support = None   
-            resistant = None
+            close = tmp_price.get(symbol)
+            support = tmp_support.get(symbol)
+            resistant = tmp_resistant.get(symbol)
             
             # remove prefix for symbol in futu portfolios (e.g. US.AAPL)
             if platform == 'futu':
@@ -1991,10 +2034,10 @@ def update_portfolio_support_resistant(config, data, portfolio_file_name='portfo
             
             # get support, resistant and latest price
             if converted_symbol in ta_result.index:
+              close = ta_result.loc[converted_symbol, 'Close'].round(2)
               support = ta_result.loc[converted_symbol, 'support'].round(2)
               resistant = ta_result.loc[converted_symbol, 'resistant'].round(2)
-              close = ta_result.loc[converted_symbol, 'Close'].round(2)
-            
+              
             # record support, resistant and latest price
             tmp_support[symbol] = None if (support is None or np.isnan(support)) else support
             tmp_resistant[symbol] = None if (resistant is None or np.isnan(resistant)) else resistant
