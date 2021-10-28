@@ -2125,8 +2125,7 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
           
           # symbol name (for cn stocks only)
           position['name'] = position.index.tolist()
-          if cn_stock:
-            position['name'] = position['name'].apply(lambda x: config['visualization']['plot_args']['sec_name'].get(x))
+          position['name'] = position['name'].apply(lambda x: config['visualization']['plot_args']['sec_name'].get(x))
 
           # convert to html format
           position = position.drop('latest_time', axis=1)[['name', 'quantity', 'rate', 'market_value', 'average_cost', 'latest_price', 'support', 'resistant']].to_html()
@@ -2179,8 +2178,7 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
 
         # symbol name (for cn stocks only)
         potentials['名称'] = potentials['代码']
-        if cn_stock:
-          potentials['名称'] = potentials['名称'].apply(lambda x: config['visualization']['plot_args']['sec_name'][x])
+        potentials['名称'] = potentials['名称'].apply(lambda x: config['visualization']['plot_args']['sec_name'][x])
 
         potentials = potentials.set_index('代码')[['名称', '蜡烛分数', '蜡烛形态', '拟合分数', '拟合形态']].to_html()
         signal_info += f'</b></p>{potentials}'
