@@ -2124,7 +2124,9 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
           higher_than_resistant = position.query('latest_price >= resistant').index.tolist()
           
           # symbol name (for cn stocks only)
-          position['name'] = position.index.tolist()
+          idx_list = position.index.tolist()
+          idx_list = [x.replace('US.', '') for x in idx_list]
+          position['name'] = idx_list
           position['name'] = position['name'].apply(lambda x: config['visualization']['plot_args']['sec_name'].get(x))
 
           # convert to html format
