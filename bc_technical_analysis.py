@@ -1585,6 +1585,7 @@ def postprocess(df, keep_columns, drop_columns, target_interval=''):
 
   # rename columns, keep 3 digits
   df = df[list(keep_columns.keys())].rename(columns=keep_columns).round(3)
+  df[['ADX差值', 'ADX强度']] = df[['ADX差值', 'ADX强度']].round(0)
   
   # add target-interval info
   df['ti'] = target_interval
@@ -4598,9 +4599,9 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
       start = idx
       top_value = df.loc[start, 'candle_gap_top']
       bottom_value = df.loc[start, 'candle_gap_bottom']
-      gap_color = 'lightyellow' if df.loc[start, 'candle_gap'] > 0 else 'grey' # 
-      gap_hatch = None # '/' if df.loc[start, 'candle_gap'] > 0 else '\\'
-      gap_hatch_color = 'black' #'green' if df.loc[start, 'candle_gap'] > 0 else 'red'
+      gap_color = 'green' if df.loc[start, 'candle_gap'] > 0 else 'red' # 'lightyellow' if df.loc[start, 'candle_gap'] > 0 else 'grey' # 
+      gap_hatch = 'xxxx'# if df.loc[start, 'candle_gap'] > 0 else '\\\\\\\\'
+      gap_hatch_color = 'black'
       
       # gap end
       end = None
@@ -4614,7 +4615,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
       pre_i = idxs.index(start)-1
       pre_start = idxs[pre_i] if pre_i > 0 else start
       tmp_data = df[start:end]
-      ax.fill_between(df[pre_start:end].index, top_value, bottom_value, hatch=gap_hatch, facecolor=gap_color, interpolate=True, alpha=0.5, edgecolor=gap_hatch_color, linewidth=1) #,  
+      ax.fill_between(df[pre_start:end].index, top_value, bottom_value, hatch=gap_hatch, facecolor=gap_color, interpolate=True, alpha=0.2, edgecolor=gap_hatch_color, linewidth=1) #,  
 
   # annotate close price, support/resistant(if exists)
   if 'support_resistant' in add_on:
@@ -4956,23 +4957,14 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   # ax.plot(df.index, df.pdi, label='pdi', color='green', marker='.', alpha=0.3)
   # ax.plot(df.index, df.mdi, label='mdi', color='red', marker='.', alpha=0.3)
 
-  # plot adx
-  adx_threshold = 25
-  conditions = {
-    'strong': f'adx >= {adx_threshold}', 
-    'weak': f'adx < {adx_threshold}'} 
-  color_values = {
-    'strong': 'blue', 
-    'weak': 'orange'}
-  df = assign_condition_value(df=df, column='adx_color', condition_dict=conditions, value_dict=color_values, default_value='grey')
-  ax.scatter(df.index, df.adx, label='adx', color=df['adx_color'], marker='.')
-
-  # plot boundaries
+  # plot ichimoku signal
   df['zero'] = 0
-  # ax.fill_between(df.index, 15, -15, facecolor='grey', interpolate=False, alpha=0.2, label='[-15, 15]')
-  df['next_tankan_kijun_signal'] = df['tankan_kijun_signal'].shift(-1)
-  ax.fill_between(df.index, 15, -15, where=(df.tankan_kijun_signal > 0) | (df.next_tankan_kijun_signal > 0), hatch='', linewidth=1, facecolor='lightgray', alpha=0.3, label='+')
-  ax.fill_between(df.index, 15, -15, where=(df.tankan_kijun_signal < 0) | (df.next_tankan_kijun_signal < 0), hatch='\\\\\\\\', linewidth=1, edgecolor='red', facecolor='white', alpha=0.3, label='-')
+  if 'tankan_kijun_signal' in df.columns:
+    df['next_tankan_kijun_signal'] = df['tankan_kijun_signal'].shift(-1)
+    ax.fill_between(df.index, 15, -15, where=(df.tankan_kijun_signal > 0) | (df.next_tankan_kijun_signal > 0), hatch='', linewidth=1, facecolor='lightgray', alpha=0.3, label='+')
+    ax.fill_between(df.index, 15, -15, where=(df.tankan_kijun_signal < 0) | (df.next_tankan_kijun_signal < 0), hatch='\\\\\\\\', linewidth=1, edgecolor='red', facecolor='white', alpha=0.3, label='-')
+  else:
+    ax.fill_between(df.index, 25, -25, facecolor='grey', interpolate=False, alpha=0.2, label='[-15, 15]')
 
   # annotate tankan_kijun_signal
   max_idx = df.index.max()
@@ -4986,12 +4978,26 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   # ax.plot(df.index, df.adx_diff_ma, label='adx_diff_ma_8', color='black', linestyle='-', alpha=0.1)
   
   df['next_adx_direction'] = df['adx_direction'].shift(-1)
-  green_mask = (df.adx_direction > 0) | (df.next_adx_direction > 0) # df['adx_direction'] >= df['zero']
-  red_mask = (df.adx_direction < 0) | (df.next_adx_direction < 0) # df['adx_direction'] <= df['zero']
-  ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=green_mask,  facecolor='green', interpolate=False, alpha=0.3)
-  ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=red_mask, facecolor='red', interpolate=False, alpha=0.3)
+  green_mask = (df.adx_direction > 0) | (df.adx_diff_ma > 20) | (df.next_adx_direction > 0) #
+  red_mask = (df.adx_direction < 0) | (df.adx_diff_ma < -20) | (df.next_adx_direction < 0) # 
+  ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=green_mask,  facecolor='green', interpolate=False, alpha=0.25)
+  ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=red_mask, facecolor='red', interpolate=False, alpha=0.25)
 
+  # plot adx with 
+  # color: green(uptrending), red(downtrending), orange(waving); 
+  # marker: _(weak trend), s( strong trend)
+  adx_threshold = 25
+
+  # overlap_mask = green_mask & red_mask
+  df['prev_adx'] = df['adx'].shift(1)
+  df['adx_color'] = 'orange'
+  df.loc[df.adx > df.prev_adx, 'adx_color'] = 'green'
+  df.loc[df.adx < df.prev_adx, 'adx_color'] = 'red'
   
+  strong_trend_idx = df.query(f'adx >= {adx_threshold}').index
+  weak_trend_idx = df.query(f'adx < {adx_threshold}').index
+  ax.scatter(strong_trend_idx, df.loc[strong_trend_idx, 'adx'], color=df.loc[strong_trend_idx, 'adx_color'], label='adx', alpha=0.4, marker='s')
+  ax.scatter(weak_trend_idx, df.loc[weak_trend_idx, 'adx'], color=df.loc[weak_trend_idx, 'adx_color'], label='adx', alpha=0.4, marker='_')
 
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 

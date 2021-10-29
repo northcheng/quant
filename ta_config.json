@@ -52,8 +52,8 @@
         },
         "plot_args": {
             "plot_ratio": {
-                "signals": 2,
-                "adx": 3,
+                "signals": 1.5,
+                "adx": 3.5,
                 "main_indicators": 10
             },
             "test": {
@@ -433,6 +433,10 @@
             "linear_fit_description": "拟合形态",
             "linear_fit_idx": "拟合分数",
             "linear_fit_category": "拟合类别",
+            "tankan_kijun_signal": "TK信号",
+            "adx_diff_ma": "ADX差值",
+            "adx_direction_day": "ADX方向",
+            "adx": "ADX强度",         
             "signal": "交易信号",
             "label": "分类"
         },
