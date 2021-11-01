@@ -381,12 +381,17 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       df['0'] = 0
       df['adx_direction_day'] = cal_crossover_signal(df=df, fast_line='adx_direction', slow_line='0', pos_signal=1, neg_signal=-1, none_signal=0)
       df['adx_direction_day'] = sda(series=df['adx_direction_day'], zero_as=1)
-      df = df.drop(['prev_adx_diff_ma', 'adx_diff_ma_diff', '0'], axis=1)
+      
+      df['prev_adx'] = df['adx'].shift(1)
+      df['adx_strength_day'] = (df['adx'] >= df['prev_adx']).replace({True: 1, False: -1})
+      df['adx_strength_day'] = sda(series=df['adx_strength_day'], zero_as=1)
 
+      df = df.drop(['prev_adx_diff_ma', 'adx_diff_ma_diff', '0', 'prev_adx'], axis=1)
+      
       adx_threshold = 15
       conditions = {
-        'up': f'adx_diff_ma > {adx_threshold} or (adx_direction > 0 and adx_diff_ma > {-adx_threshold})', 
-        'down': f'adx_diff_ma < {-adx_threshold} or (adx_direction < 0 and adx_diff_ma < {adx_threshold})'} 
+        'up': 'adx_direction_day > 0 and ((adx_diff_ma < 0 and adx_strength_day < 0) or (adx_diff_ma >= 0 and adx_strength_day > 0))', # f'adx_diff_ma > {adx_threshold} or (adx_direction > 0 and adx_diff_ma > {-adx_threshold})', 
+        'down': 'adx_direction_day < 0 and ((adx_diff_ma > 0 and adx_strength_day < 0) or (adx_diff_ma <= 0 and adx_strength_day > 0))'} # f'adx_diff_ma < {-adx_threshold} or (adx_direction < 0 and adx_diff_ma < {adx_threshold})'} 
       values = {
         'up': 'u', 
         'down': 'd'}
@@ -2690,9 +2695,9 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
   Calculate Ichimoku indicators
 
   :param df: original OHLCV dataframe
-  :param n_short: short window size
-  :param n_medium: medium window size
-  :param n_long: long window size
+  :param n_short: short window size (9)
+  :param n_medium: medium window size (26)
+  :param n_long: long window size (52)
   :param method: original/ta way to calculate ichimoku indicators
   :param is_shift: whether to shift senkou_a and senkou_b n_medium units
   :param ohlcv_col: column name of Open/High/Low/Close/Volume
@@ -4461,6 +4466,9 @@ def add_kc_features(df, n=10, ohlcv_col=default_ohlcv_col, method='atr', fillna=
   return df
 
 
+# ================================================ Other indicators ================================================= #
+# def add_sar_features(df,)
+
 # ================================================ Indicator visualization  ========================================= #
 # plot signals on price line
 def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', use_ax=None, title=None, trend_val=default_trend_val, signal_val=default_signal_val, plot_args=default_plot_args):
@@ -4492,7 +4500,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
   # plot settings
   settings = {
     'main': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': 'o', 'neg_trend_marker': 'o', 'wave_trend_marker': 'o', 'signal_alpha': 1, 'trend_alpha': 0.5, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'},
-    'other': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': 's', 'neg_trend_marker': 'x', 'wave_trend_marker': '_', 'signal_alpha': 0.3, 'trend_alpha': 0.3, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'}}
+    'other': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': 's', 'neg_trend_marker': 'x', 'wave_trend_marker': '.', 'signal_alpha': 0.3, 'trend_alpha': 0.3, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'}}
   style = settings['main'] if signal_x == 'signal' else settings['other']
 
   # plot signal base line
@@ -4792,6 +4800,9 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   if ax is None:
     fig = mpf.figure(figsize=plot_args['figsize'])
     ax = fig.add_subplot(1,1,1, style='yahoo')
+
+  # as we usually ploting data within a year, therefore log_y is not necessary
+  # ax.set_yscale("log")
  
   # plot close price
   if 'price' in target_indicator:
