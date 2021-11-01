@@ -33,7 +33,7 @@ default_signal_val = {'pos_signal':'b', 'neg_signal':'s', 'none_signal':'', 'wav
 default_trend_val = {'pos_trend':'u', 'neg_trend':'d', 'none_trend':'', 'wave_trend':'n'}
 default_candlestick_color = {'colorup':'green', 'colordown':'red', 'alpha':0.8}
 default_ohlcv_col = {'close':'Close', 'open':'Open', 'high':'High', 'low':'Low', 'volume':'Volume'}  
-default_plot_args = {'figsize':(30, 5), 'title_rotation':'vertical', 'xaxis_position': 'bottom', 'yaxis_position': 'right', 'title_x':-0.01, 'title_y':0.3, 'bbox_to_anchor':(1.02, 0.), 'loc':3, 'ncol':1, 'borderaxespad':0.0}
+default_plot_args = {'figsize':(30, 3), 'title_rotation':'vertical', 'xaxis_position': 'bottom', 'yaxis_position': 'right', 'title_x':-0.01, 'title_y':0.3, 'bbox_to_anchor':(1.02, 0.), 'loc':3, 'ncol':1, 'borderaxespad':0.0}
 
 # ================================================ Load configuration =============================================== # 
 # load configuration
@@ -4986,13 +4986,18 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   plt.annotate(f'  {text_signal}  ', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=14, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.1))
 
   # plot adx_diff_ma and adx_direction
-  # ax.plot(df.index, df.adx_diff_ma, label='adx_diff_ma_8', color='black', linestyle='-', alpha=0.1)
+  
   
   df['next_adx_direction'] = df['adx_direction'].shift(-1)
+  green_mask = (df.adx_direction > 0)# | (df.adx_diff_ma > 20) | (df.next_adx_direction > 0) 
+  red_mask = (df.adx_direction < 0)# | (df.adx_diff_ma < -20) | (df.next_adx_direction < 0) 
+  ax.scatter(df.loc[green_mask].index, df.loc[green_mask, 'adx_diff_ma'], label='adx_diff_ma_8', color='green',  alpha=0.5, marker='|')
+  ax.scatter(df.loc[red_mask].index, df.loc[red_mask, 'adx_diff_ma'], label='adx_diff_ma_8', color='red',  alpha=0.5, marker='|')
+
   green_mask = (df.adx_direction > 0) | (df.adx_diff_ma > 20) | (df.next_adx_direction > 0) #
   red_mask = (df.adx_direction < 0) | (df.adx_diff_ma < -20) | (df.next_adx_direction < 0) # 
-  ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=green_mask,  facecolor='green', interpolate=False, alpha=0.25)
-  ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=red_mask, facecolor='red', interpolate=False, alpha=0.25)
+  ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=green_mask,  facecolor='green', interpolate=False, alpha=0.2) 
+  ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=red_mask, facecolor='red', interpolate=False, alpha=0.2)
 
   # plot adx with 
   # color: green(uptrending), red(downtrending), orange(waving); 
@@ -5125,7 +5130,7 @@ def plot_bar(df, target_col, start=None, end=None, width=0.8, alpha=1, color_mod
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
-  ax.grid(True, axis='y', linestyle='-', linewidth=1)
+  ax.grid(True, axis='both', linestyle='-', linewidth=0.5, alpha=0.3)
 
   ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
 
@@ -5233,7 +5238,7 @@ def plot_indicator(df, target_col, start=None, end=None, signal_x='signal', sign
     return ax
 
 # plot multiple indicators on a same chart
-def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, save_image=False, show_image=False, title=None, width=25, unit_size=4, wspace=0, hspace=0.01, subplot_args=default_plot_args):
+def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, save_image=False, show_image=False, title=None, width=25, unit_size=3, wspace=0, hspace=0.01, subplot_args=default_plot_args):
   """
   Plot Ichimoku and mean reversion in a same plot
   :param df: dataframe with ichimoku and mean reversion columns

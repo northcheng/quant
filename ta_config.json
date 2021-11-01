@@ -37,23 +37,9 @@
         }
     },
     "visualization": {
-        "create_image": true,
-        "show_image": false,
-        "save_image": true,
-        "plot_window": {
-            "day": 200,
-            "week": 1260,
-            "month": 5400
-        },
-        "bar_width": {
-            "day": 0.62,
-            "week": 3.72,
-            "month": 15.5
-        },
         "plot_args": {
             "plot_ratio": {
-                "signals": 1.5,
-                "adx": 3.5,
+                "signals": 1.35, "adx": 2.15, "volume": 1,
                 "main_indicators": 10
             },
             "test": {
@@ -103,12 +89,13 @@
             "volume": {
                 "target_col": "Volume",
                 "color_mode": "up_down",
-                "bar_width": 1,
-                "alpha": 0.8
+                "bar_width": 0.7,
+                "alpha": 0.5
             },
             "adx": {
                 "alpha": 0.8
             },
+            
             "sec_name": {
                 "AA": "美国铝业(制造业)",
                 "AAPL": "APPLE",
@@ -418,7 +405,20 @@
                 "688303.SHG": "大全能源",
                 "688599.SHG": "天合光能"
             }
-        }
+        },
+        "plot_window": {
+            "day": 200,
+            "week": 1260,
+            "month": 5400
+        },
+        "bar_width": {
+            "day": 0.62,
+            "week": 3.72,
+            "month": 15.5
+        },
+        "create_image": true,
+        "show_image": false,
+        "save_image": true
     },
     "postprocess": {
         "keep_columns": {
