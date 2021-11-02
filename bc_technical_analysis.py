@@ -1562,13 +1562,13 @@ def postprocess(df, keep_columns, drop_columns, target_interval=''):
     'candlestick window': '(反弹_trend == "u" or 突破_trend == "u" or 窗口_trend == "u" or 启明黄昏_trend == "u")',
     'linear uptrend': '(linear_bounce_day == 1 or linear_break_day == 1)',
     'ichimoku signal': '(0 < tankan_kijun_signal < 5)',
-    'adx trend turned up': '(adx >= 25 and (0 < adx_direction_day < 5))',
+    'adx trend turned up': '(adx_trend == "u" and adx_day <= 10)',
     # 'negative candle patterns': 'candle_pattern_idx < 0',
     # 'long upper shadow': '(upper_shadow_trend == "u")',
     # 'long red entity': '(candle_color == -1 and entity_trend != "d")',
     # 'under candlestick window': '(candle_gap_resistant == candle_gap_resistant and Low < candle_gap_resistant)',
     # 'waving falling or hitpeak': '(category == "waving" or category == "down_x_support" or category == "hitpeak")',
-    'adx trend is weak': '(adx_direction < 0 and adx < 25)',
+    'adx trend is weak': '(adx_direction < 0 and adx_day <=5)',
     'long after signal': 'tankan_kijun_signal > 15',
     'all trend is down': '(0 > tankan_kijun_signal >= -5) or (linear_slope < 0 and tankan_kijun_signal < 0) or ((window_position_status == "mid" or window_position_status == "mid_down" or window_position_status == "down" or (candle_color == -1 and (window_position_status == "mid_up" or window_position_status == "out"))))',
     'signal': '(signal == "b" or signal == "s")'}
@@ -4986,8 +4986,6 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   plt.annotate(f'  {text_signal}  ', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=14, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.1))
 
   # plot adx_diff_ma and adx_direction
-  
-  
   df['next_adx_direction'] = df['adx_direction'].shift(-1)
   green_mask = (df.adx_direction > 0)# | (df.adx_diff_ma > 20) | (df.next_adx_direction > 0) 
   red_mask = (df.adx_direction < 0)# | (df.adx_diff_ma < -20) | (df.next_adx_direction < 0) 
