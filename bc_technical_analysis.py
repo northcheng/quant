@@ -386,7 +386,12 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       df['adx_strength_day'] = (df['adx'] >= df['prev_adx']).replace({True: 1, False: -1})
       df['adx_strength_day'] = sda(series=df['adx_strength_day'], zero_as=1)
 
-      df = df.drop(['prev_adx_diff_ma', 'adx_diff_ma_diff', '0', 'prev_adx'], axis=1)
+      df['tmp_adx_diff_ma_extreme'] = df['adx_diff_ma'].shift(1)
+      extreme_idx = df.query('adx_direction_day == 1 or adx_direction_day == -1').index
+      df.loc[extreme_idx, 'prev_adx_extreme'] = df.loc[extreme_idx, 'tmp_adx_diff_ma_extreme']
+      df['prev_adx_extreme'] = df['prev_adx_extreme'].fillna(method='ffill')
+
+      df = df.drop(['prev_adx_diff_ma', 'adx_diff_ma_diff', '0', 'prev_adx', 'tmp_adx_diff_ma_extreme'], axis=1)
       
       adx_threshold = 15
       conditions = {
@@ -1392,8 +1397,8 @@ def calculate_ta_signal(df):
   df['trend'] = ''
   df['signal'] = ''
 
-  # # buy conditions
-  # buy_conditions = {
+  # buy conditions
+  buy_conditions = {
 
   #   # # stable version
   #   # 'at least 4 in ichimoku/aroon/adx/kst/psar are up trending': '(trend_idx >= 3)',
@@ -1416,9 +1421,13 @@ def calculate_ta_signal(df):
   #   'bb': '(bb_trend != "d")',
   #   'candle pattern': '(突破_day >=0)'
 
-  # }
-  # up_idx = df.query(' and '.join(buy_conditions.values())).index 
-  # df.loc[up_idx, 'trend'] = 'u'
+    # developing version 3 - started 20211104
+    'adx': '((prev_adx_extreme < -15) and (5 > adx_direction_day > 0) and ((adx_diff_ma < 5 and adx_strength_day < 0))) ', #  or (adx_diff_ma > 0 and adx_strength_day > 0)
+    'others': '(trend_idx == 4)'
+
+  }
+  up_idx = df.query(' and '.join(buy_conditions.values())).index 
+  df.loc[up_idx, 'trend'] = 'u'
 
   # # sell conditions
   # sell_conditions = {
@@ -1437,6 +1446,11 @@ def calculate_ta_signal(df):
   #   # 'nagative candle patterns': '((High < kijun) or (0 > 窗口_day >= -3) or (0 > 突破_day >= -3) or (0 > 反弹_day >= -3) or (0 > 启明黄昏_day >= -3))',
 
   #   # developing version 2 - started 20211022
+  #   'adx': '(adx_direction < 0)',
+  #   'ichimoku': '(ichimoku_trend == "d" or (ichimoku_trend == "n" and trend_idx < 0))',
+  #   'candle pattern': '((-10 <= 突破_day <= 0) or (-10 <= 窗口_day <= 0))'
+
+    # developing version 3 - started 20211104
   #   'adx': '(adx_direction < 0)',
   #   'ichimoku': '(ichimoku_trend == "d" or (ichimoku_trend == "n" and trend_idx < 0))',
   #   'candle pattern': '((-10 <= 突破_day <= 0) or (-10 <= 窗口_day <= 0))'
@@ -1563,11 +1577,6 @@ def postprocess(df, keep_columns, drop_columns, target_interval=''):
     'linear uptrend': '(linear_bounce_day == 1 or linear_break_day == 1)',
     'ichimoku signal': '(0 < tankan_kijun_signal < 5)',
     'adx trend turned up': '(adx_trend == "u" and adx_day <= 10)',
-    # 'negative candle patterns': 'candle_pattern_idx < 0',
-    # 'long upper shadow': '(upper_shadow_trend == "u")',
-    # 'long red entity': '(candle_color == -1 and entity_trend != "d")',
-    # 'under candlestick window': '(candle_gap_resistant == candle_gap_resistant and Low < candle_gap_resistant)',
-    # 'waving falling or hitpeak': '(category == "waving" or category == "down_x_support" or category == "hitpeak")',
     'adx trend is weak': '(adx_direction < 0 and adx_day <=5)',
     'long after signal': 'tankan_kijun_signal > 15',
     'all trend is down': '(0 > tankan_kijun_signal >= -5) or (linear_slope < 0 and tankan_kijun_signal < 0) or ((window_position_status == "mid" or window_position_status == "mid_down" or window_position_status == "down" or (candle_color == -1 and (window_position_status == "mid_up" or window_position_status == "out"))))',
@@ -1577,11 +1586,6 @@ def postprocess(df, keep_columns, drop_columns, target_interval=''):
     'ichimoku signal': 'potential',
     'adx trend turned up': 'potential',
     'linear uptrend': 'potential',
-    # 'negative candle patterns': '',
-    # 'long red entity': '',
-    # 'long upper shadow': '',
-    # 'under candlestick window': '',
-    # 'waving falling or hitpeak': '',
     'adx trend is weak': '',
     'long after signal': '',
     'all trend is down': '',
@@ -5379,7 +5383,9 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
   new_title = args['sec_name'].get(title)
   linear_desc = f'{df.loc[df.index.max(), "linear_fit_description"]}'
   candle_desc = f'{df.loc[df.index.max(), "candle_pattern_description"]}'
-  desc = '\n' + linear_desc + (f'[{df.loc[df.index.max(), "candle_pattern_description"]}]' if candle_desc > ' ' else '')
+  adx_desc = f'[ADX: {df.loc[df.index.max(), "adx_direction_day"]} {df.loc[df.index.max(), "adx_strength_day"]}]'
+  
+  desc = '\n' + linear_desc + (f'[{df.loc[df.index.max(), "candle_pattern_description"]}]' if candle_desc > ' ' else '') + adx_desc
 
   if new_title is None:
     new_title == ''
