@@ -370,7 +370,8 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
 
     # ================================ adx trend ==============================
     if 'adx' in trend_indicators:
-
+      
+      # direction of adx_diff_ma change
       df['prev_adx_diff_ma'] = df['adx_diff_ma'].shift(1)
       df['adx_diff_ma_diff'] = df['adx_diff_ma'] - df['prev_adx_diff_ma']
       wave_idx = df.query('-1 < adx_diff_ma_diff < 1').index
@@ -378,25 +379,26 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       df['adx_diff_ma_diff'] = df['adx_diff_ma'] - df['prev_adx_diff_ma']
       df['adx_direction'] = sda(series=df['adx_diff_ma_diff'], zero_as=0)
 
+      # days since adx_diff_ma direction changed
       df['0'] = 0
       df['adx_direction_day'] = cal_crossover_signal(df=df, fast_line='adx_direction', slow_line='0', pos_signal=1, neg_signal=-1, none_signal=0)
       df['adx_direction_day'] = sda(series=df['adx_direction_day'], zero_as=1)
       
-      df['prev_adx'] = df['adx'].shift(1)
-      df['adx_strength_day'] = (df['adx'] >= df['prev_adx']).replace({True: 1, False: -1})
-      df['adx_strength_day'] = sda(series=df['adx_strength_day'], zero_as=1)
+      # days since adx direction changed
+      df = cal_change_rate(df=df, target_col='adx', add_accumulation=True, add_prefix=True)
 
+      # 
       df['tmp_adx_diff_ma_extreme'] = df['adx_diff_ma'].shift(1)
       extreme_idx = df.query('adx_direction_day == 1 or adx_direction_day == -1').index
       df.loc[extreme_idx, 'prev_adx_extreme'] = df.loc[extreme_idx, 'tmp_adx_diff_ma_extreme']
       df['prev_adx_extreme'] = df['prev_adx_extreme'].fillna(method='ffill')
 
-      df = df.drop(['prev_adx_diff_ma', 'adx_diff_ma_diff', '0', 'prev_adx', 'tmp_adx_diff_ma_extreme'], axis=1)
+      df = df.drop(['prev_adx_diff_ma', 'adx_diff_ma_diff', '0', 'tmp_adx_diff_ma_extreme'], axis=1)
       
       adx_threshold = 15
       conditions = {
-        'up': 'adx_direction_day > 0 and ((adx_diff_ma < 0 and adx_strength_day < 0) or (adx_diff_ma >= 0 and adx_strength_day > 0))', # f'adx_diff_ma > {adx_threshold} or (adx_direction > 0 and adx_diff_ma > {-adx_threshold})', 
-        'down': 'adx_direction_day < 0 and ((adx_diff_ma > 0 and adx_strength_day < 0) or (adx_diff_ma <= 0 and adx_strength_day > 0))'} # f'adx_diff_ma < {-adx_threshold} or (adx_direction < 0 and adx_diff_ma < {adx_threshold})'} 
+        'up': 'adx_direction_day > 0 and ((adx_diff_ma < 0 and adx_acc_day < 0) or (adx_diff_ma >= 0 and adx_acc_day > 0))', # f'adx_diff_ma > {adx_threshold} or (adx_direction > 0 and adx_diff_ma > {-adx_threshold})', 
+        'down': 'adx_direction_day < 0 and ((adx_diff_ma > 0 and adx_acc_day < 0) or (adx_diff_ma <= 0 and adx_acc_day > 0))'} # f'adx_diff_ma < {-adx_threshold} or (adx_direction < 0 and adx_diff_ma < {adx_threshold})'} 
       values = {
         'up': 'u', 
         'down': 'd'}
@@ -1422,7 +1424,7 @@ def calculate_ta_signal(df):
   #   'candle pattern': '(突破_day >=0)'
 
     # developing version 3 - started 20211104
-    'adx': '((prev_adx_extreme < -15) and (5 > adx_direction_day > 0) and ((adx_diff_ma < 5 and adx_strength_day < 0))) ', #  or (adx_diff_ma > 0 and adx_strength_day > 0)
+    'adx': '((prev_adx_extreme < -15) and (5 > adx_direction_day > 0) and ((adx_diff_ma < 5 and adx_acc_day < 0))) ', #  or (adx_diff_ma > 0 and adx_acc_day > 0)
     'others': '(trend_idx == 4)'
 
   }
@@ -1860,6 +1862,7 @@ def moving_slope(series, periods):
   padded_intercepts = np.concatenate([padding_nan, intercepts])
   
   return (padded_slopes, padded_intercepts)
+
 
 # ================================================ Change calculation =============================================== #
 # calculate change of a column in certain period
@@ -5011,6 +5014,7 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   df['adx_color'] = 'orange'
   df.loc[df.adx > df.prev_adx, 'adx_color'] = 'green'
   df.loc[df.adx < df.prev_adx, 'adx_color'] = 'red'
+  # df.loc[(df.adx_rate < 0.025) & (df.adx_rate > -0.01), 'adx_color'] = 'orange'
   
   strong_trend_idx = df.query(f'adx >= {adx_threshold}').index
   weak_trend_idx = df.query(f'adx < {adx_threshold}').index
@@ -5383,7 +5387,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
   new_title = args['sec_name'].get(title)
   linear_desc = f'{df.loc[df.index.max(), "linear_fit_description"]}'
   candle_desc = f'{df.loc[df.index.max(), "candle_pattern_description"]}'
-  adx_desc = f'[ADX: {df.loc[df.index.max(), "adx_direction_day"]} {df.loc[df.index.max(), "adx_strength_day"]}]'
+  adx_desc = f'[ADX: {df.loc[df.index.max(), "adx_direction_day"]} {df.loc[df.index.max(), "adx_acc_day"]}]'
   
   desc = '\n' + linear_desc + (f'[{df.loc[df.index.max(), "candle_pattern_description"]}]' if candle_desc > ' ' else '') + adx_desc
 
