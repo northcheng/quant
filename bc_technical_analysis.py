@@ -1431,8 +1431,8 @@ def calculate_ta_signal(df):
   #   'candle pattern': '(突破_day >=0)'
 
     # developing version 3 - started 20211104
-    'adx': '((adx_direction > 0) and (adx_diff_ma < 0) and (adx_acc_day < 0) and (tankan_signal > 0 and kijun_signal > 0))', #  or (adx_diff_ma > 0 and adx_acc_day > 0)
-
+    'basic adx + ichimoku': '((adx_direction > 0) and (tankan_signal > 0 and kijun_signal > 0) and ((adx_diff_ma < 0 and adx_acc_day < 0) or (tankan_kijun_signal > 0 and trend_idx == 4) ))', #  or (adx_diff_ma > 0 and adx_acc_day > 0)
+    'candle gaps': '((candle_gap_top == candle_gap_top and Close > candle_gap_top) or (candle_gap_top != candle_gap_top))'
   }
   up_idx = df.query(' and '.join(buy_conditions.values())).index 
   df.loc[up_idx, 'trend'] = 'u'
@@ -1464,7 +1464,7 @@ def calculate_ta_signal(df):
   #   'candle pattern': '((-10 <= 突破_day <= 0) or (-10 <= 窗口_day <= 0))'
 
       # developing version 3 - started 20211104
-      'adx': '((adx_direction < 0) and (adx_diff_ma > 0) and (adx_acc_day < 0))', #  or (adx_diff_ma > 0 and adx_acc_day > 0)
+      'adx': '((adx_direction < 0) and (adx_diff_ma > 0) and (adx_acc_day < 0) and (trend_idx < 0))', #  or (adx_diff_ma > 0 and adx_acc_day > 0)
   } 
   down_idx = df.query(' and '.join(sell_conditions.values())).index 
   df.loc[down_idx, 'trend'] = 'd'
