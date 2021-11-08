@@ -39,7 +39,7 @@
   "visualization": {
     "plot_args": {
       "plot_ratio": {
-        "signals": 1.35, "adx": 2.15,
+        "signals": 1.7, "adx": 2.3,
         "main_indicators": 10, "volume": 0.5
       },
       "test": {
@@ -67,8 +67,11 @@
       "signals": {
         "signal_list": [
           
-          "bb_signal",
           "adx_signal",
+          "kijun_signal",
+          "tankan_signal",
+          
+          "bb_signal",
           "psar_signal",
           "aroon_signal",
           "ichimoku_signal",

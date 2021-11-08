@@ -272,6 +272,14 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
 
       for col in ['tankan', 'kijun']:
         df[f'{col}_day'] = sda(series=df[f'{col}_signal'], zero_as=1)
+        # calculate line trend
+        conditions = {
+          'up': f'{col}_day > 0', # f'adx_diff_ma > {adx_threshold} or (adx_direction > 0 and adx_diff_ma > {-adx_threshold})', 
+          'down': f'{col}_day < 0'} # f'adx_diff_ma < {-adx_threshold} or (adx_direction < 0 and adx_diff_ma < {adx_threshold})'} 
+        values = {
+          'up': 'u', 
+          'down': 'd'}
+        df = assign_condition_value(df=df, column=f'{col}_trend', condition_dict=conditions, value_dict=values, default_value='n') 
         df = cal_change_rate(df=df, target_col=f'{col}', periods=1, add_accumulation=False, add_prefix=f'{col}', drop_na=False)
 
       fl = 'tankan'
@@ -1423,7 +1431,7 @@ def calculate_ta_signal(df):
   #   'candle pattern': '(突破_day >=0)'
 
     # developing version 3 - started 20211104
-    'adx': '((adx_direction > 0) and (adx_diff_ma > -25) and (trend_idx > 0))', #  or (adx_diff_ma > 0 and adx_acc_day > 0)
+    'adx': '((adx_direction > 0) and (adx_diff_ma < 0) and (adx_acc_day < 0) and (tankan_signal > 0 and kijun_signal > 0))', #  or (adx_diff_ma > 0 and adx_acc_day > 0)
 
   }
   up_idx = df.query(' and '.join(buy_conditions.values())).index 
@@ -1456,7 +1464,7 @@ def calculate_ta_signal(df):
   #   'candle pattern': '((-10 <= 突破_day <= 0) or (-10 <= 窗口_day <= 0))'
 
       # developing version 3 - started 20211104
-      'adx': '((adx_direction < 0) and (adx_diff_ma < 25) and (trend_idx < 0)) or (trend_idx < 1)', #  or (adx_diff_ma > 0 and adx_acc_day > 0)
+      'adx': '((adx_direction < 0) and (adx_diff_ma > 0) and (adx_acc_day < 0))', #  or (adx_diff_ma > 0 and adx_acc_day > 0)
   } 
   down_idx = df.query(' and '.join(sell_conditions.values())).index 
   df.loc[down_idx, 'trend'] = 'd'
@@ -2800,7 +2808,7 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
 
     # ================================ Close breakthrough =============================
     # calculate distance between Close and each ichimoku lines    
-    line_weight = {'kijun':1, 'tankan':1, 'cloud_top':1, 'cloud_bottom':1}
+    line_weight = {'kijun':1, 'tankan':1} # , 'cloud_top':1, 'cloud_bottom':1
     line_name = {"kijun":"基准", "tankan":"转换", "cloud_top":"云顶", "cloud_bottom":"云底"} 
     df['break_up'] = ''
     df['break_down'] = ''
@@ -2808,6 +2816,7 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
     col_to_drop.append('breakthrough')
 
     for line in line_weight.keys():
+      
       # set weight for this line
       weight = line_weight[line]
 
@@ -2826,7 +2835,7 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
 
       # calculate distance between close price and indicator
       df['close_to_' + line] = round((df[close] - df[line]) / df[close], ndigits=3)
-      
+
     # drop redundant columns  
     df.drop(col_to_drop, axis=1, inplace=True)
 
@@ -4507,7 +4516,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
   # plot settings
   settings = {
-    'main': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': 'o', 'neg_trend_marker': 'o', 'wave_trend_marker': 'o', 'signal_alpha': 1, 'trend_alpha': 0.5, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'},
+    'main': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': '^', 'neg_trend_marker': 'v', 'wave_trend_marker': 'o', 'signal_alpha': 1, 'trend_alpha': 0.5, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'},
     'other': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': 's', 'neg_trend_marker': 'x', 'wave_trend_marker': '.', 'signal_alpha': 0.3, 'trend_alpha': 0.3, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'}}
   style = settings['main'] if signal_x == 'signal' else settings['other']
 
