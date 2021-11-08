@@ -273,7 +273,6 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       for col in ['tankan', 'kijun']:
         df[f'{col}_day'] = sda(series=df[f'{col}_signal'], zero_as=1)
         df = cal_change_rate(df=df, target_col=f'{col}', periods=1, add_accumulation=False, add_prefix=f'{col}', drop_na=False)
-        df[f'{col}_rate_ma'] = em(series=df[f'{col}_rate'], periods=5, fillna=False).mean()
 
       fl = 'tankan'
       sl = 'kijun'
@@ -1424,15 +1423,14 @@ def calculate_ta_signal(df):
   #   'candle pattern': '(突破_day >=0)'
 
     # developing version 3 - started 20211104
-    'adx': '((prev_adx_extreme < -15) and (5 > adx_direction_day > 0) and ((adx_diff_ma < 5 and adx_acc_day < 0))) ', #  or (adx_diff_ma > 0 and adx_acc_day > 0)
-    'others': '(trend_idx == 4)'
+    'adx': '((adx_direction > 0) and (adx_diff_ma > -25) and (trend_idx > 0))', #  or (adx_diff_ma > 0 and adx_acc_day > 0)
 
   }
   up_idx = df.query(' and '.join(buy_conditions.values())).index 
   df.loc[up_idx, 'trend'] = 'u'
 
-  # # sell conditions
-  # sell_conditions = {
+  # sell conditions
+  sell_conditions = {
 
   #   # # stable version
   #   # 'High is below kijun line': '((High < kijun) or (0 > 窗口_day >= -3) or (0 > 突破_day >= -3) or (0 > 反弹_day >= -3) or (0 > 启明黄昏_day >= -3))',
@@ -1456,9 +1454,12 @@ def calculate_ta_signal(df):
   #   'adx': '(adx_direction < 0)',
   #   'ichimoku': '(ichimoku_trend == "d" or (ichimoku_trend == "n" and trend_idx < 0))',
   #   'candle pattern': '((-10 <= 突破_day <= 0) or (-10 <= 窗口_day <= 0))'
-  # } 
-  # down_idx = df.query(' and '.join(sell_conditions.values())).index 
-  # df.loc[down_idx, 'trend'] = 'd'
+
+      # developing version 3 - started 20211104
+      'adx': '((adx_direction < 0) and (adx_diff_ma < 25) and (trend_idx < 0)) or (trend_idx < 1)', #  or (adx_diff_ma > 0 and adx_acc_day > 0)
+  } 
+  down_idx = df.query(' and '.join(sell_conditions.values())).index 
+  df.loc[down_idx, 'trend'] = 'd'
 
   # # developing version additional buy/sell conditions
   # up_idx = df.query('trend != "u" and trend != "d" and (renko_series_short_idx > 0 or renko_series_long_idx > 0) and ((3 >= 窗口_day > 0) or (3 >= 启明黄昏_day > 0))').index
@@ -1946,22 +1947,14 @@ def cal_change_rate(df, target_col, periods=1, add_accumulation=True, add_prefix
     df[acc_rate_col] = 0
     df.loc[df[rate_col]>=0, acc_day_col] = 1
     df.loc[df[rate_col]<0, acc_day_col] = -1
-  
-    # go through each row, add values with same symbols (+/-)
-    idx = df.index.tolist()
-    for i in range(1, len(df)):
-      current_idx = idx[i]
-      previous_idx = idx[i-1]
-      current_rate = df.loc[current_idx, rate_col]
-      previous_acc_rate = df.loc[previous_idx, acc_rate_col]
-      previous_acc_days = df.loc[previous_idx, acc_day_col]
 
-      if previous_acc_rate * current_rate > 0:
-        df.loc[current_idx, acc_rate_col] = current_rate + previous_acc_rate
-        df.loc[current_idx, acc_day_col] += previous_acc_days
-      else:
-        df.loc[current_idx, acc_rate_col] = current_rate
+    # add continuous values which has the same symbol (+/-)
+    df[acc_rate_col] = sda(series=df[rate_col], zero_as=0)
+    df[acc_day_col] = sda(series=df[acc_day_col], zero_as=1)
 
+    # fill NA in acc_day_col with 0
+    df[acc_rate_col] = df[acc_rate_col].fillna(0.0)
+    df[acc_day_col] = df[acc_day_col].fillna(0).astype(int) 
   if drop_na:        
     df.dropna(inplace=True) 
 
@@ -2761,8 +2754,16 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
     df['senkou_b'] = df['senkou_b'].shift(n_medium)
 
   # tankan-kijun signal
+  df['tankan_to_kijun'] = df['tankan'] - df['kijun']
   df['tankan_kijun_signal'] = cal_crossover_signal(df=df, fast_line='tankan', slow_line='kijun', pos_signal=1, neg_signal=-1, none_signal=0)
   df['tankan_kijun_signal'] = sda(series=df['tankan_kijun_signal'], zero_as=1)
+  conditions = {
+    'up': f'tankan_kijun_signal > 0',
+    'down': f'tankan_kijun_signal < 0'}
+  values = {
+    'up': 'u', 
+    'down': 'd'}
+  df = assign_condition_value(df=df, column=f'tankan_kijun_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
   if cal_status:
     # ================================ Cloud status ===================================
@@ -4975,6 +4976,9 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   # ax.plot(df.index, df.pdi, label='pdi', color='green', marker='.', alpha=0.3)
   # ax.plot(df.index, df.mdi, label='mdi', color='red', marker='.', alpha=0.3)
 
+  # plot overall trend index
+  # ax.plot(df['trend_idx']*10, label='trend_idx', alpha=0.5)
+
   # plot ichimoku signal
   df['zero'] = 0
   if 'tankan_kijun_signal' in df.columns:
@@ -4994,15 +4998,17 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
 
   # plot adx_diff_ma and adx_direction
   df['next_adx_direction'] = df['adx_direction'].shift(-1)
-  green_mask = (df.adx_direction > 0)# | (df.adx_diff_ma > 20) | (df.next_adx_direction > 0) 
-  red_mask = (df.adx_direction < 0)# | (df.adx_diff_ma < -20) | (df.next_adx_direction < 0) 
-  ax.scatter(df.loc[green_mask].index, df.loc[green_mask, 'adx_diff_ma'], label='adx_diff_ma_8', color='green',  alpha=0.5, marker='|')
-  ax.scatter(df.loc[red_mask].index, df.loc[red_mask, 'adx_diff_ma'], label='adx_diff_ma_8', color='red',  alpha=0.5, marker='|')
+  # green_mask = (df.adx_direction > 0)# | (df.adx_diff_ma > 20) | (df.next_adx_direction > 0) 
+  # red_mask = (df.adx_direction < 0)# | (df.adx_diff_ma < -20) | (df.next_adx_direction < 0) 
+  # ax.scatter(df.loc[green_mask].index, df.loc[green_mask, 'adx_diff_ma'], label='adx_diff_ma_8', color='green',  alpha=0.5, marker='|')
+  # ax.scatter(df.loc[red_mask].index, df.loc[red_mask, 'adx_diff_ma'], label='adx_diff_ma_8', color='red',  alpha=0.5, marker='|')
 
-  green_mask = (df.adx_direction > 0) | (df.adx_diff_ma > 20) | (df.next_adx_direction > 0) #
-  red_mask = (df.adx_direction < 0) | (df.adx_diff_ma < -20) | (df.next_adx_direction < 0) # 
+  green_mask = ((df.adx_direction > 0) | (df.adx_diff_ma > 20) | (df.next_adx_direction > 0)) #
+  red_mask = ((df.adx_direction < 0) | (df.adx_diff_ma < -20) | (df.next_adx_direction < 0)) # 
+  # yellow_mask = green_mask & red_mask
   ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=green_mask,  facecolor='green', interpolate=False, alpha=0.2) 
   ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=red_mask, facecolor='red', interpolate=False, alpha=0.2)
+  # ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=yellow_mask, hatch='||||', edgecolor='black', interpolate=False, alpha=0.2)
 
   # plot adx with 
   # color: green(uptrending), red(downtrending), orange(waving); 
@@ -5301,7 +5307,10 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
     # set border color
     spine_alpha = 0.2
     for position in ['top', 'bottom', 'left', 'right']:
-      axes[tmp_indicator].spines[position].set_alpha(spine_alpha)
+      if (i % 2 == 0 and position == 'bottom') or (i % 2 == 1 and position == 'top'):
+        axes[tmp_indicator].spines[position].set_alpha(0)
+      else:
+        axes[tmp_indicator].spines[position].set_alpha(spine_alpha)
 
     # get extra arguments
     target_col = tmp_args.get('target_col')
