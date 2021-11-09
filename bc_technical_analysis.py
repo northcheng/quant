@@ -394,17 +394,17 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       # days since adx direction changed
       df = cal_change_rate(df=df, target_col='adx', add_accumulation=True, add_prefix=True)
 
-      # 
+      # highest(lowest) value of adx_diff_ma of last uptrend(downtrend)
       df['tmp_adx_diff_ma_extreme'] = df['adx_diff_ma'].shift(1)
       extreme_idx = df.query('adx_direction_day == 1 or adx_direction_day == -1').index
       df.loc[extreme_idx, 'prev_adx_extreme'] = df.loc[extreme_idx, 'tmp_adx_diff_ma_extreme']
       df['prev_adx_extreme'] = df['prev_adx_extreme'].fillna(method='ffill')
 
       df = df.drop(['prev_adx_diff_ma', 'adx_diff_ma_diff', '0', 'tmp_adx_diff_ma_extreme'], axis=1)
-      
-      adx_threshold = 15
+
+      # adx trend
       conditions = {
-        'up': 'adx_direction_day > 0 and ((adx_diff_ma < 0 and adx_acc_day < 0) or (adx_diff_ma >= 0 and adx_acc_day > 0))', # f'adx_diff_ma > {adx_threshold} or (adx_direction > 0 and adx_diff_ma > {-adx_threshold})', 
+        'up': 'adx_direction_day > 0 and ((adx_diff_ma < 5 and adx_acc_day < 0) or (adx_diff_ma > -5 and adx_acc_day > 0))', # f'adx_diff_ma > {adx_threshold} or (adx_direction > 0 and adx_diff_ma > {-adx_threshold})', 
         'down': 'adx_direction_day < 0 and ((adx_diff_ma > 0 and adx_acc_day < 0) or (adx_diff_ma <= 0 and adx_acc_day > 0))'} # f'adx_diff_ma < {-adx_threshold} or (adx_direction < 0 and adx_diff_ma < {adx_threshold})'} 
       values = {
         'up': 'u', 
@@ -737,6 +737,18 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         
         # candle entity middle
         df['candle_entity_middle'] = (df['candle_entity_top'] + df['candle_entity_bottom']) * 0.5
+
+        # distance between gap and candle
+        df['candle_to_gap'] = (df['candle_gap_top'] - df['High']) / (df['candle_gap_top'] * 0.05)
+        conditions = {
+          'up': '(candle_to_gap == candle_to_gap and candle_to_gap <= -1)',
+          'middle': '(candle_to_gap == candle_to_gap and -1 < candle_to_gap < 1)',
+          'down': '(candle_to_gap == candle_to_gap and candle_to_gap >= 1)'}
+        values = {
+          'up': 'u', 
+          'middle': 'n',
+          'down': 'd'}
+        df = assign_condition_value(df=df, column='candle_to_gap', condition_dict=conditions, value_dict=values)
 
         # window(gap)
         df['窗口_signal'] = 'n'
@@ -1431,8 +1443,9 @@ def calculate_ta_signal(df):
   #   'candle pattern': '(突破_day >=0)'
 
     # developing version 3 - started 20211104
-    'basic adx + ichimoku': '((adx_direction > 0) and (tankan_signal > 0 and kijun_signal > 0) and ((adx_diff_ma < 0 and adx_acc_day < 0) or (tankan_kijun_signal > 0 and trend_idx == 4) ))', #  or (adx_diff_ma > 0 and adx_acc_day > 0)
-    'candle gaps': '((candle_gap_top == candle_gap_top and Close > candle_gap_top) or (candle_gap_top != candle_gap_top))'
+    'adx trend': '(adx_trend == "u")',
+    'ichimoku trend': '(tankan_signal > 0 and kijun_signal > 0)',
+    'candlestick pattern': '(candle_to_gap != "n")'
   }
   up_idx = df.query(' and '.join(buy_conditions.values())).index 
   df.loc[up_idx, 'trend'] = 'u'
@@ -1464,7 +1477,7 @@ def calculate_ta_signal(df):
   #   'candle pattern': '((-10 <= 突破_day <= 0) or (-10 <= 窗口_day <= 0))'
 
       # developing version 3 - started 20211104
-      'adx': '((adx_direction < 0) and (adx_diff_ma > 0) and (adx_acc_day < 0) and (trend_idx < 0))', #  or (adx_diff_ma > 0 and adx_acc_day > 0)
+      'adx': '(adx_trend != "u") and ((trend_idx == -4) or (突破_trend == "d" or 窗口_trend == "d"))', #  or (adx_diff_ma > 0 and adx_acc_day > 0)
   } 
   down_idx = df.query(' and '.join(sell_conditions.values())).index 
   df.loc[down_idx, 'trend'] = 'd'
