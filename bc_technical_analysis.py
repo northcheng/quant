@@ -274,8 +274,8 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
         df[f'{col}_day'] = sda(series=df[f'{col}_signal'], zero_as=1)
         # calculate line trend
         conditions = {
-          'up': f'{col}_day > 0', # f'adx_diff_ma > {adx_threshold} or (adx_direction > 0 and adx_diff_ma > {-adx_threshold})', 
-          'down': f'{col}_day < 0'} # f'adx_diff_ma < {-adx_threshold} or (adx_direction < 0 and adx_diff_ma < {adx_threshold})'} 
+          'up': f'5 >= {col}_day > 1', # f'adx_diff_ma > {adx_threshold} or (adx_direction > 0 and adx_diff_ma > {-adx_threshold})', 
+          'down': f'-5 <=  {col}_day < -1'} # f'adx_diff_ma < {-adx_threshold} or (adx_direction < 0 and adx_diff_ma < {adx_threshold})'} 
         values = {
           'up': 'u', 
           'down': 'd'}
@@ -1443,9 +1443,9 @@ def calculate_ta_signal(df):
   #   'candle pattern': '(突破_day >=0)'
 
     # developing version 3 - started 20211104
-    'adx trend': '(adx_trend == "u")',
-    'ichimoku trend': '(tankan_signal > 0 and kijun_signal > 0)',
-    'candlestick pattern': '(candle_to_gap != "n")'
+    'adx trend': '(0 < adx_day <= 2 and adx >= 25)',
+    # 'ichimoku trend': '(tankan_trend == "u")',
+    # 'candlestick pattern': '(突破_day > 0)'
   }
   up_idx = df.query(' and '.join(buy_conditions.values())).index 
   df.loc[up_idx, 'trend'] = 'u'
@@ -1477,7 +1477,7 @@ def calculate_ta_signal(df):
   #   'candle pattern': '((-10 <= 突破_day <= 0) or (-10 <= 窗口_day <= 0))'
 
       # developing version 3 - started 20211104
-      'adx': '(adx_trend != "u") and ((trend_idx == -4) or (突破_trend == "d" or 窗口_trend == "d"))', #  or (adx_diff_ma > 0 and adx_acc_day > 0)
+      'adx': '( -1 <= adx_day < 0 and adx >= 25)', #  or (adx_diff_ma > 0 and adx_acc_day > 0)
   } 
   down_idx = df.query(' and '.join(sell_conditions.values())).index 
   df.loc[down_idx, 'trend'] = 'd'
