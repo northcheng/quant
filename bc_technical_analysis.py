@@ -411,15 +411,6 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
         'down': 'd'}
       df = assign_condition_value(df=df, column='adx_trend', condition_dict=conditions, value_dict=values, default_value='n') 
 
-      # # possible signal
-      # conditions = {
-      #   'up': '0 < adx_direction_day <= 5 and ((adx_diff_ma < 5 and adx_acc_day < 0) or (adx_diff_ma > -5 and adx_acc_day > 0))', 
-      #   'down': '-5 <= adx_direction_day < 0 and ((adx_diff_ma < 5 and adx_acc_day > 0) or (adx_diff_ma > -5 and adx_acc_day < 0))'} 
-      # values = {
-      #   'up': 1, 
-      #   'down': -1}
-      # df = assign_condition_value(df=df, column='adx_possible', condition_dict=conditions, value_dict=values, default_value=0) 
-
     # ================================ kst trend ==============================
     if 'kst' in trend_indicators:
       conditions = {
@@ -1427,6 +1418,8 @@ def calculate_ta_signal(df):
   df['trend'] = ''
   df['signal'] = ''
 
+  df['adx_dns'] = df['adx_direction_day'] + df['adx_acc_day']
+
   # buy conditions
   buy_conditions = {
 
@@ -1452,12 +1445,12 @@ def calculate_ta_signal(df):
   #   'candle pattern': '(突破_day >=0)'
 
     # developing version 3 - started 20211104
-    'adx trend': '(adx_diff_ma < 5) and (-5 <= adx_acc_day < 0) and (5 > adx_direction_day > 0)',
+    'adx trend': '(adx_direction > 0 and -2 <= adx_dns <= 2 and tankan_kijun_signal < 0 and ((adx_diff_ma <= 5 and adx_acc_day < 0) or (adx_diff_ma >= -5 and adx_acc_day > 0)))',
     # 'ichimoku trend': '(tankan_trend == "u")',
     # 'candlestick pattern': '(突破_day > 0)'
   }
-  # up_idx = df.query(' and '.join(buy_conditions.values())).index 
-  # df.loc[up_idx, 'trend'] = 'u'
+  up_idx = df.query(' and '.join(buy_conditions.values())).index 
+  df.loc[up_idx, 'trend'] = 'u'
 
   # sell conditions
   sell_conditions = {
@@ -1606,20 +1599,18 @@ def postprocess(df, keep_columns, drop_columns, target_interval=''):
 
   # candle pattern index and description
   conditions = {
+    'overall trend up': '(trend == "u")',
     'candlestick window': '(反弹_trend == "u" or 突破_trend == "u" or 窗口_trend == "u" or 启明黄昏_trend == "u")',
-    'linear uptrend': '(linear_bounce_day == 1 or linear_break_day == 1)',
-    'ichimoku signal': '(0 < tankan_kijun_signal < 5)',
-    'adx trend turned up': '(0 < adx_day <= 5)',
-    # 'adx trend is weak': '(adx_direction < 0 and adx_day <=5)',
+    'ichimoku signal': '(0 < tankan_kijun_signal <= 5)',
+    'adx trend turned up': '(adx_trend == "u" and (adx_diff_ma < 10 or 0 < 窗口_day <= 5 or 0 < 突破_day <= 5))',
     'long after signal': 'tankan_kijun_signal > 15',
     'all trend is down': '(0 > tankan_kijun_signal >= -5) or (linear_slope < 0 and tankan_kijun_signal < 0) or ((window_position_status == "mid" or window_position_status == "mid_down" or window_position_status == "down" or (candle_color == -1 and (window_position_status == "mid_up" or window_position_status == "out"))))',
     'signal': '(signal == "b" or signal == "s")'}
   values = {
+    'overall trend up': 'potential',
     'candlestick window': 'potential',
-    'ichimoku signal': 'potential',
     'adx trend turned up': 'potential',
     'linear uptrend': 'potential',
-    # 'adx trend is weak': '',
     'long after signal': '',
     'all trend is down': '',
     'signal': 'signal'}
