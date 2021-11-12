@@ -409,7 +409,16 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       values = {
         'up': 'u', 
         'down': 'd'}
-      df = assign_condition_value(df=df, column='adx_trend', condition_dict=conditions, value_dict=values, default_value='n')           
+      df = assign_condition_value(df=df, column='adx_trend', condition_dict=conditions, value_dict=values, default_value='n') 
+
+      # # possible signal
+      # conditions = {
+      #   'up': '0 < adx_direction_day <= 5 and ((adx_diff_ma < 5 and adx_acc_day < 0) or (adx_diff_ma > -5 and adx_acc_day > 0))', 
+      #   'down': '-5 <= adx_direction_day < 0 and ((adx_diff_ma < 5 and adx_acc_day > 0) or (adx_diff_ma > -5 and adx_acc_day < 0))'} 
+      # values = {
+      #   'up': 1, 
+      #   'down': -1}
+      # df = assign_condition_value(df=df, column='adx_possible', condition_dict=conditions, value_dict=values, default_value=0) 
 
     # ================================ kst trend ==============================
     if 'kst' in trend_indicators:
@@ -1443,12 +1452,12 @@ def calculate_ta_signal(df):
   #   'candle pattern': '(突破_day >=0)'
 
     # developing version 3 - started 20211104
-    'adx trend': '(0 < adx_day <= 2 and adx >= 25)',
+    'adx trend': '(adx_diff_ma < 5) and (-5 <= adx_acc_day < 0) and (5 > adx_direction_day > 0)',
     # 'ichimoku trend': '(tankan_trend == "u")',
     # 'candlestick pattern': '(突破_day > 0)'
   }
-  up_idx = df.query(' and '.join(buy_conditions.values())).index 
-  df.loc[up_idx, 'trend'] = 'u'
+  # up_idx = df.query(' and '.join(buy_conditions.values())).index 
+  # df.loc[up_idx, 'trend'] = 'u'
 
   # sell conditions
   sell_conditions = {
@@ -1479,8 +1488,8 @@ def calculate_ta_signal(df):
       # developing version 3 - started 20211104
       'adx': '( -1 <= adx_day < 0 and adx >= 25)', #  or (adx_diff_ma > 0 and adx_acc_day > 0)
   } 
-  down_idx = df.query(' and '.join(sell_conditions.values())).index 
-  df.loc[down_idx, 'trend'] = 'd'
+  # down_idx = df.query(' and '.join(sell_conditions.values())).index 
+  # df.loc[down_idx, 'trend'] = 'd'
 
   # # developing version additional buy/sell conditions
   # up_idx = df.query('trend != "u" and trend != "d" and (renko_series_short_idx > 0 or renko_series_long_idx > 0) and ((3 >= 窗口_day > 0) or (3 >= 启明黄昏_day > 0))').index
@@ -1600,8 +1609,8 @@ def postprocess(df, keep_columns, drop_columns, target_interval=''):
     'candlestick window': '(反弹_trend == "u" or 突破_trend == "u" or 窗口_trend == "u" or 启明黄昏_trend == "u")',
     'linear uptrend': '(linear_bounce_day == 1 or linear_break_day == 1)',
     'ichimoku signal': '(0 < tankan_kijun_signal < 5)',
-    'adx trend turned up': '(adx_trend == "u" and adx_day <= 10)',
-    'adx trend is weak': '(adx_direction < 0 and adx_day <=5)',
+    'adx trend turned up': '(0 < adx_day <= 5)',
+    # 'adx trend is weak': '(adx_direction < 0 and adx_day <=5)',
     'long after signal': 'tankan_kijun_signal > 15',
     'all trend is down': '(0 > tankan_kijun_signal >= -5) or (linear_slope < 0 and tankan_kijun_signal < 0) or ((window_position_status == "mid" or window_position_status == "mid_down" or window_position_status == "down" or (candle_color == -1 and (window_position_status == "mid_up" or window_position_status == "out"))))',
     'signal': '(signal == "b" or signal == "s")'}
@@ -1610,7 +1619,7 @@ def postprocess(df, keep_columns, drop_columns, target_interval=''):
     'ichimoku signal': 'potential',
     'adx trend turned up': 'potential',
     'linear uptrend': 'potential',
-    'adx trend is weak': '',
+    # 'adx trend is weak': '',
     'long after signal': '',
     'all trend is down': '',
     'signal': 'signal'}
@@ -5031,6 +5040,24 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=green_mask,  facecolor='green', interpolate=False, alpha=0.2) 
   ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=red_mask, facecolor='red', interpolate=False, alpha=0.2)
   # ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=yellow_mask, hatch='||||', edgecolor='black', interpolate=False, alpha=0.2)
+
+  # # connect adx and adx_diff_ma
+  # possible_idx = df.query('adx_possible == 1 and adx_diff_ma < 0 and adx >= 25 and (adx_direction_day <=3 or adx_acc_day <= 3)').index
+  # for idx in possible_idx:
+  #   ax.vlines(idx, df.loc[idx, 'adx'], df.loc[idx, 'adx_diff_ma'], color='green', linestyle='-', alpha=0.5)
+
+  # possible_idx = df.query('adx_possible == 1 and adx_diff_ma < 0 and adx < 25 and (adx_direction_day <=3 or adx_acc_day <= 3)').index
+  # for idx in possible_idx:
+  #   ax.vlines(idx, df.loc[idx, 'adx'], df.loc[idx, 'adx_diff_ma'], color='orange', linestyle='--', alpha=0.5)
+
+  # possible_idx = df.query('adx_possible == -1 and adx >= 25').index
+  # for idx in possible_idx:
+  #   ax.vlines(idx, df.loc[idx, 'adx'], df.loc[idx, 'adx_diff_ma'], color='red', linestyle='-', alpha=0.5)
+
+  # possible_idx = df.query('adx_possible == -1 and adx < 25').index
+  # for idx in possible_idx:
+  #   ax.vlines(idx, df.loc[idx, 'adx'], df.loc[idx, 'adx_diff_ma'], color='red', linestyle='--', alpha=0.5)
+  
 
   # plot adx with 
   # color: green(uptrending), red(downtrending), orange(waving); 

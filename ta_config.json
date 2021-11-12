@@ -68,8 +68,8 @@
         "signal_list": [
           
           "adx_signal",
-          "kijun_signal",
           "tankan_signal",
+          "kijun_signal",
           
           "bb_signal",
           "psar_signal",
