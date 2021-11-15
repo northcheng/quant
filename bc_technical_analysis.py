@@ -109,6 +109,7 @@ def load_data(symbols, config, load_empty_data=False, load_derived_data=False, d
       for f in file_names.keys():
         file_name = derived_data_prefix + file_names[f]
         if os.path.exists(f'{file_path}{file_name}'):
+          print(f'{file_path}{file_name}')
           data[f] = io_util.pickle_load_data(file_path=file_path, file_name=f'{file_name}')
         else:
           print(f'{file_name} not exists')
@@ -738,18 +739,6 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         # candle entity middle
         df['candle_entity_middle'] = (df['candle_entity_top'] + df['candle_entity_bottom']) * 0.5
 
-        # distance between gap and candle
-        df['candle_to_gap'] = (df['candle_gap_top'] - df['High']) / (df['candle_gap_top'] * 0.05)
-        conditions = {
-          'up': '(candle_to_gap == candle_to_gap and candle_to_gap <= -1)',
-          'middle': '(candle_to_gap == candle_to_gap and -1 < candle_to_gap < 1)',
-          'down': '(candle_to_gap == candle_to_gap and candle_to_gap >= 1)'}
-        values = {
-          'up': 'u', 
-          'middle': 'n',
-          'down': 'd'}
-        df = assign_condition_value(df=df, column='candle_to_gap', condition_dict=conditions, value_dict=values)
-
         # window(gap)
         df['窗口_signal'] = 'n'
         conditions = {
@@ -789,6 +778,13 @@ def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'supp
         df = assign_condition_value(df=df, column='window_position_status', condition_dict=conditions, value_dict=values, default_value='')#, default_value=0)
         df['previous_window_position_status'] = df['window_position_status'].shift(1)
         df['previous_candle_color'] = df['candle_color'].shift(1)
+
+        # distance between gap and candle
+        up_idx = df.query('window_position_status == "up"').index
+        down_idx = df.query('window_position_status == "down"').index
+        df['candle_to_gap'] = 0
+        df.loc[up_idx, 'candle_to_gap'] = (df.loc[up_idx, 'candle_entity_bottom'] - df.loc[up_idx, 'candle_gap_top']) / (df.loc[up_idx, 'candle_gap_top'] * 0.025)
+        df.loc[down_idx, 'candle_to_gap'] = (df.loc[down_idx, 'candle_gap_bottom'] - df.loc[down_idx, 'candle_entity_top']) / (df.loc[down_idx, 'candle_entity_top'] * 0.025)
 
         # rebound or hitpeak
         df['反弹_signal'] = ''
@@ -1603,16 +1599,21 @@ def postprocess(df, keep_columns, drop_columns, target_interval=''):
     'candlestick window': '(反弹_trend == "u" or 突破_trend == "u" or 窗口_trend == "u" or 启明黄昏_trend == "u")',
     'ichimoku signal': '(0 < tankan_kijun_signal <= 5)',
     'adx trend turned up': '(adx_trend == "u" and (adx_diff_ma < 10 or 0 < 窗口_day <= 5 or 0 < 突破_day <= 5))',
+    'adx direction is down': 'adx_direction_day < 0',
     'long after signal': 'tankan_kijun_signal > 15',
-    'all trend is down': '(0 > tankan_kijun_signal >= -5) or (linear_slope < 0 and tankan_kijun_signal < 0) or ((window_position_status == "mid" or window_position_status == "mid_down" or window_position_status == "down" or (candle_color == -1 and (window_position_status == "mid_up" or window_position_status == "out"))))',
+    'renko': '((renko_duration > 60) and renko_color == "red" or below_renko_l > 0)',
+    'adx trend turned up': '(adx_trend == "u" and (adx_diff_ma < 10 or 0 < 窗口_day <= 5 or 0 < 突破_day <= 5) and prev_adx_extreme <= -10)',
+    'around the gap': '(window_position_status == "down" and candle_to_gap < 0.5) or (window_position_status == "out" and candle_color == -1) or window_position_status == "mid" or window_position_status == "mid_up" or window_position_status == "mid_down"',
     'signal': '(signal == "b" or signal == "s")'}
   values = {
     'overall trend up': 'potential',
     'candlestick window': 'potential',
-    'adx trend turned up': 'potential',
-    'linear uptrend': 'potential',
+    'ichimoku signal': 'potential',
+    'adx direction is down': '',
     'long after signal': '',
-    'all trend is down': '',
+    'renko': '',
+    'adx trend turned up': 'potential',
+    'around the gap': '',
     'signal': 'signal'}
   df = assign_condition_value(df=df, column='label', condition_dict=conditions, value_dict=values, default_value='')
 
@@ -5106,7 +5107,7 @@ def plot_renko(df, start=None, end=None, use_ax=None, title=None, plot_in_date=T
     df = df.query('renko_real == "green" or renko_real =="red"').reset_index()
   
   # plot renko
-  legends = {'u': 'u', 'd': 'd', 'n':'n', '':''}
+  legends = {'u': 'u', 'd': 'd', 'n':'', '':''}
   for index, row in df.iterrows():
     renko = Rectangle((index, row['renko_o']), row['renko_countdown_days'], row['renko_brick_height'], facecolor=row['renko_color'], edgecolor='black', linestyle='-', linewidth=1, fill=True, alpha=0.15, label=legends[row['renko_trend']]) #  edgecolor=row['renko_color'], linestyle='-', linewidth=5, 
     legends[row['renko_trend']] = "_nolegend_"
@@ -5290,7 +5291,7 @@ def plot_indicator(df, target_col, start=None, end=None, signal_x='signal', sign
     return ax
 
 # plot multiple indicators on a same chart
-def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, save_image=False, show_image=False, title=None, width=25, unit_size=3, wspace=0, hspace=0.01, subplot_args=default_plot_args):
+def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, save_image=False, show_image=False, title=None, width=25, unit_size=3, wspace=0, hspace=0.03, subplot_args=default_plot_args):
   """
   Plot Ichimoku and mean reversion in a same plot
   :param df: dataframe with ichimoku and mean reversion columns
@@ -5345,9 +5346,9 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
       axes[tmp_indicator].patch.set_alpha(0.5)
 
     # set border color
-    spine_alpha = 0.2
+    spine_alpha = 0.3
     for position in ['top', 'bottom', 'left', 'right']:
-      if (i % 2 == 0 and position == 'bottom') or (i % 2 == 1 and position == 'top'):
+      if (i == 0 and position in ['bottom']) or (i not in [0, num_indicators-1] and position in ['top', 'bottom']): #(i % 2 == 0 and position == 'bottom') or (i % 2 == 1 and position == 'top'):
         axes[tmp_indicator].spines[position].set_alpha(0)
       else:
         axes[tmp_indicator].spines[position].set_alpha(spine_alpha)

@@ -39,8 +39,8 @@
   "visualization": {
     "plot_args": {
       "plot_ratio": {
-        "signals": 1.7, "adx": 2.3,
-        "main_indicators": 10, "volume": 0.5
+        "signals": 1.7, "adx": 2.3, "volume": 0.5, 
+        "main_indicators": 10
       },
       "test": {
         "target_col": [
