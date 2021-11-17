@@ -109,7 +109,6 @@ def load_data(symbols, config, load_empty_data=False, load_derived_data=False, d
       for f in file_names.keys():
         file_name = derived_data_prefix + file_names[f]
         if os.path.exists(f'{file_path}{file_name}'):
-          print(f'{file_path}{file_name}')
           data[f] = io_util.pickle_load_data(file_path=file_path, file_name=f'{file_name}')
         else:
           print(f'{file_name} not exists')
@@ -402,6 +401,16 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       df['prev_adx_extreme'] = df['prev_adx_extreme'].fillna(method='ffill')
 
       df = df.drop(['prev_adx_diff_ma', 'adx_diff_ma_diff', '0', 'tmp_adx_diff_ma_extreme'], axis=1)
+
+      # adx strength
+      conditions = {
+        'up': 'adx >= 25', # f'adx_diff_ma > {adx_threshold} or (adx_direction > 0 and adx_diff_ma > {-adx_threshold})', 
+        'down': 'adx < 25'} # f'adx_diff_ma < {-adx_threshold} or (adx_direction < 0 and adx_diff_ma < {adx_threshold})'} 
+      values = {
+        'up': 1, 
+        'down': -1}
+      df = assign_condition_value(df=df, column='adx_strength_day', condition_dict=conditions, value_dict=values, default_value=0)
+      df['adx_strength_day'] = sda(series=df['adx_strength_day'], zero_as=0)
 
       # adx trend
       conditions = {
@@ -1604,6 +1613,7 @@ def postprocess(df, keep_columns, drop_columns, target_interval=''):
     'renko': '((renko_duration > 60) and renko_color == "red" or below_renko_l > 0)',
     'adx trend turned up': '(adx_trend == "u" and (adx_diff_ma < 10 or 0 < 窗口_day <= 5 or 0 < 突破_day <= 5) and prev_adx_extreme <= -10)',
     'around the gap': '(window_position_status == "down" and candle_to_gap < 0.5) or (window_position_status == "out" and candle_color == -1) or window_position_status == "mid" or window_position_status == "mid_up" or window_position_status == "mid_down"',
+    'adx trend is weak': '(adx_strength_day < -10 and -10 < adx_diff_ma < 10)',
     'signal': '(signal == "b" or signal == "s")'}
   values = {
     'overall trend up': 'potential',
@@ -1614,6 +1624,7 @@ def postprocess(df, keep_columns, drop_columns, target_interval=''):
     'renko': '',
     'adx trend turned up': 'potential',
     'around the gap': '',
+    'adx trend is weak': '',
     'signal': 'signal'}
   df = assign_condition_value(df=df, column='label', condition_dict=conditions, value_dict=values, default_value='')
 
@@ -3456,12 +3467,11 @@ def add_renko_features(df, brick_size_factor=0.1, merge_duplicated=True):
   above_idx = df.query('Close > renko_h').index
   among_idx = df.query('renko_l <= Close <= renko_h').index
   below_idx = df.query('Close < renko_l').index
-  df.loc[above_idx, 'above_renko_h'] = 1
-  df.loc[below_idx, 'below_renko_l'] = 1
-  df.loc[among_idx, 'among_renko'] = 1
+  df.loc[above_idx, 'renko_position'] = 1
+  df.loc[among_idx, 'renko_position'] = 0
+  df.loc[below_idx, 'renko_position'] = -1
 
   renko_swift_idx = df.query('renko_real == renko_real').index
-
   for col in ['above_renko_h', 'among_renko', 'below_renko_l']:
     df.loc[renko_swift_idx, col] = 0
     df[col] = sda(df[col], zero_as=None, )   
