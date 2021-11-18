@@ -1718,7 +1718,14 @@ def read_nytimes(year, month, file_path, file_format='.json'):
 
 #----------------------------- Stock List Management ----------------------------#
 def process_futu_exported(file_path, file_name):
-  
+  """
+  process stock info that exported from futu-niuniu
+
+  :param file_path: file path
+  :param file_name: file name (.csv file)
+  :returns: dataframe
+  :raises: None
+  """
   # load futu exported excel file 
   universe = pd.read_csv(file_path + file_name, dtype={'代码': str})
   
@@ -1738,23 +1745,17 @@ def process_futu_exported(file_path, file_name):
     
   # turn '%' to numbers
   for col in rate_change_columns:
-    universe[f'{col}%'] = universe[col].apply(lambda x: float(x.replace('%', '')))  
-  universe.drop(rate_change_columns, axis=1, inplace=True)  
-  rate_change_columns = [f'{x}%' for x in rate_change_columns]
-  
-  universe['股息率TTM%'] = universe['股息率TTM'].apply(lambda x: float(x.replace('%', '')))
-  universe.drop(['股息率TTM'], axis=1, inplace=True)  
-  fundamental_columns = ['股息率TTM%', '市盈率TTM', '市盈率(静)', '市净率']
-  
+    universe[col] = universe[col].apply(lambda x: float(x.replace('%', ''))/100)  
+  universe['股息率TTM'] = universe['股息率TTM'].apply(lambda x: float(x.replace('%', ''))/100)
+
+  # process fundamental columns
   for col in ['市盈率TTM', '市盈率(静)', '市净率']:
     universe[col] = universe[col].replace('亏损', '-1')
     universe[col] = universe[col].replace('-', '0')
     universe[col] = universe[col].astype(float)
-    
-  universe['流通率%'] = (universe['流通股本'] / universe['总股本'] * 100).round(2)
+  universe['流通率'] = (universe['流通股本'] / universe['总股本']).round(2)
   
   # for chinese stock symbols
-  #   universe['代码'] = universe['代码'].astype(str).apply(lambda x: x.rjust(6, '0'))
   for index, row in universe.iterrows():
     current_symbol = row['代码']
     if len(current_symbol) == 6:
@@ -1764,29 +1765,49 @@ def process_futu_exported(file_path, file_name):
       elif current_symbol[0] in ['0', '3']:
         new_symbol += '.SHE'
       universe.loc[index, '代码'] = new_symbol
-  #       print(len(current_symbol), current_symbol[0], new_symbol)
+
   # convert column names from chinese to english
   final_columns = {
     '代码': 'symbol', '名称': 'name', '所属行业': 'category', 
-    '涨跌幅%': 'close_rate', '振幅%': 'close_range', '换手率%': 'turnover', '流通率%': 'circulation', '成交量': 'volume', '成交额': 'volume_value', 
-    '总市值': 'market_value', '流通市值': 'market_value_circulation', '总股本': 'stock_total', '流通股本': 'stock_circulation',
-    '股息率TTM%': 'dividend_rate', '市盈率TTM': 'PE_TTM', '市盈率(静)': 'PE', '市净率': 'PB', 
-    '今开': 'open', '昨收': 'close_p1', '最高': 'high', '最低': 'low', '最新价': 'close', 
-    '5日涨跌幅%': 'rate_5d', '10日涨跌幅%': 'rate_10d', '20日涨跌幅%': 'rate_20d', '60日涨跌幅%': 'rate_60d', '120日涨跌幅%':'rate_120d', '250日涨跌幅%':'rate_250d', '年初至今涨跌幅%': 'rate_this_year'
+    '换手率%': 'turnover', '振幅%': 'close_range', '今开': 'open', '昨收': 'close_p1', '最高': 'high', '最低': 'low', '最新价': 'close', 
+    '涨跌幅': 'close_rate', '5日涨跌幅': 'rate_5d', '10日涨跌幅': 'rate_10d', '20日涨跌幅': 'rate_20d', '60日涨跌幅': 'rate_60d', '120日涨跌幅':'rate_120d', '250日涨跌幅':'rate_250d', '年初至今涨跌幅': 'rate_this_year',
+    '流通率': 'circulation', '成交量': 'volume', '成交额': 'volume_value', '总市值': 'market_value', '流通市值': 'market_value_circulation', '总股本': 'stock_total', '流通股本': 'stock_circulation',
+    '股息率TTM': 'dividend_rate', '市盈率TTM': 'PE_TTM', '市盈率(静)': 'PE', '市净率': 'PB', 
+    
   }
   id_columns_en = [final_columns[x] for x in id_columns if x in final_columns.keys()]
   basic_columns_en = [final_columns[x] for x in basic_columns if x in final_columns.keys()]
   rate_change_columns_en = [final_columns[x] for x in rate_change_columns if x in final_columns.keys()]
   volume_columns_en = [final_columns[x] for x in volume_columns if x in final_columns.keys()]
   fundamental_columns_en = [final_columns[x] for x in fundamental_columns if x in final_columns.keys()]
-  
+
   universe = universe[final_columns.keys()].copy()
   universe = universe.rename(columns=final_columns)
+
+  # classify stock type (e.g company, etf/etn, adr, etc.)
+  universe['type'] = '-'
+
+  company_filter = universe.query('category != "-"').index
+  universe.loc[company_filter, 'type'] = 'company'
+
+  adr_filter =universe.name.apply(lambda x: True if (('ADR' in x)) else False)
+  universe.loc[adr_filter, 'type'] = 'adr'
+
+  etf_filter = universe.name.apply(lambda x: True if (('指数' in x) or ('基金' in x) or ('做多' in x) or ('做空' in x)or ('ETN' in x) or ('ETF' in x)) else False)
+  universe.loc[etf_filter, 'type'] = 'etf'
   
   return universe
 
 
 def import_futu_exported(df, config):
+  """
+  get list and dict from stock info dataframe, for importing into selected_sec_list.json and ta_config.json
+
+  :param df: dataframe of stock information
+  :param config: dict of config
+  :returns: dict
+  :raises: None
+  """
   codes = df[['symbol', 'name']].set_index('symbol')
 
   # selected_sec_list

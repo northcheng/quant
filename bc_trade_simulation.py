@@ -323,7 +323,7 @@ class FixedPositionTrader:
   def visualize(self, symbol, start_date=None, end_date=None, is_return=False, is_show=True, is_save=False, save_path=None):
 
     # create image
-    fig = plt.figure(figsize=(20, 5))  
+    fig = plt.figure(figsize=(25, 5))  
     gs = gridspec.GridSpec(2, 1, height_ratios=[1, 1])
     trade_plot = plt.subplot(gs[0])
     money_plot = plt.subplot(gs[1], sharex=trade_plot)
