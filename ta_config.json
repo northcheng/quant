@@ -53,6 +53,7 @@
           "candlestick",
           "ichimoku",
           "renko",
+          "psar",
           "linear"
         ],
         "candlestick_width": 0.62,

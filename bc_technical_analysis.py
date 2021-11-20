@@ -390,28 +390,30 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       
       # direction of adx_diff_ma change
       df = cal_change(df=df, target_col='adx_diff_ma', add_accumulation=False, add_prefix=True)
-      wave_idx_up = df.query('-1 < adx_diff_ma_change < 1 and adx_diff_ma >= 15').index
-      wave_idx_down = df.query('-1 < adx_diff_ma_change < 1 and adx_diff_ma <= -15').index
-      wave_idx_ignore = df.query('-1 < adx_diff_ma_change < 1 and (15 < adx_diff_ma < 15)').index
-      # for idx in wave_idx:
-      #   if df.loc[idx, ]
-      df.loc[wave_idx_up, 'adx_diff_ma_change'] = 1
-      df.loc[wave_idx_down, 'adx_diff_ma_change'] = -1
-      df.loc[wave_idx_ignore, 'adx_diff_ma_change'] = 0
+      wave_idx = df.query('-1 < adx_diff_ma_change < 1').index
+      df.loc[wave_idx, 'adx_diff_ma_change'] = 0
 
-      df['adx_direction'] = sda(series=df['adx_diff_ma_change'], zero_as=0)
       df['0'] = 0
+      df['adx_direction'] = sda(series=df['adx_diff_ma_change'], zero_as=0)
       df['adx_direction_day'] = cal_crossover_signal(df=df, fast_line='adx_direction', slow_line='0', pos_signal=1, neg_signal=-1, none_signal=0)
       df['adx_direction_day'] = sda(series=df['adx_direction_day'], zero_as=1)
+      df = df.drop(['0'], axis=1)
 
       # highest(lowest) value of adx_diff_ma of last uptrend(downtrend)
-      df['tmp_adx_diff_ma_extreme'] = df['adx_diff_ma'].shift(1)
-      extreme_idx = df.query('adx_direction_day == 1 or adx_direction_day == -1').index
-      df.loc[extreme_idx, 'prev_adx_extreme'] = df.loc[extreme_idx, 'tmp_adx_diff_ma_extreme']
+      extreme_idx = df.query('adx_direction_day == 1 or adx_direction_day == -1').index.tolist()
+      for i in range(len(extreme_idx)):
+        tmp_idx = extreme_idx[i]
+        if i == 0:
+          start = df.index.min()
+          end = extreme_idx[i]
+        else:
+          start = extreme_idx[i-1]
+          end = extreme_idx[i]
+        tmp_direction = df.loc[tmp_idx, 'adx_direction_day']
+        tmp_extreme = df[start:end]['adx_diff_ma'].max() if tmp_direction < 0 else df[start:end]['adx_diff_ma'].min()
+        df.loc[tmp_idx, 'prev_adx_extreme'] = tmp_extreme
       df['prev_adx_extreme'] = df['prev_adx_extreme'].fillna(method='ffill')
-
-      df = df.drop(['0', 'tmp_adx_diff_ma_extreme'], axis=1)
-
+      
       # direction of adx change
       df = cal_change_rate(df=df, target_col='adx', add_accumulation=True, add_prefix=True)
 
@@ -1432,22 +1434,24 @@ def calculate_ta_signal(df):
   # copy data, initialize
   df = df.copy()
 
+  df = cal_change(df=df, target_col='adx', add_accumulation=False, add_prefix=True)
+
   # ================================ buy and sell signals ==========================
   df['trend'] = ''
   df['signal'] = ''
 
   df['adx_dns'] = df['adx_direction_day'] + df['adx_acc_day']
-  df['prev_adx_diff_ma_change'] = df['adx_diff_ma_change'].shift(1)
 
   # buy conditions
   buy_conditions = {
 
     # developing version 3 - started 20211104
-    'main signal': '(adx_trend == "u")',
-    'adx': '(prev_adx_extreme < 5)',
-    'renko': 'renko_trend != "d"',
-    'ichimoku': '((ichimoku_trend == "u") and (tankan_rate > 0) and (kijun_rate > 0.0 or (kijun_rate == 0.0 and candle_entity_bottom >= kijun) or 5 > tankan_kijun_signal > 0))',
-    'candlestick': '(candle_color == 1)'
+    'main signal': '(adx_direction_day > 1)',
+    'adx_diff_ma': '(10 > adx_diff_ma)',
+    'adx_extreme': '((prev_adx_extreme < -15) or (15 > prev_adx_extreme > 0) or (candle_entity_bottom > kijun))',
+    'adx trend strength': '((adx_strength_day > 0 or tankan_kijun_signal < 0) and (adx_change > 1.5 or adx_change < -1.5))',
+    'psar': '(psar_trend == "u")',
+    # 'renko': '(renko_series_short_idx >= 2)',
   }
   up_idx = df.query(' and '.join(buy_conditions.values())).index 
   df.loc[up_idx, 'trend'] = 'u'
@@ -1456,29 +1460,31 @@ def calculate_ta_signal(df):
   wave_conditions = {
 
     # developing version 3 - started 20211118
-    'candlestick gap 1': '(window_position_status == "mid_down" or window_position_status == "mid" or window_position_status == "mid_up")',
-    'candlestick gap 2': '(窗口_day == 1 or 突破_day == 1)',
+    'candlestick gap 1': '(trend == "u" and (window_position_status == "mid_down" or window_position_status == "mid" or window_position_status == "mid_up"))',
+    'candlestick gap 2': '(trend == "u" and (窗口_day == 1 or 突破_day == 1))',
     # 'candlestick gap 3': '(adx_strength_day < -20)',
 
   } 
   wave_idx = df.query(' or '.join(wave_conditions.values())).index 
   df.loc[wave_idx, 'trend'] = 'n'
 
-  # # sell conditions
-  # sell_conditions = {
+  # sell conditions
+  sell_conditions = {
 
-  #   # developing version 3 - started 20211104
-  #   'adx': '(adx_trend == "d")',
-  #   'ichimoku': 'candle_entity_top < kijun '
+    # developing version 3 - started 20211104
+    'main': '(adx_direction_day < -1)',
+    'adx_diff_ma': '(adx_diff_ma < 0)',
+    'psar': '((trend_idx < 0) or (psar_trend == "d") or (启明黄昏_trend == "d" and (-5 < 窗口_day < 0 or -5 < 突破_day < 0)))',
+    # 'ichimoku or candlestick': '((candle_entity_top < kijun))',
 
-  # } 
-  # down_idx = df.query(' and '.join(sell_conditions.values())).index 
-  # df.loc[down_idx, 'trend'] = 'd'
+  } 
+  down_idx = df.query(' and '.join(sell_conditions.values())).index 
+  df.loc[down_idx, 'trend'] = 'd'
 
-  # # ================================ Calculate overall siganl ======================
-  # df['signal_day'] = sda(series=df['trend'].replace({'':0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
-  # df.loc[df['signal_day'] == 1, 'signal'] = 'b'
-  # df.loc[df['signal_day'] ==-1, 'signal'] = 's'
+  # ================================ Calculate overall siganl ======================
+  df['signal_day'] = sda(series=df['trend'].replace({'':0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
+  df.loc[df['signal_day'] == 1, 'signal'] = 'b'
+  df.loc[df['signal_day'] ==-1, 'signal'] = 's'
 
   return df
 
