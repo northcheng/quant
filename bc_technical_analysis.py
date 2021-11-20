@@ -1482,9 +1482,9 @@ def calculate_ta_signal(df):
   df.loc[down_idx, 'trend'] = 'd'
 
   # ================================ Calculate overall siganl ======================
-  df['signal_day'] = sda(series=df['trend'].replace({'':0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
-  df.loc[df['signal_day'] == 1, 'signal'] = 'b'
-  df.loc[df['signal_day'] ==-1, 'signal'] = 's'
+  # df['signal_day'] = sda(series=df['trend'].replace({'':0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
+  # df.loc[df['signal_day'] == 1, 'signal'] = 'b'
+  # df.loc[df['signal_day'] ==-1, 'signal'] = 's'
 
   return df
 
