@@ -1463,6 +1463,7 @@ def calculate_ta_signal(df):
     'candlestick gap 1': '(trend == "u" and (window_position_status == "mid_down" or window_position_status == "mid" or window_position_status == "mid_up"))',
     'candlestick gap 2': '(trend == "u" and (窗口_day == 1 or 突破_day == 1))',
     # 'candlestick gap 3': '(adx_strength_day < -20)',
+    'renko': '(trend == "u" and renko_series_short_idx >= 2)',
 
   } 
   wave_idx = df.query(' or '.join(wave_conditions.values())).index 
@@ -1600,7 +1601,7 @@ def postprocess(df, keep_columns, drop_columns, target_interval=''):
     'adx trend turned up': '(adx_trend == "u" and (adx_diff_ma < 10 or 0 < 窗口_day <= 5 or 0 < 突破_day <= 5) and prev_adx_extreme <= -10)',
     'around the gap': '(window_position_status == "down" and candle_to_gap < 0.5) or (window_position_status == "out" and candle_color == -1) or window_position_status == "mid" or window_position_status == "mid_up" or window_position_status == "mid_down"',
     'adx trend is weak': '(adx_strength_day < -10 and -10 < adx_diff_ma < 10)',
-    'overall trend up': '(trend == "u")',
+    'overall trend up': '(trend == "u" or trend == "n")',
     'signal': '(signal == "b" or signal == "s")'}
   values = {
     
