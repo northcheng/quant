@@ -1447,9 +1447,9 @@ def calculate_ta_signal(df):
 
     # developing version 3 - started 20211104
     'main signal': '(adx_direction_day > 1)',
-    'adx_diff_ma': '(10 > adx_diff_ma)',
+    'adx_diff_ma': '(15 > adx_diff_ma)',
     'adx_extreme': '((prev_adx_extreme < -15) or (15 > prev_adx_extreme > 0) or (candle_entity_bottom > kijun))',
-    'adx trend strength': '((adx_strength_day > 0 or tankan_kijun_signal < 0) and (adx_change > 1.5 or adx_change < -1.5))',
+    'adx trend strength': '((adx_strength_day > 0 or tankan_kijun_signal < 0 or 0 < adx_symbol_day < 5) and (adx_change > 1.5 or adx_change < -1.5))',
     'psar': '(psar_trend == "u")',
     # 'renko': '(renko_series_short_idx >= 2)',
   }
@@ -1463,7 +1463,7 @@ def calculate_ta_signal(df):
     'candlestick gap 1': '(trend == "u" and (window_position_status == "mid_down" or window_position_status == "mid" or window_position_status == "mid_up"))',
     'candlestick gap 2': '(trend == "u" and (窗口_day == 1 or 突破_day == 1))',
     # 'candlestick gap 3': '(adx_strength_day < -20)',
-    'renko': '(trend == "u" and renko_series_short_idx >= 2)',
+    'renko': '(trend == "u" and renko_series_short_idx < 2)',
 
   } 
   wave_idx = df.query(' or '.join(wave_conditions.values())).index 
