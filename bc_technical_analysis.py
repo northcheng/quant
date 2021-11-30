@@ -407,7 +407,6 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       df = assign_condition_value(df=df, column='adx_direction_day', condition_dict=conditions, value_dict=values, default_value=0)
       df['adx_direction_day'] = sda(series=df['adx_direction_day'], zero_as=1)  
       
-
       # highest(lowest) value of adx_diff_ma of last uptrend(downtrend)
       extreme_idx = df.query('adx_direction_day == 1 or adx_direction_day == -1').index.tolist()
       for i in range(len(extreme_idx)):
@@ -439,10 +438,12 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       # overall adx trend
       conditions = {
         'up': 'adx_direction_day > 0 and ((adx_diff_ma < 0 and adx_acc_day < 0) or (adx_diff_ma > 0 and adx_acc_day > 0))', 
-        'down': 'adx_direction_day < 0 and ((adx_diff_ma > 0 and adx_acc_day < 0) or (adx_diff_ma < 0 and adx_acc_day > 0))'} 
+        'down': 'adx_direction_day < 0 and ((adx_diff_ma > 0 and adx_acc_day < 0) or (adx_diff_ma < 0 and adx_acc_day > 0))', 
+        'wave': '-5 < adx_direction < 5'} 
       values = {
         'up': 'u', 
-        'down': 'd'}
+        'down': 'd',
+        'wave': 'n'}
       df = assign_condition_value(df=df, column='adx_trend', condition_dict=conditions, value_dict=values, default_value='n') 
 
     # ================================ kst trend ==============================
@@ -620,11 +621,11 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
   return df
 
 # technical analyze for ta_data
-def calculate_ta_derivatives(df, perspective=['renko', 'linear', 'candle', 'support_resistant']):
+def calculate_ta_derivatives(df, perspective=['candle', 'support_resistant']):
   """
   calculate derived features from all current features, such as support, resistant
   :param df: dataframe with technical indicators and their derivatives
-  :param perspective: for which indicators, derivative columns that need to calculated 
+  :param perspective: for which indicators[renko, linear, candle, support_resistant], derivative columns that need to calculated 
   :returns: dataframe with derivative columns
   :raises: None
   """
@@ -1599,7 +1600,7 @@ def postprocess(df, keep_columns, drop_columns, target_interval=''):
     'adx trend turned up': '(adx_trend == "u" and (adx_diff_ma < 10 or 0 < 窗口_day <= 5 or 0 < 突破_day <= 5))',
     'adx direction is down': 'adx_direction_day < 0',
     'long after signal': 'tankan_kijun_signal > 15',
-    'renko': '((renko_duration > 60) and renko_color == "red" or below_renko_l > 0)',
+    # 'renko': '((renko_duration > 60) and renko_color == "red" or below_renko_l > 0)',
     'adx trend turned up': '(adx_trend == "u" and (adx_diff_ma < 10 or 0 < 窗口_day <= 5 or 0 < 突破_day <= 5) and prev_adx_extreme <= -10)',
     'around the gap': '(window_position_status == "down" and candle_to_gap < 0.5) or (window_position_status == "out" and candle_color == -1) or window_position_status == "mid" or window_position_status == "mid_up" or window_position_status == "mid_down"',
     'adx trend is weak': '(adx_strength_day < -10 and -10 < adx_diff_ma < 10)',
@@ -1611,7 +1612,7 @@ def postprocess(df, keep_columns, drop_columns, target_interval=''):
     'ichimoku signal': 'potential',
     'adx direction is down': '',
     'long after signal': '',
-    'renko': '',
+    # 'renko': '',
     'adx trend turned up': 'potential',
     'around the gap': '',
     'adx trend is weak': '',
@@ -4531,7 +4532,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
   # plot settings
   settings = {
-    'main': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': '^', 'neg_trend_marker': 'v', 'wave_trend_marker': 'o', 'signal_alpha': 1, 'trend_alpha': 0.5, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'},
+    'main': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': '^', 'neg_trend_marker': 'v', 'wave_trend_marker': 'o', 'signal_alpha': 1, 'trend_alpha': 0, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'},
     'other': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': 's', 'neg_trend_marker': 'x', 'wave_trend_marker': '.', 'signal_alpha': 0.3, 'trend_alpha': 0.3, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'}}
   style = settings['main'] if signal_x == 'signal' else settings['other']
 
@@ -4852,6 +4853,9 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
     alpha = 0.6
     ax.plot(df.index, df.tankan, label='tankan', color='magenta', linestyle='--', alpha=alpha)
     ax.plot(df.index, df.kijun, label='kijun', color='blue', linestyle='--', alpha=alpha)
+    alpha = 0.3
+    ax.fill_between(df.index, df.tankan, df.kijun, where=df.tankan > df.kijun, facecolor='green', interpolate=True, alpha=alpha)
+    ax.fill_between(df.index, df.tankan, df.kijun, where=df.tankan <= df.kijun, facecolor='red', interpolate=True, alpha=alpha)
   
   # plot kama_fast/slow lines 
   if 'kama' in target_indicator:
@@ -5005,12 +5009,12 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
 
   # plot ichimoku signal
   df['zero'] = 0
-  if 'tankan_kijun_signal' in df.columns:
-    df['next_tankan_kijun_signal'] = df['tankan_kijun_signal'].shift(-1)
-    ax.fill_between(df.index, 15, -15, where=(df.tankan_kijun_signal > 0) | (df.next_tankan_kijun_signal > 0), hatch='', linewidth=1, facecolor='lightgray', alpha=0.3, label='+')
-    ax.fill_between(df.index, 15, -15, where=(df.tankan_kijun_signal < 0) | (df.next_tankan_kijun_signal < 0), hatch='\\\\\\\\', linewidth=1, edgecolor='red', facecolor='white', alpha=0.3, label='-')
-  else:
-    ax.fill_between(df.index, 25, -25, facecolor='grey', interpolate=False, alpha=0.2, label='[-15, 15]')
+  # if 'tankan_kijun_signal' in df.columns:
+  #   df['next_tankan_kijun_signal'] = df['tankan_kijun_signal'].shift(-1)
+  #   ax.fill_between(df.index, 15, -15, where=(df.tankan_kijun_signal > 0) | (df.next_tankan_kijun_signal > 0), hatch='', linewidth=1, facecolor='lightgray', alpha=0.3, label='+')
+  #   ax.fill_between(df.index, 15, -15, where=(df.tankan_kijun_signal < 0) | (df.next_tankan_kijun_signal < 0), hatch='\\\\', linewidth=1, edgecolor='red', facecolor='white', alpha=0.3, label='-')
+  # else:
+  ax.fill_between(df.index, 15, -15, facecolor='grey', interpolate=False, alpha=0.15, label='[-15, 15]')
 
   # annotate tankan_kijun_signal
   max_idx = df.index.max()
@@ -5021,36 +5025,20 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   plt.annotate(f'  {text_signal}  ', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=14, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.1))
 
   # plot adx_diff_ma and adx_direction
-  df['next_adx_direction'] = df['adx_direction'].shift(-1)
-  # green_mask = (df.adx_direction > 0)# | (df.adx_diff_ma > 20) | (df.next_adx_direction > 0) 
-  # red_mask = (df.adx_direction < 0)# | (df.adx_diff_ma < -20) | (df.next_adx_direction < 0) 
-  # ax.scatter(df.loc[green_mask].index, df.loc[green_mask, 'adx_diff_ma'], label='adx_diff_ma_8', color='green',  alpha=0.5, marker='|')
-  # ax.scatter(df.loc[red_mask].index, df.loc[red_mask, 'adx_diff_ma'], label='adx_diff_ma_8', color='red',  alpha=0.5, marker='|')
+  plt.plot(df.adx_diff_ma, color='black', alpha=0.3, label='adx_diff_ma')
 
-  green_mask = ((df.adx_direction > 0) | (df.adx_diff_ma > 20) | (df.next_adx_direction > 0)) #
-  red_mask = ((df.adx_direction < 0) | (df.adx_diff_ma < -20) | (df.next_adx_direction < 0)) # 
-  # yellow_mask = green_mask & red_mask
-  ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=green_mask,  facecolor='green', interpolate=False, alpha=0.2) 
-  ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=red_mask, facecolor='red', interpolate=False, alpha=0.2)
-  # ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=yellow_mask, hatch='||||', edgecolor='black', interpolate=False, alpha=0.2)
+  df['prev_adx_day'] = df['adx_day'].shift(1)
+  green_mask = ((df.adx_day > 0) | (df.prev_adx_day > 0)) #
+  red_mask = ((df.adx_day < 0) | (df.prev_adx_day < 0)) # 
+  yellow_mask = (df.adx_trend == 'n')
+  # green_end_mask = ((df.adx_day > 0) & (df.adx_direction < 0)) 
+  # red_end_mask = ((df.adx_day < 0) & (df.adx_direction > 0))
 
-  # # connect adx and adx_diff_ma
-  # possible_idx = df.query('adx_possible == 1 and adx_diff_ma < 0 and adx >= 25 and (adx_direction_day <=3 or adx_acc_day <= 3)').index
-  # for idx in possible_idx:
-  #   ax.vlines(idx, df.loc[idx, 'adx'], df.loc[idx, 'adx_diff_ma'], color='green', linestyle='-', alpha=0.5)
-
-  # possible_idx = df.query('adx_possible == 1 and adx_diff_ma < 0 and adx < 25 and (adx_direction_day <=3 or adx_acc_day <= 3)').index
-  # for idx in possible_idx:
-  #   ax.vlines(idx, df.loc[idx, 'adx'], df.loc[idx, 'adx_diff_ma'], color='orange', linestyle='--', alpha=0.5)
-
-  # possible_idx = df.query('adx_possible == -1 and adx >= 25').index
-  # for idx in possible_idx:
-  #   ax.vlines(idx, df.loc[idx, 'adx'], df.loc[idx, 'adx_diff_ma'], color='red', linestyle='-', alpha=0.5)
-
-  # possible_idx = df.query('adx_possible == -1 and adx < 25').index
-  # for idx in possible_idx:
-  #   ax.vlines(idx, df.loc[idx, 'adx'], df.loc[idx, 'adx_diff_ma'], color='red', linestyle='--', alpha=0.5)
-  
+  ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=green_mask,  facecolor='green', interpolate=False, alpha=0.25) 
+  ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=red_mask, facecolor='red', interpolate=False, alpha=0.25)
+  ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=yellow_mask,  facecolor='white', interpolate=False, alpha=0.5)
+  # ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=green_end_mask,  facecolor='white', hatch='||', edgecolor='red', interpolate=False, alpha=0.2)
+  # ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=red_end_mask,  facecolor='white', hatch='||', edgecolor='green', interpolate=False, alpha=0.2)
 
   # plot adx with 
   # color: green(uptrending), red(downtrending), orange(waving); 
@@ -5436,8 +5424,8 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
 
   # get name of the symbol
   new_title = args['sec_name'].get(title)
-  linear_desc = f'{df.loc[df.index.max(), "linear_fit_description"]}'
-  candle_desc = f'{df.loc[df.index.max(), "candle_pattern_description"]}'
+  linear_desc = f'{df.loc[df.index.max(), "linear_fit_description"]}' if 'linear_fit_description' in df.columns else ''
+  candle_desc = f'{df.loc[df.index.max(), "candle_pattern_description"]}' if 'candle_pattern_description' in df.columns else ''
   adx_desc = f'[ADX: {df.loc[df.index.max(), "adx_direction_day"]} {df.loc[df.index.max(), "adx_acc_day"]}]'
   
   desc = '\n' + linear_desc + (f'[{df.loc[df.index.max(), "candle_pattern_description"]}]' if candle_desc > ' ' else '') + adx_desc

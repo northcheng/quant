@@ -436,7 +436,7 @@ class Tiger:
 
   # update market status
   def update_market_status(self, market=Market.US, return_str=False):
-
+    
     try:
       # get market status
       status = self.quote_client.get_market_status(market=market)[0]

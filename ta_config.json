@@ -39,7 +39,7 @@
   "visualization": {
     "plot_args": {
       "plot_ratio": {
-        "signals": 1.7, "adx": 2.3, "volume": 0.5, 
+        "signals": 1, "adx": 2.5, "volume": 0.5, 
         "main_indicators": 10
       },
       "test": {
@@ -51,10 +51,7 @@
       "main_indicators": {
         "target_indicator": [
           "candlestick",
-          "ichimoku",
-          "renko",
-          "psar",
-          "linear"
+          "ichimoku"
         ],
         "candlestick_width": 0.62,
         "candlestick_color": {
@@ -65,17 +62,11 @@
       },
       "signals": {
         "signal_list": [
-          
-          "adx_signal",
-          
           "bb_signal",
-          
+          "adx_signal",
           "psar_signal",
           "aroon_signal",
           "ichimoku_signal",
-
-          "renko_signal",
-          "拟合_signal",
 
           "signal"
         ]
@@ -502,9 +493,6 @@
       "resistant": "阻挡",
       "candle_pattern_description": "蜡烛形态",
       "candle_pattern_idx": "蜡烛分数",
-      "linear_fit_description": "拟合形态",
-      "linear_fit_idx": "拟合分数",
-      "linear_fit_category": "拟合类别",
       "tankan_kijun_signal": "TK信号",
       "adx_diff_ma": "ADX差值",
       "adx_direction_day": "ADX方向",
