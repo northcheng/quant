@@ -39,8 +39,7 @@
   "visualization": {
     "plot_args": {
       "plot_ratio": {
-        "signals": 1, "adx": 2.5, "volume": 0.5, 
-        "main_indicators": 10
+        "signals": 1,"adx": 2.1,  "volume": 0.9, "main_indicators": 10
       },
       "test": {
         "target_col": ["renko_position_ma"],
@@ -62,12 +61,11 @@
       },
       "signals": {
         "signal_list": [
-          "bb_signal",
           "adx_signal",
           "psar_signal",
           "aroon_signal",
           "ichimoku_signal",
-
+          "",
           "signal"
         ]
       },
@@ -84,8 +82,9 @@
       "volume": {
         "target_col": "Volume",
         "color_mode": "up_down",
-        "bar_width": 0.7,
-        "alpha": 0.5
+        "alpha": 0.5,
+        "bar_width": 0.8,
+        "marker": "s"
       },
       "adx": {
         "alpha": 0.8
@@ -475,7 +474,7 @@
       "month": 5400
     },
     "bar_width": {
-      "day": 0.62,
+      "day": 0.65,
       "week": 3.72,
       "month": 15.5
     },
