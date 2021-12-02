@@ -6,6 +6,7 @@ Technical Analysis Calculation and Visualization functions
 """
 import os
 import math
+from matplotlib.cbook import flatten
 import sympy
 import datetime
 import ta
@@ -895,21 +896,31 @@ def calculate_ta_derivatives(df, perspective=['renko', 'candle', 'support_resist
           df[f'{t}_trend'] = 'n'
           # df[f'{t}_signal'] = np.nan
 
-        df['previous_entity_top'] = df['candle_entity_top'].shift(1)
-        df['previous_entity_bottom'] = df['candle_entity_bottom'].shift(1)
-        df['previous_candle_color'] = df['candle_color'].shift(1)
-        df['top_diff'] = abs(df['candle_entity_top'] - df['previous_entity_top'])/df['Close']
-        df['bottom_diff'] = abs(df['candle_entity_bottom'] - df['previous_entity_bottom'])/df['Close']
+        df = cal_change_rate(df=df, target_col='High', add_accumulation=False, add_prefix=True)
+        df = cal_change_rate(df=df, target_col='Low', add_accumulation=False, add_prefix=True)
+        df['acc_High_rate'] = 0
+        df['acc_Low_rate'] = 0
+        df['平头顶_value'] = np.NaN
+        df['平头底_value'] = np.NaN
+        df['平头顶_trend'] = 'n'
+        df['平头底_trend'] = 'n'
+        flat_top = None
+        flat_bottom = None
+        # df['previous_High'] = df['High'].shift(1)
+        # df['previous_Low'] = df['Low'].shift(1)
+        # df['previous_candle_color'] = df['candle_color'].shift(1)
+        # df['top_diff'] = abs(df['High'] - df['previous_High'])/((df['High'] + df['previous_High']) * 0.5)
+        # df['bottom_diff'] = abs(df['Low'] - df['previous_Low'])/((df['Low'] + df['previous_Low']) * 0.5)
 
-        # flat top/bottom 
-        df['平头_signal'] = 'n'
-        conditions = {
-          'top': '(位置_trend == "u" and top_diff <= 0.001 and entity_trend != "d" and (candle_color == 1 and previous_candle_color == 1))', 
-          'bottom': '(位置_trend == "d" and bottom_diff <= 0.001 and entity_trend != "d" and (candle_color == -1 and previous_candle_color == -1))'}
-        values = {
-          'top': 'd', 
-          'bottom': 'u'}
-        df = assign_condition_value(df=df, column='平头_trend', condition_dict=conditions, value_dict=values, default_value='n')
+        # # flat top/bottom 
+        # df['平头_signal'] = 'n'
+        # conditions = {
+        #   'top': '(top_diff <= 0.001)', 
+        #   'bottom': '(位置_trend == "d" and bottom_diff <= 0.001 and entity_trend != "d" and (candle_color == -1 and previous_candle_color == -1))'}
+        # values = {
+        #   'top': 'd', 
+        #   'bottom': 'u'}
+        # df = assign_condition_value(df=df, column='平头_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
         # iterate through dataframe by window_size of 2 and 3
         previous_row = None
@@ -925,6 +936,26 @@ def calculate_ta_derivatives(df, perspective=['renko', 'candle', 'support_resist
           else:
             previous_idx = idxs[previous_i]
             previous_row = df.loc[previous_idx]
+
+          # flat top/bottom
+          flat_threshold = 0.001
+          if (row['High_rate'] < flat_threshold and row['High_rate'] > -flat_threshold):  
+            flat_top = previous_row['High'] if flat_top is None else flat_top
+            df.loc[idx, 'acc_High_rate'] = previous_row['acc_High_rate'] + row['High_rate']
+            df.loc[idx, '平头顶_value'] = flat_top #previous_row['High'] if (previous_row['平头顶_value'] != previous_row['平头顶_value']) else previous_row['平头顶_value']
+            df.loc[idx, '平头顶_trend'] = 'u'
+          else:
+            df.loc[idx, 'acc_High_rate'] = 0
+            flat_top = None
+
+          if (row['Low_rate'] < flat_threshold and row['Low_rate'] > -flat_threshold):
+            flat_bottom = previous_row['Low'] if flat_bottom is None else flat_bottom
+            df.loc[idx, 'acc_Low_rate'] = previous_row['acc_Low_rate'] + row['Low_rate']
+            df.loc[idx, '平头底_value'] = flat_bottom #previous_row['Low'] if (previous_row['平头底_value'] != previous_row['平头底_value']) else previous_row['平头底_value']
+            df.loc[idx, '平头底_trend'] = 'u'
+          else:
+            df.loc[idx, 'acc_Low_rate'] = 0
+            flat_bottom = None
 
           previous_previous_i = previous_i - 1
           if previous_previous_i < 0:
@@ -1460,7 +1491,7 @@ def calculate_ta_signal(df):
     # 'adx_diff_ma': '(adx_diff_ma < 15)',
     # 'adx_extreme': '((prev_adx_extreme < -5) or (adx_strength_day > 0))',
     # 'other': '(trend_idx >= 2)'
-    'ichimoku': '(tankan_kijun_signal > 0)'
+    'other': '((tankan_kijun_signal > 0) or (tankan_kijun_signal < -10 and candle_entity_bottom > kijun))',
   }
   up_idx = df.query(' and '.join(buy_conditions.values())).index 
   df.loc[up_idx, 'trend'] = 'u'
@@ -1469,9 +1500,9 @@ def calculate_ta_signal(df):
   sell_conditions = {
 
     # developing version 3 - started 20211104
-    'main': '(adx_day < -1)',
+    'main': '(adx_trend != "u")',
     # 'other': '((psar_trend == "d") or (candle_entity_top < kijun) or (adx_direction_day < -5) or (trend_idx < -2 and up_trend_idx == 0) or (启明黄昏_trend == "d" and (-5 < 窗口_day < 0 or -5 < 突破_day < 0)))',
-    'other': '(up_trend_idx == 0 and down_trend_idx < 0)'
+    'other': '((tankan_kijun_signal < 0) or (tankan_kijun_signal > 10 and (candle_entity_bottom < kijun or adx_direction < -5)))',
   } 
   down_idx = df.query(' and '.join(sell_conditions.values())).index 
   df.loc[down_idx, 'trend'] = 'd'
@@ -1480,8 +1511,9 @@ def calculate_ta_signal(df):
   wave_conditions = {
 
     # developing version 3 - started 20211118
-    'candlestick gap 1': '((trend == "u" or trend == "d") and (window_position_status == "mid_down" or window_position_status == "mid" or window_position_status == "mid_up"))',
-    'candlestick gap 2': '((trend == "u" or trend == "d") and (窗口_day == 1 or 突破_day == 1))',
+    'candlestick gap': '((trend == "u" or trend == "d") and (window_position_status == "mid_down" or window_position_status == "mid" or window_position_status == "mid_up"))',
+    # 'candlestick pattern': '((trend == "u" and -3 < 平头_day < 0) or ( trend == "d" and 3 > 平头_day> 0))',
+    'ichimoku': '(trend == "u" and (tankan_rate <= 0.001 or (-5 < tankan_kijun_signal < 5)))',
     # 'psar': '(trend == "u" and (kijun_rate <= 0 and psar_trend == "u"))',
 
   } 
@@ -2783,8 +2815,17 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
 
   # tankan-kijun signal
   df['tankan_to_kijun'] = df['tankan'] - df['kijun']
-  df['tankan_kijun_signal'] = cal_crossover_signal(df=df, fast_line='tankan', slow_line='kijun', pos_signal=1, neg_signal=-1, none_signal=0)
+  conditions = {
+    'up': f'tankan > kijun',
+    'down': f'tankan < kijun',
+    'none': 'tankan == kijun'}
+  values = {
+    'up': 1, 
+    'down': -1,
+    'none': 0}
+  df = assign_condition_value(df=df, column=f'tankan_kijun_signal', condition_dict=conditions, value_dict=values, default_value='n')
   df['tankan_kijun_signal'] = sda(series=df['tankan_kijun_signal'], zero_as=1)
+  df['tankan_kijun_signal'] = df['tankan_kijun_signal'].astype(int)
   conditions = {
     'up': f'tankan_kijun_signal > 0',
     'down': f'tankan_kijun_signal < 0'}
@@ -4535,7 +4576,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
   # plot settings
   settings = {
-    'main': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': 'o', 'neg_trend_marker': 'o', 'wave_trend_marker': 'o', 'signal_alpha': 1, 'trend_alpha': 0.5, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'},
+    'main': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': 'o', 'neg_trend_marker': 'x', 'wave_trend_marker': '_', 'signal_alpha': 1, 'trend_alpha': 0.5, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'},
     'other': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': 's', 'neg_trend_marker': 'x', 'wave_trend_marker': '.', 'signal_alpha': 0.3, 'trend_alpha': 0.3, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'}}
   style = settings['main'] if signal_x == 'signal' else settings['other']
 
@@ -4603,11 +4644,11 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
   # get indexes and max index
   idxs = df.index.tolist()
   max_idx = idxs[-1]
+  min_idx = df.index.min()
   max_x = max_idx + datetime.timedelta(days=1)
   padding = (df.High.max() - df.Low.min()) / 100
 
   # for gap which start before 'start_date'
-  min_idx = df.index.min()
   if df.loc[min_idx, 'candle_gap_top'] > df.loc[min_idx, 'candle_gap_bottom']:
     df.loc[min_idx, 'candle_gap'] = df.loc[min_idx, 'candle_gap_color'] * 2
   
@@ -4729,9 +4770,25 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
       'linear_break_day': {1: '突破', -1: '跌落'}
     }
     settings = {
-      'normal': {'fontsize':12, 'fontcolor':'black', 'va':'center', 'ha':'center', 'up':'green', 'down':'red', 'alpha': 0.15},
-      'emphasis': {'fontsize':12, 'fontcolor':'black', 'va':'center', 'ha':'center', 'up':'yellow', 'down':'purple', 'alpha': 0.15},
+      'normal': {'fontsize':12, 'fontcolor':'black', 'va':'center', 'ha':'center', 'up':'green', 'down':'red', 'alpha': 0.15, 'arrowstyle': '-|>'},
+      'emphasis': {'fontsize':12, 'fontcolor':'black', 'va':'center', 'ha':'center', 'up':'yellow', 'down':'purple', 'alpha': 0.15, 'arrowstyle': '-|>'},
     }
+
+    # plot flat
+    # ax.scatter(df.index, (df['平头顶_value'] + padding).fillna(method='bfill', limit=1), color='k', marker='_')
+    # ax.scatter(df.index, (df['平头底_value'] - padding).fillna(method='bfill', limit=1), color='k', marker='_')
+    # ax.plot((df['平头顶_value'] + padding).fillna(method='bfill', limit=1), color='k')
+    # ax.plot((df['平头底_value'] - padding).fillna(method='bfill', limit=1), color='k')
+
+    # flat_idx = df.query('平头_day == 1 or 平头_day == -1').index
+    # flat_color = {1: 'yellow', -1: 'yellow'}
+    # for idx in flat_idx:
+    #   flat_type = df.loc[idx, '平头_day']
+    #   flat_y = df.loc[idx, 'High'] if flat_type == -1 else df.loc[idx, 'Low']
+    #   flat_y -= padding * flat_type
+    #   plt.annotate(f'---', xy=(idx, flat_y), xytext=(idx,flat_y), fontsize=12, weight='black', rotation=0, color='black', va='center',  ha='center', xycoords='data', textcoords='data')
+
+      
 
     up_pattern_annotations = {}
     down_pattern_annotations = {}
@@ -4784,14 +4841,14 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
 
         x = tmp_annotation[k]['x']
         y = tmp_annotation[k]['y']
+        text = tmp_annotation[k]['text']
+        style = settings[tmp_annotation[k]['style']]
         if a == 'up':
           y_text = df.Low.min() - y_text_padding[counter % 2]
         else:
           y_text = df.High.max() + y_text_padding[counter % 2]
           
-        text = tmp_annotation[k]['text']
-        style = settings[tmp_annotation[k]['style']]
-        plt.annotate(f'{text}', xy=(x, y), xytext=(x,y_text), fontsize=style['fontsize'], rotation=0, color=style['fontcolor'], va=style['va'],  ha=style['ha'], xycoords='data', textcoords='data', arrowprops=dict(arrowstyle='-|>', alpha=0.3, color='black'), bbox=dict(boxstyle="round", facecolor=style[a], alpha=style['alpha']))
+        plt.annotate(f'{text}', xy=(x, y), xytext=(x,y_text), fontsize=style['fontsize'], rotation=0, color=style['fontcolor'], va=style['va'],  ha=style['ha'], xycoords='data', textcoords='data', arrowprops=dict(arrowstyle=style['arrowstyle'], alpha=0.3, color='black'), bbox=dict(boxstyle="round", facecolor=style[a], alpha=style['alpha']))
         counter += 1
 
   # transform date to numbers
