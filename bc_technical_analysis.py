@@ -434,7 +434,7 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
         'up': 1, 
         'down': -1}
       df = assign_condition_value(df=df, column='adx_strength_day', condition_dict=conditions, value_dict=values, default_value=0)
-      df['adx_strength_day'] = sda(series=df['adx_strength_day'], zero_as=0)
+      df['adx_strength_day'] = sda(series=df['adx_strength_day'], zero_as=1)
 
       # overall adx trend
       conditions = {
@@ -1487,11 +1487,12 @@ def calculate_ta_signal(df):
   buy_conditions = {
 
     # developing version 3 - started 20211104
-    'adx_trend': '(adx_trend != "d")',
+    'main': '(adx_trend != "d")',
+    'adx': '(adx_diff_ma < 15)',
     # 'adx_diff_ma': '(adx_diff_ma < 15)',
     # 'adx_extreme': '((prev_adx_extreme < -5) or (adx_strength_day > 0))',
     # 'other': '(trend_idx >= 2)'
-    'other': '((tankan_kijun_signal > 0) or (tankan_kijun_signal < -10 and candle_entity_bottom > kijun))',
+    'other': '((tankan_kijun_signal > 0) or (tankan_rate > 0 and kijun_rate > 0 and candle_entity_bottom > kijun))',
   }
   up_idx = df.query(' and '.join(buy_conditions.values())).index 
   df.loc[up_idx, 'trend'] = 'u'
@@ -1513,7 +1514,8 @@ def calculate_ta_signal(df):
     # developing version 3 - started 20211118
     'candlestick gap': '((trend == "u" or trend == "d") and (window_position_status == "mid_down" or window_position_status == "mid" or window_position_status == "mid_up"))',
     # 'candlestick pattern': '((trend == "u" and -3 < 平头_day < 0) or ( trend == "d" and 3 > 平头_day> 0))',
-    'ichimoku': '(trend == "u" and (tankan_rate <= 0.001 or (-5 < tankan_kijun_signal < 5)))',
+    'ichimoku': '((trend == "u" and (tankan_rate <= 0.001)) or (trend == "d" and tankan_kijun_signal > 0 and candle_entity_bottom > kijun and ((tankan_rate > 0 and kijun_rate >=0) or (tankan_rate >= 0 and kijun_rate > 0))))',
+    'adx': '((trend == "u" and adx_direction < 0) or (trend == "d" and adx_direction > 0))',
     # 'psar': '(trend == "u" and (kijun_rate <= 0 and psar_trend == "u"))',
 
   } 
@@ -1521,7 +1523,7 @@ def calculate_ta_signal(df):
   df.loc[wave_idx, 'trend'] = 'n'
 
   # ================================ Calculate overall siganl ======================
-  df['signal_day'] = sda(series=df['trend'].replace({'':0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
+  # df['signal_day'] = sda(series=df['trend'].replace({'':0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
   # df.loc[df['signal_day'] == 1, 'signal'] = 'b'
   # df.loc[df['signal_day'] ==-1, 'signal'] = 's'
 
@@ -1630,10 +1632,10 @@ def postprocess(df, keep_columns, drop_columns, target_interval=''):
   # candle pattern index and description
   conditions = {
     
-    'candlestick window': '(反弹_trend == "u" or 突破_trend == "u" or 窗口_trend == "u" or 启明黄昏_trend == "u")',
-    'ichimoku signal': '(0 < tankan_kijun_signal <= 5)',
-    'adx trend turned up': '(adx_trend == "u" and (adx_diff_ma < 10 or 0 < 窗口_day <= 5 or 0 < 突破_day <= 5))',
-    'adx direction is down': 'adx_direction_day < 0',
+    'candlestick window':    '(反弹_trend == "u" or 突破_trend == "u" or 窗口_trend == "u" or 启明黄昏_trend == "u")',
+    'ichimoku signal':       '(tankan_kijun_signal > 0)',
+    'adx trend turned up':   '(adx_trend == "u")',
+    'adx direction is down': '(adx_direction_day < 0)',
     'long after signal': 'tankan_kijun_signal > 15',
     'renko': '((renko_duration > 60) and renko_color == "red" or below_renko_l > 0)',
     'adx trend turned up': '(adx_trend == "u" and (adx_diff_ma < 10 or 0 < 窗口_day <= 5 or 0 < 突破_day <= 5) and prev_adx_extreme <= -10)',
@@ -1643,12 +1645,12 @@ def postprocess(df, keep_columns, drop_columns, target_interval=''):
     'signal': '(signal == "b" or signal == "s")'}
   values = {
     
-    'candlestick window': 'potential',
-    'ichimoku signal': 'potential',
+    'candlestick window':    'potential',
+    'ichimoku signal':       'potential',
+    'adx trend turned up':   'potential',
     'adx direction is down': '',
     'long after signal': '',
     'renko': '',
-    'adx trend turned up': 'potential',
     'around the gap': '',
     'adx trend is weak': '',
     'overall trend up': 'potential',
@@ -4780,16 +4782,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
     # ax.plot((df['平头顶_value'] + padding).fillna(method='bfill', limit=1), color='k')
     # ax.plot((df['平头底_value'] - padding).fillna(method='bfill', limit=1), color='k')
 
-    # flat_idx = df.query('平头_day == 1 or 平头_day == -1').index
-    # flat_color = {1: 'yellow', -1: 'yellow'}
-    # for idx in flat_idx:
-    #   flat_type = df.loc[idx, '平头_day']
-    #   flat_y = df.loc[idx, 'High'] if flat_type == -1 else df.loc[idx, 'Low']
-    #   flat_y -= padding * flat_type
-    #   plt.annotate(f'---', xy=(idx, flat_y), xytext=(idx,flat_y), fontsize=12, weight='black', rotation=0, color='black', va='center',  ha='center', xycoords='data', textcoords='data')
-
-      
-
+    # plot other patterns
     up_pattern_annotations = {}
     down_pattern_annotations = {}
     for p in pattern_info.keys():
@@ -5060,31 +5053,11 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
     fig = mpf.figure(figsize=plot_args['figsize'])
     ax = fig.add_subplot(1,1,1, style='yahoo')
 
-  # plot pdi/mdi
-  # ax.plot(df.index, df.pdi, label='pdi', color='green', marker='.', alpha=0.3)
-  # ax.plot(df.index, df.mdi, label='mdi', color='red', marker='.', alpha=0.3)
-
-  # plot overall trend index
-  # ax.plot(df['trend_idx']*10, label='trend_idx', alpha=0.5)
-
-  # plot ichimoku signal
+  # plot waving area
   df['zero'] = 0
-  # if 'tankan_kijun_signal' in df.columns:
-  #   df['next_tankan_kijun_signal'] = df['tankan_kijun_signal'].shift(-1)
-  #   ax.fill_between(df.index, 15, -15, where=(df.tankan_kijun_signal > 0) | (df.next_tankan_kijun_signal > 0), hatch='', linewidth=1, facecolor='lightgray', alpha=0.3, label='+')
-  #   ax.fill_between(df.index, 15, -15, where=(df.tankan_kijun_signal < 0) | (df.next_tankan_kijun_signal < 0), hatch='\\\\', linewidth=1, edgecolor='red', facecolor='white', alpha=0.3, label='-')
-  # else:
   ax.fill_between(df.index, 15, -15, facecolor='lightgray', alpha=0.3, interpolate=False, label='[-15, 15]')
 
-  # # annotate tankan_kijun_signal
-  # max_idx = df.index.max()
-  # x_signal = max_idx + datetime.timedelta(days=1)
-  # y_signal = 0
-  # text_signal = df.loc[max_idx, 'tankan_kijun_signal']
-  # text_color = 'red' if text_signal < 0 else 'green'
-  # plt.annotate(f'  {text_signal}  ', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=14, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.1))
-
-  # plot renko
+  # plot renko on waving zone
   idxs = df.index.tolist()
   min_idx = df.index.min()
   max_idx = df.index.max()
@@ -5099,12 +5072,14 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
     hatch = None #'//' if renko_color == 'green' else '\\\\'
     ax.fill_between(df[start:end].index, 15, -15, hatch=hatch, linewidth=1, edgecolor='black', facecolor=renko_color, alpha=0.15)
 
+  # renko_day
   x_signal = max_idx + datetime.timedelta(days=1)
   y_signal = 15
   text_signal = int(df.loc[max_idx, 'renko_duration'])
   text_color = df.loc[max_idx, 'renko_color'] # fontsize=14, 
   plt.annotate(f'renk: {text_signal}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.1))
 
+  # tankan_kijun_signal
   x_signal = max_idx + datetime.timedelta(days=1)
   y_signal = 0
   text_signal = int(df.loc[max_idx, 'tankan_kijun_signal'])
@@ -5115,17 +5090,13 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   plt.plot(df.adx_diff_ma, color='black', alpha=0.3, label='adx_diff_ma')
 
   df['prev_adx_day'] = df['adx_day'].shift(1)
-  green_mask = ((df.adx_day > 0) | (df.prev_adx_day > 0)) #
-  red_mask = ((df.adx_day < 0) | (df.prev_adx_day < 0)) # 
-  yellow_mask = (df.adx_trend == 'n')
-  # green_end_mask = ((df.adx_day > 0) & (df.adx_direction < 0)) 
-  # red_end_mask = ((df.adx_day < 0) & (df.adx_direction > 0))
+  green_mask = ((df.adx_day > 0)) # | (df.prev_adx_day > 0)
+  red_mask = ((df.adx_day < 0)) #  | (df.prev_adx_day < 0)
+  # yellow_mask = (df.adx_trend == 'n')
 
   ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=green_mask,  facecolor='green', interpolate=False, alpha=0.25) 
   ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=red_mask, facecolor='red', interpolate=False, alpha=0.25)
-  ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=yellow_mask,  facecolor='white', interpolate=False, alpha=0.5)
-  # ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=green_end_mask,  facecolor='white', hatch='||', edgecolor='red', interpolate=False, alpha=0.2)
-  # ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=red_end_mask,  facecolor='white', hatch='||', edgecolor='green', interpolate=False, alpha=0.2)
+  # ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=yellow_mask,  facecolor='white', interpolate=False, alpha=0.5)
 
   # plot adx with 
   # color: green(uptrending), red(downtrending), orange(waving); 
@@ -5137,7 +5108,7 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   df['adx_color'] = 'orange'
   df.loc[df.adx > df.prev_adx, 'adx_color'] = 'green'
   df.loc[df.adx < df.prev_adx, 'adx_color'] = 'red'
-  # df.loc[(df.adx_rate < 0.025) & (df.adx_rate > -0.01), 'adx_color'] = 'orange'
+  # df.loc[((df.adx_rate < 0.01) & (df.adx_rate > -0.01)), 'adx_color'] = 'orange'
   
   strong_trend_idx = df.query(f'adx >= {adx_threshold}').index
   weak_trend_idx = df.query(f'adx < {adx_threshold}').index
