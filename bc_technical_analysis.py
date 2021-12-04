@@ -1631,30 +1631,29 @@ def postprocess(df, keep_columns, drop_columns, target_interval=''):
 
   # candle pattern index and description
   conditions = {
-    
-    'candlestick window':    '(反弹_trend == "u" or 突破_trend == "u" or 窗口_trend == "u" or 启明黄昏_trend == "u")',
+    'overall trend up':      '(trend == "u" or trend == "n")',
+    'candlestick pattern':   '(反弹_trend == "u" or 突破_trend == "u" or 窗口_trend == "u" or 启明黄昏_trend == "u")',
     'ichimoku signal':       '(tankan_kijun_signal > 0)',
-    'adx trend turned up':   '(adx_trend == "u")',
-    'adx direction is down': '(adx_direction_day < 0)',
-    'long after signal': 'tankan_kijun_signal > 15',
-    'renko': '((renko_duration > 60) and renko_color == "red" or below_renko_l > 0)',
-    'adx trend turned up': '(adx_trend == "u" and (adx_diff_ma < 10 or 0 < 窗口_day <= 5 or 0 < 突破_day <= 5) and prev_adx_extreme <= -10)',
-    'around the gap': '(window_position_status == "down" and candle_to_gap < 0.5) or (window_position_status == "out" and candle_color == -1) or window_position_status == "mid" or window_position_status == "mid_up" or window_position_status == "mid_down"',
-    'adx trend is weak': '(adx_strength_day < -10 and -10 < adx_diff_ma < 10)',
-    'overall trend up': '(trend == "u" or trend == "n")',
-    'signal': '(signal == "b" or signal == "s")'}
+    'adx trend is up':       '(adx_trend == "u")',
+    'adx trend is down':     '(adx_trend == "d")',
+    'adx trend is weak':     '(adx_strength_day < -10 and -10 < adx_diff_ma < 10)',
+    # 'long after signal':     'tankan_kijun_signal > 15',
+    # 'renko trend is down':   '((renko_duration > 60) and renko_color == "red" or below_renko_l > 0)',
+    # 'around the gap':        '(window_position_status == "down" and candle_to_gap < 0.5) or (window_position_status == "out" and candle_color == -1) or window_position_status == "mid" or window_position_status == "mid_up" or window_position_status == "mid_down"',
+    'candle below kijun':    '(candle_entity_bottom < kijun)',
+    'signal':                '(signal == "b" or signal == "s")'}
   values = {
-    
-    'candlestick window':    'potential',
+    'overall trend up':      'potential',
+    'candlestick pattern':   'potential',
     'ichimoku signal':       'potential',
-    'adx trend turned up':   'potential',
-    'adx direction is down': '',
-    'long after signal': '',
-    'renko': '',
-    'around the gap': '',
-    'adx trend is weak': '',
-    'overall trend up': 'potential',
-    'signal': 'signal'}
+    'adx trend is up':       'potential',
+    'adx trend is down':     '',
+    'adx trend is weak':     '',
+    # 'long after signal':     '',
+    # 'renko trend is down'':  '',
+    # 'around the gap':        '',
+    'candle below kijun':    '',
+    'signal':                'signal'}
   df = assign_condition_value(df=df, column='label', condition_dict=conditions, value_dict=values, default_value='')
 
   # rename columns, keep 3 digits
