@@ -1667,7 +1667,7 @@ def postprocess(df, keep_columns, drop_columns, target_interval=''):
   df = df.drop(drop_columns, axis=1)
   
   # sort by operation and symbol
-  df = df.sort_values(['交易信号', '代码'], ascending=[True, True])
+  df = df.sort_values(['交易信号', 'TK信号'], ascending=[True, True])
   
   return df
 
