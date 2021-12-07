@@ -1498,10 +1498,6 @@ def calculate_ta_signal(df):
 
     # developing version 3 - started 20211104
     'main': '(adx_trend != "d")',
-    # 'adx': '(adx_diff_ma < 15)',
-    # 'adx_diff_ma': '(adx_diff_ma < 15)',
-    # 'adx_extreme': '((prev_adx_extreme < -5) or (adx_strength_day > 0))',
-    # 'other': '(trend_idx >= 2)'
     'other': '((tankan_kijun_signal > 0) or ((tankan_rate > 0 and kijun_rate >= 0) and candle_entity_bottom > kijun))',
   }
   up_idx = df.query(' and '.join(buy_conditions.values())).index 
@@ -1512,7 +1508,6 @@ def calculate_ta_signal(df):
 
     # developing version 3 - started 20211104
     'main': '(adx_trend != "u")',
-    # 'other': '((psar_trend == "d") or (candle_entity_top < kijun) or (adx_direction_day < -5) or (trend_idx < -2 and up_trend_idx == 0) or (启明黄昏_trend == "d" and (-5 < 窗口_day < 0 or -5 < 突破_day < 0)))',
     'other': '((tankan_kijun_signal < 0) or (candle_entity_bottom < kijun) or (adx_direction < -5))',
   } 
   down_idx = df.query(' and '.join(sell_conditions.values())).index 
@@ -1532,10 +1527,10 @@ def calculate_ta_signal(df):
   df.loc[wave_idx, 'trend'] = 'n'
 
   # other buy or sell conditions
-  # sell_conditions = {
+  # buy_conditions = {
   #   'other': '(trend_idx == 5 and adx_diff_ma > 0 and adx > 25)',
   # } 
-  # up_idx = df.query(' or '.join(sell_conditions.values())).index 
+  # up_idx = df.query(' or '.join(buy_conditions.values())).index 
   # df.loc[up_idx, 'trend'] = 'u'
 
   sell_conditions = {
