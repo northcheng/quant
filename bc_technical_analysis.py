@@ -1518,8 +1518,8 @@ def calculate_ta_signal(df):
 
     # developing version 3 - started 20211118
     'candlestick gap': '((trend == "u" or trend == "d") and (window_position_status == "mid_down" or window_position_status == "mid" or window_position_status == "mid_up"))',
-    'ichimoku': '((trend == "u" and (tankan_rate <= 0)) or (trend == "d" and tankan_kijun_signal > 0 and candle_entity_bottom > kijun and ((tankan_rate > 0 and kijun_rate >=0) or (tankan_rate >= 0 and kijun_rate > 0))))',
-    'adx': '((trend == "u" and (adx_direction < 0 or adx_diff_ma > 15)) or (trend == "d" and adx_direction > 0))',
+    'ichimoku': '((trend == "u" and (tankan_rate <= 0)) or (trend == "d" and tankan_kijun_signal > 0 and candle_entity_bottom > kijun and (tankan_rate > 0 and kijun_rate >=0)))',
+    'adx': '((trend == "u" and (adx_direction < 0 or adx_diff_ma > 15)) or (trend == "d" and (adx_direction > 0 or (adx_diff_ma > 0 and adx_strength_day < 0))))',
 
   } 
   wave_idx = df.query(' or '.join(wave_conditions.values())).index 
