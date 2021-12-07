@@ -485,6 +485,16 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
         'down': 'd'}
       df = assign_condition_value(df=df, column='psar_trend', condition_dict=conditions, value_dict=values, default_value='')
 
+    # ================================ stoch trend =============================
+    if 'stoch' in trend_indicators:
+      conditions = {
+        'up': 'stoch_diff > 1 or stoch_k > 80', 
+        'down': 'stoch_diff < -1 or stoch_k < 20'} 
+      values = {
+        'up': 'u', 
+        'down': 'd'}
+      df = assign_condition_value(df=df, column='stoch_trend', condition_dict=conditions, value_dict=values, default_value='n')
+
     # =========================================================================
 
     phase = 'calculate trend for volume_indicators'
@@ -1488,11 +1498,11 @@ def calculate_ta_signal(df):
 
     # developing version 3 - started 20211104
     'main': '(adx_trend != "d")',
-    'adx': '(adx_diff_ma < 15)',
+    # 'adx': '(adx_diff_ma < 15)',
     # 'adx_diff_ma': '(adx_diff_ma < 15)',
     # 'adx_extreme': '((prev_adx_extreme < -5) or (adx_strength_day > 0))',
     # 'other': '(trend_idx >= 2)'
-    'other': '((tankan_kijun_signal > 0) or (tankan_rate > 0 and kijun_rate > 0 and candle_entity_bottom > kijun))',
+    'other': '((tankan_kijun_signal > 0) or ((tankan_rate > 0 and kijun_rate >= 0) and candle_entity_bottom > kijun))',
   }
   up_idx = df.query(' and '.join(buy_conditions.values())).index 
   df.loc[up_idx, 'trend'] = 'u'
@@ -1503,7 +1513,7 @@ def calculate_ta_signal(df):
     # developing version 3 - started 20211104
     'main': '(adx_trend != "u")',
     # 'other': '((psar_trend == "d") or (candle_entity_top < kijun) or (adx_direction_day < -5) or (trend_idx < -2 and up_trend_idx == 0) or (启明黄昏_trend == "d" and (-5 < 窗口_day < 0 or -5 < 突破_day < 0)))',
-    'other': '((tankan_kijun_signal < 0) or (tankan_kijun_signal > 10 and (candle_entity_bottom < kijun or adx_direction < -5)))',
+    'other': '((tankan_kijun_signal < 0) or (candle_entity_bottom < kijun) or (adx_direction < -5))',
   } 
   down_idx = df.query(' and '.join(sell_conditions.values())).index 
   df.loc[down_idx, 'trend'] = 'd'
@@ -1513,14 +1523,26 @@ def calculate_ta_signal(df):
 
     # developing version 3 - started 20211118
     'candlestick gap': '((trend == "u" or trend == "d") and (window_position_status == "mid_down" or window_position_status == "mid" or window_position_status == "mid_up"))',
-    # 'candlestick pattern': '((trend == "u" and -3 < 平头_day < 0) or ( trend == "d" and 3 > 平头_day> 0))',
-    'ichimoku': '((trend == "u" and (tankan_rate <= 0.001)) or (trend == "d" and tankan_kijun_signal > 0 and candle_entity_bottom > kijun and ((tankan_rate > 0 and kijun_rate >=0) or (tankan_rate >= 0 and kijun_rate > 0))))',
-    'adx': '((trend == "u" and adx_direction < 0) or (trend == "d" and adx_direction > 0))',
-    # 'psar': '(trend == "u" and (kijun_rate <= 0 and psar_trend == "u"))',
+    'ichimoku': '((trend == "u" and (tankan_rate <= 0)) or (trend == "d" and tankan_kijun_signal > 0 and candle_entity_bottom > kijun and ((tankan_rate > 0 and kijun_rate >=0) or (tankan_rate >= 0 and kijun_rate > 0))))',
+    'adx': '((trend == "u" and (adx_direction < 0 or adx_diff_ma > 15)) or (trend == "d" and adx_direction > 0))',
 
   } 
   wave_idx = df.query(' or '.join(wave_conditions.values())).index 
+  df.loc[wave_idx, 'uncertain_trend'] = df.loc[wave_idx, 'trend']
   df.loc[wave_idx, 'trend'] = 'n'
+
+  # other buy or sell conditions
+  # sell_conditions = {
+  #   'other': '(trend_idx == 5 and adx_diff_ma > 0 and adx > 25)',
+  # } 
+  # up_idx = df.query(' or '.join(sell_conditions.values())).index 
+  # df.loc[up_idx, 'trend'] = 'u'
+
+  sell_conditions = {
+    'other': '(窗口_day == -1 or 突破_day == -1 or 反弹_day == -1)',
+  } 
+  down_idx = df.query(' or '.join(sell_conditions.values())).index 
+  df.loc[down_idx, 'trend'] = 'd'
 
   # ================================ Calculate overall siganl ======================
   # df['signal_day'] = sda(series=df['trend'].replace({'':0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
@@ -1530,7 +1552,7 @@ def calculate_ta_signal(df):
   return df
 
 # calculate ta indicators, trend and derivatives fpr latest data
-def calculation(df, symbol, start_date=None, end_date=None, trend_indicators=['ichimoku', 'aroon', 'adx', 'psar'], volume_indicators=[], volatility_indicators=['bb'], other_indicators=[], signal_threshold=0.001):
+def calculation(df, symbol, start_date=None, end_date=None, trend_indicators=['ichimoku', 'aroon', 'adx', 'psar', 'stoch'], volume_indicators=[], volatility_indicators=['bb'], other_indicators=[], signal_threshold=0.001):
   """
   Calculation process
 
@@ -4110,7 +4132,7 @@ def add_stoch_features(df, n=14, d_n=3, ohlcv_col=default_ohlcv_col, fillna=Fals
   df['stoch_k'] = stoch_k
   df['stoch_d'] = stoch_d
   df['stoch_diff'] = df['stoch_k'] - df['stoch_d']
-  df['stoch_diff'] = df['stoch_diff'] - df['stoch_diff'].shift(1)
+  # df['stoch_diff'] = df['stoch_diff'] - df['stoch_diff'].shift(1)
 
   return df
 
@@ -4545,7 +4567,7 @@ def add_kc_features(df, n=10, ohlcv_col=default_ohlcv_col, method='atr', fillna=
 
 
 # ================================================ Other indicators ================================================= #
-# def add_sar_features(df,)
+
 
 # ================================================ Indicator visualization  ========================================= #
 # plot signals on price line
@@ -4590,7 +4612,15 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     for i in ['pos', 'neg', 'wave']:
       tmp_trend_value = trend_val[f'{i}_trend']
       tmp_data = df.query(f'{trend_col} == "{tmp_trend_value}"')
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=style[f'{i}_trend_marker'], color=style[f'{i}_color'], alpha=style['trend_alpha'])
+      if trend_col == 'trend' and i=='wave' and 'uncertain_trend' in df.columns:
+        uncertain_up = tmp_data.query('uncertain_trend == "u"')
+        uncertain_down = tmp_data.query('uncertain_trend == "d"')
+        uncertain_wave = tmp_data.query('uncertain_trend == "n"')
+        ax.scatter(uncertain_up.index, uncertain_up[signal_y], marker=style[f'{i}_trend_marker'], color=style[f'pos_color'], alpha=style['trend_alpha'])
+        ax.scatter(uncertain_down.index, uncertain_down[signal_y], marker=style[f'{i}_trend_marker'], color=style[f'neg_color'], alpha=style['trend_alpha'])
+        ax.scatter(uncertain_wave.index, uncertain_wave[signal_y], marker=style[f'{i}_trend_marker'], color=style[f'wave_color'], alpha=style['trend_alpha'])
+      else:
+        ax.scatter(tmp_data.index, tmp_data[signal_y], marker=style[f'{i}_trend_marker'], color=style[f'{i}_color'], alpha=style['trend_alpha'])
 
   # plot signal
   if signal_x in df.columns:
@@ -5337,7 +5367,7 @@ def plot_indicator(df, target_col, start=None, end=None, signal_x='signal', sign
     print('column not found: ', unexpected_col)
   target_col = [x for x in target_col if x in df.columns]
   for col in target_col:
-    ax.plot(df.index, df[col], label=col, alpha=0.3, color='black')
+    ax.plot(df.index, df[col], label=col, alpha=0.5)
 
   # plot color bars if there is only one indicator to plot
   if len(target_col) == 1:

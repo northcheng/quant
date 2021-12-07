@@ -39,12 +39,12 @@
   "visualization": {
     "plot_args": {
       "plot_ratio": {
-        "signals": 1,"adx": 2.1,  "volume": 0.9, "main_indicators": 10
+        "signals": 1.2,"adx": 2,  "volume": 0.8, "main_indicators": 10
       },
       "test": {
-        "target_col": ["renko_position_ma"],
-        "color_mode": "benchmark",
-        "benchmark": 0,
+        "target_col": ["stoch_k", "stoch_d"],
+        "color_mode": "boundary",
+        "boundary": [20, 80],
         "alpha": 0.8
       },
       "main_indicators": {
@@ -62,6 +62,7 @@
       "signals": {
         "signal_list": [
           "adx_signal",
+          "stoch_signal",
           "psar_signal",
           "aroon_signal",
           "ichimoku_signal",
@@ -245,6 +246,7 @@
         "NVDA": "NVIDIA",
         "NVO": "诺和诺德(医疗健康)",
         "NWS": "新闻集团",
+        "OMRNY": "欧姆龙",
         "ORCL": "甲骨文",
         "PDD": "拼多多",
         "PEP": "百事可乐",
