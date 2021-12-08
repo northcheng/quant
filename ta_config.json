@@ -39,13 +39,13 @@
   "visualization": {
     "plot_args": {
       "plot_ratio": {
-        "signals": 1.2,"adx": 2,  "volume": 0.8, "main_indicators": 10
+        "signals": 1.2, "adx": 2, "main_indicators": 10, "volume": 0.8
       },
-      "test": {
+      "trend_idx": {
         "target_col": ["stoch_k", "stoch_d"],
-        "color_mode": "boundary",
-        "boundary": [20, 80],
-        "alpha": 0.8
+        "color_mode": "benchmark",
+        "benchmark": 0,
+        "alpha": 0.5
       },
       "main_indicators": {
         "target_indicator": [
@@ -89,6 +89,9 @@
       },
       "adx": {
         "alpha": 0.8
+      },
+      "aroon": {
+
       },
       "sec_name": {
         "SPY": "1x标普500指数做多ETF",

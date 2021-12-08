@@ -906,23 +906,24 @@ def calculate_ta_derivatives(df, perspective=['renko', 'candle', 'support_resist
           df[f'{t}_trend'] = 'n'
           # df[f'{t}_signal'] = np.nan
 
-        df = cal_change_rate(df=df, target_col='High', add_accumulation=False, add_prefix=True)
-        df = cal_change_rate(df=df, target_col='Low', add_accumulation=False, add_prefix=True)
-        df['acc_High_rate'] = 0
-        df['acc_Low_rate'] = 0
-        df['平头顶_value'] = np.NaN
-        df['平头底_value'] = np.NaN
-        df['平头顶_trend'] = 'n'
-        df['平头底_trend'] = 'n'
-        flat_top = None
-        flat_bottom = None
+        # # flat top/bottom
+        # df = cal_change_rate(df=df, target_col='High', add_accumulation=False, add_prefix=True)
+        # df = cal_change_rate(df=df, target_col='Low', add_accumulation=False, add_prefix=True)
+        # df['acc_High_rate'] = 0
+        # df['acc_Low_rate'] = 0
+        # df['平头顶_value'] = np.NaN
+        # df['平头底_value'] = np.NaN
+        # df['平头顶_trend'] = 'n'
+        # df['平头底_trend'] = 'n'
+        # flat_top = None
+        # flat_bottom = None
         # df['previous_High'] = df['High'].shift(1)
         # df['previous_Low'] = df['Low'].shift(1)
         # df['previous_candle_color'] = df['candle_color'].shift(1)
         # df['top_diff'] = abs(df['High'] - df['previous_High'])/((df['High'] + df['previous_High']) * 0.5)
         # df['bottom_diff'] = abs(df['Low'] - df['previous_Low'])/((df['Low'] + df['previous_Low']) * 0.5)
 
-        # # flat top/bottom 
+         
         # df['平头_signal'] = 'n'
         # conditions = {
         #   'top': '(top_diff <= 0.001)', 
@@ -947,25 +948,25 @@ def calculate_ta_derivatives(df, perspective=['renko', 'candle', 'support_resist
             previous_idx = idxs[previous_i]
             previous_row = df.loc[previous_idx]
 
-          # flat top/bottom
-          flat_threshold = 0.001
-          if (row['High_rate'] < flat_threshold and row['High_rate'] > -flat_threshold):  
-            flat_top = previous_row['High'] if flat_top is None else flat_top
-            df.loc[idx, 'acc_High_rate'] = previous_row['acc_High_rate'] + row['High_rate']
-            df.loc[idx, '平头顶_value'] = flat_top #previous_row['High'] if (previous_row['平头顶_value'] != previous_row['平头顶_value']) else previous_row['平头顶_value']
-            df.loc[idx, '平头顶_trend'] = 'u'
-          else:
-            df.loc[idx, 'acc_High_rate'] = 0
-            flat_top = None
+          # # flat top/bottom
+          # flat_threshold = 0.001
+          # if (row['High_rate'] < flat_threshold and row['High_rate'] > -flat_threshold):  
+          #   flat_top = previous_row['High'] if flat_top is None else flat_top
+          #   df.loc[idx, 'acc_High_rate'] = previous_row['acc_High_rate'] + row['High_rate']
+          #   df.loc[idx, '平头顶_value'] = flat_top #previous_row['High'] if (previous_row['平头顶_value'] != previous_row['平头顶_value']) else previous_row['平头顶_value']
+          #   df.loc[idx, '平头顶_trend'] = 'u'
+          # else:
+          #   df.loc[idx, 'acc_High_rate'] = 0
+          #   flat_top = None
 
-          if (row['Low_rate'] < flat_threshold and row['Low_rate'] > -flat_threshold):
-            flat_bottom = previous_row['Low'] if flat_bottom is None else flat_bottom
-            df.loc[idx, 'acc_Low_rate'] = previous_row['acc_Low_rate'] + row['Low_rate']
-            df.loc[idx, '平头底_value'] = flat_bottom #previous_row['Low'] if (previous_row['平头底_value'] != previous_row['平头底_value']) else previous_row['平头底_value']
-            df.loc[idx, '平头底_trend'] = 'u'
-          else:
-            df.loc[idx, 'acc_Low_rate'] = 0
-            flat_bottom = None
+          # if (row['Low_rate'] < flat_threshold and row['Low_rate'] > -flat_threshold):
+          #   flat_bottom = previous_row['Low'] if flat_bottom is None else flat_bottom
+          #   df.loc[idx, 'acc_Low_rate'] = previous_row['acc_Low_rate'] + row['Low_rate']
+          #   df.loc[idx, '平头底_value'] = flat_bottom #previous_row['Low'] if (previous_row['平头底_value'] != previous_row['平头底_value']) else previous_row['平头底_value']
+          #   df.loc[idx, '平头底_trend'] = 'u'
+          # else:
+          #   df.loc[idx, 'acc_Low_rate'] = 0
+          #   flat_bottom = None
 
           previous_previous_i = previous_i - 1
           if previous_previous_i < 0:
@@ -1649,25 +1650,31 @@ def postprocess(df, keep_columns, drop_columns, target_interval=''):
   # candle pattern index and description
   conditions = {
     'overall trend up':      '(trend == "u" or trend == "n")',
-    'candlestick pattern':   '(反弹_trend == "u" or 突破_trend == "u" or 窗口_trend == "u" or 启明黄昏_trend == "u")',
+    'positive gap pattern':  '(反弹_trend == "u" or 突破_trend == "u" or 窗口_trend == "u" or 启明黄昏_trend == "u")',
     'ichimoku signal':       '(tankan_kijun_signal > 0)',
     'adx trend is up':       '(adx_trend == "u")',
     'adx trend is down':     '(adx_trend == "d")',
     'adx trend is weak':     '(adx_strength_day < -10 and -10 < adx_diff_ma < 10)',
-    # 'long after signal':     'tankan_kijun_signal > 15',
-    # 'renko trend is down':   '((renko_duration > 60) and renko_color == "red" or below_renko_l > 0)',
-    # 'around the gap':        '(window_position_status == "down" and candle_to_gap < 0.5) or (window_position_status == "out" and candle_color == -1) or window_position_status == "mid" or window_position_status == "mid_up" or window_position_status == "mid_down"',
+    'overall trend down':    '(uncertain_trend == "d")',
+    'negative gap pattern':  '(反弹_trend == "d" or 突破_trend == "d" or 窗口_trend == "d" or 启明黄昏_trend == "d")',
+    'late of raising':       '(tankan_kijun_signal > 20)',
+    # 'early of falling':      '(0 > tankan_kijun_signal > -10)',
+    # 'none-trend waving':     '((renko_duration > 100 and tankan_kijun_signal > 20))',
+    # 'around the gap':        '((trend != "u" and uncertain_trend != "u") and (window_position_status == "down" or window_position_status == "out" or window_position_status == "mid" or window_position_status == "mid_up" or window_position_status == "mid_down"))',
     'candle below kijun':    '(candle_entity_bottom < kijun)',
     'signal':                '(signal == "b" or signal == "s")'}
   values = {
     'overall trend up':      'potential',
-    'candlestick pattern':   'potential',
+    'positive gap pattern':  'potential',
     'ichimoku signal':       'potential',
     'adx trend is up':       'potential',
     'adx trend is down':     '',
     'adx trend is weak':     '',
-    # 'long after signal':     '',
-    # 'renko trend is down'':  '',
+    'overall trend down':    '',
+    'negative gap pattern':  '',
+    'late of raising':       '',
+    # 'early of falling':      '',
+    # 'none-trend waving':     '',
     # 'around the gap':        '',
     'candle below kijun':    '',
     'signal':                'signal'}
@@ -4594,8 +4601,8 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
   # plot settings
   settings = {
-    'main': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': 'o', 'neg_trend_marker': 'x', 'wave_trend_marker': '_', 'signal_alpha': 1, 'trend_alpha': 0.5, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'},
-    'other': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': 's', 'neg_trend_marker': 'x', 'wave_trend_marker': '.', 'signal_alpha': 0.3, 'trend_alpha': 0.3, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'}}
+    'main': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': 's', 'neg_trend_marker': 's', 'wave_trend_marker': '_', 'signal_alpha': 1, 'trend_alpha': 0.6, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'},
+    'other': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': 's', 'neg_trend_marker': 's', 'wave_trend_marker': '.', 'signal_alpha': 0.3, 'trend_alpha': 0.3, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'}}
   style = settings['main'] if signal_x == 'signal' else settings['other']
 
   # plot signal base line
@@ -4778,8 +4785,8 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
     # settings for annotate candle patterns
     pattern_info = {
       # '窗口_day': {1: '窗口', -1: '窗口'},
-      # '反弹_day': {1: '反弹', -1: '回落'},
-      # '突破_day': {1: '突破', -1: '跌落'},
+      '反弹_day': {1: '反弹', -1: '回落'},
+      '突破_day': {1: '突破', -1: '跌落'},
       '启明黄昏_day': {1: '启明星', -1: '黄昏星'},
 
       # '腰带_day': {1: '腰带', -1: '腰带'},
@@ -4927,10 +4934,10 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
     # ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a > df.senkou_b, facecolor='green', interpolate=True, alpha=alpha)
     # ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a <= df.senkou_b, facecolor='red', interpolate=True, alpha=alpha)
 
-    alpha = 0.6
-    ax.plot(df.index, df.tankan, label='tankan', color='magenta', linestyle='--', alpha=alpha)
-    ax.plot(df.index, df.kijun, label='kijun', color='blue', linestyle='--', alpha=alpha)
-    alpha = 0.3
+    alpha = 0.4
+    ax.plot(df.index, df.tankan, label='tankan', color='green', linestyle='-', alpha=alpha) # magenta
+    ax.plot(df.index, df.kijun, label='kijun', color='red', linestyle='-', alpha=alpha) # blue
+    alpha = 0.2
     ax.fill_between(df.index, df.tankan, df.kijun, where=df.tankan > df.kijun, facecolor='green', interpolate=True, alpha=alpha)
     ax.fill_between(df.index, df.tankan, df.kijun, where=df.tankan <= df.kijun, facecolor='red', interpolate=True, alpha=alpha)
   
@@ -5079,7 +5086,7 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
 
   # plot waving area
   df['zero'] = 0
-  ax.fill_between(df.index, 15, -15, facecolor='lightgray', alpha=0.3, interpolate=False, label='[-15, 15]')
+  # ax.fill_between(df.index, 15, -15, facecolor='lightgray', alpha=0.3, interpolate=False, label='[-15, 15]')
 
   # plot renko on waving zone
   idxs = df.index.tolist()
@@ -5093,8 +5100,8 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
     end = renko_real_idxs[i]
     end = idxs[idxs.index(end) - 1]
     renko_color = df.loc[start, 'renko_color']
-    hatch = None #'//' if renko_color == 'green' else '\\\\'
-    ax.fill_between(df[start:end].index, 15, -15, hatch=hatch, linewidth=1, edgecolor='black', facecolor=renko_color, alpha=0.15)
+    hatch = None #'/' if renko_color == 'green' else '\\' # 
+    ax.fill_between(df[start:end].index, 15, -15, hatch=hatch, linewidth=1, edgecolor='black', facecolor=renko_color, alpha=0.1)
 
   # renko_day
   x_signal = max_idx + datetime.timedelta(days=1)
@@ -5114,8 +5121,8 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   plt.plot(df.adx_diff_ma, color='black', alpha=0.3, label='adx_diff_ma')
 
   df['prev_adx_day'] = df['adx_day'].shift(1)
-  green_mask = ((df.adx_day > 0)) # | (df.prev_adx_day > 0)
-  red_mask = ((df.adx_day < 0)) #  | (df.prev_adx_day < 0)
+  green_mask = ((df.adx_day > 0) | (df.prev_adx_day > 0)) #
+  red_mask = ((df.adx_day < 0)  | (df.prev_adx_day < 0)) #
   # yellow_mask = (df.adx_trend == 'n')
 
   ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=green_mask,  facecolor='green', interpolate=False, alpha=0.25) 
@@ -5536,6 +5543,12 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
       plt.yticks(signal_bases, signal_names)
       axes[tmp_indicator].legend().set_visible(False)
 
+    # plot trend idx
+    elif tmp_indicator == 'trend_idx':
+      alpha = tmp_args.get('alpha') if tmp_args.get('alpha') is not None else 1
+      plot_bar(df=plot_data, target_col='up_trend_idx', alpha=alpha, color_mode='benchmark', benchmark=0, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
+      plot_bar(df=plot_data, target_col='down_trend_idx', alpha=alpha, color_mode='benchmark', benchmark=0, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
+    
     # plot other indicators
     else:
       plot_indicator(
