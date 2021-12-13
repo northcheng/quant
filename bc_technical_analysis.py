@@ -1517,10 +1517,10 @@ def calculate_ta_signal(df):
     # 'other':  '((tankan_kijun_signal > 0) or ((tankan_rate > 0 and kijun_rate >= 0) and candle_entity_bottom > kijun))',
 
     # developing version 4 - started 20211209
-    'ichimoku': '(((candle_entity_bottom > kijun) or (candle_color == 1 and candle_entity_top > kijun > tankan > candle_entity_bottom)) and (kijun_day > 1))',
-    # 'other': ''
+    'ichimoku': '(((tankan_kijun_signal > 0) or (tankan_kijun_signal < 0 and candle_entity_bottom > kijun)) or (candle_color == 1 and tankan_rate > 0 and kijun_rate >=0))',
+    'adx':      'adx_trend == "u"',
   }
-  up_idx = df.query(' or '.join(buy_conditions.values())).index 
+  up_idx = df.query(' and '.join(buy_conditions.values())).index 
   df.loc[up_idx, 'trend'] = 'u'
 
   # sell conditions
@@ -1531,8 +1531,9 @@ def calculate_ta_signal(df):
     # 'other':  '((tankan_kijun_signal < 0) or (candle_entity_bottom < kijun) or (adx_direction < -5) or (prev_adx_extreme >= 20 and adx_direction_rate < -0.2) or (candle_entity_top < prev_candle_entity_bottom))',
     
     # developing version 4 - started 20211209
-    'ichimoku':   '(((candle_entity_bottom < kijun) or (candle_color == -1 and candle_entity_top > tankan > kijun > candle_entity_bottom)) and (kijun_day < -1))',
-    'candlestick':'((candle_color == -1 and candle_entity_top < prev_candle_entity_bottom))',
+    'trend is down':  '(trend_idx <= 0)',
+    'ichimoku':       '(candle_entity_bottom < kijun)',
+    'adx':            '(adx_trend == "d")',
   } 
   down_idx = df.query(' or '.join(sell_conditions.values())).index 
   df.loc[down_idx, 'trend'] = 'd'
@@ -1549,8 +1550,10 @@ def calculate_ta_signal(df):
     # # 'sensitive sell in an up-trend':      '((trend == "d" and (adx_direction_rate >= -0.25 or adx_diff_ma > 10) and (tankan_rate >= 0 or kijun_rate >= 0 and Low > kijun)))'
 
     # developing version 4 - started 20211209
-    'trend in the gap':     '((trend == "u" or trend == "d") and (window_position_status == "mid_down" or window_position_status == "mid" or window_position_status == "mid_up"))',
-    'uncertain adx trend':  '((trend == "u") and (adx_trend == "n" and adx_strength_day < 0))',
+    'trend in the gap':         '((trend == "u" or trend == "d") and (window_position_status == "mid_down" or window_position_status == "mid" or window_position_status == "mid_up"))',
+    'uncertain adx trend':      '((trend == "u") and (adx_trend == "n" and adx_strength_day < 0))',
+    'new tankan_kijun signal':  '((trend == "u") and (ichimoku_trend != "u"))',
+    'price is decreasing':      '((trend == "u") and (candle_color == -1))'
     # 'confliected up':       '((trend == "u") and (adx_trend == "d"))',
     # 'confliected down':     '((trend == "d") and (adx_trend == "u"))',
   } 
@@ -4643,8 +4646,8 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
   # plot settings
   settings = {
     'main': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': 'o', 'neg_trend_marker': 'x', 'wave_trend_marker': '_', 'signal_alpha': 1, 'trend_alpha': 0.6, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'},
-    'other': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': 's', 'neg_trend_marker': 's', 'wave_trend_marker': '.', 'signal_alpha': 0.3, 'trend_alpha': 0.3, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'}}
-  style = settings['main'] if signal_x in ['signal', 'ichimoku_signal', 'adx_signal'] else settings['other']
+    'other': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': 's', 'neg_trend_marker': 's', 'wave_trend_marker': '.', 'signal_alpha': 0.3, 'trend_alpha': 0.15, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'}}
+  style = settings['main'] if signal_x in ['signal'] else settings['other']
 
   # plot signal base line
   ax.plot(df.index, df[signal_y], label=signal_y, alpha=0)
@@ -5161,14 +5164,14 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   # plot adx_diff_ma and adx_direction
   plt.plot(df.adx_diff_ma, color='black', alpha=0.3, label='adx_diff_ma')
 
-  df['prev_adx_day'] = df['adx_day'].shift(1)
-  green_mask = ((df.adx_day > 0) | (df.prev_adx_day > 0)) #
-  red_mask = ((df.adx_day < 0)  | (df.prev_adx_day < 0)) #
-  # yellow_mask = (df.adx_trend == 'n')
+  df['next_adx_diff_ma_change'] = df['adx_diff_ma_change'].shift(-1)
+  green_mask = ((df.adx_diff_ma_change > 0) | (df.next_adx_diff_ma_change > 0)) #
+  red_mask = ((df.adx_diff_ma_change < 0) | (df.next_adx_diff_ma_change < 0)) #
+  # yellow_mask = ((df.adx_direction_change > 0 & df.adx_direction_change < 0.001) | (df.adx_direction_change < 0 & df.adx_direction_change > -0.001))
 
   ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=green_mask,  facecolor='green', interpolate=False, alpha=0.25) 
   ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=red_mask, facecolor='red', interpolate=False, alpha=0.25)
-  # ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=yellow_mask,  facecolor='white', interpolate=False, alpha=0.5)
+  # ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=yellow_mask,  facecolor='yellow', interpolate=False, alpha=0.5)
 
   # plot adx with 
   # color: green(uptrending), red(downtrending), orange(waving); 
@@ -5459,7 +5462,7 @@ def plot_indicator(df, target_col, start=None, end=None, signal_x='signal', sign
     return ax
 
 # plot multiple indicators on a same chart
-def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, save_image=False, show_image=False, title=None, width=25, unit_size=3, wspace=0, hspace=0.01, subplot_args=default_plot_args):
+def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, save_image=False, show_image=False, title=None, width=25, unit_size=3, wspace=0, hspace=0.015, subplot_args=default_plot_args):
   """
   Plot Ichimoku and mean reversion in a same plot
   :param df: dataframe with ichimoku and mean reversion columns
@@ -5516,7 +5519,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
     # set border color
     spine_alpha = 0.3
     for position in ['top', 'bottom', 'left', 'right']:
-      if (i in [1, 2] and position in ['top', 'bottom']): #(i % 2 == 0 and position == 'bottom') or (i % 2 == 1 and position == 'top'):
+      if (i in [1] and position in ['top', 'bottom']): #(i % 2 == 0 and position == 'bottom') or (i % 2 == 1 and position == 'top'):
         axes[tmp_indicator].spines[position].set_alpha(0)
       else:
         axes[tmp_indicator].spines[position].set_alpha(spine_alpha)
