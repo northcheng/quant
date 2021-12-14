@@ -39,7 +39,7 @@
   "visualization": {
     "plot_args": {
       "plot_ratio": {
-        "signals": 1.35, "adx": 2, "main_indicators": 10, "volume": 0.65
+        "signals": 0.9, "adx": 2.1, "main_indicators": 10, "volume": 1
       },
       "trend_idx": {
         "target_col": ["stoch_k", "stoch_d"],
@@ -61,14 +61,10 @@
       },
       "signals": {
         "signal_list": [
-          "stoch_signal",
-          "aroon_signal",
-          "psar_signal",
           "",
           "ichimoku_signal",
           "adx_signal",
-          "",
-          "signal"
+          ""
         ]
       },
       "candle": {
