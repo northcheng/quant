@@ -494,10 +494,11 @@
       "resistant": "阻挡",
       "candle_pattern_description": "蜡烛形态",
       "candle_pattern_idx": "蜡烛分数",
-      "tankan_kijun_signal": "TK信号",
       "adx_diff_ma": "ADX差值",
       "adx_direction_day": "ADX方向",
       "adx": "ADX强度",         
+      "adx_day": "ADX信号",
+      "tankan_kijun_signal": "TK信号",
       "signal": "交易信号",
       "label": "分类"
     },

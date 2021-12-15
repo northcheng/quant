@@ -1699,34 +1699,40 @@ def postprocess(df, keep_columns, drop_columns, target_interval=''):
   conditions = {
     # 'overall trend up':      '(trend == "u" or trend == "n")',
     # 'positive gap pattern':  '(反弹_trend == "u" or 突破_trend == "u" or 窗口_trend == "u" or 启明黄昏_trend == "u")',
-    'ichimoku signal':       '(5 > tankan_kijun_signal > 0)',
-    'adx trend is up':       '(adx_direction_day > 1 and prev_adx_extreme < -10 and (tankan_rate > 0 or candle_entity_bottom > kijun))',
+    'ichimoku signal':       '(3 >= tankan_kijun_signal > 0)',
+    'adx_signal':            '(3 >= adx_direction_day > 0 and adx_direction >5)',
+    # 'adx trend is up':       '(adx_direction_day > 1 and prev_adx_extreme < -10 and (tankan_rate > 0 or candle_entity_bottom > kijun))',
     # 'adx trend is down':     '(adx_trend == "d")',
     # 'adx trend is weak':     '(adx_strength_day < -10 and -10 < adx_diff_ma < 10)',
     # 'overall trend down':    '(uncertain_trend == "d")',
     # 'negative gap pattern':  '(反弹_trend == "d" or 突破_trend == "d" or 窗口_trend == "d" or 启明黄昏_trend == "d")',
-    'long after ichimoku':     '((tankan_kijun_signal > 10) or (tankan_kijun_signal < 0 and (kijun_day > 5)))',
+    # 'long after ichimoku':     '((tankan_kijun_signal > 10) or (tankan_kijun_signal < 0 and (kijun_day > 5)))',
+    'adx or ichimoku is up': '((0 < ichimoku_day < 5 and 0 < adx_day <= 5) or (0 < ichimoku_day <= 5 and 0 < adx_day < 5))',
     # 'negative ichimoku':     '(candle_color == -1 and candle_entity_bottom < tankan)',
     # 'early of falling':      '(0 > tankan_kijun_signal > -10)',
     # 'none-trend waving':     '((renko_duration > 100 and tankan_kijun_signal > 20))',
     # 'around the gap':        '((trend != "u" and uncertain_trend != "u") and (window_position_status == "down" or window_position_status == "out" or window_position_status == "mid" or window_position_status == "mid_up" or window_position_status == "mid_down"))',
     # 'candle below kijun':    '(candle_entity_bottom < kijun)',
+    'adx trend uncertain':   '(-5 < adx_direction < 5) or (adx_direction_day < 0 and adx_strength_day < 0) or (adx_direction > 0 and adx_strength_day < 0)',
     'signal':                '(signal == "b" or signal == "s")'}
   values = {
     # 'overall trend up':      'potential',
     # 'positive gap pattern':  'potential',
     'ichimoku signal':       'potential',
-    'adx trend is up':       'potential',
+    'adx_signal':            'potential',
+    # 'adx trend is up':       'potential',
     # 'adx trend is down':     '',
     # 'adx trend is weak':     '',
     # 'overall trend down':    '',
     # 'negative gap pattern':  '',
-    'long after ichimoku':     '',
+    # 'long after ichimoku':    '',
+    'adx or ichimoku is up':  'potential',
     # 'negative ichimoku':     '',
     # 'early of falling':      '',
     # 'none-trend waving':     '',
     # 'around the gap':        '',
     # 'candle below kijun':    '',
+    'adx trend uncertain':   '',
     'signal':                'signal'}
   df = assign_condition_value(df=df, column='label', condition_dict=conditions, value_dict=values, default_value='')
 
@@ -1741,7 +1747,7 @@ def postprocess(df, keep_columns, drop_columns, target_interval=''):
   df = df.drop(drop_columns, axis=1)
   
   # sort by operation and symbol
-  df = df.sort_values(['交易信号', 'TK信号'], ascending=[True, True])
+  df = df.sort_values(['交易信号', 'ADX信号', 'TK信号'], ascending=[True, True, True])
   
   return df
 
@@ -4660,6 +4666,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
   # plot trend
   trend_col = signal_x.replace('signal', 'trend')
+  day_col = signal_x.replace('signal', 'day')
   if trend_col in df.columns:
     for i in ['pos', 'neg', 'wave']:
       tmp_trend_value = trend_val[f'{i}_trend']
@@ -4673,6 +4680,15 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
         ax.scatter(uncertain_wave.index, uncertain_wave[signal_y], marker=style[f'{i}_trend_marker'], color=style[f'wave_color'], alpha=style['trend_alpha'])
       else:
         ax.scatter(tmp_data.index, tmp_data[signal_y], marker=style[f'{i}_trend_marker'], color=style[f'{i}_color'], alpha=style['trend_alpha'])
+
+  annotate_signal_day = True
+  max_idx = df.index.max()
+  if day_col in df.columns and annotate_signal_day:
+    x_signal = max_idx + datetime.timedelta(days=2)
+    y_signal = df.loc[max_idx, signal_y]
+    text_signal = int(df.loc[max_idx, day_col])
+    text_color = 'red' if text_signal < 0 else 'green'
+    plt.annotate(f' {text_signal} ', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=10, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.1))
 
   # plot signal
   if signal_x in df.columns:
@@ -5619,7 +5635,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
   new_title = args['sec_name'].get(title)
   linear_desc = f'{df.loc[df.index.max(), "linear_fit_description"]}' if 'linear_fit_description' in df.columns else ''
   candle_desc = f'{df.loc[df.index.max(), "candle_pattern_description"]}' if 'candle_pattern_description' in df.columns else ''
-  adx_desc = f'[ADX: {df.loc[df.index.max(), "adx_direction_day"]} {df.loc[df.index.max(), "adx_strength_acc_day"]}]'
+  adx_desc = f'[A-I: {df.loc[df.index.max(), "adx_day"]} {df.loc[df.index.max(), "ichimoku_day"]}]'
   
   desc = '\n' + linear_desc + (f'[{df.loc[df.index.max(), "candle_pattern_description"]}]' if candle_desc > ' ' else '') + adx_desc
 
