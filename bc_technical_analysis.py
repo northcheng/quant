@@ -389,6 +389,7 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
     # ================================ adx trend ==============================
     if 'adx' in trend_indicators:
       
+      # adx trend value and strength
       df['adx_value'] = df['adx_diff_ma']
       df['adx_strength'] = df['adx']
       
@@ -413,7 +414,7 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       df = cal_change(df=df, target_col='adx_strength', add_accumulation=False, add_prefix=True)
       df['adx_power'] = sda(series=df['adx_strength_change'], zero_as=0)  
 
-      adx_strength_threshold = 0.01
+      adx_strength_threshold = 0.1
       conditions = {
         'up': f'adx_strength_change >= {adx_strength_threshold}', 
         'down': f'adx_strength_change <= {-adx_strength_threshold}', 
@@ -1503,52 +1504,50 @@ def calculate_ta_signal(df):
   # ================================ buy and sell signals ==========================
   df['trend'] = ''
   df['signal'] = ''
-
-  # buy conditions
-  buy_conditions = {
-
-    # developing version 3 - started 2021-12-16
-    'adx':  'adx_trend == "u"',
-    'ichimoku': 'ichimoku_trend == "u"'
-    
-  }
-  up_idx = df.query(' and '.join(buy_conditions.values())).index 
-  df.loc[up_idx, 'trend'] = 'u'
+  df['ichimoku_mean'] = (df['tankan'] + df['kijun']) / 2
 
   # sell conditions
   sell_conditions = {
 
     # developing version 3 - started 2021-12-16
-    # 'not up':   '(trend != "u")',
-    'adx':      '(adx_trend == "d")',
-    'ichimoku': '(ichimoku_trend != "u" or (ichimoku_trend == "u" and tankan_day < 0))'
+    'case 1': '(adx_day < 0 and Close < ichimoku_mean)',
+    'case 2': '(adx_day < -2)'
   } 
-  down_idx = df.query(' and '.join(sell_conditions.values())).index 
+  down_idx = df.query(' or '.join(sell_conditions.values())).index 
   df.loc[down_idx, 'trend'] = 'd'
+
+  # buy conditions
+  buy_conditions = {
+
+    # developing version 3 - started 2021-12-16
+    'not down trending':  '(trend != "d")', 
+    'adx':                '(adx_day > 0)',
+    'adx_value':          '((prev_adx_extreme < -5) or (-5 <= prev_adx_extreme <= 5 and adx_direction > 5) or (prev_adx_extreme > 5 and (tankan_kijun_signal < 30 or 0 < tankan_day <= 5)))',
+    'ichimoku':           '((ichimoku_trend == "u") or (0 < kijun_day <= tankan_day))'
+    
+  }
+  up_idx = df.query(' and '.join(buy_conditions.values())).index 
+  df.loc[up_idx, 'trend'] = 'u'
 
   # wave conditions
   wave_conditions = {
 
     # developing version 3 - started 2021-12-16
-    'adx start from high':  '((trend == "u") and (prev_adx_extreme > 15) and (tankan_kijun_signal > 15))'
-    
+    'adx start from high':    '((trend == "u") and (prev_adx_extreme > 15) and (tankan_kijun_signal > 15))',
+    'long after ichimoku':    '((trend == "u") and (tankan_kijun_signal > 30 and adx_value >= 25))',    
   } 
   wave_idx = df.query(' or '.join(wave_conditions.values())).index 
   df.loc[wave_idx, 'uncertain_trend'] = df.loc[wave_idx, 'trend']
   df.loc[wave_idx, 'trend'] = 'n'
 
   # # other buy or sell conditions
-  # buy_conditions = {
-  #   'other': '((窗口_day == 1 or 突破_day == 1 or 反弹_day == 1) and (tankan_rate >= 0 and kijun_rate >= 0))',
-  # } 
-  # up_idx = df.query(' or '.join(buy_conditions.values())).index 
-  # df.loc[up_idx, 'trend'] = 'u'
-
-  # sell_conditions = {
-  #   'other': '(窗口_day == -1 or 突破_day == -1 or 反弹_day == -1)',
-  # } 
-  # down_idx = df.query(' or '.join(sell_conditions.values())).index 
-  # df.loc[down_idx, 'trend'] = 'd'
+  # conditions = {
+  #   'up': f'((窗口_day == 1 or 突破_day == 1 or 反弹_day == 1) and (tankan_rate >= 0 and kijun_rate >= 0))', 
+  #   'down': f'(窗口_day == -1 or 突破_day == -1 or 反弹_day == -1)'} 
+  # values = {
+  #   'up': 'u', 
+  #   'down': 'd'}
+  # df = assign_condition_value(df=df, column='trend', condition_dict=conditions, value_dict=values, default_value='n') 
 
   # ================================ Calculate overall siganl ======================
   df['trend_day'] = sda(series=df['trend'].replace({'':0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
@@ -1659,43 +1658,23 @@ def postprocess(df, keep_columns, drop_columns, target_interval=''):
 
   # candle pattern index and description
   conditions = {
-    # 'overall trend up':      '(trend == "u" or trend == "n")',
-    # 'positive gap pattern':  '(反弹_trend == "u" or 突破_trend == "u" or 窗口_trend == "u" or 启明黄昏_trend == "u")',
-    'ichimoku signal':       '(3 >= tankan_kijun_signal > 0)',
-    'adx_signal':            '(3 >= adx_direction_day > 0 and adx_direction >5)',
-    # 'adx trend is up':       '(adx_direction_day > 1 and prev_adx_extreme < -10 and (tankan_rate > 0 or candle_entity_bottom > kijun))',
-    # 'adx trend is down':     '(adx_trend == "d")',
-    # 'adx trend is weak':     '(adx_strong_day < -10 and -10 < adx_diff_ma < 10)',
-    # 'overall trend down':    '(uncertain_trend == "d")',
-    # 'negative gap pattern':  '(反弹_trend == "d" or 突破_trend == "d" or 窗口_trend == "d" or 启明黄昏_trend == "d")',
-    # 'long after ichimoku':     '((tankan_kijun_signal > 10) or (tankan_kijun_signal < 0 and (kijun_day > 5)))',
-    'adx or ichimoku is up': '((0 < ichimoku_day < 5 and 0 < adx_day <= 5) or (0 < ichimoku_day <= 5 and 0 < adx_day < 5))',
-    # 'negative ichimoku':     '(candle_color == -1 and candle_entity_bottom < tankan)',
-    # 'early of falling':      '(0 > tankan_kijun_signal > -10)',
-    # 'none-trend waving':     '((renko_duration > 100 and tankan_kijun_signal > 20))',
-    # 'around the gap':        '((trend != "u" and uncertain_trend != "u") and (window_position_status == "down" or window_position_status == "out" or window_position_status == "mid" or window_position_status == "mid_up" or window_position_status == "mid_down"))',
-    # 'candle below kijun':    '(candle_entity_bottom < kijun)',
-    'adx trend uncertain':   '(-5 < adx_direction < 5) or (adx_direction_day < 0 and adx_strong_day < 0) or (adx_direction > 0 and adx_strong_day < 0)',
-    'signal':                '(signal == "b" or signal == "s")'}
+    # 'ichimoku cloud truns green':   '(5 >= tankan_kijun_signal > 0)',
+    # 'adx direction turns up':       '(10 > adx_direction_day > 0 and adx_direction > 5 and trend != "d")',
+    # 'adx or ichimoku signal':       '((0 < ichimoku_day < 5 and 0 < adx_day <= 5) or (0 < ichimoku_day <= 5 and 0 < adx_day < 5))',
+    # 'adx trend uncertain':          '(-5 < adx_direction < 5) or (adx_direction_day < 0 and adx_strong_day < 0) or (adx_direction > 0 and adx_strong_day < 0)',
+    # 'ichimoku trend uncertain':     '(tankan_rate < 0 or kijun_rate < 0 or (ichimoku_trend == "d"))',
+    # 'at high position':             '(adx_value > 20 and adx_strength > 35)', 
+    'trend triggered':              '(0 < trend_day <=5)',
+    'signal':                       '(signal == "b")'}
   values = {
-    # 'overall trend up':      'potential',
-    # 'positive gap pattern':  'potential',
-    'ichimoku signal':       'potential',
-    'adx_signal':            'potential',
-    # 'adx trend is up':       'potential',
-    # 'adx trend is down':     '',
-    # 'adx trend is weak':     '',
-    # 'overall trend down':    '',
-    # 'negative gap pattern':  '',
-    # 'long after ichimoku':    '',
-    'adx or ichimoku is up':  'potential',
-    # 'negative ichimoku':     '',
-    # 'early of falling':      '',
-    # 'none-trend waving':     '',
-    # 'around the gap':        '',
-    # 'candle below kijun':    '',
-    'adx trend uncertain':   '',
-    'signal':                'signal'}
+    # 'ichimoku cloud truns green':   'potential',
+    # 'adx direction turns up':       'potential',
+    # 'adx or ichimoku signal':       'potential',
+    # 'adx trend uncertain':          '',
+    # 'ichimoku trend uncertain':     '',
+    # 'at high position':             '',
+    'trend triggered':              'potential',
+    'signal':                       'signal'}
   df = assign_condition_value(df=df, column='label', condition_dict=conditions, value_dict=values, default_value='')
 
   # rename columns, keep 3 digits
@@ -1709,7 +1688,7 @@ def postprocess(df, keep_columns, drop_columns, target_interval=''):
   df = df.drop(drop_columns, axis=1)
   
   # sort by operation and symbol
-  df = df.sort_values(['交易信号', 'ADX信号', 'TK信号'], ascending=[True, True, True])
+  df = df.sort_values(['趋势方向', 'ADX信号'], ascending=[True, True])
   
   return df
 
@@ -5172,7 +5151,6 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
   ax.grid(True, axis='both', linestyle='--', linewidth=0.5, alpha=0.3)
-
   ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
 
   # return ax
@@ -5440,7 +5418,7 @@ def plot_indicator(df, target_col, start=None, end=None, signal_x='signal', sign
     return ax
 
 # plot multiple indicators on a same chart
-def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, save_image=False, show_image=False, title=None, width=25, unit_size=3, wspace=0, hspace=0.015, subplot_args=default_plot_args):
+def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, save_image=False, show_image=False, title=None, width=25, unit_size=3.5, wspace=0, hspace=0.015, subplot_args=default_plot_args):
   """
   Plot Ichimoku and mean reversion in a same plot
   :param df: dataframe with ichimoku and mean reversion columns

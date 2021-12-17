@@ -500,6 +500,8 @@
       "adx": "ADX强度",         
       "adx_day": "ADX信号",
       "tankan_kijun_signal": "TK信号",
+      "trend": "趋势信号",
+      "trend_day": "趋势方向",
       "signal": "交易信号",
       "label": "分类"
     },
