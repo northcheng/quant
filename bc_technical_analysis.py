@@ -1506,12 +1506,12 @@ def calculate_ta_signal(df):
   df['signal'] = ''
   df['ichimoku_mean'] = (df['tankan'] + df['kijun']) / 2
 
-  # sell conditions
+  # # sell conditions
   sell_conditions = {
 
     # developing version 3 - started 2021-12-16
-    'case 1': '(adx_day < 0 and Close < ichimoku_mean)',
-    'case 2': '(adx_day < -2)'
+    'case 1': '(((adx_direction < -5) or (adx_day <0)) and (Close < ichimoku_mean))',
+    'case 2': '((adx_trend != "u") and (tankan_kijun_signal > 0 and Close > tankan and tankan_rate <= 0.005 and kijun_rate <= 0.005))'
   } 
   down_idx = df.query(' or '.join(sell_conditions.values())).index 
   df.loc[down_idx, 'trend'] = 'd'
@@ -1521,7 +1521,7 @@ def calculate_ta_signal(df):
 
     # developing version 3 - started 2021-12-16
     'not down trending':  '(trend != "d")', 
-    'adx':                '(adx_day > 0)',
+    'adx':                '(adx_direction > 5)',
     'adx_value':          '((prev_adx_extreme < -5) or (-5 <= prev_adx_extreme <= 5 and adx_direction > 5) or (prev_adx_extreme > 5 and (tankan_kijun_signal < 30 or 0 < tankan_day <= 5)))',
     'ichimoku':           '((ichimoku_trend == "u") or (0 < kijun_day <= tankan_day))'
     
@@ -1533,8 +1533,11 @@ def calculate_ta_signal(df):
   wave_conditions = {
 
     # developing version 3 - started 2021-12-16
+    # 'trend is weak':          '((trend == "u") and (adx_strength < 25))',
     'adx start from high':    '((trend == "u") and (prev_adx_extreme > 15) and (tankan_kijun_signal > 15))',
-    'long after ichimoku':    '((trend == "u") and (tankan_kijun_signal > 30 and adx_value >= 25))',    
+    'long after +ichimoku':   '((trend == "u") and (tankan_kijun_signal > 30 and adx_value >= 25))',    
+    'just after -ichimoku':   '((trend == "u") and (-5 <= tankan_kijun_signal < 0))',
+    'price is increasing':    '((trend == "d") and (rate > 0))'
   } 
   wave_idx = df.query(' or '.join(wave_conditions.values())).index 
   df.loc[wave_idx, 'uncertain_trend'] = df.loc[wave_idx, 'trend']
@@ -1542,7 +1545,7 @@ def calculate_ta_signal(df):
 
   # # other buy or sell conditions
   # conditions = {
-  #   'up': f'((窗口_day == 1 or 突破_day == 1 or 反弹_day == 1) and (tankan_rate >= 0 and kijun_rate >= 0))', 
+  #   'up': f'((窗口_day == 1 or 突破_day == 1) and (adx_direction > 5))', 
   #   'down': f'(窗口_day == -1 or 突破_day == -1 or 反弹_day == -1)'} 
   # values = {
   #   'up': 'u', 
@@ -1551,8 +1554,8 @@ def calculate_ta_signal(df):
 
   # ================================ Calculate overall siganl ======================
   df['trend_day'] = sda(series=df['trend'].replace({'':0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
-  df.loc[df['trend_day'] == 1, 'signal'] = 'uu'
-  df.loc[df['trend_day'] ==-1, 'signal'] = 'dd'
+  df.loc[df['trend_day'] == 1, 'signal'] = 'b'
+  df.loc[df['trend_day'] ==-1, 'signal'] = 's'
 
   return df
 
@@ -4633,7 +4636,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     plt.annotate(f' {text_signal} ', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.05))
 
   # plot signal
-  signal_val = {'pos_signal':'uu', 'neg_signal':'dd', 'none_signal':'', 'wave_signal': 'nn'}
+  # signal_val = {'pos_signal':'uu', 'neg_signal':'dd', 'none_signal':'', 'wave_signal': 'nn'}
   if signal_x in df.columns:
     for i in ['pos', 'neg']:
       tmp_signal_value = signal_val[f'{i}_signal']
