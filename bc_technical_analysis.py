@@ -271,14 +271,6 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
 
       for col in ['tankan', 'kijun']:
         df[f'{col}_day'] = sda(series=df[f'{col}_signal'], zero_as=1)
-        # # calculate line trend
-        # conditions = {
-        #   'up': f'5 >= {col}_day > 1', 
-        #   'down': f'-5 <=  {col}_day < -1'} 
-        # values = {
-        #   'up': 'u', 
-        #   'down': 'd'}
-        # df = assign_condition_value(df=df, column=f'{col}_trend', condition_dict=conditions, value_dict=values, default_value='n') 
         df = cal_change_rate(df=df, target_col=f'{col}', periods=1, add_accumulation=False, add_prefix=f'{col}', drop_na=False)
 
       # symbol(±) of adx_diff_ma
@@ -288,7 +280,7 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       values = {
         'up': 'u', 
         'down': 'd'}
-      df = assign_condition_value(df=df, column='ichimoku_trend', condition_dict=conditions, value_dict=values, default_value=0)  
+      df = assign_condition_value(df=df, column='ichimoku_trend', condition_dict=conditions, value_dict=values, default_value='n')  
 
       # signal_col = f'ichimoku_signal'
       # trend_col = f'ichimoku_trend'
@@ -389,12 +381,10 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
     # ================================ adx trend ==============================
     if 'adx' in trend_indicators:
       
-      # adx trend value and strength
       df['adx_value'] = df['adx_diff_ma']
       df['adx_strength'] = df['adx']
       
-      # direction and power of adx change
-      # direction
+      # direction of adx
       df = cal_change(df=df, target_col='adx_value', add_accumulation=False, add_prefix=True)
       df['adx_direction'] = sda(series=df['adx_value_change'], zero_as=0)
 
@@ -410,7 +400,7 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       df = assign_condition_value(df=df, column='adx_direction_day', condition_dict=conditions, value_dict=values, default_value=0) 
       df['adx_direction_day'] = sda(series=df['adx_direction_day'], zero_as=1) 
 
-      # power
+      # power of adx
       df = cal_change(df=df, target_col='adx_strength', add_accumulation=False, add_prefix=True)
       df['adx_power'] = sda(series=df['adx_strength_change'], zero_as=0)  
 
@@ -427,9 +417,10 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       df['adx_power_day'] = sda(series=df['adx_power_day'], zero_as=1) 
 
       # whether trend is strong
+      adx_strong_weak_threshold = 25
       conditions = {
-        'up': 'adx_strength >= 25', 
-        'down': 'adx_strength < 25'} 
+        'up': f'adx_strength >= {adx_strong_weak_threshold}', 
+        'down': f'adx_strength < {adx_strong_weak_threshold}'} 
       values = {
         'up': 1, 
         'down': -1}
@@ -1510,10 +1501,10 @@ def calculate_ta_signal(df):
   sell_conditions = {
 
     # developing version 3 - started 2021-12-16
-    'case 1': '(((adx_direction < -5) or (adx_day <0)) and (Close < ichimoku_mean))',
-    'case 2': '((adx_trend != "u") and (tankan_kijun_signal > 0 and Close > tankan and tankan_rate <= 0.005 and kijun_rate <= 0.005))'
+    'adx':      '(adx_direction <= -5)',
+    'ichimoku': '((Close < ichimoku_mean) or (tankan_kijun_signal > 0 and Close > tankan and tankan_rate <= 0.005 and kijun_rate <= 0.005))'
   } 
-  down_idx = df.query(' or '.join(sell_conditions.values())).index 
+  down_idx = df.query(' and '.join(sell_conditions.values())).index 
   df.loc[down_idx, 'trend'] = 'd'
 
   # buy conditions
@@ -1554,8 +1545,8 @@ def calculate_ta_signal(df):
 
   # ================================ Calculate overall siganl ======================
   df['trend_day'] = sda(series=df['trend'].replace({'':0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
-  df.loc[df['trend_day'] == 1, 'signal'] = 'b'
-  df.loc[df['trend_day'] ==-1, 'signal'] = 's'
+  # df.loc[df['trend_day'] == 1, 'signal'] = 'b'
+  # df.loc[df['trend_day'] ==-1, 'signal'] = 's'
 
   return df
 
