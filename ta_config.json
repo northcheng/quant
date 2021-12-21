@@ -39,7 +39,7 @@
   "visualization": {
     "plot_args": {
       "plot_ratio": {
-        "signals": 1.5, "adx": 2, "main_indicators": 10
+        "signals": 2, "adx": 2, "main_indicators": 10
       },
       "trend_idx": {
         "target_col": ["stoch_k", "stoch_d"],
@@ -64,8 +64,7 @@
           "",
           "ichimoku_signal",
           "adx_signal",
-          "",
-          "signal"
+          ""
         ]
       },
       "candle": {
@@ -495,13 +494,11 @@
       "resistant": "阻挡",
       "candle_pattern_description": "蜡烛形态",
       "candle_pattern_idx": "蜡烛分数",
-      "adx_diff_ma": "ADX差值",
+      "adx_value": "ADX差值",
+      "adx_strength": "ADX强度", 
       "adx_direction_day": "ADX方向",
-      "adx": "ADX强度",         
-      "adx_day": "ADX信号",
+      "prev_adx_extreme": "ADX起始",
       "tankan_kijun_signal": "TK信号",
-      "trend": "趋势信号",
-      "trend_day": "趋势方向",
       "signal": "交易信号",
       "label": "分类"
     },

@@ -273,14 +273,48 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
         df[f'{col}_day'] = sda(series=df[f'{col}_signal'], zero_as=1)
         df = cal_change_rate(df=df, target_col=f'{col}', periods=1, add_accumulation=False, add_prefix=f'{col}', drop_na=False)
 
-      # symbol(±) of adx_diff_ma
+      # ichimoku trend
+      # conditions = {
+      #   'up': '((candle_entity_bottom > kijun) and (kijun_day > 1))',
+      #   'down': '((candle_entity_bottom < kijun) and (kijun_day < -1))'}
+      # values = {
+      #   'up': 'u', 
+      #   'down': 'd'}
+      # df = assign_condition_value(df=df, column='ichimoku_trend', condition_dict=conditions, value_dict=values, default_value='n')  
+
+      df['tankan_day_plus_kijun_day'] = df['tankan_day'] + df['kijun_day']
       conditions = {
-        'up': '((candle_entity_bottom > kijun) and (kijun_day > 1))',
-        'down': '((candle_entity_bottom < kijun) and (kijun_day < -1))'}
+        'under red cloud':            '((tankan_kijun_signal < 0) and (candle_entity_top < tankan) and (tankan_day < -1))',
+        'above red cloud':            '((tankan_kijun_signal < 0) and (candle_entity_bottom > kijun) and (kijun_day >1))',
+        'go up into red cloud':       '((tankan_kijun_signal < 0) and ((tankan_day > 1) and (tankan_day_plus_kijun_day) < 0))',
+        'go up above red cloud':      '((tankan_kijun_signal < 0) and (tankan_day >= kijun_day > 1))',
+        'go down into red cloud':     '((tankan_kijun_signal < 0) and ((kijun_day < -1) and (tankan_day_plus_kijun_day) > 0))',
+        'go down below red cloud':    '((tankan_kijun_signal < 0) and (tankan_day <= kijun_day < 0))',
+
+        'under green cloud':          '((tankan_kijun_signal > 0) and (candle_entity_top < kijun) and (kijun_day < -1))',
+        'above green cloud':          '((tankan_kijun_signal > 0) and (candle_entity_bottom > tankan) and (tankan_day > 1))',
+        'go up into green cloud':     '((tankan_kijun_signal > 0) and ((kijun_day > 1) and (tankan_day_plus_kijun_day) < 0))',
+        'go up above green cloud':    '((tankan_kijun_signal > 0) and (kijun_day >= tankan_day > 0))',
+        'go down into green cloud':   '((tankan_kijun_signal > 0) and ((tankan_day < -1) and (tankan_day_plus_kijun_day) > 0))',
+        'go down below green cloud':  '((tankan_kijun_signal > 0) and (kijun_day <= tankan_day < 0))',
+
+        }
       values = {
-        'up': 'u', 
-        'down': 'd'}
-      df = assign_condition_value(df=df, column='ichimoku_trend', condition_dict=conditions, value_dict=values, default_value='n')  
+        'under red cloud':            'd',
+        'above red cloud':            'u',
+        'go up into red cloud':       'u',
+        'go up above red cloud':      'u',
+        'go down into red cloud':     'd',
+        'go down below red cloud':    'd',
+
+        'under green cloud':          'd',
+        'above green cloud':          'u',
+        'go up into green cloud':     'u',
+        'go up above green cloud':    'u',
+        'go down into green cloud':   'd',
+        'go down below green cloud':  'd',
+        }
+      df = assign_condition_value(df=df, column='ichimoku_trend', condition_dict=conditions, value_dict=values, default_value='n') 
 
       # signal_col = f'ichimoku_signal'
       # trend_col = f'ichimoku_trend'
@@ -1545,6 +1579,8 @@ def calculate_ta_signal(df):
 
   # ================================ Calculate overall siganl ======================
   df['trend_day'] = sda(series=df['trend'].replace({'':0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
+  df.loc[df['trend_day'] == 1, 'signal'] = 'uu'
+  df.loc[df['trend_day'] ==-1, 'signal'] = 'dd'
   # df.loc[df['trend_day'] == 1, 'signal'] = 'b'
   # df.loc[df['trend_day'] ==-1, 'signal'] = 's'
 
@@ -1652,22 +1688,28 @@ def postprocess(df, keep_columns, drop_columns, target_interval=''):
 
   # candle pattern index and description
   conditions = {
-    # 'ichimoku cloud truns green':   '(5 >= tankan_kijun_signal > 0)',
-    # 'adx direction turns up':       '(10 > adx_direction_day > 0 and adx_direction > 5 and trend != "d")',
-    # 'adx or ichimoku signal':       '((0 < ichimoku_day < 5 and 0 < adx_day <= 5) or (0 < ichimoku_day <= 5 and 0 < adx_day < 5))',
-    # 'adx trend uncertain':          '(-5 < adx_direction < 5) or (adx_direction_day < 0 and adx_strong_day < 0) or (adx_direction > 0 and adx_strong_day < 0)',
-    # 'ichimoku trend uncertain':     '(tankan_rate < 0 or kijun_rate < 0 or (ichimoku_trend == "d"))',
-    # 'at high position':             '(adx_value > 20 and adx_strength > 35)', 
     'trend triggered':              '(0 < trend_day <=5)',
+    'positive adx direction':       '(0 < adx_direction_day and ((adx_direction > 5 and adx_direction_day <=5) or (adx_value_change > 2)))',
+
+    'at high position':             '(adx_value > 20)', 
+    'falling down':                 '(candle_gap < 0)',
+    'red candle in the gap':        '(candle_color == -1 and (window_position_status in ["mid", "mid_up", "mid_down", "out"]))',
+    'negative window gap pattern':  '(窗口_day == -1 or 突破_day == -1)',
+    'negative ichimoku trend':      '(tankan_kijun_signal < 0 and ((candle_color == -1 and candle_entity_bottom < tankan) or (candle_color == 1 and candle_entity_top < tankan)))',
+    'negative adx direction':       '(adx_direction_day < 0)',
+
     'signal':                       '(signal == "b")'}
   values = {
-    # 'ichimoku cloud truns green':   'potential',
-    # 'adx direction turns up':       'potential',
-    # 'adx or ichimoku signal':       'potential',
-    # 'adx trend uncertain':          '',
-    # 'ichimoku trend uncertain':     '',
-    # 'at high position':             '',
     'trend triggered':              'potential',
+    'positive adx direction':       'potential',
+    
+    'at high position':             '',
+    'falling down':                 '',
+    'red candle in the gap':        '',
+    'negative window gap pattern':  '',
+    'negative ichimoku trend':      '',
+    'negative adx direction':       '',
+
     'signal':                       'signal'}
   df = assign_condition_value(df=df, column='label', condition_dict=conditions, value_dict=values, default_value='')
 
@@ -1682,7 +1724,7 @@ def postprocess(df, keep_columns, drop_columns, target_interval=''):
   df = df.drop(drop_columns, axis=1)
   
   # sort by operation and symbol
-  df = df.sort_values(['趋势方向', 'ADX信号'], ascending=[True, True])
+  df = df.sort_values(['ADX方向', 'ADX起始'], ascending=[True, True])
   
   return df
 
@@ -4627,7 +4669,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     plt.annotate(f' {text_signal} ', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.05))
 
   # plot signal
-  # signal_val = {'pos_signal':'uu', 'neg_signal':'dd', 'none_signal':'', 'wave_signal': 'nn'}
+  signal_val = {'pos_signal':'uu', 'neg_signal':'dd', 'none_signal':'', 'wave_signal': 'nn'}
   if signal_x in df.columns:
     for i in ['pos', 'neg']:
       tmp_signal_value = signal_val[f'{i}_signal']
@@ -4637,7 +4679,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
   # legend and title
   ax.legend(loc='upper left')  
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
-  ax.grid(True, axis='x', linestyle='-', linewidth=0.5, alpha=0.3)
+  ax.grid(True, axis='x', linestyle='-', linewidth=0.5, alpha=0.1)
   ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
 
   # return ax
