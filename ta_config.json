@@ -50,7 +50,8 @@
       "main_indicators": {
         "target_indicator": [
           "candlestick",
-          "ichimoku"
+          "ichimoku",
+          "linear"
         ],
         "candlestick_width": 0.62,
         "candlestick_color": {
