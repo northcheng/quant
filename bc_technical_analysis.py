@@ -4891,9 +4891,9 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
     # ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a > df.senkou_b, facecolor='green', interpolate=True, alpha=alpha)
     # ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a <= df.senkou_b, facecolor='red', interpolate=True, alpha=alpha)
 
-    alpha = 0.4
-    ax.plot(df.index, df.tankan, label='tankan', color='green', linestyle='-', alpha=alpha) # magenta
-    ax.plot(df.index, df.kijun, label='kijun', color='red', linestyle='-', alpha=alpha) # blue
+    alpha = 0.2
+    ax.plot(df.index, df.tankan, label='tankan', color='green', linestyle='-', alpha=alpha, linewidth=0.5) # magenta
+    ax.plot(df.index, df.kijun, label='kijun', color='red', linestyle='-', alpha=alpha, linewidth=0.5) # blue
     alpha = 0.2
     ax.fill_between(df.index, df.tankan, df.kijun, where=df.tankan > df.kijun, facecolor='green', interpolate=True, alpha=alpha)
     ax.fill_between(df.index, df.tankan, df.kijun, where=df.tankan <= df.kijun, facecolor='red', interpolate=True, alpha=alpha)
@@ -4938,8 +4938,8 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   if 'linear' in target_indicator:
     # # plot aroon_up/aroon_down lines 
     line_alpha = 0.3
-    ax.plot(df.index, df.linear_fit_high, label='linear_fit_high', color='black', alpha=line_alpha)
-    ax.plot(df.index, df.linear_fit_low, label='linear_fit_low', color='black', alpha=line_alpha)
+    ax.plot(df.index, df.linear_fit_high, label='linear_fit_high', color='black', linestyle='-.', alpha=line_alpha)
+    ax.plot(df.index, df.linear_fit_low, label='linear_fit_low', color='black', linestyle='-.', alpha=line_alpha)
 
     # fill between linear_fit_high and linear_fit_low
     fill_alpha = 0.1
