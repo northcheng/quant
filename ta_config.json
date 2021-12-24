@@ -500,6 +500,7 @@
       "adx_direction_day": "ADX方向",
       "prev_adx_extreme": "ADX起始",
       "tankan_kijun_signal": "TK信号",
+      "linear_slope": "拟合斜率",
       "signal": "交易信号",
       "label": "分类"
     },

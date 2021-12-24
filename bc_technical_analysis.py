@@ -1625,6 +1625,7 @@ def postprocess(df, keep_columns, drop_columns, target_interval=''):
     'negative window gap pattern':  '(窗口_day == -1 or 突破_day == -1)',
     'negative ichimoku trend':      '(tankan_kijun_signal < 0 and ((candle_color == -1 and candle_entity_bottom < tankan) or (candle_color == 1 and candle_entity_top < tankan)))',
     'negative adx direction':       '(adx_direction_day < 0)',
+    'negativa linear trend':        '((linear_direction == "n" and adx_power_day < 0) or (linear_fit_high_slope == 0.0))',
 
     'signal':                       '(signal == "b")'}
   values = {
@@ -1637,6 +1638,7 @@ def postprocess(df, keep_columns, drop_columns, target_interval=''):
     'negative window gap pattern':  '',
     'negative ichimoku trend':      '',
     'negative adx direction':       '',
+    'negativa linear trend':        '',
 
     'signal':                       'signal'}
   df = assign_condition_value(df=df, column='label', condition_dict=conditions, value_dict=values, default_value='')
@@ -1652,7 +1654,7 @@ def postprocess(df, keep_columns, drop_columns, target_interval=''):
   df = df.drop(drop_columns, axis=1)
   
   # sort by operation and symbol
-  df = df.sort_values(['ADX方向', 'ADX起始'], ascending=[True, True])
+  df = df.sort_values(['拟合斜率', 'ADX差值', 'ADX方向', 'ADX起始'], ascending=[True, True, True, True])
   
   return df
 
@@ -4936,19 +4938,24 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
 
   # plot high/low trend
   if 'linear' in target_indicator:
-    # # plot aroon_up/aroon_down lines 
-    line_alpha = 0.3
-    ax.plot(df.index, df.linear_fit_high, label='linear_fit_high', color='black', linestyle='-.', alpha=line_alpha)
-    ax.plot(df.index, df.linear_fit_low, label='linear_fit_low', color='black', linestyle='-.', alpha=line_alpha)
+
+    colors = {'u': 'green', 'd': 'red', 'n': 'orange', '': 'grey'}
+    # hatches = {'u': '++', 'd': '--', 'n': '..', '': ''}
+
+    # plot aroon_up/aroon_down lines 
+    line_alpha = 0.5
+    max_idx = df.index.max()
+    
+    linear_direction = df.loc[max_idx, 'linear_direction']
+    linear_color = colors[linear_direction]
+    ax.plot(df.index, df.linear_fit_high, label='linear_fit_high', color=linear_color, linestyle='-.', alpha=line_alpha)
+    ax.plot(df.index, df.linear_fit_low, label='linear_fit_low', color=linear_color, linestyle='-.', alpha=line_alpha)
 
     # fill between linear_fit_high and linear_fit_low
-    fill_alpha = 0.1
-    up_direction = df.linear_direction == 'u'
-    down_direction = df.linear_direction == 'd'
-    none_direction = df.linear_direction == 'n'
-    ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=up_direction, facecolor='green', interpolate=True, alpha=fill_alpha)
-    ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=down_direction, facecolor='red', interpolate=True, alpha=fill_alpha)
-    ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=none_direction, facecolor='yellow', interpolate=True, alpha=fill_alpha)
+    fill_alpha = 0.25
+    linear_range = df.linear_direction != ''
+    linear_hatch = '--' # hatches[linear_direction]
+    ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=linear_range, facecolor='white', edgecolor=linear_color, hatch=linear_hatch, interpolate=True, alpha=fill_alpha)
 
   # plot candlestick
   if 'candlestick' in target_indicator:
