@@ -4575,7 +4575,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
   # annotate number of days since signal triggered
   annotate_signal_day = True
   max_idx = df.index.max()
-  if day_col in df.columns and annotate_signal_day:
+  if signal_x in ['ichimoku_signal', 'adx_signal'] and day_col in df.columns and annotate_signal_day:
     x_signal = max_idx + datetime.timedelta(days=2)
     y_signal = df.loc[max_idx, signal_y]
     text_signal = int(df.loc[max_idx, day_col])
@@ -5524,7 +5524,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
   new_title = args['sec_name'].get(title)
   linear_desc = f'{df.loc[df.index.max(), "linear_fit_description"]}' if 'linear_fit_description' in df.columns else ''
   candle_desc = f'{df.loc[df.index.max(), "candle_pattern_description"]}' if 'candle_pattern_description' in df.columns else ''
-  adx_desc = f'[{df.loc[df.index.max(), "adx_day"]}(ADX) {df.loc[df.index.max(), "ichimoku_day"]}(ICHI)]'
+  adx_desc = f'[ADX-ICHI: {df.loc[df.index.max(), "adx_day"]}-{df.loc[df.index.max(), "ichimoku_day"]}]'
   
   desc = '\n' + linear_desc + (f'[{df.loc[df.index.max(), "candle_pattern_description"]}]' if candle_desc > ' ' else '') + adx_desc
 
