@@ -1635,7 +1635,6 @@ def postprocess(df, keep_columns, drop_columns, target_interval=''):
 
     
     # 'falling down':                 '(candle_gap < 0)',
-    # 'candle in the gap':            '((candle_color == -1 and (相对窗口位置 in ["mid", "mid_up", "mid_down", "out"])) or (candle_color == 1 and (相对窗口位置 in ["mid", "mid_down"])))',
     # 'negative window gap pattern':  '(窗口_day == -1 or 突破_day == -1)',
     # 'negative ichimoku trend':      '(tankan_kijun_signal < 0 and ((candle_color == -1 and candle_entity_bottom < tankan) or (candle_color == 1 and candle_entity_top < tankan)))',
     # 'negative adx direction':       '(adx_direction_day < 0)',
@@ -1643,6 +1642,7 @@ def postprocess(df, keep_columns, drop_columns, target_interval=''):
 
     'trend':                        '((adx_trend != "d" and adx_direction > 0) or (trend == "u") or (uncertain_trend == "u"))',
     'at high position':             '((adx_value > 20) or (adx_direction < 0) or (adx_direction > 20 and adx_direction_day > 5) or (0 < adx_value and adx_direction < 5))', 
+    'candle in the gap':            '((candle_color == -1 and (相对窗口位置 in ["mid", "mid_up", "mid_down", "out"])))',
 
     'signal':                       '(signal == "b")'}
   values = {
@@ -1660,6 +1660,7 @@ def postprocess(df, keep_columns, drop_columns, target_interval=''):
 
     'trend':                        'potential',
     'at high position':             '',
+    'candle in the gap':            '',
 
     'signal':                       'signal'}
   df = assign_condition_value(df=df, column='label', condition_dict=conditions, value_dict=values, default_value='')
