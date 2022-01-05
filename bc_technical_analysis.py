@@ -434,6 +434,19 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       df = assign_condition_value(df=df, column='adx_direction_day', condition_dict=conditions, value_dict=values, default_value=0) 
       df['adx_direction_day'] = sda(series=df['adx_direction_day'], zero_as=1) 
 
+      # symbol(±) of adx value      
+      adx_value_threshold = 0
+      conditions = {
+        'up': f'adx_value > {adx_value_threshold}', 
+        'down': f'adx_value_change < {adx_value_threshold}', 
+        'wave': f'adx_value_change == {adx_value_threshold}'} 
+      values = {
+        'up': 1, 
+        'down': -1,
+        'wave': 0}
+      df = assign_condition_value(df=df, column='adx_symbol_day', condition_dict=conditions, value_dict=values, default_value=0) 
+      df['adx_symbol_day'] = sda(series=df['adx_symbol_day'], zero_as=None) 
+
       # power of adx
       df = cal_change(df=df, target_col='adx_strength', add_accumulation=False, add_prefix=True)
       df['adx_power'] = sda(series=df['adx_strength_change'], zero_as=0)  
@@ -1616,31 +1629,37 @@ def postprocess(df, keep_columns, drop_columns, target_interval=''):
 
   # candle pattern index and description
   conditions = {
-    'trend triggered':              '((adx_trend == "u") or (trend == "u"))',
-    'positive adx direction':       '((0 < adx_direction_day <= 5) and (adx_direction > 5))',
-    'breakthrough candle gap':      '((candle_color == 1) and (窗口_day == 1 or 突破_day == 1 or 相对窗口位置 == "mid_up"))',
+    # 'trend triggered':              '((adx_trend == "u") or (trend == "u"))',
+    # 'positive adx direction':       '((0 < adx_direction_day <= 5) and (adx_direction > 5))',
+    # 'breakthrough candle gap':      '((candle_color == 1) and (窗口_day == 1 or 突破_day == 1 or 相对窗口位置 == "mid_up"))',
 
-    'at high position':             '(adx_value > 20)', 
-    'falling down':                 '(candle_gap < 0)',
-    'candle in the gap':            '((candle_color == -1 and (相对窗口位置 in ["mid", "mid_up", "mid_down", "out"])) or (candle_color == 1 and (相对窗口位置 in ["mid", "mid_down"])))',
-    'negative window gap pattern':  '(窗口_day == -1 or 突破_day == -1)',
-    'negative ichimoku trend':      '(tankan_kijun_signal < 0 and ((candle_color == -1 and candle_entity_bottom < tankan) or (candle_color == 1 and candle_entity_top < tankan)))',
-    'negative adx direction':       '(adx_direction_day < 0)',
-    'negativa linear trend':        '((linear_direction == "n" and adx_power_day < 0) or (linear_fit_high_slope == 0.0))',
+    
+    # 'falling down':                 '(candle_gap < 0)',
+    # 'candle in the gap':            '((candle_color == -1 and (相对窗口位置 in ["mid", "mid_up", "mid_down", "out"])) or (candle_color == 1 and (相对窗口位置 in ["mid", "mid_down"])))',
+    # 'negative window gap pattern':  '(窗口_day == -1 or 突破_day == -1)',
+    # 'negative ichimoku trend':      '(tankan_kijun_signal < 0 and ((candle_color == -1 and candle_entity_bottom < tankan) or (candle_color == 1 and candle_entity_top < tankan)))',
+    # 'negative adx direction':       '(adx_direction_day < 0)',
+    # 'negativa linear trend':        '((linear_direction == "n" and adx_power_day < 0) or (linear_fit_high_slope == 0.0))',
+
+    'trend':                        '((adx_trend != "d" and adx_direction > 0) or (trend == "u") or (uncertain_trend == "u"))',
+    'at high position':             '((adx_value > 20) or (adx_direction < 0) or (adx_direction > 20 and adx_direction_day > 5) or (0 < adx_value and adx_direction < 5))', 
 
     'signal':                       '(signal == "b")'}
   values = {
-    'trend triggered':              'potential',
-    'positive adx direction':       'potential',
-    'breakthrough candle gap':      'potential',
+    # 'trend triggered':              'potential',
+    # 'positive adx direction':       'potential',
+    # 'breakthrough candle gap':      'potential',
     
+    
+    # 'falling down':                 '',
+    # 'candle in the gap':            '',
+    # 'negative window gap pattern':  '',
+    # 'negative ichimoku trend':      '',
+    # 'negative adx direction':       '',
+    # 'negativa linear trend':        '',
+
+    'trend':                        'potential',
     'at high position':             '',
-    'falling down':                 '',
-    'candle in the gap':            '',
-    'negative window gap pattern':  '',
-    'negative ichimoku trend':      '',
-    'negative adx direction':       '',
-    'negativa linear trend':        '',
 
     'signal':                       'signal'}
   df = assign_condition_value(df=df, column='label', condition_dict=conditions, value_dict=values, default_value='')
@@ -1656,7 +1675,7 @@ def postprocess(df, keep_columns, drop_columns, target_interval=''):
   df = df.drop(drop_columns, axis=1)
   
   # sort by operation and symbol
-  df = df.sort_values(['ADX方向', 'ADX差值', 'ADX起始'], ascending=[True, True, True])
+  df = df.sort_values(['ADX差值', 'ADX方向', 'ADX起始'], ascending=[True, True, True])
   
   return df
 
