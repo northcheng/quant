@@ -1795,11 +1795,66 @@ def process_futu_exported(file_path, file_name):
 
   etf_filter = universe.name.apply(lambda x: True if (('指数' in x) or ('基金' in x) or ('做多' in x) or ('做空' in x)or ('ETN' in x) or ('ETF' in x)) else False)
   universe.loc[etf_filter, 'type'] = 'etf'
-  
+
   return universe
 
 
-def import_futu_exported(df, config):
+def filter_futu_exported(df, condition=None, q=0.7, price_limit=[5, 1000], market='us'):
+  """
+  filter symbols from data that exported from futu
+
+  :param df: dataframe of stock information
+  :param condition: dict of filter conditions
+  :returns: dataframe
+  :raises: None
+  """
+
+  filtered_df = df
+  volume_threshold = df.volume.quantile(q)
+  volume_value_threshold = df.volume_value.quantile(q)
+  market_value_threshold = df.market_value.quantile(q)
+
+  # drop abnormal symbols
+  to_drop = []
+
+  # for us stocks, remove those who's symbol contains '.'
+  if market == 'us':
+    
+    PB_threshold = -1.0
+    PE_threshold = -1.0
+    filtered_df = filtered_df.query(f'({price_limit[0]} <= close <= {price_limit[1]}) and (type == "company")').copy()
+    filtered_df = filtered_df.query(f'(volume >= {volume_threshold} or volume_value >= {volume_value_threshold} or market_value >= {market_value_threshold}) and PE >= {PE_threshold} and PB >= {PB_threshold}').copy()
+    filtered_df = filtered_df.sort_values('market_value', ascending=False)
+    
+    for index, row in filtered_df.iterrows():
+      if ('.' in row['symbol']):
+        to_drop.append(index)
+
+  # for chinese stocks, remove those who's name contains '*' or 'ST'
+  elif market == 'a':
+    
+    PB_threshold = 0
+    PE_threshold = 0
+    filtered_df = filtered_df.query(f'({price_limit[0]} <= close <= {price_limit[1]}) and (PE_TTM > 0)').copy()
+    filtered_df = filtered_df.query(f'(volume >= {volume_threshold} or volume_value >= {volume_value_threshold} or market_value >= {market_value_threshold}) and PE >= {PE_threshold} and PB >= {PB_threshold}').copy()
+    filtered_df = filtered_df.sort_values('PE')
+
+    for index, row in filtered_df.iterrows():
+      if ('*' in row['name'] or 'ST' in row['name']):
+        to_drop.append(index)
+    
+  else:
+    print(f'market "{market}" not defined')
+  
+  filtered_df = filtered_df.drop(to_drop)
+
+  # remove duplicated stocks
+  filtered_df = filtered_df.loc[~filtered_df['name'].duplicated(),].copy()
+    
+  return filtered_df
+
+
+def import_futu_exported(df, num=100):
   """
   get list and dict from stock info dataframe, for importing into selected_sec_list.json and ta_config.json
 
@@ -1808,17 +1863,19 @@ def import_futu_exported(df, config):
   :returns: dict
   :raises: None
   """
+  df = df.head(num).copy()
+  df['name'] = df['name'] + '(' + df['category'] + ')'
   codes = df[['symbol', 'name']].set_index('symbol')
 
   # selected_sec_list
   code_list = codes.index.tolist()
-  code_list = [x for x in code_list if x not in config['visualization']['plot_args']['sec_name'].keys()]
+  # code_list = [x for x in code_list if x not in config['visualization']['plot_args']['sec_name'].keys()]
 
   # ta_config
   code_names = codes.sort_index().to_dict()['name']
-  to_pop = [x for x in code_names.keys() if x not in code_list]
-  for symbol in to_pop:
-    code_names.pop(symbol)
+  # to_pop = [x for x in code_names.keys() if x not in code_list]
+  # for symbol in to_pop:
+  #   code_names.pop(symbol)
     
   return {'selected_sec_list': code_list, 'ta_config': code_names}
 

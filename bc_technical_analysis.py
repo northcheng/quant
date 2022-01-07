@@ -1641,8 +1641,8 @@ def postprocess(df, keep_columns, drop_columns, target_interval=''):
     # 'negativa linear trend':        '((linear_direction == "n" and adx_power_day < 0) or (linear_fit_high_slope == 0.0))',
 
     'trend':                        '((adx_trend != "d" and adx_direction > 0) or (trend == "u") or (uncertain_trend == "u"))',
-    'at high position':             '((adx_value > 20) or (adx_direction < 0) or (adx_direction > 20 and adx_direction_day > 5) or (0 < adx_value and adx_direction < 5))', 
-    'candle in the gap':            '((candle_color == -1 and (相对窗口位置 in ["mid", "mid_up", "mid_down", "out"])))',
+    'at high position':             '((adx_value > 20) or (adx_direction < -5) or (0 < adx_value and adx_direction < 5 and adx_strong_day < 0) or (adx_value >= 15 or adx_day >= 10))', 
+    'candle in the gap':            '((candle_color == -1 and ((相对窗口位置 in ["mid", "mid_up", "mid_down", "out"]) or (tankan_kijun_signal < 0 and Close < tankan))))',
 
     'signal':                       '(signal == "b")'}
   values = {
