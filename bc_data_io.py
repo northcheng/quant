@@ -667,9 +667,13 @@ def get_real_time_data_from_easyquotation(symbols, source='sina'):
   qt = quotation.stocks(codes) 
   df = pd.DataFrame(qt).T
 
+  idxs = df.index.tolist()
+  idx_symbols = [x for x in symbols if x.split('.')[0] in idxs]
+  print(len(idxs), len(idx_symbols))
+
   # post process
   df = df.reset_index()
-  df['index'] = symbols
+  df['index'] = idx_symbols
   
   columns_to_keep = {'index':'symbol', 'open':'Open', 'high':'High', 'low':'Low', 'now':'Close', 'turnover':'Volume', 'date':'Date'}
   

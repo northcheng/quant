@@ -1518,7 +1518,7 @@ def calculate_ta_signal(df):
 
   # ================================ Calculate overall siganl ======================
   df['trend_day'] = sda(series=df['trend'].replace({'':0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
-  # df.loc[df['trend_day'] == 1, 'signal'] = 'uu'
+  df.loc[df['trend_day'] == 1, 'signal'] = 'uu'
   # df.loc[df['trend_day'] ==-1, 'signal'] = 'dd'
   # df.loc[df['trend_day'] == 1, 'signal'] = 'b'
   # df.loc[df['trend_day'] ==-1, 'signal'] = 's'
@@ -1629,39 +1629,18 @@ def postprocess(df, keep_columns, drop_columns, target_interval=''):
 
   # candle pattern index and description
   conditions = {
-    # 'trend triggered':              '((adx_trend == "u") or (trend == "u"))',
-    # 'positive adx direction':       '((0 < adx_direction_day <= 5) and (adx_direction > 5))',
-    # 'breakthrough candle gap':      '((candle_color == 1) and (窗口_day == 1 or 突破_day == 1 or 相对窗口位置 == "mid_up"))',
-
+    'trend':                        '((adx_trend != "d" and adx_direction > 0) or (trend == "u" or uncertain_trend == "u") or (0 < kijun_signal < 5 and (tankan_kijun_signal < 0 or 0 < tankan_kijun_signal < 5)))',
+    'too late':                     '(adx_value > 25 or adx_direction_day >= 10)',
+    'too weak':                     '(prev_adx_extreme > 0 and adx_direction < 5)',
     
-    # 'falling down':                 '(candle_gap < 0)',
-    # 'negative window gap pattern':  '(窗口_day == -1 or 突破_day == -1)',
-    # 'negative ichimoku trend':      '(tankan_kijun_signal < 0 and ((candle_color == -1 and candle_entity_bottom < tankan) or (candle_color == 1 and candle_entity_top < tankan)))',
-    # 'negative adx direction':       '(adx_direction_day < 0)',
-    # 'negativa linear trend':        '((linear_direction == "n" and adx_power_day < 0) or (linear_fit_high_slope == 0.0))',
-
-    'trend':                        '((adx_trend != "d" and adx_direction > 0) or (trend == "u") or (uncertain_trend == "u"))',
-    'at high position':             '((adx_value > 20) or (adx_direction < -5) or (0 < adx_value and adx_direction < 5 and adx_strong_day < 0) or (adx_value >= 15 or adx_day >= 10))', 
-    'candle in the gap':            '((candle_color == -1 and ((相对窗口位置 in ["mid", "mid_up", "mid_down", "out"]) or (tankan_kijun_signal < 0 and Close < tankan))))',
-
+    'potential':                    '(adx_value < -10) and (0 < adx_direction_day <= 3)',
     'signal':                       '(signal == "b")'}
   values = {
-    # 'trend triggered':              'potential',
-    # 'positive adx direction':       'potential',
-    # 'breakthrough candle gap':      'potential',
-    
-    
-    # 'falling down':                 '',
-    # 'candle in the gap':            '',
-    # 'negative window gap pattern':  '',
-    # 'negative ichimoku trend':      '',
-    # 'negative adx direction':       '',
-    # 'negativa linear trend':        '',
-
     'trend':                        'potential',
-    'at high position':             '',
-    'candle in the gap':            '',
-
+    'too late':                     '',
+    'too weak':                     '',
+    
+    'potential':                    'potential',
     'signal':                       'signal'}
   df = assign_condition_value(df=df, column='label', condition_dict=conditions, value_dict=values, default_value='')
 
