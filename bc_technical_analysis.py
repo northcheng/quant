@@ -1629,20 +1629,88 @@ def postprocess(df, keep_columns, drop_columns, target_interval=''):
 
   # candle pattern index and description
   conditions = {
-    'trend':                        '((adx_trend != "d" and adx_direction > 0) or (trend == "u" or uncertain_trend == "u") or (0 < kijun_signal < 5 and (tankan_kijun_signal < 0 or 0 < tankan_kijun_signal < 5)))',
-    'too late':                     '(adx_value > 25 or adx_direction_day >= 10)',
-    'too weak':                     '(prev_adx_extreme > 0 and adx_direction < 5)',
+    'uptrend':              '(trend == "u" or uncertain_trend == "u")',
+    'adx uptrend':          '(adx_trend != "d" and adx_direction > 0)',
+    'ichimoku uptrend':     '((0 < kijun_signal < 5) and (tankan_kijun_signal < 0 or 0 < tankan_kijun_signal < 5))',
+    'tankan uptrend':       '(0 < tankan_day <= 3)',
+    'kijun uptrend':        '(0 < kijun_signal <= 3)',
+    'candle uppattern 1':   '(启明黄昏_day == 1)',
+    'candle uppattern 2':   '(反弹_day == 1)',
+    'candle uppattern 3':   '(窗口_day == 1)',
+    'linear uppatterns':    '(linear_bounce_day == 1)',
     
-    'potential':                    '(adx_value < -10) and (0 < adx_direction_day <= 3)',
-    'signal':                       '(signal == "b")'}
+    'adx too late':         '(adx_value > 25 or adx_direction_day >= 10)',
+    'adx too weak':         '(prev_adx_extreme > 0 and adx_direction < 5)',
+    'adx downtrend':        '(adx_direction < 0)',
+    'tankan downtrend':     '(0 > tankan_day >= -3)',
+    'kijun downtrend':      '(0 > kijun_signal >= -3)',
+    'linear downtrend':     '(linear_slope < 0) and (linear_fit_high_slope == 0 or linear_fit_high_signal <= 0)',
+    'overbuy':              '(bb_trend == "d")',
+    'candle downpattern 1': '(启明黄昏_day == -1)',
+    'candle downpattern 2': '(反弹_day == -1)',
+    'candle downpattern 3': '(窗口_day == -1)',
+    'linear downpatterns':  '(linear_bounce_day == -1)',
+    
+    'potential':            '(adx_value < -10) and (0 < adx_direction_day <= 3)',
+    'signal':               '(signal == "b")'}
+
   values = {
-    'trend':                        'potential',
-    'too late':                     '',
-    'too weak':                     '',
+    'uptrend':              'potential',
+    'adx uptrend':          'potential',
+    'ichimoku uptrend':     'potential',
+    'tankan uptrend':       'potential',
+    'kijun uptrend':        'potential',
+    'candle uppattern 1':   'potential',
+    'candle uppattern 2':   'potential',
+    'candle uppattern 3':   'potential',
+    'linear uppatterns':    'potential',
+
+    'adx too late':         '',
+    'adx too weak':         '',
+    'adx downtrend':        '',
+    'tankan downtrend':     '',
+    'kijun downtrend':      '',
+    'linear downtrend':     '',
+    'overbuy':              '',
+    'candle downpattern 1': '',
+    'candle downpattern 2': '',
+    'candle downpattern 3': '',
+    'linear downpatterns':  '',
     
-    'potential':                    'potential',
-    'signal':                       'signal'}
+    'potential':            'potential',
+    'signal':               'signal'}
+
+  scores = {
+    'uptrend':              1,
+    'adx uptrend':          1,
+    'ichimoku uptrend':     1,
+    'tankan uptrend':       1,
+    'kijun uptrend':        1,
+    'candle uppattern 1':   1,
+    'candle uppattern 2':   1,
+    'candle uppattern 3':   1,
+    'linear uppatterns':    1,
+
+    'adx too late':         -1,
+    'adx too weak':         -1,
+    'adx downtrend':        -1,
+    'linear downtrend':     -1,
+    'tankan downtrend':     -1,
+    'kijun downtrend':      -1,
+    'overbuy':              -1,
+    'candle downpattern 1': -1,
+    'candle downpattern 2': -1,
+    'candle downpattern 3': -1,
+    'linear downpatterns':  -1,
+    
+    'potential':            1,
+    'signal':               0}
+
   df = assign_condition_value(df=df, column='label', condition_dict=conditions, value_dict=values, default_value='')
+  df['score'] = 0
+  for c in conditions.keys():
+    tmp_idx = df.query(conditions[c]).index
+    df.loc[tmp_idx, 'score'] += scores[c]
 
   # rename columns, keep 3 digits
   df = df[list(keep_columns.keys())].rename(columns=keep_columns).round(3)
@@ -1655,7 +1723,7 @@ def postprocess(df, keep_columns, drop_columns, target_interval=''):
   df = df.drop(drop_columns, axis=1)
   
   # sort by operation and symbol
-  df = df.sort_values(['ADX差值', 'ADX方向', 'ADX起始'], ascending=[True, True, True])
+  df = df.sort_values(['总分', 'ADX差值', 'ADX方向', 'ADX起始'], ascending=[False, True, True, True])
   
   return df
 
@@ -2393,10 +2461,11 @@ def add_linear_features(df, max_period=60, min_period=5, is_print=False):
   # get current date, renko_color, earliest-start date, latest-end date
   current_date = df.index.max()
   earliest_start = idxs[-60] if len(idxs) >= 60 else idxs[0] # df.tail(max_period).index.min()
-  if (idxs[-1] - idxs[-2]).days >= 7:
-    latest_end = idxs[-2]
-  else:
-    latest_end = current_date - datetime.timedelta(days=(current_date.weekday()+1))
+  latest_end = idxs[-2]
+  # if (idxs[-1] - idxs[-2]).days >= 7:
+  #   latest_end = idxs[-2]
+  # else:
+  #   latest_end = current_date - datetime.timedelta(days=(current_date.weekday()+1))
   if is_print:
     print(earliest_start, latest_end)
 
@@ -5374,7 +5443,7 @@ def plot_indicator(df, target_col, start=None, end=None, signal_x='signal', sign
     return ax
 
 # plot multiple indicators on a same chart
-def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, save_image=False, show_image=False, title=None, width=25, unit_size=3.5, wspace=0, hspace=0.015, subplot_args=default_plot_args):
+def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, save_image=False, show_image=False, title=None, width=25, unit_size=2.8, wspace=0, hspace=0.015, subplot_args=default_plot_args):
   """
   Plot Ichimoku and mean reversion in a same plot
   :param df: dataframe with ichimoku and mean reversion columns
@@ -5431,7 +5500,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
     # set border color
     spine_alpha = 0.3
     for position in ['top', 'bottom', 'left', 'right']:
-      if (i in [1] and position in ['top', 'bottom']) or (i in [0] and position in ['bottom']): #(i % 2 == 0 and position == 'bottom') or (i % 2 == 1 and position == 'top'):
+      if (i in [1, 2, 3] and position in ['top']) or (i in [0] and position in ['bottom']):
         axes[tmp_indicator].spines[position].set_alpha(0)
       else:
         axes[tmp_indicator].spines[position].set_alpha(spine_alpha)

@@ -39,7 +39,8 @@
   "visualization": {
     "plot_args": {
       "plot_ratio": {
-        "signals": 1, "adx": 2, "main_indicators": 10
+        "signals": 1.1, "adx": 2, 
+        "main_indicators": 10, "volume":0.9
       },
       "trend_idx": {
         "target_col": ["stoch_k", "stoch_d"],
@@ -135,7 +136,8 @@
       "linear_slope": "拟合斜率",
       "trend_day": "整体趋势",
       "signal": "交易信号",
-      "label": "分类"
+      "label": "分类",
+      "score": "总分"
     },
     "drop_columns": [],
     "save_result": true,
