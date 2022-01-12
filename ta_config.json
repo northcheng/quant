@@ -121,6 +121,7 @@
   "postprocess": {
     "keep_columns": {
       "symbol": "代码",
+      "name": "名称",
       "Close": "收盘",
       "rate": "涨跌",
       "obos": "超买超卖",
@@ -140,6 +141,7 @@
       "score": "总分"
     },
     "drop_columns": [],
+    "send_columns": ["名称", "ADX方向", "ADX差值", "ADX强度", "TK信号", "总分", "蜡烛形态"],
     "save_result": true,
     "save_data": true,
     "save_pdf": true

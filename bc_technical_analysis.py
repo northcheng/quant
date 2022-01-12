@@ -1606,7 +1606,7 @@ def visualization(df, start=None, end=None, title=None, save_path=None, visualiz
     print(phase, e)
 
 # post-process calculation results
-def postprocess(df, keep_columns, drop_columns, target_interval=''):
+def postprocess(df, keep_columns, drop_columns, sec_names, target_interval=''):
   """
   Postprocess reulst data (last rows of data for each symbol in a list)
 
@@ -1711,6 +1711,10 @@ def postprocess(df, keep_columns, drop_columns, target_interval=''):
   for c in conditions.keys():
     tmp_idx = df.query(conditions[c]).index
     df.loc[tmp_idx, 'score'] += scores[c]
+
+  # add names for symbols
+  df['name'] = df['symbol']
+  df['name'] = df['name'].apply(lambda x: sec_names[x])
 
   # rename columns, keep 3 digits
   df = df[list(keep_columns.keys())].rename(columns=keep_columns).round(3)
