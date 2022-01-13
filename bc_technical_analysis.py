@@ -1639,6 +1639,7 @@ def postprocess(df, keep_columns, drop_columns, sec_names, target_interval=''):
     'candle uppattern 3':   '(窗口_day == 1)',
     'linear uppatterns':    '(linear_bounce_day == 1)',
     
+    'downtrend':            '(trend_idx < 0) and (adx_day < 0)',
     'adx too late':         '(adx_value > 25 or adx_direction_day >= 10)',
     'adx too weak':         '(prev_adx_extreme > 0 and adx_direction < 5)',
     'adx downtrend':        '(adx_direction < 0)',
@@ -1651,7 +1652,7 @@ def postprocess(df, keep_columns, drop_columns, sec_names, target_interval=''):
     'candle downpattern 3': '(窗口_day == -1)',
     'linear downpatterns':  '(linear_bounce_day == -1)',
     
-    'potential':            '(adx_value < -10) and (0 < adx_direction_day <= 3)',
+    'potential':            '(adx_value < -10) and (0 < adx_direction_day <= 3) and (0 < 突破_day <=3 or (tankan_kijun_signal < 0 and 0 < tankan_day <=3))',
     'signal':               '(signal == "b")'}
 
   values = {
@@ -1665,6 +1666,7 @@ def postprocess(df, keep_columns, drop_columns, sec_names, target_interval=''):
     'candle uppattern 3':   'potential',
     'linear uppatterns':    'potential',
 
+    'downtrend':            '',
     'adx too late':         '',
     'adx too weak':         '',
     'adx downtrend':        '',
@@ -1691,6 +1693,7 @@ def postprocess(df, keep_columns, drop_columns, sec_names, target_interval=''):
     'candle uppattern 3':   1,
     'linear uppatterns':    1,
 
+    'downtrend':            -1,
     'adx too late':         -1,
     'adx too weak':         -1,
     'adx downtrend':        -1,
