@@ -4770,10 +4770,11 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
       pre_start = idxs[pre_i] if pre_i > 0 else start
       tmp_data = df[start:end]
       ax.fill_between(df[pre_start:end].index, top_value, bottom_value, hatch=gap_hatch, facecolor=gap_color, interpolate=True, alpha=0.2, edgecolor=gap_hatch_color, linewidth=1) #,  
-
+  
   # annotate close price, support/resistant(if exists)
   if 'support_resistant' in add_on:
 
+    # annotate close price
     y_resistant = None
     y_text_resistant = None
     y_close = None
@@ -4788,11 +4789,10 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
     plt.annotate(f'{y_close}', xy=(max_x, y_text_close), xytext=(max_x, y_text_close), fontsize=13, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=close_color, alpha=0.1))
 
     # annotate resistant
-    resistant = df.query('resistant == resistant')
-    if len(resistant) > 0:
-      resistant_to_plot = resistant.tail(30)
-      # ax.plot(resistant_to_plot.index, resistant_to_plot['resistant'], color='red', linestyle=':', label=f'resistant')
-      y_resistant = df.loc[max_idx, 'resistant'].round(2)
+    resistant = df.loc[max_idx, 'resistant']
+    if not np.isnan(resistant):
+      
+      y_resistant = resistant.round(2)
       resistanter = df.loc[max_idx, 'resistanter'][0]
       y_text_resistant = y_resistant
 
@@ -4800,13 +4800,12 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
       if diff < y_close_padding:
         y_text_resistant = y_text_close + y_close_padding
       plt.annotate(f'{y_resistant}({resistanter})', xy=(max_x, y_text_resistant), xytext=(max_x, y_text_resistant), fontsize=13, xycoords='data', textcoords='data', color='black', va='bottom',  ha='left', bbox=dict(boxstyle="round", facecolor='red', alpha=0.1))
-      
+    
     # annotate support 
-    support = df.query('support == support')
-    if len(support) > 0:
-      support_to_plot = support.tail(30)
-      # ax.plot(support_to_plot.index, support_to_plot['support'], color='green', linestyle=':', label='support')
-      y_support = df.loc[max_idx, 'support'].round(2)
+    support = df.loc[max_idx, 'support'] # df.query('support == support')
+    if not np.isnan(support):# len(support) > 0:
+      
+      y_support = support.round(2) 
       supporter = df.loc[max_idx, 'supporter'][0]
       y_text_support = y_support
       
@@ -4814,7 +4813,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
       if diff < y_close_padding:
         y_text_support = y_text_close - y_close_padding
       plt.annotate(f'{y_support}({supporter})', xy=(max_x, y_text_support), xytext=(max_x, y_text_support), fontsize=13, xycoords='data', textcoords='data', color='black', va='top',  ha='left', bbox=dict(boxstyle="round", facecolor='green', alpha=0.1))
-
+  
   # annotate candle patterns
   if 'pattern' in add_on:
 
@@ -4961,7 +4960,7 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   if 'price' in target_indicator:
     alpha = 0.2
     ax.plot(df.index, df[default_ohlcv_col['close']], label='close', color='black', linestyle='--', alpha=alpha)
-  
+
   # plot senkou lines, clouds, tankan and kijun
   if 'ichimoku' in target_indicator:
     # alpha = 0.2
@@ -5033,7 +5032,7 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
     linear_range = df.linear_direction != ''
     linear_hatch = '--' # hatches[linear_direction]
     ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=linear_range, facecolor='white', edgecolor=linear_color, hatch=linear_hatch, interpolate=True, alpha=fill_alpha)
-
+  
   # plot candlestick
   if 'candlestick' in target_indicator:
     ax = plot_candlestick(df=df, start=start, end=end, date_col=date_col, add_on=add_on, width=candlestick_width, ohlcv_col=ohlcv_col, color=candlestick_color, use_ax=ax, plot_args=plot_args)
@@ -5525,7 +5524,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
     trend_val = trend_val if trend_val is not None else default_trend_val
     signal_val = signal_val if signal_val is not None else default_signal_val
     plot_price_in_twin_ax = plot_price_in_twin_ax if plot_price_in_twin_ax is not None else False
-    
+
     # plot ichimoku with candlesticks
     if tmp_indicator == 'main_indicators':
       # get candlestick width and color

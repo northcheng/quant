@@ -669,7 +669,6 @@ def get_real_time_data_from_easyquotation(symbols, source='sina'):
 
   idxs = df.index.tolist()
   idx_symbols = [x for x in symbols if x.split('.')[0] in idxs]
-  print(len(idxs), len(idx_symbols))
 
   # post process
   df = df.reset_index()
