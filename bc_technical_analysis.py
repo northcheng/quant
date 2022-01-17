@@ -1549,10 +1549,10 @@ def calculate_ta_signal(df):
 
   # ================================ Calculate overall siganl ======================
   df['trend_day'] = sda(series=df['trend'].replace({'':0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
-  # df.loc[df['trend_day'] == 1, 'signal'] = 'uu'
-  # df.loc[df['trend_day'] ==-1, 'signal'] = 'dd'
-  df.loc[df['trend_day'] == 1, 'signal'] = 'b'
-  df.loc[df['trend_day'] ==-1, 'signal'] = 's'
+  df.loc[df['trend_day'] == 1, 'signal'] = 'uu'
+  df.loc[df['trend_day'] ==-1, 'signal'] = 'dd'
+  # df.loc[df['trend_day'] == 1, 'signal'] = 'b'
+  # df.loc[df['trend_day'] ==-1, 'signal'] = 's'
 
   df = df.drop(['ichimoku_mean', 'entity_mean'], axis=1)
 
@@ -4691,7 +4691,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     plt.annotate(f' {text_signal} ', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.05))
 
   # plot signal
-  signal_val = {'pos_signal':'b', 'neg_signal':'s', 'none_signal':'', 'wave_signal': 'n'}
+  signal_val = {'pos_signal':'uu', 'neg_signal':'dd', 'none_signal':'', 'wave_signal': 'nn'}
   if signal_x in df.columns:
     for i in ['pos', 'neg']:
       tmp_signal_value = signal_val[f'{i}_signal']
