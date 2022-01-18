@@ -39,7 +39,7 @@
   "visualization": {
     "plot_args": {
       "plot_ratio": {
-        "signals": 1.1, "adx": 2, 
+        "signals": 1, "adx": 2, 
         "main_indicators": 10, "volume":0.9
       },
       "trend_idx": {
@@ -63,7 +63,6 @@
       },
       "signals": {
         "signal_list": [
-          "stoch_signal",
           "aroon_signal",
           "psar_signal",
           "ichimoku_signal",
