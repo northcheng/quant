@@ -142,14 +142,15 @@ def preprocess_sec_data(df, symbol, print_error=True):
   df['split_n1'] = df['Split'].shift(-1).fillna(1.0)
   df['adj_close_p1'] = df['Adj Close'].shift(1)
   df['adj_rate'] = df['adj_close_p1'] / df['Adj Close']
+
   df = df.sort_index(ascending=False)
   for idx, row in df.iterrows():
     df.loc[idx, 'Adj Close'] *= adj_rate
-    if row['Split'] != 1:
-      if row['adj_rate'] > 2 or row['adj_rate'] < 0.5:
+    if row['Split'] != 1.0:
+      if row['adj_rate'] >= 1.95 or row['adj_rate'] <= 0.45:
         adj_rate = 1/row['Split']
-    elif row['split_n1'] != 1:
-      if row['adj_rate'] > 2 or row['adj_rate'] < 0.5:
+    elif row['split_n1'] != 1.0:
+      if row['adj_rate'] >= 1.95 or row['adj_rate'] <= 0.45:
         adj_rate = 1/row['split_n1']
   df = df.sort_index()
   df.drop(['adj_rate', 'adj_close_p1', 'split_n1'], axis=1, inplace=True)
@@ -820,6 +821,14 @@ def calculate_ta_derivatives(df, perspective=['renko', 'candle', 'linear', 'supp
         df = assign_condition_value(df=df, column='锤子', condition_dict=conditions, value_dict=values, default_value='n')
 
       if 'windows' > '':
+
+        # remove those which have too many gaps
+        up_gap_idxs = df.query('candle_gap == 2').index.tolist()
+        down_gap_idxs = df.query('candle_gap == -2').index.tolist()
+        if len(up_gap_idxs) > 10:
+          up_gap_idxs = []
+        if len(down_gap_idxs) > 10:
+          down_gap_idxs = []
         
         # candle entity middle
         df['candle_entity_middle'] = (df['candle_entity_top'] + df['candle_entity_bottom']) * 0.5
@@ -1491,60 +1500,87 @@ def calculate_ta_signal(df):
   df['buy_score'] = 0
   df['sell_score'] = 0
   df['signal_score'] = 0
+  df['signal_description'] = ''
 
   # version 2 - started 2022-01-14
   conditions = {
+    # buy credits
     'buy': {
-      'adx +' :             'adx_day > 0',
-      'adx up':             'adx_value_change >= 1',
+      'adx_trend 向上' :            'adx_day > 0',
+      'adx_value 增加':             'adx_value_change >= 1',
 
-      # 'ichimoku +':         'ichimoku_trend == "u"',
-      # 'aroon +':            'aroon_trend == "u"',
-      # 'psar +':             'psar_trend == "u"',
+      # '上穿 tankan':                'tankan_signal == 1',
+      # '上穿 kijun':                 'kijun_signal == 1',
+      
+      '形成向上窗口':               '窗口_day == 1',
+      '突破窗口阻挡':               '突破_day == 1',
+      '在窗口处反弹':               '反弹_day == 1',
+      '长下影线支撑':               '(shadow_trend != "d" and candle_lower_shadow_pct > 0.5)',
+      '价格跳多':                   'candle_gap == 1',
 
-      'candle gap 1':       '窗口_day == 1',
-      'candle gap 2':       '突破_day == 1',
-      'supported':          'candle_lower_shadow_pct > 0.5',
+      '技术指标向上':               'up_trend_idx > 1',
+      '超卖':                       'bb_trend == "u"',
     },
+    # sell credits
     'sell': {
-      'adx -':              'adx_day < 0',
-      'adx down':           'adx_value_change <= -1',
-      'adx start high':     'adx_value > 10 and adx_direction_day == 1',
+      'adx_trend 向下':             'adx_day < 0',
+      'adx_value 减少':             'adx_value_change <= -1',
+      'adx 高开':                   'adx_value > 10 and adx_direction_day == 1',
+      'adx 趋势衰减':               '(-1 < adx_value_change < 1) and (adx_strong_day < 0)',
 
-      # 'ichimoku -':         'ichimoku_trend == "d"',
-      # 'aroon -':            'aroon_trend == "d"',
-      # 'psar -':             'psar_trend == "d"',
+      '下穿 tankan':                'tankan_signal == -1',
+      '下穿 kijun':                 'kijun_signal == -1',
 
-      'candle gap -1':      '窗口_day == -1',
-      'candle gap -2':      '突破_day == -1',
-      'resisted':           'candle_upper_shadow_pct > 0.5'
+      '形成向下窗口':               '窗口_day == -1',
+      '跌落窗口支撑':               '突破_day == -1',
+      '长上影线阻挡':               '(shadow_trend != "d" and candle_upper_shadow_pct > 0.5)',
+      '包孕形态-下降':              '包孕_trend == "d"',
+      '腰带形态-下降':              '腰带_trend == "d"',
+      '价格跳空':                   'candle_gap == -1',
+      '红色长实体':                 'candle_color == -1 and entity_diff >= 1.5',
+
+      '技术指标向下':               'down_trend_idx < 0',
+      '超买':                       'bb_trend == "d"',
     },
   }
   weights = {
+    # weights of buy credits
     'buy': {
-      'adx +' :             1,
-      'adx up':             1,
+      'adx_trend 向上' :            1,
+      'adx_value 增加':             1,
 
-      # 'ichimoku +':         1,
-      # 'aroon +':            1,
-      # 'psar +':             1,
+      # '上穿 tankan':                1,
+      # '上穿 kijun':                 1,
 
-      'candle gap 1':       2,
-      'candle gap 2':       2,
-      'supported':          1,
+      '形成向上窗口':               2,
+      '突破窗口阻挡':               2,
+      '在窗口处反弹':               2,
+      '长下影线支撑':               1,
+      '价格跳多':                   1,
+
+      '超卖':                       1,
+      '技术指标向上':               1,
     },
+    # weights of sell credits
     'sell': {
-      'adx -':              -1,
-      'adx down':           -1,
-      'adx start high':     -1,
+      'adx_trend 向下':             -1,
+      'adx_value 减少':             -1,
+      'adx 高开':                   -1,
+      'adx 趋势衰减':               -2,
 
-      # 'ichimoku -':         -1,
-      # 'aroon -':            -1,
-      # 'psar -':             -1,
+      '下穿 tankan':                -1,
+      '下穿 kijun':                 -1,
 
-      'candle gap -1':      -2,
-      'candle gap -2':      -2,
-      'resisted':           -1
+      '形成向下窗口':               -2,
+      '跌落窗口支撑':               -2,
+      '长上影线阻挡':               -1,
+      '包孕形态-下降':              -1,
+      '腰带形态-下降':              -1,
+      '价格跳空':                   -2,
+      '红色长实体':                 -1,
+
+      '技术指标向下':               -1,
+      '超买':                       -1,
     },
   }
 
@@ -1559,6 +1595,7 @@ def calculate_ta_signal(df):
       c_query = tmp_conditions[c]
       c_idx = df.query(c_query).index
       df.loc[c_idx, f'{k}_score'] += c_weight
+      df.loc[c_idx, f'signal_description'] += f'{c} |'
 
   # add up buy_score and sell_score, to determine the final trend
   df['signal_score'] = df['buy_score'] + df['sell_score']
@@ -1571,35 +1608,15 @@ def calculate_ta_signal(df):
   wave_conditions = {
 
     # developing version 3 - started 2021-12-16
-    # 'trend is weak':          '((trend == "u") and (adx_strength < 25))',
-    # 'adx start from high':    '((trend == "u") and (prev_adx_extreme > 15) and (tankan_kijun_signal > 15))',
-    # 'long after +ichimoku':   '((trend == "u") and (tankan_kijun_signal > 30 and adx_value >= 25))',    
-    # 'just after -ichimoku':   '((trend == "u") and (-5 <= tankan_kijun_signal < 0))',
-    # 'negative patterns':      '((trend == "u") and (十字星 == "u" or 十字星 == "d" or 锤子 == "d"))',
-    # 'price is decreasing':    '((trend == "u") and (rate < 0))',
-
-    # 'positive patterns':      '((trend == "d") and (锤子 == "u"))',
-    # 'price is increasing':    '((trend == "d") and (rate > 0))',
-
-    # # 'long green':   '((trend == "d") and (candle_color == 1 and (candle_entity_pct >= 0.6 or entity_trend == "u")))',
-    # 'long red':     '((trend == "u") and (candle_color == -1 and (candle_entity_pct >= 0.6 or entity_trend == "u")))',
-
-    # 'trending up':  '((trend == "d") and (down_trend_idx == 0))',
-    # 'at peak':      '((trend == "u") and (adx_value > 15 and adx_direction_day >= 5))',
-
-    # 'weak trend':   '((trend == "u") and (adx_value >= 10 and adx_strong_day < 0))',
-    # 'waving':       '((trend == "u") and (-10 <= prev_adx_extreme <= 10) or (adx_strong_day < -10))',
-
-    # 'resisted':     '((trend == "u") and (candle_upper_shadow_pct >= 0.5))',
-    # 'supported':    '((trend == "d") and (candle_lower_shadow_pct >= 0.5))',
-
     'fake up':          '((trend == "u") and (adx_value_change <= 0))',
     'fake down':        '((trend == "d") and (adx_value_change >= 0))',
 
-    'up_trend_idx':     '((trend == "d") and (up_trend_idx > 2 and down_trend_idx > -1))',
-    'down_trend_idx':   '((trend == "u") and ((up_trend_idx <= 2 and down_trend_idx <= -1) or (trend_idx <= 1)))',
+    'weak trend':       '((trend == "u") and ((adx_strong_day <= -10) or ((-10 <= adx_value <= 10 or -5 <= adx_direction <= 5) and adx_strong_day <= 1)))',
+    'start high':       '((trend == "u") and (adx_value > 10 or adx_direction_start > 10))',
 
-    'weak trend':       '((trend == "u") and (adx_strong_day <= -10))',
+    'adx not exists':   '(adx != adx)',
+    'buy to verify':    '((trend == "u") and ((adx_direction_day < 0)))',
+    'sell to verify':   '((trend == "d") and ((-5 < adx_direction < 0) and (adx_direction_day == -1)))',
   } 
   wave_idx = df.query(' or '.join(wave_conditions.values())).index 
   df.loc[wave_idx, 'uncertain_trend'] = df.loc[wave_idx, 'trend']
@@ -1609,8 +1626,8 @@ def calculate_ta_signal(df):
   df['trend_day'] = sda(series=df['trend'].replace({'':0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
   df.loc[df['trend_day'] == 1, 'signal'] = 'b'
   df.loc[df['trend_day'] ==-1, 'signal'] = 's'
-  df.loc[df['trend_day'] == 1, 'signal'] = 'uu'
-  df.loc[df['trend_day'] ==-1, 'signal'] = 'dd'
+  # df.loc[df['trend_day'] == 1, 'signal'] = 'uu'
+  # df.loc[df['trend_day'] ==-1, 'signal'] = 'dd'
 
   # df = df.drop(['ichimoku_mean', 'entity_mean'], axis=1)
 
@@ -2446,44 +2463,38 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col, pattern_recognitio
     df[prev_col] = df[col].shift(1)
     col_to_drop.append(prev_col)
   
-  # gap up
+  # initialization
   df['candle_gap'] = 0
-  df['pct_close'] = df[close] * 0.01
+  df['candle_gap_color'] = 0
+  df['candle_gap_top'] = np.NaN
+  df['candle_gap_bottom'] = np.NaN
 
+  # gap up
   df['low_prev_high'] = df[low] - df[f'prev_{high}']
   gap_up_idx = df.query(f'low_prev_high > 0').index
   df.loc[gap_up_idx, 'candle_gap'] = 1
-  strict_gap_up_idx = df.query(f'low_prev_high >= pct_close').index
-  df.loc[strict_gap_up_idx, 'candle_gap'] = 2
-  df.loc[strict_gap_up_idx, 'candle_gap_color'] = 1
-  df.loc[strict_gap_up_idx, 'candle_gap_top'] = df.loc[strict_gap_up_idx, f'{low}']
-  df.loc[strict_gap_up_idx, 'candle_gap_bottom'] = df.loc[strict_gap_up_idx, f'prev_{high}']
+  gap_up_mean = df.loc[gap_up_idx, 'low_prev_high'].mean() # df['low_prev_high'].nlargest(10).values[-1] # 
+  strict_gap_up_idx = df.query(f'low_prev_high >= {gap_up_mean} and low_prev_high > 0').index
+  if len(strict_gap_up_idx) / len(df) < 0.05:
+    df.loc[strict_gap_up_idx, 'candle_gap'] = 2
+    df.loc[strict_gap_up_idx, 'candle_gap_color'] = 1
+    df.loc[strict_gap_up_idx, 'candle_gap_top'] = df.loc[strict_gap_up_idx, f'{low}']
+    df.loc[strict_gap_up_idx, 'candle_gap_bottom'] = df.loc[strict_gap_up_idx, f'prev_{high}']
   
   # gap down
   df['prev_low_high'] = df[f'prev_{low}'] - df[high]
   gap_down_idx = df.query(f'prev_low_high > 0').index  
   df.loc[gap_down_idx, 'candle_gap'] = -1
-  strict_gap_down_idx = df.query(f'prev_low_high >= pct_close').index  
-  df.loc[strict_gap_down_idx, 'candle_gap'] = -2
-  df.loc[strict_gap_down_idx, 'candle_gap_color'] = -1
-  df.loc[strict_gap_down_idx, 'candle_gap_top'] = df.loc[strict_gap_down_idx, f'prev_{low}']
-  df.loc[strict_gap_down_idx, 'candle_gap_bottom'] = df.loc[strict_gap_down_idx, f'{high}']
+  gap_down_mean = df.loc[gap_down_idx, 'prev_low_high'].mean() # df['prev_low_high'].nlargest(10).values[-1] # 
+  strict_gap_down_idx = df.query(f'prev_low_high >= {gap_down_mean} and prev_low_high > 0').index  
+  if len(strict_gap_down_idx) / len(df) < 0.05:
+    df.loc[strict_gap_down_idx, 'candle_gap'] = -2
+    df.loc[strict_gap_down_idx, 'candle_gap_color'] = -1
+    df.loc[strict_gap_down_idx, 'candle_gap_top'] = df.loc[strict_gap_down_idx, f'prev_{low}']
+    df.loc[strict_gap_down_idx, 'candle_gap_bottom'] = df.loc[strict_gap_down_idx, f'{high}']
 
+  # gap height, color, top and bottom
   df['candle_gap_height'] = df['candle_gap_top'] - df['candle_gap_bottom']
-  # # if there's too many gaps, disnote all gaps
-  # up_gaps = df.query('candle_gap == 2').index
-  # down_gaps = df.query('candle_gap == -2').index
-  # disnote_gaps = []
-  # if len(up_gaps) >= 20:
-  #   disnote_gaps += up_gaps
-  # if len(down_gaps) >= 20:
-  #   disnote_gaps += down_gaps
-  # for g in disnote_gaps:
-  #   df.loc[g, 'candle_gap'] = 0
-  #   for col in ['candle_gap_color', 'candle_gap_top', 'candle_gap_bottom']:
-  #     df.loc[g, col] = np.NaN
-
-  # gap color, top and bottom
   df['candle_gap_top'] = df['candle_gap_top'].fillna(method='ffill') 
   df['candle_gap_bottom'] = df['candle_gap_bottom'].fillna(method='ffill') 
   df['candle_gap_color'] = df['candle_gap_color'].fillna(method='ffill')
@@ -2496,7 +2507,7 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col, pattern_recognitio
   df.loc[resistant_idx, 'candle_gap_resistant'] = df.loc[resistant_idx, 'candle_gap_top']
   
   # drop intermidiate columns
-  for c in ['low_prev_high', 'prev_low_high', 'pct_close']:
+  for c in ['low_prev_high', 'prev_low_high']:
     col_to_drop.append(c)
   df = df.drop(col_to_drop, axis=1)
 
@@ -4749,7 +4760,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     plt.annotate(f' {text_signal} ', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.05))
 
   # plot signal
-  signal_val = {'pos_signal':'uu', 'neg_signal':'dd', 'none_signal':'', 'wave_signal': 'nn'}
+  # signal_val = {'pos_signal':'uu', 'neg_signal':'dd', 'none_signal':'', 'wave_signal': 'nn'}
   if signal_x in df.columns:
     for i in ['pos', 'neg']:
       tmp_signal_value = signal_val[f'{i}_signal']
@@ -4909,19 +4920,19 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
     # settings for annotate candle patterns
     pattern_info = {
       # '窗口_day': {1: '窗口', -1: '窗口'},
-      # '反弹_day': {1: '反弹', -1: '回落'},
-      # '突破_day': {1: '突破', -1: '跌落'},
+      '反弹_day': {1: '反弹', -1: '回落'},
+      '突破_day': {1: '突破', -1: '跌落'},
       '启明黄昏_day': {1: '启明星', -1: '黄昏星'},
 
-      # '腰带_day': {1: '腰带', -1: '腰带'},
-      # '十字星_day': {1: '高浪线', -1: '十字星'},
+      '腰带_day': {1: '腰带', -1: '腰带'},
+      '十字星_day': {1: '高浪线', -1: '十字星'},
       '锤子_day': {1: '锤子', -1: '吊颈'},
       '流星_day': {1: '倒锤', -1: '流星'},
 
       '穿刺_day': {1: '穿刺', -1: '乌云'},
-      # '平头_day': {1: '平底', -1: '平顶'},
-      # '吞噬_day': {1: '吞噬', -1: '吞噬'},
-      # '包孕_day': {1: '包孕', -1: '包孕'},
+      '平头_day': {1: '平底', -1: '平顶'},
+      '吞噬_day': {1: '吞噬', -1: '吞噬'},
+      '包孕_day': {1: '包孕', -1: '包孕'},
 
       'linear_bounce_day': {1: '反弹', -1: '回落'},
       'linear_break_day': {1: '突破', -1: '跌落'}
