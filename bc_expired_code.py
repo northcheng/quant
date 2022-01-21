@@ -640,3 +640,153 @@ def add_linear_features(df, max_period=60, min_period=15, is_print=False):
         
   return df
  
+ # etf3x=17.34
+ # calculate ta signal
+def calculate_ta_signal(df):
+  """
+  Calculate trading signals
+
+  :param df: dataframe with ta features and derived features for calculating signals
+  :raturns: dataframe with signal
+  :raises: None
+  """
+  if len(df) == 0:
+    print(f'No data for calculate_ta_signal')
+    return None
+
+  # copy data, initialize
+  df = df.copy()
+
+  # ================================ buy and sell signals ==========================
+  df['trend'] = ''
+  df['signal'] = ''
+
+  df['buy_score'] = 0
+  df['sell_score'] = 0
+  df['signal_score'] = 0
+  df['signal_description'] = ''
+
+  # version 2 - started 2022-01-14
+  conditions = {
+    # buy credits
+    'buy': {
+      'adx_trend 向上' :            'adx_day > 0',
+      'adx_value 增加':             'adx_value_change >= 1',
+      
+      '形成向上窗口':               '窗口_day == 1',
+      '突破窗口阻挡':               '突破_day == 1',
+      '在窗口处反弹':               '反弹_day == 1',
+      '长下影线支撑':               '(shadow_trend != "d" and candle_lower_shadow_pct > 0.5)',
+      '价格跳多':                   'candle_gap == 1',
+
+      '技术指标非负':               'down_trend_idx == 0',
+      '技术指标向上':               'trend_idx > 3',
+      '超卖':                       'bb_trend == "u"',
+    },
+    # sell credits
+    'sell': {
+      'adx_trend 向下':             'adx_day < 0',
+      'adx_value 减少':             'adx_value_change <= -1',
+      'adx 高开':                   'adx_value > 10 and adx_direction_day == 1',
+      'adx 趋势衰减':               '(-1 < adx_value_change < 1) and (adx_strong_day < 0)',
+
+      '形成向下窗口':               '窗口_day == -1',
+      '跌落窗口支撑':               '突破_day == -1',
+      '长上影线阻挡':               '(shadow_trend != "d" and candle_upper_shadow_pct > 0.5)',
+      # '包孕形态-下降':              '包孕_trend == "d"',
+      # '腰带形态-下降':              '腰带_trend == "d"',
+      '价格跳空':                   'candle_gap == -1',
+      '红色长实体':                 'candle_color == -1 and entity_diff >= 1.5',
+
+      '技术指标非正':               'up_trend_idx == 0',
+      '技术指标向下':               'trend_idx <= -3',
+      '超买':                       'bb_trend == "d"',
+    },
+  }
+  weights = {
+    # weights of buy credits
+    'buy': {
+      'adx_trend 向上' :            1,
+      'adx_value 增加':             1,
+
+      '形成向上窗口':               2,
+      '突破窗口阻挡':               2,
+      '在窗口处反弹':               2,
+      '长下影线支撑':               1,
+      '价格跳多':                   1,
+
+      '技术指标非负':               1,
+      '技术指标向上':               1,
+      '超卖':                       1,
+    },
+    # weights of sell credits
+    'sell': {
+      'adx_trend 向下':             -1,
+      'adx_value 减少':             -1,
+      'adx 高开':                   -1,
+      'adx 趋势衰减':               -2,
+
+      '形成向下窗口':               -2,
+      '跌落窗口支撑':               -2,
+      '长上影线阻挡':               -1,
+      '包孕形态-下降':              -1,
+      '腰带形态-下降':              -1,
+      '价格跳空':                   -2,
+      '红色长实体':                 -1,
+
+      '技术指标非正':               -1,
+      '技术指标向下':               -1,
+      '超买':                       -1,
+    },
+  }
+
+  # calculate buy and sell scores
+  for k in conditions.keys():
+    tmp_conditions = conditions[k]
+    tmp_weights = weights[k]
+
+    # for each buy/sell conditions
+    for c in tmp_conditions.keys():
+      c_weight = tmp_weights[c]
+      c_query = tmp_conditions[c]
+      c_idx = df.query(c_query).index
+      df.loc[c_idx, f'{k}_score'] += c_weight
+      df.loc[c_idx, f'signal_description'] += f'{c} |'
+
+  # add up buy_score and sell_score, to determine the final trend
+  df['signal_score'] = df['buy_score'] + df['sell_score']
+  signal_threshold = 0
+  conditions = {'u': f'signal_score > {signal_threshold}', 'd': f'signal_score < {-signal_threshold}'} 
+  values = {'u': 'u', 'd': 'd'}
+  df = assign_condition_value(df=df, column='trend', condition_dict=conditions, value_dict=values, default_value='n') 
+
+  # wave conditions
+  wave_conditions = {
+
+    # developing version 3 - started 2021-12-16
+    'fake up':          '((trend == "u") and (adx_value_change <= 0))',
+    'fake down':        '((trend == "d") and (adx_value_change >= 0))',
+
+    'weak trend':       '((trend == "u") and ((adx_strong_day <= -10) or ((-10 <= adx_value <= 10 or -5 <= adx_direction <= 5) and (adx_strong_day <= 1 or -1 < adx_strength_change < 1))))',
+    'start high':       '((trend == "u") and (adx_value > 10 or adx_direction_start > 10))',
+
+    'adx not exists':   '(adx != adx)',
+    'buy to verify':    '((trend == "u") and ((candle_color == -1) or (adx_direction_day < 0)))',
+    'sell to verify':   '((trend == "d") and ((-5 < adx_direction < 0) and (adx_direction_day == -1)))',
+
+    'trend down':       '((trend == "u") and (signal_score < 4) and (kama_day < 0 or up_trend_idx < 3))',
+  } 
+  wave_idx = df.query(' or '.join(wave_conditions.values())).index 
+  df.loc[wave_idx, 'uncertain_trend'] = df.loc[wave_idx, 'trend']
+  df.loc[wave_idx, 'trend'] = 'n'
+
+  # ================================ Calculate overall siganl ======================
+  df['trend_day'] = sda(series=df['trend'].replace({'':0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
+  df.loc[df['trend_day'] == 1, 'signal'] = 'b'
+  df.loc[df['trend_day'] ==-1, 'signal'] = 's'
+  # df.loc[df['trend_day'] == 1, 'signal'] = 'uu'
+  # df.loc[df['trend_day'] ==-1, 'signal'] = 'dd'
+
+  # df = df.drop(['ichimoku_mean', 'entity_mean'], axis=1)
+
+  return df

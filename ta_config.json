@@ -39,11 +39,10 @@
   "visualization": {
     "plot_args": {
       "plot_ratio": {
-        "signals": 1, "adx": 2, 
+        "signals": 1.5, "adx": 2, 
         "main_indicators": 10, "volume":0.9
       },
       "trend_idx": {
-        "target_col": ["stoch_k", "stoch_d"],
         "color_mode": "benchmark",
         "benchmark": 0,
         "alpha": 0.5
@@ -52,7 +51,8 @@
         "target_indicator": [
           "candlestick",
           "ichimoku",
-          "linear"
+          "linear",
+          "kama"
         ],
         "candlestick_width": 0.62,
         "candlestick_color": {
@@ -63,9 +63,11 @@
       },
       "signals": {
         "signal_list": [
+          "eom_signal",
           "aroon_signal",
           "psar_signal",
           "ichimoku_signal",
+          "kama_signal",
           "adx_signal",
           "signal"
         ]
@@ -89,6 +91,11 @@
       },
       "adx": {
         "alpha": 0.8
+      },
+      "score": {
+        "color_mode": "benchmark",
+        "benchmark": 0,
+        "alpha": 0.5
       },
       "aroon": {
 

@@ -373,6 +373,23 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       # # drop intermediate columns
       # # df.drop(['tankan_day', 'tankan_rate', 'tankan_rate_ma', 'kijun_day', 'kijun_rate', 'kijun_rate_ma'], axis=1, inplace=True)
 
+    # ================================ kama trend =============================
+    if 'kama' in trend_indicators:
+      
+      df['kama_distance'] = df['kama_slow'] - df['kama_fast']
+      for col in ['kama_fast', 'kama_slow', 'kama_distance']:
+        df = cal_change_rate(df=df, target_col=f'{col}', periods=1, add_accumulation=False, add_prefix=f'{col}', drop_na=False)
+        if col != 'kama_distance':
+          df[f'{col}_signal'] = cal_crossover_signal(df=df, fast_line='Close', slow_line=col, pos_signal=1, neg_signal=-1, none_signal=0)
+
+      conditions = {
+        'up': '((kama_fast < kama_slow) and (kama_distance_rate < -0.05)) or ((kama_fast > kama_slow) and (kama_distance_rate > 0.05))', 
+        'down': '((kama_fast_rate < -0.001 and kama_slow_rate < -0.001)) or ((kama_fast < kama_slow) and (kama_distance_rate > 0.05)) or ((kama_fast > kama_slow) and (kama_distance_rate < -0.05))'} 
+      values = {
+        'up': 'u', 
+        'down': 'd'}
+      df = assign_condition_value(df=df, column='kama_trend', condition_dict=conditions, value_dict=values, default_value='n')
+
     # ================================ aroon trend ============================
     if 'aroon' in trend_indicators:
       aroon_col = ['aroon_up', 'aroon_down', 'aroon_gap']
@@ -418,55 +435,28 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       
       df['adx_value'] = df['adx_diff_ma']
       df['adx_strength'] = df['adx']
-
-      # direction of adx
       df = cal_change(df=df, target_col='adx_value', add_accumulation=False, add_prefix=True)
-      
-      df['adx_direction'] = df['adx_value_change']
-      wave_idx = df.query('-1 < adx_direction < 1').index
-      df.loc[wave_idx, 'adx_direction'] = 0
-      df['adx_direction'] = sda(series=df['adx_value_change'], zero_as=0)
-
-      adx_value_threshold = 1
-      conditions = {
-        'up': f'adx_value_change >= {adx_value_threshold}', 
-        'down': f'adx_value_change <= {-adx_value_threshold}', 
-        'wave': f'{-adx_value_threshold} < adx_value_change < {adx_value_threshold}'} 
-      values = {
-        'up': 1, 
-        'down': -1,
-        'wave': 0}
-      df = assign_condition_value(df=df, column='adx_direction_day', condition_dict=conditions, value_dict=values, default_value=0) 
-      df['adx_direction_day'] = sda(series=df['adx_direction_day'], zero_as=1) 
-
-      # symbol(±) of adx value      
-      adx_value_threshold = 0
-      conditions = {
-        'up': f'adx_value > {adx_value_threshold}', 
-        'down': f'adx_value_change < {adx_value_threshold}', 
-        'wave': f'adx_value_change == {adx_value_threshold}'} 
-      values = {
-        'up': 1, 
-        'down': -1,
-        'wave': 0}
-      df = assign_condition_value(df=df, column='adx_symbol_day', condition_dict=conditions, value_dict=values, default_value=0) 
-      df['adx_symbol_day'] = sda(series=df['adx_symbol_day'], zero_as=None) 
-
-      # power of adx
       df = cal_change(df=df, target_col='adx_strength', add_accumulation=False, add_prefix=True)
-      df['adx_power'] = sda(series=df['adx_strength_change'], zero_as=0)  
+      df['adx_direction'] = df['adx_value_change']
+      df['adx_power'] = df['adx_strength_change']
+      wave_idx = df.query('-1 < adx_direction < 1 and -1 < adx_power < 1').index
 
-      adx_strength_threshold = 0.1
-      conditions = {
-        'up': f'adx_strength_change >= {adx_strength_threshold}', 
-        'down': f'adx_strength_change <= {-adx_strength_threshold}', 
-        'wave': f'{-adx_strength_threshold} < adx_strength_change < {adx_strength_threshold}'} 
-      values = {
-        'up': 1, 
-        'down': -1,
-        'wave': 0}
-      df = assign_condition_value(df=df, column='adx_power_day', condition_dict=conditions, value_dict=values, default_value=0) 
-      df['adx_power_day'] = sda(series=df['adx_power_day'], zero_as=1) 
+      # direction and strength of adx
+      for col in ['adx_direction', 'adx_power']:
+        df.loc[wave_idx, col] = 0
+        df[col] = sda(series=df[col], zero_as=0)
+
+        threshold = 0
+        conditions = {
+          'up': f'{col} > {threshold}', 
+          'down': f'{col} < {-threshold}', 
+          'wave': f'{-threshold} <= {col} <= {threshold}'} 
+        values = {
+          'up': 1, 
+          'down': -1,
+          'wave': 0}
+        df = assign_condition_value(df=df, column=f'{col}_day', condition_dict=conditions, value_dict=values, default_value=0) 
+        df[f'{col}_day'] = sda(series=df[f'{col}_day'], zero_as=1) 
 
       # whether trend is strong
       adx_strong_weak_threshold = 25
@@ -503,8 +493,8 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       # overall adx trend
       conditions = {
         'up': '(adx_direction > 0 and ((adx_value < 0 and adx_power_day < 0) or (adx_value > 0 and adx_power_day > 0)))', 
-        'down': '(adx_direction < 0 and ((adx_value > 0 and adx_power_day < 0) or (adx_value < 0 and adx_power_day > 0)))', 
-        'wave': '(-1 < adx_value_change < 1) or (((-1 <= adx_direction_day <= 1) or (-2.5 <= adx_power <= 2.5)) and -5 < adx_direction < 5)'} 
+        'down': '(adx_direction < 0 and ((adx_value > 0 and adx_power_day < 0) or (adx_value < 0 and adx_power_day > 0)))',
+        'wave': '(-1 < adx_strength_change < 1) and (-5 < adx_direction < 5)'} 
       values = {
         'up': 'u', 
         'down': 'd',
@@ -621,20 +611,6 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       down_mask = df['ao'] < df['ao'].shift(1)
       df.loc[up_mask, 'ao_trend'] = 'u'
       df.loc[down_mask, 'ao_trend'] = 'd'
-
-    # ================================ kama trend =============================
-    if 'kama' in other_indicators:
-      conditions = {
-        'up': 'kama_fast > kama_slow', 
-        'down': 'kama_fast < kama_slow',
-        'down_1': 'Close < kama_slow',
-        'none': 'kama_fast > Close > kama_slow'} 
-      values = {
-        'up': 'u', 
-        'down': 'd',
-        'down_1': 'd',
-        'none': 'n'}
-      df = assign_condition_value(df=df, column='kama_trend', condition_dict=conditions, value_dict=values, default_value='n')
     
     # =========================================================================
 
@@ -1217,7 +1193,8 @@ def calculate_ta_derivatives(df, perspective=['renko', 'candle', 'linear', 'supp
         'entity_signal', 'shadow_signal', 'upper_shadow_signal', 'lower_shadow_signal', 
         'candle_entity_to_close', 'candle_shadow_to_close', 'candle_shadow_pct_diff', 'candle_entity_middle',
         'previous_high', 'previous_low', 'high_diff', 'low_diff',
-        # 'entity_ma', 'entity_std', 'entity_diff', 'shadow_ma', 'shadow_std', 'shadow_diff', 
+        'entity_ma', 'entity_std', 'shadow_ma', 'shadow_std', 'shadow_diff', 
+        # 'entity_diff',  
         'previous_entity_top', 'previous_entity_bottom', 'top_diff', 'bottom_diff', 
         ]:
         if col in df.columns:
@@ -1506,40 +1483,50 @@ def calculate_ta_signal(df):
   conditions = {
     # buy credits
     'buy': {
-      'adx_trend 向上' :            'adx_day > 0',
+      'adx_trend 向上' :            'adx_trend == "u"',
       'adx_value 增加':             'adx_value_change >= 1',
 
-      # '上穿 tankan':                'tankan_signal == 1',
-      # '上穿 kijun':                 'kijun_signal == 1',
+      'kama_trend 向上':            'kama_trend == "u"',
+      '上穿 kama_fast':             'kama_fast_signal == 1',
+      '上穿 kama_slow':             'kama_slow_signal == 1',
+
+      'ichimoku_trend 向上':        'ichimoku_trend == "u"',
+      'psar_trend 向上':            'psar_trend == "u"',
+      'aroon_trend 向上':           'aroon_trend == "u"',
+      'eom_trend 向上':             'eom_trend == "u"',
       
       '形成向上窗口':               '窗口_day == 1',
       '突破窗口阻挡':               '突破_day == 1',
       '在窗口处反弹':               '反弹_day == 1',
       '长下影线支撑':               '(shadow_trend != "d" and candle_lower_shadow_pct > 0.5)',
       '价格跳多':                   'candle_gap == 1',
+      '价格收涨':                   'candle_color == 1',
 
-      '技术指标向上':               'up_trend_idx > 1',
+      '技术指标非负':               'down_trend_idx == 0',
       '超卖':                       'bb_trend == "u"',
     },
     # sell credits
     'sell': {
-      'adx_trend 向下':             'adx_day < 0',
+      'adx_trend 向下':             'adx_trend == "d"',
       'adx_value 减少':             'adx_value_change <= -1',
-      'adx 高开':                   'adx_value > 10 and adx_direction_day == 1',
-      'adx 趋势衰减':               '(-1 < adx_value_change < 1) and (adx_strong_day < 0)',
 
-      '下穿 tankan':                'tankan_signal == -1',
-      '下穿 kijun':                 'kijun_signal == -1',
+      'kama_trend 向下':            'kama_trend == "d"',
+      '下穿 kama_fast':             'kama_fast_signal == -1',
+      '下穿 kama_slow':             'kama_slow_signal == -1',
+
+      'ichimoku_trend 向下':        'ichimoku_trend == "d"',
+      'psar_trend 向下':            'psar_trend == "d"',
+      'aroon_trend 向下':           'aroon_trend == "d"',
+      'eom_trend 向下':             'eom_trend == "d"',
 
       '形成向下窗口':               '窗口_day == -1',
       '跌落窗口支撑':               '突破_day == -1',
+      '在窗口处回落':               '反弹_day == -1',
       '长上影线阻挡':               '(shadow_trend != "d" and candle_upper_shadow_pct > 0.5)',
-      '包孕形态-下降':              '包孕_trend == "d"',
-      '腰带形态-下降':              '腰带_trend == "d"',
       '价格跳空':                   'candle_gap == -1',
-      '红色长实体':                 'candle_color == -1 and entity_diff >= 1.5',
+      '价格收跌':                   'candle_color == -1',
 
-      '技术指标向下':               'down_trend_idx < 0',
+      '技术指标非正':               'up_trend_idx == 0',
       '超买':                       'bb_trend == "d"',
     },
   }
@@ -1549,37 +1536,47 @@ def calculate_ta_signal(df):
       'adx_trend 向上' :            1,
       'adx_value 增加':             1,
 
-      # '上穿 tankan':                1,
-      # '上穿 kijun':                 1,
+      'kama_trend 向上':            1,
+      '上穿 kama_fast':             1,
+      '上穿 kama_slow':             1,
+
+      'ichimoku_trend 向上':        1,
+      'psar_trend 向上':            1,
+      'aroon_trend 向上':           1,
+      'eom_trend 向上':             1,
 
       '形成向上窗口':               2,
       '突破窗口阻挡':               2,
       '在窗口处反弹':               2,
       '长下影线支撑':               1,
-      '价格跳多':                   1,
+      '价格跳多':                   2,
+      '价格收涨':                   1,
 
+      '技术指标非负':               1,
       '超卖':                       1,
-      '技术指标向上':               1,
     },
     # weights of sell credits
     'sell': {
       'adx_trend 向下':             -1,
       'adx_value 减少':             -1,
-      'adx 高开':                   -1,
-      'adx 趋势衰减':               -2,
 
-      '下穿 tankan':                -1,
-      '下穿 kijun':                 -1,
+      'kama_trend 向下':            -1,
+      '下穿 kama_fast':             -1,
+      '下穿 kama_slow':             -1,
+
+      'ichimoku_trend 向下':        -1,
+      'psar_trend 向下':            -1,
+      'aroon_trend 向下':           -1,
+      'eom_trend 向下':             -1,
 
       '形成向下窗口':               -2,
       '跌落窗口支撑':               -2,
+      '在窗口处回落':               -2,
       '长上影线阻挡':               -1,
-      '包孕形态-下降':              -1,
-      '腰带形态-下降':              -1,
       '价格跳空':                   -2,
-      '红色长实体':                 -1,
+      '价格收跌':                   -1,
 
-      '技术指标向下':               -1,
+      '技术指标非正':               -1,
       '超买':                       -1,
     },
   }
@@ -1608,15 +1605,17 @@ def calculate_ta_signal(df):
   wave_conditions = {
 
     # developing version 3 - started 2021-12-16
-    'fake up':          '((trend == "u") and (adx_value_change <= 0))',
-    'fake down':        '((trend == "d") and (adx_value_change >= 0))',
-
-    'weak trend':       '((trend == "u") and ((adx_strong_day <= -10) or ((-10 <= adx_value <= 10 or -5 <= adx_direction <= 5) and adx_strong_day <= 1)))',
-    'start high':       '((trend == "u") and (adx_value > 10 or adx_direction_start > 10))',
-
     'adx not exists':   '(adx != adx)',
-    'buy to verify':    '((trend == "u") and ((adx_direction_day < 0)))',
-    'sell to verify':   '((trend == "d") and ((-5 < adx_direction < 0) and (adx_direction_day == -1)))',
+    'adx fake down':    '((trend == "d") and (adx_value_change >= 0))',
+    'adx fake up':      '((trend == "u") and (adx_value_change <= 0))',
+    'adx weak trend':   '((trend == "u") and (-10 <= adx_value <= 10) and ((-1 <= adx_value_change <= 1) or (-1 < adx_strength_change < 1) or (-5 <= adx_direction <= 5)))',
+    'adx start high':   '((trend == "u") and (adx_value > 10 or adx_direction_start > 10))',
+    'trend to verify':  '((trend == "u") and ((adx_strong_day < -10) or (adx_strong_day == 1) or (-1 < adx_strength_change < 1)))',
+
+    'kama wave up':     '((trend == "d") and ((kama_trend == "n") and (kama_day > 0) and (kama_fast > kama_slow) and (up_trend_idx > 0)))',
+    'kama wave down':   '((trend == "u") and ((kama_trend == "n") and (kama_day < 0)))',
+    'kana up':          '((trend == "d") and (kama_fast_rate > -0.001 and kama_slow_rate > -0.001))',
+    'kana down':        '((trend == "u") and (kama_fast_rate < -0.001 and kama_slow_rate < -0.001))',
   } 
   wave_idx = df.query(' or '.join(wave_conditions.values())).index 
   df.loc[wave_idx, 'uncertain_trend'] = df.loc[wave_idx, 'trend']
@@ -1634,7 +1633,7 @@ def calculate_ta_signal(df):
   return df
 
 # calculate ta indicators, trend and derivatives fpr latest data
-def calculation(df, symbol, start_date=None, end_date=None, trend_indicators=['ichimoku', 'aroon', 'adx', 'psar'], volume_indicators=[], volatility_indicators=['bb'], other_indicators=[], signal_threshold=0.001):
+def calculation(df, symbol, start_date=None, end_date=None, trend_indicators=['ichimoku', 'kama', 'aroon', 'adx', 'psar'], volume_indicators=['eom'], volatility_indicators=['bb'], other_indicators=[], signal_threshold=0.001):
   """
   Calculation process
 
@@ -4101,12 +4100,6 @@ def add_kama_features(df, n_param={'kama_fast': [10, 2, 30], 'kama_slow': [10, 5
       n3 = tmp_n[2]
       df = cal_kama(df=df, n1=n1, n2=n2, n3=n3, ohlcv_col=ohlcv_col)
       df.rename(columns={'kama': k}, inplace=True)
-
-  # calculate distance between close price and indicator
-  kama_lines = ['kama_fast', 'kama_slow'] 
-  for line in kama_lines:
-    df[f'close_to_{line}'] = round((df[close] - df[line]) / df[close], ndigits=3)
-    df[f'{line}_signal'] = cal_crossover_signal(df=df, fast_line=close, slow_line=line, pos_signal=1, neg_signal=-1, none_signal=0)
   
   return df
 
@@ -5257,11 +5250,15 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   # plt.plot(df.adx_diff_ma, color='black', alpha=0.3, label='adx_diff_ma')
   df['zero'] = 0
   df['next_adx_diff_ma_change'] = df['adx_value_change'].shift(-1)
-  green_mask = (df.adx_day > 0) # ((df.adx_direction > 0)) # | (df.next_adx_diff_ma_change > 0)
-  red_mask = (df.adx_day < 0) # ((df.adx_direction < 0)) # | (df.next_adx_diff_ma_change < 0)
+  df['prev_adx_day'] = df['adx_day'].shift(1)
+  green_mask = ((df.adx_day > 0)) # ((df.adx_direction > 0)) # | (df.next_adx_diff_ma_change > 0) | (df.prev_adx_day > 0)
+  red_mask = ((df.adx_day < 0)) # ((df.adx_direction < 0)) # | (df.next_adx_diff_ma_change < 0) | (df.prev_adx_day < 0)
  
   ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=green_mask,  facecolor='green', interpolate=False, alpha=0.3) 
   ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=red_mask, facecolor='red', interpolate=False, alpha=0.3)
+
+  # df['adx_value'] = df['adx_value'] * (df['adx'] / 25)
+  # plot_bar(df=df, target_col='adx_value', alpha=0.2, color_mode='up_down', benchmark=0, title='', use_ax=ax, plot_args=default_plot_args)
 
   # plot adx with 
   # color: green(uptrending), red(downtrending), orange(waving); 
@@ -5679,6 +5676,12 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
       alpha = tmp_args.get('alpha') if tmp_args.get('alpha') is not None else 1
       plot_bar(df=plot_data, target_col='up_trend_idx', alpha=alpha, color_mode='benchmark', benchmark=0, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
       plot_bar(df=plot_data, target_col='down_trend_idx', alpha=alpha, color_mode='benchmark', benchmark=0, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
+
+    # plot buy/sell score
+    elif tmp_indicator == 'score':
+      alpha = tmp_args.get('alpha') if tmp_args.get('alpha') is not None else 1
+      plot_bar(df=plot_data, target_col='buy_score', alpha=alpha, color_mode='benchmark', benchmark=0, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
+      plot_bar(df=plot_data, target_col='sell_score', alpha=alpha, color_mode='benchmark', benchmark=0, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
     
     # plot other indicators
     else:
