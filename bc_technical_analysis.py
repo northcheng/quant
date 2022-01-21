@@ -268,122 +268,65 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
     phase = 'calculate trend for trend_indicators'
 
     # ================================ ichimoku trend =========================
-    if 'ichimoku' in trend_indicators:
+    target_indicator = 'ichimoku'
+    if target_indicator in trend_indicators:
 
-      for col in ['tankan', 'kijun']:
-        df[f'{col}_day'] = sda(series=df[f'{col}_signal'], zero_as=1)
+      df['ichimoku_distance'] = df['kijun'] - df['tankan']
+      for col in ['tankan', 'kijun', 'ichimoku_distance']:
+        
         df = cal_change_rate(df=df, target_col=f'{col}', periods=1, add_accumulation=False, add_prefix=f'{col}', drop_na=False)
+        if col != 'ichimoku_distance':
+          df[f'{col}_signal'] = cal_crossover_signal(df=df, fast_line='Close', slow_line=col, pos_signal=1, neg_signal=-1, none_signal=0)
+          df[f'{col}_signal'] = sda(series=df[f'{col}_signal'], zero_as=1)
+
+      # tankan-kijun signal
+      conditions = {
+        'up': f'ichimoku_distance < 0',
+        'down': f'ichimoku_distance > 0',
+        'none': 'ichimoku_distance == 0'}
+      values = {
+        'up': 1, 
+        'down': -1,
+        'none': 0}
+      df = assign_condition_value(df=df, column=f'ichimoku_distance_signal', condition_dict=conditions, value_dict=values, default_value=0)
+      df['ichimoku_distance_signal'] = sda(series=df['ichimoku_distance_signal'], zero_as=1).astype(int)
 
       # ichimoku trend
-      # conditions = {
-      #   'up': '((candle_entity_bottom > kijun) and (kijun_day > 1))',
-      #   'down': '((candle_entity_bottom < kijun) and (kijun_day < -1))'}
-      # values = {
-      #   'up': 'u', 
-      #   'down': 'd'}
-      # df = assign_condition_value(df=df, column='ichimoku_trend', condition_dict=conditions, value_dict=values, default_value='n')  
-
-      df['tankan_day_plus_kijun_day'] = df['tankan_day'] + df['kijun_day']
       conditions = {
-        'under red cloud':            '((tankan_kijun_signal < 0) and (candle_entity_top < tankan) and (tankan_day < -1))',
-        'above red cloud':            '((tankan_kijun_signal < 0) and (candle_entity_bottom > kijun) and (kijun_day >1))',
-        'go up into red cloud':       '((tankan_kijun_signal < 0) and ((tankan_day > 1) and (tankan_day_plus_kijun_day) < 0))',
-        'go up above red cloud':      '((tankan_kijun_signal < 0) and (tankan_day >= kijun_day > 1))',
-        'go down into red cloud':     '((tankan_kijun_signal < 0) and ((kijun_day < -1) and (tankan_day_plus_kijun_day) > 0))',
-        'go down below red cloud':    '((tankan_kijun_signal < 0) and (tankan_day <= kijun_day < 0))',
-
-        'under green cloud':          '((tankan_kijun_signal > 0) and (candle_entity_top < kijun) and (kijun_day < -1))',
-        'above green cloud':          '((tankan_kijun_signal > 0) and (candle_entity_bottom > tankan) and (tankan_day > 1))',
-        'go up into green cloud':     '((tankan_kijun_signal > 0) and ((kijun_day > 1) and (tankan_day_plus_kijun_day) < 0))',
-        'go up above green cloud':    '((tankan_kijun_signal > 0) and (kijun_day >= tankan_day > 0))',
-        'go down into green cloud':   '((tankan_kijun_signal > 0) and ((tankan_day < -1) and (tankan_day_plus_kijun_day) > 0))',
-        'go down below green cloud':  '((tankan_kijun_signal > 0) and (kijun_day <= tankan_day < 0))',
-
-        }
+        'up': '(tankan_rate > 0) and ((ichimoku_distance > 0) and (ichimoku_distance_rate < -0.05)) or ((ichimoku_distance < 0) and (ichimoku_distance_rate > 0.05))', 
+        'down': '((tankan_rate < -0.001 and kijun_rate < -0.001)) or ((ichimoku_distance > 0) and (ichimoku_distance_rate > 0.05)) or ((ichimoku_distance < 0) and (ichimoku_distance_rate < -0.05))'} 
       values = {
-        'under red cloud':            'd',
-        'above red cloud':            'u',
-        'go up into red cloud':       'u',
-        'go up above red cloud':      'u',
-        'go down into red cloud':     'd',
-        'go down below red cloud':    'd',
-
-        'under green cloud':          'd',
-        'above green cloud':          'u',
-        'go up into green cloud':     'u',
-        'go up above green cloud':    'u',
-        'go down into green cloud':   'd',
-        'go down below green cloud':  'd',
-        }
-      df = assign_condition_value(df=df, column='ichimoku_trend', condition_dict=conditions, value_dict=values, default_value='n') 
-
-      # signal_col = f'ichimoku_signal'
-      # trend_col = f'ichimoku_trend'
-
-      # fl = 'tankan'
-      # sl = 'kijun'
-      # fld = 'tankan_day'
-      # sld = 'kijun_day'
-      # df[trend_col] = 'n'
-
-      # # it is going up when
-      # ichimoku_up_conditions = {
-      #   'at least 1 triggered': [
-      #     f'(close_to_{fl} >= close_to_{sl} > {signal_threshold})',
-      #     f'(close_to_{sl} >= close_to_{fl} > {signal_threshold})',
-      #     f'((close_to_{fl}>={signal_threshold}) and (close_to_{sl}<={-signal_threshold}) and (abs({fld})<abs({sld})))',
-      #     f'((close_to_{fl}<={-signal_threshold}) and (close_to_{sl}>={signal_threshold}) and (abs({fld})>abs({sld})))',
-      #   ],
-      #   'must all triggered': [
-      #     # f'((tankan_rate_ma > 0) and (kijun_rate_ma > 0))',
-      #     '(Close > 0)'
-      #   ]
-      # }
-      # ichimoku_up_query_or = ' or '.join(ichimoku_up_conditions['at least 1 triggered'])
-      # ichimoku_up_query_and = ' and '.join(ichimoku_up_conditions['must all triggered']) 
-      # ichimoku_up_query = f'({ichimoku_up_query_and}) and ({ichimoku_up_query_or})'
-      # up_idx = df.query(f'{ichimoku_up_query}').index
-      # df.loc[up_idx, trend_col] = 'u'
-     
-      # # it is going down when
-      # ichimoku_down_conditions = {
-      #   'at least 1 triggered': [
-      #     f'(close_to_{fl} <= close_to_{sl} < {-signal_threshold})',
-      #     f'(close_to_{sl} <= close_to_{fl} < {-signal_threshold})',
-      #     f'((close_to_{sl}<{-signal_threshold}) and (close_to_{fl}>{signal_threshold}) and (abs({fld})>abs({sld})))',
-      #     f'((close_to_{sl}>{signal_threshold}) and (close_to_{fl}<{-signal_threshold}) and (abs({fld})<abs({sld})))',
-      #   ],
-      #   'must all triggered': [
-      #     # f'((tankan_rate_ma < 0) or (kijun_rate_ma < 0))',
-      #     f'(Close<kijun)',
-      #     # 'Close > 0' # when there is no condition
-      #   ],
-      # }
-      # ichimoku_down_query_or = ' or '.join(ichimoku_down_conditions['at least 1 triggered'])
-      # ichimoku_down_query_and = ' and '.join(ichimoku_down_conditions['must all triggered'])
-      # ichimoku_down_query = f'({ichimoku_down_query_and}) and ({ichimoku_down_query_or})'
-      # down_idx = df.query(ichimoku_down_query).index
-      # df.loc[down_idx, trend_col] = 'd'
-      
-      # # it is waving when
-      # # 1. (-0.01 < kijun_rate_ma < 0.01)
-      # wave_idx = df.query(f'(({trend_col} != "u") and ({trend_col} != "d")) and ((kijun_rate == 0) and (tankan < kijun))').index
-      # df.loc[wave_idx, trend_col] = 'n'
-
-      # # drop intermediate columns
-      # # df.drop(['tankan_day', 'tankan_rate', 'tankan_rate_ma', 'kijun_day', 'kijun_rate', 'kijun_rate_ma'], axis=1, inplace=True)
+        'up': 'u', 
+        'down': 'd'}
+      df = assign_condition_value(df=df, column='ichimoku_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
     # ================================ kama trend =============================
-    if 'kama' in trend_indicators:
+    target_indicator = 'kama'
+    if target_indicator in trend_indicators:
       
       df['kama_distance'] = df['kama_slow'] - df['kama_fast']
       for col in ['kama_fast', 'kama_slow', 'kama_distance']:
+
         df = cal_change_rate(df=df, target_col=f'{col}', periods=1, add_accumulation=False, add_prefix=f'{col}', drop_na=False)
         if col != 'kama_distance':
           df[f'{col}_signal'] = cal_crossover_signal(df=df, fast_line='Close', slow_line=col, pos_signal=1, neg_signal=-1, none_signal=0)
+          df[f'{col}_signal'] = sda(series=df[f'{col}_signal'], zero_as=1)
 
+      # fast-slow signal
       conditions = {
-        'up': '((kama_fast < kama_slow) and (kama_distance_rate < -0.05)) or ((kama_fast > kama_slow) and (kama_distance_rate > 0.05))', 
+        'up': f'kama_distance < 0',
+        'down': f'kama_distance > 0',
+        'none': 'kama_distance == 0'}
+      values = {
+        'up': 1, 
+        'down': -1,
+        'none': 0}
+      df = assign_condition_value(df=df, column=f'kama_distance_signal', condition_dict=conditions, value_dict=values, default_value=0)
+      df['kama_distance_signal'] = sda(series=df['kama_distance_signal'], zero_as=1).astype(int)
+
+      # kama trend
+      conditions = {
+        'up': '(kama_fast_rate > 0) and ((kama_fast < kama_slow) and (kama_distance_rate < -0.05)) or ((kama_fast > kama_slow) and (kama_distance_rate > 0.05))', 
         'down': '((kama_fast_rate < -0.001 and kama_slow_rate < -0.001)) or ((kama_fast < kama_slow) and (kama_distance_rate > 0.05)) or ((kama_fast > kama_slow) and (kama_distance_rate < -0.05))'} 
       values = {
         'up': 'u', 
@@ -391,7 +334,8 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       df = assign_condition_value(df=df, column='kama_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
     # ================================ aroon trend ============================
-    if 'aroon' in trend_indicators:
+    target_indicator = 'aroon'
+    if target_indicator in trend_indicators:
       aroon_col = ['aroon_up', 'aroon_down', 'aroon_gap']
       df[aroon_col] = df[aroon_col].round(1)
       for col in aroon_col:
@@ -431,7 +375,8 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       df.drop(['aroon_up_change', 'aroon_up_acc_change', 'aroon_up_acc_change_count', 'aroon_down_change', 'aroon_down_acc_change', 'aroon_down_acc_change_count', 'aroon_gap_change', 'aroon_gap_acc_change', 'aroon_gap_acc_change_count'], axis=1, inplace=True)
 
     # ================================ adx trend ==============================
-    if 'adx' in trend_indicators:
+    target_indicator = 'adx'
+    if target_indicator in trend_indicators:
       
       df['adx_value'] = df['adx_diff_ma']
       df['adx_strength'] = df['adx']
@@ -502,7 +447,8 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       df = assign_condition_value(df=df, column='adx_trend', condition_dict=conditions, value_dict=values, default_value='n') 
 
     # ================================ kst trend ==============================
-    if 'kst' in trend_indicators:
+    target_indicator = 'kst'
+    if target_indicator in trend_indicators:
       conditions = {
         'up': 'kst_diff > 0', 
         'down': 'kst_diff <= 0'} 
@@ -512,7 +458,8 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       df = assign_condition_value(df=df, column='kst_trend', condition_dict=conditions, value_dict=values) 
     
     # ================================ cci trend ==============================
-    if 'cci' in trend_indicators:
+    target_indicator = 'cci'
+    if target_indicator in trend_indicators:
       conditions = {
         'up': 'cci_ma > 0', 
         'down': 'cci_ma <= 0'} 
@@ -522,7 +469,8 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       df = assign_condition_value(df=df, column='cci_trend', condition_dict=conditions, value_dict=values) 
 
     # ================================ trix trend =============================
-    if 'trix' in trend_indicators:
+    target_indicator = 'trix'
+    if target_indicator in trend_indicators:
       df['trix_trend'] = 'n'
       up_mask = df['trix'] > df['trix'].shift(1)
       down_mask = df['trix'] < df['trix'].shift(1)
@@ -530,7 +478,8 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       df.loc[down_mask, 'trix_trend'] = 'd'
 
     # ================================ psar trend =============================
-    if 'psar' in trend_indicators:
+    target_indicator = 'psar'
+    if target_indicator in trend_indicators:
       conditions = {
         'up': 'psar_up > 0', 
         'down': 'psar_down > 0'} 
@@ -540,7 +489,8 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       df = assign_condition_value(df=df, column='psar_trend', condition_dict=conditions, value_dict=values, default_value='')
 
     # ================================ stoch trend =============================
-    if 'stoch' in trend_indicators:
+    target_indicator = 'stoch'
+    if target_indicator in trend_indicators:
       conditions = {
         'up': 'stoch_diff > 1 or stoch_k > 80', 
         'down': 'stoch_diff < -1 or stoch_k < 20'} 
@@ -554,7 +504,8 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
     phase = 'calculate trend for volume_indicators'
 
     # ================================ eom trend ==============================
-    if 'eom' in volume_indicators:
+    target_indicator = 'eom'
+    if target_indicator in volume_indicators:
       conditions = {
         'up': 'eom_diff > 0', 
         'down': 'eom_diff <= 0'} 
@@ -564,7 +515,8 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       df = assign_condition_value(df=df, column='eom_trend', condition_dict=conditions, value_dict=values) 
 
     # ================================ fi trend ===============================
-    if 'fi' in volume_indicators:
+    target_indicator = 'fi'
+    if target_indicator in volume_indicators:
       conditions = {
         'up': 'fi_ema > 0', 
         'down': 'fi_ema <= 0'} 
@@ -578,7 +530,8 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
     phase = 'calculate trend for volatility_indicators'
 
     # ================================ bb trend ===============================
-    if 'bb' in volatility_indicators:
+    target_indicator = 'bb'
+    if target_indicator in volatility_indicators:
       conditions = {
         'up': 'Close < bb_low_band', 
         'down': 'Close > bb_high_band'} 
@@ -588,24 +541,12 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       df = assign_condition_value(df=df, column='bb_trend', condition_dict=conditions, value_dict=values, default_value='')
 
     # =========================================================================
-
-    # ================================ atr trend ==============================
-    if 'atr' in volatility_indicators:
-      df['atr_trend'] = 'n'
-      # conditions = {
-      #   'up': 'Close < bb_low_band', 
-      #   'down': 'Close > bb_high_band'} 
-      # values = {
-      #   'up': 'u', 
-      #   'down': 'd'}
-      # df = assign_condition_value(df=df, column='bb_trend', condition_dict=conditions, value_dict=values, default_value='')
-
-    # =========================================================================
     
     phase = 'calculate trend for other_indicators'
 
     # ================================ ao trend ===============================
-    if 'ao' in other_indicators:
+    target_indicator = 'ao'
+    if target_indicator in other_indicators:
       df['ao_trend'] = 'n'
       up_mask = df['ao'] > df['ao'].shift(1)
       down_mask = df['ao'] < df['ao'].shift(1)
@@ -617,47 +558,50 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
     phase = 'calculate trend overall'
 
     # ================================ overall trend ==========================
-    df['trend_idx'] = 0
-    df['up_trend_idx'] = 0
-    df['down_trend_idx'] = 0
-
-    # specify all indicators and specify the exclusives
-    all_indicators = list(set(trend_indicators + volume_indicators + volatility_indicators + other_indicators))
-    include_indicators = [x for x in all_indicators if x != 'bb'] # ['ichimoku', 'aroon', 'adx', 'psar']
-    exclude_indicators = [x for x in all_indicators if x not in include_indicators]
-    for indicator in all_indicators:
-      trend_col = f'{indicator}_trend'
-      signal_col = f'{indicator}_signal'
-      day_col = f'{indicator}_day'
-
-      if trend_col not in df.columns:
-        df[trend_col] = 'n'
-      if signal_col not in df.columns:
-        df[signal_col] = 'n'
-      if day_col not in df.columns:
-        df[day_col] = 0
-
-      # calculate number of days since trend shifted
-      df[day_col] = sda(series=df[trend_col].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1) 
-      
-      # signal of individual indicators are set to 'n'
-      if signal_col not in df.columns:
-        df[signal_col] = 'n'
-
-      # calculate overall indicator index according to certain important indicators
-      if indicator in include_indicators:
-
-        # calculate the overall trend value
-        up_idx = df.query(f'{trend_col} == "u"').index
-        down_idx = df.query(f'{trend_col} == "d"').index
-        df.loc[up_idx, 'up_trend_idx'] += 1
-        df.loc[down_idx, 'down_trend_idx'] -= 1
+    target_indicator = 'overall'
+    if target_indicator > '':
     
-    # calculate overall trend index 
-    df['trend_idx'] = df['up_trend_idx'] + df['down_trend_idx']
+      df['trend_idx'] = 0
+      df['up_trend_idx'] = 0
+      df['down_trend_idx'] = 0
+
+      # specify all indicators and specify the exclusives
+      all_indicators = list(set(trend_indicators + volume_indicators + volatility_indicators + other_indicators))
+      include_indicators = [x for x in all_indicators if x != 'bb'] # ['ichimoku', 'aroon', 'adx', 'psar']
+      exclude_indicators = [x for x in all_indicators if x not in include_indicators]
+      for indicator in all_indicators:
+        trend_col = f'{indicator}_trend'
+        signal_col = f'{indicator}_signal'
+        day_col = f'{indicator}_day'
+
+        if trend_col not in df.columns:
+          df[trend_col] = 'n'
+        if signal_col not in df.columns:
+          df[signal_col] = 'n'
+        if day_col not in df.columns:
+          df[day_col] = 0
+
+        # calculate number of days since trend shifted
+        df[day_col] = sda(series=df[trend_col].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1) 
+        
+        # signal of individual indicators are set to 'n'
+        if signal_col not in df.columns:
+          df[signal_col] = 'n'
+
+        # calculate overall indicator index according to certain important indicators
+        if indicator in include_indicators:
+
+          # calculate the overall trend value
+          up_idx = df.query(f'{trend_col} == "u"').index
+          down_idx = df.query(f'{trend_col} == "d"').index
+          df.loc[up_idx, 'up_trend_idx'] += 1
+          df.loc[down_idx, 'down_trend_idx'] -= 1
+      
+      # calculate overall trend index 
+      df['trend_idx'] = df['up_trend_idx'] + df['down_trend_idx']
 
   except Exception as e:
-    print(f'[Exception]: @ {phase}, {e}')
+    print(f'[Exception]: @ {phase} - {target_indicator}, {e}')
     
   return df
 
@@ -1259,7 +1203,7 @@ def calculate_ta_derivatives(df, perspective=['renko', 'candle', 'linear', 'supp
       conditions = {
 
         # tankan-kijun(ichimoku信号)
-        # 'T/K': (row['tankan_kijun_signal'] > 0 and row['tankan_kijun_signal'] <= 10) or (row['tankan_kijun_signal'] < 0 and row['tankan_kijun_signal'] >= -10),
+        # 'T/K': (row['ichimoku_distance_signal'] > 0 and row['ichimoku_distance_signal'] <= 10) or (row['ichimoku_distance_signal'] < 0 and row['ichimoku_distance_signal'] >= -10),
 
         # linear trend
         '强势': (row['linear_slope'] >= 0.1 or row['linear_slope'] <= -0.1) and (row['linear_fit_high_slope'] * row['linear_fit_low_slope'] > 0),
@@ -1278,12 +1222,12 @@ def calculate_ta_derivatives(df, perspective=['renko', 'candle', 'linear', 'supp
         '触底反弹': (row['linear_bounce_day'] == 1), 
 
         # technical indicators
-        '上穿快线': (row['tankan_day'] > 0 and row['tankan_day'] < period_threhold),
-        '上穿慢线': (row['kijun_day'] > 0 and row['kijun_day'] < period_threhold),
+        '上穿快线': (row['tankan_signal'] > 0 and row['tankan_signal'] < period_threhold),
+        '上穿慢线': (row['kijun_signal'] > 0 and row['kijun_signal'] < period_threhold),
         '上穿底部': (row['linear_fit_low_signal'] > 0 and row['linear_fit_low_signal'] < period_threhold),
         '上穿顶部': (row['linear_fit_high_signal'] > 0 and row['linear_fit_high_signal'] < period_threhold),
-        '下穿快线': (row['tankan_day'] < 0 and row['tankan_day'] > -period_threhold),
-        '下穿慢线': (row['kijun_day'] < 0 and row['kijun_day'] > -period_threhold),
+        '下穿快线': (row['tankan_signal'] < 0 and row['tankan_signal'] > -period_threhold),
+        '下穿慢线': (row['kijun_signal'] < 0 and row['kijun_signal'] > -period_threhold),
         '下穿底部': (row['linear_fit_low_signal'] < 0 and row['linear_fit_low_signal'] > -period_threhold),
         '下穿顶部': (row['linear_fit_high_signal'] < 0 and row['linear_fit_high_signal'] > -period_threhold)
       }
@@ -1483,67 +1427,49 @@ def calculate_ta_signal(df):
   conditions = {
     # buy credits
     'buy': {
-      'adx_trend 向上' :            'adx_trend == "u"',
-      'adx_value 增加':             'adx_value_change >= 1',
-
-      'kama_trend 向上':            'kama_trend == "u"',
-      '上穿 kama_fast':             'kama_fast_signal == 1',
-      '上穿 kama_slow':             'kama_slow_signal == 1',
-
-      'ichimoku_trend 向上':        'ichimoku_trend == "u"',
-      'psar_trend 向上':            'psar_trend == "u"',
-      'aroon_trend 向上':           'aroon_trend == "u"',
-      'eom_trend 向上':             'eom_trend == "u"',
+      'adx_trend 向上' :            'adx_day > 0',
+      'kama_trend 向上':            'kama_day > 0',
+      'ichimoku_trend 向上':        'ichimoku_day > 0',
+      'psar_trend 向上':            'psar_day > 0',
+      'fi_trend 向上':              'fi_day > 0',
       
-      '形成向上窗口':               '窗口_day == 1',
-      '突破窗口阻挡':               '突破_day == 1',
-      '在窗口处反弹':               '反弹_day == 1',
-      '长下影线支撑':               '(shadow_trend != "d" and candle_lower_shadow_pct > 0.5)',
-      '价格跳多':                   'candle_gap == 1',
-      '价格收涨':                   'candle_color == 1',
+      # '形成向上窗口':               '窗口_day == 1',
+      # '突破窗口阻挡':               '突破_day == 1',
+      # '在窗口处反弹':               '反弹_day == 1',
+      # '长下影线支撑':               '(shadow_trend != "d" and candle_lower_shadow_pct > 0.5)',
+      # '价格跳多':                   'candle_gap == 1',
+      # '价格收涨':                   'candle_color == 1',
 
-      '技术指标非负':               'down_trend_idx == 0',
-      '超卖':                       'bb_trend == "u"',
+      # '技术指标非负':               'down_trend_idx == 0',
+      # '超卖':                       'bb_trend == "u"',
     },
     # sell credits
     'sell': {
-      'adx_trend 向下':             'adx_trend == "d"',
-      'adx_value 减少':             'adx_value_change <= -1',
+      'adx_trend 向下':             'adx_day < 0',
+      'kama_trend 向下':            'kama_day < 0',
+      'ichimoku_trend 向下':        'ichimoku_day < 0',
+      'psar_trend 向下':            'psar_day < 0',
+      'fi_trend 向下':              'fi_day < 0',
 
-      'kama_trend 向下':            'kama_trend == "d"',
-      '下穿 kama_fast':             'kama_fast_signal == -1',
-      '下穿 kama_slow':             'kama_slow_signal == -1',
+      # '形成向下窗口':               '窗口_day == -1',
+      # '跌落窗口支撑':               '突破_day == -1',
+      # '在窗口处回落':               '反弹_day == -1',
+      # '长上影线阻挡':               '(shadow_trend != "d" and candle_upper_shadow_pct > 0.5)',
+      # '价格跳空':                   'candle_gap == -1',
+      # '价格收跌':                   'candle_color == -1',
 
-      'ichimoku_trend 向下':        'ichimoku_trend == "d"',
-      'psar_trend 向下':            'psar_trend == "d"',
-      'aroon_trend 向下':           'aroon_trend == "d"',
-      'eom_trend 向下':             'eom_trend == "d"',
-
-      '形成向下窗口':               '窗口_day == -1',
-      '跌落窗口支撑':               '突破_day == -1',
-      '在窗口处回落':               '反弹_day == -1',
-      '长上影线阻挡':               '(shadow_trend != "d" and candle_upper_shadow_pct > 0.5)',
-      '价格跳空':                   'candle_gap == -1',
-      '价格收跌':                   'candle_color == -1',
-
-      '技术指标非正':               'up_trend_idx == 0',
-      '超买':                       'bb_trend == "d"',
+      # '技术指标非正':               'up_trend_idx == 0',
+      # '超买':                       'bb_trend == "d"',
     },
   }
   weights = {
     # weights of buy credits
     'buy': {
-      'adx_trend 向上' :            1,
-      'adx_value 增加':             1,
-
+      'adx_trend 向上' :            4,
       'kama_trend 向上':            1,
-      '上穿 kama_fast':             1,
-      '上穿 kama_slow':             1,
-
       'ichimoku_trend 向上':        1,
       'psar_trend 向上':            1,
-      'aroon_trend 向上':           1,
-      'eom_trend 向上':             1,
+      'fi_trend 向上':              1,
 
       '形成向上窗口':               2,
       '突破窗口阻挡':               2,
@@ -1557,17 +1483,11 @@ def calculate_ta_signal(df):
     },
     # weights of sell credits
     'sell': {
-      'adx_trend 向下':             -1,
-      'adx_value 减少':             -1,
-
+      'adx_trend 向下':             -4,
       'kama_trend 向下':            -1,
-      '下穿 kama_fast':             -1,
-      '下穿 kama_slow':             -1,
-
       'ichimoku_trend 向下':        -1,
       'psar_trend 向下':            -1,
-      'aroon_trend 向下':           -1,
-      'eom_trend 向下':             -1,
+      'fi_trend 向下':              -1,
 
       '形成向下窗口':               -2,
       '跌落窗口支撑':               -2,
@@ -1597,7 +1517,7 @@ def calculate_ta_signal(df):
   # add up buy_score and sell_score, to determine the final trend
   df['signal_score'] = df['buy_score'] + df['sell_score']
   signal_threshold = 0
-  conditions = {'u': f'signal_score > {signal_threshold}', 'd': f'signal_score < {-signal_threshold}'} 
+  conditions = {'u': f'signal_score > {signal_threshold}', 'd': f'signal_score <= {-signal_threshold}'} 
   values = {'u': 'u', 'd': 'd'}
   df = assign_condition_value(df=df, column='trend', condition_dict=conditions, value_dict=values, default_value='n') 
 
@@ -1619,7 +1539,7 @@ def calculate_ta_signal(df):
   } 
   wave_idx = df.query(' or '.join(wave_conditions.values())).index 
   df.loc[wave_idx, 'uncertain_trend'] = df.loc[wave_idx, 'trend']
-  df.loc[wave_idx, 'trend'] = 'n'
+  # df.loc[wave_idx, 'trend'] = 'n'
 
   # ================================ Calculate overall siganl ======================
   df['trend_day'] = sda(series=df['trend'].replace({'':0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
@@ -1628,12 +1548,10 @@ def calculate_ta_signal(df):
   # df.loc[df['trend_day'] == 1, 'signal'] = 'uu'
   # df.loc[df['trend_day'] ==-1, 'signal'] = 'dd'
 
-  # df = df.drop(['ichimoku_mean', 'entity_mean'], axis=1)
-
   return df
 
 # calculate ta indicators, trend and derivatives fpr latest data
-def calculation(df, symbol, start_date=None, end_date=None, trend_indicators=['ichimoku', 'kama', 'aroon', 'adx', 'psar'], volume_indicators=['eom'], volatility_indicators=['bb'], other_indicators=[], signal_threshold=0.001):
+def calculation(df, symbol, start_date=None, end_date=None, trend_indicators=['ichimoku', 'kama', 'adx', 'psar'], volume_indicators=['fi'], volatility_indicators=['bb'], other_indicators=[], signal_threshold=0.001):
   """
   Calculation process
 
@@ -1736,8 +1654,8 @@ def postprocess(df, keep_columns, drop_columns, sec_names, target_interval=''):
   conditions = {
     'uptrend':              '(trend == "u" or uncertain_trend == "u")',
     'adx uptrend':          '(adx_trend != "d" and adx_direction > 0)',
-    'ichimoku uptrend':     '((0 < kijun_signal < 5) and (tankan_kijun_signal < 0 or 0 < tankan_kijun_signal < 5))',
-    'tankan uptrend':       '(0 < tankan_day <= 3)',
+    'ichimoku uptrend':     '((0 < kijun_signal < 5) and (ichimoku_distance_signal < 0 or 0 < ichimoku_distance_signal < 5))',
+    'tankan uptrend':       '(0 < tankan_signal <= 3)',
     'kijun uptrend':        '(0 < kijun_signal <= 3)',
     'candle uppattern 1':   '(启明黄昏_day == 1)',
     'candle uppattern 2':   '(反弹_day == 1)',
@@ -1748,7 +1666,7 @@ def postprocess(df, keep_columns, drop_columns, sec_names, target_interval=''):
     'adx too late':         '(adx_value > 25 or adx_direction_day >= 10)',
     'adx too weak':         '(prev_adx_extreme > 0 and adx_direction < 5)',
     'adx downtrend':        '(adx_direction < 0)',
-    'tankan downtrend':     '(0 > tankan_day >= -3)',
+    'tankan downtrend':     '(0 > tankan_signal >= -3)',
     'kijun downtrend':      '(0 > kijun_signal >= -3)',
     'linear downtrend':     '(linear_slope < 0) and (linear_fit_high_slope == 0 or linear_fit_high_signal <= 0)',
     'overbuy':              '(bb_trend == "d")',
@@ -1757,7 +1675,7 @@ def postprocess(df, keep_columns, drop_columns, sec_names, target_interval=''):
     'candle downpattern 3': '(窗口_day == -1)',
     'linear downpatterns':  '(linear_bounce_day == -1)',
     
-    'potential':            '(adx_value < -10) and (0 < adx_direction_day <= 3) and (0 < 突破_day <=3 or (tankan_kijun_signal < 0 and 0 < tankan_day <=3))',
+    'potential':            '(adx_value < -10) and (0 < adx_direction_day <= 3) and (0 < 突破_day <=3 or (ichimoku_distance_signal < 0 and 0 < tankan_signal <=3))',
     'signal':               '(signal == "b")'}
 
   values = {
@@ -2976,85 +2894,8 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
     df['senkou_a'] = df['senkou_a'].shift(n_medium)
     df['senkou_b'] = df['senkou_b'].shift(n_medium)
 
-  # tankan-kijun signal
-  df['tankan_to_kijun'] = df['tankan'] - df['kijun']
-  conditions = {
-    'up': f'tankan > kijun',
-    'down': f'tankan < kijun',
-    'none': 'tankan == kijun'}
-  values = {
-    'up': 1, 
-    'down': -1,
-    'none': 0}
-  df = assign_condition_value(df=df, column=f'tankan_kijun_signal', condition_dict=conditions, value_dict=values, default_value='n')
-  df['tankan_kijun_signal'] = sda(series=df['tankan_kijun_signal'], zero_as=1)
-  df['tankan_kijun_signal'] = df['tankan_kijun_signal'].astype(int)
-
-  if cal_status:
-    # ================================ Cloud status ===================================
-    # cloud color change, cloud height (how thick is the cloud)
-    # df['cloud_shift'] = cal_crossover_signal(df=df, fast_line='senkou_a', slow_line='senkou_b', pos_signal=1, neg_signal=-1, none_signal=0)
-    df['cloud_height'] = round((df['senkou_a'] - df['senkou_b'])/df[close], ndigits=3)
-    green_idx = df.query('cloud_height > 0').index
-    red_idx = df.query('cloud_height <= 0').index
-
-    # cloud width (how has it last)
-    df['cloud_width'] = 0
-    df.loc[green_idx, 'cloud_width'] = 1
-    df.loc[red_idx, 'cloud_width'] = -1
-
-    # cloud top and bottom
-    df['cloud_top'] = 0
-    df.loc[green_idx, 'cloud_top'] = df['senkou_a']
-    df.loc[red_idx, 'cloud_top'] = df['senkou_b']
-    df['cloud_bottom'] = 0
-    df.loc[green_idx, 'cloud_bottom'] = df['senkou_b']
-    df.loc[red_idx, 'cloud_bottom'] = df['senkou_a']
-
-    # calculate how long current cloud has lasted
-    idx = df.index.tolist()
-    for i in range(1, len(df)):
-      current_idx = idx[i]
-      previous_idx = idx[i-1]
-      current_cloud_period = df.loc[current_idx, 'cloud_width']
-      previous_cloud_period = df.loc[previous_idx, 'cloud_width']
-
-      # calculate how long the cloud has last
-      if current_cloud_period * previous_cloud_period > 0:
-        df.loc[current_idx, 'cloud_width'] += previous_cloud_period
-
-    # ================================ Close breakthrough =============================
-    # calculate distance between Close and each ichimoku lines    
-    # line_weight = {'kijun':1, 'tankan':1} # , 'cloud_top':1, 'cloud_bottom':1
-    line_name = {"kijun":"基准", "tankan":"转换", "cloud_top":"云顶", "cloud_bottom":"云底"} 
-    # df['break_up'] = ''
-    # df['break_down'] = ''
-    # df['breakthrough'] = 0
-    # col_to_drop.append('breakthrough')
-
-    for line in line_name.keys():
-      
-      # # set weight for this line
-      # weight = line_weight[line]
-
-      # calculate breakthrough
-      line_signal_name = f'{line}_signal'
-      df[line_signal_name] = cal_crossover_signal(df=df, fast_line=close, slow_line=line, pos_signal=1, neg_signal=-1, none_signal=0)
-      
-      # # record breakthrough
-      # up_idx = df.query(f'{line_signal_name} == {weight}').index
-      # down_idx = df.query(f'{line_signal_name} == {-weight}').index      
-      # df.loc[up_idx, 'break_up'] = df.loc[up_idx, 'break_up'] + line_name[line] + ','
-      # df.loc[down_idx, 'break_down'] = df.loc[down_idx, 'break_down'] + line_name[line] + ','
-      
-      # # accumulate breakthrough signals
-      # df['breakthrough'] = df['breakthrough'].astype(int) +df[line_signal_name].astype(int)
-
-      # # calculate distance between close price and indicator
-      # df['close_to_' + line] = round((df[close] - df[line]) / df[close], ndigits=3)
-
-    # drop redundant columns  
-    df.drop(col_to_drop, axis=1, inplace=True)
+  # drop redundant columns  
+  df.drop(col_to_drop, axis=1, inplace=True)
 
   return df
 
@@ -5239,10 +5080,10 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   text_color = df.loc[max_idx, 'renko_color'] # fontsize=14, 
   plt.annotate(f'{df.loc[max_idx, "renko_series_short"]}: {text_signal}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.05))
 
-  # tankan_kijun_signal
+  # ichimoku_distance_signal
   x_signal = max_idx + datetime.timedelta(days=2)
   y_signal = 15
-  text_signal = int(df.loc[max_idx, 'tankan_kijun_signal'])
+  text_signal = int(df.loc[max_idx, 'ichimoku_distance_signal'])
   text_color = 'red' if text_signal < 0 else 'green'
   plt.annotate(f'ich: {text_signal}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.05))
 

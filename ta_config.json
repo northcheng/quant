@@ -63,8 +63,8 @@
       },
       "signals": {
         "signal_list": [
-          "eom_signal",
-          "aroon_signal",
+          "bb_signal",
+          "fi_signal",
           "psar_signal",
           "ichimoku_signal",
           "kama_signal",
@@ -139,7 +139,7 @@
       "adx_strength": "ADX强度", 
       "adx_direction_day": "ADX方向",
       "prev_adx_extreme": "ADX起始",
-      "tankan_kijun_signal": "TK信号",
+      "ichimoku_distance_signal": "TK信号",
       "linear_slope": "拟合斜率",
       "trend_day": "整体趋势",
       "signal": "交易信号",

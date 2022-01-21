@@ -790,3 +790,102 @@ def calculate_ta_signal(df):
   # df = df.drop(['ichimoku_mean', 'entity_mean'], axis=1)
 
   return df
+
+# ichimoku trend
+      # conditions = {
+      #   'up': '((candle_entity_bottom > kijun) and (kijun_day > 1))',
+      #   'down': '((candle_entity_bottom < kijun) and (kijun_day < -1))'}
+      # values = {
+      #   'up': 'u', 
+      #   'down': 'd'}
+      # df = assign_condition_value(df=df, column='ichimoku_trend', condition_dict=conditions, value_dict=values, default_value='n')  
+
+      df['tankan_day_plus_kijun_day'] = df['tankan_day'] + df['kijun_day']
+      conditions = {
+        'under red cloud':            '((tankan_kijun_signal < 0) and (candle_entity_top < tankan) and (tankan_day < -1))',
+        'above red cloud':            '((tankan_kijun_signal < 0) and (candle_entity_bottom > kijun) and (kijun_day >1))',
+        'go up into red cloud':       '((tankan_kijun_signal < 0) and ((tankan_day > 1) and (tankan_day_plus_kijun_day) < 0))',
+        'go up above red cloud':      '((tankan_kijun_signal < 0) and (tankan_day >= kijun_day > 1))',
+        'go down into red cloud':     '((tankan_kijun_signal < 0) and ((kijun_day < -1) and (tankan_day_plus_kijun_day) > 0))',
+        'go down below red cloud':    '((tankan_kijun_signal < 0) and (tankan_day <= kijun_day < 0))',
+
+        'under green cloud':          '((tankan_kijun_signal > 0) and (candle_entity_top < kijun) and (kijun_day < -1))',
+        'above green cloud':          '((tankan_kijun_signal > 0) and (candle_entity_bottom > tankan) and (tankan_day > 1))',
+        'go up into green cloud':     '((tankan_kijun_signal > 0) and ((kijun_day > 1) and (tankan_day_plus_kijun_day) < 0))',
+        'go up above green cloud':    '((tankan_kijun_signal > 0) and (kijun_day >= tankan_day > 0))',
+        'go down into green cloud':   '((tankan_kijun_signal > 0) and ((tankan_day < -1) and (tankan_day_plus_kijun_day) > 0))',
+        'go down below green cloud':  '((tankan_kijun_signal > 0) and (kijun_day <= tankan_day < 0))',
+
+        }
+      values = {
+        'under red cloud':            'd',
+        'above red cloud':            'u',
+        'go up into red cloud':       'u',
+        'go up above red cloud':      'u',
+        'go down into red cloud':     'd',
+        'go down below red cloud':    'd',
+
+        'under green cloud':          'd',
+        'above green cloud':          'u',
+        'go up into green cloud':     'u',
+        'go up above green cloud':    'u',
+        'go down into green cloud':   'd',
+        'go down below green cloud':  'd',
+        }
+      df = assign_condition_value(df=df, column='ichimoku_trend', condition_dict=conditions, value_dict=values, default_value='n') 
+
+      # signal_col = f'ichimoku_signal'
+      # trend_col = f'ichimoku_trend'
+
+      # fl = 'tankan'
+      # sl = 'kijun'
+      # fld = 'tankan_day'
+      # sld = 'kijun_day'
+      # df[trend_col] = 'n'
+
+      # # it is going up when
+      # ichimoku_up_conditions = {
+      #   'at least 1 triggered': [
+      #     f'(close_to_{fl} >= close_to_{sl} > {signal_threshold})',
+      #     f'(close_to_{sl} >= close_to_{fl} > {signal_threshold})',
+      #     f'((close_to_{fl}>={signal_threshold}) and (close_to_{sl}<={-signal_threshold}) and (abs({fld})<abs({sld})))',
+      #     f'((close_to_{fl}<={-signal_threshold}) and (close_to_{sl}>={signal_threshold}) and (abs({fld})>abs({sld})))',
+      #   ],
+      #   'must all triggered': [
+      #     # f'((tankan_rate_ma > 0) and (kijun_rate_ma > 0))',
+      #     '(Close > 0)'
+      #   ]
+      # }
+      # ichimoku_up_query_or = ' or '.join(ichimoku_up_conditions['at least 1 triggered'])
+      # ichimoku_up_query_and = ' and '.join(ichimoku_up_conditions['must all triggered']) 
+      # ichimoku_up_query = f'({ichimoku_up_query_and}) and ({ichimoku_up_query_or})'
+      # up_idx = df.query(f'{ichimoku_up_query}').index
+      # df.loc[up_idx, trend_col] = 'u'
+     
+      # # it is going down when
+      # ichimoku_down_conditions = {
+      #   'at least 1 triggered': [
+      #     f'(close_to_{fl} <= close_to_{sl} < {-signal_threshold})',
+      #     f'(close_to_{sl} <= close_to_{fl} < {-signal_threshold})',
+      #     f'((close_to_{sl}<{-signal_threshold}) and (close_to_{fl}>{signal_threshold}) and (abs({fld})>abs({sld})))',
+      #     f'((close_to_{sl}>{signal_threshold}) and (close_to_{fl}<{-signal_threshold}) and (abs({fld})<abs({sld})))',
+      #   ],
+      #   'must all triggered': [
+      #     # f'((tankan_rate_ma < 0) or (kijun_rate_ma < 0))',
+      #     f'(Close<kijun)',
+      #     # 'Close > 0' # when there is no condition
+      #   ],
+      # }
+      # ichimoku_down_query_or = ' or '.join(ichimoku_down_conditions['at least 1 triggered'])
+      # ichimoku_down_query_and = ' and '.join(ichimoku_down_conditions['must all triggered'])
+      # ichimoku_down_query = f'({ichimoku_down_query_and}) and ({ichimoku_down_query_or})'
+      # down_idx = df.query(ichimoku_down_query).index
+      # df.loc[down_idx, trend_col] = 'd'
+      
+      # # it is waving when
+      # # 1. (-0.01 < kijun_rate_ma < 0.01)
+      # wave_idx = df.query(f'(({trend_col} != "u") and ({trend_col} != "d")) and ((kijun_rate == 0) and (tankan < kijun))').index
+      # df.loc[wave_idx, trend_col] = 'n'
+
+      # # drop intermediate columns
+      # # df.drop(['tankan_day', 'tankan_rate', 'tankan_rate_ma', 'kijun_day', 'kijun_rate', 'kijun_rate_ma'], axis=1, inplace=True)  
