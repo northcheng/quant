@@ -39,7 +39,7 @@
   "visualization": {
     "plot_args": {
       "plot_ratio": {
-        "signals": 1.5, "adx": 2, 
+        "signals": 1.3, "adx": 2, 
         "main_indicators": 10, "volume":0.9
       },
       "trend_idx": {

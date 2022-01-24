@@ -78,7 +78,8 @@ def load_config(root_paths):
   return config
 
 # load locally saved data(sec_data, ta_data, results)
-def load_data(symbols, config, load_empty_data=False, load_derived_data=False, derived_data_prefix=''):
+# def load_data(symbols, config, load_empty_data=False, load_derived_data=False, derived_data_prefix=''):
+def load_data(target_list, config, interval='day', load_empty_data=False, load_derived_data=False):
   """ 
   Load data from local files
   
@@ -91,29 +92,37 @@ def load_data(symbols, config, load_empty_data=False, load_derived_data=False, d
   """
   # init data
   data = {'sec_data': {}, 'ta_data': {}, 'result': {}, 'final_result': {}}
+  for target in target_list:
+    ti = f'{target}_{interval}'
+    data['sec_data'][ti] = {}
+    data['ta_data'][ti] = {}
+    data['result'][ti] = {}
 
   # load local data
   if not load_empty_data:
 
-    # load stock data
-    for symbol in symbols:
+    # load sec_data
+    data_path = config['data_path']
+    for target in target_list:
+      ti = f'{target}_{interval}'
+      for symbol in target_list[target]:
+        if os.path.exists(data_path+f'{symbol.split(".")[0]}.csv'):
+          data['sec_data'][ti][f'{symbol}_day'] = io_util.load_stock_data(file_path=data_path, file_name=symbol, standard_columns=True)
+        else:
+          data['sec_data'][ti][f'{symbol}_day'] = None
 
-      if os.path.exists(config['data_path']+f'{symbol.split(".")[0]}.csv'):
-        data['sec_data'][f'{symbol}_day'] = io_util.load_stock_data(file_path=config['data_path'], file_name=symbol, standard_columns=True)
-      else:
-        data['sec_data'][f'{symbol}_day'] = None
-
-    # load derived data (ta_data, result, final_result)
+    # load (ta_data, result)
     if load_derived_data:
       file_path = config["quant_path"]
-      file_names = config["calculation"]["file_name"]
-      for f in file_names.keys():
-        file_name = derived_data_prefix + file_names[f]
-        if os.path.exists(f'{file_path}{file_name}'):
-          data[f] = io_util.pickle_load_data(file_path=file_path, file_name=f'{file_name}')
-        else:
-          print(f'{file_name} not exists')
-      
+      for target in target_list:
+        ti = f'{target}_{interval}'
+        for f in ['ta_data', 'result']:
+          file_name = f'{ti}_{f}.pkl'
+          if os.path.exists(f'{file_path}{file_name}'):
+            data[f][ti] = io_util.pickle_load_data(file_path=file_path, file_name=f'{file_name}')
+          else:
+            print(f'{file_name} not exists')
+
   return data
 
 
@@ -221,6 +230,7 @@ def calculate_ta_data(df, trend_indicators, volume_indicators, volatility_indica
     return None  
 
   # indicator calculation
+  indicator = None
   try:
     phase = 'calculate close rate' 
     df = cal_change_rate(df=df, target_col=default_ohlcv_col['close'], add_accumulation=False)
@@ -1398,160 +1408,8 @@ def calculate_ta_derivatives(df, perspective=['renko', 'candle', 'linear', 'supp
 
   return df
 
-# calculate ta signal
-def calculate_ta_signal(df):
-  """
-  Calculate trading signals
-
-  :param df: dataframe with ta features and derived features for calculating signals
-  :raturns: dataframe with signal
-  :raises: None
-  """
-  if len(df) == 0:
-    print(f'No data for calculate_ta_signal')
-    return None
-
-  # copy data, initialize
-  df = df.copy()
-
-  # ================================ buy and sell signals ==========================
-  df['trend'] = ''
-  df['signal'] = ''
-
-  df['buy_score'] = 0
-  df['sell_score'] = 0
-  df['signal_score'] = 0
-  df['signal_description'] = ''
-
-  # version 2 - started 2022-01-14
-  conditions = {
-    # buy credits
-    'buy': {
-      'adx_trend 向上' :            'adx_day > 0',
-      'kama_trend 向上':            'kama_day > 0',
-      'ichimoku_trend 向上':        'ichimoku_day > 0',
-      'psar_trend 向上':            'psar_day > 0',
-      'fi_trend 向上':              'fi_day > 0',
-      
-      # '形成向上窗口':               '窗口_day == 1',
-      # '突破窗口阻挡':               '突破_day == 1',
-      # '在窗口处反弹':               '反弹_day == 1',
-      # '长下影线支撑':               '(shadow_trend != "d" and candle_lower_shadow_pct > 0.5)',
-      # '价格跳多':                   'candle_gap == 1',
-      # '价格收涨':                   'candle_color == 1',
-
-      # '技术指标非负':               'down_trend_idx == 0',
-      # '超卖':                       'bb_trend == "u"',
-    },
-    # sell credits
-    'sell': {
-      'adx_trend 向下':             'adx_day < 0',
-      'kama_trend 向下':            'kama_day < 0',
-      'ichimoku_trend 向下':        'ichimoku_day < 0',
-      'psar_trend 向下':            'psar_day < 0',
-      'fi_trend 向下':              'fi_day < 0',
-
-      # '形成向下窗口':               '窗口_day == -1',
-      # '跌落窗口支撑':               '突破_day == -1',
-      # '在窗口处回落':               '反弹_day == -1',
-      # '长上影线阻挡':               '(shadow_trend != "d" and candle_upper_shadow_pct > 0.5)',
-      # '价格跳空':                   'candle_gap == -1',
-      # '价格收跌':                   'candle_color == -1',
-
-      # '技术指标非正':               'up_trend_idx == 0',
-      # '超买':                       'bb_trend == "d"',
-    },
-  }
-  weights = {
-    # weights of buy credits
-    'buy': {
-      'adx_trend 向上' :            4,
-      'kama_trend 向上':            1,
-      'ichimoku_trend 向上':        1,
-      'psar_trend 向上':            1,
-      'fi_trend 向上':              1,
-
-      '形成向上窗口':               2,
-      '突破窗口阻挡':               2,
-      '在窗口处反弹':               2,
-      '长下影线支撑':               1,
-      '价格跳多':                   2,
-      '价格收涨':                   1,
-
-      '技术指标非负':               1,
-      '超卖':                       1,
-    },
-    # weights of sell credits
-    'sell': {
-      'adx_trend 向下':             -4,
-      'kama_trend 向下':            -1,
-      'ichimoku_trend 向下':        -1,
-      'psar_trend 向下':            -1,
-      'fi_trend 向下':              -1,
-
-      '形成向下窗口':               -2,
-      '跌落窗口支撑':               -2,
-      '在窗口处回落':               -2,
-      '长上影线阻挡':               -1,
-      '价格跳空':                   -2,
-      '价格收跌':                   -1,
-
-      '技术指标非正':               -1,
-      '超买':                       -1,
-    },
-  }
-
-  # calculate buy and sell scores
-  for k in conditions.keys():
-    tmp_conditions = conditions[k]
-    tmp_weights = weights[k]
-
-    # for each buy/sell conditions
-    for c in tmp_conditions.keys():
-      c_weight = tmp_weights[c]
-      c_query = tmp_conditions[c]
-      c_idx = df.query(c_query).index
-      df.loc[c_idx, f'{k}_score'] += c_weight
-      df.loc[c_idx, f'signal_description'] += f'{c} |'
-
-  # add up buy_score and sell_score, to determine the final trend
-  df['signal_score'] = df['buy_score'] + df['sell_score']
-  signal_threshold = 0
-  conditions = {'u': f'signal_score > {signal_threshold}', 'd': f'signal_score <= {-signal_threshold}'} 
-  values = {'u': 'u', 'd': 'd'}
-  df = assign_condition_value(df=df, column='trend', condition_dict=conditions, value_dict=values, default_value='n') 
-
-  # wave conditions
-  wave_conditions = {
-
-    # developing version 3 - started 2021-12-16
-    'adx not exists':   '(adx != adx)',
-    'adx fake down':    '((trend == "d") and (adx_value_change >= 0))',
-    'adx fake up':      '((trend == "u") and (adx_value_change <= 0))',
-    'adx weak trend':   '((trend == "u") and (-10 <= adx_value <= 10) and ((-1 <= adx_value_change <= 1) or (-1 < adx_strength_change < 1) or (-5 <= adx_direction <= 5)))',
-    'adx start high':   '((trend == "u") and (adx_value > 10 or adx_direction_start > 10))',
-    'trend to verify':  '((trend == "u") and ((adx_strong_day < -10) or (adx_strong_day == 1) or (-1 < adx_strength_change < 1)))',
-
-    'kama wave up':     '((trend == "d") and ((kama_trend == "n") and (kama_day > 0) and (kama_fast > kama_slow) and (up_trend_idx > 0)))',
-    'kama wave down':   '((trend == "u") and ((kama_trend == "n") and (kama_day < 0)))',
-    'kana up':          '((trend == "d") and (kama_fast_rate > -0.001 and kama_slow_rate > -0.001))',
-    'kana down':        '((trend == "u") and (kama_fast_rate < -0.001 and kama_slow_rate < -0.001))',
-  } 
-  wave_idx = df.query(' or '.join(wave_conditions.values())).index 
-  df.loc[wave_idx, 'uncertain_trend'] = df.loc[wave_idx, 'trend']
-  # df.loc[wave_idx, 'trend'] = 'n'
-
-  # ================================ Calculate overall siganl ======================
-  df['trend_day'] = sda(series=df['trend'].replace({'':0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
-  df.loc[df['trend_day'] == 1, 'signal'] = 'b'
-  df.loc[df['trend_day'] ==-1, 'signal'] = 's'
-  # df.loc[df['trend_day'] == 1, 'signal'] = 'uu'
-  # df.loc[df['trend_day'] ==-1, 'signal'] = 'dd'
-
-  return df
-
 # calculate ta indicators, trend and derivatives fpr latest data
-def calculation(df, symbol, start_date=None, end_date=None, trend_indicators=['ichimoku', 'kama', 'adx', 'psar'], volume_indicators=['fi'], volatility_indicators=['bb'], other_indicators=[], signal_threshold=0.001):
+def calculate_ta_features(df, symbol, start_date=None, end_date=None, trend_indicators=['ichimoku', 'kama', 'adx', 'psar'], volume_indicators=['fi'], volatility_indicators=['bb'], other_indicators=[], signal_threshold=0.001):
   """
   Calculation process
 
@@ -1590,12 +1448,184 @@ def calculation(df, symbol, start_date=None, end_date=None, trend_indicators=['i
     phase = 'cal_ta_derivatives'
     df = calculate_ta_derivatives(df)
 
-    # calculate TA final signal
-    phase = 'cal_ta_signals'
-    df = calculate_ta_signal(df=df)
-
   except Exception as e:
     print(symbol, phase, e)
+
+  return df
+
+# calculate ta signal
+def calculate_ta_signal(df):
+  """
+  Calculate trading signals
+
+  :param df: dataframe with ta features and derived features for calculating signals
+  :raturns: dataframe with signal
+  :raises: None
+  """
+  if df is None or len(df) == 0:
+    print(f'No data for calculate_ta_signal')
+    return None
+
+  # copy data, initialize
+  df = df.copy()
+
+  # ================================ buy and sell signals ==========================
+  df['trend'] = ''
+  df['signal'] = ''
+
+  df['buy_score'] = 0
+  df['sell_score'] = 0
+  df['signal_score'] = 0
+  df['signal_description'] = ''
+
+  # version 2 - started 2022-01-14
+  conditions = {
+    # buy credits
+    'buy': {
+      'adx_trend 向上' :            'adx_trend == "u"',
+      'kama_trend 向上':            'kama_trend == "u"',
+      'ichimoku_trend 向上':        'ichimoku_trend == "u"',
+      'psar_trend 向上':            'psar_trend == "u"',
+      'fi_trend 向上':              'fi_trend == "u"',
+
+      # 'adx_trend 波动向上' :            'adx_trend == "n" and adx_day > 0',
+      # 'kama_trend 波动向上':            'kama_trend == "n" and kama_day > 0',
+      # 'ichimoku_trend 波动向上':        'ichimoku_trend == "n" and ichimoku_day > 0',
+      # 'psar_trend 波动向上':            'psar_trend == "n" and psar_day > 0',
+      # 'fi_trend 波动向上':              'fi_trend == "n" and fi_day > 0',
+      
+      # '形成向上窗口':               '窗口_day == 1',
+      # '突破窗口阻挡':               '突破_day == 1',
+      # '在窗口处反弹':               '反弹_day == 1',
+      # '长下影线支撑':               '(shadow_trend != "d" and candle_lower_shadow_pct > 0.5)',
+      # '价格跳多':                   'candle_gap == 1',
+      # '价格收涨':                   'candle_color == 1',
+
+      # '技术指标非负':               'down_trend_idx == 0',
+      # '超卖':                       'bb_trend == "u"',
+    },
+    # sell credits
+    'sell': {
+      'adx_trend 向下':             'adx_trend == "d"',
+      'kama_trend 向下':            'kama_trend == "d"',
+      'ichimoku_trend 向下':        'ichimoku_trend == "d"',
+      'psar_trend 向下':            'psar_trend == "d"',
+      'fi_trend 向下':              'fi_trend == "d"',
+
+      # 'adx_trend 波动向下' :            'adx_trend == "n" and adx_day < 0',
+      # 'kama_trend 波动向下':            'kama_trend == "n" and kama_day < 0',
+      # 'ichimoku_trend 波动向下':        'ichimoku_trend == "n" and ichimoku_day < 0',
+      # 'psar_trend 波动向下':            'psar_trend == "n" and psar_day < 0',
+      # 'fi_trend 波动向下':              'fi_trend == "n" and fi_day < 0',
+
+      # '形成向下窗口':               '窗口_day == -1',
+      # '跌落窗口支撑':               '突破_day == -1',
+      # '在窗口处回落':               '反弹_day == -1',
+      # '长上影线阻挡':               '(shadow_trend != "d" and candle_upper_shadow_pct > 0.5)',
+      # '价格跳空':                   'candle_gap == -1',
+      # '价格收跌':                   'candle_color == -1',
+
+      # '技术指标非正':               'up_trend_idx == 0',
+      # '超买':                       'bb_trend == "d"',
+    },
+  }
+  weights = {
+    # weights of buy credits
+    'buy': {
+      'adx_trend 向上' :            4,
+      'kama_trend 向上':            0,
+      'ichimoku_trend 向上':        0,
+      'psar_trend 向上':            0,
+      'fi_trend 向上':              0,
+
+      'adx_trend 波动向上' :        0.5,
+      'kama_trend 波动向上':        0.5,
+      'ichimoku_trend 波动向上':    0.5,
+      'psar_trend 波动向上':        0.5,
+      'fi_trend 波动向上':          0.5,
+
+      # '形成向上窗口':               2,
+      # '突破窗口阻挡':               2,
+      # '在窗口处反弹':               2,
+      # '长下影线支撑':               1,
+      # '价格跳多':                   2,
+      # '价格收涨':                   1,
+
+      # '技术指标非负':               1,
+      # '超卖':                       1,
+    },
+    # weights of sell credits
+    'sell': {
+      'adx_trend 向下':             -4,
+      'kama_trend 向下':            0,
+      'ichimoku_trend 向下':        0,
+      'psar_trend 向下':            0,
+      'fi_trend 向下':              0,
+
+      'adx_trend 波动向下' :        -0.5,
+      'kama_trend 波动向下':        -0.5,
+      'ichimoku_trend 波动向下':    -0.5,
+      'psar_trend 波动向下':        -0.5,
+      'fi_trend 波动向下':          -0.5,
+
+      # '形成向下窗口':               -2,
+      # '跌落窗口支撑':               -2,
+      # '在窗口处回落':               -2,
+      # '长上影线阻挡':               -1,
+      # '价格跳空':                   -2,
+      # '价格收跌':                   -1,
+
+      # '技术指标非正':               -1,
+      # '超买':                       -1,
+    },
+  }
+
+  # calculate buy and sell scores
+  for k in conditions.keys():
+    tmp_conditions = conditions[k]
+    tmp_weights = weights[k]
+
+    # for each buy/sell conditions
+    for c in tmp_conditions.keys():
+      c_weight = tmp_weights[c]
+      c_query = tmp_conditions[c]
+      c_idx = df.query(c_query).index
+      df.loc[c_idx, f'{k}_score'] += c_weight
+      df.loc[c_idx, f'signal_description'] += f'{c} |'
+
+  # add up buy_score and sell_score, to determine the final trend
+  df['signal_score'] = df['buy_score'] + df['sell_score']
+  signal_threshold = 0
+  conditions = {'u': f'signal_score > {signal_threshold}', 'd': f'signal_score < {-signal_threshold}'} 
+  values = {'u': 'u', 'd': 'd'}
+  df = assign_condition_value(df=df, column='trend', condition_dict=conditions, value_dict=values, default_value='n') 
+
+  # wave conditions
+  wave_conditions = {
+
+    # developing version 3 - started 2021-12-16
+    'adx not exists':   '(adx != adx)',
+    'adx fake down':    '((trend == "d") and (adx_value_change >= 0))',
+    'adx fake up':      '((trend == "u") and (adx_value_change <= 0))',
+    'adx weak trend':   '((trend == "u") and (-10 <= adx_value <= 10) and ((-1 <= adx_value_change <= 1) or (-1 < adx_strength_change < 1) or (-5 <= adx_direction <= 5)))',
+    'adx start high':   '((trend == "u") and (adx_value > 10 or adx_direction_start > 10))',
+    'trend to verify':  '((trend == "u") and ((adx_strong_day < -10) or (adx_strong_day == 1) or (-1 < adx_strength_change < 1)))',
+
+    'kama wave up':     '((trend == "d") and ((kama_trend == "n") and (kama_day > 0) and (kama_fast > kama_slow) and (up_trend_idx > 0)))',
+    'kama wave down':   '((trend == "u") and ((kama_trend == "n") and (kama_day < 0)))',
+    'kana up':          '((trend == "d") and (kama_fast_rate > -0.001 and kama_slow_rate > -0.001))',
+    'kana down':        '((trend == "u") and (kama_fast_rate < -0.001 and kama_slow_rate < -0.001))',
+  } 
+  wave_idx = df.query(' or '.join(wave_conditions.values())).index 
+  df.loc[wave_idx, 'uncertain_trend'] = df.loc[wave_idx, 'trend']
+  # df.loc[wave_idx, 'trend'] = 'n'
+
+  # ================================ Calculate overall siganl ======================
+  df['trend_day'] = sda(series=df['trend'].replace({'':0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
+  df.loc[df['trend_day'] == 1, 'signal'] = 'b'
+  df.loc[df['trend_day'] ==-1, 'signal'] = 's'
+  # df.loc[df['trend_day'] == 1, 'signal'] = 'uu'
+  # df.loc[df['trend_day'] ==-1, 'signal'] = 'dd'
 
   return df
 
@@ -2385,12 +2415,13 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col, pattern_recognitio
   df['candle_gap_color'] = 0
   df['candle_gap_top'] = np.NaN
   df['candle_gap_bottom'] = np.NaN
-
+  
   # gap up
   df['low_prev_high'] = df[low] - df[f'prev_{high}']
   gap_up_idx = df.query(f'low_prev_high > 0').index
   df.loc[gap_up_idx, 'candle_gap'] = 1
   gap_up_mean = df.loc[gap_up_idx, 'low_prev_high'].mean() # df['low_prev_high'].nlargest(10).values[-1] # 
+  gap_up_mean = 0 if np.isnan(gap_up_mean) else gap_up_mean
   strict_gap_up_idx = df.query(f'low_prev_high >= {gap_up_mean} and low_prev_high > 0').index
   if len(strict_gap_up_idx) / len(df) < 0.05:
     df.loc[strict_gap_up_idx, 'candle_gap'] = 2
@@ -2403,13 +2434,14 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col, pattern_recognitio
   gap_down_idx = df.query(f'prev_low_high > 0').index  
   df.loc[gap_down_idx, 'candle_gap'] = -1
   gap_down_mean = df.loc[gap_down_idx, 'prev_low_high'].mean() # df['prev_low_high'].nlargest(10).values[-1] # 
+  gap_down_mean = 0 if np.isnan(gap_down_mean) else gap_down_mean
   strict_gap_down_idx = df.query(f'prev_low_high >= {gap_down_mean} and prev_low_high > 0').index  
   if len(strict_gap_down_idx) / len(df) < 0.05:
     df.loc[strict_gap_down_idx, 'candle_gap'] = -2
     df.loc[strict_gap_down_idx, 'candle_gap_color'] = -1
     df.loc[strict_gap_down_idx, 'candle_gap_top'] = df.loc[strict_gap_down_idx, f'prev_{low}']
     df.loc[strict_gap_down_idx, 'candle_gap_bottom'] = df.loc[strict_gap_down_idx, f'{high}']
-
+  
   # gap height, color, top and bottom
   df['candle_gap_height'] = df['candle_gap_top'] - df['candle_gap_bottom']
   df['candle_gap_top'] = df['candle_gap_top'].fillna(method='ffill') 

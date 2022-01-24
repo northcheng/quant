@@ -792,47 +792,47 @@ def calculate_ta_signal(df):
   return df
 
 # ichimoku trend
-      # conditions = {
-      #   'up': '((candle_entity_bottom > kijun) and (kijun_day > 1))',
-      #   'down': '((candle_entity_bottom < kijun) and (kijun_day < -1))'}
-      # values = {
-      #   'up': 'u', 
-      #   'down': 'd'}
-      # df = assign_condition_value(df=df, column='ichimoku_trend', condition_dict=conditions, value_dict=values, default_value='n')  
+    # conditions = {
+    #   'up': '((candle_entity_bottom > kijun) and (kijun_day > 1))',
+    #   'down': '((candle_entity_bottom < kijun) and (kijun_day < -1))'}
+    # values = {
+    #   'up': 'u', 
+    #   'down': 'd'}
+    # df = assign_condition_value(df=df, column='ichimoku_trend', condition_dict=conditions, value_dict=values, default_value='n')  
 
-      df['tankan_day_plus_kijun_day'] = df['tankan_day'] + df['kijun_day']
-      conditions = {
-        'under red cloud':            '((tankan_kijun_signal < 0) and (candle_entity_top < tankan) and (tankan_day < -1))',
-        'above red cloud':            '((tankan_kijun_signal < 0) and (candle_entity_bottom > kijun) and (kijun_day >1))',
-        'go up into red cloud':       '((tankan_kijun_signal < 0) and ((tankan_day > 1) and (tankan_day_plus_kijun_day) < 0))',
-        'go up above red cloud':      '((tankan_kijun_signal < 0) and (tankan_day >= kijun_day > 1))',
-        'go down into red cloud':     '((tankan_kijun_signal < 0) and ((kijun_day < -1) and (tankan_day_plus_kijun_day) > 0))',
-        'go down below red cloud':    '((tankan_kijun_signal < 0) and (tankan_day <= kijun_day < 0))',
+    # df['tankan_day_plus_kijun_day'] = df['tankan_day'] + df['kijun_day']
+    # conditions = {
+    #   'under red cloud':            '((tankan_kijun_signal < 0) and (candle_entity_top < tankan) and (tankan_day < -1))',
+    #   'above red cloud':            '((tankan_kijun_signal < 0) and (candle_entity_bottom > kijun) and (kijun_day >1))',
+    #   'go up into red cloud':       '((tankan_kijun_signal < 0) and ((tankan_day > 1) and (tankan_day_plus_kijun_day) < 0))',
+    #   'go up above red cloud':      '((tankan_kijun_signal < 0) and (tankan_day >= kijun_day > 1))',
+    #   'go down into red cloud':     '((tankan_kijun_signal < 0) and ((kijun_day < -1) and (tankan_day_plus_kijun_day) > 0))',
+    #   'go down below red cloud':    '((tankan_kijun_signal < 0) and (tankan_day <= kijun_day < 0))',
 
-        'under green cloud':          '((tankan_kijun_signal > 0) and (candle_entity_top < kijun) and (kijun_day < -1))',
-        'above green cloud':          '((tankan_kijun_signal > 0) and (candle_entity_bottom > tankan) and (tankan_day > 1))',
-        'go up into green cloud':     '((tankan_kijun_signal > 0) and ((kijun_day > 1) and (tankan_day_plus_kijun_day) < 0))',
-        'go up above green cloud':    '((tankan_kijun_signal > 0) and (kijun_day >= tankan_day > 0))',
-        'go down into green cloud':   '((tankan_kijun_signal > 0) and ((tankan_day < -1) and (tankan_day_plus_kijun_day) > 0))',
-        'go down below green cloud':  '((tankan_kijun_signal > 0) and (kijun_day <= tankan_day < 0))',
+    #   'under green cloud':          '((tankan_kijun_signal > 0) and (candle_entity_top < kijun) and (kijun_day < -1))',
+    #   'above green cloud':          '((tankan_kijun_signal > 0) and (candle_entity_bottom > tankan) and (tankan_day > 1))',
+    #   'go up into green cloud':     '((tankan_kijun_signal > 0) and ((kijun_day > 1) and (tankan_day_plus_kijun_day) < 0))',
+    #   'go up above green cloud':    '((tankan_kijun_signal > 0) and (kijun_day >= tankan_day > 0))',
+    #   'go down into green cloud':   '((tankan_kijun_signal > 0) and ((tankan_day < -1) and (tankan_day_plus_kijun_day) > 0))',
+    #   'go down below green cloud':  '((tankan_kijun_signal > 0) and (kijun_day <= tankan_day < 0))',
 
-        }
-      values = {
-        'under red cloud':            'd',
-        'above red cloud':            'u',
-        'go up into red cloud':       'u',
-        'go up above red cloud':      'u',
-        'go down into red cloud':     'd',
-        'go down below red cloud':    'd',
+    #   }
+    # values = {
+    #   'under red cloud':            'd',
+    #   'above red cloud':            'u',
+    #   'go up into red cloud':       'u',
+    #   'go up above red cloud':      'u',
+    #   'go down into red cloud':     'd',
+    #   'go down below red cloud':    'd',
 
-        'under green cloud':          'd',
-        'above green cloud':          'u',
-        'go up into green cloud':     'u',
-        'go up above green cloud':    'u',
-        'go down into green cloud':   'd',
-        'go down below green cloud':  'd',
-        }
-      df = assign_condition_value(df=df, column='ichimoku_trend', condition_dict=conditions, value_dict=values, default_value='n') 
+    #   'under green cloud':          'd',
+    #   'above green cloud':          'u',
+    #   'go up into green cloud':     'u',
+    #   'go up above green cloud':    'u',
+    #   'go down into green cloud':   'd',
+    #   'go down below green cloud':  'd',
+    #   }
+    # df = assign_condition_value(df=df, column='ichimoku_trend', condition_dict=conditions, value_dict=values, default_value='n') 
 
       # signal_col = f'ichimoku_signal'
       # trend_col = f'ichimoku_trend'
@@ -889,3 +889,42 @@ def calculate_ta_signal(df):
 
       # # drop intermediate columns
       # # df.drop(['tankan_day', 'tankan_rate', 'tankan_rate_ma', 'kijun_day', 'kijun_rate', 'kijun_rate_ma'], axis=1, inplace=True)  
+
+
+
+# # calculate ta indicators, trend and derivatives fpr latest data
+# def calculation(df, symbol, start_date=None, end_date=None, trend_indicators=['ichimoku', 'kama', 'adx', 'psar'], volume_indicators=['fi'], volatility_indicators=['bb'], other_indicators=[], signal_threshold=0.001):
+#   """
+#   Calculation process
+
+#   :param df: original dataframe with hlocv features
+#   :param symbol: symbol of the data
+#   :param start_date: start date of calculation
+#   :param end_date: end date of calculation
+#   :param trend_indicators: trend indicators
+#   :param volumn_indicators: volume indicators
+#   :param volatility_indicators: volatility indicators
+#   :param other_indicators: other indicators
+#   :param signal_threshold: threshold for kama/ichimoku trigerment
+#   :returns: dataframe with ta features, derivatives, signals
+#   :raises: None
+#   """
+#   # copy dataframe
+#   df = df.copy()
+#   if df is None or len(df) == 0:
+#     print(f'{symbol}: No data for calculate_ta_data')
+#     return None   
+  
+#   try:
+#     # calculate ta features
+#     phase = 'cal_ta_features'
+#     df = calculate_ta_features(df=df, symbol=symbol, start_date=start_date, end_date=end_date, trend_indicators=trend_indicators, volume_indicators=volume_indicators, volatility_indicators=volatility_indicators, other_indicators=other_indicators, signal_threshold=signal_threshold)
+
+#     # calculate TA final signal
+#     phase = 'cal_ta_signals'
+#     df = calculate_ta_signal(df=df)
+
+#   except Exception as e:
+#     print(symbol, phase, e)
+
+#   return df
