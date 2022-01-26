@@ -133,8 +133,6 @@
       "obos": "超买超卖",
       "support": "支撑",
       "resistant": "阻挡",
-      "candle_pattern_description": "蜡烛形态",
-      "candle_pattern_idx": "蜡烛分数",
       "adx_value": "ADX差值",
       "adx_strength": "ADX强度", 
       "adx_direction_day": "ADX方向",
@@ -147,7 +145,7 @@
       "score": "总分"
     },
     "drop_columns": [],
-    "send_columns": ["名称", "ADX方向", "ADX差值", "ADX强度", "TK信号", "总分", "蜡烛形态"],
+    "send_columns": ["名称", "ADX方向", "ADX差值", "ADX强度", "TK信号", "总分"],
     "save_result": true,
     "save_data": true,
     "save_pdf": true

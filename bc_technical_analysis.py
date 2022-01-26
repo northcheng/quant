@@ -6,34 +6,34 @@ Technical Analysis Calculation and Visualization functions
 """
 import os
 import math
-from matplotlib.cbook import flatten
 import sympy
 import datetime
 import ta
-
 import numpy as np
-from numpy.lib.stride_tricks import as_strided
-
 import pandas as pd
 import mplfinance as mpf
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from scipy.stats import linregress
+from numpy.lib.stride_tricks import as_strided
 from matplotlib import gridspec
 from matplotlib.patches import Rectangle
 from mplfinance.original_flavor import candlestick_ohlc
 from quant import bc_util as util
 from quant import bc_data_io as io_util
-try:
-  from scipy.signal import find_peaks
-except Exception as e:
-  print(e)
+
 
 # default values
+default_ohlcv_col = {'close':'Close', 'open':'Open', 'high':'High', 'low':'Low', 'volume':'Volume'}
 default_signal_val = {'pos_signal':'b', 'neg_signal':'s', 'none_signal':'', 'wave_signal': 'n'}
 default_trend_val = {'pos_trend':'u', 'neg_trend':'d', 'none_trend':'', 'wave_trend':'n'}
+
+# default indicators and dynamic trend to calculate
+default_indicators = {'trend': ['ichimoku', 'kama', 'adx', 'psar'], 'volume': ['fi'], 'volatility': ['bb'], 'other': []}
+default_perspectives = ['renko', 'candle', 'linear', 'support_resistant']
+
+# default visualization arguments
 default_candlestick_color = {'colorup':'green', 'colordown':'red', 'alpha':0.8}
-default_ohlcv_col = {'close':'Close', 'open':'Open', 'high':'High', 'low':'Low', 'volume':'Volume'}  
 default_plot_args = {'figsize':(30, 3), 'title_rotation':'vertical', 'xaxis_position': 'bottom', 'yaxis_position': 'right', 'title_x':-0.01, 'title_y':0.3, 'bbox_to_anchor':(1.02, 0.), 'loc':3, 'ncol':1, 'borderaxespad':0.0}
 
 # ================================================ Load configuration =============================================== # 
@@ -78,13 +78,13 @@ def load_config(root_paths):
   return config
 
 # load locally saved data(sec_data, ta_data, results)
-# def load_data(symbols, config, load_empty_data=False, load_derived_data=False, derived_data_prefix=''):
 def load_data(target_list, config, interval='day', load_empty_data=False, load_derived_data=False):
   """ 
-  Load data from local files
+  Load locally saved data(sec_data, ta_data, results)
   
-  :param symbols: list of symbols
+  :param target_list: list of targets(each target is a list of symbols)
   :param config: dictionary of config arguments
+  :param interval: data interval
   :param load_empty_data: whether to load empyt data dict
   :param load_derived_data: whether to load ta_data, result, final_result besides sec_data
   :returns: dictionary of data load from local files
@@ -100,8 +100,8 @@ def load_data(target_list, config, interval='day', load_empty_data=False, load_d
 
   # load local data
   if not load_empty_data:
-
-    # load sec_data
+    
+    # load (sec_data)
     data_path = config['data_path']
     for target in target_list:
       ti = f'{target}_{interval}'
@@ -127,10 +127,10 @@ def load_data(target_list, config, interval='day', load_empty_data=False, load_d
 
 
 # ================================================ Core calculation ================================================= # 
-# pre-process downloaded stock data
-def preprocess_sec_data(df, symbol, print_error=True):
+# preprocess stock data (OHLCV)
+def preprocess(df, symbol, print_error=True):
   '''
-  Preprocess downloaded data
+  Preprocess stock data (OHLCV)
 
   :param df: downloaded stock data
   :param symbol: symbol
@@ -138,9 +138,9 @@ def preprocess_sec_data(df, symbol, print_error=True):
   :returns: preprocessed dataframe
   :raises: None
   '''
-  # if raw data is empty
-  if len(df) == 0:
-    print(f'No data for preprocessing')
+  # check whether data is empty or None
+  if df is None or len(df) == 0:
+    print(f'No data for preprocess')
     return None
 
   # drop duplicated rows, keep the first
@@ -210,24 +210,23 @@ def preprocess_sec_data(df, symbol, print_error=True):
   
   return df
 
-# calculate technical-analysis indicators
-def calculate_ta_data(df, trend_indicators, volume_indicators, volatility_indicators, other_indicators):
+# calculate indicators according to definition
+def calculate_ta_data(df, indicators=default_indicators):
   '''
-  Add technical indicators
+  Calculate indicators according to definition
 
   :param df: preprocessed stock data
-  :param trend_indicators: list of trend indicators
-  :param volume_indicators: list of volume indicators
-  :param volatility_indicators: list of volatility indicators
-  :param other_indicators: list of other indicators
-  :returns: dataframe with technical indicator features
+  :param indicators: dictionary of different type of indicators to calculate
+  :returns: dataframe with technical indicator columns
   :raises: None
   '''
+  # check whether data is empty or None
+  if df is None or len(df) == 0:
+    print(f'No data for calculate_ta_data')
+    return None  
+
   # copy dataframe
   df = df.copy()
-  if df is None or len(df) == 0:
-    print(f'No data for calculate_ta_indicator')
-    return None  
 
   # indicator calculation
   indicator = None
@@ -239,38 +238,38 @@ def calculate_ta_data(df, trend_indicators, volume_indicators, volatility_indica
     df = add_candlestick_features(df=df)
 
     phase = 'calculate indicators' 
-    all_indicators = []
-    all_indicators += [x for x in trend_indicators if x not in all_indicators]
-    all_indicators += [x for x in volume_indicators if x not in all_indicators]
-    all_indicators += [x for x in volatility_indicators if x not in all_indicators]
-    all_indicators += [x for x in other_indicators if x not in all_indicators]
+    indicator_to_calculate = []
+    indicator_calculated = []
+    for i in indicators.keys():
+      tmp_indicators = indicators[i]
 
-    for indicator in all_indicators:
-      to_eval = f'add_{indicator}_features(df=df)'
-      df = eval(to_eval)
+      for indicator in tmp_indicators:
+        if indicator not in indicator_calculated:
+
+          df = eval(f'add_{indicator}_features(df=df)')
+          indicator_calculated.append(indicator)
+
+        else:
+          print(f'{indicator} already calculated!')
 
   except Exception as e:
     print(f'[Exception]: @ {phase} - {indicator}, {e}')
 
   return df
 
-# calculate trends from ta indicators
-def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indicators, other_indicators, signal_threshold=0.001):
+# calculate static trend according to indicators
+def calculate_ta_static(df, indicators=default_indicators):
   """
-  Adding derived features from basic technical indicators.
+  Calculate static trend according to indicators (which is static to different start/end time).
 
   :param df: dataframe with several ta features
-  :param trend_indicators: list of trend indicators
-  :param volume_indicators: list of volume indicators
-  :param volatility_indicators: list of volatility indicators
-  :param other_indicators: list other indicators
-  :param signal_threshold: threshold for main indicators trigerments
-  :returns: dataframe with derived tachnical indiactor fetures
+  :param indicators: dictionary of different type of indicators to calculate
+  :returns: dataframe with static trend columns
   :raises: Exception 
   """
-  # if df is empty
-  if len(df) == 0:
-    print(f'No data for calculate_ta_trend')
+  # check whether data is empty or None
+  if df is None or len(df) == 0:
+    print(f'No data for calculate_ta_static')
     return None
   
   # trend calculation
@@ -279,7 +278,7 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
 
     # ================================ ichimoku trend =========================
     target_indicator = 'ichimoku'
-    if target_indicator in trend_indicators:
+    if target_indicator in indicators['trend']:
 
       df['ichimoku_distance'] = df['kijun'] - df['tankan']
       for col in ['tankan', 'kijun', 'ichimoku_distance']:
@@ -312,7 +311,7 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
 
     # ================================ kama trend =============================
     target_indicator = 'kama'
-    if target_indicator in trend_indicators:
+    if target_indicator in indicators['trend']:
       
       df['kama_distance'] = df['kama_slow'] - df['kama_fast']
       for col in ['kama_fast', 'kama_slow', 'kama_distance']:
@@ -345,7 +344,7 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
 
     # ================================ aroon trend ============================
     target_indicator = 'aroon'
-    if target_indicator in trend_indicators:
+    if target_indicator in indicators['trend']:
       aroon_col = ['aroon_up', 'aroon_down', 'aroon_gap']
       df[aroon_col] = df[aroon_col].round(1)
       for col in aroon_col:
@@ -386,7 +385,7 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
 
     # ================================ adx trend ==============================
     target_indicator = 'adx'
-    if target_indicator in trend_indicators:
+    if target_indicator in indicators['trend']:
       
       df['adx_value'] = df['adx_diff_ma']
       df['adx_strength'] = df['adx']
@@ -449,7 +448,7 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       conditions = {
         'up': '(adx_direction > 0 and ((adx_value < 0 and adx_power_day < 0) or (adx_value > 0 and adx_power_day > 0)))', 
         'down': '(adx_direction < 0 and ((adx_value > 0 and adx_power_day < 0) or (adx_value < 0 and adx_power_day > 0)))',
-        'wave': '(-1 < adx_strength_change < 1) and (-5 < adx_direction < 5)'} 
+        'wave': '(((-1 < adx_strength_change < 1) or (-1 < adx_value_change < 1)) and (-5 < adx_direction < 5)) or ((-1 <= adx_strong_day <= 1) and (-5 < adx_direction_start < 5))'} 
       values = {
         'up': 'u', 
         'down': 'd',
@@ -458,7 +457,7 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
 
     # ================================ kst trend ==============================
     target_indicator = 'kst'
-    if target_indicator in trend_indicators:
+    if target_indicator in indicators['trend']:
       conditions = {
         'up': 'kst_diff > 0', 
         'down': 'kst_diff <= 0'} 
@@ -469,7 +468,7 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
     
     # ================================ cci trend ==============================
     target_indicator = 'cci'
-    if target_indicator in trend_indicators:
+    if target_indicator in indicators['trend']:
       conditions = {
         'up': 'cci_ma > 0', 
         'down': 'cci_ma <= 0'} 
@@ -480,7 +479,7 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
 
     # ================================ trix trend =============================
     target_indicator = 'trix'
-    if target_indicator in trend_indicators:
+    if target_indicator in indicators['trend']:
       df['trix_trend'] = 'n'
       up_mask = df['trix'] > df['trix'].shift(1)
       down_mask = df['trix'] < df['trix'].shift(1)
@@ -489,7 +488,7 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
 
     # ================================ psar trend =============================
     target_indicator = 'psar'
-    if target_indicator in trend_indicators:
+    if target_indicator in indicators['trend']:
       conditions = {
         'up': 'psar_up > 0', 
         'down': 'psar_down > 0'} 
@@ -500,7 +499,7 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
 
     # ================================ stoch trend =============================
     target_indicator = 'stoch'
-    if target_indicator in trend_indicators:
+    if target_indicator in indicators['trend']:
       conditions = {
         'up': 'stoch_diff > 1 or stoch_k > 80', 
         'down': 'stoch_diff < -1 or stoch_k < 20'} 
@@ -515,7 +514,7 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
 
     # ================================ eom trend ==============================
     target_indicator = 'eom'
-    if target_indicator in volume_indicators:
+    if target_indicator in indicators['volume']:
       conditions = {
         'up': 'eom_diff > 0', 
         'down': 'eom_diff <= 0'} 
@@ -526,7 +525,7 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
 
     # ================================ fi trend ===============================
     target_indicator = 'fi'
-    if target_indicator in volume_indicators:
+    if target_indicator in indicators['volume']:
       conditions = {
         'up': 'fi_ema > 0', 
         'down': 'fi_ema <= 0'} 
@@ -541,7 +540,7 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
 
     # ================================ bb trend ===============================
     target_indicator = 'bb'
-    if target_indicator in volatility_indicators:
+    if target_indicator in indicators['volatility']:
       conditions = {
         'up': 'Close < bb_low_band', 
         'down': 'Close > bb_high_band'} 
@@ -556,7 +555,7 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
 
     # ================================ ao trend ===============================
     target_indicator = 'ao'
-    if target_indicator in other_indicators:
+    if target_indicator in indicators['other']:
       df['ao_trend'] = 'n'
       up_mask = df['ao'] > df['ao'].shift(1)
       down_mask = df['ao'] < df['ao'].shift(1)
@@ -576,7 +575,10 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
       df['down_trend_idx'] = 0
 
       # specify all indicators and specify the exclusives
-      all_indicators = list(set(trend_indicators + volume_indicators + volatility_indicators + other_indicators))
+      all_indicators = []
+      for i in indicators.keys():
+        all_indicators += [x for x in indicators[i] if x not in all_indicators]
+      # all_indicators = list(set(trend_indicators + volume_indicators + volatility_indicators + other_indicators))
       include_indicators = [x for x in all_indicators if x != 'bb'] # ['ichimoku', 'aroon', 'adx', 'psar']
       exclude_indicators = [x for x in all_indicators if x not in include_indicators]
       for indicator in all_indicators:
@@ -615,25 +617,29 @@ def calculate_ta_trend(df, trend_indicators, volume_indicators, volatility_indic
     
   return df
 
-# technical analyze for ta_data
-def calculate_ta_derivatives(df, perspective=['renko', 'candle', 'linear', 'support_resistant']):
+# calculate dynamic trend according to indicators and static trend
+def calculate_ta_dynamic(df, perspective=default_perspectives):
   """
-  calculate derived features from all current features, such as support, resistant
+  Calculate dynamic trend according to indicators and static trend (which is static to different start/end time).
+
   :param df: dataframe with technical indicators and their derivatives
   :param perspective: for which indicators[renko, linear, candle, support_resistant], derivative columns that need to calculated 
-  :returns: dataframe with derivative columns
+  :returns: dataframe with dynamic trend columns
   :raises: None
   """
+  # check whether data is empty or None
+  if df is None or len(df) == 0:
+    print(f'No data for calculate_ta_dynamic')
+    return None  
+
   # copy dataframe
   df = df.copy()
-  if df is None or len(df) == 0:
-    print(f'No data for calculate_ta_derivatives')
-    return None  
   
   # derivatives calculation
   try:
-    phase = 'renko analysis'
+    
     # ================================ renko analysis ============================
+    phase = 'renko analysis'
     if 'renko' in perspective:
       
       # add renko features
@@ -654,23 +660,22 @@ def calculate_ta_derivatives(df, perspective=['renko', 'candle', 'linear', 'supp
       df['renko_signal'] = 'n'
       df['renko_day'] = sda(series=df['renko_trend'].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
       
-    phase = 'candle analysis'
     # ================================ candle analysis ===========================
+    phase = 'candle analysis'
     if 'candle' in perspective:
       
       ma_period = 30
       std_factor = 0.75
 
       # ============================== fundamental components ====================
-      if 'basics' > '':
+      if 'position' > '':
         
         # tops/bottoms
         df['位置_signal'] = 'n'
         conditions = {
-          'top': 'tankan > kijun', 
-          'bottom': 'tankan < kijun',
-          'middle': '(Close <= tankan and Close >= kijun) or (Close <= kijun and Close >= tankan)' 
-          }
+          'top': 'adx_value > 10', 
+          'bottom': 'adx_value < -10',
+          'middle': '-10 <= adx_value <= 10'}
         values = {
           'top': 'u', 
           'bottom': 'd',
@@ -1049,91 +1054,10 @@ def calculate_ta_derivatives(df, perspective=['renko', 'candle', 'linear', 'supp
         for t in ['穿刺', '吞噬', '包孕', '启明黄昏']:
           df[f'{t}_signal'] = df[f'{t}_trend']
 
-      # ============================== overall results  ==========================
-      
       # days since signal triggered
       all_candle_patterns = ['窗口', '突破', '反弹', '启明黄昏', '穿刺', '包孕', '吞噬', '平头', '十字星', '锤子', '流星', '腰带']
       for col in all_candle_patterns:
         df[f'{col}_day'] = df[f'{col}_trend'].replace({'u':1, 'd':-1, 'n':0, '': 0}).fillna(0).astype(int)
-
-      # iterate through df
-      previous_idx = None
-      for index, row in df.iterrows():
-        if previous_idx is not None:
-          for col in all_candle_patterns:
-            
-            # get current day and previous day
-            day_col = f'{col}_day'
-            current_day = row[day_col]
-            previous_day = df.loc[previous_idx, day_col]
- 
-            # only operate when current day is 0
-            if current_day == 0 and previous_day >= 1:
-              df.loc[index, day_col] = previous_day + 1
-            elif current_day == 0 and previous_day <= -1:
-              df.loc[index, day_col] = previous_day - 1
-            elif current_day == 1 and previous_day == -1:
-              df.loc[index, day_col] = 0
-            else:
-              pass
-        else:
-          pass
-
-        # update previous index
-        previous_idx = index   
-      
-      if 'candle pattern description and index' > '':  
-
-        # candle pattern description
-        pattern_info = {
-          '十字星_trend': {'u': '高浪线', 'd': '十字星'},
-          '锤子_trend': {'u': '锤子线', 'd': '吊颈线'},
-          '流星_trend': {'u': '倒锤线', 'd': '流星线'},
-          '平头_trend': {'u': '平头顶', 'd': '平头底'},
-          '穿刺_trend': {'u': '穿刺', 'd': '乌云盖顶'},
-          '吞噬_trend': {'u': '多头吞噬', 'd': '空头吞噬'},
-          '包孕_trend': {'u': '多头包孕', 'd': '空头包孕'},
-          '窗口_trend': {'u': '上升窗口', 'd': '下降窗口'},
-          '突破_trend': {'u': '突破窗口阻挡', 'd': '跌落窗口支撑'},
-          '反弹_trend': {'u': '触底反弹', 'd': '触顶回落'},
-          '启明黄昏_trend': {'u': '启明星', 'd': '黄昏星'},
-        }
-
-        # candle pattern weight
-        pattern_weight = {
-          '十字星_trend': {'u': 0, 'd': 0},
-          '锤子_trend': {'u': 0.5, 'd': -0.5},
-          '流星_trend': {'u': 0.5, 'd': -0.5},
-          '平头_trend': {'u': 0.5, 'd': -0.5},
-          '穿刺_trend': {'u': 1, 'd': -1},
-          '吞噬_trend': {'u': 0.5, 'd': -0.5},
-          '包孕_trend': {'u': 0.5, 'd': -0.5},
-          '窗口_trend': {'u': 2, 'd': -2},
-          '突破_trend': {'u': 2, 'd': -2},
-          '反弹_trend': {'u': 2, 'd': -2},
-          '启明黄昏_trend': {'u': 2, 'd': -2},
-        }
-        
-        # concate descriptions
-        df['candle_pattern_idx'] = 0
-        df['candle_pattern_description'] = ''
-        target_df = df.query('窗口_trend != "n" or 突破_trend != "n" or 反弹_trend != "n" or 锤子_trend != "n" or 十字星_trend != "n" or 穿刺_trend != "n" or 吞噬_trend != "n" or 包孕_trend != "n" or 启明黄昏_trend != "n"')
-        for index, row in target_df.iterrows():
-          candle_patterns = pattern_info.keys()
-          for t in candle_patterns:
-            if t in df.columns:
-              tmp_trend = df.loc[index, t]
-              if tmp_trend is not None:
-                tmp_info = pattern_info[t].get(tmp_trend)
-                tmp_weight = pattern_weight[t].get(tmp_trend)
-                if tmp_info is not None:
-                  df.loc[index, 'candle_pattern_description'] += f'/{tmp_info}'
-                if tmp_weight is not None:
-                  df.loc[index, 'candle_pattern_idx'] += tmp_weight
-        none_empty_description_idx = df.query('candle_pattern_description > ""').index
-        df.loc[none_empty_description_idx, 'candle_pattern_description'] = df.loc[none_empty_description_idx, 'candle_pattern_description'].apply(lambda x: x[1:])
-        empty_description_idx = df.query('candle_pattern_description == ""').index
-        df.loc[empty_description_idx, 'candle_pattern_description'] = ' '
 
       # drop unnecessary columns
       for col in [
@@ -1154,8 +1078,8 @@ def calculate_ta_derivatives(df, perspective=['renko', 'candle', 'linear', 'supp
         if col in df.columns:
           df.drop(col, axis=1, inplace=True)
 
-    phase = 'linear analysis'
     # ================================ linear analysis ===========================
+    phase = 'linear analysis'
     if 'linear' in perspective:
       
       # add linear features
@@ -1202,157 +1126,30 @@ def calculate_ta_derivatives(df, perspective=['renko', 'candle', 'linear', 'supp
       # focus on the last row only
       max_idx = df.index.max()
       valid_idxs = df.query('linear_slope == linear_slope').index
-
-      # overall linear pattern and index
-      row = df.loc[max_idx,].copy()
-      period_threhold = 5
-      df['linear_fit_category'] = ''
-      df['linear_fit_description'] = ''
-
-      # define conditions
-      conditions = {
-
-        # tankan-kijun(ichimoku信号)
-        # 'T/K': (row['ichimoku_distance_signal'] > 0 and row['ichimoku_distance_signal'] <= 10) or (row['ichimoku_distance_signal'] < 0 and row['ichimoku_distance_signal'] >= -10),
-
-        # linear trend
-        '强势': (row['linear_slope'] >= 0.1 or row['linear_slope'] <= -0.1) and (row['linear_fit_high_slope'] * row['linear_fit_low_slope'] > 0),
-        '弱势': (row['linear_slope'] >-0.1 and row['linear_slope'] < 0.1 ) or ((row['linear_fit_high_slope'] * row['linear_fit_low_slope']) < 0),
-        '上行': (row['linear_fit_high_slope'] > 0 and row['linear_fit_low_slope'] >= 0) or (row['linear_fit_high_slope'] >= 0 and row['linear_fit_low_slope'] > 0),
-        '下行': (row['linear_fit_high_slope'] < 0 and row['linear_fit_low_slope'] <= 0) or (row['linear_fit_high_slope'] <= 0 and row['linear_fit_low_slope'] < 0),
-        '波动': (row['linear_fit_high_slope'] * row['linear_fit_low_slope'] < 0) or (row['linear_fit_high_slope']==0 and row['linear_fit_low_slope']==0),
-        '轨道中': (row['linear_fit_high'] >= row['Close']) and (row['linear_fit_low'] <= row['Close']),
-        '轨道上方': (row['linear_fit_high'] < row['Close']) and (row['linear_fit_low'] < row['Close']),
-        '轨道下方': (row['linear_fit_high'] > row['Close']) and (row['linear_fit_low'] > row['Close']),
-
-        # linear support and resistant
-        '跌破支撑': (row['linear_break_day'] == -1),
-        '突破阻挡': (row['linear_break_day'] == 1), 
-        '触顶回落': (row['linear_bounce_day'] == -1),
-        '触底反弹': (row['linear_bounce_day'] == 1), 
-
-        # technical indicators
-        '上穿快线': (row['tankan_signal'] > 0 and row['tankan_signal'] < period_threhold),
-        '上穿慢线': (row['kijun_signal'] > 0 and row['kijun_signal'] < period_threhold),
-        '上穿底部': (row['linear_fit_low_signal'] > 0 and row['linear_fit_low_signal'] < period_threhold),
-        '上穿顶部': (row['linear_fit_high_signal'] > 0 and row['linear_fit_high_signal'] < period_threhold),
-        '下穿快线': (row['tankan_signal'] < 0 and row['tankan_signal'] > -period_threhold),
-        '下穿慢线': (row['kijun_signal'] < 0 and row['kijun_signal'] > -period_threhold),
-        '下穿底部': (row['linear_fit_low_signal'] < 0 and row['linear_fit_low_signal'] > -period_threhold),
-        '下穿顶部': (row['linear_fit_high_signal'] < 0 and row['linear_fit_high_signal'] > -period_threhold)
-      }
-
-      # initialize empty dict
-      classification = []
-
-      # breakthrough resistant
-      if conditions['强势'] and conditions['上行'] and conditions['突破阻挡']:
-        classification.append('突破阻挡')
-
-      # fall below support
-      if conditions['强势'] and conditions['下行'] and conditions['跌破支撑']:
-        classification.append('跌落支撑')
-
-      # rebound
-      if conditions['下行'] and conditions['触底反弹'] and conditions['上穿快线'] and (conditions['上穿顶部'] or conditions['上穿慢线']):
-        classification.append('触底反弹')
-
-      # peak back
-      if conditions['上行'] and conditions['触顶回落'] and (conditions['下穿底部'] or conditions['下穿快线'] or conditions['下穿慢线']):
-        classification.append('触顶回落')
-
-      # uptrending
-      if conditions['上行'] and (conditions['轨道中'] or conditions['轨道上方']) and ('hitpeak' not in classification and 'up_x_resistant' not in classification):
-        classification.append('上行趋势')
-
-      # downtrending
-      if conditions['下行'] and (conditions['轨道中'] or conditions['轨道下方']) and ('rebound' not in classification and 'down_x_support' not in classification):
-        classification.append('下行趋势')
-
-      # waving
-      if (conditions['波动'] or conditions['弱势']) and ('rebound' not in classification and 'hitpeak' not in classification and 'uptrending' not in classification and 'downtrending' not in classification):
-        classification.append('波动趋势')
-
-      # others
-      if len(classification) == 0:
-        classification.append('其他')
-
-      # assign category
-      df.loc[max_idx, 'linear_fit_category'] = '/'.join(classification)
-
-      # generate description: trend analysis
-      description = '' 
-      prev_k = None
-      for k in conditions.keys():
-        segment_s = ''
-        segment_e = ''
-        s = None
-        e = None
-        addition = ''
-
-        # if condition not triggered, continue
-        if not conditions[k] or ('上穿' in k) or ('下穿' in k):
-          continue
-        
-        # add addition info for conditions
-        elif k in ['触底反弹']:
-          addition = f'({row["linear_fit_low_stop"]})'
-        elif k in ['触顶回落']:
-          addition = f'({row["linear_fit_high_stop"]})'
-        elif k in ['跌破支撑']:
-          addition = f'({row["linear_fit_support"]})'
-        elif k in ['突破阻挡']:
-          addition = f'({row["linear_fit_resistant"]})'
-
-        # add segment for conditions
-        if k in ['强势', '弱势', '上行', '下行', '波动']:
-          segment_s = '['
-          
-        if k in ['轨道中', '轨道上方', '轨道下方']:
-          segment_e = f']' # ({row["rate_direction"].round(2)})
-          
-        if k in ['跌破支撑', '突破阻挡', '触顶回落', '触底反弹']:
-          segment_s = '['
-          segment_e = ']'
-          
-        if k in ['上行', '下行', '波动'] and prev_k in ['强势', '弱势']:
-          segment_s = ''
-          
-        description += f'{segment_s}{k[s:e]}{addition}{segment_e}'
-        prev_k = k
-
-      # assign description
-      description += '' if (description[-1] == ']') else ']'
-      df.loc[max_idx, 'linear_fit_description'] = description
-
-    phase = 'support and resistant'
+    
     # ================================ support and resistant =====================
+    phase = 'support and resistant'
     if 'support_resistant' in perspective:
 
       # focus on the last row only
       max_idx = df.index.max()
       
       # linear fit support/resistant
-      if 'linear' in perspective:
-        linear_fit_support = df.loc[max_idx, 'linear_fit_support']
-        linear_fit_resistant = df.loc[max_idx, 'linear_fit_resistant']
-      else:
-        linear_fit_support = np.nan
-        linear_fit_resistant = np.nan
+      linear_fit_support = df.loc[max_idx, 'linear_fit_support'] if 'linear' in perspective else np.nan
+      linear_fit_resistant = df.loc[max_idx, 'linear_fit_resistant'] if 'linear' in perspective else np.nan
 
       # renko support/resistant
-      if 'renko' in perspective:
-        renko_support = df.loc[max_idx, 'renko_support']
-        renko_resistant = df.loc[max_idx, 'renko_resistant']
-      else:
-        renko_support = np.nan
-        renko_resistant = np.nan
-
+      renko_support = df.loc[max_idx, 'renko_support'] if 'renko' in perspective else np.nan
+      renko_resistant = df.loc[max_idx, 'renko_resistant'] if 'renko' in perspective else np.nan
+      
       # calculate support and resistant from renko, linear_fit and candle_gap
-      support_candidates = {'linear': linear_fit_support, 'gap': df.loc[max_idx, 'candle_gap_support'], 'renko': renko_support}
-      resistant_candidates = {'linear':linear_fit_resistant, 'gap': df.loc[max_idx, 'candle_gap_resistant'], 'renko': renko_resistant}
+      support_candidates = {'linear': linear_fit_support, 'renko': renko_support, 'gap': df.loc[max_idx, 'candle_gap_support']}
+      resistant_candidates = {'linear':linear_fit_resistant, 'renko': renko_resistant, 'gap': df.loc[max_idx, 'candle_gap_resistant']}
 
       # support
+      supporter = ''
+      support = np.nan  
+
       to_pop = []
       for k in support_candidates.keys():
         if np.isnan(support_candidates[k]):
@@ -1360,8 +1157,6 @@ def calculate_ta_derivatives(df, perspective=['renko', 'candle', 'linear', 'supp
       for k in to_pop:
         support_candidates.pop(k)
 
-      supporter = ''
-      support = np.nan      
       if len(support_candidates) > 0:
         supporter = max(support_candidates, key=support_candidates.get)
         support = support_candidates[supporter]
@@ -1378,6 +1173,9 @@ def calculate_ta_derivatives(df, perspective=['renko', 'candle', 'linear', 'supp
       df.loc[valid_idxs, 'supporter'] = supporter
 
       # resistant
+      resistanter = ''
+      resistant = np.nan
+
       to_pop = []
       for k in resistant_candidates.keys():
         if np.isnan(resistant_candidates[k]):
@@ -1385,8 +1183,6 @@ def calculate_ta_derivatives(df, perspective=['renko', 'candle', 'linear', 'supp
       for k in to_pop:
         resistant_candidates.pop(k)
 
-      resistanter = ''
-      resistant = np.nan
       if len(resistant_candidates) > 0:
         resistanter = min(resistant_candidates, key=resistant_candidates.get)
         resistant = resistant_candidates[resistanter]
@@ -1408,55 +1204,50 @@ def calculate_ta_derivatives(df, perspective=['renko', 'candle', 'linear', 'supp
 
   return df
 
-# calculate ta indicators, trend and derivatives fpr latest data
-def calculate_ta_features(df, symbol, start_date=None, end_date=None, trend_indicators=['ichimoku', 'kama', 'adx', 'psar'], volume_indicators=['fi'], volatility_indicators=['bb'], other_indicators=[], signal_threshold=0.001):
+# calculate all features (ta_data + ta_static + ta_dynamic) all at once
+def calculate_ta_features(df, symbol, start_date=None, end_date=None, indicators=default_indicators):
   """
-  Calculation process
+  Calculate all features (ta_data + ta_static + ta_dynamic) all at once.
 
   :param df: original dataframe with hlocv features
   :param symbol: symbol of the data
   :param start_date: start date of calculation
   :param end_date: end date of calculation
-  :param trend_indicators: trend indicators
-  :param volumn_indicators: volume indicators
-  :param volatility_indicators: volatility indicators
-  :param other_indicators: other indicators
-  :param signal_threshold: threshold for kama/ichimoku trigerment
-  :returns: dataframe with ta features, derivatives, signals
+  :param indicators: dictionary of different type of indicators to calculate
+  :returns: dataframe with ta indicators, static/dynamic trend
   :raises: None
   """
-  # copy dataframe
-  df = df.copy()
+  # check whether data is empty or None
   if df is None or len(df) == 0:
-    print(f'{symbol}: No data for calculate_ta_data')
+    print(f'{symbol}: No data for calculate_ta_features')
     return None   
   
   try:
     # # preprocess sec_data
-    phase = 'preprocess_sec_data'
-    df = preprocess_sec_data(df=df, symbol=symbol)[start_date:end_date].copy()
+    phase = 'preprocess'
+    df = preprocess(df=df, symbol=symbol)[start_date:end_date].copy()
     
     # calculate TA indicators
     phase = 'cal_ta_indicators' 
-    df = calculate_ta_data(df=df, trend_indicators=trend_indicators, volume_indicators=volume_indicators, volatility_indicators=volatility_indicators, other_indicators=other_indicators)
+    df = calculate_ta_data(df=df, indicators=indicators)
 
     # calculate TA trend
     phase = 'cal_ta_trend'
-    df = calculate_ta_trend(df=df, trend_indicators=trend_indicators, volume_indicators=volume_indicators, volatility_indicators=volatility_indicators, other_indicators=other_indicators, signal_threshold=signal_threshold)
+    df = calculate_ta_static(df=df, indicators=indicators)
 
     # calculate TA derivatives
     phase = 'cal_ta_derivatives'
-    df = calculate_ta_derivatives(df)
+    df = calculate_ta_dynamic(df)
 
   except Exception as e:
     print(symbol, phase, e)
 
   return df
 
-# calculate ta signal
+# calculate signal according to features
 def calculate_ta_signal(df):
   """
-  Calculate trading signals
+  Calculate signal according to features.
 
   :param df: dataframe with ta features and derived features for calculating signals
   :raturns: dataframe with signal
@@ -1629,10 +1420,225 @@ def calculate_ta_signal(df):
 
   return df
 
-# visualize ta indicators
+# generate description for ta features
+def describe(df):
+  pass
+
+  # # overall linear pattern and index
+  # row = df.loc[max_idx,].copy()
+  # period_threhold = 5
+  # df['linear_fit_category'] = ''
+  # df['linear_fit_description'] = ''
+
+  # # define conditions
+  # conditions = {
+
+  #   # tankan-kijun(ichimoku信号)
+  #   # 'T/K': (row['ichimoku_distance_signal'] > 0 and row['ichimoku_distance_signal'] <= 10) or (row['ichimoku_distance_signal'] < 0 and row['ichimoku_distance_signal'] >= -10),
+
+  #   # linear trend
+  #   '强势': (row['linear_slope'] >= 0.1 or row['linear_slope'] <= -0.1) and (row['linear_fit_high_slope'] * row['linear_fit_low_slope'] > 0),
+  #   '弱势': (row['linear_slope'] >-0.1 and row['linear_slope'] < 0.1 ) or ((row['linear_fit_high_slope'] * row['linear_fit_low_slope']) < 0),
+  #   '上行': (row['linear_fit_high_slope'] > 0 and row['linear_fit_low_slope'] >= 0) or (row['linear_fit_high_slope'] >= 0 and row['linear_fit_low_slope'] > 0),
+  #   '下行': (row['linear_fit_high_slope'] < 0 and row['linear_fit_low_slope'] <= 0) or (row['linear_fit_high_slope'] <= 0 and row['linear_fit_low_slope'] < 0),
+  #   '波动': (row['linear_fit_high_slope'] * row['linear_fit_low_slope'] < 0) or (row['linear_fit_high_slope']==0 and row['linear_fit_low_slope']==0),
+  #   '轨道中': (row['linear_fit_high'] >= row['Close']) and (row['linear_fit_low'] <= row['Close']),
+  #   '轨道上方': (row['linear_fit_high'] < row['Close']) and (row['linear_fit_low'] < row['Close']),
+  #   '轨道下方': (row['linear_fit_high'] > row['Close']) and (row['linear_fit_low'] > row['Close']),
+
+  #   # linear support and resistant
+  #   '跌破支撑': (row['linear_break_day'] == -1),
+  #   '突破阻挡': (row['linear_break_day'] == 1), 
+  #   '触顶回落': (row['linear_bounce_day'] == -1),
+  #   '触底反弹': (row['linear_bounce_day'] == 1), 
+
+  #   # technical indicators
+  #   '上穿快线': (row['tankan_signal'] > 0 and row['tankan_signal'] < period_threhold),
+  #   '上穿慢线': (row['kijun_signal'] > 0 and row['kijun_signal'] < period_threhold),
+  #   '上穿底部': (row['linear_fit_low_signal'] > 0 and row['linear_fit_low_signal'] < period_threhold),
+  #   '上穿顶部': (row['linear_fit_high_signal'] > 0 and row['linear_fit_high_signal'] < period_threhold),
+  #   '下穿快线': (row['tankan_signal'] < 0 and row['tankan_signal'] > -period_threhold),
+  #   '下穿慢线': (row['kijun_signal'] < 0 and row['kijun_signal'] > -period_threhold),
+  #   '下穿底部': (row['linear_fit_low_signal'] < 0 and row['linear_fit_low_signal'] > -period_threhold),
+  #   '下穿顶部': (row['linear_fit_high_signal'] < 0 and row['linear_fit_high_signal'] > -period_threhold)
+  # }
+
+  # # initialize empty dict
+  # classification = []
+
+  # # breakthrough resistant
+  # if conditions['强势'] and conditions['上行'] and conditions['突破阻挡']:
+  #   classification.append('突破阻挡')
+
+  # # fall below support
+  # if conditions['强势'] and conditions['下行'] and conditions['跌破支撑']:
+  #   classification.append('跌落支撑')
+
+  # # rebound
+  # if conditions['下行'] and conditions['触底反弹'] and conditions['上穿快线'] and (conditions['上穿顶部'] or conditions['上穿慢线']):
+  #   classification.append('触底反弹')
+
+  # # peak back
+  # if conditions['上行'] and conditions['触顶回落'] and (conditions['下穿底部'] or conditions['下穿快线'] or conditions['下穿慢线']):
+  #   classification.append('触顶回落')
+
+  # # uptrending
+  # if conditions['上行'] and (conditions['轨道中'] or conditions['轨道上方']) and ('hitpeak' not in classification and 'up_x_resistant' not in classification):
+  #   classification.append('上行趋势')
+
+  # # downtrending
+  # if conditions['下行'] and (conditions['轨道中'] or conditions['轨道下方']) and ('rebound' not in classification and 'down_x_support' not in classification):
+  #   classification.append('下行趋势')
+
+  # # waving
+  # if (conditions['波动'] or conditions['弱势']) and ('rebound' not in classification and 'hitpeak' not in classification and 'uptrending' not in classification and 'downtrending' not in classification):
+  #   classification.append('波动趋势')
+
+  # # others
+  # if len(classification) == 0:
+  #   classification.append('其他')
+
+  # # assign category
+  # df.loc[max_idx, 'linear_fit_category'] = '/'.join(classification)
+
+  # # generate description: trend analysis
+  # description = '' 
+  # prev_k = None
+  # for k in conditions.keys():
+  #   segment_s = ''
+  #   segment_e = ''
+  #   s = None
+  #   e = None
+  #   addition = ''
+
+  #   # if condition not triggered, continue
+  #   if not conditions[k] or ('上穿' in k) or ('下穿' in k):
+  #     continue
+    
+  #   # add addition info for conditions
+  #   elif k in ['触底反弹']:
+  #     addition = f'({row["linear_fit_low_stop"]})'
+  #   elif k in ['触顶回落']:
+  #     addition = f'({row["linear_fit_high_stop"]})'
+  #   elif k in ['跌破支撑']:
+  #     addition = f'({row["linear_fit_support"]})'
+  #   elif k in ['突破阻挡']:
+  #     addition = f'({row["linear_fit_resistant"]})'
+
+  #   # add segment for conditions
+  #   if k in ['强势', '弱势', '上行', '下行', '波动']:
+  #     segment_s = '['
+      
+  #   if k in ['轨道中', '轨道上方', '轨道下方']:
+  #     segment_e = f']' # ({row["rate_direction"].round(2)})
+      
+  #   if k in ['跌破支撑', '突破阻挡', '触顶回落', '触底反弹']:
+  #     segment_s = '['
+  #     segment_e = ']'
+      
+  #   if k in ['上行', '下行', '波动'] and prev_k in ['强势', '弱势']:
+  #     segment_s = ''
+      
+  #   description += f'{segment_s}{k[s:e]}{addition}{segment_e}'
+  #   prev_k = k
+
+  # # assign description
+  # description += '' if (description[-1] == ']') else ']'
+  # df.loc[max_idx, 'linear_fit_description'] = description
+
+
+  # candle 
+  # ============================== overall results  ==========================
+      
+  # # days since signal triggered
+  # all_candle_patterns = ['窗口', '突破', '反弹', '启明黄昏', '穿刺', '包孕', '吞噬', '平头', '十字星', '锤子', '流星', '腰带']
+  # for col in all_candle_patterns:
+  #   df[f'{col}_day'] = df[f'{col}_trend'].replace({'u':1, 'd':-1, 'n':0, '': 0}).fillna(0).astype(int)
+
+  # # iterate through df
+  # previous_idx = None
+  # for index, row in df.iterrows():
+  #   if previous_idx is not None:
+  #     for col in all_candle_patterns:
+        
+  #       # get current day and previous day
+  #       day_col = f'{col}_day'
+  #       current_day = row[day_col]
+  #       previous_day = df.loc[previous_idx, day_col]
+
+  #       # only operate when current day is 0
+  #       if current_day == 0 and previous_day >= 1:
+  #         df.loc[index, day_col] = previous_day + 1
+  #       elif current_day == 0 and previous_day <= -1:
+  #         df.loc[index, day_col] = previous_day - 1
+  #       elif current_day == 1 and previous_day == -1:
+  #         df.loc[index, day_col] = 0
+  #       else:
+  #         pass
+  #   else:
+  #     pass
+
+  #   # update previous index
+  #   previous_idx = index   
+  
+  # if 'candle pattern description and index' > '':  
+
+  #   # candle pattern description
+  #   pattern_info = {
+  #     '十字星_trend': {'u': '高浪线', 'd': '十字星'},
+  #     '锤子_trend': {'u': '锤子线', 'd': '吊颈线'},
+  #     '流星_trend': {'u': '倒锤线', 'd': '流星线'},
+  #     '平头_trend': {'u': '平头顶', 'd': '平头底'},
+  #     '穿刺_trend': {'u': '穿刺', 'd': '乌云盖顶'},
+  #     '吞噬_trend': {'u': '多头吞噬', 'd': '空头吞噬'},
+  #     '包孕_trend': {'u': '多头包孕', 'd': '空头包孕'},
+  #     '窗口_trend': {'u': '上升窗口', 'd': '下降窗口'},
+  #     '突破_trend': {'u': '突破窗口阻挡', 'd': '跌落窗口支撑'},
+  #     '反弹_trend': {'u': '触底反弹', 'd': '触顶回落'},
+  #     '启明黄昏_trend': {'u': '启明星', 'd': '黄昏星'},
+  #   }
+
+  #   # candle pattern weight
+  #   pattern_weight = {
+  #     '十字星_trend': {'u': 0, 'd': 0},
+  #     '锤子_trend': {'u': 0.5, 'd': -0.5},
+  #     '流星_trend': {'u': 0.5, 'd': -0.5},
+  #     '平头_trend': {'u': 0.5, 'd': -0.5},
+  #     '穿刺_trend': {'u': 1, 'd': -1},
+  #     '吞噬_trend': {'u': 0.5, 'd': -0.5},
+  #     '包孕_trend': {'u': 0.5, 'd': -0.5},
+  #     '窗口_trend': {'u': 2, 'd': -2},
+  #     '突破_trend': {'u': 2, 'd': -2},
+  #     '反弹_trend': {'u': 2, 'd': -2},
+  #     '启明黄昏_trend': {'u': 2, 'd': -2},
+  #   }
+    
+  #   # concate descriptions
+  #   df['candle_pattern_idx'] = 0
+  #   df['candle_pattern_description'] = ''
+  #   target_df = df.query('窗口_trend != "n" or 突破_trend != "n" or 反弹_trend != "n" or 锤子_trend != "n" or 十字星_trend != "n" or 穿刺_trend != "n" or 吞噬_trend != "n" or 包孕_trend != "n" or 启明黄昏_trend != "n"')
+  #   for index, row in target_df.iterrows():
+  #     candle_patterns = pattern_info.keys()
+  #     for t in candle_patterns:
+  #       if t in df.columns:
+  #         tmp_trend = df.loc[index, t]
+  #         if tmp_trend is not None:
+  #           tmp_info = pattern_info[t].get(tmp_trend)
+  #           tmp_weight = pattern_weight[t].get(tmp_trend)
+  #           if tmp_info is not None:
+  #             df.loc[index, 'candle_pattern_description'] += f'/{tmp_info}'
+  #           if tmp_weight is not None:
+  #             df.loc[index, 'candle_pattern_idx'] += tmp_weight
+  #   none_empty_description_idx = df.query('candle_pattern_description > ""').index
+  #   df.loc[none_empty_description_idx, 'candle_pattern_description'] = df.loc[none_empty_description_idx, 'candle_pattern_description'].apply(lambda x: x[1:])
+  #   empty_description_idx = df.query('candle_pattern_description == ""').index
+  #   df.loc[empty_description_idx, 'candle_pattern_description'] = ' '
+
+# visualize features and signals
 def visualization(df, start=None, end=None, title=None, save_path=None, visualization_args={}):
   """
-  visualization process
+  Visualize features and signals.
+
   :param df: dataframe with ta indicators
   :param start: start date to draw
   :param end: end date to draw
@@ -1642,8 +1648,8 @@ def visualization(df, start=None, end=None, title=None, save_path=None, visualiz
   :returns: None
   :raises: Exception
   """
-  if len(df) == 0:
-    print(f'No data for visualize_ta_data')
+  if df is None or len(df) == 0:
+    print(f'No data for visualization')
     return None
 
   try:
@@ -1658,10 +1664,10 @@ def visualization(df, start=None, end=None, title=None, save_path=None, visualiz
   except Exception as e:
     print(phase, e)
 
-# post-process calculation results
+# postprocess
 def postprocess(df, keep_columns, drop_columns, sec_names, target_interval=''):
   """
-  Postprocess reulst data (last rows of data for each symbol in a list)
+  Postprocess
 
   :param df: dataframe with ta features and ta derived features
   :param keep_columns: columns to keep for the final result
@@ -1670,8 +1676,8 @@ def postprocess(df, keep_columns, drop_columns, sec_names, target_interval=''):
   :returns: postprocessed dataframe
   :raises: None
   """
-  if len(df) == 0:
-    print(f'No data for postprocessing')
+  if df is None or len(df) == 0:
+    print(f'No data for postprocess')
     return pd.DataFrame()
 
   # reset index(as the index(date) of rows are all the same)
@@ -2279,48 +2285,6 @@ def linear_fit(df, target_col, periods):
     lr = linregress(x, y)
 
     return {'slope': lr[0], 'intecept': lr[1]}
-   
-# calculate peak / trough in price
-def cal_peak_trough(df, target_col, height=None, threshold=None, distance=None, width=None):
-  """
-  Calculate the position (signal) of the peak/trough of the target column
-
-  :param df: original dataframe which contains target column
-  :param result_col: columnname of the result
-  :param peak_signal: the value of the peak signal
-  :param trough_signal: the value of the trough signal
-  :param none_signal: the value of the none signal
-  :further_filter: if the peak/trough value is higher/lower than the average of its former and later peak/trough values, this peak/trough is valid
-  :returns: series of peak/trough signal column
-  :raises: none
-  """
-  # copy dataframe
-  df = df.copy()
-
-  # set result values
-  result_col='peak_trend'
-  peak_signal='d'
-  trough_signal='u'
-  none_signal=''
-  
-  try:
-    # find peaks 
-    peaks, _ = find_peaks(df[target_col], height=height, threshold=threshold, distance=distance, width=width)
-    peaks = df.iloc[peaks,].index
-
-    # find troughs
-    troughs, _ = find_peaks(-df[target_col], height=height, threshold=threshold, distance=distance, width=width)
-    troughs = df.iloc[troughs,].index
-
-    # set signal values
-    df[result_col] = none_signal
-    df.loc[peaks, result_col] = peak_signal
-    df.loc[troughs, result_col] = trough_signal
-    
-  except Exception as e:
-    print(e)
-
-  return df[[result_col]]
 
 # calculate moving average 
 def cal_moving_average(df, target_col, ma_windows=[50, 105], start=None, end=None, window_type='em'):
@@ -4759,26 +4723,26 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
     if not np.isnan(resistant):
       
       y_resistant = resistant.round(2)
-      resistanter = df.loc[max_idx, 'resistanter'][0]
+      resistanter = df.loc[max_idx, 'resistanter'][0].upper()
       y_text_resistant = y_resistant
 
       diff = y_text_resistant - y_text_close
       if diff < y_close_padding:
         y_text_resistant = y_text_close + y_close_padding
-      plt.annotate(f'{y_resistant}({resistanter})', xy=(max_x, y_text_resistant), xytext=(max_x, y_text_resistant), fontsize=13, xycoords='data', textcoords='data', color='black', va='bottom',  ha='left', bbox=dict(boxstyle="round", facecolor='red', alpha=0.1))
+      plt.annotate(f'[{resistanter}] {y_resistant}', xy=(max_x, y_text_resistant), xytext=(max_x, y_text_resistant), fontsize=13, xycoords='data', textcoords='data', color='black', va='bottom',  ha='left', bbox=dict(boxstyle="round", facecolor='red', alpha=0.1))
     
     # annotate support 
     support = df.loc[max_idx, 'support'] # df.query('support == support')
     if not np.isnan(support):# len(support) > 0:
       
       y_support = support.round(2) 
-      supporter = df.loc[max_idx, 'supporter'][0]
+      supporter = df.loc[max_idx, 'supporter'][0].upper()
       y_text_support = y_support
       
       diff = y_text_close - y_text_support
       if diff < y_close_padding:
         y_text_support = y_text_close - y_close_padding
-      plt.annotate(f'{y_support}({supporter})', xy=(max_x, y_text_support), xytext=(max_x, y_text_support), fontsize=13, xycoords='data', textcoords='data', color='black', va='top',  ha='left', bbox=dict(boxstyle="round", facecolor='green', alpha=0.1))
+      plt.annotate(f'[{supporter}] {y_support}', xy=(max_x, y_text_support), xytext=(max_x, y_text_support), fontsize=13, xycoords='data', textcoords='data', color='black', va='top',  ha='left', bbox=dict(boxstyle="round", facecolor='green', alpha=0.1))
   
   # annotate candle patterns
   if 'pattern' in add_on:
@@ -4786,19 +4750,19 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
     # settings for annotate candle patterns
     pattern_info = {
       # '窗口_day': {1: '窗口', -1: '窗口'},
-      '反弹_day': {1: '反弹', -1: '回落'},
-      '突破_day': {1: '突破', -1: '跌落'},
+      # '反弹_day': {1: '反弹', -1: '回落'},
+      # '突破_day': {1: '突破', -1: '跌落'},
       '启明黄昏_day': {1: '启明星', -1: '黄昏星'},
 
-      # '腰带_day': {1: '腰带', -1: '腰带'},
-      # '十字星_day': {1: '高浪线', -1: '十字星'},
-      # '锤子_day': {1: '锤子', -1: '吊颈'},
+      '腰带_day': {1: '腰带', -1: '腰带'},
+      '十字星_day': {1: '高浪线', -1: '十字星'},
+      '锤子_day': {1: '锤子', -1: '吊颈'},
       '流星_day': {1: '倒锤', -1: '流星'},
 
-      # '穿刺_day': {1: '穿刺', -1: '乌云'},
-      # '平头_day': {1: '平底', -1: '平顶'},
-      # '吞噬_day': {1: '吞噬', -1: '吞噬'},
-      # '包孕_day': {1: '包孕', -1: '包孕'},
+      '穿刺_day': {1: '穿刺', -1: '乌云'},
+      '平头_day': {1: '平底', -1: '平顶'},
+      '吞噬_day': {1: '吞噬', -1: '吞噬'},
+      '包孕_day': {1: '包孕', -1: '包孕'},
 
       'linear_bounce_day': {1: '反弹', -1: '回落'},
       'linear_break_day': {1: '突破', -1: '跌落'}
@@ -4808,7 +4772,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
       'emphasis': {'fontsize':12, 'fontcolor':'black', 'va':'center', 'ha':'center', 'up':'yellow', 'down':'purple', 'alpha': 0.15, 'arrowstyle': '-|>'},
     }
 
-    # plot flat
+    # # plot flat
     # ax.scatter(df.index, (df['平头顶_value'] + padding).fillna(method='bfill', limit=1), color='k', marker='_')
     # ax.scatter(df.index, (df['平头底_value'] - padding).fillna(method='bfill', limit=1), color='k', marker='_')
     # ax.plot((df['平头顶_value'] + padding).fillna(method='bfill', limit=1), color='k')
@@ -5574,7 +5538,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
 
   # get name of the symbol
   new_title = args['sec_name'].get(title)
-  linear_desc = f'{df.loc[df.index.max(), "linear_fit_description"]}' if 'linear_fit_description' in df.columns else ''
+  linear_desc = '' #f'{df.loc[df.index.max(), "linear_fit_description"]}' if 'linear_fit_description' in df.columns else ''
   candle_desc = f'{df.loc[df.index.max(), "candle_pattern_description"]}' if 'candle_pattern_description' in df.columns else ''
   adx_desc = f'[ADX-ICHI: {df.loc[df.index.max(), "adx_day"]}-{df.loc[df.index.max(), "ichimoku_day"]}]'
   
@@ -5598,7 +5562,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
   plt.close()
 
 # calculate ta indicators, trend and derivatives for historical data
-def plot_historical_evolution(df, symbol, interval, config, his_start_date=None, his_end_date=None, trend_indicators=['ichimoku', 'aroon', 'adx', 'psar'], volume_indicators=[], volatility_indicators=['bb'], other_indicators=[], signal_threshold=0.001, is_print=False, create_gif=False, plot_final=False, plot_save_path=None):
+def plot_historical_evolution(df, symbol, interval, config, his_start_date=None, his_end_date=None, indicators=default_indicators, trend_indicators=['ichimoku', 'aroon', 'adx', 'psar'], volume_indicators=[], volatility_indicators=['bb'], other_indicators=[], is_print=False, create_gif=False, plot_final=False, plot_save_path=None):
   """
   Calculate selected ta features for dataframe
 
@@ -5609,7 +5573,6 @@ def plot_historical_evolution(df, symbol, interval, config, his_start_date=None,
   :param volumn_indicators: volume indicators
   :param volatility_indicators: volatility indicators
   :param other_indicators: other indicators
-  :param signal_threshold: threshold for kama/ichimoku trigerment
   :returns: dataframe with ta features, derivatives, signals
   :raises: None
   """
@@ -5636,16 +5599,16 @@ def plot_historical_evolution(df, symbol, interval, config, his_start_date=None,
   
   try:
     # preprocess sec_data
-    phase = 'preprocess_sec_data'
-    df = preprocess_sec_data(df=df, symbol=symbol)
+    phase = 'preprocess'
+    df = preprocess(df=df, symbol=symbol)
     
     # calculate TA indicators
     phase = 'cal_ta_indicators' 
-    df = calculate_ta_data(df=df, trend_indicators=trend_indicators, volume_indicators=volume_indicators, volatility_indicators=volatility_indicators, other_indicators=other_indicators)
+    df = calculate_ta_data(df=df, indicators=indicators)
 
     # calculate TA trend
     phase = 'cal_ta_trend'
-    df = calculate_ta_trend(df=df, trend_indicators=trend_indicators, volume_indicators=volume_indicators, volatility_indicators=volatility_indicators, other_indicators=other_indicators, signal_threshold=signal_threshold)
+    df = calculate_ta_static(df=df, indicators=indicators)
 
     # calculate TA derivatives for historical data for period [his_start_date ~ his_end_date]
     phase = 'cal_ta_derivatives(historical)'
@@ -5670,8 +5633,8 @@ def plot_historical_evolution(df, symbol, interval, config, his_start_date=None,
           print(sd, ed)
         
         # calculate the dynamic part: linear features
-        ta_data = calculate_ta_derivatives(df=df[sd:ed])
-        ta_data = calculate_ta_signal(ta_data)
+        ta_data = calculate_ta_dynamic(df=df[sd:ed])
+        ta_data = calculate_ta_signal(df=ta_data)
         historical_ta_data = historical_ta_data.append(ta_data.tail(1))
 
         # create image for gif
