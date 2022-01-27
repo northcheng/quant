@@ -664,14 +664,10 @@ def calculate_ta_dynamic(df, perspective=default_perspectives):
     phase = 'candle analysis'
     if 'candle' in perspective:
       
-      ma_period = 30
-      std_factor = 0.75
-
       # ============================== fundamental components ====================
       if 'position' > '':
         
         # tops/bottoms
-        df['位置_signal'] = 'n'
         conditions = {
           'top': 'adx_value > 10', 
           'bottom': 'adx_value < -10',
@@ -683,32 +679,16 @@ def calculate_ta_dynamic(df, perspective=default_perspectives):
         df = assign_condition_value(df=df, column='位置_trend', condition_dict=conditions, value_dict=values, default_value='')
         df['位置_day'] = df['位置_trend'].replace({'u':1, 'd':-1, 'n':0, '': 0}).fillna(0).astype(int)
         df['位置_day'] = sda(series=df['位置_day'], zero_as=None)
-
-        # entity/shadow to close rate
-        df['candle_entity_to_close'] = df['candle_entity'] / df['Close']
-        df['candle_shadow_to_close'] = df['candle_shadow'] / df['Close']
-        df['candle_shadow_pct_diff'] = df['candle_upper_shadow_pct'] - df['candle_lower_shadow_pct']
-
-      if 'shadow_entity' > '':
         
-        # long/short entity
-        df['entity_signal'] = 'n'
-        df['entity_ma'] = sm(series=df['candle_entity'], periods=ma_period).mean()
-        df['entity_std'] = sm(series=df['candle_entity'], periods=ma_period).std()
-        df['entity_diff'] = (df['candle_entity'] - df['entity_ma'])/df['entity_std']
-        conditions = {
-          'long': f'entity_diff >= {std_factor}', 
-          'short': f'entity_diff <= {-std_factor}'} 
-        values = {
-          'long': 'u', 
-          'short': 'd'}
-        df = assign_condition_value(df=df, column='entity_trend', condition_dict=conditions, value_dict=values, default_value='n')
+      if 'shadow_entity' > '':
+        ma_period = 30
+        std_factor = 0.75
+        for col in ['entity', 'shadow']:
+          df[f'{col}_ma'] = sm(series=df[f'candle_{col}'], periods=ma_period).mean()
+          df[f'{col}_std'] = sm(series=df[f'candle_{col}'], periods=ma_period).std()
+          df[f'{col}_diff'] = (df[f'candle_{col}'] - df[f'{col}_ma'])/df[f'{col}_std']
 
         # long/short shadow
-        df['shadow_signal'] = 'n'
-        df['shadow_ma'] = sm(series=df['candle_shadow'], periods=ma_period).mean()
-        df['shadow_std'] = sm(series=df['candle_shadow'], periods=ma_period).std()
-        df['shadow_diff'] = (df['candle_shadow'] - df['shadow_ma'])/df['shadow_std']
         conditions = {
           'long': f'shadow_diff >= {std_factor}', 
           'short': f'shadow_diff <= {-std_factor}'}
@@ -717,30 +697,29 @@ def calculate_ta_dynamic(df, perspective=default_perspectives):
           'short': 'd'}
         df = assign_condition_value(df=df, column='shadow_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
-        # upper shadow
-        df['upper_shadow_signal'] = 'n'
+        # long/short entity
         conditions = {
-          'long': '(candle_upper_shadow_pct > 0.3)', 
-          'short': '(candle_upper_shadow_pct < 0.1)'}
+          'long': f'entity_diff >= {std_factor} and (shadow_trend == "u" and candle_entity_pct >= 0.8)', 
+          'short': f'entity_diff <= {-std_factor}'} 
         values = {
           'long': 'u', 
           'short': 'd'}
-        df = assign_condition_value(df=df, column='upper_shadow_trend', condition_dict=conditions, value_dict=values, default_value='n')
+        df = assign_condition_value(df=df, column='entity_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
-        # lower shadow
-        df['lower_shadow_signal'] = 'n'
-        conditions = {
-          'long': '(candle_lower_shadow_pct > 0.3)', 
-          'short': '(candle_lower_shadow_pct < 0.1)'}
-        values = {
-          'long': 'u', 
-          'short': 'd'}
-        df = assign_condition_value(df=df, column='lower_shadow_trend', condition_dict=conditions, value_dict=values, default_value='n')
+        # long/short upper/lower shadow
+        for col in ['upper', 'lower']:
+          conditions = {
+            'long': f'(candle_{col}_shadow_pct > 0.3)', 
+            'short': f'(candle_{col}_shadow_pct < 0.1)'}
+          values = {
+            'long': 'u', 
+            'short': 'd'}
+          df = assign_condition_value(df=df, column=f'{col}_shadow_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
         # cross
         conditions = {
-          'cross': '(entity_trend == "d" and ((candle_entity_pct <= 0.1 and shadow_trend != "u") or shadow_trend == "d"))',
-          'highwave': '(entity_trend == "d" and candle_entity_pct <= 0.3 and shadow_trend == "u")'}
+          'cross': '(entity_trend == "d" and upper_shadow_trend == "u" and lower_shadow_trend == "u") and (shadow_trend != "u" and candle_entity_pct <= 0.1)',
+          'highwave': '(entity_trend == "d" and upper_shadow_trend == "u" and lower_shadow_trend == "u") and (shadow_trend == "u" and candle_entity_pct <= 0.2)'}
         values = {
           'cross': 'd', 
           'highwave': 'u'}
@@ -769,7 +748,6 @@ def calculate_ta_dynamic(df, perspective=default_perspectives):
         df['candle_entity_middle'] = (df['candle_entity_top'] + df['candle_entity_bottom']) * 0.5
 
         # window(gap)
-        df['窗口_signal'] = 'n'
         conditions = {
           'up': 'candle_gap > 1', 
           'down': 'candle_gap < -1'}
@@ -809,7 +787,6 @@ def calculate_ta_dynamic(df, perspective=default_perspectives):
         df['previous_candle_color'] = df['candle_color'].shift(1)
 
         # rebound or hitpeak
-        df['反弹_signal'] = ''
         conditions = {
           'rebound': '(candle_gap != 2 and window_position_days > 2) and ((相对窗口位置 == "up") and (previous_相对窗口位置 == "mid_up" or previous_相对窗口位置 == "mid" or ((previous_相对窗口位置 == "mid_down" or previous_相对窗口位置 == "out")and previous_candle_color == 1)))', 
           'hitpeak': '(candle_gap !=-2 and window_position_days <-2) and ((相对窗口位置 == "down") and (previous_相对窗口位置 == "mid_down" or previous_相对窗口位置 == "mid" or ((previous_相对窗口位置 == "mid_up" or previous_相对窗口位置 == "out") and previous_candle_color == -1)))'} 
@@ -819,7 +796,6 @@ def calculate_ta_dynamic(df, perspective=default_perspectives):
         df = assign_condition_value(df=df, column='反弹_trend', condition_dict=conditions, value_dict=values, default_value='n')
         
         # break through up or down
-        df['突破_signal'] = ''
         conditions = {
           'break_up': '((candle_gap != 2 and previous_window_position_days < 0) and ((candle_color == 1 and (相对窗口位置 == "out" or (entity_trend != "d" and candle_entity_middle > candle_gap_top))) or (相对窗口位置 == "up")))',
           'break_down': '((candle_gap != -2 and previous_window_position_days > 0) and ((candle_color ==-1 and 相对窗口位置 == "out" or (entity_trend != "d" and candle_entity_middle < candle_gap_bottom)) or (相对窗口位置 == "down")))'}
@@ -834,18 +810,7 @@ def calculate_ta_dynamic(df, perspective=default_perspectives):
       # ============================== 1 candle pattern  =========================
       if '1_candle' > '':
         
-        # belt
-        df['腰带_signal'] = 'n'
-        conditions = {
-          'up': '(位置_trend == "d") and (candle_lower_shadow_pct <= 0.05) and (entity_trend == "u") and (candle_color == 1)',
-          'down': '(位置_trend == "u") and (candle_upper_shadow_pct <= 0.05) and (entity_trend == "u") and (candle_color == -1)'}
-        values = {
-          'up': 'u',
-          'down': 'd'}
-        df = assign_condition_value(df=df, column='腰带_trend', condition_dict=conditions, value_dict=values, default_value='n')
-
-        # cross/spindle/highwave
-        df['十字星_signal'] = 'n'
+        # cross/highwave
         conditions = {
           'cross': '(位置_trend != "n") and (十字星 == "d")',
           'highwave': '(位置_trend != "n") and (十字星 == "u")'}
@@ -854,25 +819,32 @@ def calculate_ta_dynamic(df, perspective=default_perspectives):
           'highwave': 'u'}
         df = assign_condition_value(df=df, column='十字星_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
-        # hammer
-        df['锤子_signal'] = 'n'
+        # belt
         conditions = {
-          'hammer': '((位置_trend == "d" and 位置_day < -5) and (锤子 == "u"))', 
-          'hanging': '((位置_trend == "u" and 位置_day > 5) and (锤子 == "u"))'}
+          'up': '(entity_trend != "d") and (位置_trend == "d" and candle_lower_shadow_pct <= 0.05 and candle_upper_shadow_pct >= 0.15 and candle_color == 1)',
+          'down': '(entity_trend != "d") and (位置_trend == "u" and candle_upper_shadow_pct <= 0.05 and candle_lower_shadow_pct >= 0.15 and candle_color == -1)'}
         values = {
-          'hammer': 'u', 
-          'hanging': 'd'}
-        df = assign_condition_value(df=df, column='锤子_trend', condition_dict=conditions, value_dict=values, default_value='n')
+          'up': 'u',
+          'down': 'd'}
+        df = assign_condition_value(df=df, column='腰带_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
         # meteor
-        df['流星_signal'] = 'n'
         conditions = {
-          'meteor': '((位置_trend == "u" and 位置_day > 5) and (锤子 == "d"))',
-          'reverse_hammer': '((位置_trend == "d" and 位置_day < -5) and (锤子 == "d"))'}
+          'meteor': '(位置_trend == "u") and (锤子 == "d")',
+          'reverse_hammer': '(位置_trend == "d") and (锤子 == "d")'}
         values = {
           'meteor': 'd',
           'reverse_hammer': 'u'}
         df = assign_condition_value(df=df, column='流星_trend', condition_dict=conditions, value_dict=values, default_value='n')
+
+        # hammer
+        conditions = {
+          'hammer': '(位置_trend == "d") and (锤子 == "u")', 
+          'hanging': '(位置_trend == "u") and (锤子 == "u")'}
+        values = {
+          'hammer': 'u', 
+          'hanging': 'd'}
+        df = assign_condition_value(df=df, column='锤子_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
       # ============================== 2+ candle pattern =========================  
       if 'multi_candle' > '':
@@ -881,34 +853,17 @@ def calculate_ta_dynamic(df, perspective=default_perspectives):
         idxs = df.index.tolist()
         for t in ['平头', '穿刺', '吞噬', '包孕', '启明黄昏']:
           df[f'{t}_trend'] = 'n'
-          # df[f'{t}_signal'] = np.nan
 
-        # # flat top/bottom
-        # df = cal_change_rate(df=df, target_col='High', add_accumulation=False, add_prefix=True)
-        # df = cal_change_rate(df=df, target_col='Low', add_accumulation=False, add_prefix=True)
-        # df['acc_High_rate'] = 0
-        # df['acc_Low_rate'] = 0
-        # df['平头顶_value'] = np.NaN
-        # df['平头底_value'] = np.NaN
-        # df['平头顶_trend'] = 'n'
-        # df['平头底_trend'] = 'n'
-        # flat_top = None
-        # flat_bottom = None
-        # df['previous_High'] = df['High'].shift(1)
-        # df['previous_Low'] = df['Low'].shift(1)
-        # df['previous_candle_color'] = df['candle_color'].shift(1)
-        # df['top_diff'] = abs(df['High'] - df['previous_High'])/((df['High'] + df['previous_High']) * 0.5)
-        # df['bottom_diff'] = abs(df['Low'] - df['previous_Low'])/((df['Low'] + df['previous_Low']) * 0.5)
-
-         
-        # df['平头_signal'] = 'n'
-        # conditions = {
-        #   'top': '(top_diff <= 0.001)', 
-        #   'bottom': '(位置_trend == "d" and bottom_diff <= 0.001 and entity_trend != "d" and (candle_color == -1 and previous_candle_color == -1))'}
-        # values = {
-        #   'top': 'd', 
-        #   'bottom': 'u'}
-        # df = assign_condition_value(df=df, column='平头_trend', condition_dict=conditions, value_dict=values, default_value='n')
+        # flat top/bottom
+        df['high_diff'] = ((df['High'] - df['High'].shift(1)) / df['Close']).abs()
+        df['low_diff'] = ((df['Low'] - df['Low'].shift(1)) / df['Close']).abs()
+        conditions = {
+          'flat top': '(位置_trend == "u") and (high_diff <= 0.001)',
+          'flat bottom': '(位置_trend == "d") and (low_diff <= 0.001)'}
+        values = {
+          'flat top': 'd', 
+          'flat bottom': 'u'}
+        df = assign_condition_value(df=df, column='平头_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
         # iterate through dataframe by window_size of 2 and 3
         previous_row = None
@@ -917,33 +872,12 @@ def calculate_ta_dynamic(df, perspective=default_perspectives):
           
           # current row(3), previous row(2) and previous previous row(1)
           row = df.loc[idx]
-
           previous_i = idxs.index(idx) - 1
           if previous_i < 0:
             continue
           else:
             previous_idx = idxs[previous_i]
             previous_row = df.loc[previous_idx]
-
-          # # flat top/bottom
-          # flat_threshold = 0.001
-          # if (row['High_rate'] < flat_threshold and row['High_rate'] > -flat_threshold):  
-          #   flat_top = previous_row['High'] if flat_top is None else flat_top
-          #   df.loc[idx, 'acc_High_rate'] = previous_row['acc_High_rate'] + row['High_rate']
-          #   df.loc[idx, '平头顶_value'] = flat_top #previous_row['High'] if (previous_row['平头顶_value'] != previous_row['平头顶_value']) else previous_row['平头顶_value']
-          #   df.loc[idx, '平头顶_trend'] = 'u'
-          # else:
-          #   df.loc[idx, 'acc_High_rate'] = 0
-          #   flat_top = None
-
-          # if (row['Low_rate'] < flat_threshold and row['Low_rate'] > -flat_threshold):
-          #   flat_bottom = previous_row['Low'] if flat_bottom is None else flat_bottom
-          #   df.loc[idx, 'acc_Low_rate'] = previous_row['acc_Low_rate'] + row['Low_rate']
-          #   df.loc[idx, '平头底_value'] = flat_bottom #previous_row['Low'] if (previous_row['平头底_value'] != previous_row['平头底_value']) else previous_row['平头底_value']
-          #   df.loc[idx, '平头底_trend'] = 'u'
-          # else:
-          #   df.loc[idx, 'acc_Low_rate'] = 0
-          #   flat_bottom = None
 
           previous_previous_i = previous_i - 1
           if previous_previous_i < 0:
@@ -964,18 +898,18 @@ def calculate_ta_dynamic(df, perspective=default_perspectives):
                 # 空头吞噬: 1-绿, 2-红
                 if (previous_row['candle_color'] == 1 and row['candle_color'] == -1):
                   df.loc[idx, '吞噬_trend'] = 'd'
-                # 最后顶吞噬: 1-绿, 2-绿, 都在顶部
-                elif (previous_row['candle_color'] == 1 and row['candle_color'] == 1) and (previous_row['位置_trend'] == "u"):
-                  df.loc[idx, '吞噬_trend'] = 'd'
+                # # 最后顶吞噬: 1-绿, 2-绿, 都在顶部
+                # elif (previous_row['candle_color'] == 1 and row['candle_color'] == 1) and (previous_row['位置_trend'] == "u"):
+                #   df.loc[idx, '吞噬_trend'] = 'd'
 
               # 位于底部
               elif (row['位置_trend'] == "d"):
                 # 多头吞噬: 位于底部, 1-红, 2-绿
                 if (previous_row['candle_color'] == -1 and row['candle_color'] == 1):
                   df.loc[idx, '吞噬_trend'] = 'u'
-                # 最后底吞噬: 1-红, 2-红, 都在底部
-                elif (previous_row['candle_color'] == -1 and row['candle_color'] == -1) and (previous_row['位置_trend'] == "d"):
-                  df.loc[idx, '吞噬_trend'] = 'u'  
+                # # 最后底吞噬: 1-红, 2-红, 都在底部
+                # elif (previous_row['candle_color'] == -1 and row['candle_color'] == -1) and (previous_row['位置_trend'] == "d"):
+                #   df.loc[idx, '吞噬_trend'] = 'u'  
 
           # 前一蜡烛为长实体 
           if previous_row['entity_trend'] != 'u':
@@ -1050,29 +984,39 @@ def calculate_ta_dynamic(df, perspective=default_perspectives):
                   # elif (previous_row['entity_trend'] == 'n') and (previous_row['candle_entity_top'] < previous_previous_row['candle_entity_bottom']) and (previous_row['candle_entity_top'] < row['candle_entity_bottom']):
                   #     df.loc[idx, '启明黄昏_trend'] = 'u'
 
-        # multi-candle signals
-        for t in ['穿刺', '吞噬', '包孕', '启明黄昏']:
-          df[f'{t}_signal'] = df[f'{t}_trend']
-
       # days since signal triggered
-      all_candle_patterns = ['窗口', '突破', '反弹', '启明黄昏', '穿刺', '包孕', '吞噬', '平头', '十字星', '锤子', '流星', '腰带']
+      all_candle_patterns = ['窗口', '突破', '反弹', '十字星', '流星', '锤子', '腰带', '平头', '穿刺', '包孕', '吞噬', '启明黄昏']
       for col in all_candle_patterns:
         df[f'{col}_day'] = df[f'{col}_trend'].replace({'u':1, 'd':-1, 'n':0, '': 0}).fillna(0).astype(int)
 
       # drop unnecessary columns
-      for col in [
-        '位置_signal', 
-        '腰带_signal', '十字星_signal', '锤子_signal', '流星_signal', 
-        '穿刺_signal', '平头_signal', '包孕_signal', '吞噬_signal', 
-        '启明黄昏_signal', '窗口_signal', '突破_signal', '反弹_signal', 'prev_突破_trend', 
+      df['位置_signal'] = 'n'
+      df['entity_signal'] = 'n'
+      df['shadow_signal'] = 'n'
+      df['upper_shadow_signal'] = 'n'
+      df['lower_shadow_signal'] = 'n'
+      df['窗口_signal'] = 'n'
+      df['反弹_signal'] = 'n'
+      df['突破_signal'] = 'n'
+
+      df['腰带_signal'] = 'n'
+      df['十字星_signal'] = 'n'
+      df['锤子_signal'] = 'n'
+      df['流星_signal'] = 'n'
+
+      # # multi-candle signals
+      # for t in ['位置', 'entity', 'shadow', 'upper_shadow', 'lower_shadow', '窗口', '反弹', '突破', 
+      # '十字星', '腰带', '锤子', '流星', '平头', '穿刺', '吞噬', '包孕', '启明黄昏']:
+      #   df[f'{t}_signal'] = 'n'
         
+      for col in [
         # '相对窗口位置', 
         'window_upper_limit', 'window_lower_limit', 'window_position_days', 'previous_window_position_days', 'previous_相对窗口位置', 'previous_candle_color', 'next_突破_trend',
         'entity_signal', 'shadow_signal', 'upper_shadow_signal', 'lower_shadow_signal', 
-        'candle_entity_to_close', 'candle_shadow_to_close', 'candle_shadow_pct_diff', 'candle_entity_middle',
+        'candle_entity_to_close', 'candle_shadow_to_close', 'candle_shadow_pct_diff', 
+        'candle_entity_middle',
         'previous_high', 'previous_low', 'high_diff', 'low_diff',
-        'entity_ma', 'entity_std', 'shadow_ma', 'shadow_std', 'shadow_diff', 
-        # 'entity_diff',  
+        'entity_ma', 'entity_std', 'shadow_ma', 'shadow_std', 'shadow_diff', 'entity_diff',
         'previous_entity_top', 'previous_entity_bottom', 'top_diff', 'bottom_diff', 
         ]:
         if col in df.columns:
@@ -4772,12 +4716,6 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
       'emphasis': {'fontsize':12, 'fontcolor':'black', 'va':'center', 'ha':'center', 'up':'yellow', 'down':'purple', 'alpha': 0.15, 'arrowstyle': '-|>'},
     }
 
-    # # plot flat
-    # ax.scatter(df.index, (df['平头顶_value'] + padding).fillna(method='bfill', limit=1), color='k', marker='_')
-    # ax.scatter(df.index, (df['平头底_value'] - padding).fillna(method='bfill', limit=1), color='k', marker='_')
-    # ax.plot((df['平头顶_value'] + padding).fillna(method='bfill', limit=1), color='k')
-    # ax.plot((df['平头底_value'] - padding).fillna(method='bfill', limit=1), color='k')
-
     # plot other patterns
     up_pattern_annotations = {}
     down_pattern_annotations = {}
@@ -4790,7 +4728,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
 
         # positive patterns
         tmp_up_info = pattern_info[p][1]
-        if len(tmp_up_info) > 0 and len(tmp_up_idx) < 10:
+        if len(tmp_up_info) > 0: # and len(tmp_up_idx) < 10
           for i in tmp_up_idx:
             k = util.time_2_string(i.date())
             if k not in up_pattern_annotations: 
@@ -4802,7 +4740,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
 
         # negative patterns
         tmp_down_info = pattern_info[p][-1]
-        if len(tmp_down_info) > 0 and len(tmp_down_idx) < 10:
+        if len(tmp_down_info) > 0: # and len(tmp_down_idx) < 10
           for i in tmp_down_idx:
             k = util.time_2_string(i.date())
             if k not in down_pattern_annotations:
