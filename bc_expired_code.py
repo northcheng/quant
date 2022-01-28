@@ -1,3 +1,67 @@
+columns = [
+  # OHLCV
+  'Adj Close', 'Close', 'Dividend', 'High', 'Low', 'Open', 'Split', 'Volume', 'symbol', 'rate', 
+  
+  # candle features
+  'candle_entity', 'candle_shadow', 'candle_color', 
+  'candle_entity_top', 'candle_entity_bottom', 'candle_upper_shadow', 'candle_lower_shadow', 
+  'candle_entity_pct', 'candle_upper_shadow_pct', 'candle_lower_shadow_pct', 
+  'candle_gap', 'candle_gap_top', 'candle_gap_bottom', 'candle_gap_color', 'candle_gap_height', 
+  'candle_gap_support', 'candle_gap_resistant',
+
+  # indicators
+  'tankan', 'kijun', 'senkou_a', 'senkou_b', 'chikan', 
+  'kama_fast', 'kama_slow', 
+  'tr', 'atr', 
+  'pdi', 'mdi', 
+  'dx', 'adx', 'adx_diff', 'adx_diff_ma', 
+  'psar', 'psar_up', 'psar_down', 
+  'fi', 'fi_ema', 
+  'mavg', 'mstd', 
+  'bb_high_band', 'bb_low_band',
+  
+  # static trend
+  'ichimoku_distance', 'tankan_rate', 'tankan_signal', 'kijun_rate', 'kijun_signal', 'ichimoku_distance_rate', 'ichimoku_distance_signal', 
+  'kama_distance', 'kama_fast_rate', 'kama_fast_signal', 'kama_slow_rate', 'kama_slow_signal', 'kama_distance_rate', 'kama_distance_signal', 
+  'adx_value', 'adx_value_change', 'adx_direction', 'adx_direction_day', 
+  'adx_strength', 'adx_strength_change', 'adx_power', 'adx_power_day', 
+  'adx_strong_day', 'prev_adx_extreme', 'prev_adx_extreme_day', 'adx_direction_start', 
+  
+  'ichimoku_trend', 'ichimoku_signal', 'ichimoku_day',
+  'kama_trend', 'kama_signal', 'kama_day', 
+  'adx_trend', 'adx_signal', 'adx_day', 
+  'psar_trend', 'psar_signal', 'psar_day', 
+  'fi_trend', 'fi_signal', 'fi_day', 
+  'bb_trend', 'bb_signal', 'bb_day', 
+  'trend_idx', 'up_trend_idx', 'down_trend_idx', 
+  
+  # dynamic trend
+  'renko_o', 'renko_h', 'renko_l', 'renko_c', 'renko_color', 'renko_real', 
+  'renko_start', 'renko_end', 'renko_brick_height', 'renko_duration', 'renko_duration_p1', 'renko_direction', 'renko_brick_number',
+  'renko_series_short', 'renko_series_long', 'renko_series_short_idx','renko_series_long_idx', 
+  'renko_countdown_days', 'renko_brick_length',
+  'renko_position', 'renko_support', 'renko_resistant', 
+  'renko_trend', 'renko_signal', 'renko_day', 
+
+  
+  'entity_trend', 'shadow_trend', 'upper_shadow_trend', 'lower_shadow_trend', 
+  '相对窗口位置', '十字星', '锤子', 
+  '位置_trend', '窗口_trend', '反弹_trend', '突破_trend', 'prev_突破_trend', '十字星_trend', '腰带_trend', '流星_trend', '锤子_trend', '平头_trend', '穿刺_trend', '吞噬_trend', '包孕_trend', '启明黄昏_trend', 
+  '位置_day', '窗口_day', '反弹_day', '突破_day', '十字星_day', '腰带_day', '流星_day', '锤子_day', '平头_day', '穿刺_day', '包孕_day', '吞噬_day', '启明黄昏_day', 
+  
+  'linear_day_count', 'linear_fit_high_slope', 'linear_fit_high', 'linear_fit_low_slope', 'linear_fit_low', 'linear_fit_high_stop', 'linear_fit_low_stop', 
+  'linear_fit_resistant', 'linear_fit_support', 'linear_slope', 'linear_direction', 
+  'linear_fit_high_signal', 'linear_fit_low_signal', 
+  'linear_bounce_trend', 'linear_bounce_day',
+  'linear_break_trend', 'linear_break_day', 
+
+  'support', 'supporter', 'resistant', 'resistanter', 
+  
+  # signal
+  'trend', 'signal', 'buy_score',
+  'sell_score', 'signal_score', 'signal_description', 'uncertain_trend', 'trend_day'
+]
+
 # # expired
 # from alpha_vantage.timeseries import TimeSeries
 # def get_data_from_tiger(sec_code, interval, start_date=None, end_date=None, time_col='time', minute_level=False, quote_client=None, download_limit=1200, is_print=False):
@@ -237,559 +301,338 @@
       # df['aroon_sda_signal'] = 'n'
 
 
-# 2021-12-22
-# original columns
-'Open', 'High', 'Low', 'Close', 'Volume', 'Adj Close', 'Dividend', 'Split', 
+# # linear regression for recent high and low values
+# def add_linear_features(df, max_period=60, min_period=15, is_print=False):
 
-# L1 derived columns
-'symbol', 'rate', 
-       
-# L2 candlestick derived columns
-'candle_color', 'candle_entity', 'candle_entity_top', 'candle_entity_bottom',
-'candle_shadow', 'candle_upper_shadow', 'candle_lower_shadow', 
-'candle_upper_shadow_pct', 'candle_lower_shadow_pct', 'candle_entity_pct', 
-'candle_gap', 'candle_gap_color', 'candle_gap_top', 'candle_gap_bottom', 'candle_gap_height', 'candle_gap_support', 'candle_gap_resistant',
+#   # get all indexes
+#   idxs = df.index.tolist()
 
-# L2 ichimoku derived columns
-'tankan', 'kijun', 'senkou_a', 'senkou_b', 'chikan', 
-'cloud_height', 'cloud_width', 'cloud_top', 'cloud_bottom', 
-'tankan_signal', 'kijun_signal', 'tankan_to_kijun', 'tankan_kijun_signal', 
+#   # get current date, renko_color, earliest-start date, latest-end date
+#   current_date = df.index.max()
+#   current_color = df.loc[current_date, 'renko_color']
+#   earliest_start = df.tail(max_period).index.min() #current_date - datetime.timedelta(days=max_period)
+#   if (idxs[-1] - idxs[-2]).days >= 7:
+#     latest_end = idxs[-2]
+#   else:
+#     latest_end = current_date - datetime.timedelta(days=(current_date.weekday()+1))
 
-# L2 other technical indicators derived columns
-'aroon_up', 'aroon_down', 'aroon_gap', 
-'tr', 'atr',
-'pdi', 'mdi', 
-'dx', 'adx', 'adx_diff', 
-'psar', 'psar_up', 'psar_down',
-'mavg', 'mstd', 
-'bb_high_band', 'bb_low_band', 
+#   # recent extreme as the latest_end
+#   if df[idxs[-min_period]:]['High'].max() == df[idxs[-max_period]:]['High'].max():
+#     extreme_high = df[idxs[-min_period]:]['High'].idxmax()
+#   else:
+#     extreme_high = None
 
-# L3 technical indicators trend derived columns
-'tankan_day', 'tankan_rate', 'kijun_day', 'kijun_rate', 'tankan_day_plus_kijun_day',  
-'adx_value', 'adx_value_change', 'adx_direction', 'adx_direction_day', 'prev_adx_extreme', 
-'adx_strength', 'adx_strength_change', 'adx_power', 'adx_power_day', 'adx_strong_day',
-'up_trend_idx', 'down_trend_idx', 'trend_idx', 
-'ichimoku_trend', 'aroon_trend', 'adx_trend', 'psar_trend', 'stoch_trend','bb_trend',
-'ichimoku_day', 'aroon_day', 'adx_day', 'psar_day', 'stoch_day', 'bb_day', 
-'ichimoku_signal', 'aroon_signal', 'adx_signal', 'psar_signal', 'stoch_signal', 'bb_signal', 
+#   if df[idxs[-min_period]:]['Low'].min() == df[idxs[-max_period]:]['Low'].min():
+#     extreme_low = df[idxs[-min_period]:]['Low'].idxmin()
+#   else:
+#     extreme_low = None
+#   latest_end = min(latest_end, extreme_high) if extreme_high is not None else latest_end
+#   latest_end = min(latest_end, extreme_low) if extreme_low is not None else latest_end
 
-# L3 renko derived columns
-'renko_o', 'renko_h', 'renko_l', 'renko_c', 'renko_color', 'renko_real', 
-'renko_brick_height', 'renko_brick_length', 'renko_brick_number', 
-'renko_start', 'renko_end', 'renko_duration', 'renko_duration_p1', 'renko_countdown_days', 
-'renko_series_short', 'renko_series_long', 'renko_series_short_idx', 'renko_series_long_idx',
-'renko_position', 'renko_support', 'renko_resistant',
-'renko_trend', 'renko_day', 'renko_signal',
-
-# L3 linear fit derived columns
-'linear_fit_high', 'linear_fit_low', 'linear_fit_high_slope', 'linear_fit_low_slope', 'linear_slope', 'linear_fit_high_signal', 'linear_fit_low_signal', 'linear_fit_high_stop', 'linear_fit_low_stop', 
-'linear_day_count', 'linear_fit_resistant', 'linear_fit_support', 
-'linear_direction', 
-'linear_bounce_trend', 'linear_break_trend', 'linear_trend', 
-'linear_bounce_day', 'linear_break_day', 
-# '拟合_trend', 'linear_fit_idx', '拟合_signal', 
-'linear_fit_category', 'linear_fit_description',
-        
-# L3 candlestick patterns derived columns
-'位置_trend', '位置_day', 
-'entity_trend', 'shadow_trend', 'upper_shadow_trend', 'lower_shadow_trend', 
-
-'相对窗口位置', '十字星', '锤子', 
-'窗口_trend', '反弹_trend', '突破_trend', '窗口_day', '突破_day', '反弹_day', 
-'十字星_trend', '锤子_trend', '腰带_trend', '流星_trend', '平头_trend', '穿刺_trend', '吞噬_trend', '包孕_trend', '启明黄昏_trend', 
-'十字星_day', '锤子_day', '腰带_day', '流星_day', '平头_day', '穿刺_day', '吞噬_day', '包孕_day', '启明黄昏_day', 
-'candle_pattern_idx', 'candle_pattern_description',
-
-# L4 ultimate results
-'support', 'supporter', 
-'resistant', 'resistanter', 
-'ichimoku_mean', 
-'trend', 'uncertain_trend', 'trend_day', 'signal',
-
-
-# linear regression for recent high and low values
-def add_linear_features(df, max_period=60, min_period=15, is_print=False):
-
-  # get all indexes
-  idxs = df.index.tolist()
-
-  # get current date, renko_color, earliest-start date, latest-end date
-  current_date = df.index.max()
-  current_color = df.loc[current_date, 'renko_color']
-  earliest_start = df.tail(max_period).index.min() #current_date - datetime.timedelta(days=max_period)
-  if (idxs[-1] - idxs[-2]).days >= 7:
-    latest_end = idxs[-2]
-  else:
-    latest_end = current_date - datetime.timedelta(days=(current_date.weekday()+1))
-
-  # recent extreme as the latest_end
-  if df[idxs[-min_period]:]['High'].max() == df[idxs[-max_period]:]['High'].max():
-    extreme_high = df[idxs[-min_period]:]['High'].idxmax()
-  else:
-    extreme_high = None
-
-  if df[idxs[-min_period]:]['Low'].min() == df[idxs[-max_period]:]['Low'].min():
-    extreme_low = df[idxs[-min_period]:]['Low'].idxmin()
-  else:
-    extreme_low = None
-  latest_end = min(latest_end, extreme_high) if extreme_high is not None else latest_end
-  latest_end = min(latest_end, extreme_low) if extreme_low is not None else latest_end
-
-  # get slice according to renko bricks, allows only 1 different color brick
-  start=None  
-  renko_list = df.query('renko_real == renko_real').index.tolist()
-  renko_list.reverse()
-  for idx in renko_list:
-    tmp_color = df.loc[idx, 'renko_color']
-    tmp_start = df.loc[idx, 'renko_start']
-    if tmp_color != current_color:
-      break
-    else:
-      if tmp_start < earliest_start:
-        start = earliest_start
-        break
-  start = max(tmp_start, earliest_start)
-  end = latest_end
+#   # get slice according to renko bricks, allows only 1 different color brick
+#   start=None  
+#   renko_list = df.query('renko_real == renko_real').index.tolist()
+#   renko_list.reverse()
+#   for idx in renko_list:
+#     tmp_color = df.loc[idx, 'renko_color']
+#     tmp_start = df.loc[idx, 'renko_start']
+#     if tmp_color != current_color:
+#       break
+#     else:
+#       if tmp_start < earliest_start:
+#         start = earliest_start
+#         break
+#   start = max(tmp_start, earliest_start)
+#   end = latest_end
   
-  # make the slice length at least min_period
-  if len(df[start:end]) < min_period: #(end - start).days < min_period:
-    start = df[:end].tail(min_period).index.min() # end - datetime.timedelta(days=min_period)
-  if len(df[start:end]) > min_period: #(end - start).days > max_period:
-    start = df[:end].tail(max_period).index.min() # end - datetime.timedelta(days=max_period)
-  if is_print:
-    print(start, end)
+#   # make the slice length at least min_period
+#   if len(df[start:end]) < min_period: #(end - start).days < min_period:
+#     start = df[:end].tail(min_period).index.min() # end - datetime.timedelta(days=min_period)
+#   if len(df[start:end]) > min_period: #(end - start).days > max_period:
+#     start = df[:end].tail(max_period).index.min() # end - datetime.timedelta(days=max_period)
+#   if is_print:
+#     print(start, end)
 
-  # calculate peaks and troughs
-  tmp_data = df[start:end].copy()
-  tmp_idxs = tmp_data.index.tolist()
+#   # calculate peaks and troughs
+#   tmp_data = df[start:end].copy()
+#   tmp_idxs = tmp_data.index.tolist()
   
-  # find the highest high and lowest low
-  hh = tmp_data['High'].idxmax()
-  ll = tmp_data['Low'].idxmin()
-  if is_print:
-    print(hh, ll)
+#   # find the highest high and lowest low
+#   hh = tmp_data['High'].idxmax()
+#   ll = tmp_data['Low'].idxmin()
+#   if is_print:
+#     print(hh, ll)
 
-  # get slice from highest high and lowest low
-  if hh > ll:
-    if len(df[hh:latest_end]) >= min_period: # (latest_end - hh).days >= min_period:
-      start = hh
-    elif len(df[ll:latest_end]) >= min_period: # (latest_end - ll).days >= min_period:
-      start = ll
-    else:
-      end = max(hh, ll)
-  else:
-    if len(df[ll:latest_end]) >= min_period: #(latest_end - ll).days >= min_period:
-      start = ll
-    elif len(df[hh:latest_end]) >= min_period: # (latest_end - hh).days >= min_period:
-      start = hh
-    else:
-      end = max(hh, ll)
+#   # get slice from highest high and lowest low
+#   if hh > ll:
+#     if len(df[hh:latest_end]) >= min_period: # (latest_end - hh).days >= min_period:
+#       start = hh
+#     elif len(df[ll:latest_end]) >= min_period: # (latest_end - ll).days >= min_period:
+#       start = ll
+#     else:
+#       end = max(hh, ll)
+#   else:
+#     if len(df[ll:latest_end]) >= min_period: #(latest_end - ll).days >= min_period:
+#       start = ll
+#     elif len(df[hh:latest_end]) >= min_period: # (latest_end - hh).days >= min_period:
+#       start = hh
+#     else:
+#       end = max(hh, ll)
 
-  # if start != earliest_start:
-  #   # start = start - datetime.timedelta(days=3)
-  #   si = df.index.tolist().index(start)
-  #   si = si - 1
-  #   start = df.index.tolist()[si]
+#   # if start != earliest_start:
+#   #   # start = start - datetime.timedelta(days=3)
+#   #   si = df.index.tolist().index(start)
+#   #   si = si - 1
+#   #   start = df.index.tolist()[si]
 
-  # get peaks and troughs
-  tmp_data = df[start:end].copy()
-  tmp_idxs = tmp_data.index.tolist()
-  num_points = 4 #int(len(tmp_data) / 3)
-  distance = math.floor(len(tmp_data) / num_points)
-  distance = 1 if distance < 1 else distance
-  day_gap = math.floor(len(tmp_data) / 2)
-  highest_high = df[start:]['High'].max() # tmp_data['High'].max()
-  highest_high_idx = tmp_data['High'].idxmax()
-  lowest_low = df[start:]['Low'].min()# tmp_data['Low'].min()
-  lowest_low_idx = tmp_data['Low'].idxmin()
+#   # get peaks and troughs
+#   tmp_data = df[start:end].copy()
+#   tmp_idxs = tmp_data.index.tolist()
+#   num_points = 4 #int(len(tmp_data) / 3)
+#   distance = math.floor(len(tmp_data) / num_points)
+#   distance = 1 if distance < 1 else distance
+#   day_gap = math.floor(len(tmp_data) / 2)
+#   highest_high = df[start:]['High'].max() # tmp_data['High'].max()
+#   highest_high_idx = tmp_data['High'].idxmax()
+#   lowest_low = df[start:]['Low'].min()# tmp_data['Low'].min()
+#   lowest_low_idx = tmp_data['Low'].idxmin()
 
-  # peaks
-  peaks,_ = find_peaks(x=tmp_data['High'], distance=distance)
-  peaks = [tmp_idxs[x] for x in peaks]
-  if is_print:
-    print(df.loc[peaks, 'High'])
+#   # peaks
+#   peaks,_ = find_peaks(x=tmp_data['High'], distance=distance)
+#   peaks = [tmp_idxs[x] for x in peaks]
+#   if is_print:
+#     print(df.loc[peaks, 'High'])
 
-  # divide peaks by highest peak, take the longer half
-  if len(peaks) >= 2:
-    peak_value = [df.loc[x, 'High'] for x in peaks]
-    hp = peak_value.index(max(peak_value))
+#   # divide peaks by highest peak, take the longer half
+#   if len(peaks) >= 2:
+#     peak_value = [df.loc[x, 'High'] for x in peaks]
+#     hp = peak_value.index(max(peak_value))
 
-    if hp+1 > len(peak_value)/2:
-      peaks = peaks[:hp+1]
-    elif hp+1 <= math.ceil(len(peak_value)/2):
-      peaks = peaks[hp:]
+#     if hp+1 > len(peak_value)/2:
+#       peaks = peaks[:hp+1]
+#     elif hp+1 <= math.ceil(len(peak_value)/2):
+#       peaks = peaks[hp:]
 
-  s = start
-  e = start
-  while e < end:
-    e = s + datetime.timedelta(days=day_gap)
-    t_data = df[s:e].copy()
-    if len(t_data) == 0:
-      s = e
-      continue
-    else:
-      # highest high 
-      hh_idx = t_data['High'].idxmax()
-      if hh_idx not in peaks:
-        peaks = np.append(peaks, hh_idx)
-      s = e
-  if is_print:
-    print(df.loc[peaks, 'High'])
+#   s = start
+#   e = start
+#   while e < end:
+#     e = s + datetime.timedelta(days=day_gap)
+#     t_data = df[s:e].copy()
+#     if len(t_data) == 0:
+#       s = e
+#       continue
+#     else:
+#       # highest high 
+#       hh_idx = t_data['High'].idxmax()
+#       if hh_idx not in peaks:
+#         peaks = np.append(peaks, hh_idx)
+#       s = e
+#   if is_print:
+#     print(df.loc[peaks, 'High'])
 
-  # troughs
-  troughs, _ = find_peaks(x=-tmp_data['Low'], distance=distance)
-  troughs = [tmp_idxs[x] for x in troughs]
-  if is_print:
-    print(df.loc[troughs, 'Low'])
+#   # troughs
+#   troughs, _ = find_peaks(x=-tmp_data['Low'], distance=distance)
+#   troughs = [tmp_idxs[x] for x in troughs]
+#   if is_print:
+#     print(df.loc[troughs, 'Low'])
 
-  # divide troughs by lowest trough, take the longer half
-  if len(troughs) >= 2:
-    trough_value = [df.loc[x, 'Low'] for x in troughs]
-    lt = trough_value.index(min(trough_value))
+#   # divide troughs by lowest trough, take the longer half
+#   if len(troughs) >= 2:
+#     trough_value = [df.loc[x, 'Low'] for x in troughs]
+#     lt = trough_value.index(min(trough_value))
     
-    if lt+1 > len(trough_value)/2:
-      troughs = troughs[:lt+1]
-    elif lt+1 <= math.ceil(len(trough_value)/2):
-      troughs = troughs[lt:]
+#     if lt+1 > len(trough_value)/2:
+#       troughs = troughs[:lt+1]
+#     elif lt+1 <= math.ceil(len(trough_value)/2):
+#       troughs = troughs[lt:]
     
-  # else:
-  s = start
-  e = start
-  while e < end:
-    e = s + datetime.timedelta(days=day_gap)
-    t_data = df[s:e].copy()
-    if len(t_data) == 0:
-      s = e
-      continue
-    else:
+#   # else:
+#   s = start
+#   e = start
+#   while e < end:
+#     e = s + datetime.timedelta(days=day_gap)
+#     t_data = df[s:e].copy()
+#     if len(t_data) == 0:
+#       s = e
+#       continue
+#     else:
 
-      # lowest_low
-      ll_idx = t_data['Low'].idxmin()
-      troughs = np.append(troughs, ll_idx)
+#       # lowest_low
+#       ll_idx = t_data['Low'].idxmin()
+#       troughs = np.append(troughs, ll_idx)
       
-      # update end date
-      s = e
-  if is_print:
-    print(df.loc[troughs, 'Low'])
+#       # update end date
+#       s = e
+#   if is_print:
+#     print(df.loc[troughs, 'Low'])
 
-  # gathering high and low points
-  high = {'x':[], 'y':[]}
-  low = {'x':[], 'y':[]}
+#   # gathering high and low points
+#   high = {'x':[], 'y':[]}
+#   low = {'x':[], 'y':[]}
 
-  for p in peaks:
-    x = idxs.index(p)
-    y = df.loc[p, 'High'] #+ df[start:end]['High'].std()*0.5
-    high['x'].append(x)
-    high['y'].append(y)
+#   for p in peaks:
+#     x = idxs.index(p)
+#     y = df.loc[p, 'High'] #+ df[start:end]['High'].std()*0.5
+#     high['x'].append(x)
+#     high['y'].append(y)
 
-  for t in troughs:
-    x = idxs.index(t)
-    y = df.loc[t, 'Low'] #- df[start:end]['Low'].std()*0.5
-    low['x'].append(x)
-    low['y'].append(y)
+#   for t in troughs:
+#     x = idxs.index(t)
+#     y = df.loc[t, 'Low'] #- df[start:end]['Low'].std()*0.5
+#     low['x'].append(x)
+#     low['y'].append(y)
 
-  # linear regression for high/low values
-  if len(high['x']) < 2: 
-    high_linear = (0, highest_high, 0, 0)
-  else:
-    high_linear = linregress(high['x'], high['y'])
-    high_range = round((max(high['y']) + min(high['y']))/2, 3)
-    slope_score = round(abs(high_linear[0])/high_range, 5)
-    if slope_score < 0.001:
-      high_linear = (0, highest_high, 0, 0)
+#   # linear regression for high/low values
+#   if len(high['x']) < 2: 
+#     high_linear = (0, highest_high, 0, 0)
+#   else:
+#     high_linear = linregress(high['x'], high['y'])
+#     high_range = round((max(high['y']) + min(high['y']))/2, 3)
+#     slope_score = round(abs(high_linear[0])/high_range, 5)
+#     if slope_score < 0.001:
+#       high_linear = (0, highest_high, 0, 0)
 
-  if len(low['x']) < 2:
-    low_linear = (0, lowest_low, 0, 0)
-  else:
-    low_linear = linregress(low['x'], low['y'])
-    low_range = round((max(low['y']) + min(low['y']))/2, 3)
-    slope_score = round(abs(low_linear[0])/low_range, 5)
-    if slope_score < 0.001:
-      low_linear = (0, lowest_low, 0, 0)
+#   if len(low['x']) < 2:
+#     low_linear = (0, lowest_low, 0, 0)
+#   else:
+#     low_linear = linregress(low['x'], low['y'])
+#     low_range = round((max(low['y']) + min(low['y']))/2, 3)
+#     slope_score = round(abs(low_linear[0])/low_range, 5)
+#     if slope_score < 0.001:
+#       low_linear = (0, lowest_low, 0, 0)
 
-  # add high/low fit values
-  counter = 0
-  idx_max = len(idxs)
-  idx_min = min(min(high['x']), min(low['x']))
-  for x in range(idx_min, idx_max):
+#   # add high/low fit values
+#   counter = 0
+#   idx_max = len(idxs)
+#   idx_min = min(min(high['x']), min(low['x']))
+#   for x in range(idx_min, idx_max):
     
-    idx = idxs[x]
-    counter += 1
-    df.loc[idx, 'linear_day_count'] = counter
+#     idx = idxs[x]
+#     counter += 1
+#     df.loc[idx, 'linear_day_count'] = counter
 
-    # calculate linear fit values    
-    linear_fit_high = high_linear[0] * x + high_linear[1]
-    linear_fit_low = low_linear[0] * x + low_linear[1]
+#     # calculate linear fit values    
+#     linear_fit_high = high_linear[0] * x + high_linear[1]
+#     linear_fit_low = low_linear[0] * x + low_linear[1]
 
-    # linear fit high
-    df.loc[idx, 'linear_fit_high_slope'] = high_linear[0]
+#     # linear fit high
+#     df.loc[idx, 'linear_fit_high_slope'] = high_linear[0]
 
-    if (linear_fit_high <= highest_high and linear_fit_high >= lowest_low): 
-      df.loc[idx, 'linear_fit_high'] = linear_fit_high
-    elif linear_fit_high > highest_high:
-      df.loc[idx, 'linear_fit_high'] = highest_high
-    elif linear_fit_high < lowest_low:
-      df.loc[idx, 'linear_fit_high'] = lowest_low
-    else:
-      df.loc[idx, 'linear_fit_high'] = np.NaN
+#     if (linear_fit_high <= highest_high and linear_fit_high >= lowest_low): 
+#       df.loc[idx, 'linear_fit_high'] = linear_fit_high
+#     elif linear_fit_high > highest_high:
+#       df.loc[idx, 'linear_fit_high'] = highest_high
+#     elif linear_fit_high < lowest_low:
+#       df.loc[idx, 'linear_fit_high'] = lowest_low
+#     else:
+#       df.loc[idx, 'linear_fit_high'] = np.NaN
     
-    if  high_linear[0] > 0 and idx >= highest_high_idx and df.loc[idx, 'linear_fit_high'] <= highest_high:
-      df.loc[idx, 'linear_fit_high'] = highest_high
+#     if  high_linear[0] > 0 and idx >= highest_high_idx and df.loc[idx, 'linear_fit_high'] <= highest_high:
+#       df.loc[idx, 'linear_fit_high'] = highest_high
 
-    # linear fit low
-    df.loc[idx, 'linear_fit_low_slope'] = low_linear[0]
+#     # linear fit low
+#     df.loc[idx, 'linear_fit_low_slope'] = low_linear[0]
 
-    if (linear_fit_low <= highest_high and linear_fit_low >= lowest_low): 
-      df.loc[idx, 'linear_fit_low'] = linear_fit_low
-    elif linear_fit_low > highest_high:
-      df.loc[idx, 'linear_fit_low'] = highest_high
-    elif linear_fit_low < lowest_low:
-      df.loc[idx, 'linear_fit_low'] = lowest_low
-    else:
-      df.loc[idx, 'linear_fit_low'] = np.NaN
+#     if (linear_fit_low <= highest_high and linear_fit_low >= lowest_low): 
+#       df.loc[idx, 'linear_fit_low'] = linear_fit_low
+#     elif linear_fit_low > highest_high:
+#       df.loc[idx, 'linear_fit_low'] = highest_high
+#     elif linear_fit_low < lowest_low:
+#       df.loc[idx, 'linear_fit_low'] = lowest_low
+#     else:
+#       df.loc[idx, 'linear_fit_low'] = np.NaN
 
-    if  low_linear[0] < 0 and idx >= lowest_low_idx and df.loc[idx, 'linear_fit_low'] >= lowest_low:
-      df.loc[idx, 'linear_fit_low'] = lowest_low
+#     if  low_linear[0] < 0 and idx >= lowest_low_idx and df.loc[idx, 'linear_fit_low'] >= lowest_low:
+#       df.loc[idx, 'linear_fit_low'] = lowest_low
 
-  # high/low fit stop
-  df['linear_fit_high_stop'] = 0
-  df['linear_fit_low_stop'] = 0
-  reach_top_idx = df.query(f'High=={highest_high} and linear_fit_high == {highest_high} and linear_fit_high_slope >= 0').index
-  reach_bottom_idx = df.query(f'Low=={lowest_low} and linear_fit_low == {lowest_low} and linear_fit_low_slope <= 0').index
-  df.loc[reach_top_idx, 'linear_fit_high_stop'] = 1
-  df.loc[reach_bottom_idx, 'linear_fit_low_stop'] = 1
-  df.loc[reach_top_idx, 'linear_top_entity_top'] = df.loc[reach_top_idx, 'candle_entity_top']
-  df.loc[reach_top_idx, 'linear_top_entity_bottom'] = df.loc[reach_top_idx, 'candle_entity_bottom']
-  df.loc[reach_bottom_idx, 'linear_bottom_entity_top'] = df.loc[reach_bottom_idx, 'candle_entity_top']
-  df.loc[reach_bottom_idx, 'linear_bottom_entity_bottom'] = df.loc[reach_bottom_idx, 'candle_entity_bottom']
+#   # high/low fit stop
+#   df['linear_fit_high_stop'] = 0
+#   df['linear_fit_low_stop'] = 0
+#   reach_top_idx = df.query(f'High=={highest_high} and linear_fit_high == {highest_high} and linear_fit_high_slope >= 0').index
+#   reach_bottom_idx = df.query(f'Low=={lowest_low} and linear_fit_low == {lowest_low} and linear_fit_low_slope <= 0').index
+#   df.loc[reach_top_idx, 'linear_fit_high_stop'] = 1
+#   df.loc[reach_bottom_idx, 'linear_fit_low_stop'] = 1
+#   df.loc[reach_top_idx, 'linear_top_entity_top'] = df.loc[reach_top_idx, 'candle_entity_top']
+#   df.loc[reach_top_idx, 'linear_top_entity_bottom'] = df.loc[reach_top_idx, 'candle_entity_bottom']
+#   df.loc[reach_bottom_idx, 'linear_bottom_entity_top'] = df.loc[reach_bottom_idx, 'candle_entity_top']
+#   df.loc[reach_bottom_idx, 'linear_bottom_entity_bottom'] = df.loc[reach_bottom_idx, 'candle_entity_bottom']
   
-  for col in ['linear_fit_high_stop', 'linear_fit_low_stop', 'linear_top_entity_top', 'linear_top_entity_bottom', 'linear_bottom_entity_top', 'linear_bottom_entity_bottom']:
-    df[col] = df[col].fillna(method='ffill')
-  df['linear_fit_low_stop'] = sda(df['linear_fit_low_stop'], zero_as=1)
-  df['linear_fit_high_stop'] = sda(df['linear_fit_high_stop'], zero_as=1)
+#   for col in ['linear_fit_high_stop', 'linear_fit_low_stop', 'linear_top_entity_top', 'linear_top_entity_bottom', 'linear_bottom_entity_top', 'linear_bottom_entity_bottom']:
+#     df[col] = df[col].fillna(method='ffill')
+#   df['linear_fit_low_stop'] = sda(df['linear_fit_low_stop'], zero_as=1)
+#   df['linear_fit_high_stop'] = sda(df['linear_fit_high_stop'], zero_as=1)
 
-  # support and resistant
-  resistant_idx = df.query(f'linear_fit_high == {highest_high} and linear_fit_high_stop > 0').index
-  if len(resistant_idx) > 0:
-    df.loc[min(resistant_idx), 'linear_fit_resistant'] = highest_high
-  else:
-    df['linear_fit_resistant'] = np.nan
+#   # support and resistant
+#   resistant_idx = df.query(f'linear_fit_high == {highest_high} and linear_fit_high_stop > 0').index
+#   if len(resistant_idx) > 0:
+#     df.loc[min(resistant_idx), 'linear_fit_resistant'] = highest_high
+#   else:
+#     df['linear_fit_resistant'] = np.nan
 
-  support_idx = df.query(f'linear_fit_low == {lowest_low} and linear_fit_low_stop > 0').index
-  if len(support_idx) > 0:
-    df.loc[min(support_idx), 'linear_fit_support'] = lowest_low
-  else:
-    df['linear_fit_support'] = np.nan
+#   support_idx = df.query(f'linear_fit_low == {lowest_low} and linear_fit_low_stop > 0').index
+#   if len(support_idx) > 0:
+#     df.loc[min(support_idx), 'linear_fit_support'] = lowest_low
+#   else:
+#     df['linear_fit_support'] = np.nan
 
-  for col in ['linear_fit_support', 'linear_fit_resistant']:
-    df[col] = df[col].fillna(method='ffill')
+#   for col in ['linear_fit_support', 'linear_fit_resistant']:
+#     df[col] = df[col].fillna(method='ffill')
 
-  # overall slope of High and Low
-  df['linear_slope']  = df['linear_fit_high_slope'] + df['linear_fit_low_slope']
+#   # overall slope of High and Low
+#   df['linear_slope']  = df['linear_fit_high_slope'] + df['linear_fit_low_slope']
 
-  # direction means the slopes of linear fit High/Low
-  conditions = {
-    'up': '(linear_fit_high_slope > 0 and linear_fit_low_slope > 0) or (linear_fit_high_slope > 0 and linear_fit_low_slope == 0) or (linear_fit_high_slope == 0 and linear_fit_low_slope > 0)', 
-    'down': '(linear_fit_high_slope < 0 and linear_fit_low_slope < 0) or (linear_fit_high_slope < 0 and linear_fit_low_slope == 0) or (linear_fit_high_slope == 0 and linear_fit_low_slope < 0)',
-    'none': '(linear_fit_high_slope > 0 and linear_fit_low_slope < 0) or (linear_fit_high_slope < 0 and linear_fit_low_slope > 0) or (linear_fit_high_slope == 0 and linear_fit_low_slope == 0)'} 
-  values = {
-    'up': 'u', 
-    'down': 'd',
-    'none': 'n'}
-  df = assign_condition_value(df=df, column='linear_direction', condition_dict=conditions, value_dict=values, default_value='')
+#   # direction means the slopes of linear fit High/Low
+#   conditions = {
+#     'up': '(linear_fit_high_slope > 0 and linear_fit_low_slope > 0) or (linear_fit_high_slope > 0 and linear_fit_low_slope == 0) or (linear_fit_high_slope == 0 and linear_fit_low_slope > 0)', 
+#     'down': '(linear_fit_high_slope < 0 and linear_fit_low_slope < 0) or (linear_fit_high_slope < 0 and linear_fit_low_slope == 0) or (linear_fit_high_slope == 0 and linear_fit_low_slope < 0)',
+#     'none': '(linear_fit_high_slope > 0 and linear_fit_low_slope < 0) or (linear_fit_high_slope < 0 and linear_fit_low_slope > 0) or (linear_fit_high_slope == 0 and linear_fit_low_slope == 0)'} 
+#   values = {
+#     'up': 'u', 
+#     'down': 'd',
+#     'none': 'n'}
+#   df = assign_condition_value(df=df, column='linear_direction', condition_dict=conditions, value_dict=values, default_value='')
 
-  # price direction
-  df['price_direction'] = 0.5
-  df['rate_direction'] = 0.5
+#   # price direction
+#   df['price_direction'] = 0.5
+#   df['rate_direction'] = 0.5
 
-  min_idx = tmp_idxs[0]
-  reach_top = None
-  reach_bottom = None
+#   min_idx = tmp_idxs[0]
+#   reach_top = None
+#   reach_bottom = None
 
-  if len(reach_top_idx) > 0:
-    reach_top = reach_top_idx[0]
-  if len(reach_bottom_idx) > 0:
-    reach_bottom = reach_bottom_idx[0]
+#   if len(reach_top_idx) > 0:
+#     reach_top = reach_top_idx[0]
+#   if len(reach_bottom_idx) > 0:
+#     reach_bottom = reach_bottom_idx[0]
 
-  if reach_top is None and reach_bottom is None:
-    start = min_idx
-  elif reach_top is None and reach_bottom is not None:
-    start = reach_bottom
-  elif reach_top is not None and reach_bottom is None:
-    start = reach_top
-  else:
-    start = max(reach_top, reach_bottom)
+#   if reach_top is None and reach_bottom is None:
+#     start = min_idx
+#   elif reach_top is None and reach_bottom is not None:
+#     start = reach_bottom
+#   elif reach_top is not None and reach_bottom is None:
+#     start = reach_top
+#   else:
+#     start = max(reach_top, reach_bottom)
 
-  stop_data = df[start:].copy()
-  if len(stop_data) > 0:
-    counter = 0
-    for index, row in stop_data.iterrows():
-      counter += 1
-      if index == start:
-        continue
-      else:
+#   stop_data = df[start:].copy()
+#   if len(stop_data) > 0:
+#     counter = 0
+#     for index, row in stop_data.iterrows():
+#       counter += 1
+#       if index == start:
+#         continue
+#       else:
         
-        x1 = (df[start:index]['candle_color'] > 0).sum()
-        y1 = x1 / counter
+#         x1 = (df[start:index]['candle_color'] > 0).sum()
+#         y1 = x1 / counter
 
-        x2 = (df[start:index]['rate'] > 0).sum()
-        y2 = x2 / counter
+#         x2 = (df[start:index]['rate'] > 0).sum()
+#         y2 = x2 / counter
 
-        df.loc[index, 'price_direction'] = y1
-        df.loc[index, 'rate_direction'] = y2
+#         df.loc[index, 'price_direction'] = y1
+#         df.loc[index, 'rate_direction'] = y2
         
-  return df
- 
- # etf3x=17.34
- # calculate ta signal
-def calculate_ta_signal(df):
-  """
-  Calculate trading signals
-
-  :param df: dataframe with ta features and derived features for calculating signals
-  :raturns: dataframe with signal
-  :raises: None
-  """
-  if len(df) == 0:
-    print(f'No data for calculate_ta_signal')
-    return None
-
-  # copy data, initialize
-  df = df.copy()
-
-  # ================================ buy and sell signals ==========================
-  df['trend'] = ''
-  df['signal'] = ''
-
-  df['buy_score'] = 0
-  df['sell_score'] = 0
-  df['signal_score'] = 0
-  df['signal_description'] = ''
-
-  # version 2 - started 2022-01-14
-  conditions = {
-    # buy credits
-    'buy': {
-      'adx_trend 向上' :            'adx_day > 0',
-      'adx_value 增加':             'adx_value_change >= 1',
-      
-      '形成向上窗口':               '窗口_day == 1',
-      '突破窗口阻挡':               '突破_day == 1',
-      '在窗口处反弹':               '反弹_day == 1',
-      '长下影线支撑':               '(shadow_trend != "d" and candle_lower_shadow_pct > 0.5)',
-      '价格跳多':                   'candle_gap == 1',
-
-      '技术指标非负':               'down_trend_idx == 0',
-      '技术指标向上':               'trend_idx > 3',
-      '超卖':                       'bb_trend == "u"',
-    },
-    # sell credits
-    'sell': {
-      'adx_trend 向下':             'adx_day < 0',
-      'adx_value 减少':             'adx_value_change <= -1',
-      'adx 高开':                   'adx_value > 10 and adx_direction_day == 1',
-      'adx 趋势衰减':               '(-1 < adx_value_change < 1) and (adx_strong_day < 0)',
-
-      '形成向下窗口':               '窗口_day == -1',
-      '跌落窗口支撑':               '突破_day == -1',
-      '长上影线阻挡':               '(shadow_trend != "d" and candle_upper_shadow_pct > 0.5)',
-      # '包孕形态-下降':              '包孕_trend == "d"',
-      # '腰带形态-下降':              '腰带_trend == "d"',
-      '价格跳空':                   'candle_gap == -1',
-      '红色长实体':                 'candle_color == -1 and entity_diff >= 1.5',
-
-      '技术指标非正':               'up_trend_idx == 0',
-      '技术指标向下':               'trend_idx <= -3',
-      '超买':                       'bb_trend == "d"',
-    },
-  }
-  weights = {
-    # weights of buy credits
-    'buy': {
-      'adx_trend 向上' :            1,
-      'adx_value 增加':             1,
-
-      '形成向上窗口':               2,
-      '突破窗口阻挡':               2,
-      '在窗口处反弹':               2,
-      '长下影线支撑':               1,
-      '价格跳多':                   1,
-
-      '技术指标非负':               1,
-      '技术指标向上':               1,
-      '超卖':                       1,
-    },
-    # weights of sell credits
-    'sell': {
-      'adx_trend 向下':             -1,
-      'adx_value 减少':             -1,
-      'adx 高开':                   -1,
-      'adx 趋势衰减':               -2,
-
-      '形成向下窗口':               -2,
-      '跌落窗口支撑':               -2,
-      '长上影线阻挡':               -1,
-      '包孕形态-下降':              -1,
-      '腰带形态-下降':              -1,
-      '价格跳空':                   -2,
-      '红色长实体':                 -1,
-
-      '技术指标非正':               -1,
-      '技术指标向下':               -1,
-      '超买':                       -1,
-    },
-  }
-
-  # calculate buy and sell scores
-  for k in conditions.keys():
-    tmp_conditions = conditions[k]
-    tmp_weights = weights[k]
-
-    # for each buy/sell conditions
-    for c in tmp_conditions.keys():
-      c_weight = tmp_weights[c]
-      c_query = tmp_conditions[c]
-      c_idx = df.query(c_query).index
-      df.loc[c_idx, f'{k}_score'] += c_weight
-      df.loc[c_idx, f'signal_description'] += f'{c} |'
-
-  # add up buy_score and sell_score, to determine the final trend
-  df['signal_score'] = df['buy_score'] + df['sell_score']
-  signal_threshold = 0
-  conditions = {'u': f'signal_score > {signal_threshold}', 'd': f'signal_score < {-signal_threshold}'} 
-  values = {'u': 'u', 'd': 'd'}
-  df = assign_condition_value(df=df, column='trend', condition_dict=conditions, value_dict=values, default_value='n') 
-
-  # wave conditions
-  wave_conditions = {
-
-    # developing version 3 - started 2021-12-16
-    'fake up':          '((trend == "u") and (adx_value_change <= 0))',
-    'fake down':        '((trend == "d") and (adx_value_change >= 0))',
-
-    'weak trend':       '((trend == "u") and ((adx_strong_day <= -10) or ((-10 <= adx_value <= 10 or -5 <= adx_direction <= 5) and (adx_strong_day <= 1 or -1 < adx_strength_change < 1))))',
-    'start high':       '((trend == "u") and (adx_value > 10 or adx_direction_start > 10))',
-
-    'adx not exists':   '(adx != adx)',
-    'buy to verify':    '((trend == "u") and ((candle_color == -1) or (adx_direction_day < 0)))',
-    'sell to verify':   '((trend == "d") and ((-5 < adx_direction < 0) and (adx_direction_day == -1)))',
-
-    'trend down':       '((trend == "u") and (signal_score < 4) and (kama_day < 0 or up_trend_idx < 3))',
-  } 
-  wave_idx = df.query(' or '.join(wave_conditions.values())).index 
-  df.loc[wave_idx, 'uncertain_trend'] = df.loc[wave_idx, 'trend']
-  df.loc[wave_idx, 'trend'] = 'n'
-
-  # ================================ Calculate overall siganl ======================
-  df['trend_day'] = sda(series=df['trend'].replace({'':0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
-  df.loc[df['trend_day'] == 1, 'signal'] = 'b'
-  df.loc[df['trend_day'] ==-1, 'signal'] = 's'
-  # df.loc[df['trend_day'] == 1, 'signal'] = 'uu'
-  # df.loc[df['trend_day'] ==-1, 'signal'] = 'dd'
-
-  # df = df.drop(['ichimoku_mean', 'entity_mean'], axis=1)
-
-  return df
+#   return df
 
 # ichimoku trend
     # conditions = {
