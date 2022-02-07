@@ -435,13 +435,10 @@ def calculate_ta_static(df, indicators=default_indicators):
           end = extreme_idx[i]
         tmp_direction = df.loc[tmp_idx, 'adx_direction_day']
         tmp_extreme = df[start:end]['adx_value'].max() if tmp_direction < 0 else df[start:end]['adx_value'].min()
-        tmp_extreme_day = df[start:end]['adx_direction_day'].max() if tmp_direction < 0 else df[start:end]['adx_direction_day'].min()
         tmp_direction_start = df.loc[end, 'adx_value']
         df.loc[tmp_idx, 'prev_adx_extreme'] = tmp_extreme
-        df.loc[tmp_idx, 'prev_adx_extreme_day'] = tmp_extreme_day
         df.loc[tmp_idx, 'adx_direction_start'] = tmp_direction_start
       df['prev_adx_extreme'] = df['prev_adx_extreme'].fillna(method='ffill')
-      df['prev_adx_extreme_day'] = df['prev_adx_extreme_day'].fillna(method='ffill')
       df['adx_direction_start'] = df['adx_direction_start'].fillna(method='ffill')
 
       # overall adx trend
@@ -580,7 +577,7 @@ def calculate_ta_static(df, indicators=default_indicators):
         all_indicators += [x for x in indicators[i] if x not in all_indicators]
       # all_indicators = list(set(trend_indicators + volume_indicators + volatility_indicators + other_indicators))
       include_indicators = [x for x in all_indicators if x != 'bb'] # ['ichimoku', 'aroon', 'adx', 'psar']
-      exclude_indicators = [x for x in all_indicators if x not in include_indicators]
+      # exclude_indicators = [x for x in all_indicators if x not in include_indicators]
       for indicator in all_indicators:
         trend_col = f'{indicator}_trend'
         signal_col = f'{indicator}_signal'
@@ -608,7 +605,14 @@ def calculate_ta_static(df, indicators=default_indicators):
           down_idx = df.query(f'{trend_col} == "d"').index
           df.loc[up_idx, 'up_trend_idx'] += 1
           df.loc[down_idx, 'down_trend_idx'] -= 1
-      
+
+      # previous adx direction period
+      extreme_idx = df.query('adx_day == 1 or adx_day == -1').index.tolist()
+      df['prev_adx_day'] = df['adx_day'].shift(1)
+      df.loc[extreme_idx, 'prev_adx_period'] = df.loc[extreme_idx, 'prev_adx_day']
+      df['prev_adx_period'] = df['prev_adx_period'].fillna(method='ffill')
+      df.drop(['prev_adx_day'], axis=1, inplace=True)
+
       # calculate overall trend index 
       df['trend_idx'] = df['up_trend_idx'] + df['down_trend_idx']
 
@@ -1502,6 +1506,7 @@ def postprocess(df, keep_columns, drop_columns, sec_names, target_interval=''):
     'candle downpattern 3': '(窗口_day == -1)',
     'linear downpatterns':  '(linear_bounce_day == -1)',
     
+    'waving':               '(-5 <= prev_adx_period <= 5 )',
     'potential':            '(adx_value < -10) and (0 < adx_direction_day <= 3) and (0 < 突破_day <=3 or (ichimoku_distance_signal < 0 and 0 < tankan_signal <=3))',
     'signal':               '(signal == "b")'}
 
@@ -1529,6 +1534,7 @@ def postprocess(df, keep_columns, drop_columns, sec_names, target_interval=''):
     'candle downpattern 3': '',
     'linear downpatterns':  '',
     
+    'waving':               '',
     'potential':            'potential',
     'signal':               'signal'}
 
@@ -1556,14 +1562,17 @@ def postprocess(df, keep_columns, drop_columns, sec_names, target_interval=''):
     'candle downpattern 3': -1,
     'linear downpatterns':  -1,
     
+    'waving':               -1,
     'potential':            1,
     'signal':               0}
 
   df = assign_condition_value(df=df, column='label', condition_dict=conditions, value_dict=values, default_value='')
   df['score'] = 0
+  df['score_description'] = ''
   for c in conditions.keys():
     tmp_idx = df.query(conditions[c]).index
     df.loc[tmp_idx, 'score'] += scores[c]
+    df.loc[tmp_idx, 'score_description'] += f'{c}| '
 
   # add names for symbols
   df['name'] = df['symbol']
@@ -5327,13 +5336,18 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
   linear_desc = '' if len(linear_desc) == 0 else f'{linear_desc}'
   candle_desc = df.loc[df.index.max(), "candle_description"]
   candle_desc = '' if len(candle_desc) == 0 else f'{candle_desc}'
-  adx_desc = f' AD·IC {df.loc[df.index.max(), "adx_day"]}·{df.loc[df.index.max(), "ichimoku_distance_signal"]} '
-  desc = '\n[' + linear_desc+ ' | ' + candle_desc + ' | ' + adx_desc + ']'
+  adx_desc = f' Adx({df.loc[df.index.max(), "adx_day"]})·Ich({df.loc[df.index.max(), "ichimoku_distance_signal"]}) '
+  desc = '\n[' + linear_desc
+  if candle_desc != '':
+    desc += ' | ' + candle_desc
+  if adx_desc != '':
+    desc += ' | ' + adx_desc 
+  desc += ']'
 
   # construct super title
   if new_title is None:
     new_title == ''
-  fig.suptitle(f'{title} - {new_title}({close_rate}%){desc}', x=0.5, y=1, fontsize=25, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1))
+  fig.suptitle(f'{title} - {new_title}({close_rate}%){desc}', x=0.5, y=0.985, fontsize=25, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1))
   
   # save image
   if save_image and (save_path is not None):
