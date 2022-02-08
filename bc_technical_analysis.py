@@ -1481,29 +1481,42 @@ def postprocess(df, keep_columns, drop_columns, sec_names, target_interval=''):
   # overbuy/oversell
   df['obos'] = df['bb_trend'].replace({'d': '超买', 'u': '超卖', 'n': ''})
 
+  # adx direction strength
+  df['adx_direction_mean'] = df['adx_direction'] / df['adx_direction_day']
+
   # candle pattern index and description
   conditions = {
     'uptrend':              '(trend == "u" or uncertain_trend == "u")',
     'adx uptrend':          '(adx_trend != "d" and adx_direction > 0)',
     'ichimoku uptrend':     '((0 < kijun_signal < 5) and (ichimoku_distance_signal < 0 or 0 < ichimoku_distance_signal < 5))',
-    'tankan uptrend':       '(0 < tankan_signal <= 3)',
-    'kijun uptrend':        '(0 < kijun_signal <= 3)',
+    'tankan uptrend':       '(0 < tankan_rate)',
+    'kijun uptrend':        '(0 < kijun_rate)',
+    'kama uptrend':         '((0 < kama_slow_signal < 5) and (kama_distance_signal < 0 or 0 < kama_distance_signal < 5))',
+    'kama fast uptrend':    '(0 < kama_fast_rate)',
+    'kama slow uptrend':    '(0 < kama_slow_rate)',
     'candle uppattern 1':   '(启明黄昏_day == 1)',
     'candle uppattern 2':   '(反弹_day == 1)',
     'candle uppattern 3':   '(窗口_day == 1)',
+    'candle uppattern 4':   '(腰带_day == 1)',
     'linear uppatterns':    '(linear_bounce_day == 1)',
     
     'downtrend':            '(trend_idx < 0) and (adx_day < 0)',
     'adx too late':         '(adx_value > 25 or adx_direction_day >= 10)',
     'adx too weak':         '(prev_adx_extreme > 0 and adx_direction < 5)',
     'adx downtrend':        '(adx_direction < 0)',
-    'tankan downtrend':     '(0 > tankan_signal >= -3)',
-    'kijun downtrend':      '(0 > kijun_signal >= -3)',
+    'adx direction weak':   '(adx_direction_mean < 1.5 or adx_value_change < 0.5)',
+    'tankan downtrend':     '(0 > tankan_rate)',
+    'kijun downtrend':      '(0 > kijun_rate)',
+    'kama fast downtrend':  '(0 > kama_fast_rate)',
+    'kama slow downtrend':  '(0 > kama_slow_rate)',
+    'long after kama':      '(kama_day <= -60)',
     'linear downtrend':     '(linear_slope < 0) and (linear_fit_high_slope == 0 or linear_fit_high_signal <= 0)',
+    'linear wavetrend':     '(linear_fit_high_slope == 0 or linear_slope == 0)',
     'overbuy':              '(bb_trend == "d")',
     'candle downpattern 1': '(启明黄昏_day == -1)',
     'candle downpattern 2': '(反弹_day == -1)',
     'candle downpattern 3': '(窗口_day == -1)',
+    'candle downpattern 4': '(腰带_day == -1)',
     'linear downpatterns':  '(linear_bounce_day == -1)',
     
     'waving':               '(-5 <= prev_adx_period <= 5 )',
@@ -1516,22 +1529,32 @@ def postprocess(df, keep_columns, drop_columns, sec_names, target_interval=''):
     'ichimoku uptrend':     'potential',
     'tankan uptrend':       'potential',
     'kijun uptrend':        'potential',
+    'kama uptrend':         'potential',
+    'kama fast uptrend':    'potential',
+    'kama slow uptrend':    'potential',
     'candle uppattern 1':   'potential',
     'candle uppattern 2':   'potential',
     'candle uppattern 3':   'potential',
+    'candle uppattern 4':   'potential',
     'linear uppatterns':    'potential',
 
     'downtrend':            '',
     'adx too late':         '',
     'adx too weak':         '',
     'adx downtrend':        '',
+    'adx direction weak':   '',
     'tankan downtrend':     '',
     'kijun downtrend':      '',
     'linear downtrend':     '',
+    'linear wavetrend':     '',
+    # 'kama fast downtrend':  '',
+    # 'kama slow downtrend':  '',
+    'long after kama':      '',
     'overbuy':              '',
     'candle downpattern 1': '',
     'candle downpattern 2': '',
     'candle downpattern 3': '',
+    'candle downpattern 4': '',
     'linear downpatterns':  '',
     
     'waving':               '',
@@ -1544,23 +1567,33 @@ def postprocess(df, keep_columns, drop_columns, sec_names, target_interval=''):
     'ichimoku uptrend':     1,
     'tankan uptrend':       1,
     'kijun uptrend':        1,
+    'kama uptrend':         1,
+    'kama fast uptrend':    1,
+    'kama slow uptrend':    1,
     'candle uppattern 1':   1,
     'candle uppattern 2':   1,
     'candle uppattern 3':   1,
+    'candle uppattern 4':   1,
     'linear uppatterns':    1,
 
     'downtrend':            -1,
     'adx too late':         -1,
     'adx too weak':         -1,
     'adx downtrend':        -1,
+    'adx direction weak':   -1,
     'linear downtrend':     -1,
     'tankan downtrend':     -1,
     'kijun downtrend':      -1,
+    'kama fast downtrend':  -1,
+    'kama slow downtrend':  -1,
+    'long after kama':      -1,
     'overbuy':              -1,
     'candle downpattern 1': -1,
     'candle downpattern 2': -1,
     'candle downpattern 3': -1,
+    'candle downpattern 4': -1,
     'linear downpatterns':  -1,
+    'linear wavetrend':     -1,
     
     'waving':               -1,
     'potential':            1,
@@ -1589,7 +1622,7 @@ def postprocess(df, keep_columns, drop_columns, sec_names, target_interval=''):
   df = df.drop(drop_columns, axis=1)
   
   # sort by operation and symbol
-  df = df.sort_values(['总分', 'ADX差值', 'ADX方向', 'ADX起始'], ascending=[False, True, True, True])
+  df = df.sort_values(['ADX平均强度', 'ADX差值', '总分', 'ADX方向', 'ADX起始'], ascending=[True, True, False, True, True])
   
   return df
 
@@ -4885,8 +4918,8 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   green_mask = ((df.adx_day > 0)) # ((df.adx_direction > 0)) # | (df.next_adx_diff_ma_change > 0) | (df.prev_adx_day > 0)
   red_mask = ((df.adx_day < 0)) # ((df.adx_direction < 0)) # | (df.next_adx_diff_ma_change < 0) | (df.prev_adx_day < 0)
  
-  ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=green_mask,  facecolor='green', interpolate=False, alpha=0.3) 
-  ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=red_mask, facecolor='red', interpolate=False, alpha=0.3)
+  ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=green_mask,  facecolor='green', interpolate=False, alpha=0.3, label='adx up') 
+  ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=red_mask, facecolor='red', interpolate=False, alpha=0.3, label='adx down')
 
   # df['adx_value'] = df['adx_value'] * (df['adx'] / 25)
   # plot_bar(df=df, target_col='adx_value', alpha=0.2, color_mode='up_down', benchmark=0, title='', use_ax=ax, plot_args=default_plot_args)
@@ -4903,8 +4936,8 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
 
   strong_trend_idx = df.query(f'adx >= {adx_threshold}').index
   weak_trend_idx = df.query(f'adx < {adx_threshold}').index
-  ax.scatter(strong_trend_idx, df.loc[strong_trend_idx, 'adx'], color=df.loc[strong_trend_idx, 'adx_color'], label='adx', alpha=0.4, marker='s')
-  ax.scatter(weak_trend_idx, df.loc[weak_trend_idx, 'adx'], color=df.loc[weak_trend_idx, 'adx_color'], label='adx', alpha=0.4, marker='_')
+  ax.scatter(strong_trend_idx, df.loc[strong_trend_idx, 'adx'], color=df.loc[strong_trend_idx, 'adx_color'], label='adx strong', alpha=0.4, marker='s')
+  ax.scatter(weak_trend_idx, df.loc[weak_trend_idx, 'adx'], color=df.loc[weak_trend_idx, 'adx_color'], label='adx weak', alpha=0.4, marker='_')
 
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 

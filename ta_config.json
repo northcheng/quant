@@ -142,6 +142,7 @@
       "adx_value": "ADX差值",
       "adx_strength": "ADX强度", 
       "adx_direction_day": "ADX方向",
+      "adx_direction_mean": "ADX平均强度",
       "prev_adx_extreme": "ADX起始",
       "ichimoku_distance_signal": "TK信号",
       "linear_slope": "拟合斜率",
