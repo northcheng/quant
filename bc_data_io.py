@@ -188,7 +188,7 @@ def get_data_from_eod(symbol, start_date=None, end_date=None, interval='d', is_p
       # convert downloaded data from json to dataframe
       data = pd.DataFrame(eod)
       if is_print:
-        print(f'{symbol:4}: {data.date.min()} - {data.date.max()}, 下载记录 {len(data)}, eod({response_status})', end=', ')
+        print(f'{symbol:5}: {data.date.min()} - {data.date.max()}, 下载记录 {len(data)}, eod({response_status})', end=', ')
       
       # add dividend data
       if add_dividend:
@@ -1098,6 +1098,7 @@ def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', req
 
   # get the existed data and its latest date for each symbols
   data = {}
+  up_to_date = ''
   for symbol in symbols:
     
     # init symbol data and its most recent date
@@ -1147,7 +1148,10 @@ def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', req
     
     else:
       if is_print:
-        print(f'from {tmp_data_date} {symbol:4}: already up-to-date, skip')
+        up_to_date = f'from {tmp_data_date} ***** - [skip]: already up-to-date'
+    
+  if up_to_date != '':
+    print(up_to_date)
 
   # add real-time data when requiring data return and data will NOT be saved
   if update_mode in ['realtime', 'both']:
