@@ -1098,7 +1098,7 @@ def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', req
 
   # get the existed data and its latest date for each symbols
   data = {}
-  up_to_date = ''
+  up_to_date_symbols = []
   for symbol in symbols:
     
     # init symbol data and its most recent date
@@ -1147,11 +1147,12 @@ def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', req
         save_stock_data(df=data[symbol], file_path=stock_data_path, file_name=symbol, file_format=file_format, reset_index=True, index=False)
     
     else:
-      if is_print:
-        up_to_date = f'from {tmp_data_date} ***** - [skip]: already up-to-date'
-    
-  if up_to_date != '':
-    print(up_to_date)
+      up_to_date_symbols.append(symbol)
+      
+  num_symbol_up_to_date = len(up_to_date_symbols)
+  if num_symbol_up_to_date > 0:
+    if is_print:
+      print(f'from {tmp_data_date} ***** - [skip]: <already up-to-date {num_symbol_up_to_date}/{len(symbols)} >')
 
   # add real-time data when requiring data return and data will NOT be saved
   if update_mode in ['realtime', 'both']:
