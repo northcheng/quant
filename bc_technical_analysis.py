@@ -1485,121 +1485,54 @@ def postprocess(df, keep_columns, drop_columns, sec_names, target_interval=''):
   df['adx_direction_mean'] = df['adx_direction'] / df['adx_direction_day']
 
   # candle pattern index and description
-  conditions = {
-    'uptrend':              '(trend == "u" or uncertain_trend == "u")',
-    'adx uptrend':          '(adx_trend != "d" and adx_direction > 0)',
-    'ichimoku uptrend':     '((0 < kijun_signal < 5) and (ichimoku_distance_signal < 0 or 0 < ichimoku_distance_signal < 5))',
-    'tankan uptrend':       '(0 < tankan_rate)',
-    'kijun uptrend':        '(0 < kijun_rate)',
-    'kama uptrend':         '((0 < kama_slow_signal < 5) and (kama_distance_signal < 0 or 0 < kama_distance_signal < 5))',
-    'kama fast uptrend':    '(0 < kama_fast_rate)',
-    'kama slow uptrend':    '(0 < kama_slow_rate)',
-    'candle uppattern 1':   '(启明黄昏_day == 1)',
-    'candle uppattern 2':   '(反弹_day == 1)',
-    'candle uppattern 3':   '(窗口_day == 1)',
-    'candle uppattern 4':   '(腰带_day == 1)',
-    'linear uppatterns':    '(linear_bounce_day == 1)',
-    
-    'downtrend':            '(trend_idx < 0) and (adx_day < 0)',
-    'adx too late':         '(adx_value > 25 or adx_direction_day >= 10)',
-    'adx too weak':         '(prev_adx_extreme > 0 and adx_direction < 5)',
-    'adx downtrend':        '(adx_direction < 0)',
-    'adx direction weak':   '(adx_direction_mean < 1.5 or adx_value_change < 0.5)',
-    'tankan downtrend':     '(0 > tankan_rate)',
-    'kijun downtrend':      '(0 > kijun_rate)',
-    'kama fast downtrend':  '(0 > kama_fast_rate)',
-    'kama slow downtrend':  '(0 > kama_slow_rate)',
-    'long after kama':      '(kama_day <= -60)',
-    'linear downtrend':     '(linear_slope < 0) and (linear_fit_high_slope == 0 or linear_fit_high_signal <= 0)',
-    'linear wavetrend':     '(linear_fit_high_slope == 0 or linear_slope == 0)',
-    'overbuy':              '(bb_trend == "d")',
-    'candle downpattern 1': '(启明黄昏_day == -1)',
-    'candle downpattern 2': '(反弹_day == -1)',
-    'candle downpattern 3': '(窗口_day == -1)',
-    'candle downpattern 4': '(腰带_day == -1)',
-    'linear downpatterns':  '(linear_bounce_day == -1)',
-    
-    'waving':               '(-5 <= prev_adx_period <= 5 )',
-    'potential':            '(adx_value < -10) and (0 < adx_direction_day <= 3) and (0 < 突破_day <=3 or (ichimoku_distance_signal < 0 and 0 < tankan_signal <=3))',
-    'signal':               '(signal == "b")'}
+  score_label_condition = {
+    '+趋势':              [1, 'potential', '(trend == "u" or uncertain_trend == "u")'],
+    '+Adx':               [1, 'potential', '(adx_trend != "d" and adx_direction > 0)'],
+    '+Ichimoku':          [1, 'potential', '((0 < kijun_signal < 5) and (ichimoku_distance_signal < 0 or 0 < ichimoku_distance_signal < 5))'],
+    '+Tankan':            [1, 'potential', '(0 < tankan_rate)'],
+    '+Kijun':             [1, 'potential', '(0 < kijun_rate)'],
+    '+Kama':              [1, 'potential', '((0 < kama_slow_signal < 5) and (kama_distance_signal < 0 or 0 < kama_distance_signal < 5))'],
+    '+Kama_fast':         [1, 'potential', '(0 < kama_fast_rate)'],
+    '+Kama_slow':         [1, 'potential', '(0 < kama_slow_rate)'],
+    '+启明星':            [1, 'potential', '(启明黄昏_day == 1)'],
+    '+窗口反弹':          [1, 'potential', '(反弹_day == 1)'],
+    '+上升窗口':          [1, 'potential', '(窗口_day == 1)'],
+    '+腰带':              [1, 'potential', '(腰带_day == 1)'],
+    '+拟合反弹':          [1, 'potential', '(linear_bounce_day == 1)'],
 
-  values = {
-    'uptrend':              'potential',
-    'adx uptrend':          'potential',
-    'ichimoku uptrend':     'potential',
-    'tankan uptrend':       'potential',
-    'kijun uptrend':        'potential',
-    'kama uptrend':         'potential',
-    'kama fast uptrend':    'potential',
-    'kama slow uptrend':    'potential',
-    'candle uppattern 1':   'potential',
-    'candle uppattern 2':   'potential',
-    'candle uppattern 3':   'potential',
-    'candle uppattern 4':   'potential',
-    'linear uppatterns':    'potential',
+    '-趋势':              [-1, '', '(trend_idx < 0) and (adx_day < 0)'],
+    '-Adx':               [-1, '', '(adx_direction < 0)'],
+    '-Adx时效':           [-1, '', '(adx_value > 25 or adx_direction_day >= 10)'],
+    '-Adx强度':           [-1, '', '(prev_adx_extreme > 0 and adx_direction < 5)'],
+    '-Adx趋势':           [-1, '', '(adx_direction_mean < 1.5 or adx_value_change < 0.5)'],
+    '-Tankan':            [-1, '', '(0 > tankan_rate)'],
+    '-Kijun':             [-1, '', '(0 > kijun_rate)'],
+    '-Kama_fast':         [-1, '', '(0 > kama_fast_rate)'],
+    '-Kama_slow':         [-1, '', '(0 > kama_slow_rate)'],
+    '-长期下跌':          [-1, '', '(kama_day <= -60)'],
+    '-拟合下降':          [-1, '', '(linear_slope < 0) and (linear_fit_high_slope == 0 or linear_fit_high_signal <= 0)'],
+    '-拟合波动':          [-1, '', '(linear_fit_high_slope == 0 or linear_slope == 0)'],
+    '-超买':              [-1, '', '(bb_trend == "d")'],
+    '-黄昏星':            [1, '', '(启明黄昏_day == -1)'],
+    '-窗口回落':          [1, '', '(反弹_day == -1)'],
+    '-下跌窗口':          [1, '', '(窗口_day == -1)'],
+    '-腰带':              [1, '', '(腰带_day == -1)'],
+    '-拟合回落':          [1, '', '(linear_bounce_day == -1)'],
 
-    'downtrend':            '',
-    'adx too late':         '',
-    'adx too weak':         '',
-    'adx downtrend':        '',
-    'adx direction weak':   '',
-    'tankan downtrend':     '',
-    'kijun downtrend':      '',
-    'linear downtrend':     '',
-    'linear wavetrend':     '',
-    # 'kama fast downtrend':  '',
-    # 'kama slow downtrend':  '',
-    'long after kama':      '',
-    'overbuy':              '',
-    'candle downpattern 1': '',
-    'candle downpattern 2': '',
-    'candle downpattern 3': '',
-    'candle downpattern 4': '',
-    'linear downpatterns':  '',
-    
-    'waving':               '',
-    'potential':            'potential',
-    'signal':               'signal'}
+    '-波动':              [-1, '', '(-5 <= prev_adx_period <= 5 )'],
+    '+潜力':              [1, 'potential', '(adx_value < -10) and (0 < adx_direction_day <= 3) and (0 < 突破_day <=3 or (ichimoku_distance_signal < 0 and 0 < tankan_signal <=3))'],
+    '信号':               [1, 'signal', '(signal == "b")']
+  }
+  
+  conditions = {}
+  labels = {}
+  scores = {}
+  for k in score_label_condition.keys():
+    score[k] = score_label_condition[0]
+    labels[k] = score_label_condition[1]
+    conditions[k] = score_label_condition[2]
 
-  scores = {
-    'uptrend':              1,
-    'adx uptrend':          1,
-    'ichimoku uptrend':     1,
-    'tankan uptrend':       1,
-    'kijun uptrend':        1,
-    'kama uptrend':         1,
-    'kama fast uptrend':    1,
-    'kama slow uptrend':    1,
-    'candle uppattern 1':   1,
-    'candle uppattern 2':   1,
-    'candle uppattern 3':   1,
-    'candle uppattern 4':   1,
-    'linear uppatterns':    1,
-
-    'downtrend':            -1,
-    'adx too late':         -1,
-    'adx too weak':         -1,
-    'adx downtrend':        -1,
-    'adx direction weak':   -1,
-    'linear downtrend':     -1,
-    'tankan downtrend':     -1,
-    'kijun downtrend':      -1,
-    'kama fast downtrend':  -1,
-    'kama slow downtrend':  -1,
-    'long after kama':      -1,
-    'overbuy':              -1,
-    'candle downpattern 1': -1,
-    'candle downpattern 2': -1,
-    'candle downpattern 3': -1,
-    'candle downpattern 4': -1,
-    'linear downpatterns':  -1,
-    'linear wavetrend':     -1,
-    
-    'waving':               -1,
-    'potential':            1,
-    'signal':               0}
-
-  df = assign_condition_value(df=df, column='label', condition_dict=conditions, value_dict=values, default_value='')
+  df = assign_condition_value(df=df, column='label', condition_dict=conditions, value_dict=labels, default_value='')
   df['score'] = 0
   df['score_description'] = ''
   for c in conditions.keys():
