@@ -1485,66 +1485,6 @@ def postprocess(df, keep_columns, drop_columns, sec_names, target_interval=''):
   # overbuy/oversell
   df['obos'] = df['bb_trend'].replace({'d': '超买', 'u': '超卖', 'n': ''})
 
-  # # define conditions and corresponding labels and scores
-  # score_label_condition = {
-  #   '+趋势':              [1, '', '(trend == "u")'],
-  #   '+Adx':               [1, '', '(adx_trend != "d" and adx_direction > 0)'],
-  #   '+Adx动量':           [1, '', '(adx_direction_mean > 1.5)'],
-  #   '+Adx低位':           [1, '', '(adx_direction >=5 and adx_value < -20)'],
-  #   '+Ichimoku':          [1, '', '(ichimoku_trend == "u")'],
-  #   '+Kama':              [1, '', '(kama_trend == "u")'],
-  #   '+启明星':            [1, '', '(启明黄昏_day == 1)'],
-  #   '+窗口反弹':          [1, '', '(反弹_day == 1)'],
-  #   '+上升窗口':          [1, '', '(窗口_day == 1)'],
-  #   '+腰带':              [1, '', '(腰带_day == 1)'],
-  #   '+平底':              [1, '', '(平头_day == 1)'],
-  #   '+拟合反弹':          [1, '', '(5 > linear_bounce_day >= 1)'],
-
-  #   '-趋势':              [-1, '', '(trend_idx < 0)'],
-  #   '-Adx':               [-1, '', '(adx_direction < 0)'],
-  #   '-Adx高位':           [-1, '', '(adx_value > 25)'],
-  #   '-Adx时效':           [-1, '', '(adx_direction_day >= 10)'],
-  #   '-Adx动量':           [-1, '', '(adx_direction_mean < 1.5 or adx_value_change < 0.5)'],
-  #   '-Adx波动':           [-1, '', '(-5 <= prev_adx_period <= 5)'],
-  #   '-Adx长期弱势':       [-1, '', '(adx_strong_day <= -15)'],
-  #   '-Adx趋近于0':        [-1, '', '(-5 < adx_direction_start < 5 and -15 < adx_value < 15)'],
-  #   '-Ichimoku':          [-1, '', '(ichimoku_trend == "d")'],
-  #   '-Kama':              [-1, '', '(kama_trend == "d")'],
-  #   '-Ichimoku高位':      [-1, '', '(ichimoku_distance_signal >= 30)'],
-  #   '-Kama高位':          [-1, '', '(kama_distance_signal >= 30)'],
-  #   '-Renko高位':         [-1, '', '(renko_day >= 100)'],
-  #   '-长期下跌':          [-3, '', '(ichimoku_distance_signal <= -60 or kama_distance_signal <= -60)'],
-  #   '-拟合下降':          [-1, '', '(linear_slope < 0) and (linear_fit_high_slope == 0 or linear_fit_high_signal <= 0)'],
-  #   '-拟合波动':          [-1, '', '(linear_slope == 0)'],
-  #   '-超买':              [-1, '', '(bb_trend == "d")'],
-  #   '-黄昏星':            [-1, '', '(启明黄昏_day == -1)'],
-  #   '-窗口回落':          [-1, '', '(反弹_day == -1)'],
-  #   '-下跌窗口':          [-1, '', '(窗口_day == -1)'],
-  #   '-腰带':              [-1, '', '(腰带_day == -1)'],
-  #   '-平顶':              [-1, '', '(平头_day == -1)'],
-  #   '-拟合回落':          [-2, '', '(-5 < linear_bounce_day <= -1)'],
-
-  #   '潜力':               [0, 'potential', '(adx_value < -10) and (0 < adx_direction_day <= 3) and (0 < 突破_day <=3 or (ichimoku_distance_signal < 0 and 0 < tankan_signal <=3))'],
-  #   '信号':               [0, 'signal', '(signal == "b")']
-  # }
-  # conditions = {}
-  # labels = {}
-  # scores = {}
-  # for k in score_label_condition.keys():
-  #   scores[k] = score_label_condition[k][0]
-  #   labels[k] = score_label_condition[k][1]
-  #   conditions[k] = score_label_condition[k][2]
-
-  # df = assign_condition_value(df=df, column='label', condition_dict=conditions, value_dict=labels, default_value='')
-  # df['score'] = 0
-  # df['score_description'] = ''
-  # for c in conditions.keys():
-  #   tmp_idx = df.query(conditions[c]).index
-  #   df.loc[tmp_idx, 'score'] += scores[c]
-  #   if c not in ['潜力', '信号']:
-  #     df.loc[tmp_idx, 'score_description'] += f'| {c} '
-  # df['score_description'] = df['score_description'] + '|'
-
   # sort symbols
   df = df.sort_values(['score', 'adx_direction_mean', 'adx_value', 'adx_direction_day', 'prev_adx_extreme'], ascending=[False, True, True, True, True])
   
@@ -1566,9 +1506,6 @@ def postprocess(df, keep_columns, drop_columns, sec_names, target_interval=''):
 
   # drop columns
   df = df.drop(drop_columns, axis=1)
-  
-  # sort by operation and symbol
-  # df = df.sort_values(['总分', 'ADX平均强度', 'ADX差值', 'ADX方向', 'ADX起始'], ascending=[False, True, True, True, True])
   
   return df
 
