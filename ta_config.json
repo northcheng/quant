@@ -56,7 +56,6 @@
         "target_indicator": [
           "candlestick",
           "ichimoku",
-          "linear",
           "kama"
         ],
         "candlestick_width": 0.62,
@@ -145,7 +144,6 @@
       "adx_direction_mean": "ADX平均强度",
       "prev_adx_extreme": "ADX起始",
       "ichimoku_distance_signal": "TK信号",
-      "linear_slope": "拟合斜率",
       "trend_day": "整体趋势",
       "signal": "交易信号",
       "label": "分类",

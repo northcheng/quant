@@ -30,7 +30,7 @@ default_trend_val = {'pos_trend':'u', 'neg_trend':'d', 'none_trend':'', 'wave_tr
 
 # default indicators and dynamic trend to calculate
 default_indicators = {'trend': ['ichimoku', 'kama', 'adx', 'psar'], 'volume': ['fi'], 'volatility': ['bb'], 'other': []}
-default_perspectives = ['renko', 'candle', 'linear', 'support_resistant']
+default_perspectives = ['renko', 'candle', 'support_resistant']
 
 # default visualization arguments
 default_candlestick_color = {'colorup':'green', 'colordown':'red', 'alpha':0.8}
@@ -1039,7 +1039,11 @@ def calculate_ta_dynamic(df, perspective=default_perspectives):
       # focus on the last row only
       max_idx = df.index.max()
       valid_idxs = df.query('linear_slope == linear_slope').index
-    
+    # else:
+      # df['linear_bounce_day'] = 0
+      # for col in ['linear_fit_high_slope', 'linear_fit_low_slope', 'linear_slope', 'linear_fit_high_signal', 'linear_fit_low_signal']:
+      #   df[col] = np.nan
+
     # ================================ support and resistant =====================
     phase = 'support and resistant'
     if 'support_resistant' in perspective:
@@ -1304,74 +1308,74 @@ def generate_ta_description(df):
 
   # calculate renko trend
   df['linear_description'] = ''
-  conditions = {
+  # conditions = {
     
-    # linear trend
-    '强势': '(linear_slope >= 0.1 or linear_slope <= -0.1) and ((linear_fit_high_slope > 0 and linear_fit_low_slope > 0) or (linear_fit_high_slope < 0 and linear_fit_low_slope < 0))', 
-    '弱势': '(-0.1 < linear_slope < 0.1) or ((linear_fit_high_slope > 0 and linear_fit_low_slope < 0) or (linear_fit_high_slope < 0 and linear_fit_low_slope > 0))',
-    '上行': '((linear_fit_high_slope > 0 and linear_fit_low_slope >= 0) or (linear_fit_high_slope >= 0 and linear_fit_low_slope > 0))',
-    '下行': '((linear_fit_high_slope < 0 and linear_fit_low_slope <= 0) or (linear_fit_high_slope <= 0 and linear_fit_low_slope < 0))',
-    '波动': '((linear_fit_high_slope >= 0 and linear_fit_low_slope <= 0) or (linear_fit_high_slope <= 0 and linear_fit_low_slope >= 0))',
-    '轨道中': '(linear_fit_low < Close < linear_fit_high)',
-    '轨道上方': '(linear_fit_low < linear_fit_high <= Close)',
-    '轨道下方': '(linear_fit_high > linear_fit_low >= Close)',
+  #   # linear trend
+  #   '强势': '(linear_slope >= 0.1 or linear_slope <= -0.1) and ((linear_fit_high_slope > 0 and linear_fit_low_slope > 0) or (linear_fit_high_slope < 0 and linear_fit_low_slope < 0))', 
+  #   '弱势': '(-0.1 < linear_slope < 0.1) or ((linear_fit_high_slope > 0 and linear_fit_low_slope < 0) or (linear_fit_high_slope < 0 and linear_fit_low_slope > 0))',
+  #   '上行': '((linear_fit_high_slope > 0 and linear_fit_low_slope >= 0) or (linear_fit_high_slope >= 0 and linear_fit_low_slope > 0))',
+  #   '下行': '((linear_fit_high_slope < 0 and linear_fit_low_slope <= 0) or (linear_fit_high_slope <= 0 and linear_fit_low_slope < 0))',
+  #   '波动': '((linear_fit_high_slope >= 0 and linear_fit_low_slope <= 0) or (linear_fit_high_slope <= 0 and linear_fit_low_slope >= 0))',
+  #   '轨道中': '(linear_fit_low < Close < linear_fit_high)',
+  #   '轨道上方': '(linear_fit_low < linear_fit_high <= Close)',
+  #   '轨道下方': '(linear_fit_high > linear_fit_low >= Close)',
 
-    # linear support and resistant
-    '跌落拟合支撑': '(linear_break_day == -1)',
-    '突破拟合阻挡': '(linear_break_day ==  1)', 
-    '触顶回落': '(linear_bounce_day == -1)',
-    '触底反弹': '(linear_bounce_day == 1)'
-  } 
-  # construct description
-  for c in conditions.keys():
-    tmp_des = c
-    tmp_con = conditions[c]
-    idx = df.query(tmp_con).index
-    segment = ''
-    if c in ['轨道中', '轨道上方', '轨道下方', '跌破支撑', '突破阻挡', '触顶回落', '触底反弹']:
-      segment = ' | '
-    df.loc[idx, 'linear_description'] += (tmp_des + segment)
-  df['linear_description'] = df['linear_description'].apply(lambda x: x[:-3] if (len(x) > 3) and (x[-2] == '|') else x) 
+  #   # linear support and resistant
+  #   '跌落拟合支撑': '(linear_break_day == -1)',
+  #   '突破拟合阻挡': '(linear_break_day ==  1)', 
+  #   '触顶回落': '(linear_bounce_day == -1)',
+  #   '触底反弹': '(linear_bounce_day == 1)'
+  # } 
+  # # construct description
+  # for c in conditions.keys():
+  #   tmp_des = c
+  #   tmp_con = conditions[c]
+  #   idx = df.query(tmp_con).index
+  #   segment = ''
+  #   if c in ['轨道中', '轨道上方', '轨道下方', '跌破支撑', '突破阻挡', '触顶回落', '触底反弹']:
+  #     segment = ' | '
+  #   df.loc[idx, 'linear_description'] += (tmp_des + segment)
+  # df['linear_description'] = df['linear_description'].apply(lambda x: x[:-3] if (len(x) > 3) and (x[-2] == '|') else x) 
 
   df['candle_description'] = ''
-  conditions = {
+  # conditions = {
     
-    # candlestick
-    '十字星': '(十字星_trend == "d")',
-    '高浪线': '(十字星_trend == "u")',
-    '流星线': '(流星_trend == "d")',
-    '倒锤线': '(流星_trend == "u")',
-    '吊颈线': '(流星_trend == "d")',
-    '锤子线': '(流星_trend == "u")',
-    '平头顶': '(平头_trend == "d")',
-    '平头底': '(平头_trend == "u")',
-    '穿刺': '(穿刺_trend == "u")',
-    '乌云盖顶': '(穿刺_trend == "d")',
-    '多头吞噬': '(吞噬_trend == "u")',
-    '空头吞噬': '(吞噬_trend == "d")',
-    '上升窗口': '(窗口_trend == "u")',
-    '下降窗口': '(窗口_trend == "d")',
-    '突破窗口阻挡': '(突破_trend == "u")',
-    '跌落窗口支撑': '(突破_trend == "d")',
-    '窗口阻挡': '(反弹_trend == "d")',
-    '窗口反弹': '(反弹_trend == "u")',
-    '启明星': '(启明黄昏_trend == "u")',
-    '黄昏星': '(启明黄昏_trend == "d")',
-  } 
+  #   # candlestick
+  #   '十字星': '(十字星_trend == "d")',
+  #   '高浪线': '(十字星_trend == "u")',
+  #   '流星线': '(流星_trend == "d")',
+  #   '倒锤线': '(流星_trend == "u")',
+  #   '吊颈线': '(流星_trend == "d")',
+  #   '锤子线': '(流星_trend == "u")',
+  #   '平头顶': '(平头_trend == "d")',
+  #   '平头底': '(平头_trend == "u")',
+  #   '穿刺': '(穿刺_trend == "u")',
+  #   '乌云盖顶': '(穿刺_trend == "d")',
+  #   '多头吞噬': '(吞噬_trend == "u")',
+  #   '空头吞噬': '(吞噬_trend == "d")',
+  #   '上升窗口': '(窗口_trend == "u")',
+  #   '下降窗口': '(窗口_trend == "d")',
+  #   '突破窗口阻挡': '(突破_trend == "u")',
+  #   '跌落窗口支撑': '(突破_trend == "d")',
+  #   '窗口阻挡': '(反弹_trend == "d")',
+  #   '窗口反弹': '(反弹_trend == "u")',
+  #   '启明星': '(启明黄昏_trend == "u")',
+  #   '黄昏星': '(启明黄昏_trend == "d")',
+  # } 
   
-  # construct description
-  for c in conditions.keys():
-    tmp_des = c
-    tmp_con = conditions[c]
-    idx = df.query(tmp_con).index
-    segment = ' | '
-    df.loc[idx, 'candle_description'] += (tmp_des + segment)
-  df['candle_description'] = df['candle_description'].apply(lambda x: x[:-3] if (len(x) > 3) and (x[-2] == '|') else x) 
+  # # construct description
+  # for c in conditions.keys():
+  #   tmp_des = c
+  #   tmp_con = conditions[c]
+  #   idx = df.query(tmp_con).index
+  #   segment = ' | '
+  #   df.loc[idx, 'candle_description'] += (tmp_des + segment)
+  # df['candle_description'] = df['candle_description'].apply(lambda x: x[:-3] if (len(x) > 3) and (x[-2] == '|') else x) 
 
   df['score_description'] = ''
   # define conditions and corresponding labels and scores
   score_label_condition = {
-    '+趋势':              [1, '', '(trend == "u")'],
+    # '+趋势':              [1, '', '(trend == "u")'],
     '+Adx':               [1, '', '(adx_trend != "d" and adx_direction > 0)'],
     '+Adx动量':           [1, '', '(adx_direction_mean > 1.5)'],
     '+Adx低位':           [1, '', '(adx_direction >=5 and adx_value < -20)'],
@@ -1383,9 +1387,9 @@ def generate_ta_description(df):
     '+窗口突破':          [1, '', '(突破_day == 1)'],
     '+腰带':              [1, '', '(腰带_day == 1)'],
     '+平底':              [1, '', '(平头_day == 1)'],
-    '+拟合反弹':          [1, '', '(5 > linear_bounce_day >= 1)'],
+    # '+拟合反弹':          [1, '', '(5 > linear_bounce_day >= 1)'],
 
-    '-趋势':              [-1, '', '(trend_idx < 0)'],
+    # '-趋势':              [-1, '', '(trend_idx < 0)'],
     '-Adx':               [-1, '', '(adx_direction < 0)'],
     '-Adx高位':           [-1, '', '(adx_value > 25)'],
     '-Adx时效':           [-1, '', '(adx_direction_day >= 10)'],
@@ -1399,8 +1403,9 @@ def generate_ta_description(df):
     '-Kama高位':          [-1, '', '(kama_distance_signal >= 30)'],
     '-Renko高位':         [-1, '', '(renko_day >= 100)'],
     '-长期下跌':          [-3, '', '(ichimoku_distance_signal <= -60 or kama_distance_signal <= -60)'],
-    '-拟合下降':          [-1, '', '(linear_slope < 0) and (linear_fit_high_slope == 0 or linear_fit_high_signal <= 0)'],
-    '-拟合波动':          [-1, '', '(linear_slope == 0)'],
+    # '-拟合下降':          [-1, '', '(linear_slope < 0) and (linear_fit_high_slope == 0 or linear_fit_high_signal <= 0)'],
+    # '-拟合波动':          [-1, '', '(linear_slope == 0)'],
+    # '-拟合回落':          [-1, '', '(-5 < linear_bounce_day <= -1)'],
     '-超买':              [-1, '', '(bb_trend == "d")'],
     '-黄昏星':            [-1, '', '(启明黄昏_day == -1)'],
     '-窗口回落':          [-1, '', '(反弹_day == -1)'],
@@ -1408,7 +1413,7 @@ def generate_ta_description(df):
     '-窗口跌破':          [-1, '', '(突破_day == -1)'],
     '-腰带':              [-1, '', '(腰带_day == -1)'],
     '-平顶':              [-1, '', '(平头_day == -1)'],
-    '-拟合回落':          [-1, '', '(-5 < linear_bounce_day <= -1)'],
+    
 
     # '潜力':               [0, 'potential', '(adx_value < -10) and (0 < adx_direction_day <= 3) and (0 < 突破_day <=3 or (ichimoku_distance_signal < 0 and 0 < tankan_signal <=3))'],
     '信号':               [0, 'signal', '(signal == "b")']
@@ -1430,6 +1435,11 @@ def generate_ta_description(df):
     if c not in ['潜力', '信号']:
       df.loc[tmp_idx, 'score_description'] += f'| {c} '
   df['score_description'] = df['score_description'] + '|'
+
+  # label symbols with large positive score "potential"
+  positive_score_idx = df.query('score > 2 and label != "signal"').index
+  if len(positive_score_idx) > 0:
+    df.loc[positive_score_idx, 'label'] = 'potential'
 
   return df
 
@@ -1487,11 +1497,6 @@ def postprocess(df, keep_columns, drop_columns, sec_names, target_interval=''):
 
   # sort symbols
   df = df.sort_values(['score', 'adx_direction_mean', 'adx_value', 'adx_direction_day', 'prev_adx_extreme'], ascending=[False, True, True, True, True])
-  
-  # label symbols with large positive score "potential"
-  positive_score_idx = df.query('score > 2 and label != "signal"').index
-  if len(positive_score_idx) > 0:
-    df.loc[positive_score_idx, 'label'] = 'potential'
 
   # add names for symbols
   df['name'] = df['symbol']
@@ -4474,7 +4479,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
       '启明黄昏_day': {1: '启明星', -1: '黄昏星'},
 
       '腰带_day': {1: '腰带', -1: '腰带'},
-      '十字星_day': {1: '高浪线', -1: '十字星'},
+      # '十字星_day': {1: '高浪线', -1: '十字星'},
       '锤子_day': {1: '锤子', -1: '吊颈'},
       '流星_day': {1: '倒锤', -1: '流星'},
 
