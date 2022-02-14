@@ -25,14 +25,14 @@ from quant import bc_data_io as io_util
 
 # default values
 default_ohlcv_col = {'close':'Close', 'open':'Open', 'high':'High', 'low':'Low', 'volume':'Volume'}
-default_signal_val = {'pos_signal':'b', 'neg_signal':'s', 'none_signal':'', 'wave_signal': 'n'}
 default_trend_val = {'pos_trend':'u', 'neg_trend':'d', 'none_trend':'', 'wave_trend':'n'}
+default_signal_val = {'pos_signal':'b', 'neg_signal':'s', 'none_signal':'', 'wave_signal': 'n'}
 
-# default indicators and dynamic trend to calculate
+# default indicators and dynamic trend for calculation
 default_indicators = {'trend': ['ichimoku', 'kama', 'adx', 'psar'], 'volume': ['fi'], 'volatility': ['bb'], 'other': []}
 default_perspectives = ['renko', 'candle', 'support_resistant']
 
-# default visualization arguments
+# default arguments for visualization
 default_candlestick_color = {'colorup':'green', 'colordown':'red', 'alpha':0.8}
 default_plot_args = {'figsize':(30, 3), 'title_rotation':'vertical', 'xaxis_position': 'bottom', 'yaxis_position': 'right', 'title_x':-0.01, 'title_y':0.2, 'bbox_to_anchor':(1.02, 0.), 'loc':3, 'ncol':1, 'borderaxespad':0.0}
 
@@ -42,7 +42,7 @@ def load_config(root_paths):
   """ 
   Load configuration from json file
 
-  :param root_paths: a dictionary contains home_path and git_path, differ by platforms
+  :param root_paths: a dictionary that contains home_path and git_path (differ by platforms)
   :returns: dictionary of config arguments
   :raises: None
   """
@@ -55,20 +55,20 @@ def load_config(root_paths):
       print(f'{p} not exists!')
 
   # add derived paths
-  config['config_path'] = config['git_path'] + 'quant/'
-  config['quant_path'] = config['home_path'] + 'quant/'
+  config['config_path'] = config['git_path']    +   'quant/'      # github files
+  config['quant_path'] = config['home_path']    +   'quant/'      # local files
 
-  config['log_path'] = config['quant_path'] + 'logs/'
-  config['api_path'] = config['quant_path'] + 'api_key/'
-  config['futu_path'] = config['quant_path'] + 'futuopen/'
-  config['tiger_path'] = config['quant_path'] + 'tigeropen/'
-  config['data_path'] = config['quant_path'] + 'stock_data/'
-  config['result_path'] = config['quant_path'] + 'ta_model/'
+  config['log_path'] = config['quant_path']     +   'logs/'       # logs of script execution
+  config['api_path'] = config['quant_path']     +   'api_key/'    # configuration for data api, etc.
+  config['futu_path'] = config['quant_path']    +   'futuopen/'   # configuration for futu platform
+  config['tiger_path'] = config['quant_path']   +   'tigeropen/'  # configuration for tiger platform
+  config['data_path'] = config['quant_path']    +   'stock_data/' # downloaded stock data (OHLCV)
+  config['result_path'] = config['quant_path']  +   'ta_model/'   # results of script execution
   
-  # load sec lists
+  # load self-defined pools (lists of stock symbols)
   config['selected_sec_list'] = io_util.read_config(file_path=config['config_path'], file_name='selected_sec_list.json')
 
-  # load data-spurce api
+  # load data api
   config['api_key'] = io_util.read_config(file_path=config['api_path'], file_name='api_key.json')
 
   # load calculation and visulization parameters
@@ -82,7 +82,7 @@ def load_data(target_list, config, interval='day', load_empty_data=False, load_d
   """ 
   Load locally saved data(sec_data, ta_data, results)
   
-  :param target_list: list of targets(each target is a list of symbols)
+  :param target_list: list of target pools(each pool is a list of stock symbols)
   :param config: dictionary of config arguments
   :param interval: data interval
   :param load_empty_data: whether to load empyt data dict
