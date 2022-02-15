@@ -6,6 +6,7 @@ Technical Analysis Calculation and Visualization functions
 """
 import os
 import math
+import wave
 import sympy
 import datetime
 import ta
@@ -592,23 +593,41 @@ def calculate_ta_static(df, indicators=default_indicators):
           df.loc[up_idx, 'up_trend_idx'] += 1
           df.loc[down_idx, 'down_trend_idx'] -= 1
 
-      # previous adx direction period
-      extreme_idx = df.query('adx_day == 1 or adx_day == -1').index.tolist()
-      df['prev_adx_day'] = df['adx_day'].shift(1)
-      df.loc[extreme_idx, 'prev_adx_period'] = df.loc[extreme_idx, 'prev_adx_day']
-      df['prev_adx_period'] = df['prev_adx_period'].fillna(method='ffill')
-      df.drop(['prev_adx_day'], axis=1, inplace=True)
+      # # previous adx direction period
+      # extreme_idx = df.query('adx_day == 1 or adx_day == -1').index.tolist()
+      # df['prev_adx_day'] = df['adx_day'].shift(1)
+      # df.loc[extreme_idx, 'prev_adx_period'] = df.loc[extreme_idx, 'prev_adx_day']
+      # df['prev_adx_period'] = df['prev_adx_period'].fillna(method='ffill')
+      # df.drop(['prev_adx_day'], axis=1, inplace=True)
 
       # calculate overall trend index 
       df['trend_idx'] = df['up_trend_idx'] + df['down_trend_idx']
+      df['ta_value'] = em(series=df['trend_idx'], periods=3).mean()
+      df = cal_change(df=df, target_col='ta_value', periods=1, add_accumulation=False, add_prefix=True, drop_na=False)
+      df['trend_idx_direction'] = sda(series=df['ta_value_change'], zero_as=0)
+      
 
-      # calculate moving average of overall trend index
-      df['trend_idx_ma'] = em(series=df['trend_idx'], periods=5).mean()
-      df = cal_change(df=df, target_col='trend_idx_ma', periods=1, add_accumulation=True, add_prefix=True, drop_na=False)
-      threshold = 0.3
-      wave_idx = df.query(f'(trend_idx != 5 and trend_idx != -5) and (({-threshold} <= trend_idx_ma_change <= {threshold}) or ((-1 <= trend_idx_ma_acc_change_count <= 1) and (-1 <= trend_idx_ma_acc_change <= 1)))').index
-      df.loc[wave_idx, 'trend_idx_ma_change'] = 0
-      df['trend_idx_direction'] = sda(series=df['trend_idx_ma_change'], zero_as=0)
+      # # calculate moving average of overall trend index
+      # df['trend_idx_ma'] = em(series=df['trend_idx'], periods=5).mean()
+      # df['ta_value'] = df['trend_idx_ma']
+      # df = cal_change(df=df, target_col='ta_value', periods=1, add_accumulation=False, add_prefix=True, drop_na=False)
+
+      # df['ta_direction'] = df['ta_value_change']
+      # threshold = 0.5
+      # wave_idx = df.query(f'({-threshold} <= ta_direction <= {threshold})').index
+      # df.loc[wave_idx, 'ta_direction'] = 0
+      # df['ta_direction'] = sda(series=df['ta_direction'], zero_as=0)
+      
+      # df['prev_ta_direction'] = df['ta_direction'].shift(1)
+      # df['ta_trend'] = 'n'
+      # conditions = {
+      #   'up': f'(ta_direction > prev_ta_direction )', 
+      #   'down': f'(ta_direction < prev_ta_direction)'} 
+      # values = {
+      #   'up': 'u',
+      #   'down': 'd'}
+      # df = assign_condition_value(df=df, column='ta_trend', condition_dict=conditions, value_dict=values, default_value='n')
+      # df['ta_day'] = sda(series=df['ta_trend'].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
 
   except Exception as e:
     print(f'[Exception]: @ {phase} - {target_indicator}, {e}')
@@ -665,14 +684,12 @@ def calculate_ta_dynamic(df, perspective=default_perspectives):
         
         # tops/bottoms
         conditions = {
-          'top': 'adx_value > 10', 
-          'bottom': 'adx_value < -10',
-          'middle': '-10 <= adx_value <= 10'}
+          'top': '(adx_value > 10) or (Close > tankan and Close > kijun and Close > kama_fast and Close > kama_slow)', 
+          'bottom': '(adx_value < -10) or (Close < tankan and Close < kijun and Close < kama_fast and Close < kama_slow)'}
         values = {
           'top': 'u', 
-          'bottom': 'd',
-          'middle': 'n'}
-        df = assign_condition_value(df=df, column='位置_trend', condition_dict=conditions, value_dict=values, default_value='')
+          'bottom': 'd'}
+        df = assign_condition_value(df=df, column='位置_trend', condition_dict=conditions, value_dict=values, default_value='n')
         
       if 'shadow_entity' > '':
         ma_period = 30
@@ -850,8 +867,8 @@ def calculate_ta_dynamic(df, perspective=default_perspectives):
         df['high_diff'] = ((df['High'] - df['High'].shift(1)) / df['Close']).abs()
         df['low_diff'] = ((df['Low'] - df['Low'].shift(1)) / df['Close']).abs()
         conditions = {
-          'flat top': '(位置_trend == "u") and (high_diff <= 0.002)',
-          'flat bottom': '(位置_trend == "d") and (low_diff <= 0.002)'}
+          'flat top': '(位置_trend == "u")  and (candle_color == -1 or candle_upper_shadow_pct >= 0.3) and (high_diff <= 0.002)',
+          'flat bottom': '(位置_trend == "d") and (candle_color == 1 or candle_lower_shadow_pct >= 0.3) and (low_diff <= 0.002)'}
         values = {
           'flat top': 'd', 
           'flat bottom': 'u'}
@@ -1184,6 +1201,9 @@ def calculate_ta_signal(df):
       '+ICHI':            [1, 'ichimoku_trend == "u"',],
       '+PSAR':            [0.5, 'psar_trend == "u"',],
       '+FI':              [0.5, 'fi_trend == "u"',],
+      # '+AROON':           [0.5, 'aroon_trend == "u"',],
+      # '+TRIX':            [0.5, 'trix_trend == "u"',],
+      # '+KST':             [0.5, 'kst_trend == "u"',],
 
       # 'adx_trend 波动向上' :            [0.5, 'adx_trend == "n" and adx_day > 0'],
       # 'kama_trend 波动向上':            [0.5, 'kama_trend == "n" and kama_day > 0'],
@@ -1207,6 +1227,9 @@ def calculate_ta_signal(df):
       '-ICHI':            [-1, 'ichimoku_trend == "d"'],
       '-PSAR':            [-0.5, 'psar_trend == "d"'],
       '-FI':              [-0.5, 'fi_trend == "d"'],
+      # '-AROON':           [-0.5, 'aroon_trend == "d"',],
+      # '-TRIX':            [-0.5, 'trix_trend == "d"',],
+      # '-KST':             [-0.5, 'kst_trend == "d"',],
 
       # 'adx_trend 波动向下' :            [-0.5, 'adx_trend == "n" and adx_day < 0'],
       # 'kama_trend 波动向下':            [-0.5, 'kama_trend == "n" and kama_day < 0'],
@@ -1319,13 +1342,14 @@ def generate_ta_description(df):
     '+Ichimoku':          [1, '', '(ichimoku_trend == "u")'],
     '+Kama':              [1, '', '(kama_trend == "u")'],
     # '潜力':               [0, 'potential', '(adx_value < -10) and (0 < adx_direction_day <= 3) and (0 < 突破_day <=3 or (ichimoku_distance_signal < 0 and 0 < tankan_signal <=3))'],
+    # '信号':               [0, 'signal', '(signal == "b")']
 
     # '-趋势':              [-1, '', '(trend_idx < 0)'],
     '-Adx':               [-1, '', '(adx_direction < 0)'],
     '-Adx动量':           [-1, '', '(adx_direction_mean < 1.5 or adx_value_change < 0.5)'],
     '-Adx高位':           [-1, '', '(adx_value > 25)'],
     # '-Adx时效':           [-1, '', '(adx_direction_day >= 10)'],
-    '-Adx波动':           [-1, '', '(-5 <= prev_adx_period <= 5)'],
+    # '-Adx波动':           [-1, '', '(-5 <= prev_adx_period <= 5)'],
     # '-Adx长期弱势':       [-1, '', '(adx_strong_day <= -15)'],
     # '-Adx趋近于0':        [-1, '', '(-5 < adx_direction_start < 5 and -15 < adx_value < 15)'],
     '-Ichimoku':          [-1, '', '(ichimoku_trend == "d")'],
@@ -1347,8 +1371,7 @@ def generate_ta_description(df):
   }
 
   # conbine multiple kinds of conditions and scores
-  score_label_condition = {
-    '信号':               [0, 'signal', '(signal == "b")']}
+  score_label_condition = {}
   score_label_condition.update(score_label_condition_candle)
   score_label_condition.update(score_label_condition_static)
   score_label_condition.update(score_label_condition_dynamic)
@@ -1366,12 +1389,11 @@ def generate_ta_description(df):
   for c in conditions.keys():
     tmp_idx = df.query(conditions[c]).index
     df.loc[tmp_idx, 'score'] += scores[c]
-    if c not in ['潜力', '信号']:
-      df.loc[tmp_idx, 'score_description'] += f'| {c} '
+    df.loc[tmp_idx, 'score_description'] += f'| {c} '
   df['score_description'] = df['score_description'].apply(lambda x: x[1:])
 
   # label symbols with large positive score "potential"
-  positive_score_idx = df.query('score > 2 and label != "signal"').index
+  positive_score_idx = df.query('score > 0').index
   if len(positive_score_idx) > 0:
     df.loc[positive_score_idx, 'label'] = 'potential'
 
@@ -4265,6 +4287,50 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
   if use_ax is not None:
     return ax
 
+# plot trend index
+def plot_trend(df, start=None, end=None, use_ax=None, title=None, plot_args=default_plot_args):
+  """
+  Plot indicators around a benchmark
+
+  :param df: dataframe which contains target columns
+  :param start: start row to plot
+  :param end: end row to stop
+  :param use_ax: the already-created ax to draw on
+  :param title: plot title
+  :returns: figure with indicators and close price plotted
+  :raises: none
+  """
+  # select data
+  df = df[start:end].copy() 
+  
+  # create figure
+  ax = use_ax
+  if ax is None:
+    fig = mpf.figure(figsize=plot_args['figsize'])
+    ax = fig.add_subplot(1,1,1, style='yahoo')
+
+  # plot boundary
+  ax.fill_between(df.index, 1, -1, linewidth=1, edgecolor=None, facecolor='grey', alpha=0.3)
+
+  # plot ta_trend_idx
+  df['zero'] = 0
+  df['prev_ta_direction'] = df['ta_direction'].shift(1)
+  green_mask = ((df.ta_day > 0)) 
+  red_mask = ((df.ta_day < 0)) 
+
+  ax.fill_between(df.index, df.ta_direction, df.zero, where=green_mask,  facecolor='green', interpolate=False, alpha=0.3, label='ta up') 
+  ax.fill_between(df.index, df.ta_direction, df.zero, where=red_mask, facecolor='red', interpolate=False, alpha=0.3, label='ta down')
+
+  # plot title and legend
+  ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
+  ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
+
+  ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
+
+  # return ax
+  if use_ax is not None:
+    return ax
+
 # plot candlestick chart
 def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split', 'gap', 'support_resistant', 'pattern'], width=0.8, use_ax=None, ohlcv_col=default_ohlcv_col, color=default_candlestick_color, plot_args=default_plot_args):
   """
@@ -5162,10 +5228,9 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
 
     # plot trend idx
     elif tmp_indicator == 'trend_idx':
-      alpha = tmp_args.get('alpha') if tmp_args.get('alpha') is not None else 1
-      plot_bar(df=plot_data, target_col='up_trend_idx', alpha=alpha, color_mode='benchmark', benchmark=0, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
-      plot_bar(df=plot_data, target_col='down_trend_idx', alpha=alpha, color_mode='benchmark', benchmark=0, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
-
+      # alpha = tmp_args.get('alpha') if tmp_args.get('alpha') is not None else 1
+      plot_trend(plot_data, use_ax=axes[tmp_indicator], title=tmp_indicator)
+      
     # plot buy/sell score
     elif tmp_indicator == 'score':
       alpha = tmp_args.get('alpha') if tmp_args.get('alpha') is not None else 1
