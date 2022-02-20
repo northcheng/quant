@@ -6,7 +6,7 @@ Technical Analysis Calculation and Visualization functions
 """
 import os
 import math
-import wave
+# import wave
 import sympy
 import datetime
 import ta
@@ -1201,9 +1201,6 @@ def calculate_ta_signal(df):
       '+ICHI':            [1, 'ichimoku_trend == "u"',],
       '+PSAR':            [0.5, 'psar_trend == "u"',],
       '+FI':              [0.5, 'fi_trend == "u"',],
-      # '+AROON':           [0.5, 'aroon_trend == "u"',],
-      # '+TRIX':            [0.5, 'trix_trend == "u"',],
-      # '+KST':             [0.5, 'kst_trend == "u"',],
 
       # 'adx_trend 波动向上' :            [0.5, 'adx_trend == "n" and adx_day > 0'],
       # 'kama_trend 波动向上':            [0.5, 'kama_trend == "n" and kama_day > 0'],
@@ -1227,9 +1224,6 @@ def calculate_ta_signal(df):
       '-ICHI':            [-1, 'ichimoku_trend == "d"'],
       '-PSAR':            [-0.5, 'psar_trend == "d"'],
       '-FI':              [-0.5, 'fi_trend == "d"'],
-      # '-AROON':           [-0.5, 'aroon_trend == "d"',],
-      # '-TRIX':            [-0.5, 'trix_trend == "d"',],
-      # '-KST':             [-0.5, 'kst_trend == "d"',],
 
       # 'adx_trend 波动向下' :            [-0.5, 'adx_trend == "n" and adx_day < 0'],
       # 'kama_trend 波动向下':            [-0.5, 'kama_trend == "n" and kama_day < 0'],
@@ -4939,7 +4933,7 @@ def plot_bar(df, target_col, start=None, end=None, width=0.8, alpha=1, color_mod
     ax.bar(df.index, height=df[target_col], color=df.color, width=width , alpha=alpha, label=target_col)
 
   if add_line:
-    ax.plot(df.index, df[target_col], color='black', linestyle='--', marker='.', alpha=alpha)
+    v
 
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
@@ -5228,9 +5222,21 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
 
     # plot trend idx
     elif tmp_indicator == 'trend_idx':
-      # alpha = tmp_args.get('alpha') if tmp_args.get('alpha') is not None else 1
-      plot_trend(plot_data, use_ax=axes[tmp_indicator], title=tmp_indicator)
+      alpha = tmp_args.get('alpha') if tmp_args.get('alpha') is not None else 1
+      # plot_trend(plot_data, use_ax=axes[tmp_indicator], title=tmp_indicator)
       
+      plot_data['0'] = 0
+      axes[tmp_indicator].plot(plot_data.index, plot_data['0'], color='grey', alpha=alpha)
+      
+      axes[tmp_indicator].bar(plot_data.index, height=plot_data['up_trend_idx'], color='green', width=0.8 , alpha=alpha*0.5, label='up_idx')
+      axes[tmp_indicator].bar(plot_data.index, height=plot_data['down_trend_idx'], color='red', width=0.8 , alpha=alpha*0.5, label='down_idx')
+      
+      plot_data['up_trend_idx_ma'] = em(series=plot_data['up_trend_idx'], periods=5).mean()
+      plot_data['down_trend_idx_ma'] = em(series=plot_data['down_trend_idx'], periods=5).mean()
+      axes[tmp_indicator].plot(plot_data.index, plot_data['up_trend_idx_ma'], color='green', alpha=alpha)
+      axes[tmp_indicator].plot(plot_data.index, plot_data['down_trend_idx_ma'], color='red', alpha=alpha)
+      
+
     # plot buy/sell score
     elif tmp_indicator == 'score':
       alpha = tmp_args.get('alpha') if tmp_args.get('alpha') is not None else 1

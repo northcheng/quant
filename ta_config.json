@@ -44,7 +44,7 @@
   "visualization": {
     "plot_args": {
       "plot_ratio": {
-        "signals": 1.2, "trend": 1, "adx": 2, 
+        "signals": 1.2, "trend_idx": 1, "adx": 2, 
         "main_indicators": 10, "volume":0.9
       },
       "trend_idx": {
@@ -108,6 +108,7 @@
         "target_col": ["trend_idx_direction"],
         "color_mode": "up_down",
         "benchmark": 0,
+        "bar_width": 0.8,
         "alpha": 0.5
       },
       "sec_name": {
