@@ -44,13 +44,11 @@
   "visualization": {
     "plot_args": {
       "plot_ratio": {
-        "signals": 1.2, "trend_idx": 1, "adx": 2, 
-        "main_indicators": 10, "volume":0.9
+        "signals": 1, "trend_idx": 1.5, "adx": 2, 
+        "main_indicators": 9, "volume":1
       },
       "trend_idx": {
-        "color_mode": "benchmark",
-        "benchmark": 0,
-        "alpha": 0.5
+        
       },
       "main_indicators": {
         "target_indicator": [
@@ -72,8 +70,7 @@
           "psar_signal",
           "ichimoku_signal",
           "kama_signal",
-          "adx_signal",
-          "signal"
+          "adx_signal"
         ]
       },
       "candle": {
@@ -150,7 +147,6 @@
       "adx_direction_mean": "ADX平均强度",
       "prev_adx_extreme": "ADX起始",
       "ichimoku_distance_signal": "TK信号",
-      "trend_day": "整体趋势",
       "signal": "交易信号",
       "label": "分类",
       "score": "总分",
