@@ -593,43 +593,24 @@ def calculate_ta_static(df, indicators=default_indicators):
           df.loc[up_idx, 'up_trend_idx'] += 1
           df.loc[down_idx, 'down_trend_idx'] -= 1
 
-      # # previous adx direction period
-      # extreme_idx = df.query('adx_day == 1 or adx_day == -1').index.tolist()
-      # df['prev_adx_day'] = df['adx_day'].shift(1)
-      # df.loc[extreme_idx, 'prev_adx_period'] = df.loc[extreme_idx, 'prev_adx_day']
-      # df['prev_adx_period'] = df['prev_adx_period'].fillna(method='ffill')
-      # df.drop(['prev_adx_day'], axis=1, inplace=True)
-
       # calculate overall trend index 
-      df['trend_idx'] = df['up_trend_idx'] + df['down_trend_idx']
-      # df['ta_value'] = em(series=df['trend_idx'], periods=3).mean()
-      # df = cal_change(df=df, target_col='ta_value', periods=1, add_accumulation=False, add_prefix=True, drop_na=False)
-      # df['trend_idx_direction'] = sda(series=df['ta_value_change'], zero_as=0)
-      
+      df['trend_idx'] = df['up_trend_idx'] + df['down_trend_idx']      
       df['up_trend_idx_ma'] = em(series=df['up_trend_idx'], periods=3).mean()
       df['down_trend_idx_ma'] = em(series=df['down_trend_idx'], periods=3).mean()
       df['trend_idx_ma'] = df['up_trend_idx_ma'] + df['down_trend_idx_ma']
-      # # calculate moving average of overall trend index
-      # df['trend_idx_ma'] = em(series=df['trend_idx'], periods=5).mean()
-      # df['ta_value'] = df['trend_idx_ma']
-      # df = cal_change(df=df, target_col='ta_value', periods=1, add_accumulation=False, add_prefix=True, drop_na=False)
 
-      # df['ta_direction'] = df['ta_value_change']
-      # threshold = 0.5
-      # wave_idx = df.query(f'({-threshold} <= ta_direction <= {threshold})').index
-      # df.loc[wave_idx, 'ta_direction'] = 0
-      # df['ta_direction'] = sda(series=df['ta_direction'], zero_as=0)
-      
-      # df['prev_ta_direction'] = df['ta_direction'].shift(1)
-      # df['ta_trend'] = 'n'
-      # conditions = {
-      #   'up': f'(ta_direction > prev_ta_direction )', 
-      #   'down': f'(ta_direction < prev_ta_direction)'} 
-      # values = {
-      #   'up': 'u',
-      #   'down': 'd'}
-      # df = assign_condition_value(df=df, column='ta_trend', condition_dict=conditions, value_dict=values, default_value='n')
-      # df['ta_day'] = sda(series=df['ta_trend'].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
+      # overall ta trend
+      df['up_trend_idx_ma_change'] = df['up_trend_idx_ma'] - df['up_trend_idx_ma'].shift(1)
+      df['down_trend_idx_ma_change'] = df['down_trend_idx_ma'] - df['down_trend_idx_ma'].shift(1)
+      df['trend_idx_ma_change'] = df['trend_idx_ma'] - df['trend_idx_ma'].shift(1)
+      conditions = {
+        'up': '((up_trend_idx_ma_change > 0) and (down_trend_idx_ma_change > 0) and (trend_idx > 0))', 
+        'down': '((up_trend_idx_ma_change < 0) and (down_trend_idx_ma_change < 0)) or (trend_idx_ma_change < -0.5)'} 
+      values = {
+        'up': 'u', 
+        'down': 'd'}
+      df = assign_condition_value(df=df, column='ta_trend', condition_dict=conditions, value_dict=values, default_value=np.nan)
+      df['ta_trend'] = df['ta_trend'].fillna(method='ffill')
 
   except Exception as e:
     print(f'[Exception]: @ {phase} - {target_indicator}, {e}')
@@ -991,7 +972,7 @@ def calculate_ta_dynamic(df, perspective=default_perspectives):
               pass
             else:
               # 1-红色非小实体, 2-高位, 3-绿色非小实体
-              if (previous_row['位置_trend'] == "d") and (previous_previous_row['candle_color'] == -1 and previous_previous_row['entity_trend'] != 'd') and (row['candle_color'] == 1 and row['entity_trend'] != 'd'):
+              if (previous_row['位置_trend'] == "d") and (previous_previous_row['entity_trend'] != 'd') and (row['candle_color'] == 1 and row['entity_trend'] != 'd'):
                 # 3-长实体 或 3-High > 1-High 或 3-bottom > 1-top
                 if row['entity_trend'] == 'u' or (row['High'] > previous_previous_row['High']) or (row['candle_entity_bottom'] > previous_previous_row['candle_entity_top']):
                   # 2-小实体, 2-顶部 < 1/3-底部
@@ -1005,7 +986,13 @@ def calculate_ta_dynamic(df, perspective=default_perspectives):
       all_candle_patterns = ['位置', '窗口', '突破', '反弹', '十字星', '流星', '锤子', '腰带', '平头', '穿刺', '包孕', '吞噬', '启明黄昏']
       for col in all_candle_patterns:
         df[f'{col}_day'] = df[f'{col}_trend'].replace({'u':1, 'd':-1, 'n':0, '': 0}).fillna(0).astype(int)
-        df[f'{col}_day'] = sda(series=df[f'{col}_day'], zero_as=None)
+
+        pre_u_mask = ((df[f'{col}_trend'].shift(-1) == 'u') & ((df[f'{col}_trend'] != 'u') & (df[f'{col}_trend'] != 'd')))
+        pre_d_mask = ((df[f'{col}_trend'].shift(-1) == 'd') & ((df[f'{col}_trend'] != 'u') & (df[f'{col}_trend'] != 'd')))
+        df.loc[pre_u_mask, f'{col}_day'] = np.nan
+        df.loc[pre_d_mask, f'{col}_day'] = np.nan
+
+        df[f'{col}_day'] = sda(series=df[f'{col}_day'], zero_as=1)
       
       for col in [
         'window_position_days', 'previous_window_position_days', 'previous_相对窗口位置', 
@@ -1209,105 +1196,115 @@ def calculate_ta_signal(df):
   df['signal_score'] = 0
   df['signal_description'] = ''
 
-  # # version 2 - started 2022-01-14
-  # weight_condition = {
-  #   'buy': {
-  #     '+ADX' :            [1, 'adx_trend == "u"',],
-  #     '+KAMA':            [1, 'kama_trend == "u"',],
-  #     '+ICHI':            [1, 'ichimoku_trend == "u"',],
-  #     '+PSAR':            [0.5, 'psar_trend == "u"',],
-  #     '+FI':              [0.5, 'fi_trend == "u"',],
+  # version 2 - started 2022-01-14
+  weight_condition = {
+    'buy': {
+      '+ADX' :            [1, 'adx_trend == "u"',],
+      # '+KAMA':            [1, 'kama_trend == "u"',],
+      # '+ICHI':            [1, 'ichimoku_trend == "u"',],
+      # '+PSAR':            [0.5, 'psar_trend == "u"',],
+      # '+FI':              [0.5, 'fi_trend == "u"',],
 
-  #     # 'adx_trend 波动向上' :            [0.5, 'adx_trend == "n" and adx_day > 0'],
-  #     # 'kama_trend 波动向上':            [0.5, 'kama_trend == "n" and kama_day > 0'],
-  #     # 'ichimoku_trend 波动向上':        [0.5, 'ichimoku_trend == "n" and ichimoku_day > 0'],
-  #     # 'psar_trend 波动向上':            [0.5, 'psar_trend == "n" and psar_day > 0'],
-  #     # 'fi_trend 波动向上':              [0.5, 'fi_trend == "n" and fi_day > 0'],
+      '+平头':            [1, '平头_trend == "u"',],
+      '+腰带':            [1, '腰带_trend == "u"',],
+      '+启明星':          [1, '启明黄昏_trend == "u"',],
+
+      # 'adx_trend 波动向上' :            [0.5, 'adx_trend == "n" and adx_day > 0'],
+      # 'kama_trend 波动向上':            [0.5, 'kama_trend == "n" and kama_day > 0'],
+      # 'ichimoku_trend 波动向上':        [0.5, 'ichimoku_trend == "n" and ichimoku_day > 0'],
+      # 'psar_trend 波动向上':            [0.5, 'psar_trend == "n" and psar_day > 0'],
+      # 'fi_trend 波动向上':              [0.5, 'fi_trend == "n" and fi_day > 0'],
       
-  #     # '形成向上窗口':               [2, '窗口_day == 1'],
-  #     # '突破窗口阻挡':               [2, '突破_day == 1'],
-  #     # '在窗口处反弹':               [2, '反弹_day == 1'],
-  #     # '长下影线支撑':               [1, '(shadow_trend != "d" and candle_lower_shadow_pct > 0.5)'],
-  #     # '价格跳多':                   [2, 'candle_gap == 1'],
-  #     # '价格收涨':                   [1, 'candle_color == 1'],
+      # '形成向上窗口':               [2, '窗口_day == 1'],
+      # '突破窗口阻挡':               [2, '突破_day == 1'],
+      # '在窗口处反弹':               [2, '反弹_day == 1'],
+      # '长下影线支撑':               [1, '(shadow_trend != "d" and candle_lower_shadow_pct > 0.5)'],
+      # '价格跳多':                   [2, 'candle_gap == 1'],
+      # '价格收涨':                   [1, 'candle_color == 1'],
 
-  #     # '技术指标非负':               [1, 'down_trend_idx == 0'],
-  #     # '超卖':                       [1, 'bb_trend == "u"'],
-  #   },
-  #   'sell': {
-  #     '-ADX':             [-1, 'adx_trend == "d"'],
-  #     '-KAMA':            [-1, 'kama_trend == "d"'],
-  #     '-ICHI':            [-1, 'ichimoku_trend == "d"'],
-  #     '-PSAR':            [-0.5, 'psar_trend == "d"'],
-  #     '-FI':              [-0.5, 'fi_trend == "d"'],
+      # '技术指标非负':               [1, 'down_trend_idx == 0'],
+      # '超卖':                       [1, 'bb_trend == "u"'],
+    },
+    'sell': {
+      # '-ADX':             [-1, 'adx_trend == "d"'],
+      # '-KAMA':            [-1, 'kama_trend == "d"'],
+      # '-ICHI':            [-1, 'ichimoku_trend == "d"'],
+      # '-PSAR':            [-0.5, 'psar_trend == "d"'],
+      # '-FI':              [-0.5, 'fi_trend == "d"'],
 
-  #     # 'adx_trend 波动向下' :            [-0.5, 'adx_trend == "n" and adx_day < 0'],
-  #     # 'kama_trend 波动向下':            [-0.5, 'kama_trend == "n" and kama_day < 0'],
-  #     # 'ichimoku_trend 波动向下':        [-0.5, 'ichimoku_trend == "n" and ichimoku_day < 0'],
-  #     # 'psar_trend 波动向下':            [-0.5, 'psar_trend == "n" and psar_day < 0'],
-  #     # 'fi_trend 波动向下':              [-0.5, 'fi_trend == "n" and fi_day < 0'],
+      '-平头':            [-2, '0 > 平头_day >= -5',],
+      '-腰带':            [-2, '0 > 腰带_day >= -5',],
+      '-黄昏星':          [-3, '0 > 启明黄昏_day >= -5',],
 
-  #     # '形成向下窗口':               [-2, '窗口_day == -1'],
-  #     # '跌落窗口支撑':               [-2, '突破_day == -1'],
-  #     # '在窗口处回落':               [-2, '反弹_day == -1'],
-  #     # '长上影线阻挡':               [-1, '(shadow_trend != "d" and candle_upper_shadow_pct > 0.5)'],
-  #     # '价格跳空':                   [-2, 'candle_gap == -1'],
-  #     # '价格收跌':                   [-1, 'candle_color == -1'],
+      # 'adx_trend 波动向下' :            [-0.5, 'adx_trend == "n" and adx_day < 0'],
+      # 'kama_trend 波动向下':            [-0.5, 'kama_trend == "n" and kama_day < 0'],
+      # 'ichimoku_trend 波动向下':        [-0.5, 'ichimoku_trend == "n" and ichimoku_day < 0'],
+      # 'psar_trend 波动向下':            [-0.5, 'psar_trend == "n" and psar_day < 0'],
+      # 'fi_trend 波动向下':              [-0.5, 'fi_trend == "n" and fi_day < 0'],
 
-  #     # '技术指标非正':               [-1, 'up_trend_idx == 0'],
-  #     # '超买':                       [-1, 'bb_trend == "d"'],
-  #   }
-  # }
-  # conditions = {'buy': {}, 'sell': {}}
-  # weights = {'buy': {}, 'sell': {}}
-  # for action in weight_condition.keys():
-  #   action_weight_condition = weight_condition[action]
-  #   for k in action_weight_condition.keys():
-  #     weights[action][k] = action_weight_condition[k][0]
-  #     conditions[action][k] = action_weight_condition[k][1]
+      # '形成向下窗口':               [-2, '窗口_day == -1'],
+      # '跌落窗口支撑':               [-2, '突破_day == -1'],
+      # '在窗口处回落':               [-2, '反弹_day == -1'],
+      # '长上影线阻挡':               [-1, '(shadow_trend != "d" and candle_upper_shadow_pct > 0.5)'],
+      # '价格跳空':                   [-2, 'candle_gap == -1'],
+      # '价格收跌':                   [-1, 'candle_color == -1'],
 
-  # # calculate buy and sell scores
-  # for k in conditions.keys():
-  #   tmp_conditions = conditions[k]
-  #   tmp_weights = weights[k]
+      # '技术指标非正':               [-1, 'up_trend_idx == 0'],
+      # '超买':                       [-1, 'bb_trend == "d"'],
+    }
+  }
+  conditions = {'buy': {}, 'sell': {}}
+  weights = {'buy': {}, 'sell': {}}
+  for action in weight_condition.keys():
+    action_weight_condition = weight_condition[action]
+    for k in action_weight_condition.keys():
+      weights[action][k] = action_weight_condition[k][0]
+      conditions[action][k] = action_weight_condition[k][1]
 
-  #   # for each buy/sell conditions
-  #   for c in tmp_conditions.keys():
-  #     c_weight = tmp_weights[c]
-  #     c_query = tmp_conditions[c]
-  #     c_idx = df.query(c_query).index
-  #     df.loc[c_idx, f'{k}_score'] += c_weight
-  #     df.loc[c_idx, f'signal_description'] += f' {c}'
+  # calculate buy and sell scores
+  for k in conditions.keys():
+    tmp_conditions = conditions[k]
+    tmp_weights = weights[k]
 
-  # # add up buy_score and sell_score, to determine the final trend
-  # df['signal_score'] = df['buy_score'] + df['sell_score']
-  # signal_threshold = 0
-  # conditions = {'u': f'signal_score > {signal_threshold}', 'd': f'signal_score < {-signal_threshold}'} 
-  # values = {'u': 'u', 'd': 'd'}
-  # df = assign_condition_value(df=df, column='trend', condition_dict=conditions, value_dict=values, default_value='n') 
+    # for each buy/sell conditions
+    for c in tmp_conditions.keys():
+      c_weight = tmp_weights[c]
+      c_query = tmp_conditions[c]
+      c_idx = df.query(c_query).index
+      df.loc[c_idx, f'{k}_score'] += c_weight
+      df.loc[c_idx, f'signal_description'] += f' {c}'
+
+  # add up buy_score and sell_score, to determine the final trend
+  df['signal_score'] = df['buy_score'] + df['sell_score']
+  signal_threshold = 0
+  conditions = {'u': f'signal_score > {signal_threshold}', 'd': f'signal_score < {-signal_threshold}'} 
+  values = {'u': 'u', 'd': 'd'}
+  df = assign_condition_value(df=df, column='trend', condition_dict=conditions, value_dict=values, default_value='n') 
 
   # # wave conditions
   # wave_conditions = {
 
-  #   # developing version 3 - started 2021-12-16
-  #   'adx not exists':   '(adx != adx)',
-  #   'adx fake down':    '((trend == "d") and (adx_value_change >= 0))',
-  #   'adx fake up':      '((trend == "u") and (adx_value_change <= 0))',
-  #   'adx sensitive':    '((trend == "u") and (adx_direction_day == 1) and (adx_direction <= 5))',
-  #   'adx weak trend':   '((trend == "u") and (-10 <= adx_value <= 10) and ((-1 <= adx_value_change <= 1) or (-1 < adx_strength_change < 1) or (-5 <= adx_direction <= 5)))',
-  #   'adx start high':   '((trend == "u") and (adx_value > 10 or adx_direction_start > 10))',
-  #   'trend to verify':  '((trend == "u") and ((adx_strong_day < -10) or (adx_strong_day == 1) or (-1 < adx_strength_change < 1)))',
+    # developing version 3 - started 2021-12-16
+    # 'adx not exists':   '(adx != adx)',
+    # 'adx fake down':    '((trend == "d") and (adx_value_change >= 0))',
+    # 'adx fake up':      '((trend == "u") and (adx_value_change <= 0))',
+    # 'adx sensitive':    '((trend == "u") and (adx_direction_day == 1) and (adx_direction <= 5))',
+    # 'adx weak trend':   '((trend == "u") and (-10 <= adx_value <= 10) and ((-1 <= adx_value_change <= 1) or (-1 < adx_strength_change < 1) or (-5 <= adx_direction <= 5)))',
+    # 'adx start high':   '((trend == "u") and (adx_value > 10 or adx_direction_start > 10))',
+    # 'trend to verify':  '((trend == "u") and ((adx_strong_day < -10) or (adx_strong_day == 1) or (-1 < adx_strength_change < 1)))',
+    # '卖出信号-价格上涨':  '((trend == "d") and (candle_color == 1))',
+    # '买入信号-价格下跌':  '((trend == "u") and (candle_color == -1))',
   # } 
   # wave_idx = df.query(' or '.join(wave_conditions.values())).index 
   # df.loc[wave_idx, 'uncertain_trend'] = df.loc[wave_idx, 'trend']
   # df.loc[wave_idx, 'trend'] = 'n'
 
-  # # ================================ Calculate overall siganl ======================
-  # df['trend_day'] = sda(series=df['trend'].replace({'':0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
-  # df.loc[df['trend_day'] == 1, 'signal'] = 'b'
-  # df.loc[df['trend_day'] ==-1, 'signal'] = 's'
-  # # df.loc[df['trend_day'] == 1, 'signal'] = 'uu'
-  # # df.loc[df['trend_day'] ==-1, 'signal'] = 'dd'
+  # ================================ Calculate overall siganl ======================
+  df['trend_day'] = sda(series=df['trend'].replace({'':0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
+  df.loc[df['trend_day'] == 1, 'signal'] = 'b'
+  df.loc[df['trend_day'] ==-1, 'signal'] = 's'
+  # df.loc[df['trend_day'] == 1, 'signal'] = 'uu'
+  # df.loc[df['trend_day'] ==-1, 'signal'] = 'dd'
 
   
 
@@ -4318,46 +4315,43 @@ def plot_trend(df, start=None, end=None, use_ax=None, title=None, plot_args=defa
     fig = mpf.figure(figsize=plot_args['figsize'])
     ax = fig.add_subplot(1,1,1, style='yahoo')
 
-  # arguments
   alpha = 0.4
-  df['zero'] = 0
-  
+
   # plot benchmark(0)
+  df['zero'] = 0
   ax.plot(df.index, df['zero'], color='grey', alpha=0.5*alpha)
+  # # plot up_trend and down_trend
+  # ax.fill_between(df.index, df.up_trend_idx_ma, df.zero, facecolor='green', interpolate=False, alpha=0.3, label='trend up') 
+  # ax.fill_between(df.index, df.down_trend_idx_ma, df.zero, facecolor='red', interpolate=False, alpha=0.3, label='trend down')
+
+  # # plot trend
+  # df['prev_ta_trend'] = df['ta_trend'].shift(1)
+  # green_mask = ((df.ta_trend == 'u') | (df.prev_ta_trend == 'u'))
+  # red_mask = ((df.ta_trend == 'd') | (df.prev_ta_trend == 'd'))
+  # ax.fill_between(df.index, df.up_trend_idx_ma, df.down_trend_idx_ma, where=green_mask,  facecolor='green', interpolate=False, alpha=0.3, label='trend up') 
+  # ax.fill_between(df.index, df.up_trend_idx_ma, df.down_trend_idx_ma, where=red_mask, facecolor='red', interpolate=False, alpha=0.3, label='trend down')
+
+  threshold = 0.5
+  for direction in ['up', 'down']:
+    
+    direction_change_col = f'{direction}_trend_idx_ma_change'
+    terget_col = f'{direction}_trend_idx_direction'
+    plot_col = f'{direction}_trend_idx_ma'
+    
+    conditions = {
+      'up': f'{direction_change_col} > {threshold}' + (' and trend_idx > 0' if direction == 'down' else ''), 
+      'down': f'{direction_change_col} < {-threshold}' + (' and down_trend_idx < 0' if direction == 'up' else '')} 
+    values = {
+      'up': 'u', 
+      'down': 'd'}
+    df = assign_condition_value(df=df, column=terget_col, condition_dict=conditions, value_dict=values, default_value=np.nan)
+    df[terget_col] = df[terget_col].fillna(method='ffill')
+    green_mask = ((df[terget_col] == "u") | (df[terget_col].shift(1) == "u"))
+    red_mask = ((df[terget_col] == "d") | (df[terget_col].shift(1) == "d"))
+    ax.fill_between(df.index, df[plot_col], df.zero, where=green_mask,  facecolor='green', interpolate=False, alpha=0.3) 
+    ax.fill_between(df.index, df[plot_col], df.zero, where=red_mask, facecolor='red', interpolate=False, alpha=0.15)
   
-  # plot up_trend_idx and down_trend_idx
-  # ax.bar(df.index, height=df['up_trend_idx'], color='green', width=0.8 , alpha=0.5*alpha, label='up_idx')
-  # ax.bar(df.index, height=df['down_trend_idx'], color='red', width=0.8 , alpha=0.5*alpha, label='down_idx')
-  # ax.plot(df.index, df['up_trend_idx_ma'], color='green', alpha=0.5*alpha)
-  # ax.plot(df.index, df['down_trend_idx_ma'], color='red', alpha=0.5*alpha)
-
-  # plot up and down marks
-  df['prev_up_trend_idx_ma'] = df['up_trend_idx_ma'].shift(1)
-  df['prev_down_trend_idx_ma'] = df['down_trend_idx_ma'].shift(1)
-  
-  green_mask = ((df.up_trend_idx_ma > df.prev_up_trend_idx_ma) & (df.down_trend_idx_ma > df.prev_down_trend_idx_ma) & (df.trend_idx > 0) & (df.trend_idx_ma > 0))
-  red_mask = ((df.up_trend_idx_ma < df.prev_up_trend_idx_ma) & (df.down_trend_idx_ma < df.prev_down_trend_idx_ma))
-
-  df.loc[green_mask, 'overall_ta_trend'] = 'u'
-  df.loc[red_mask, 'overall_ta_trend'] = 'd'
-  df['overall_ta_trend'] = df['overall_ta_trend'].fillna(method='ffill')
-  df['prev_overall_ta_trend'] = df['overall_ta_trend'].shift(1)
-  # ax.scatter(df.loc[green_mask, 'up_trend_idx_ma'].index, df.loc[green_mask, 'up_trend_idx_ma'], color='green', label='up', alpha=alpha, marker='^')
-  # ax.scatter(df.loc[red_mask, 'down_trend_idx_ma'].index, df.loc[red_mask, 'down_trend_idx_ma'], color='red', label='down', alpha=alpha, marker='v')
-
-  # plot adx_diff_ma and adx_direction
-  # df['prev_adx_day'] = df['adx_day'].shift(1)
-  # green_mask = ((df.adx_day > 0) | (df.prev_adx_day > 0)) 
-  # red_mask = ((df.adx_day < 0) | (df.prev_adx_day < 0)) 
-  
-  green_mask = ((df.overall_ta_trend == 'u') | (df.prev_overall_ta_trend == 'u'))
-  red_mask = ((df.overall_ta_trend == 'd') | (df.prev_overall_ta_trend == 'd'))
-  ax.fill_between(df.index, df.up_trend_idx_ma, df.down_trend_idx_ma, where=green_mask,  facecolor='green', interpolate=False, alpha=0.3, label='trend up') 
-  ax.fill_between(df.index, df.up_trend_idx_ma, df.down_trend_idx_ma, where=red_mask, facecolor='red', interpolate=False, alpha=0.3, label='trend down')
-
   # ichimoku_distance_signal
-  idxs = df.index.tolist()
-  min_idx = df.index.min()
   max_idx = df.index.max()
   x_signal = max_idx + datetime.timedelta(days=2)
   y_signal = 0
@@ -4366,7 +4360,7 @@ def plot_trend(df, start=None, end=None, use_ax=None, title=None, plot_args=defa
   plt.annotate(f'ich: {text_signal}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.05))
 
   # title and legend
-  ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
+  # ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
   # ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
   ax.grid(True, axis='y', linestyle='--', linewidth=0.5, alpha=0.3)
   ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
@@ -5305,9 +5299,9 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
   new_title = args['sec_name'].get(title)
   score_desc = f'[{df.loc[df.index.max(), "score"]}]:{df.loc[df.index.max(), "score_description"]}'
   score_desc = '' if len(score_desc) == 0 else f'{score_desc}'
-  # signal_desc = f'[{df.loc[df.index.max(), "trend_idx"]}]:{df.loc[df.index.max(), "signal_description"]}'
-  # signal_desc = '' if len(signal_desc) == 0 else f'{signal_desc}'
-  desc = '\n' + score_desc # '\n' + signal_desc + 
+  signal_desc = f'[{df.loc[df.index.max(), "trend_idx"]}]:{df.loc[df.index.max(), "signal_description"]}'
+  signal_desc = '' if len(signal_desc) == 0 else f'{signal_desc}'
+  desc = '\n' + score_desc + '\n' + signal_desc 
 
   # construct super title
   if new_title is None:

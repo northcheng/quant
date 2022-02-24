@@ -44,11 +44,17 @@
   "visualization": {
     "plot_args": {
       "plot_ratio": {
-        "signals": 1, "trend_idx": 1.5, "adx": 2, 
+        "signals": 1.2, "trend_idx": 1.5, "adx": 2,
         "main_indicators": 9, "volume":1
       },
+      "test":{
+        "target_col": ["signal_score"],
+        "color_mode": "benchmark",
+        "benchmark": 0,
+        "bar_width": 0.8,
+        "alpha": 0.5
+      },
       "trend_idx": {
-        
       },
       "main_indicators": {
         "target_indicator": [
@@ -65,12 +71,13 @@
       },
       "signals": {
         "signal_list": [
-          "bb_signal",
           "fi_signal",
           "psar_signal",
           "ichimoku_signal",
           "kama_signal",
-          "adx_signal"
+          "adx_signal",
+          "gap",
+          "signal"
         ]
       },
       "candle": {
