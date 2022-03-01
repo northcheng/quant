@@ -858,6 +858,7 @@ def calculate_ta_signal(df):
   # df.loc[wave_idx, 'trend'] = 'n'
 
   # ================================ Calculate overall siganl ======================
+  df['signal'] = ''
   # df['trend_day'] = sda(series=df['trend'].replace({'':0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
   # df.loc[df['trend_day'] == 1, 'signal'] = 'b'
   # df.loc[df['trend_day'] ==-1, 'signal'] = 's'
@@ -1756,8 +1757,8 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
 
     # hammer/meteor
     conditions = {
-      '锤子': '(upper_shadow_trend == "d" and entity_trend != "u") and (candle_upper_shadow_pct < 0.05 and candle_entity_pct <= 0.3 and candle_lower_shadow_pct >= 0.6)',
-      '流星': '(lower_shadow_trend == "d" and entity_trend != "u") and (candle_upper_shadow_pct >= 0.6 and candle_entity_pct <= 0.3 and candle_lower_shadow_pct < 0.05)'}
+      '锤子': '(upper_shadow_trend == "d" and entity_trend != "u") and (candle_upper_shadow_pct < 0.05 and 0.05 <= candle_entity_pct <= 0.3 and candle_lower_shadow_pct >= 0.6)',
+      '流星': '(lower_shadow_trend == "d" and entity_trend != "u") and (candle_upper_shadow_pct >= 0.6 and 0.05 <= candle_entity_pct <= 0.3 and candle_lower_shadow_pct < 0.05)'}
     values = {
       '锤子': 'u', 
       '流星': 'd'}
@@ -1890,13 +1891,12 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
     conditions = {
       'flat top 1': '(极限_trend == "u") and (high_diff <= 0.002)',
       'flat top 2': '(位置_trend == "u") and (high_diff <= 0.004 and candle_upper_shadow_pct >= 0.4)',
-      'flat bottom 1': '(极限_trend == "d") and (low_diff <= 0.002)',
-      'flat bottom 2': '(位置_trend == "d") and (low_diff <= 0.004 and candle_lower_shadow_pct >= 0.4)'}
+      'flat bottom 1': '(极限_trend == "d") and (low_diff <= 0.002)', #'flat bottom 2': '(位置_trend == "d") and (low_diff <= 0.004 and candle_lower_shadow_pct >= 0.4)'
+      }
     values = {
       'flat top 1': 'd', 
       'flat top 2': 'd', 
-      'flat bottom 1': 'u',
-      'flat bottom 2': 'u'}
+      'flat bottom 1': 'u'}
     df = assign_condition_value(df=df, column='平头_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
     # iterate through dataframe by window_size of 2 and 3
@@ -1997,7 +1997,7 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
           pass
         else:
           # 1-红色非小实体, 2-高位, 3-绿色非小实体
-          if (previous_row['位置_trend'] == "d") and (previous_previous_row['entity_trend'] != 'd') and (row['candle_color'] == 1 and row['entity_trend'] != 'd'):
+          if (previous_row['极限_trend'] == "d") and (previous_previous_row['entity_trend'] == 'u') and (row['candle_color'] == 1 and row['entity_trend'] != 'd'):
             # 3-长实体 或 3-High > 1-High 或 3-bottom > 1-top
             if row['entity_trend'] == 'u' or (row['High'] > previous_previous_row['High']) or (row['candle_entity_bottom'] > previous_previous_row['candle_entity_top']):
               # 2-小实体, 2-顶部 < 1/3-底部
@@ -5261,15 +5261,16 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
   # signal_desc = f'[{df.loc[df.index.max(), "trend_idx"]}]:{df.loc[df.index.max(), "signal_description"]}'
   # signal_desc = '' if len(signal_desc) == 0 else f'{signal_desc}'
   desc = '\n' + up_score_desc + '\n' + down_score_desc
-
+  
+  
   # construct super title
   if new_title is None:
     new_title == ''
   fig.suptitle(f'{title} - {new_title}({close_rate}%){desc}', x=0.5, y=1.01, fontsize=25, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1))
-  
+
   # save image
   if save_image and (save_path is not None):
-    plt.savefig(save_path + title + '.png')
+    plt.savefig(save_path + title + '.png', bbox_inches = 'tight')
     
   # show image
   if show_image:

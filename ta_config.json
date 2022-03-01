@@ -152,10 +152,11 @@
       "signal": "交易信号",
       "label": "分类",
       "score": "总分",
-      "score_description": "分类标签"
+      "up_score_description": "+标签",
+      "down_score_description": "-标签"
     },
     "drop_columns": [],
-    "send_columns": ["名称", "ADX方向", "ADX差值", "ADX强度", "TK信号", "总分", "分类标签"],
+    "send_columns": ["名称", "ADX方向", "ADX差值", "ADX强度", "TK信号", "总分", "+标签", "-标签"],
     "save_result": true,
     "save_data": true,
     "save_pdf": true
