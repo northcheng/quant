@@ -933,6 +933,8 @@ def generate_ta_description(df):
     # '-拟合下降':          [-1, '', '(linear_slope < 0) and (linear_fit_high_slope == 0 or linear_fit_high_signal <= 0)'],
     # '-拟合波动':          [-1, '', '(linear_slope == 0)'],
     # '-拟合回落':          [-1, '', '(-5 < linear_bounce_day <= -1)'],
+    '-x1':                [-10, '', '(adx_day < 0 and adx_value > 15)'], 
+    '-x2':                [-10, '', '(-10 < adx_direction_start < 10 and adx_strong_day < 0 and ((adx_day > 10 or adx_day < -10) or adx_strong_day < -10))'],     
   }
 
   # conbine multiple kinds of conditions and scores
@@ -4443,7 +4445,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
         rect_len = (i - x) 
         x = x - (len_unit * 0.5)
         rect_len = rect_len + len_unit
-        y = df.loc[i, 'Low'] - padding if t == 'u' else df.loc[i, 'High'] + padding
+        y = df.loc[i, 'Low'] - 2*padding if t == 'u' else df.loc[i, 'High'] + 0.5*padding
         flat = Rectangle((x, y), rect_len, rect_high, facecolor='yellow', edgecolor=t_color, linestyle='-', linewidth=1, fill=True, alpha=0.8)
         ax.add_patch(flat)
         
