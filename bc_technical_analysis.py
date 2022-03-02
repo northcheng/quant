@@ -1687,30 +1687,35 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
 # add candle stick patterns
 def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
 
+  # candle entity middle
+  df['candle_entity_middle'] = (df['candle_entity_top'] + df['candle_entity_bottom']) * 0.5
+
   # global position
   if 'position' > '':
 
     conditions = {
-      '顶部': '(Close > kijun and Close > kama_slow and Close > tankan and Close > kama_fast)', 
-      '底部': '(Close < kijun and Close < kama_slow and Close < tankan and Close < kama_fast)'}
-    values = {
-      '顶部': 'u', 
-      '底部': 'd'}
+      # 实体中部 > tankan/kijun/kama_fast/kama_slow
+      '顶部': '(candle_entity_middle > kijun and candle_entity_middle > kama_slow and candle_entity_middle > tankan and candle_entity_middle > kama_fast)', 
+      # 实体中部 < tankan/kijun/kama_fast/kama_slow
+      '底部': '(candle_entity_middle < kijun and candle_entity_middle < kama_slow and candle_entity_middle < tankan and candle_entity_middle < kama_fast)'}
+    values = {'顶部': 'u', '底部': 'd'}
     df = assign_condition_value(df=df, column='位置_trend', condition_dict=conditions, value_dict=values, default_value='n')
     
     df['moving_max'] = sm(series=df['High'], periods=10).max()
     df['moving_min'] = sm(series=df['Low'], periods=10).min()
     
     conditions = {
+      # 位置_trend == "u", 近10日最高价
       '顶部': '(位置_trend == "u" and moving_max == High)', 
+      # 位置_trend == "d", 近10日最低价
       '底部': '(位置_trend == "d" and moving_min == Low)'}
-    values = {
-      '顶部': 'u', 
-      '底部': 'd'}
+    values = {'顶部': 'u', '底部': 'd'}
     df = assign_condition_value(df=df, column='极限_trend', condition_dict=conditions, value_dict=values, default_value='n')
     
   # shadow and entity
   if 'shadow_entity' > '':
+
+    # X_diff: (X-mean(X, 30))/std(X, 30)
     ma_period = 30
     std_factor = 0.75
     for col in ['entity', 'shadow']:
@@ -1722,18 +1727,14 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
     conditions = {
       '价格波动范围大': f'shadow_diff >= {std_factor}', 
       '价格波动范围小': f'shadow_diff <= {-std_factor}'}
-    values = {
-      '价格波动范围大': 'u', 
-      '价格波动范围小': 'd'}
+    values = {'价格波动范围大': 'u', '价格波动范围小': 'd'}
     df = assign_condition_value(df=df, column='shadow_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
     # long/short entity
     conditions = {
       '长实体': f'entity_diff >= {std_factor} and (shadow_trend == "u" and candle_entity_pct >= 0.8)', 
       '短实体': f'entity_diff <= {-std_factor}'} 
-    values = {
-      '长实体': 'u', 
-      '短实体': 'd'}
+    values = {'长实体': 'u', '短实体': 'd'}
     df = assign_condition_value(df=df, column='entity_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
     # long/short upper/lower shadow
@@ -1741,28 +1742,8 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
       conditions = {
         '长影线': f'(candle_{col}_shadow_pct > 0.3)', 
         '短影线': f'(candle_{col}_shadow_pct < 0.1)'}
-      values = {
-        '长影线': 'u', 
-        '短影线': 'd'}
+      values = {'长影线': 'u', '短影线': 'd'}
       df = assign_condition_value(df=df, column=f'{col}_shadow_trend', condition_dict=conditions, value_dict=values, default_value='n')
-
-    # cross
-    conditions = {
-      '十字星': '(entity_trend == "d" and upper_shadow_trend == "u" and lower_shadow_trend == "u") and (shadow_trend != "u" and candle_entity_pct <= 0.1)',
-      '高浪线': '(entity_trend == "d" and upper_shadow_trend == "u" and lower_shadow_trend == "u") and (shadow_trend == "u" and candle_entity_pct <= 0.2)'}
-    values = {
-      '十字星': 'd', 
-      '高浪线': 'u'}
-    df = assign_condition_value(df=df, column='十字星', condition_dict=conditions, value_dict=values, default_value='n')
-
-    # hammer/meteor
-    conditions = {
-      '锤子': '(upper_shadow_trend == "d" and entity_trend != "u") and (candle_upper_shadow_pct < 0.05 and 0.05 <= candle_entity_pct <= 0.3 and candle_lower_shadow_pct >= 0.6)',
-      '流星': '(lower_shadow_trend == "d" and entity_trend != "u") and (candle_upper_shadow_pct >= 0.6 and 0.05 <= candle_entity_pct <= 0.3 and candle_lower_shadow_pct < 0.05)'}
-    values = {
-      '锤子': 'u', 
-      '流星': 'd'}
-    df = assign_condition_value(df=df, column='锤子', condition_dict=conditions, value_dict=values, default_value='n')
 
   # gaps between candles
   if 'windows' > '':
@@ -1774,26 +1755,19 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
       up_gap_idxs = []
     if len(down_gap_idxs) > 10:
       down_gap_idxs = []
-    
-    # candle entity middle
-    df['candle_entity_middle'] = (df['candle_entity_top'] + df['candle_entity_bottom']) * 0.5
 
     # window(gap)
     conditions = {
       '向上跳空': 'candle_gap > 1', 
       '向下跳空': 'candle_gap < -1'}
-    values = {
-      '向上跳空': 'u', 
-      '向下跳空': 'd'}
+    values = {'向上跳空': 'u', '向下跳空': 'd'}
     df = assign_condition_value(df=df, column='窗口_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
     # window position days (days beyond/below window)
     conditions = {
       '向上跳空后天数': '((candle_entity_bottom >= candle_gap_top) or (candle_entity_top > candle_gap_top and candle_entity_bottom < candle_gap_bottom and candle_color == 1))',
       '向下跳空后天数': '((candle_entity_top <= candle_gap_bottom) or (candle_entity_top > candle_gap_top and candle_entity_bottom < candle_gap_bottom and candle_color ==-1))'}
-    values = {
-      '向上跳空后天数': 1, 
-      '向下跳空后天数': -1}
+    values = {'向上跳空后天数': 1, '向下跳空后天数': -1}
     df = assign_condition_value(df=df, column='window_position_days', condition_dict=conditions, value_dict=values, default_value=0)
     df['window_position_days'] = sda(series=df['window_position_days'], zero_as=1)
     df['previous_window_position_days'] = df['window_position_days'].shift(1)
@@ -1807,12 +1781,9 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
       '中下': '((candle_entity_bottom < candle_gap_bottom) and (candle_gap_top >= candle_entity_top > candle_gap_bottom))',
       '下方': '(candle_entity_top <= candle_gap_bottom)'}
     values = {
-      '上方': 'up', 
-      '中上': 'mid_up',
-      '中间': 'mid',
-      '穿刺': 'out',
-      '中下': 'mid_down',
-      '下方': 'down'}
+      '上方': 'up', '中上': 'mid_up',
+      '中间': 'mid', '穿刺': 'out',
+      '中下': 'mid_down', '下方': 'down'}
     df = assign_condition_value(df=df, column='相对窗口位置', condition_dict=conditions, value_dict=values, default_value='')#, default_value=0)
     df['previous_相对窗口位置'] = df['相对窗口位置'].shift(1)
     df['previous_candle_color'] = df['candle_color'].shift(1)
@@ -1821,18 +1792,14 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
     conditions = {
       '触底反弹': '(candle_gap != 2 and window_position_days > 2) and ((相对窗口位置 == "up") and (previous_相对窗口位置 == "mid_up" or previous_相对窗口位置 == "mid" or ((previous_相对窗口位置 == "mid_down" or previous_相对窗口位置 == "out")and previous_candle_color == 1)))', 
       '触顶回落': '(candle_gap !=-2 and window_position_days <-2) and ((相对窗口位置 == "down") and (previous_相对窗口位置 == "mid_down" or previous_相对窗口位置 == "mid" or ((previous_相对窗口位置 == "mid_up" or previous_相对窗口位置 == "out") and previous_candle_color == -1)))'} 
-    values = {
-      '触底反弹': 'u',
-      '触顶回落': 'd'}
+    values = {'触底反弹': 'u', '触顶回落': 'd'}
     df = assign_condition_value(df=df, column='反弹_trend', condition_dict=conditions, value_dict=values, default_value='n')
     
     # break through up or down
     conditions = {
       '向上突破': '((candle_gap != 2 and previous_window_position_days < 0) and ((candle_color == 1 and (相对窗口位置 == "out" or (entity_trend != "d" and candle_entity_middle > candle_gap_top))) or (相对窗口位置 == "up")))',
       '向下突破': '((candle_gap != -2 and previous_window_position_days > 0) and ((candle_color ==-1 and 相对窗口位置 == "out" or (entity_trend != "d" and candle_entity_middle < candle_gap_bottom)) or (相对窗口位置 == "down")))'}
-    values = {
-      '向上突破': 'u', 
-      '向下突破': 'd'}
+    values = {'向上突破': 'u', '向下突破': 'd'}
     df = assign_condition_value(df=df, column='突破_trend', condition_dict=conditions, value_dict=values)
     df['prev_突破_trend'] = df['突破_trend'].shift(1)
     redundant_idx = df.query('(突破_trend == "u" and prev_突破_trend == "u") or (突破_trend == "d" and prev_突破_trend == "d")').index
@@ -1840,40 +1807,59 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
   
   # patterns that consist only 1 candlestick
   if '1_candle' > '':
+    # cross
+    conditions = {
+      # 影线σ < -0.5, 非长影线, 短实体, 长上影线, 长下影线, 实体占比 < 10%
+      '十字星': '(shadow_diff < -0.5) and (entity_trend == "d" and upper_shadow_trend == "u" and lower_shadow_trend == "u") and (shadow_trend != "u" and candle_entity_pct <= 0.1)',
+      # 影线σ > 0.5, 长影线, 短实体, 长上影线, 长下影线, 实体占比 < 20%
+      '高浪线': '(shadow_diff > 0.5) and (entity_trend == "d" and upper_shadow_trend == "u" and lower_shadow_trend == "u") and (shadow_trend == "u" and candle_entity_pct <= 0.2)'}
+    values = {'十字星': 'd', '高浪线': 'u'}
+    df = assign_condition_value(df=df, column='十字星', condition_dict=conditions, value_dict=values, default_value='n')
+
+    # hammer/meteor
+    conditions = {
+      # 影线σ > 1, 长下影线, 非长实体, 上影线占比 < 5%, 实体占比 <= 30%, 下影线占比 >= 60%
+      '锤子': '(shadow_diff > 1) and (upper_shadow_trend == "d" and entity_trend != "u") and (candle_upper_shadow_pct < 0.05 and 0.05 <= candle_entity_pct <= 0.3 and candle_lower_shadow_pct >= 0.6)',
+      # 影线σ > 1, 长上影线, 非长实体, 上影线占比 >= 60%, 实体占比 <= 30%, 下影线占比 < 5%
+      '流星': '(shadow_diff > 1) and (lower_shadow_trend == "d" and entity_trend != "u") and (candle_upper_shadow_pct >= 0.6 and 0.05 <= candle_entity_pct <= 0.3 and candle_lower_shadow_pct < 0.05)'}
+    values = {'锤子': 'u', '流星': 'd'}
+    df = assign_condition_value(df=df, column='锤子', condition_dict=conditions, value_dict=values, default_value='n')
+
     # cross/highwave
     conditions = {
+      # 位置_trend in ['u', 'd'], 形态 == '十字星'
       '十字星': '(位置_trend != "n") and (十字星 == "d")',
+      # 位置_trend in ['u', 'd'], 形态 == '高浪线'
       '高浪线': '(位置_trend != "n") and (十字星 == "u")'}
-    values = {
-      '十字星': 'd', 
-      '高浪线': 'u'}
+    values = {'十字星': 'd', '高浪线': 'u'}
     df = assign_condition_value(df=df, column='十字星_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
     # belt
     conditions = {
+      # 非短实体, 低位, 价格上涨, 实体占比 > 50%, 下影线占比 <= 5%, 上影线占比 >= 15%
       '看多腰带': '(entity_trend != "d" and candle_entity_pct > 0.5) and (位置_trend == "d" and candle_lower_shadow_pct <= 0.05 and candle_upper_shadow_pct >= 0.15 and candle_color == 1)',
+      # 非短实体, 高位, 价格下跌, 实体占比 > 50%, 上影线占比 <= 5%, 下影线占比 >= 15%
       '看空腰带': '(entity_trend != "d" and candle_entity_pct > 0.5) and (位置_trend == "u" and candle_upper_shadow_pct <= 0.05 and candle_lower_shadow_pct >= 0.15 and candle_color == -1)'}
-    values = {
-      '看多腰带': 'u',
-      '看空腰带': 'd'}
+    values = {'看多腰带': 'u', '看空腰带': 'd'}
     df = assign_condition_value(df=df, column='腰带_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
     # meteor
     conditions = {
-      '流星线': '(位置_trend == "u") and (锤子 == "d") and (极限_trend == "u")',
-      '倒锤线': '(位置_trend == "d") and (锤子 == "d") and (极限_trend == "d")'}
-    values = {
-      '流星线': 'd',
-      '倒锤线': 'u'}
+      # 高位, 近10日最高, 形态 == '流星'
+      '流星线': '(极限_trend == "u") and (锤子 == "d")',
+      # 低位, 近10日最低, 形态 == '流星'
+      '倒锤线': '(极限_trend == "d") and (锤子 == "d")'}
+    values = {'流星线': 'd', '倒锤线': 'u'}
     df = assign_condition_value(df=df, column='流星_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
     # hammer
     conditions = {
-      '锤子线': '(位置_trend == "d") and (锤子 == "u") and (极限_trend == "d")', 
-      '吊颈线': '(位置_trend == "u") and (锤子 == "u") and (极限_trend == "u")'}
+      # 高位, 近10日最高, 形态 == '锤子'
+      '吊颈线': '(极限_trend == "u") and (锤子 == "u")',
+      # 低位, 近10日最低, 形态 == '锤子'
+      '锤子线': '(极限_trend == "d") and (锤子 == "u")'}
     values = {
-      '锤子线': 'u', 
-      '吊颈线': 'd'}
+      '吊颈线': 'd', '锤子线': 'u'}
     df = assign_condition_value(df=df, column='锤子_trend', condition_dict=conditions, value_dict=values, default_value='n')
     
   # patterns that consist multiple candlesticks
@@ -1887,16 +1873,13 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
     # flat top/bottom
     df['high_diff'] = ((df['High'] - df['High'].shift(1)) / df['Close']).abs()
     df['low_diff'] = ((df['Low'] - df['Low'].shift(1)) / df['Close']).abs()
-    df['prev_candle_upper_shadow_pct'] = df['candle_upper_shadow_pct'].shift(1)
+    df['candle_upper_shadow_pct_diff'] = df['candle_upper_shadow_pct'] - df['candle_upper_shadow_pct'].shift(1)
     conditions = {
-      'flat top 1': '(极限_trend == "u") and (high_diff <= 0.002)',
-      'flat top 2': '(位置_trend == "u") and (high_diff <= 0.004 and candle_upper_shadow_pct >= 0.4)',
-      'flat bottom 1': '(极限_trend == "d") and (low_diff <= 0.002)', #'flat bottom 2': '(位置_trend == "d") and (low_diff <= 0.004 and candle_lower_shadow_pct >= 0.4)'
-      }
-    values = {
-      'flat top 1': 'd', 
-      'flat top 2': 'd', 
-      'flat bottom 1': 'u'}
+      # 非十字星/高浪线, adx趋势向上(或高位), 高位, [1.近10日最高, 顶部差距<0.2%, 2.顶部差距<0.1%, 3.顶部差距<0.4%, 价格下跌, 上影线差距在5%内]
+      'flat top': '(十字星 == "n") and (adx_day > 0 or adx_value > 15) and ((极限_trend == "u" and high_diff <= 0.002) or (位置_trend == "u" and ((high_diff <= 0.001) or (high_diff <= 0.004 and rate <= 0 and -0.05 <= candle_upper_shadow_pct_diff <= 0.05))))',
+      # 非十字星/高浪线, adx趋势向下(或低位), 低位, 近10日最低, 底部差距<0.2%
+      'flat bottom': '(十字星 == "n") and (adx_day < 0 or adx_value < -15) and (极限_trend == "d") and (low_diff <= 0.002)'}
+    values = {'flat top': 'd', 'flat bottom': 'u'}
     df = assign_condition_value(df=df, column='平头_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
     # iterate through dataframe by window_size of 2 and 3
@@ -1921,7 +1904,7 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
         previous_previous_idx = idxs[previous_previous_i]
         previous_previous_row = df.loc[previous_previous_idx]
 
-      # 当前蜡烛非短实体, 实体/影线 > 0.75
+      # 当前蜡烛非短实体, 实体占比 > 75%
       if row['entity_trend'] == 'd' or row['candle_entity_pct'] < 0.75:
         pass
       else:
@@ -1938,7 +1921,7 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
             if (previous_row['candle_color'] == -1 and row['candle_color'] == 1):
               df.loc[idx, '吞噬_trend'] = 'u'
 
-      # 前一蜡烛非短实体, 实体/影线 > 0.75
+      # 前一蜡烛非短实体, 实体占比 > 75%
       if previous_row['entity_trend'] == 'd' or previous_row['candle_entity_pct'] < 0.75:
         pass
       else:
@@ -1947,13 +1930,13 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
           
           # 空头包孕: 位于顶部, 1-绿, 2-红
           if row['极限_trend'] == 'u':
-            #if (previous_row['candle_color'] == 1 and row['candle_color'] == -1):
-            df.loc[idx, '包孕_trend'] = 'd'
+            if (previous_row['candle_color'] == 1 and row['candle_color'] == -1):
+              df.loc[idx, '包孕_trend'] = 'd'
 
           # 多头包孕: 位于底部, 1-红, 2-绿
           elif row['极限_trend'] == 'd':
-            # if (previous_row['candle_color'] == -1 and row['candle_color'] == 1):
-            df.loc[idx, '包孕_trend'] = 'u'
+            if (previous_row['candle_color'] == -1 and row['candle_color'] == 1):
+              df.loc[idx, '包孕_trend'] = 'u'
       
       # 顶部:乌云盖顶, 黄昏星
       if (previous_row['位置_trend'] == "u"):
@@ -2023,7 +2006,7 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
   for col in [
     'window_position_days', 'previous_window_position_days', 'previous_相对窗口位置', 
     'previous_candle_color', 'candle_entity_middle', #'high_diff', 'low_diff',
-    'entity_ma', 'entity_std', 'shadow_ma', 'shadow_std', 'shadow_diff', 'entity_diff',
+    'entity_ma', 'entity_std', 'shadow_ma', 'shadow_std', #'shadow_diff', 'entity_diff',
     'moving_max', 'moving_min']:
     if col in df.columns:
       df.drop(col, axis=1, inplace=True)
@@ -4446,28 +4429,25 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
   
   # annotate candle patterns
   if 'pattern' in add_on:
-
+    
+    # plot flat-top/bottom
+    len_unit = datetime.timedelta(days=1)
+    rect_high = padding*1.5
+    for t in ['u', 'd']:
+      t_idx = df.query(f'平头_trend == "{t}"').index
+      t_color = 'green' if t == 'u' else 'red'
+      for i in t_idx:
+        x = idxs.index(i)
+        x = x - 1 if x > 1 else x
+        x = idxs[x]
+        rect_len = (i - x) 
+        x = x - (len_unit * 0.5)
+        rect_len = rect_len + len_unit
+        y = df.loc[i, 'Low'] - padding if t == 'u' else df.loc[i, 'High'] + padding
+        flat = Rectangle((x, y), rect_len, rect_high, facecolor='yellow', edgecolor=t_color, linestyle='-', linewidth=1, fill=True, alpha=0.8)
+        ax.add_patch(flat)
+        
     # settings for annotate candle patterns
-    # pattern_info = {
-    #   # '窗口_day': {1: '窗口', -1: '窗口'},
-    #   # '反弹_day': {1: '反弹', -1: '回落'},
-    #   # '突破_day': {1: '突破', -1: '跌落'},
-      
-    #   # '十字星_day': {1: '高浪线', -1: '十字星'},
-    #   '腰带_day': {1: '腰带', -1: '腰带'},
-    #   '锤子_day': {1: '锤子', -1: '吊颈'},
-    #   '流星_day': {1: '倒锤', -1: '流星'},
-
-    #   '穿刺_day': {1: '穿刺', -1: '乌云'},
-    #   '平头_day': {1: '平底', -1: '平顶'},
-    #   '吞噬_day': {1: '吞噬', -1: '吞噬'},
-    #   '包孕_day': {1: '包孕', -1: '包孕'},
-
-    #   '启明黄昏_day': {1: '启明星', -1: '黄昏星'},
-
-    #   'linear_bounce_day': {1: '反弹', -1: '回落'},
-    #   'linear_break_day': {1: '突破', -1: '跌落'}
-    # }
     pattern_info = {
       # '窗口_day': {1: '窗口', -1: '窗口'},
       # '反弹_day': {1: '反弹', -1: '回落'},
@@ -4479,18 +4459,17 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
       '流星_trend': {'u': '倒锤', 'd': '流星'},
 
       '穿刺_trend': {'u': '穿刺', 'd': '乌云'},
-      '平头_trend': {'u': '平底', 'd': '平顶'},
+      # '平头_trend': {'u': '平底', 'd': '平顶'},
       '吞噬_trend': {'u': '吞噬', 'd': '吞噬'},
       '包孕_trend': {'u': '包孕', 'd': '包孕'},
 
       '启明黄昏_trend': {'u': '启明星', 'd': '黄昏星'},
-
-      'linear_bounce_trend': {'u': '反弹', 'd': '回落'},
-      'linear_break_trend': {'u': '突破', 'd': '跌落'}
+      # 'linear_bounce_trend': {'u': '反弹', 'd': '回落'},
+      # 'linear_break_trend': {'u': '突破', 'd': '跌落'}
     }
     settings = {
-      'normal': {'fontsize':12, 'fontcolor':'black', 'va':'center', 'ha':'center', 'up':'green', 'down':'red', 'alpha': 0.15, 'arrowstyle': '-|>'},
-      'emphasis': {'fontsize':12, 'fontcolor':'black', 'va':'center', 'ha':'center', 'up':'yellow', 'down':'purple', 'alpha': 0.15, 'arrowstyle': '-|>'},
+      'normal': {'fontsize':12, 'fontcolor':'black', 'va':'center', 'ha':'center', 'up':'green', 'down':'red', 'alpha': 0.15, 'arrowstyle': '-'},
+      'emphasis': {'fontsize':12, 'fontcolor':'black', 'va':'center', 'ha':'center', 'up':'yellow', 'down':'purple', 'alpha': 0.15, 'arrowstyle': '-'},
     }
 
     # plot other patterns
