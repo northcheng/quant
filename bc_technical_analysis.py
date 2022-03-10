@@ -910,7 +910,6 @@ def generate_ta_description(df):
     '+Kama':              [1, '', '(kama_trend == "u")'],
     '+Kama间距':          [1, '', '(kama_distance_signal > 0)'],
 
-
     '-Adx':               [-1, '', '(adx_direction < 0)'],
     '-Adx动量':           [-1, '', '(adx_direction_mean < 1.5 or adx_value_change < 0.5)'],
     '-Adx高位':           [-1, '', '(adx_value > 25)'],
@@ -976,9 +975,25 @@ def generate_ta_description(df):
   df['score_direction'] = sda(series=df['score_ma_change'], zero_as=0)
 
   # label symbols with large positive score "potential"
-  positive_score_idx = df.query('score > 0').index
-  if len(positive_score_idx) > 0:
-    df.loc[positive_score_idx, 'label'] = 'potential'
+  conditions = {
+    'score potential': f'score > 0',
+    'pattern potential': f'(rate > 0) and (0 < 平头_day <= 3 or 0 < 腰带_day <= 3)',
+    'price wave': f'(candle_color == -1) and (adx_value > 15 or (upper_shadow_trend == "u"))',
+    'pattern wave': f'(adx_strong_day < 0 and 十字星 != "n") or (相对窗口位置 == "mid")',
+    'none potential': 'score <= 0'
+    } 
+  values = {
+    'score potential': 'potential',
+    'pattern potential': 'potential',
+    }
+  df = assign_condition_value(df=df, column='label', condition_dict=conditions, value_dict=values, default_value='') 
+
+  none_potential_conditions = {
+    'pattern wave': f'((adx_strong_day < 0) and (十字星 != "n" or (-5 < adx_value < 5)) or (相对窗口位置 == "mid"))',
+    'none potential': '(score <= 0)'
+    } 
+  none_potential_idx = df.query(' or '.join(none_potential_conditions.values())).index 
+  df.loc[none_potential_idx, 'label'] = ''
 
   return df
 
@@ -1811,11 +1826,13 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
   if '1_candle' > '':
     # cross
     conditions = {
+      # -0.5 <= 影线σ <= 0.5, 实体占比 < 1%
+      '波动': '(-0.5 <= shadow_diff <= 0.5) and (candle_entity_pct < 0.01)',
       # 影线σ < -0.5, 非长影线, 短实体, 长上影线, 长下影线, 实体占比 < 10%
       '十字星': '(shadow_diff < -0.5) and (entity_trend == "d" and upper_shadow_trend == "u" and lower_shadow_trend == "u") and (shadow_trend != "u" and candle_entity_pct <= 0.1)',
       # 影线σ > 0.5, 长影线, 短实体, 长上影线, 长下影线, 实体占比 < 20%
       '高浪线': '(shadow_diff > 0.5) and (entity_trend == "d" and upper_shadow_trend == "u" and lower_shadow_trend == "u") and (shadow_trend == "u" and candle_entity_pct <= 0.2)'}
-    values = {'十字星': 'd', '高浪线': 'u'}
+    values = {'波动': 'd', '十字星': 'd', '高浪线': 'u'}
     df = assign_condition_value(df=df, column='十字星', condition_dict=conditions, value_dict=values, default_value='n')
 
     # hammer/meteor
