@@ -978,9 +978,6 @@ def generate_ta_description(df):
   conditions = {
     'score potential': f'score > 0',
     'pattern potential': f'(rate > 0) and (0 < 平头_day <= 3 or 0 < 腰带_day <= 3)',
-    'price wave': f'(candle_color == -1) and (adx_value > 15 or (upper_shadow_trend == "u"))',
-    'pattern wave': f'(adx_strong_day < 0 and 十字星 != "n") or (相对窗口位置 == "mid")',
-    'none potential': 'score <= 0'
     } 
   values = {
     'score potential': 'potential',
@@ -989,7 +986,7 @@ def generate_ta_description(df):
   df = assign_condition_value(df=df, column='label', condition_dict=conditions, value_dict=values, default_value='') 
 
   none_potential_conditions = {
-    'pattern wave': f'((adx_strong_day < 0) and (十字星 != "n" or (-5 < adx_value < 5)) or (相对窗口位置 == "mid"))',
+    'pattern wave': f'((adx_strong_day < 0 and (-5 < adx_value < 5)) or (adx_direction_day < 0) or (十字星 != "n") or (平头_trend == "d" or 腰带_trend == "d") or (相对窗口位置 == "mid"))',
     'none potential': '(score <= 0)'
     } 
   none_potential_idx = df.query(' or '.join(none_potential_conditions.values())).index 
