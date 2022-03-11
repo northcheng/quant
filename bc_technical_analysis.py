@@ -897,6 +897,7 @@ def generate_ta_description(df):
     '-流星':              [-1.5, '', '(0 > 锤子_day >= -3)'],
     '-腰带':              [-1.5, '', '(0 > 腰带_day >= -3)'],
     '-平顶':              [-1.5, '', '(0 > 平头_day >= -3)'],
+
   }
 
   # define conditions and and scores for static trend
@@ -922,6 +923,9 @@ def generate_ta_description(df):
     '-Kama高位':          [-1, '', '(kama_distance_signal >= 30)'],
     '-长期下跌':          [-3, '', '(ichimoku_distance_signal <= -60 or kama_distance_signal <= -60)'],
     '-超买':              [-1, '', '(bb_trend == "d")'],
+
+    '-Adx高位下跌':       [-10, '', '(adx_value > 15) and (adx_day < 0 or ((shadow_trend != "d" and candle_upper_shadow_pct > 0.5) or (candle_color == -1 and entity_trend != "d" and candle_entity_pct > 0.5)))'], 
+    '-Adx低位震荡':       [-10, '', '(-10 < adx_direction_start < 10 and adx_strong_day < 0 and ((adx_day > 10 or adx_day < -10) or adx_strong_day < -10))'],
   }
 
   # define conditions and and scores for dynamic trend
@@ -932,8 +936,7 @@ def generate_ta_description(df):
     # '-拟合下降':          [-1, '', '(linear_slope < 0) and (linear_fit_high_slope == 0 or linear_fit_high_signal <= 0)'],
     # '-拟合波动':          [-1, '', '(linear_slope == 0)'],
     # '-拟合回落':          [-1, '', '(-5 < linear_bounce_day <= -1)'],
-    '-x1':                [-10, '', '(adx_day < 0 and adx_value > 15)'], 
-    '-x2':                [-10, '', '(-10 < adx_direction_start < 10 and adx_strong_day < 0 and ((adx_day > 10 or adx_day < -10) or adx_strong_day < -10))'],     
+         
   }
 
   # conbine multiple kinds of conditions and scores
@@ -967,8 +970,8 @@ def generate_ta_description(df):
 
   df['up_score_description'] = df['up_score_description'].apply(lambda x: x[1:])
   df['down_score_description'] = df['down_score_description'].apply(lambda x: x[1:])
-  df['score'] = df['up_score'] + df['down_score']
   
+  df['score'] = df['up_score'] + df['down_score']
   df['score_change'] =  df['score'] - df['score'].shift(1)
   df['score_ma'] = em(series=df['score'], periods=5).mean()
   df['score_ma_change'] = df['score_ma'] - df['score_ma'].shift(1)
@@ -986,7 +989,8 @@ def generate_ta_description(df):
   df = assign_condition_value(df=df, column='label', condition_dict=conditions, value_dict=values, default_value='') 
 
   none_potential_conditions = {
-    'pattern wave': f'((adx_strong_day < 0 and (-5 < adx_value < 5)) or (adx_direction_day < 0) or (十字星 != "n") or (平头_trend == "d" or 腰带_trend == "d") or (相对窗口位置 == "mid"))',
+    'ta wave': '((adx_strong_day < 0 and (-5 < adx_value < 5)) or (adx_direction_day < 0))',
+    'pattern wave': f'((十字星 != "n") or ((rate < 0 or candle_color == -1) and (0 > 平头_day >= -3 or 0 > 腰带_day >= -3)) or (相对窗口位置 == "mid" or (candle_color == -1 and (相对窗口位置 == "mid_up" or 相对窗口位置 == "mid_down"))))',
     'none potential': '(score <= 0)'
     } 
   none_potential_idx = df.query(' or '.join(none_potential_conditions.values())).index 
