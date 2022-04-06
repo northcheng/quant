@@ -377,7 +377,7 @@ def calculate_ta_static(df, indicators=default_indicators):
       df = cal_change(df=df, target_col='adx_strength', add_accumulation=False, add_prefix=True)
       df['adx_direction'] = df['adx_value_change']
       df['adx_power'] = df['adx_strength_change']
-      wave_idx = df.query('-1 < adx_direction < 1 and -1 < adx_power < 1').index
+      wave_idx = df.query('-1 < adx_direction < 1 and -0.5 < adx_power < 0.5').index
 
       # direction and strength of adx
       for col in ['adx_direction', 'adx_power']:
@@ -430,8 +430,8 @@ def calculate_ta_static(df, indicators=default_indicators):
 
       # overall adx trend
       conditions = {
-        'up': '(adx_direction > 0 and ((adx_value < 0 and adx_power_day < 0) or (adx_value > 0 and adx_power_day > 0)))', 
-        'down': '(adx_direction < 0 and ((adx_value > 0 and adx_power_day < 0) or (adx_value < 0 and adx_power_day > 0)))',
+        'up': '(adx_direction > 0 and ((adx_value < 0 and (adx_power_day < 0 or adx_direction > 5)) or (adx_value > 0 and adx_power_day > 0)))', 
+        'down': '(adx_direction < 0 and ((adx_value > 0 and (adx_power_day < 0 or adx_direction < -5)) or (adx_value < 0 and adx_power_day > 0)))',
         'wave': '(((-1 < adx_strength_change < 1) or (-1 < adx_value_change < 1)) and (-5 < adx_direction < 5)) or ((-1 <= adx_strong_day <= 1) and (-5 < adx_direction_start < 5))'} 
       values = {
         'up': 'u', 
