@@ -384,7 +384,7 @@ def calculate_ta_static(df, indicators=default_indicators):
         df.loc[wave_idx, col] = 0
         df[col] = sda(series=df[col], zero_as=0)
 
-        threshold = 0
+        threshold = 0.5
         conditions = {
           'up': f'{col} > {threshold}', 
           'down': f'{col} < {-threshold}', 
@@ -430,9 +430,10 @@ def calculate_ta_static(df, indicators=default_indicators):
 
       # overall adx trend
       conditions = {
-        'up': '(adx_direction > 0 and ((adx_value < 0 and (adx_power_day < 0 or adx_direction > 5)) or (adx_value > 0 and adx_power_day > 0)))', 
-        'down': '(adx_direction < 0 and ((adx_value > 0 and (adx_power_day < 0 or adx_direction < -5)) or (adx_value < 0 and adx_power_day > 0)))',
-        'wave': '(((-1 < adx_strength_change < 1) or (-1 < adx_value_change < 1)) and (-5 < adx_direction < 5)) or ((-1 <= adx_strong_day <= 1) and (-5 < adx_direction_start < 5))'} 
+        'wave': '(((-1 < adx_strength_change < 1) or (-1 < adx_value_change < 1)) and (-5 < adx_direction < 5)) or ((-1 <= adx_strong_day <= 1) and (-5 < adx_direction_start < 5))',
+        'up': '(adx_direction > 0 and ((adx_direction > 5) or (adx_value < 0 and adx_power_day < 0) or (adx_value > 0 and adx_power_day > 0)))', 
+        'down': '(adx_direction < 0 and ((adx_direction <-5) or (adx_value > 0 and adx_power_day < 0) or (adx_value < 0 and adx_power_day > 0)))',
+        } 
       values = {
         'up': 'u', 
         'down': 'd',
