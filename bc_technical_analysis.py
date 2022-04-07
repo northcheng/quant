@@ -286,27 +286,32 @@ def calculate_ta_static(df, indicators=default_indicators):
         sl = lines[target_indicator]['slow']
         fl_rate = f'{fl}_rate'
         sl_rate = f'{sl}_rate'
+        fs_rate = f'{target_indicator}_fs_rate'
  
         distance = f'{target_indicator}_distance'
+        distance_change = f'{target_indicator}_distance_change'
         distance_rate = f'{target_indicator}_distance_rate'
         distance_signal = f'{target_indicator}_distance_signal'
         trend_col = f'{target_indicator}_trend'
 
         # distance and distance change rate
         df[distance] = df[fl] - df[sl]
-        df[distance_rate] = (df[distance] - df[distance].shift(1)) / df[sl]
+        df[distance_change] = df[distance] - df[distance].shift(1)
+        df[distance_rate] = df[distance_change] / df[sl]
 
         # fl/sl change rate
         for col in [fl, sl]:
           df = cal_change_rate(df=df, target_col=col, periods=1, add_accumulation=False, add_prefix=col, drop_na=False)
           df[f'{col}_signal'] = cal_crossover_signal(df=df, fast_line='Close', slow_line=col, pos_signal=1, neg_signal=-1, none_signal=0)
           df[f'{col}_signal'] = sda(series=df[f'{col}_signal'], zero_as=1)
+        df[fs_rate] = df[f'{fl}_rate'] + df[f'{sl}_rate']
 
         # distance signal
+        threshold = 0.0005
         conditions = {
-          'up': f'{distance} > 0',
-          'down': f'{distance} < 0',
-          'none': f'{distance} == 0'}
+          'up': f'({distance_rate} > {threshold} and {fs_rate} > 0) or ({fl}_rate >= 0 and {sl}_rate >= 0)',
+          'down': f'({distance_rate} < {-threshold} and {fs_rate} < 0) or ({fl}_rate <= 0 and {sl}_rate <= 0)',
+          'none': f'({-threshold} <= {distance_rate} <= {threshold}) or {fs_rate} == 0 or ({fl}_rate == 0 and {sl}_rate == 0)'}
         values = {
           'up': 1, 
           'down': -1,
@@ -326,6 +331,26 @@ def calculate_ta_static(df, indicators=default_indicators):
           'wave': 'n'}
         df = assign_condition_value(df=df, column=trend_col, condition_dict=conditions, value_dict=values, default_value='n')
 
+    if 'kama' in indicators['trend'] and 'ichimoku' in indicators['trend']:
+      conditions = {
+        'up': f'kama_distance_signal > 0',
+        'down': f'kama_distance_signal < 0',
+        'none': f'kama_distance_signal == 0'}
+      values = {
+        'up': 'u', 
+        'down': 'd',
+        'none': 'n'}
+      df = assign_condition_value(df=df, column='distance_trend', condition_dict=conditions, value_dict=values, default_value='n')
+      
+      conditions = {
+        'up': f'tankan_signal == 1 or kijun_signal == 1 or kama_fast_signal == 1 or kama_slow_signal == 1',
+        'down': f'tankan_signal ==-1 or kijun_signal ==-1 or kama_fast_signal ==-1 or kama_slow_signal ==-1'}
+      values = {
+        'up': 'u', 
+        'down': 'd'}
+      df = assign_condition_value(df=df, column='trigger_trend', condition_dict=conditions, value_dict=values, default_value='')
+      
+    
     # ================================ aroon trend ============================
     target_indicator = 'aroon'
     if target_indicator in indicators['trend']:
@@ -371,6 +396,7 @@ def calculate_ta_static(df, indicators=default_indicators):
     target_indicator = 'adx'
     if target_indicator in indicators['trend']:
       
+      # adx value and strength
       df['adx_value'] = df['adx_diff_ma']
       df['adx_strength'] = df['adx']
       df = cal_change(df=df, target_col='adx_value', add_accumulation=False, add_prefix=True)
@@ -379,7 +405,7 @@ def calculate_ta_static(df, indicators=default_indicators):
       df['adx_power'] = df['adx_strength_change']
       wave_idx = df.query('-1 < adx_direction < 1 and -0.5 < adx_power < 0.5').index
 
-      # direction and strength of adx
+      # direction(of value) and power(of strength)
       for col in ['adx_direction', 'adx_power']:
         df.loc[wave_idx, col] = 0
         df[col] = sda(series=df[col], zero_as=0)
@@ -399,7 +425,7 @@ def calculate_ta_static(df, indicators=default_indicators):
       # moving average of adx direction
       df['adx_direction_mean'] = em(series=df['adx_value_change'], periods=3).mean()
 
-      # whether trend is strong
+      # whether strength is strong or weak
       adx_strong_weak_threshold = 25
       conditions = {
         'up': f'adx_strength >= {adx_strong_weak_threshold}', 
@@ -409,6 +435,17 @@ def calculate_ta_static(df, indicators=default_indicators):
         'down': -1}
       df = assign_condition_value(df=df, column='adx_strong_day', condition_dict=conditions, value_dict=values, default_value=0)
       df['adx_strong_day'] = sda(series=df['adx_strong_day'], zero_as=1)
+
+      # whether value is waving around 0
+      adx_wave_threshold = 10
+      conditions = {
+        'wave': f'{-adx_wave_threshold} <= adx_value <= {adx_wave_threshold}', 
+        'none': f'{-adx_wave_threshold} > adx_value or adx_value > {adx_wave_threshold}'} 
+      values = {
+        'wave': 1, 
+        'none': 0}
+      df = assign_condition_value(df=df, column='adx_wave_day', condition_dict=conditions, value_dict=values, default_value=0)
+      df['adx_wave_day'] = sda(series=df['adx_wave_day'], zero_as=None)
 
       # highest(lowest) value of adx_value of previous uptrend(downtrend)
       extreme_idx = df.query('adx_direction_day == 1 or adx_direction_day == -1').index.tolist()
@@ -430,10 +467,22 @@ def calculate_ta_static(df, indicators=default_indicators):
 
       # overall adx trend
       conditions = {
-        'wave': '(((-1 < adx_strength_change < 1) or (-1 < adx_value_change < 1)) and (-5 < adx_direction < 5)) or ((-1 <= adx_strong_day <= 1) and (-5 < adx_direction_start < 5))',
+        # adx_direction > 0 and (at least 1)
+        # 1. adx_direction > 5
+        # 2. adx_value < 0 and adx_power_day < 0
+        # 3. adx_value > 0 and adx_power_day > 0
         'up': '(adx_direction > 0 and ((adx_direction > 5) or (adx_value < 0 and adx_power_day < 0) or (adx_value > 0 and adx_power_day > 0)))', 
+        
+        # adx_direction < 0 and (at least 1)
+        # 1. adx_direction < -5
+        # 2. adx_value > 0 and adx_power_day < 0
+        # 3. adx_value < 0 and adx_power_day > 0
         'down': '(adx_direction < 0 and ((adx_direction <-5) or (adx_value > 0 and adx_power_day < 0) or (adx_value < 0 and adx_power_day > 0)))',
-        } 
+        
+        # (at least 1)
+        # 1. adx_direction in (-5, 5) and (adx_strength_change in (-1, 1) or adx_value_change in (-1, 1) or (adx_power_day in [-1,1] and adx_direction_day in [-1,1]))
+        # 2. adx_direction_start in (5, -5) and adx_strong_day in [1, -1]
+        'wave': '(((-1 < adx_strength_change < 1) or (-1 < adx_value_change < 1) or (-1 <= adx_power_day <= 1 and -1 <= adx_direction_day <= 1)) and (-5 < adx_direction < 5)) or ((-1 <= adx_strong_day <= 1) and (-5 < adx_direction_start < 5))',} 
       values = {
         'up': 'u', 
         'down': 'd',
@@ -925,6 +974,7 @@ def generate_ta_description(df):
     '-长期下跌':          [-3, '', '(ichimoku_distance_signal <= -60 or kama_distance_signal <= -60)'],
     '-超买':              [-1, '', '(bb_trend == "d")'],
 
+    '-Adx趋势下降':       [-10, '', '(adx_day < 0)'],
     '-Adx高位下跌':       [-10, '', '(adx_value > 15) and (adx_day < 0 or ((shadow_trend != "d" and candle_upper_shadow_pct > 0.5) or (candle_color == -1 and entity_trend != "d" and candle_entity_pct > 0.5)))'], 
     '-Adx低位震荡':       [-10, '', '(-10 < adx_direction_start < 10 and adx_strong_day < 0 and ((adx_day > 10 or adx_day < -10) or adx_strong_day < -10))'],
   }
@@ -1052,7 +1102,7 @@ def postprocess(df, keep_columns, drop_columns, sec_names, target_interval=''):
   df['obos'] = df['bb_trend'].replace({'d': '超买', 'u': '超卖', 'n': ''})
 
   # sort symbols
-  df = df.sort_values(['score', 'adx_direction_mean', 'adx_value', 'adx_direction_day', 'prev_adx_extreme'], ascending=[False, True, True, True, True])
+  df = df.sort_values(['adx_day', 'adx_value', 'adx_direction_mean', 'adx_direction_day', 'prev_adx_extreme'], ascending=[True, True, True, True, True])
 
   # add names for symbols
   df['name'] = df['symbol']
@@ -4198,7 +4248,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     y_signal = df.loc[max_idx, signal_y]
     text_signal = int(df.loc[max_idx, day_col])
     text_color = 'red' if text_signal < 0 else 'green'
-    plt.annotate(f' {text_signal} ', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.05))
+    plt.annotate(f'{signal_x[0]}:{text_signal} ', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.05))
 
   # plot signal
   # signal_val = {'pos_signal':'uu', 'neg_signal':'dd', 'none_signal':'', 'wave_signal': 'nn'}
@@ -4801,9 +4851,13 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
 
   # plot adx_diff_ma and adx_direction
   df['zero'] = 0
-  df['prev_adx_day'] = df['adx_day'].shift(1)
-  green_mask = ((df.adx_day > 0) | (df.prev_adx_day > 0)) 
-  red_mask = ((df.adx_day < 0) | (df.prev_adx_day < 0)) 
+  # df['prev_adx_day'] = df['adx_day'].shift(1)
+  # green_mask = ((df.adx_day > 0) | (df.prev_adx_day > 0)) 
+  # red_mask = ((df.adx_day < 0) | (df.prev_adx_day < 0)) 
+
+  df['next_adx_day'] = df['adx_day'].shift(-1)
+  green_mask = ((df.adx_day > 0) | (df.next_adx_day > 0)) 
+  red_mask = ((df.adx_day < 0) | (df.next_adx_day < 0)) 
  
   ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=green_mask,  facecolor='green', interpolate=False, alpha=0.3, label='adx up') 
   ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=red_mask, facecolor='red', interpolate=False, alpha=0.3, label='adx down')
@@ -5266,7 +5320,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
   # construct super title
   if new_title is None:
     new_title == ''
-  fig.suptitle(f'{title} - {new_title}({close_rate}%){desc}', x=0.5, y=1.01, fontsize=25, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1))
+  fig.suptitle(f'{title} - {new_title}({close_rate}%){desc}', x=0.5, y=1.03, fontsize=25, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1))
 
   # save image
   if save_image and (save_path is not None):
