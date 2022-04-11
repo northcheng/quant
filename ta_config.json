@@ -71,7 +71,7 @@
           "ichimoku_signal",
           "kama_signal",
           "adx_signal",
-          "-",
+          "",
           "signal"
         ]
       },
