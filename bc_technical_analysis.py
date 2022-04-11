@@ -885,7 +885,9 @@ def calculate_ta_signal(df):
   # calculate trend
   buy_threshold = 0.5
   sell_threshold = -0.5
-  conditions = {'u': f'Close > kijun and Close > tankan and Close > kama_fast and Close > kama_slow', 'd': f'adx_day <= -1'} 
+  conditions = {
+    'u': f'Close > kijun and Close > tankan and Close > kama_fast and Close > kama_slow', 
+    'd': f'adx_day <= -1'} 
   values = {'u': 'u', 'd': 'd'}
   df = assign_condition_value(df=df, column='trend', condition_dict=conditions, value_dict=values, default_value='n') 
 
@@ -969,14 +971,14 @@ def generate_ta_description(df):
     '-Kama':              [-1, '', '(kama_trend == "d")'],
     '-Kama间距':          [-1, '', '(kama_distance_signal < 0)'],
     
-    '-Ichimoku高位':      [-1, '', '(ichimoku_distance_signal >= 30)'],
-    '-Kama高位':          [-1, '', '(kama_distance_signal >= 30)'],
     '-长期下跌':          [-3, '', '(ichimoku_distance_signal <= -60 or kama_distance_signal <= -60)'],
     '-超买':              [-1, '', '(bb_trend == "d")'],
 
-    '-Adx趋势下降':       [-10, '', '(adx_day < 0)'],
+    # '-Adx趋势下降':       [-10, '', '(adx_day < 0)'],
     '-Adx高位下跌':       [-10, '', '(adx_value > 15) and (adx_day < 0 or ((shadow_trend != "d" and candle_upper_shadow_pct > 0.5) or (candle_color == -1 and entity_trend != "d" and candle_entity_pct > 0.5)))'], 
     '-Adx低位震荡':       [-10, '', '(-10 < adx_direction_start < 10 and adx_strong_day < 0 and ((adx_day > 10 or adx_day < -10) or adx_strong_day < -10))'],
+    '-Ichimoku高位':      [-10, '', '(ichimoku_distance_signal >= 30) or (tankan_signal >= 10) or (kijun_signal >= 30)'],
+    '-Kama高位':          [-10, '', '(kama_distance_signal >= 30) or (kama_fast_signal >= 10) or (kama_slow_signal >= 60)'],
   }
 
   # define conditions and and scores for dynamic trend
@@ -1032,10 +1034,12 @@ def generate_ta_description(df):
   conditions = {
     'score potential': f'score > 0',
     'pattern potential': f'(rate > 0) and (0 < 平头_day <= 3 or 0 < 腰带_day <= 3)',
+    'adx potential': f'(adx_direction > 0 and score > -5)'
     } 
   values = {
     'score potential': 'potential',
     'pattern potential': 'potential',
+    'adx potential': 'potential'
     }
   df = assign_condition_value(df=df, column='label', condition_dict=conditions, value_dict=values, default_value='') 
 
