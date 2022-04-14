@@ -342,13 +342,13 @@ def calculate_ta_static(df, indicators=default_indicators):
         'none': 'n'}
       df = assign_condition_value(df=df, column='distance_trend', condition_dict=conditions, value_dict=values, default_value='n')
       
-      conditions = {
-        'up': f'tankan_signal == 1 or kijun_signal == 1 or kama_fast_signal == 1 or kama_slow_signal == 1',
-        'down': f'tankan_signal ==-1 or kijun_signal ==-1 or kama_fast_signal ==-1 or kama_slow_signal ==-1'}
-      values = {
-        'up': 'u', 
-        'down': 'd'}
-      df = assign_condition_value(df=df, column='trigger_trend', condition_dict=conditions, value_dict=values, default_value='')
+      # conditions = {
+      #   'up': f'tankan_signal == 1 or kijun_signal == 1 or kama_fast_signal == 1 or kama_slow_signal == 1',
+      #   'down': f'tankan_signal ==-1 or kijun_signal ==-1 or kama_fast_signal ==-1 or kama_slow_signal ==-1'}
+      # values = {
+      #   'up': 'u', 
+      #   'down': 'd'}
+      # df = assign_condition_value(df=df, column='trigger_trend', condition_dict=conditions, value_dict=values, default_value='n')
       
     
     # ================================ aroon trend ============================
@@ -471,18 +471,18 @@ def calculate_ta_static(df, indicators=default_indicators):
         # 1. adx_direction > 5
         # 2. adx_value < 0 and adx_power_day < 0
         # 3. adx_value > 0 and adx_power_day > 0
-        'up': '(adx_direction > 0 and ((adx_direction > 5) or (adx_value < 0 and adx_power_day < 0) or (adx_value > 0 and adx_power_day > 0)))', 
+        'up': '((adx_direction > 0 and adx_strong_day > 0) and ((adx_direction > 5) or (adx_value < 0 and adx_power_day < 0) or (adx_value > 0 and adx_power_day > 0)))', 
         
         # adx_direction < 0 and (at least 1)
         # 1. adx_direction < -5
         # 2. adx_value > 0 and adx_power_day < 0
         # 3. adx_value < 0 and adx_power_day > 0
-        'down': '(adx_direction < 0 and ((adx_direction <-5) or (adx_value > 0 and adx_power_day < 0) or (adx_value < 0 and adx_power_day > 0)))',
+        'down': '((adx_direction < 0 and adx_strong_day > 0) and ((adx_direction <-5) or (adx_value > 0 and adx_power_day < 0) or (adx_value < 0 and adx_power_day > 0)))',
         
         # (at least 1)
         # 1. adx_direction in (-5, 5) and (adx_strength_change in (-1, 1) or adx_value_change in (-1, 1) or (adx_power_day in [-1,1] and adx_direction_day in [-1,1]))
         # 2. adx_direction_start in (5, -5) and adx_strong_day in [1, -1]
-        'wave': '(((-1 < adx_strength_change < 1) or (-1 < adx_value_change < 1) or (-1 <= adx_power_day <= 1 and -1 <= adx_direction_day <= 1)) and (-5 < adx_direction < 5)) or ((-1 <= adx_strong_day <= 1) and (-5 < adx_direction_start < 5))',} 
+        'wave': '(((-1 < adx_strength_change < 1) or (-1 < adx_value_change < 1) or (-1 <= adx_power_day <= 1 and -1 <= adx_direction_day <= 1)) and (-5 < adx_direction < 5)) or ((adx_strong_day < 0) and (-5 < adx_direction_start < 5))',} 
       values = {
         'up': 'u', 
         'down': 'd',
@@ -699,6 +699,14 @@ def calculate_ta_dynamic(df, perspective=default_perspectives):
       
       df = add_candlestick_patterns(df=df)
 
+      # conditions = {
+      #   'up': f'平头_trend == "u" or 腰带_trend == "u" or 启明黄昏_trend == "u" or 窗口_trend == "u" or 突破_trend == "u" or 反弹_trend == "u"',
+      #   'down': f'平头_trend == "d" or 腰带_trend == "d" or 启明黄昏_trend == "d" or 窗口_trend == "d" or 突破_trend == "d" or 反弹_trend == "d"'}
+      # values = {
+      #   'up': 'u', 
+      #   'down': 'd'}
+      # df = assign_condition_value(df=df, column='CDtrigger_trend', condition_dict=conditions, value_dict=values, default_value='n')
+
     # ================================ linear analysis ===========================
     phase = 'linear analysis'
     if 'linear' in perspective:
@@ -883,13 +891,28 @@ def calculate_ta_signal(df):
   df = generate_ta_description(df)
 
   # calculate trend
-  buy_threshold = 0.5
-  sell_threshold = -0.5
   conditions = {
-    'u': f'Close > kijun and Close > tankan and Close > kama_fast and Close > kama_slow', 
-    'd': f'adx_day <= -1'} 
-  values = {'u': 'u', 'd': 'd'}
+    'up': f'adx_day >= 1 and adx_value_change > 0 and adx_strong_day > 0', 
+    'down': f'adx_day <= -1 and adx_value_change < 0 and adx_strong_day > 0'} 
+  values = {'up': 'u', 'down': 'd'}
   df = assign_condition_value(df=df, column='trend', condition_dict=conditions, value_dict=values, default_value='n') 
+
+  df['signal'] = ''
+  # conditions = {
+  #   'buy': f'(trend == "u" and adx_day > 0) and (tankan_rate >= 0 and kama_fast_rate >= 0)', 
+  #   'sell': f'(trend != "u" and adx_day < 0) and (tankan_rate <= 0 or kama_fast_rate <= 0)'} 
+  # values = {'buy': 'b', 'sell': 's'}
+  # df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
+  # df = remove_redundant_signal(df=df, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='', keep='first')
+
+  # up_idx = df.query('(adx_day > 0) and ((3 > kama_fast_signal > 0) or (3 > tankan_signal > 0) or (平头_trend == "u"))').index
+  # down_idx = df.query('(0 > adx_day) and ((-3 < kama_fast_signal < 0) or (-3 < tankan_signal < 0) or (腰带_trend == "d" or 平头_trend == "d"))').index
+  # df.loc[up_idx, 'trend'] = 'u'
+  # df.loc[down_idx, 'trend'] ='d'
+  # df['trend'] = df['trend'].fillna(method='ffill')
+
+  # df.loc[up_idx, 'signal'] = 'b'
+  # df.loc[down_idx, 'signal'] ='s'
 
   # # wave conditions
   # wave_conditions = {
@@ -910,7 +933,6 @@ def calculate_ta_signal(df):
   # df.loc[wave_idx, 'trend'] = 'n'
 
   # ================================ Calculate overall siganl ======================
-  df['signal'] = ''
   # df['trend_day'] = sda(series=df['trend'].replace({'':0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
   # df.loc[df['trend_day'] == 1, 'signal'] = 'b'
   # df.loc[df['trend_day'] ==-1, 'signal'] = 's'
