@@ -44,7 +44,7 @@
   "visualization": {
     "plot_args": {
       "plot_ratio": {
-        "signals": 1.4, "adx": 2,
+        "signals": 1.6, "adx": 2.4,
         "main_indicators": 9, "volume":1
       },
       
@@ -52,7 +52,8 @@
         "target_indicator": [
           "candlestick",
           "ichimoku",
-          "kama"
+          "kama",
+          "linear"
         ],
         "candlestick_width": 0.62,
         "candlestick_color": {
@@ -63,12 +64,17 @@
       },
       "signals": {
         "signal_list": [
+          "CDtrigger_signal",
+          "MAtrigger_signal",
           "trix_signal",
           "psar_signal",
           "distance_signal",
           "ichimoku_signal",
           "kama_signal",
-          "adx_signal"
+          "adx_signal",
+
+          "",
+          "signal"
         ]
       },
       "candle": {
