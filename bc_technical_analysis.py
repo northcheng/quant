@@ -472,29 +472,31 @@ def calculate_ta_static(df, indicators=default_indicators):
         # 2. adx_value < 0 and adx_power_day < 0
         # 3. adx_value > 0 and adx_power_day > 0
         # 'up': '((adx_direction > 0 and adx_strong_day > 0) and ((adx_direction > 5) or (adx_value < 0 and adx_power_day < 0) or (adx_value > 0 and adx_power_day > 0)))', 
-        'up': f'adx_value_change > {threshold}',
+        'up': '((adx_value < 0 and adx_power_day < 0) or (adx_value > 0 and adx_power_day > 0) or (-5 < adx_value < 5 and adx_direction > 0)) and ((adx_direction > 5))',
+        # 'up': f'adx_value_change > {threshold}',
 
         # adx_direction < 0 and (at least 1)
         # 1. adx_direction < -5
         # 2. adx_value > 0 and adx_power_day < 0
         # 3. adx_value < 0 and adx_power_day > 0
         # 'down': '((adx_direction < 0 and adx_strong_day > 0) and ((adx_direction <-5) or (adx_value > 0 and adx_power_day < 0) or (adx_value < 0 and adx_power_day > 0)))',
-        'down': f'adx_value_change < {-threshold}',
+        'down': '((adx_value > 0 and adx_power_day < 0) or (adx_value < 0 and adx_power_day > 0) or (-5 < adx_value < 5 and adx_direction < 0)) and ((adx_direction < -5))',
+        # 'down': f'adx_value_change < {-threshold}',
 
-        # (at least 1)
+        # at least 1 of following
         # 1. adx_direction in (-5, 5) and (adx_strength_change in (-1, 1) or adx_value_change in (-1, 1) or (adx_power_day in [-1,1] and adx_direction_day in [-1,1]))
-        # 2. adx_direction_start in (5, -5) and adx_strong_day in [1, -1]
+        # 2. adx_direction_start in (5, -5) and adx_strong_day in [-1, 1]
         # 'wave': '(((-1 < adx_strength_change < 1) or (-1 < adx_value_change < 1) or (-1 <= adx_power_day <= 1 and -1 <= adx_direction_day <= 1)) and (-5 < adx_direction < 5)) or ((adx_strong_day < 0) and (-5 < adx_direction_start < 5))'
-        'wave': f'{-threshold} <= adx_value_change <= {threshold}'
-        # 'wave': f'((-5 <= adx_direction <= 5) and (-1 <= adx_direction_day <= 1)) and ((-5 <= adx_value <= 5) or (-0.5 <= adx_value_change <= 0.5) or (-0.5 <= adx_strength_change <= 5))',
-        # 'wave1': f'((-1 <= adx_value_change <= 1) and (-1 <= adx_strength_change <= 1))',
-        # 'wave2': f'(-5 <= adx_direction_start <= 5) and (adx_wave_day > 5)'
+        'wave1': '(-5 <= adx_direction <= 5) and ((-1 <= adx_strength_change <= 1) or (-1 <= adx_value_change <= 1))',
+        'wave2': '(-1<= adx_power_day <= 1) and (-1 <= adx_direction_day <= 1)',
+        'wave3': '(-5 <= adx_direction <= 5) and (-1 <= adx_strong_day <= 1)'
+        # 'wave': f'{-threshold} <= adx_value_change <= {threshold}'
       } 
       
       values = {
         'up': 'u', 
         'down': 'd',
-        'wave': 'n'}
+        'wave1': 'n', 'wave2': 'n', 'wave3': 'n'}
       df = assign_condition_value(df=df, column='adx_trend', condition_dict=conditions, value_dict=values, default_value='n') 
 
     # ================================ kst trend ==============================
@@ -952,15 +954,18 @@ def calculate_ta_signal(df):
   # df['signal'] = ''
   conditions = {
     'buy': f'(adx_day > 0) and (MAtrigger_trend == "u" or CDtrigger_trend == "u")', 
-    'sell': f'(adx_day < 0 and MAtrigger_trend == "d") or (CDtrigger_trend == "d")',
+    'sell': f'(adx_day < 0 and MAtrigger_trend == "d") or (adx_trend != "u" and CDtrigger_trend == "d" and (adx_value_change < 0 or kama_fast_rate < 0 or MAtrigger_trend == "d"))',
     # 'none': '(uncertain_trend == uncertain_trend)'
   } 
   values = {'buy': 'b', 'sell': 's'}
   df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
 
   falling_idx = df.query('signal == "b" and kama_fast_rate < 0 and kama_slow_rate < 0 and kama_distance_signal < 0').index
-  raising_idx = df.query('signal == "s" and kama_fast_rate > 0 and kama_slow_rate > 0 and kama_distance_signal > 0').index
+  up_in_window_idx = df.query('signal == "b" and ((candle_entity_middle < candle_gap_top) or (rate < 0))').index
   df.loc[falling_idx, 'signal'] = ''
+  df.loc[up_in_window_idx, 'signal'] = ''
+
+  raising_idx = df.query('signal == "s" and kama_fast_rate > 0.01 and kama_slow_rate > 0.01 and kama_distance_signal > 0').index
   df.loc[raising_idx, 'signal'] = ''
   df = remove_redundant_signal(df=df, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='', keep='first')
 
@@ -1017,7 +1022,7 @@ def generate_ta_description(df):
     '+Kama间距':          [1, '', '(kama_distance_signal > 0)'],
 
     '-Adx':               [-1, '', '(adx_direction < 0)'],
-    '-Adx动量':           [-1, '', '(adx_direction_mean < 1.5 or adx_value_change < 0.5)'],
+    '-Adx动量':           [-1, '', '(-1.5 < adx_direction_mean < 1.5) or (-0.5 < adx_value_change < 0.5)'],
     '-Adx高位':           [-1, '', '(adx_value > 25)'],
     '-Ichimoku':          [-1, '', '(ichimoku_trend == "d")'],
     '-Ichimoku间距':      [-1, '', '(ichimoku_distance_signal < 0)'],
@@ -1037,7 +1042,6 @@ def generate_ta_description(df):
   # define conditions and and scores for dynamic trend
   score_label_condition_dynamic = {
     # '+拟合反弹':          [1, '', '(5 > linear_bounce_day >= 1)'],
-
     # '-Renko高位':         [-1, '', '(renko_day >= 100)'],    
     # '-拟合下降':          [-1, '', '(linear_slope < 0) and (linear_fit_high_slope == 0 or linear_fit_high_signal <= 0)'],
     # '-拟合波动':          [-1, '', '(linear_slope == 0)'],
@@ -2133,7 +2137,7 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
   # redundant intermediate columns
   for col in [
     'window_position_days', 'previous_window_position_days', 'previous_相对窗口位置', 'prev_突破_trend'
-    'previous_candle_color', 'candle_entity_middle', #'high_diff', 'low_diff',
+    'previous_candle_color', #'candle_entity_middle', 'high_diff', 'low_diff',
     'entity_ma', 'entity_std', 'shadow_ma', 'shadow_std', #'shadow_diff', 'entity_diff',
     'moving_max', 'moving_min']:
     if col in df.columns:
