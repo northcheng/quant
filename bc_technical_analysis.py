@@ -1018,16 +1018,18 @@ def generate_ta_description(df):
   df['score_ma_change'] = df['score_ma'] - df['score_ma'].shift(1)
   df['score_direction'] = sda(series=df['score_ma_change'], zero_as=0)
 
-  # label symbols with large positive score "potential"
+  # label "potential" or "signal"
   conditions = {
     'score potential': f'score > 0',
     'pattern potential': f'(rate > 0) and (0 < 平头_day <= 3 or 0 < 腰带_day <= 3)',
-    'adx potential': f'(adx_direction > 0 and score > -5)'
+    'adx potential': f'(adx_direction > 0 and score > -5)',
+    'signal': 'signal == "u"'
     } 
   values = {
     'score potential': 'potential',
     'pattern potential': 'potential',
-    'adx potential': 'potential'
+    'adx potential': 'potential',
+    'signal': 'signal'
     }
   df = assign_condition_value(df=df, column='label', condition_dict=conditions, value_dict=values, default_value='') 
 
