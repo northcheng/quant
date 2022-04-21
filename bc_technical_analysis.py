@@ -1018,18 +1018,16 @@ def generate_ta_description(df):
   df['score_ma_change'] = df['score_ma'] - df['score_ma'].shift(1)
   df['score_direction'] = sda(series=df['score_ma_change'], zero_as=0)
 
-  # label "potential" or "signal"
+  # label "potential"
   conditions = {
     'score potential': f'score > 0',
     'pattern potential': f'(rate > 0) and (0 < 平头_day <= 3 or 0 < 腰带_day <= 3)',
     'adx potential': f'(adx_direction > 0 and score > -5)',
-    'signal': 'signal == "u"'
     } 
   values = {
     'score potential': 'potential',
     'pattern potential': 'potential',
-    'adx potential': 'potential',
-    'signal': 'signal'
+    'adx potential': 'potential'
     }
   df = assign_condition_value(df=df, column='label', condition_dict=conditions, value_dict=values, default_value='') 
 
@@ -1119,6 +1117,8 @@ def calculate_ta_signal(df):
   values = {'buy': 'b', 'sell': 's'}
   df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
 
+  signal_idx = df.query('signal == "b" or signal == "s"').index
+  df.loc[signal_idx, 'label'] = 'signal'
   # falling_idx = df.query('signal == "b" and kama_fast_rate < 0 and kama_slow_rate < 0 and kama_distance_signal < 0').index
   # up_in_window_idx = df.query('signal == "b" and ((candle_entity_middle < candle_gap_top) or (rate < 0))').index
   # df.loc[falling_idx, 'signal'] = ''
