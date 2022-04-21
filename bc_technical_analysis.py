@@ -1117,8 +1117,8 @@ def calculate_ta_signal(df):
   values = {'buy': 'b', 'sell': 's'}
   df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
 
-  signal_idx = df.query('signal == "b" or signal == "s"').index
-  df.loc[signal_idx, 'label'] = 'signal'
+  # signal_idx = df.query('signal == "b"').index
+  # df.loc[signal_idx, 'label'] = 'signal'
   # falling_idx = df.query('signal == "b" and kama_fast_rate < 0 and kama_slow_rate < 0 and kama_distance_signal < 0').index
   # up_in_window_idx = df.query('signal == "b" and ((candle_entity_middle < candle_gap_top) or (rate < 0))').index
   # df.loc[falling_idx, 'signal'] = ''
