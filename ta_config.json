@@ -44,7 +44,7 @@
   "visualization": {
     "plot_args": {
       "plot_ratio": {
-        "signals": 1.2, "test": 1, "adx": 2,
+        "signals": 1.6, "adx": 2.4,
         "main_indicators": 9, "volume":1
       },
       
@@ -52,7 +52,8 @@
         "target_indicator": [
           "candlestick",
           "ichimoku",
-          "kama"
+          "kama",
+          "linear"
         ],
         "candlestick_width": 0.62,
         "candlestick_color": {
@@ -63,12 +64,16 @@
       },
       "signals": {
         "signal_list": [
-          "fi_signal",
+          "CDtrigger_signal",
+          "MAtrigger_signal",
+          "trix_signal",
           "psar_signal",
+          "distance_signal",
           "ichimoku_signal",
           "kama_signal",
           "adx_signal",
-          "gap",
+
+          "",
           "signal"
         ]
       },
@@ -145,7 +150,7 @@
       "resistant": "阻挡",
       "adx_value": "ADX差值",
       "adx_strength": "ADX强度", 
-      "adx_direction_day": "ADX方向",
+      "adx_day": "ADX方向",
       "adx_direction_mean": "ADX平均强度",
       "prev_adx_extreme": "ADX起始",
       "ichimoku_distance_signal": "TK信号",
@@ -156,7 +161,7 @@
       "down_score_description": "-标签"
     },
     "drop_columns": [],
-    "send_columns": ["名称", "ADX方向", "ADX差值", "ADX强度", "TK信号", "总分", "+标签", "-标签"],
+    "send_columns": ["名称", "总分", "+标签", "-标签"],
     "save_result": true,
     "save_data": true,
     "save_pdf": true
