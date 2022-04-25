@@ -1101,7 +1101,7 @@ def calculate_ta_signal(df):
   df.loc[wave_idx, 'trend'] = 'n'
 
   # ================================ Calculate overall siganl ======================
-  # df['signal'] = ''
+  df['signal'] = ''
   # conditions = {
   #   '上升':   f'(trend == "u") and (score > 0)',
   #   '下降':  f'(trend == "d")',
