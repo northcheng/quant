@@ -44,7 +44,7 @@
   "visualization": {
     "plot_args": {
       "plot_ratio": {
-        "signals": 1.6, "adx": 2.4, "test": 1,
+        "signals": 1.6, "adx": 2.4,
         "main_indicators": 9, "volume":1
       },
       
@@ -52,8 +52,7 @@
         "target_indicator": [
           "candlestick",
           "ichimoku",
-          "kama",
-          "linear"
+          "kama"
         ],
         "candlestick_width": 0.62,
         "candlestick_color": {
@@ -94,18 +93,8 @@
       "adx": {
         "alpha": 0.8
       },
-      "test":{
+      "score":{
         "target_col": ["score"],
-        "color_mode": "up_down",
-        "benchmark": 0,
-        "bar_width": 0.8,
-        "alpha": 0.5
-      },
-      "score": {},
-      "trend_idx": {},
-      "aroon": {},
-      "trend": {
-        "target_col": ["trend_idx_direction"],
         "color_mode": "up_down",
         "benchmark": 0,
         "bar_width": 0.8,

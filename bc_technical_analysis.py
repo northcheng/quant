@@ -30,7 +30,7 @@ default_signal_val = {'pos_signal':'b', 'neg_signal':'s', 'none_signal':'', 'wav
 
 # default indicators and dynamic trend for calculation
 default_indicators = {'trend': ['ichimoku', 'kama', 'adx', 'psar', 'trix'], 'volume': [], 'volatility': ['bb'], 'other': []}
-default_perspectives = ['renko', 'candle', 'linear', 'support_resistant']
+default_perspectives = ['candle', 'support_resistant']
 
 # default arguments for visualization
 default_candlestick_color = {'colorup':'green', 'colordown':'red', 'alpha':0.8}
@@ -1039,21 +1039,21 @@ def generate_ta_description(df):
 
   # label "potential"
   conditions = {
-    'score potential': f'score > 0',
+    # 'score potential': f'score > 0',
     'pattern potential': f'(rate > 0) and (0 < 平头_day <= 3 or 0 < 腰带_day <= 3)',
-    'adx potential': f'(adx_direction > 0 and score > -5)',
+    'MA potential': f'(10 > ichimoku_day > 0 > kama_day) and (kama_distance_signal > 0 and kama_distance > -0.05)',
+    # 'adx potential': f'(adx_direction > 0 and score > -5)',
     } 
   values = {
-    'score potential': 'potential',
-    'pattern potential': 'potential',
-    'adx potential': 'potential'
+    # 'score potential': 'potential',
+    # 'pattern potential': 'potential',
+    'MA potential': 'potential',
+    # 'adx potential': 'potential'
     }
   df = assign_condition_value(df=df, column='label', condition_dict=conditions, value_dict=values, default_value='') 
 
   none_potential_conditions = {
-    'ta wave': '((adx_strong_day < 0 and (-5 < adx_value < 5)) or (adx_direction_day < 0))',
     'pattern wave': f'((十字星 != "n") or ((rate < 0 or candle_color == -1) and (0 > 平头_day >= -3 or 0 > 腰带_day >= -3)) or (相对窗口位置 == "mid" or (candle_color == -1 and (相对窗口位置 == "mid_up" or 相对窗口位置 == "mid_down"))))',
-    'none potential': '(score <= 0)'
     } 
   none_potential_idx = df.query(' or '.join(none_potential_conditions.values())).index 
   df.loc[none_potential_idx, 'label'] = ''
@@ -1073,8 +1073,7 @@ def calculate_ta_signal(df):
     print(f'No data for calculate_ta_signal')
     return None
 
-  # add ta description
-  df = generate_ta_description(df)
+  
    
   # calculate trend
   df['trend'] = ''
@@ -1093,7 +1092,6 @@ def calculate_ta_signal(df):
 
     # developing version 3 - started 2021-12-16
     'adx not exists':     '(adx != adx)',
-
     'candle cross':       '(trend == "u" or trend == "d") and (十字星 == "d" or 十字星 == "u")',
   } 
   wave_idx = df.query(' or '.join(wave_conditions.values())).index 
@@ -1102,12 +1100,20 @@ def calculate_ta_signal(df):
 
   # ================================ Calculate overall siganl ======================
   df['signal'] = ''
-  # conditions = {
-  #   '上升':   f'(trend == "u") and (score > 0)',
-  #   '下降':  f'(trend == "d")',
-  # } 
-  # values = {'上升': 'b', '下降': 's'}
-  # df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
+  conditions = {
+    'ichimoku-kama 买入':   f'(10 > ichimoku_day > 0 > kama_day) and (kama_distance_signal > 0 and kama_distance > -0.002)',
+    'kama-ichimoku 买入':   f'(kama_day > 10 > ichimoku_day > 0) and (tankan > kijun > kama_slow)',
+    'adx 卖出':             f'(trend == "d")',
+    'candle 卖出':          f'((平头_day == -2) or (腰带_day == -2) or (0 < 启明黄昏_day <= 0)) and (rate < 0)',
+  } 
+  values = {'ichimoku-kama 买入': 'b', 'kama-ichimoku 买入': 'b', 'adx 卖出': 's', 'candle 卖出': 's'} #
+  df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
+  
+  none_buy_conditions = {
+    'pattern wave': f'((十字星 != "n") or ((rate < 0 or candle_color == -1) and (0 > 平头_day >= -3 or 0 > 腰带_day >= -3)) or (相对窗口位置 == "mid" or (candle_color == -1 and (相对窗口位置 == "mid_up" or 相对窗口位置 == "mid_down"))))',
+    } 
+  none_buy_idx = df.query(' or '.join(none_buy_conditions.values())).index 
+  df.loc[none_buy_idx, 'signal'] = ''
   # df = remove_redundant_signal(df=df, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='', keep='first')
   # signal_idx = df.query('signal == "b"').index
   # df.loc[signal_idx, 'label'] = 'signal'
@@ -1115,6 +1121,9 @@ def calculate_ta_signal(df):
   # df['trend_day'] = sda(series=df['trend'].replace({'':0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
   # df.loc[df['trend_day'] == 1, 'signal'] = 'b'
   # df.loc[df['trend_day'] ==-1, 'signal'] = 's'
+
+  # add ta description
+  df = generate_ta_description(df)
 
   return df
 
@@ -5362,9 +5371,9 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
     elif tmp_indicator == 'trend_idx':
       plot_up_down(df=plot_data, col='trend_idx', use_ax=axes[tmp_indicator], title=tmp_indicator)
       
-    # plot buy/sell score
-    elif tmp_indicator == 'score':
-      plot_up_down(df=plot_data, col='score', use_ax=axes[tmp_indicator], title=tmp_indicator)
+    # # plot buy/sell score
+    # elif tmp_indicator == 'score':
+    #   plot_up_down(df=plot_data, col='score', use_ax=axes[tmp_indicator], title=tmp_indicator)
 
     # plot other indicators
     else:
