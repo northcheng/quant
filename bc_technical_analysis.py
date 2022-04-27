@@ -1101,7 +1101,7 @@ def calculate_ta_signal(df):
   # ================================ Calculate overall siganl ======================
   df['signal'] = ''
   conditions = {
-    'ichimoku-kama 买入':   f'(10 > ichimoku_day > 0 > kama_day) and (kama_distance_signal > 0 and kama_distance > -0.002)',
+    'ichimoku-kama 买入':   f'(10 > ichimoku_day > 0 > kama_day) and (kama_distance_signal > 0 and kama_distance > -0.01)',
     'kama-ichimoku 买入':   f'(kama_day > 10 > ichimoku_day > 0) and (tankan > kijun > kama_slow)',
     'adx 卖出':             f'(trend == "d")',
     'candle 卖出':          f'((平头_day == -2) or (腰带_day == -2) or (0 < 启明黄昏_day <= 0)) and (rate < 0)',
@@ -1109,11 +1109,11 @@ def calculate_ta_signal(df):
   values = {'ichimoku-kama 买入': 'b', 'kama-ichimoku 买入': 'b', 'adx 卖出': 's', 'candle 卖出': 's'} #
   df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
   
-  none_buy_conditions = {
-    'pattern wave': f'((十字星 != "n") or ((rate < 0 or candle_color == -1) and (0 > 平头_day >= -3 or 0 > 腰带_day >= -3)) or (相对窗口位置 == "mid" or (candle_color == -1 and (相对窗口位置 == "mid_up" or 相对窗口位置 == "mid_down"))))',
-    } 
-  none_buy_idx = df.query(' or '.join(none_buy_conditions.values())).index 
-  df.loc[none_buy_idx, 'signal'] = ''
+  # none_buy_conditions = {
+  #   'pattern wave': f'((十字星 != "n") or ((rate < 0 or candle_color == -1) and (0 > 平头_day >= -3 or 0 > 腰带_day >= -3)))',
+  #   } 
+  # none_buy_idx = df.query(' or '.join(none_buy_conditions.values())).index 
+  # df.loc[none_buy_idx, 'signal'] = ''
   # df = remove_redundant_signal(df=df, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='', keep='first')
   # signal_idx = df.query('signal == "b"').index
   # df.loc[signal_idx, 'label'] = 'signal'
