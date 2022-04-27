@@ -283,8 +283,8 @@ def calculate_ta_static(df, indicators=default_indicators):
         # column names
         fl = lines[target_indicator]['fast']
         sl = lines[target_indicator]['slow']
-        fl_rate = f'{fl}_rate'
-        sl_rate = f'{sl}_rate'
+        # fl_rate = f'{fl}_rate'
+        # sl_rate = f'{sl}_rate'
  
         distance = f'{target_indicator}_distance'
         distance_change = f'{target_indicator}_distance_change'
@@ -340,7 +340,13 @@ def calculate_ta_static(df, indicators=default_indicators):
             'wave': 0}
           df = assign_condition_value(df=df, column=f'{col}_day', condition_dict=conditions, value_dict=values, default_value=0) 
           df[f'{col}_day'] = sda(series=df[f'{col}_day'], zero_as=1) 
-          
+
+        # fl & sl crossover  
+        fs_signal = f'{target_indicator}_fs_signal'
+        df[fs_signal] = cal_crossover_signal(df, fast_line=fl, slow_line=sl, result_col=fs_signal, pos_signal='u', neg_signal='d', none_signal='n')
+        df[fs_signal] = df[fs_signal].replace({'u':1, 'd':-1, 'n':0})
+        df[fs_signal] = sda(series=df[fs_signal], zero_as=1)
+
         # distance signal
         distance_change_threshold = 0.001
         conditions = {
@@ -968,8 +974,8 @@ def generate_ta_description(df):
     '+Adx':             [2, '', '((adx_day > 0) or (adx_direction > 5 and adx_direction_day > 0))'],
     '-Adx':             [-2, '', '((adx_day < 0) or (adx_direction < -5 and adx_direction_day < 0))'],
 
-    '+ichimoku':        [1, '', 'ichimoku_day > 0'],
-    '-ichimoku':        [-1, '', 'ichimoku_day < 0'],
+    '+ichimoku':        [1, '', 'ichimoku_fs_signal > 0'],
+    '-ichimoku':        [-1, '', 'ichimoku_fs_signal < 0'],
 
     '+tankan':          [1, '', '(tankan_signal == 1)'],
     '-tankan':          [-1, '', '(tankan_signal == -1)'],
@@ -977,8 +983,8 @@ def generate_ta_description(df):
     '+kijun':           [1, '', '(kijun_signal == 1)'],
     '-kijun':           [-1, '', '(kijun_signal == -1)'],
 
-    '+kama':            [1, '', 'kama_day > 0'],
-    '-kama':            [-1, '', 'kama_day < 0'],
+    '+kama':            [1, '', 'kama_fs_signal > 0'],
+    '-kama':            [-1, '', 'kama_fs_signal < 0'],
 
     '+kama_f':          [1, '', '(kama_fast_signal == 1)'],
     '-kama_f':          [-1, '', '(kama_fast_signal == -1)'],
@@ -1040,15 +1046,17 @@ def generate_ta_description(df):
   # label "potential"
   conditions = {
     # 'score potential': f'score > 0',
-    'pattern potential': f'(rate > 0) and (0 < 平头_day <= 3 or 0 < 腰带_day <= 3)',
-    'MA potential': f'(10 > ichimoku_day > 0 > kama_day) and (kama_distance_signal > 0) and (kama_fast_signal > 0)',
-    'adx potential': f'(3 >= adx_day > 0 and adx_value < -15)',
+    'candle potential':         f'(rate > 0) and (0 < 窗口_day <= 3 or 0 < 启明黄昏_day <= 3)',
+    'ichimoku-kama potential':  f'(10 > ichimoku_fs_signal > 0 > kama_fs_signal) and (kama_distance_signal > 0 and ichimoku_distance_signal > 0) and (kama_fast_signal > 0)',
+    'adx potential':            f'(3 >= adx_day > 0 and adx_value < -15)',
+    'fast-slow potential':      f'(0 < kama_fs_signal <= 5 or 0 < ichimoku_fs_signal <= 5) and (adx_day > 0) and (rate > 0)'
     } 
   values = {
     # 'score potential': 'potential',
-    # 'pattern potential': 'potential',
-    'MA potential': 'potential',
-    'adx potential': 'potential'
+    'candle potential': 'potential',
+    'ichimoku-kama potential': 'potential',
+    'adx potential': 'potential',
+    'fast-slow potential':  'potential'
     }
   df = assign_condition_value(df=df, column='label', condition_dict=conditions, value_dict=values, default_value='') 
 
@@ -1073,8 +1081,6 @@ def calculate_ta_signal(df):
     print(f'No data for calculate_ta_signal')
     return None
 
-  
-   
   # calculate trend
   df['trend'] = ''
   conditions = {
@@ -1101,8 +1107,8 @@ def calculate_ta_signal(df):
   # ================================ Calculate overall siganl ======================
   df['signal'] = ''
   conditions = {
-    'ichimoku-kama 买入':   f'(10 > ichimoku_day > 0) and (0 > kama_day or 0 < ichimoku_day <= kama_day < 10) and (kama_distance_signal > 0 and kama_distance > -0.1) and (kama_fast_signal > 0) and (kama_slow_signal < -10 or kama_fast_signal >= kama_slow_signal > 0)',
-    'kama-ichimoku 买入':   f'(kama_day > 10 > ichimoku_day > 0) and (tankan > kijun > kama_slow)',
+    'ichimoku-kama 买入':   f'(10 > ichimoku_fs_signal > 0) and (0 > kama_fs_signal or 0 < ichimoku_fs_signal <= kama_fs_signal < 10) and (kama_distance_signal > 0 and ichimoku_distance_signal > 0) and (kama_fast_signal > 0) and (kama_slow_signal < -10 or kama_fast_signal >= kama_slow_signal > 0)',
+    'kama-ichimoku 买入':   f'(kama_fs_signal > 10 > ichimoku_fs_signal > 0) and (tankan > kijun > kama_slow)',
     'adx 卖出':             f'(trend == "d")',
     'candle 卖出':          f'((平头_day == -2) or (腰带_day == -2) or (0 < 启明黄昏_day <= 0)) and (rate < 0)',
   } 
