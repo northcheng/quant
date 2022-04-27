@@ -1041,7 +1041,7 @@ def generate_ta_description(df):
   conditions = {
     # 'score potential': f'score > 0',
     'pattern potential': f'(rate > 0) and (0 < 平头_day <= 3 or 0 < 腰带_day <= 3)',
-    'MA potential': f'(10 > ichimoku_day > 0 > kama_day) and (kama_distance_signal > 0 and kama_distance > -0.05)',
+    'MA potential': f'(10 > ichimoku_day > 0 > kama_day) and (kama_distance_signal > 0) and (kama_fast_signal > 0)',
     # 'adx potential': f'(adx_direction > 0 and score > -5)',
     } 
   values = {
@@ -1101,7 +1101,7 @@ def calculate_ta_signal(df):
   # ================================ Calculate overall siganl ======================
   df['signal'] = ''
   conditions = {
-    'ichimoku-kama 买入':   f'(10 > ichimoku_day > 0 > kama_day) and (kama_distance_signal > 0 and kama_distance > -0.01)',
+    'ichimoku-kama 买入':   f'(10 > ichimoku_day > 0 > kama_day) and (kama_distance_signal > 0 and kama_distance > -0.1) and (kama_fast_signal > 0) and (kama_slow_signal < -10 or kama_fast_signal >= kama_slow_signal > 0)',
     'kama-ichimoku 买入':   f'(kama_day > 10 > ichimoku_day > 0) and (tankan > kijun > kama_slow)',
     'adx 卖出':             f'(trend == "d")',
     'candle 卖出':          f'((平头_day == -2) or (腰带_day == -2) or (0 < 启明黄昏_day <= 0)) and (rate < 0)',
