@@ -946,7 +946,7 @@ def generate_ta_description(df):
   df['down_score_description'] = ''
 
   # define conditions and and scores for candle patterns
-  score_label_condition_candle = {
+  condition_candle = {
     '+启明星':          [2.0, '', '(0 < 启明黄昏_day <= 3)'],
     '-黄昏星':          [-2.0, '', '(0 > 启明黄昏_day >= -3)'],
 
@@ -970,7 +970,7 @@ def generate_ta_description(df):
   }
 
   # define conditions and and scores for static trend
-  score_label_condition_static = {
+  condition_static = {
     '+Adx':             [2, '', '((adx_day > 0) or (adx_direction > 5 and adx_direction_day > 0))'],
     '-Adx':             [-2, '', '((adx_day < 0) or (adx_direction < -5 and adx_direction_day < 0))'],
 
@@ -997,7 +997,7 @@ def generate_ta_description(df):
   }
 
   # define conditions and and scores for dynamic trend
-  score_label_condition_dynamic = {
+  condition_dynamic = {
     # '+拟合反弹':          [1, '', '(5 > linear_bounce_day >= 1)'],
     # '-Renko高位':         [-1, '', '(renko_day >= 100)'],    
     # '-拟合下降':          [-1, '', '(linear_slope < 0) and (linear_fit_high_slope == 0 or linear_fit_high_signal <= 0)'],
@@ -1007,9 +1007,9 @@ def generate_ta_description(df):
 
   # conbine multiple kinds of conditions and scores
   score_label_condition = {}
-  score_label_condition.update(score_label_condition_candle)
-  score_label_condition.update(score_label_condition_static)
-  score_label_condition.update(score_label_condition_dynamic)
+  score_label_condition.update(condition_candle)
+  score_label_condition.update(condition_static)
+  score_label_condition.update(condition_dynamic)
 
   conditions = {}
   labels = {}
@@ -1062,6 +1062,7 @@ def generate_ta_description(df):
 
   none_potential_conditions = {
     'pattern wave': f'((十字星 != "n") or ((rate < 0 or candle_color == -1) and (0 > 平头_day >= -3 or 0 > 腰带_day >= -3)) or (相对窗口位置 == "mid" or (candle_color == -1 and (相对窗口位置 == "mid_up" or 相对窗口位置 == "mid_down"))))',
+    'price fall': f'((candle_color == -1) or (rate < 0))',
     } 
   none_potential_idx = df.query(' or '.join(none_potential_conditions.values())).index 
   df.loc[none_potential_idx, 'label'] = ''

@@ -4,10 +4,11 @@
     ],
     "etf_idx": [
         "SPY", "UVXY", "GLD",
+        "XHB", "XAR", 
         "XSD", "XTL", "XLK", "XWEB",
         "XPH", "XBI", "XHS", "XHE", "XLV",
         "XLP", "XLY", "XRT", "XTN",
-        "XLU", "XLI", "XLB", "XLF", "XHB", "XLE", "XAR"
+        "XLB", "XLE", "XLI", "XLF", "XLU"
     ],
     "etf_3x": [
         "TQQQ", "UPRO", "UDOW",
