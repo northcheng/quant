@@ -755,14 +755,6 @@ def calculate_ta_dynamic(df, perspective=default_perspectives):
       
       df = add_candlestick_patterns(df=df)
 
-      # conditions = {
-      #   'up': f'(0 < 平头_day < 3) or (0 < 腰带_day < 3) or (0 < 启明黄昏_day < 3) or (0 < 窗口_day < 3) or (0 < 突破_day < 3) or (0 < 反弹_day < 3)',
-      #   'down': f'(-3 < 平头_day < 0) or (-3 < 腰带_day < 0) or (-3 < 启明黄昏_day < 0) or (-3 < 窗口_day < 0) or (-3 < 突破_day < 0) or (-3 < 反弹_day < 0)'}
-      # values = {
-      #   'up': 'u', 
-      #   'down': 'd'}
-      # df = assign_condition_value(df=df, column='CDtrigger_trend', condition_dict=conditions, value_dict=values, default_value='')
-
     # ================================ linear analysis ===========================
     phase = 'linear analysis'
     if 'linear' in perspective:
@@ -1067,6 +1059,60 @@ def generate_ta_description(df):
   none_potential_idx = df.query(' or '.join(none_potential_conditions.values())).index 
   df.loc[none_potential_idx, 'label'] = ''
 
+  # scenraios
+  conditions = {
+    'up':     f'(kama_fast > kama_slow) and (tankan > kijun)',
+    'down':   f'(kama_fast < kama_slow) and (tankan < kijun)',
+    } 
+  values = {
+    'up': 'u',
+    'down': 'd',
+    }
+  df = assign_condition_value(df=df, column='trend', condition_dict=conditions, value_dict=values, default_value='n') 
+
+  df['test_score'] = 0
+  df['test_pos_score'] = 0
+  df['test_neg_score'] = 0
+  df['test_valid_score'] = 0
+  df['test_description'] = ''
+  for col in ['窗口_day', '突破_day', '启明黄昏_day', '腰带_day', '平头_day', 'tankan_signal', 'kijun_signal', 'kama_fast_signal', 'kama_slow_signal']: 
+    
+    valid_pos_idx = df.query(f'0 < {col} <= 5').index
+    valid_neg_idx = df.query(f'-5 <= {col} < 0').index
+
+    df.loc[valid_pos_idx, 'test_score'] += df.loc[valid_pos_idx, col].apply(lambda x: 1/x)
+    df.loc[valid_pos_idx, 'test_pos_score'] += df.loc[valid_pos_idx, col].apply(lambda x: 1/x)
+
+    df.loc[valid_neg_idx, 'test_score'] += df.loc[valid_neg_idx, col].apply(lambda x: 1/x)
+    df.loc[valid_neg_idx, 'test_neg_score'] += df.loc[valid_neg_idx, col].apply(lambda x: 1/x)
+
+    if col in ['tankan_signal', 'kama_fast_signal', ]:
+      df.loc[valid_pos_idx, 'test_valid_score'] += 1
+      df.loc[valid_neg_idx, 'test_valid_score'] += -1
+
+  df['test_score'] = (df['test_pos_score'] + df['test_neg_score']).round(3)
+  df['test_description'] += 'test_score: ' + df['test_score'].astype(str) + ' (' + df['test_pos_score'].round(3).astype(str) + ',' + df['test_neg_score'].round(3).astype(str) + ')'
+
+  df['signal'] = ''
+  conditions = {
+    '低位买入':       f'(-0.1 < kama_distance < 0.001) and (candle_color == 1 and rate > 0) and (test_valid_score == 2 or (5 >= kama_fast_signal > 0 and test_score >=2)) and (adx_direction >= 5 or adx_day > 0) and (Low > tankan or Low > kijun) and (tankan > kama_fast or kijun > kama_fast or tankan > kijun)',
+    '高位卖出':       f'(kama_distance > -0.001) and (kama_fast_signal > 5 and Low < kama_fast)',
+    '紧急卖出':       f'(启明黄昏_day == -1 or 窗口_day == -1 or (平头_day == -2 and rate < 0))',
+    '常规卖出':       f'(test_score <= -2)',
+  } 
+  values = {'低位买入': 'b', '高位卖出': 's', '紧急卖出': 's', '常规卖出': 's'}
+  df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
+
+  invalid_signal_conditions = {
+    '上探窗口':       f'(signal == "b" and (candle_gap_bottom > Close and High > candle_gap_bottom and Low < candle_gap_bottom))',
+    # '快线上升':       f'(signal == "s" and (kama_fast_rate >= 0 and tankan_rate >= 0))',
+    } 
+  invalid_signal_idx = df.query(' or '.join(invalid_signal_conditions.values())).index 
+  df.loc[invalid_signal_idx, 'signal'] = ''
+  # df = remove_redundant_signal(df=df, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='', keep='first')
+  # signal_idx = df.query('signal == "b"').index
+  # df.loc[signal_idx, 'label'] = 'signal'
+
   return df
 
 # calculate signal according to features
@@ -1094,27 +1140,27 @@ def calculate_ta_signal(df):
   }
   df = assign_condition_value(df=df, column='trend', condition_dict=conditions, value_dict=values, default_value='n') 
 
-  # wave conditions
-  wave_conditions = {
+  # # wave conditions
+  # wave_conditions = {
 
-    # developing version 3 - started 2021-12-16
-    'adx not exists':     '(adx != adx)',
-    'candle cross':       '(trend == "u" or trend == "d") and (十字星 == "d" or 十字星 == "u")',
-  } 
-  wave_idx = df.query(' or '.join(wave_conditions.values())).index 
-  df.loc[wave_idx, 'uncertain_trend'] = df.loc[wave_idx, 'trend']
-  df.loc[wave_idx, 'trend'] = 'n'
+  #   # developing version 3 - started 2021-12-16
+  #   'adx not exists':     '(adx != adx)',
+  #   'candle cross':       '(trend == "u" or trend == "d") and (十字星 == "d" or 十字星 == "u")',
+  # } 
+  # wave_idx = df.query(' or '.join(wave_conditions.values())).index 
+  # df.loc[wave_idx, 'uncertain_trend'] = df.loc[wave_idx, 'trend']
+  # df.loc[wave_idx, 'trend'] = 'n'
 
-  # ================================ Calculate overall siganl ======================
-  df['signal'] = ''
-  conditions = {
-    'ichimoku-kama 买入':   f'(10 > ichimoku_fs_signal > 0) and (0 > kama_fs_signal or 0 < ichimoku_fs_signal <= kama_fs_signal < 10) and (kama_distance_signal > 0 and ichimoku_distance_signal > 0) and (kama_fast_signal > 0) and (kama_slow_signal < -10 or kama_fast_signal >= kama_slow_signal > 0)',
-    'kama-ichimoku 买入':   f'(kama_fs_signal > 10 > ichimoku_fs_signal > 0) and (tankan > kijun > kama_slow)',
-    'adx 卖出':             f'(trend == "d")',
-    'candle 卖出':          f'((平头_day == -2) or (腰带_day == -2) or (0 < 启明黄昏_day <= 0)) and (rate < 0)',
-  } 
-  values = {'ichimoku-kama 买入': 'b', 'kama-ichimoku 买入': 'b', 'adx 卖出': 's', 'candle 卖出': 's'} #
-  df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
+  # # ================================ Calculate overall siganl ======================
+  # df['signal'] = ''
+  # conditions = {
+  #   'ichimoku-kama 买入':   f'(10 > ichimoku_fs_signal > 0) and (0 > kama_fs_signal or 0 < ichimoku_fs_signal <= kama_fs_signal < 10) and (kama_distance_signal > 0 and ichimoku_distance_signal > 0) and (kama_fast_signal > 0) and (kama_slow_signal < -10 or kama_fast_signal >= kama_slow_signal > 0)',
+  #   'kama-ichimoku 买入':   f'(kama_fs_signal > 10 > ichimoku_fs_signal > 0) and (tankan > kijun > kama_slow)',
+  #   'adx 卖出':             f'(trend == "d")',
+  #   'candle 卖出':          f'((平头_day == -2) or (腰带_day == -2) or (0 < 启明黄昏_day <= 0)) and (rate < 0)',
+  # } 
+  # values = {'ichimoku-kama 买入': 'b', 'kama-ichimoku 买入': 'b', 'adx 卖出': 's', 'candle 卖出': 's'} #
+  # df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
   
   # none_buy_conditions = {
   #   'pattern wave': f'((十字星 != "n") or ((rate < 0 or candle_color == -1) and (0 > 平头_day >= -3 or 0 > 腰带_day >= -3)))',
@@ -5406,7 +5452,8 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
   down_score_desc = '' if len(down_score_desc) == 0 else f'{down_score_desc}'
   # signal_desc = f'[{df.loc[df.index.max(), "trend_idx"]}]:{df.loc[df.index.max(), "signal_description"]}'
   # signal_desc = '' if len(signal_desc) == 0 else f'{signal_desc}'
-  desc = '\n' + up_score_desc + '\n' + down_score_desc
+  test_desc = f'{df.loc[df.index.max(), "test_description"]}'
+  desc = '\n' + up_score_desc + '\n' + down_score_desc + '\n' + test_desc
   
   
   # construct super title
