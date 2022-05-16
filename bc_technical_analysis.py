@@ -1110,8 +1110,8 @@ def generate_ta_description(df):
   invalid_signal_idx = df.query(' or '.join(invalid_signal_conditions.values())).index 
   df.loc[invalid_signal_idx, 'signal'] = ''
   # df = remove_redundant_signal(df=df, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='', keep='first')
-  # signal_idx = df.query('signal == "b"').index
-  # df.loc[signal_idx, 'label'] = 'signal'
+  signal_idx = df.query('signal == "b"').index
+  df.loc[signal_idx, 'label'] = 'signal'
 
   return df
 
@@ -5450,10 +5450,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
   up_score_desc = '' if len(up_score_desc) == 0 else f'{up_score_desc}'
   down_score_desc = f'[{df.loc[df.index.max(), "down_score"]}]:{df.loc[df.index.max(), "down_score_description"]}'
   down_score_desc = '' if len(down_score_desc) == 0 else f'{down_score_desc}'
-  # signal_desc = f'[{df.loc[df.index.max(), "trend_idx"]}]:{df.loc[df.index.max(), "signal_description"]}'
-  # signal_desc = '' if len(signal_desc) == 0 else f'{signal_desc}' 
   desc = '\n' + up_score_desc + '\n' + down_score_desc + '\n'
-  
   
   # construct super title
   if new_title is None:
