@@ -1035,31 +1035,7 @@ def generate_ta_description(df):
   df['score_ma_change'] = df['score_ma'] - df['score_ma'].shift(1)
   df['score_direction'] = sda(series=df['score_ma_change'], zero_as=0)
 
-  # label "potential"
-  conditions = {
-    # 'score potential': f'score > 0',
-    'candle potential':         f'(rate > 0) and (0 < 窗口_day <= 3 or 0 < 启明黄昏_day <= 3)',
-    'ichimoku-kama potential':  f'(10 > ichimoku_fs_signal > 0 > kama_fs_signal) and (kama_distance_signal > 0 and ichimoku_distance_signal > 0) and (kama_fast_signal > 0)',
-    'adx potential':            f'(3 >= adx_day > 0 and adx_value < -15)',
-    'fast-slow potential':      f'(0 < kama_fs_signal <= 5 or 0 < ichimoku_fs_signal <= 5) and (adx_day > 0) and (rate > 0)'
-    } 
-  values = {
-    # 'score potential': 'potential',
-    'candle potential': 'potential',
-    'ichimoku-kama potential': 'potential',
-    'adx potential': 'potential',
-    'fast-slow potential':  'potential'
-    }
-  df = assign_condition_value(df=df, column='label', condition_dict=conditions, value_dict=values, default_value='') 
-
-  none_potential_conditions = {
-    'pattern wave': f'((十字星 != "n") or ((rate < 0 or candle_color == -1) and (0 > 平头_day >= -3 or 0 > 腰带_day >= -3)) or (相对窗口位置 == "mid" or (candle_color == -1 and (相对窗口位置 == "mid_up" or 相对窗口位置 == "mid_down"))))',
-    'price fall': f'((candle_color == -1) or (rate < 0))',
-    } 
-  none_potential_idx = df.query(' or '.join(none_potential_conditions.values())).index 
-  df.loc[none_potential_idx, 'label'] = ''
-
-  # scenraios
+  # calculate trend
   conditions = {
     'up':     f'(kama_fast > kama_slow) and (tankan > kijun)',
     'down':   f'(kama_fast < kama_slow) and (tankan < kijun)',
@@ -1093,6 +1069,34 @@ def generate_ta_description(df):
   df['test_score'] = (df['test_pos_score'] + df['test_neg_score']).round(3)
   df['test_description'] += 'test_score: ' + df['test_score'].astype(str) + ' (' + df['test_pos_score'].round(3).astype(str) + ',' + df['test_neg_score'].round(3).astype(str) + ')'
 
+  # # calculate potential
+  # conditions = {
+  #   # 'score potential': f'score > 0',
+  #   'candle potential':         f'(rate > 0) and (0 < 窗口_day <= 3 or 0 < 启明黄昏_day <= 3)',
+  #   'ichimoku-kama potential':  f'(10 > ichimoku_fs_signal > 0 > kama_fs_signal) and (kama_distance_signal > 0 and ichimoku_distance_signal > 0) and (kama_fast_signal > 0)',
+  #   'adx potential':            f'(3 >= adx_day > 0 and adx_value < -15)',
+  #   'fast-slow potential':      f'(0 < kama_fs_signal <= 5 or 0 < ichimoku_fs_signal <= 5) and (adx_day > 0) and (rate > 0)'
+  #   } 
+  # values = {
+  #   # 'score potential': 'potential',
+  #   'candle potential': 'potential',
+  #   'ichimoku-kama potential': 'potential',
+  #   'adx potential': 'potential',
+  #   'fast-slow potential':  'potential'
+  #   }
+  # df = assign_condition_value(df=df, column='label', condition_dict=conditions, value_dict=values, default_value='') 
+
+  potential_idx = df.query('trend == "d" and test_valid_score > 1 and test_score >=1 and (candle_color==1 and rate > 0)').index
+  df.loc[potential_idx, 'label'] = 'potential'
+
+  none_potential_conditions = {
+    'pattern wave': f'((十字星 != "n") or ((rate < 0 or candle_color == -1) and (0 > 平头_day >= -3 or 0 > 腰带_day >= -3)) or (相对窗口位置 == "mid" or (candle_color == -1 and (相对窗口位置 == "mid_up" or 相对窗口位置 == "mid_down"))))',
+    'price fall': f'((candle_color == -1) or (rate < 0))',
+    } 
+  none_potential_idx = df.query(' or '.join(none_potential_conditions.values())).index 
+  df.loc[none_potential_idx, 'label'] = ''
+
+  # calculate signal
   df['signal'] = ''
   conditions = {
     '低位买入':       f'(-0.1 < kama_distance < 0.001) and (candle_color == 1 and rate > 0) and (test_valid_score == 2 or (5 >= kama_fast_signal > 0 and test_score >=2)) and (adx_direction >= 5 or adx_day > 0) and (Low > tankan or Low > kijun) and (tankan > kama_fast or kijun > kama_fast or tankan > kijun)',
@@ -1128,17 +1132,19 @@ def calculate_ta_signal(df):
     print(f'No data for calculate_ta_signal')
     return None
 
-  # calculate trend
-  df['trend'] = ''
-  conditions = {
-    'adx up': 'adx_direction >= 5',
-    'adx down': 'adx_direction <= -5',     
-  } 
-  values = {
-    'adx up': 'u', 'adx down': 'd', 
-    # 'ichimoku-kama up': '', 'ichimoku-kama down':'',
-  }
-  df = assign_condition_value(df=df, column='trend', condition_dict=conditions, value_dict=values, default_value='n') 
+  # # calculate trend
+  # df['trend'] = ''
+  # conditions = {
+  #   'adx up': 'adx_direction >= 5',
+  #   'adx down': 'adx_direction <= -5',     
+  # } 
+  # values = {
+  #   'adx up': 'u', 'adx down': 'd', 
+  #   # 'ichimoku-kama up': '', 'ichimoku-kama down':'',
+  # }
+  # df = assign_condition_value(df=df, column='trend', condition_dict=conditions, value_dict=values, default_value='n') 
+
+  
 
   # # wave conditions
   # wave_conditions = {
