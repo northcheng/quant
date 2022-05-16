@@ -1086,7 +1086,7 @@ def generate_ta_description(df):
     df.loc[valid_neg_idx, 'test_score'] += df.loc[valid_neg_idx, col].apply(lambda x: 1/x)
     df.loc[valid_neg_idx, 'test_neg_score'] += df.loc[valid_neg_idx, col].apply(lambda x: 1/x)
 
-    if col in ['tankan_signal', 'kama_fast_signal', ]:
+    if col in ['tankan_signal', 'kama_fast_signal', 'kijun_signal', 'kama_slow_signal']:
       df.loc[valid_pos_idx, 'test_valid_score'] += 1
       df.loc[valid_neg_idx, 'test_valid_score'] += -1
 
@@ -5451,9 +5451,8 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
   down_score_desc = f'[{df.loc[df.index.max(), "down_score"]}]:{df.loc[df.index.max(), "down_score_description"]}'
   down_score_desc = '' if len(down_score_desc) == 0 else f'{down_score_desc}'
   # signal_desc = f'[{df.loc[df.index.max(), "trend_idx"]}]:{df.loc[df.index.max(), "signal_description"]}'
-  # signal_desc = '' if len(signal_desc) == 0 else f'{signal_desc}'
-  test_desc = f'{df.loc[df.index.max(), "test_description"]}'
-  desc = '\n' + up_score_desc + '\n' + down_score_desc + '\n' + test_desc
+  # signal_desc = '' if len(signal_desc) == 0 else f'{signal_desc}' 
+  desc = '\n' + up_score_desc + '\n' + down_score_desc + '\n'
   
   
   # construct super title
