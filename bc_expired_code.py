@@ -771,3 +771,107 @@ columns = [
 #     print(symbol, phase, e)
 
 #   return df
+
+
+# df['up_score'] = 0
+  # df['down_score'] = 0
+  # df['score'] = 0
+  # df['up_score_description'] = ''
+  # df['down_score_description'] = ''
+
+  # # define conditions and and scores for candle patterns
+  # condition_candle = {
+  #   '+启明星':          [2.0, '', '(0 < 启明黄昏_day <= 3)'],
+  #   '-黄昏星':          [-2.0, '', '(0 > 启明黄昏_day >= -3)'],
+
+  #   '+反弹':            [1.5, '', '(0 < 反弹_day <= 3)'],
+  #   '-回落':            [-1.5, '', '(0 > 反弹_day >= -3)'],
+
+  #   '+跳多':            [1.5, '', '(0 < 窗口_day <= 3 or candle_gap > 0)'],
+  #   '-跳空':            [-1.5, '', '(0 > 窗口_day >= -3 or candle_gap < 0)'],
+
+  #   '+突破':            [1.5, '', '(0 < 突破_day <= 3)'],
+  #   '-跌落':            [-1.5, '', '(0 > 突破_day >= -3)'],
+
+  #   '+锤子':            [1.5, '', '(0 < 锤子_day <= 3)'],
+  #   '-流星':            [-1.5, '', '(0 > 锤子_day >= -3)'],
+
+  #   '+腰带':            [1.5, '', '(0 < 腰带_day <= 3)'],
+  #   '-腰带':            [-1.5, '', '(0 > 腰带_day >= -3)'],
+
+  #   '+平底':            [1.5, '', '(0 < 平头_day <= 3)'],
+  #   '-平顶':            [-1.5, '', '(0 > 平头_day >= -3)']
+  # }
+
+  # # define conditions and and scores for static trend
+  # condition_static = {
+  #   '+Adx':             [2, '', '((adx_day > 0) or (adx_direction > 5 and adx_direction_day > 0))'],
+  #   '-Adx':             [-2, '', '((adx_day < 0) or (adx_direction < -5 and adx_direction_day < 0))'],
+
+  #   '+ichimoku':        [1, '', 'ichimoku_fs_signal > 0'],
+  #   '-ichimoku':        [-1, '', 'ichimoku_fs_signal < 0'],
+
+  #   '+tankan':          [1, '', '(tankan_signal == 1)'],
+  #   '-tankan':          [-1, '', '(tankan_signal == -1)'],
+
+  #   '+kijun':           [1, '', '(kijun_signal == 1)'],
+  #   '-kijun':           [-1, '', '(kijun_signal == -1)'],
+
+  #   '+kama':            [1, '', 'kama_fs_signal > 0'],
+  #   '-kama':            [-1, '', 'kama_fs_signal < 0'],
+
+  #   '+kama_f':          [1, '', '(kama_fast_signal == 1)'],
+  #   '-kama_f':          [-1, '', '(kama_fast_signal == -1)'],
+
+  #   '+kama_s':          [1, '', '(kama_slow_signal == 1)'],
+  #   '-kama_s':          [-1, '', '(kama_slow_signal == -1)'],
+
+  #   '+ta overall':      [1, '', '(trend_idx > 1)'],
+  #   '-ta overall':      [-1, '', '(trend_idx <= 0)']
+  # }
+
+  # # define conditions and and scores for dynamic trend
+  # condition_dynamic = {
+  #   # '+拟合反弹':          [1, '', '(5 > linear_bounce_day >= 1)'],
+  #   # '-Renko高位':         [-1, '', '(renko_day >= 100)'],    
+  #   # '-拟合下降':          [-1, '', '(linear_slope < 0) and (linear_fit_high_slope == 0 or linear_fit_high_signal <= 0)'],
+  #   # '-拟合波动':          [-1, '', '(linear_slope == 0)'],
+  #   # '-拟合回落':          [-1, '', '(-5 < linear_bounce_day <= -1)']
+  # }
+
+  # # conbine multiple kinds of conditions and scores
+  # score_label_condition = {}
+  # score_label_condition.update(condition_candle)
+  # score_label_condition.update(condition_static)
+  # score_label_condition.update(condition_dynamic)
+
+  # conditions = {}
+  # labels = {}
+  # scores = {}
+  # for k in score_label_condition.keys():
+  #   scores[k] = score_label_condition[k][0]
+  #   labels[k] = score_label_condition[k][1]
+  #   conditions[k] = score_label_condition[k][2]
+  # df = assign_condition_value(df=df, column='label', condition_dict=conditions, value_dict=labels, default_value='')
+  
+  # # calculate score and score-description
+  # for c in conditions.keys():
+  #   tmp_idx = df.query(conditions[c]).index
+    
+  #   # scores
+  #   if c[0] == '+':
+  #     df.loc[tmp_idx, 'up_score'] += scores[c]
+  #     df.loc[tmp_idx, 'up_score_description'] += f'| {c} '
+  #   elif c[0] == '-':
+  #     df.loc[tmp_idx, 'down_score'] +=scores[c]
+  #     df.loc[tmp_idx, 'down_score_description'] += f'| {c} '
+  #   else:
+  #     print(f'{c} not recognized')
+
+  # df['up_score_description'] = df['up_score_description'].apply(lambda x: x[1:])
+  # df['down_score_description'] = df['down_score_description'].apply(lambda x: x[1:])
+  # df['score'] = df['up_score'] + df['down_score']
+  # df['score_change'] =  df['score'] - df['score'].shift(1)
+  # df['score_ma'] = em(series=df['score'], periods=5).mean()
+  # df['score_ma_change'] = df['score_ma'] - df['score_ma'].shift(1)
+  # df['score_direction'] = sda(series=df['score_ma_change'], zero_as=0)
