@@ -44,7 +44,7 @@
   "visualization": {
     "plot_args": {
       "plot_ratio": {
-        "signals": 1, "adx": 2.4, "score": 1,
+        "signals": 1.2, "adx": 2.3, "score": 1,
         "main_indicators": 9, "volume":1
       },
       
@@ -94,7 +94,7 @@
         "alpha": 0.8
       },
       "score":{
-        "target_col": ["test_score"],
+        "target_col": ["score"],
         "color_mode": "benchmark",
         "benchmark": 0,
         "bar_width": 0.8,
