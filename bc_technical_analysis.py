@@ -1018,7 +1018,7 @@ def generate_ta_description(df):
     
     # scores
     if c[0] == '+':
-      df.loc[tmp_idx, 'up_score'] +=scores[c]
+      df.loc[tmp_idx, 'up_score'] += scores[c]
       df.loc[tmp_idx, 'up_score_description'] += f'| {c} '
     elif c[0] == '-':
       df.loc[tmp_idx, 'down_score'] +=scores[c]
@@ -1028,12 +1028,11 @@ def generate_ta_description(df):
 
   df['up_score_description'] = df['up_score_description'].apply(lambda x: x[1:])
   df['down_score_description'] = df['down_score_description'].apply(lambda x: x[1:])
-  
   df['score'] = df['up_score'] + df['down_score']
-  df['score_change'] =  df['score'] - df['score'].shift(1)
-  df['score_ma'] = em(series=df['score'], periods=5).mean()
-  df['score_ma_change'] = df['score_ma'] - df['score_ma'].shift(1)
-  df['score_direction'] = sda(series=df['score_ma_change'], zero_as=0)
+  # df['score_change'] =  df['score'] - df['score'].shift(1)
+  # df['score_ma'] = em(series=df['score'], periods=5).mean()
+  # df['score_ma_change'] = df['score_ma'] - df['score_ma'].shift(1)
+  # df['score_direction'] = sda(series=df['score_ma_change'], zero_as=0)
 
   # calculate trend
   conditions = {
@@ -1051,7 +1050,12 @@ def generate_ta_description(df):
   df['test_neg_score'] = 0
   df['test_valid_score'] = 0
   df['test_description'] = ''
-  for col in ['窗口_day', '突破_day', '启明黄昏_day', '腰带_day', '平头_day', 'tankan_signal', 'kijun_signal', 'kama_fast_signal', 'kama_slow_signal']: 
+  df['price_to_kama_fast'] = df['candle_entity_middle'] - df['kama_fast']
+
+  ta_cols = ['tankan_signal', 'kijun_signal', 'ichimoku_fs_signal', 'kama_fast_signal', 'kama_slow_signal', 'kama_fs_signal']
+  candle_cols = ['窗口_day', '突破_day', '反弹_day', '启明黄昏_day', '腰带_day', '平头_day', '锤子_day']
+  cols = ta_cols + candle_cols
+  for col in cols: 
     
     valid_pos_idx = df.query(f'0 < {col} <= 5').index
     valid_neg_idx = df.query(f'-5 <= {col} < 0').index
@@ -1062,30 +1066,18 @@ def generate_ta_description(df):
     df.loc[valid_neg_idx, 'test_score'] += df.loc[valid_neg_idx, col].apply(lambda x: 1/x)
     df.loc[valid_neg_idx, 'test_neg_score'] += df.loc[valid_neg_idx, col].apply(lambda x: 1/x)
 
+    col_desc = '_'.join(col.split('_')[0:-1])
+    df.loc[valid_pos_idx, 'test_description'] += f'+{col_desc} '
+    df.loc[valid_neg_idx, 'test_description'] += f'-{col_desc} '
+
     if col in ['tankan_signal', 'kama_fast_signal', 'kijun_signal', 'kama_slow_signal']:
       df.loc[valid_pos_idx, 'test_valid_score'] += 1
       df.loc[valid_neg_idx, 'test_valid_score'] += -1
 
   df['test_score'] = (df['test_pos_score'] + df['test_neg_score']).round(3)
-  df['test_description'] += 'test_score: ' + df['test_score'].astype(str) + ' (' + df['test_pos_score'].round(3).astype(str) + ',' + df['test_neg_score'].round(3).astype(str) + ')'
+  df['test_description'] = '[' + df['test_score'].astype(str) + ' | ' +  df['test_valid_score'].astype(str) + ']: ' + df['test_description']
 
-  # # calculate potential
-  # conditions = {
-  #   # 'score potential': f'score > 0',
-  #   'candle potential':         f'(rate > 0) and (0 < 窗口_day <= 3 or 0 < 启明黄昏_day <= 3)',
-  #   'ichimoku-kama potential':  f'(10 > ichimoku_fs_signal > 0 > kama_fs_signal) and (kama_distance_signal > 0 and ichimoku_distance_signal > 0) and (kama_fast_signal > 0)',
-  #   'adx potential':            f'(3 >= adx_day > 0 and adx_value < -15)',
-  #   'fast-slow potential':      f'(0 < kama_fs_signal <= 5 or 0 < ichimoku_fs_signal <= 5) and (adx_day > 0) and (rate > 0)'
-  #   } 
-  # values = {
-  #   # 'score potential': 'potential',
-  #   'candle potential': 'potential',
-  #   'ichimoku-kama potential': 'potential',
-  #   'adx potential': 'potential',
-  #   'fast-slow potential':  'potential'
-  #   }
-  # df = assign_condition_value(df=df, column='label', condition_dict=conditions, value_dict=values, default_value='') 
-
+  # calculate potential
   potential_idx = df.query('trend == "d" and test_valid_score > 1 and test_score >=1 and (candle_color==1 and rate > 0)').index
   df.loc[potential_idx, 'label'] = 'potential'
 
@@ -1099,7 +1091,7 @@ def generate_ta_description(df):
   # calculate signal
   df['signal'] = ''
   conditions = {
-    '低位买入':       f'(-0.1 < kama_distance < 0.001) and (candle_color == 1 and rate > 0) and (test_valid_score == 2 or (5 >= kama_fast_signal > 0 and test_score >=2)) and (adx_direction >= 5 or adx_day > 0) and (Low > tankan or Low > kijun) and (tankan > kama_fast or kijun > kama_fast or tankan > kijun)',
+    '低位买入':       f'(-0.1 < kama_distance < 0.001) and (test_valid_score > 1 or (5 >= kama_fast_signal > 0 and test_score >=2)) and (adx_direction >= 5 or adx_day > 0) and (candle_entity_middle > tankan or candle_entity_middle > kijun) and (tankan > kama_fast or kijun > kama_fast or tankan > kijun)',
     '高位卖出':       f'(kama_distance > -0.001) and (kama_fast_signal > 5 and Low < kama_fast)',
     '紧急卖出':       f'(启明黄昏_day == -1 or 窗口_day == -1 or (平头_day == -2 and rate < 0))',
     '常规卖出':       f'(test_score <= -2)',
@@ -1109,6 +1101,7 @@ def generate_ta_description(df):
 
   invalid_signal_conditions = {
     '上探窗口':       f'(signal == "b" and (candle_gap_bottom > Close and High > candle_gap_bottom and Low < candle_gap_bottom))',
+    '价格下跌':       f'(candle_color == -1 or rate <= 0)',
     # '快线上升':       f'(signal == "s" and (kama_fast_rate >= 0 and tankan_rate >= 0))',
     } 
   invalid_signal_idx = df.query(' or '.join(invalid_signal_conditions.values())).index 
@@ -5456,7 +5449,8 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
   up_score_desc = '' if len(up_score_desc) == 0 else f'{up_score_desc}'
   down_score_desc = f'[{df.loc[df.index.max(), "down_score"]}]:{df.loc[df.index.max(), "down_score_description"]}'
   down_score_desc = '' if len(down_score_desc) == 0 else f'{down_score_desc}'
-  desc = '\n' + up_score_desc + '\n' + down_score_desc + '\n'
+  test_score_desc = f'{df.loc[df.index.max(), "test_description"]}'
+  desc = '\n' + up_score_desc + '\n' + down_score_desc + '\n' + test_score_desc # 
   
   # construct super title
   if new_title is None:
