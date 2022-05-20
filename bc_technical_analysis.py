@@ -941,15 +941,19 @@ def generate_ta_description(df):
   df['down_score_description'] = ''
   df['trigger_score_description'] = ''
 
-  ta_cols = ['tankan_signal', 'kijun_signal', 'ichimoku_fs_signal', 'kama_fast_signal', 'kama_slow_signal', 'kama_fs_signal']
+  ta_cols = ['adx_direction_day', 'tankan_signal', 'kijun_signal', 'ichimoku_fs_signal', 'kama_fast_signal', 'kama_slow_signal', 'kama_fs_signal']
   candle_cols = ['窗口_day', '突破_day', '反弹_day', '启明黄昏_day', '腰带_day', '平头_day', '锤子_day', '吞噬_day']
   cols = ta_cols + candle_cols
   for col in cols: 
     
     col_desc = '_'.join(col.split('_')[0:-1])
 
-    valid_pos_idx = df.query(f'0 < {col} <= 5').index
-    valid_neg_idx = df.query(f'-5 <= {col} < 0').index
+    if col == 'adx_day':
+      valid_pos_idx = df.query(f'0 < {col} ').index
+      valid_neg_idx = df.query(f'{col} < 0').index
+    else:
+      valid_pos_idx = df.query(f'0 < {col} <= 5').index
+      valid_neg_idx = df.query(f'-5 <= {col} < 0').index
 
     df.loc[valid_pos_idx, 'up_score'] += df.loc[valid_pos_idx, col].apply(lambda x: 1/x)
     df.loc[valid_pos_idx, 'up_score_description'] += f'| +{col_desc} '
@@ -957,7 +961,7 @@ def generate_ta_description(df):
     df.loc[valid_neg_idx, 'down_score'] += df.loc[valid_neg_idx, col].apply(lambda x: 1/x)
     df.loc[valid_neg_idx, 'down_score_description'] += f'| -{col_desc} '
 
-    if col in ['tankan_signal', 'kama_fast_signal', 'kijun_signal', 'kama_slow_signal']:
+    if col in ['adx_day', 'tankan_signal', 'ichimoku_fs_signal', 'kama_fast_signal', 'kama_fs_signal']:
       df.loc[valid_pos_idx, 'trigger_score'] += 1
       df.loc[valid_neg_idx, 'trigger_score'] += -1 
 
@@ -989,11 +993,11 @@ def calculate_ta_signal(df):
 
   # calculate trend
   conditions = {
-    'up':     f'(kama_fast > kama_slow) and (tankan > kijun)',
-    'down':   f'(kama_fast < kama_slow) and (tankan < kijun)',
+    'up':   f'adx_day > 0',     #f'(kama_fast > kama_slow) and (tankan > kijun)',
+    'down': f'adx_day < 0',     #f'(kama_fast < kama_slow) and (tankan < kijun)',
     } 
   values = {
-    'up': 'u',
+    'up':   'u',
     'down': 'd',
     }
   df = assign_condition_value(df=df, column='trend', condition_dict=conditions, value_dict=values, default_value='n') 
@@ -1001,39 +1005,41 @@ def calculate_ta_signal(df):
   # add ta score and description
   df = generate_ta_description(df)
 
+  df['prev_low'] = df['Low'].shift(1)
+  df['prev_prev_low'] = df['Low'].shift(2)
+
   # calculate signal
   df['signal'] = ''
   conditions = {
+    '常规买入':         f'adx_direction > 0 and trigger_score >= 2 and score > 0',
+    '常规卖出':         f'adx_direction < 0 and trigger_score <= -2 and score < 0',
+    # '低位买入':       f'(-0.1 < kama_distance < 0.001) and (adx_direction > 0) and (score >=2) and (trigger_score >=2 or 5 >= kama_fast_signal > 0)',
+    # '高位买入':       f'(kama_distance_signal > 0 or ichimoku_distance_signal > 0) and (tankan_rate > 0 or kama_fast_rate > 0) and ((Close > tankan and Close > kijun) or (Close > kama_fast and Close > kama_slow))',
     
-    # kama_fast > kama_slow, socre & trigger_score
-    # '常规买入':       f'(adx_direction > 0 and 5 >= adx_day > 0)',
-    # '上涨买入':       f'(kama_distance > 0 and ichimoku_distance > 0 and kama_distance_signal > 0)',
-    # '突破失败':       f'(trend == "n") and (trigger_score < 0)',
-    # '高位卖出':       f'(adx_direction < 0) and (score < 0)',
-
-    # kama_fast < kama_slow, 相差在一定范围内, 价格上穿kama_fast 或其他任意两条线, score >=2, adx向上
-    '低位买入':       f'(-0.1 < kama_distance < 0.001) and ((trigger_score >=2 or 5 >= kama_fast_signal > 0) and score >=2) and (adx_direction > 0 or adx_day > 0)', #,  and (candle_entity_middle > tankan or candle_entity_middle > kijun) and (tankan > kama_fast or kijun > kama_fast or tankan > kijun)',
-    
-    '常规卖出':       f'(adx_day < 0 and adx_direction < 0) or (trigger_score <= -2 and score < 0)',
+    # '常规卖出':       f'(adx_day < 0 and adx_direction < 0) or (trigger_score <= -2 and score < 0)',
     '窗口卖出':       f'(窗口_day == -1 or 突破_day == -1) and (candle_color == -1 and High > tankan and High > kijun and High > kama_fast and High > kama_slow)',
     '黄昏卖出':       f'(启明黄昏_day == -1) and (candle_color == -1 and High > tankan and High > kijun and High > kama_fast and High > kama_slow)',
-    '平头卖出':       f'((平头_day == -1) and (candle_color == -1 and High > tankan and High > kijun and High > kama_fast and High > kama_slow)) or (平头_day == -2 and rate < 0)',
-    
+    '平头卖出':       f'(((平头_day == -1) and (candle_color == -1 and High > tankan and High > kijun and High > kama_fast and High > kama_slow)) or (平头_day == -2 and rate < 0))',
+    '紧急卖出':       f'(candle_color == -1 and Close < prev_low and Close < prev_prev_low)',
+    '突破失败':         f'(kama_distance < 0 and (kama_fast_signal == -1 or kama_slow_signal == -1))',
   } 
   values = {
-    # '常规买入': 'b', '上涨买入': 'b', 
-    # '突破失败': 's', '高位卖出': 's',
-    '低位买入': 'b', 
-    '常规卖出': 's', '窗口卖出': 's', '黄昏卖出': 's', '平头卖出': 's'
+    '常规买入': 'b', '常规卖出': 's', 
+    '突破失败': 's', '窗口卖出': 's', '黄昏卖出': 's', '平头卖出': 's', '紧急卖出': 's',
+    # '低位买入': 'b', '高位买入': 'b',
+    # '常规卖出': 's',  
   }
   df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
 
   none_signal_conditions = {
-    '上探窗口':       f'(signal == "b" and (candle_gap_top > Close and High > candle_gap_bottom and Low < candle_gap_bottom))',
+    '长期下跌':       f'(signal == "b" and ((kama_fs_signal < 0 and kama_distance < -0.1) or (kama_fs_signal < -20 and ichimoku_fs_signal < -20) or (kama_fs_signal < -20 and (kama_fast_rate <= 0 or tankan_rate <= 0))))',
+    '上探窗口':       f'(signal == "b" and (相对窗口位置 == "out" or 相对窗口位置 == "mid_down"))',
+    '高位震荡':       f'(signal == "b" and (kama_fs_signal > 20 and adx_day < 0))',
     '价格下跌':       f'(signal == "b" and (candle_color == -1 or rate <= 0))',
-    '价格过高':       f'(signal == "b" and (kama_fs_signal > 10 and Low > kama_fast and Low > tankan))',
-    '长期下跌':       f'(signal == "b" and (kama_fs_signal < -10 and kama_distance < -0.06 and kama_slow > tankan and kama_slow > kijun and kama_fast_rate < 0))',
-    '趋势不明':       f'(signal == "b" and (0 > adx_direction_start > -10 or adx_strong_day < -5))'
+    # '价格过高':       f'(signal == "b" and (kama_fs_signal > 10 and Low > kama_fast and Low > tankan))',
+    # '趋势不明':       f'(signal == "b" and (0 > adx_direction_start > -10 or adx_strong_day < -5))',
+
+    '价格未跌':       f'(signal == "s" and (kama_distance_signal > 0 or ichimoku_distance_signal > 0) and (tankan_rate > 0 or kama_fast_rate > 0 or adx_direction > 0) and (Close > prev_low and Close > prev_prev_low))'
     } 
   none_signal_idx = df.query(' or '.join(none_signal_conditions.values())).index 
   df.loc[none_signal_idx, 'signal'] = ''
@@ -2021,11 +2027,11 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
 
         # =================================== 乌云盖顶  =================================== #
         # 1-必须为绿色, 2-必须为红色长实体
-        if (row['entity_trend'] != 'u' or row['candle_color'] != -1 or previous_row['candle_color'] != 1):
+        if (row['位置_trend'] != 'u' or row['entity_trend'] == 'd' or row['candle_color'] == 1 or previous_row['candle_color'] == -1):
           pass
         else:
           # 顶部>前顶部, 底部>前底部, 底部穿过前中点
-          if (previous_row['candle_entity_top'] < row['candle_entity_top']) and (previous_row['candle_entity_bottom'] < row['candle_entity_bottom']) and (previous_row['candle_entity_middle'] > row['candle_entity_bottom']):
+          if (previous_row['candle_entity_top'] < row['candle_entity_top']) and (previous_row['candle_entity_bottom'] < row['candle_entity_bottom']): # and (previous_row['candle_entity_middle'] > row['candle_entity_bottom'])
             df.loc[idx, '穿刺_trend'] = 'd'
 
         # =================================== 黄昏星  ===================================== #
@@ -2048,7 +2054,7 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
 
         # =================================== 穿刺形态  =================================== #
         # 1-必须为红色, 2-必须为绿色长实体
-        if (row['entity_trend'] != 'u' or row['candle_color'] != 1 or previous_row['candle_color'] != -1):
+        if (row['位置_trend'] != 'd' or row['entity_trend'] == 'd' or row['candle_color'] == -1 or previous_row['candle_color'] == 1):
           pass
         else:
           # 顶部<=前顶部, 底部<前底部, 顶部穿过前中点
