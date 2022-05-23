@@ -1056,14 +1056,16 @@ def calculate_ta_signal(df):
     
     # '常规卖出':       f'(adx_day < 0 and adx_direction < 0) or (trigger_score <= -2 and score < 0)',
     '窗口卖出':         f'(窗口_day == -1 or 突破_day == -1) and (candle_color == -1 or (Close < prev_low and Close < prev_prev_low))',
-    # '黄昏卖出':       f'(启明黄昏_day == -1) and (candle_color == -1 and High > tankan and High > kijun and High > kama_fast and High > kama_slow)',
+    '黄昏卖出':         f'(启明黄昏_day == -1) and (candle_color == -1 and High > tankan and High > kijun and High > kama_fast and High > kama_slow)',
+    '乌云卖出':         f'(穿刺_day == -1) and (candle_color == -1 and High > tankan and High > kijun and High > kama_fast and High > kama_slow)',
     '平头卖出':         f'(((平头_day == -1) and (candle_color == -1 and High > tankan and High > kijun and High > kama_fast and High > kama_slow)) or (平头_day == -2 and rate < 0))',
-    '紧急卖出':         f'(Close < prev_low and Close < prev_prev_low)',
+    '紧急卖出':         f'(trigger_score < 0 or score < 0) and (Close < prev_low and Close < prev_prev_low)',
     '突破失败':         f'(kama_distance < 0 and (Close < prev_low) and ((kama_fast_signal == -1 or kama_slow_signal == -1) or (candle_color == -1 and (candle_entity_top > kama_fast > candle_entity_bottom or candle_entity_top > kama_slow > candle_entity_bottom))))',
+    '触顶回落':         f'(kama_distance < 0 and (kama_fast_signal > 0 and kama_slow_signal < 0 and High > kama_slow and candle_entity_top < kama_slow))',
   } 
   values = {
     '常规买入': 'b', '常规卖出': 's', 
-    '紧急卖出': 's', '平头卖出': 's', '窗口卖出': 's', '突破失败': 's', 
+    '紧急卖出': 's', '平头卖出': 's', '窗口卖出': 's', '突破失败': 's', '触顶回落': 's',
     # '黄昏卖出': 's', 
     # '低位买入': 'b', '高位买入': 'b',
     # '常规卖出': 's',  
@@ -1077,17 +1079,22 @@ def calculate_ta_signal(df):
     '长期下跌':         f'(signal == "b" and ((kama_fs_signal < 0 and kama_distance < -0.1) or (kama_fs_signal < -20 and kama_fast_rate <= 0) or (kama_fs_signal < -30 and score < 3)))',
     '趋势未定':         f'(signal == "b" and (十字星 != "n" or adx_direction < 5 or (0 > adx_direction_start > -10 or adx_strong_day < -5)))',
 
-    '高位买入':         f'(signal == "b" and kama_distance > 0 and (trigger_score < 3 and score < 3))', 
-    # '上探窗口':       f'(signal == "b" and (相对窗口位置 == "out" or 相对窗口位置 == "mid_down"))',
+    '高位买入':         f'(signal == "b" and kama_distance > 0 and ((trigger_score < 3 and score < 3) or (adx_day < 0)))', 
+    '上探窗口':         f'(signal == "b" and ((High > candle_gap_top and Close < candle_gap_top) or (candle_color == -1 and (相对窗口位置 == "mid" or 相对窗口位置 == "mid_up" or 相对窗口位置 == "mid_down" or 相对窗口位置 == "out" ))))',
     # '高位震荡':       f'(signal == "b" and (kama_fs_signal > 20 and adx_day < 0))',
     # '价格下跌':       f'(signal == "b" and (candle_color == -1 or rate <= 0))',
     # '价格过高':       f'(signal == "b" and (kama_fs_signal > 10 and Low > kama_fast and Low > tankan))',
-    # '趋势不明':       f'(signal == "b" and (0 > adx_direction_start > -10 or adx_strong_day < -5))',
+    '趋势不明':         f'(signal == "b" and (0 > adx_direction_start > -10 or adx_strong_day < -5))',
 
+    } 
+  none_signal_idx = df.query(' or '.join(none_signal_conditions.values())).index 
+  df.loc[none_signal_idx, 'signal'] = ''
+
+  none_signal_conditions = {
     # '价格未跌':       f'(signal == "s" and (kama_distance_signal > 0 or ichimoku_distance_signal > 0) and (tankan_rate > 0 or kama_fast_rate > 0 or adx_direction > 0) and (Close > prev_low and Close > prev_prev_low))'
-    '窗口支撑':         f'(signal == "s" and (Low < candle_gap_top and Close > candle_gap_top))',
-    '快线支撑':         f'(signal == "s" and (candle_color == 1) and (kama_distance > 0 and ichimoku_distance > 0) and ((Low < kama_fast and candle_entity_bottom > kama_fast) or (Low < tankan and candle_entity_bottom > tankan)))',
-    #'慢线支撑':         f'(signal == "s" and and (kama_distance > 0 and ichimoku_distance > 0) and ((Low < kama_fast and candle_entity_bottom > kama_fast) or (Low < tankan and candle_entity_bottom > tankan)))',
+    '窗口支撑':         f'(signal == "s" and (adx_direction > 0) and (Low < candle_gap_top and Close > candle_gap_top))',
+    '快线支撑':         f'(signal == "s" and (adx_direction > 0) and (candle_color == 1) and (kama_distance > 0 and ichimoku_distance > 0) and ((Low < kama_fast and candle_entity_bottom > kama_fast) or (Low < tankan and candle_entity_bottom > tankan)))',
+    '慢线支撑':         f'(signal == "s" and (adx_direction > 0) and ((Low < kama_slow and candle_entity_bottom > kama_slow) or (Low < kijun and candle_entity_bottom > kijun)))',
     } 
   none_signal_idx = df.query(' or '.join(none_signal_conditions.values())).index 
   df.loc[none_signal_idx, 'signal'] = ''
