@@ -44,7 +44,7 @@
   "visualization": {
     "plot_args": {
       "plot_ratio": {
-        "signals": 1.2, "adx": 2.3, "score": 1,
+        "signals": 1.2, "adx": 2.3, "test": 1,
         "main_indicators": 9, "volume":1
       },
       
@@ -99,6 +99,11 @@
         "benchmark": 0,
         "bar_width": 0.8,
         "alpha": 0.5
+      },
+      "test":{
+        "target_col": ["adx_value_change_std"],
+        "color_mode": "up_down",
+        "benchmark": 0
       },
       "sec_name": {
 

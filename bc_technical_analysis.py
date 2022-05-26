@@ -1001,8 +1001,34 @@ def calculate_ta_signal(df):
   # add ta score and description
   df = generate_ta_description(df)
 
-  df['prev_low'] = df['Low'].shift(1)
-  df['prev_prev_low'] = df['Low'].shift(2)
+  # adx_value_change_std
+  df['adx_value_change_std'] = em(df['adx_value_change'], 5).mean()
+
+  # High/Low of last week
+  idxs = df.index.tolist()
+  monday_idxs = [x for x in idxs if x.weekday() == 0]
+  monday_idxs.append(monday_idxs[-1] + datetime.timedelta(days=7))
+
+  prev_start = None
+  start = None
+  end = None
+  for i in range(len(monday_idxs) - 1):
+    start = monday_idxs[i]
+    end = monday_idxs[i+1]
+    
+    if i == 0:
+      pass
+
+    else:
+      last_week_h = df.loc[prev_start:start, 'High'].max()
+      last_week_l = df.loc[prev_start:start, 'Low'].min()
+
+      df.loc[start:end, 'last_week_high'] = last_week_h
+      df.loc[start:end, 'last_week_low'] = last_week_l
+
+      # print(prev_start, start, end, last_week_h, last_week_l)
+
+    prev_start = start
 
   # # calculate signal
   # df['signal'] = ''
@@ -1044,7 +1070,9 @@ def calculate_ta_signal(df):
   # none_signal_idx = df.query(' or '.join(none_signal_conditions.values())).index 
   # df.loc[none_signal_idx, 'signal'] = ''
   # # df = remove_redundant_signal(df=df, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='', keep='first')
-
+  
+  df['prev_low'] = df['Low'].shift(1)
+  df['prev_prev_low'] = df['Low'].shift(2)
 
   # calculate signal
   df['signal'] = ''
@@ -1064,40 +1092,37 @@ def calculate_ta_signal(df):
     '触顶回落':         f'(kama_distance < 0 and (kama_fast_signal > 0 and kama_slow_signal < 0 and High > kama_slow and candle_entity_top < kama_slow))',
   } 
   values = {
+    # '趋势买入': 'b', '趋势卖出': 's',
     '常规买入': 'b', '常规卖出': 's', 
     '紧急卖出': 's', '平头卖出': 's', '窗口卖出': 's', '突破失败': 's', '触顶回落': 's',
     # '黄昏卖出': 's', 
-    # '低位买入': 'b', '高位买入': 'b',
-    # '常规卖出': 's',  
+    # '低位买入': 'b', '高位买入': 'b', 
   }
   df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
 
   none_signal_conditions = {
-    '数据不全':         f'(adx_direction != adx_direction)',
+    '数据不全':         f'(adx_day == 0)',
     '价格下跌':         f'(signal == "b" and (rate < 0 or candle_color == -1))',
     '低位误报':         f'(signal == "b" and (kama_distance < 0 and ichimoku_distance < 0) and ((kama_fast_signal < 0) or (kijun_signal < 0)))',
     '长期下跌':         f'(signal == "b" and ((kama_fs_signal < 0 and kama_distance < -0.1) or (kama_fs_signal < -20 and kama_fast_rate <= 0) or (kama_fs_signal < -30 and score < 3)))',
-    '趋势未定':         f'(signal == "b" and (十字星 != "n" or adx_direction < 5 or (0 > adx_direction_start > -10 or adx_strong_day < -5)))',
 
     '高位买入':         f'(signal == "b" and kama_distance > 0 and ((trigger_score < 3 and score < 3) or (adx_day < 0)))', 
     '上探窗口':         f'(signal == "b" and ((High > candle_gap_top and Close < candle_gap_top) or (candle_color == -1 and (相对窗口位置 == "mid" or 相对窗口位置 == "mid_up" or 相对窗口位置 == "mid_down" or 相对窗口位置 == "out" ))))',
-    # '高位震荡':       f'(signal == "b" and (kama_fs_signal > 20 and adx_day < 0))',
-    # '价格下跌':       f'(signal == "b" and (candle_color == -1 or rate <= 0))',
-    # '价格过高':       f'(signal == "b" and (kama_fs_signal > 10 and Low > kama_fast and Low > tankan))',
-    '趋势不明':         f'(signal == "b" and (0 > adx_direction_start > -10 or adx_strong_day < -5))',
+    '趋势不明':         f'(signal == "b" and (adx_strong_day < -5))',
 
     } 
   none_signal_idx = df.query(' or '.join(none_signal_conditions.values())).index 
   df.loc[none_signal_idx, 'signal'] = ''
 
   none_signal_conditions = {
-    # '价格未跌':       f'(signal == "s" and (kama_distance_signal > 0 or ichimoku_distance_signal > 0) and (tankan_rate > 0 or kama_fast_rate > 0 or adx_direction > 0) and (Close > prev_low and Close > prev_prev_low))'
+    '价格未跌':         f'(signal == "s" and (Close > last_week_low) and ((Close > tankan > kijun) and (kama_distance > 0 or ichimoku_distance > 0)))',
     '窗口支撑':         f'(signal == "s" and (adx_direction > 0) and (Low < candle_gap_top and Close > candle_gap_top))',
     '快线支撑':         f'(signal == "s" and (adx_direction > 0) and (candle_color == 1) and (kama_distance > 0 and ichimoku_distance > 0) and ((Low < kama_fast and candle_entity_bottom > kama_fast) or (Low < tankan and candle_entity_bottom > tankan)))',
     '慢线支撑':         f'(signal == "s" and (adx_direction > 0) and ((Low < kama_slow and candle_entity_bottom > kama_slow) or (Low < kijun and candle_entity_bottom > kijun)))',
     } 
   none_signal_idx = df.query(' or '.join(none_signal_conditions.values())).index 
   df.loc[none_signal_idx, 'signal'] = ''
+
   # df = remove_redundant_signal(df=df, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='', keep='first')
   
   # label potential
