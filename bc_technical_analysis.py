@@ -1197,7 +1197,7 @@ def calculate_ta_signal(df):
   # df = remove_redundant_signal(df=df, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='', keep='first')
   
   # label potential
-  potential_idx = df.query('trend == "d" and trigger_score > 1 and score > 1 and (candle_color==1 and rate > 0)').index
+  potential_idx = df.query('(trigger_score > 5 or score > 5) and (candle_color==1 or rate > 0) and (adx_direction_day > 0 and adx_strong_day > 0)').index
   df.loc[potential_idx, 'label'] = 'potential'
 
   none_potential_conditions = {
@@ -5544,7 +5544,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
   # score description
   up_score_desc = f'[+Score {df.loc[df.index.max(), "up_score"]}]'
   down_score_desc = f'[-Score {df.loc[df.index.max(), "down_score"]}]'
-  desc = '\n' + trigger_score_desc + '\n' + up_score_desc + ' ' + down_score_desc # 
+  desc = '\n' + up_score_desc + ' ' + down_score_desc + '\n' + trigger_score_desc # 
   
   # construct super title
   if new_title is None:
