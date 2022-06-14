@@ -1197,12 +1197,12 @@ def calculate_ta_signal(df):
   # df = remove_redundant_signal(df=df, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='', keep='first')
   
   # label potential
-  potential_idx = df.query('(trigger_score > 5 or score > 5) and (score > 1 and trigger_score > 0 and (0 < ichimoku_fs_signal < 5 or 0 < kama_fs_signal < 5 or 0 < adx_day < 5))').index
+  potential_idx = df.query('(trigger_score > 5 and score > 5) or ((score > 1 and trigger_score > 1) and (0 < ichimoku_fs_signal < 5 or 0 < kama_fs_signal < 5 or 0 < adx_day < 5))').index
   df.loc[potential_idx, 'label'] = 'potential'
 
   none_potential_conditions = {
     'pattern wave': f'((十字星 != "n") or ((rate < 0 or candle_color == -1) and (0 > 平头_day >= -3 or 0 > 腰带_day >= -3)) or (相对窗口位置 == "mid" or (candle_color == -1 and (相对窗口位置 == "mid_up" or 相对窗口位置 == "mid_down"))))',
-    'price fall': f'((candle_color == -1) or (rate < 0))',
+    'price fall': f'((candle_color == -1) and (rate < 0))',
     } 
   none_potential_idx = df.query(' or '.join(none_potential_conditions.values())).index 
   df.loc[none_potential_idx, 'label'] = ''
