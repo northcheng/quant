@@ -5542,9 +5542,13 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
   trigger_score_desc = f'[Trigger {df.loc[df.index.max(), "trigger_score"]}]:{df.loc[df.index.max(), "trigger_score_description"]}'
   
   # score description
-  up_score_desc = f'[+Score {df.loc[df.index.max(), "up_score"]}]'
-  down_score_desc = f'[-Score {df.loc[df.index.max(), "down_score"]}]'
-  desc = '\n' + up_score_desc + ' ' + down_score_desc + '\n' + trigger_score_desc # 
+  score = df.loc[df.index.max(), "score"]
+  up_score = df.loc[df.index.max(), "up_score"]
+  down_score = df.loc[df.index.max(), "down_score"]
+  up_score_desc = f'+{up_score}' if up_score > 0 else '+0.0'
+  down_score_desc = f'{down_score}' if down_score < 0 else '-0.0'
+  score_desc = f'[Score {score}]: {up_score_desc} | {down_score_desc}'
+  desc = '\n' + score_desc + '\n' + trigger_score_desc # 
   
   # construct super title
   if new_title is None:
