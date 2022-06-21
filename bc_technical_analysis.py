@@ -289,7 +289,6 @@ def calculate_ta_static(df, indicators=default_indicators):
         distance = f'{target_indicator}_distance'
         distance_change = f'{target_indicator}_distance_change'
         distance_signal = f'{target_indicator}_distance_signal'
-        distance_direction = f'{target_indicator}_distance_direction'
         trend_col = f'{target_indicator}_trend'
 
         # distance and distance change(normalized by slow_line)
@@ -297,24 +296,6 @@ def calculate_ta_static(df, indicators=default_indicators):
         df[distance_change] = df[distance] - df[distance].shift(1)
         df[distance] = df[distance] / df[sl]
         df[distance_change] = df[distance_change] / df[sl]
-        df[distance_direction] = df[distance_change]
-
-        # same direction accumulation of distance change
-        distance_change_threshold = 0.001
-        wave_idx = df.query(f'{-distance_change_threshold} <= {distance_direction} <= {distance_change_threshold}').index
-        df.loc[wave_idx, distance_direction]= 0
-        df[distance_direction] = sda(series=df[distance_direction], zero_as=0)
-
-        conditions = {
-          'up': f'{distance_direction} > {0}', 
-          'down': f'{distance_direction} < {0}', 
-          'wave': f'{0} <= {distance_direction} <= {0}'} 
-        values = {
-          'up': 1, 
-          'down': -1,
-          'wave': 0}
-        df = assign_condition_value(df=df, column=f'{distance_direction}_day', condition_dict=conditions, value_dict=values, default_value=0) 
-        df[f'{distance_direction}_day'] = sda(series=df[f'{distance_direction}_day'], zero_as=1) 
 
         # fl/sl change rate
         rate_threshold = 0.001
@@ -365,34 +346,12 @@ def calculate_ta_static(df, indicators=default_indicators):
         conditions = {
           'up': f'Close > {fl} > {sl}', 
           'down': f'Close < {fl} < {sl}',
-          # 'wave': f'({distance_direction} == 0)',
         } 
         values = {
           'up': 'u', 
           'down': 'd',
-          # 'wave': 'n'
         }
         df = assign_condition_value(df=df, column=trend_col, condition_dict=conditions, value_dict=values, default_value='n')
-
-    # if 'kama' in indicators['trend'] and 'ichimoku' in indicators['trend']:
-    #   conditions = {
-    #     'up': f'kama_distance_signal > 0',
-    #     'down': f'kama_distance_signal < 0',
-    #     'none': f'kama_distance_signal == 0'}
-    #   values = {
-    #     'up': 'u', 
-    #     'down': 'd',
-    #     'none': 'n'}
-    #   df = assign_condition_value(df=df, column='distance_trend', condition_dict=conditions, value_dict=values, default_value='n')
-      
-    #   conditions = {
-    #     'up': f'(tankan < kijun and kijun_signal == 1) or kama_fast_signal == 1 or kama_slow_signal == 1',
-    #     'down': f'tankan_signal ==-1 or kijun_signal ==-1 or kama_fast_signal ==-1 or kama_slow_signal ==-1'}
-    #   values = {
-    #     'up': 'u', 
-    #     'down': 'd'}
-    #   df = assign_condition_value(df=df, column='MAtrigger_trend', condition_dict=conditions, value_dict=values, default_value='')
-      
     
     # ================================ aroon trend ============================
     target_indicator = 'aroon'
@@ -447,6 +406,9 @@ def calculate_ta_static(df, indicators=default_indicators):
       df['adx_direction'] = df['adx_value_change']
       df['adx_power'] = df['adx_strength_change']
       wave_idx = df.query('-1 < adx_direction < 1 and -0.5 < adx_power < 0.5').index
+
+      # adx_value_change_std
+      df['adx_value_change_std'] = em(df['adx_value_change'], 5).mean()
 
       # direction(of value) and power(of strength)
       for col in ['adx_direction', 'adx_power']:
@@ -983,9 +945,11 @@ def calculate_ta_signal(df):
   :raturns: dataframe with signal
   :raises: None
   """
+
   if df is None or len(df) == 0:
     print(f'No data for calculate_ta_signal')
     return None
+  columns_to_drop = []
 
   # calculate trend
   conditions = {
@@ -1000,9 +964,6 @@ def calculate_ta_signal(df):
 
   # add ta score and description
   df = generate_ta_description(df)
-
-  # adx_value_change_std
-  df['adx_value_change_std'] = em(df['adx_value_change'], 5).mean()
 
   # High/Low of last week
   idxs = df.index.tolist()
@@ -1030,49 +991,12 @@ def calculate_ta_signal(df):
 
     prev_start = start
 
-  # # calculate signal
-  # df['signal'] = ''
-  # conditions = {
-    
-  #   # kama_fast > kama_slow, socre & trigger_score
-  #   # '常规买入':       f'(adx_direction > 0 and 5 >= adx_day > 0)',
-  #   # '上涨买入':       f'(kama_distance > 0 and ichimoku_distance > 0 and kama_distance_signal > 0)',
-  #   # '突破失败':       f'(trend == "n") and (trigger_score < 0)',
-  #   # '高位卖出':       f'(adx_direction < 0) and (score < 0)',
-
-  #   # kama_fast < kama_slow, 相差在一定范围内, 价格上穿kama_fast 或其他任意两条线, score >=2, adx向上
-  #   '低位买入':       f'(-0.1 < kama_distance < 0.001) and ((trigger_score >=2 or 5 >= kama_fast_signal > 0) and score >=2) and (adx_direction > 0 or adx_day > 0)', #,  and (candle_entity_middle > tankan or candle_entity_middle > kijun) and (tankan > kama_fast or kijun > kama_fast or tankan > kijun)',
-    
-  #   '常规卖出':       f'(adx_day < 0 and adx_direction < 0) or (trigger_score <= -2 and score < 0)',
-  #   '窗口卖出':       f'(窗口_day == -1 or 突破_day == -1) and (candle_color == -1 and High > tankan and High > kijun and High > kama_fast and High > kama_slow)',
-  #   '黄昏卖出':       f'(启明黄昏_day == -1) and (candle_color == -1 and High > tankan and High > kijun and High > kama_fast and High > kama_slow)',
-  #   '平头卖出':       f'((平头_day == -1) and (candle_color == -1 and High > tankan and High > kijun and High > kama_fast and High > kama_slow)) or (平头_day == -2 and rate < 0)',
-  #   '紧急卖出':       f'(candle_color == -1 and Close < prev_low and Close < prev_prev_low)',
-  #   '突破失败':       f'(kama_distance < 0 and (kama_fast_signal == -1 or kama_slow_signal == -1))',
-  # } 
-  # values = {
-  #   # '常规买入': 'b', '上涨买入': 'b', 
-  #   # '突破失败': 's', '高位卖出': 's',
-  #   '低位买入': 'b', 
-  #   '常规卖出': 's', '窗口卖出': 's', '黄昏卖出': 's', '平头卖出': 's', '紧急卖出': 's', '突破失败': 's'
-  # }
-  # df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
-
-  # none_signal_conditions = {
-  #   '价格下跌':         f'(signal == "b" and (rate < 0 or candle_color == -1))',
-  #   '低位误报':         f'(signal == "b" and (kama_distance < 0 and ichimoku_distance < 0) and (kama_fast_signal < 0))',
-  #   '长期下跌':         f'(signal == "b" and ((kama_fs_signal < 0 and kama_distance < -0.1) or (kama_fs_signal < -20 and kama_fast_rate <= 0)))',
-  #   # '上探窗口':       f'(signal == "b" and (candle_gap_top > Close and High > candle_gap_bottom and Low < candle_gap_bottom))',
-
-  #   # '价格过高':       f'(signal == "b" and (kama_fs_signal > 10 and Low > kama_fast and Low > tankan))',
-  #   # '趋势不明':       f'(signal == "b" and (0 > adx_direction_start > -10 or adx_strong_day < -5))'
-  #   } 
-  # none_signal_idx = df.query(' or '.join(none_signal_conditions.values())).index 
-  # df.loc[none_signal_idx, 'signal'] = ''
-  # # df = remove_redundant_signal(df=df, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='', keep='first')
-  
   df['prev_low'] = df['Low'].shift(1)
   df['prev_prev_low'] = df['Low'].shift(2)
+  columns_to_drop.append('prev_low')
+  columns_to_drop.append('prev_prev_low')
+  columns_to_drop.append('last_week_high')
+  columns_to_drop.append('last_week_low')
 
   # calculate signal
   df['signal'] = ''
@@ -1139,6 +1063,10 @@ def calculate_ta_signal(df):
   # label signal
   signal_idx = df.query('signal == "b"').index
   df.loc[signal_idx, 'label'] = 'signal'
+
+  for col in columns_to_drop:
+    if col in df.columns:
+      df.drop(col, axis=1, inplace=True)
 
   return df
 
@@ -1785,6 +1713,7 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
   df['candle_upper_shadow_pct'] = df['candle_upper_shadow'] / df['candle_shadow']
   df['candle_lower_shadow_pct'] = df['candle_lower_shadow'] / df['candle_shadow']
   df['candle_entity_pct'] = df['candle_entity'] / df['candle_shadow']
+  df['candle_entity_middle'] = (df['candle_entity_top'] + df['candle_entity_bottom']) * 0.5
 
   # ======================================= gap ====================================================== #
   # gap_up / gap_down
@@ -1827,11 +1756,11 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
     df.loc[strict_gap_down_idx, 'candle_gap_bottom'] = df.loc[strict_gap_down_idx, f'{high}']
   
   # gap height, color, top and bottom
-  df['candle_gap_height'] = df['candle_gap_top'] - df['candle_gap_bottom']
+  # df['candle_gap_height'] = df['candle_gap_top'] - df['candle_gap_bottom']
   df['candle_gap_top'] = df['candle_gap_top'].fillna(method='ffill') 
   df['candle_gap_bottom'] = df['candle_gap_bottom'].fillna(method='ffill') 
   df['candle_gap_color'] = df['candle_gap_color'].fillna(method='ffill')
-  df['candle_gap_height'] = df['candle_gap_height'].fillna(method='ffill')
+  # df['candle_gap_height'] = df['candle_gap_height'].fillna(method='ffill')
 
   # gap support and resistant
   support_idx = df.query(f'{close} > candle_gap_bottom').index
@@ -1848,9 +1777,6 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
 
 # add candle stick patterns
 def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
-
-  # candle entity middle
-  df['candle_entity_middle'] = (df['candle_entity_top'] + df['candle_entity_bottom']) * 0.5
 
   # global position
   if 'position' > '':
@@ -2170,9 +2096,9 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
   
   # redundant intermediate columns
   for col in [
-    'window_position_days', 'previous_window_position_days', 'previous_相对窗口位置', 'prev_突破_trend'
-    'previous_candle_color', #'candle_entity_middle', 'high_diff', 'low_diff',
-    'entity_ma', 'entity_std', 'shadow_ma', 'shadow_std', #'shadow_diff', 'entity_diff',
+    'window_position_days', 'previous_window_position_days', 'previous_相对窗口位置', 'prev_突破_trend',
+    'previous_candle_color', 'high_diff', 'low_diff', 'candle_upper_shadow_pct_diff', 'candle_lower_shadow_pct_diff', 
+    'entity_ma', 'entity_std', 'shadow_ma', 'shadow_std', 'shadow_diff', 'entity_diff',
     'moving_max', 'moving_min']:
     if col in df.columns:
       df.drop(col, axis=1, inplace=True)
@@ -2200,18 +2126,17 @@ def add_heikin_ashi_features(df, ohlcv_col=default_ohlcv_col, replace_ohlc=False
   # volume = ohlcv_col['volume']
 
   # add previous stick
+  columns_to_drop = []
   for col in [open, high, low, close]:
-    df[f'prev_{col}'] = df[col].shift(1)
+    tmp_col = f'prev_{col}'
+    df[tmp_col] = df[col].shift(1)
+    columns_to_drop.append(tmp_col)
 
   # calculate heikin-ashi ohlc
   df['H_Close'] = (df[open] + df[high] + df[low] + df[close])/4
   df['H_Open'] = (df[f'prev_{open}'] + df[f'prev_{close}'])/2
   df['H_High'] = df[[f'prev_{high}', 'H_Open', 'H_Close']].max(axis=1)
   df['H_Low'] = df[[f'prev_{low}', 'H_Open', 'H_Close']].min(axis=1)
-
-  # drop previous stick
-  for col in [open, high, low, close]:
-    df.drop(f'prev_{col}', axis=1, inplace=True)
     
   # replace original ohlc with heikin-ashi ohlc
   if replace_ohlc:
@@ -2222,6 +2147,10 @@ def add_heikin_ashi_features(df, ohlcv_col=default_ohlcv_col, replace_ohlc=False
   # dropna values
   if dropna:
     df.dropna(inplace=True)
+
+  # drop redundant columns
+  for col in columns_to_drop:
+    df.drop(col, axis=1, inplace=True)
   
   return df
 
