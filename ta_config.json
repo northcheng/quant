@@ -44,7 +44,7 @@
   "visualization": {
     "plot_args": {
       "plot_ratio": {
-        "signals": 1.2, "adx": 2.3, "test": 1,
+        "signals": 1.2, "adx": 2.3, "score": 1,
         "main_indicators": 9, "volume":1
       },
       
@@ -94,13 +94,6 @@
         "alpha": 0.8
       },
       "score":{
-        "target_col": ["score"],
-        "color_mode": "benchmark",
-        "benchmark": 0,
-        "bar_width": 0.8,
-        "alpha": 0.5
-      },
-      "test":{
         "target_col": ["adx_value_change_std"],
         "color_mode": "up_down",
         "benchmark": 0
@@ -139,17 +132,21 @@
       "obos": "超买超卖",
       "support": "支撑",
       "resistant": "阻挡",
+
+      "prev_adx_extreme": "ADX起始",
       "adx_value": "ADX差值",
       "adx_strength": "ADX强度", 
       "adx_day": "ADX方向",
       "adx_direction_mean": "ADX平均强度",
-      "prev_adx_extreme": "ADX起始",
-      "ichimoku_distance_signal": "TK信号",
-      "signal": "交易信号",
-      "label": "分类",
+      
+      "trigger_score": "触发分数",
+      "trigger_score_description": "触发标签",
       "score": "总分",
       "up_score_description": "+标签",
-      "down_score_description": "-标签"
+      "down_score_description": "-标签",
+      
+      "label": "分类", 
+      "signal": "交易信号"
     },
     "drop_columns": [],
     "send_columns": ["名称", "总分", "+标签", "-标签"],
