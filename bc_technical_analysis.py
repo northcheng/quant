@@ -1121,6 +1121,7 @@ def postprocess(df, keep_columns, drop_columns, sec_names, target_interval=''):
   :returns: postprocessed dataframe
   :raises: None
   """
+
   if df is None or len(df) == 0:
     print(f'No data for postprocess')
     return pd.DataFrame()
@@ -5152,6 +5153,82 @@ def plot_scatter(df, target_col, start=None, end=None, marker='.', alpha=1, colo
   if use_ax is not None:
     return ax
 
+# plot rate and trigger_score/score for each target list
+def plot_summary(data, width=27, unit_size=3, save_path=None):
+  """
+  Plot rate and trigger_score/score for each target list
+  :param data: dict of dataframes including 'result'
+  :param figsize:  figure size
+  :param save_path:  path to save the figure
+  :returns: none
+  :raises: none
+  """
+
+  # get pools
+  pools = list(data['result'].keys())
+
+  # initialize parameters
+  n_row = len(pools)
+  fig, ax =  plt.subplots(n_row, 2, figsize=(width, n_row*unit_size))
+  super_title = 'Summary\n'
+  c = 0
+  r = 0
+  num_total = 0
+  num_down = 0
+  
+  for t in pools:
+    if t in data['result'].keys():
+      
+      # get target data
+      tmp_data = data['result'][t][['symbol', 'rate', 'trigger_score', 'score']].set_index('symbol')
+      tmp_data['rate'] = tmp_data['rate'] * 100
+      num_total = len(tmp_data)
+
+      # get axes
+      c = pools.index(t)
+      if n_row > 1:
+        rate_ax = ax[c][r]
+        score_ax = ax[c][r+1]
+      else:
+        rate_ax = ax[0]
+        score_ax = ax[1]      
+
+      # set color
+      tmp_data['rate_color'] = 'green'
+      down_idx = tmp_data.query('rate <= 0').index    
+      tmp_data.loc[down_idx, 'rate_color'] = 'red'
+      num_down += len(down_idx)
+      
+      # plot rate
+      rate_ax.bar(tmp_data.index, tmp_data['rate'], color=tmp_data['rate_color'], label='rate', alpha=0.8)
+      rate_ax.set_title(f'{t.replace("_day", "")} Rate')
+      rate_ax.legend()
+      
+      # plot trigger_score and score
+      score_ax.bar(tmp_data.index, tmp_data.trigger_score, label='trigger_score', alpha=0.5)
+      score_ax.bar(tmp_data.index, tmp_data.score, label='score', alpha=0.5)
+      score_ax.set_title(f'{t.replace("_day", "")} Score')
+      score_ax.legend()
+      
+      if num_total > 50:
+        rate_ax.tick_params(axis='x', labelrotation= 90)
+        score_ax.tick_params(axis='x', labelrotation= 90)
+        rate_ax.tick_params(axis='x', labelsize= 6)
+        score_ax.tick_params(axis='x', labelsize= 6)
+      
+      # add information to super title
+      super_title += f'{t.replace("_day", "")}: {num_total - num_down}/{num_total} | '
+
+  # set super title
+  super_title = super_title[:-2]    
+  title_color = 'green' if num_total/2 > num_down else 'red'
+  y = 1.3-(0.1*n_row)
+  fig.suptitle(super_title, x=0.5, y=y, fontsize=25, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1))
+
+  # save image
+  if save_path is not None:
+    plt.savefig(save_path, bbox_inches = 'tight')
+
 # plot general ta indicators
 def plot_indicator(df, target_col, start=None, end=None, signal_x='signal', signal_y='Close', benchmark=None, boundary=None, color_mode=None, use_ax=None, title=None, plot_price_in_twin_ax=False, trend_val=default_trend_val, signal_val=default_signal_val, plot_args=default_plot_args):
   """
@@ -5532,3 +5609,5 @@ def plot_historical_evolution(df, symbol, interval, config, his_start_date=None,
     print(symbol, phase, e)
 
   return df
+
+
