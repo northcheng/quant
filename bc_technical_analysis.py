@@ -5197,7 +5197,7 @@ def plot_summary(data, width=27, unit_size=3, save_path=None):
       tmp_data['rate_color'] = 'green'
       down_idx = tmp_data.query('rate <= 0').index    
       tmp_data.loc[down_idx, 'rate_color'] = 'red'
-      num_down += len(down_idx)
+      num_down = len(down_idx)
       
       # plot rate
       rate_ax.bar(tmp_data.index, tmp_data['rate'], color=tmp_data['rate_color'], label='rate', alpha=0.8)
