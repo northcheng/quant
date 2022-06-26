@@ -5154,7 +5154,7 @@ def plot_scatter(df, target_col, start=None, end=None, marker='.', alpha=1, colo
     return ax
 
 # plot rate and trigger_score/score for each target list
-def plot_summary(data, width=27, unit_size=3, save_path=None):
+def plot_summary(data, width=25, unit_size=5, save_path=None, plot_args=default_plot_args):
   """
   Plot rate and trigger_score/score for each target list
   :param data: dict of dataframes including 'result'
@@ -5168,8 +5168,8 @@ def plot_summary(data, width=27, unit_size=3, save_path=None):
   pools = list(data['result'].keys())
 
   # initialize parameters
-  n_row = len(pools)
-  fig, ax =  plt.subplots(n_row, 2, figsize=(width, n_row*unit_size))
+  n_row = len(pools) * 2
+  fig, ax =  plt.subplots(n_row, 1, figsize=(width, n_row*unit_size))
   super_title = 'Summary\n'
   c = 0
   r = 0
@@ -5181,48 +5181,69 @@ def plot_summary(data, width=27, unit_size=3, save_path=None):
       
       # get target data
       tmp_data = data['result'][t][['symbol', 'rate', 'trigger_score', 'score']].set_index('symbol')
+      tmp_data['rank_score'] = tmp_data['trigger_score'] #tmp_data['score'] + 
+      tmp_data = tmp_data.sort_values('rank_score', ascending=False)
       tmp_data['rate'] = tmp_data['rate'] * 100
       num_total = len(tmp_data)
 
       # get axes
-      c = pools.index(t)
-      if n_row > 1:
-        rate_ax = ax[c][r]
-        score_ax = ax[c][r+1]
-      else:
-        rate_ax = ax[0]
-        score_ax = ax[1]      
+      c = pools.index(t)  
 
-      # set color
+      rate_ax = ax[c * 2]
+      score_ax = ax[c * 2 +1]  
+
+      # plot rate
       tmp_data['rate_color'] = 'green'
       down_idx = tmp_data.query('rate <= 0').index    
       tmp_data.loc[down_idx, 'rate_color'] = 'red'
       num_down = len(down_idx)
       
-      # plot rate
-      rate_ax.bar(tmp_data.index, tmp_data['rate'], color=tmp_data['rate_color'], label='rate', alpha=0.8)
-      rate_ax.set_title(f'{t.replace("_day", "")} Rate')
-      rate_ax.legend()
+      rate_ax.bar(tmp_data.index, tmp_data['rate'], color=tmp_data['rate_color'], label='rate', alpha=0.5) #, edgecolor='k'
+      rate_ax.set_title(f'{t.replace("_day", "")} Rate', rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
+      rate_ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
+      rate_ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
+      rate_ax.grid(True, axis='both', linestyle='--', linewidth=0.5, alpha=0.3)
+      rate_ax.spines['bottom'].set_alpha(0)
+      rate_ax.xaxis.set_ticks_position("none")
+      plt.setp(rate_ax.get_xticklabels(), visible=False)
+
+      # plot trigger_score & score
+      # tmp_data['score_color'] = 'green'
+      # down_idx = tmp_data.query('trigger_score <= 0').index    
+      # tmp_data.loc[down_idx, 'score_color'] = 'red'
+      score_ax.bar(tmp_data.index, tmp_data.trigger_score, color='yellow', label='trigger_score', alpha=0.5, edgecolor='k')
+
+      tmp_data['score_bottom'] = tmp_data['trigger_score']
+      for index, row in tmp_data.iterrows():
+        if (row['trigger_score'] > 0 and row['score'] > 0) or (row['trigger_score'] < 0 and row['score'] < 0):
+          continue
+        else:
+          tmp_data.loc[index, 'score_bottom'] = 0
+
+      tmp_data['score_color'] = 'green'
+      down_idx = tmp_data.query('score <= 0').index    
+      tmp_data.loc[down_idx, 'score_color'] = 'red'
+      score_ax.bar(tmp_data.index, tmp_data['score'], color=tmp_data['score_color'], bottom=tmp_data['score_bottom'], label='score', alpha=0.5) #, edgecolor='k'
       
-      # plot trigger_score and score
-      score_ax.bar(tmp_data.index, tmp_data.trigger_score, label='trigger_score', alpha=0.5)
-      score_ax.bar(tmp_data.index, tmp_data.score, label='score', alpha=0.5)
-      score_ax.set_title(f'{t.replace("_day", "")} Score')
-      score_ax.legend()
-      
+      score_ax.set_title(f'{t.replace("_day", "")} Score', rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
+      score_ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
+      score_ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
+      score_ax.grid(True, axis='both', linestyle='--', linewidth=0.5, alpha=0.3)
+      score_ax.spines['top'].set_alpha(0)
+
       if num_total > 50:
         rate_ax.tick_params(axis='x', labelrotation= 90)
         score_ax.tick_params(axis='x', labelrotation= 90)
-        rate_ax.tick_params(axis='x', labelsize= 6)
-        score_ax.tick_params(axis='x', labelsize= 6)
-      
+        rate_ax.tick_params(axis='x', labelsize= 8)
+        score_ax.tick_params(axis='x', labelsize= 8)
+
       # add information to super title
       super_title += f'{t.replace("_day", "")}: {num_total - num_down}/{num_total} | '
 
   # set super title
   super_title = super_title[:-2]    
   title_color = 'green' if num_total/2 > num_down else 'red'
-  y = 1.3-(0.1*n_row)
+  y = 1.18 - (n_row/2) * 0.08
   fig.suptitle(super_title, x=0.5, y=y, fontsize=25, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1))
 
   # save image
