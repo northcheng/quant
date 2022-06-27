@@ -6,6 +6,7 @@ Technical Analysis Calculation and Visualization functions
 """
 import os
 import math
+from regex import F
 import sympy
 import datetime
 import ta
@@ -1047,6 +1048,11 @@ def calculate_ta_signal(df):
 
   # add ta score and description
   df = calculate_ta_score(df)
+  df['rank_score'] = df['trigger_score'] + df['score']
+
+  df['zero'] = 0
+  df['score_signal'] = cal_crossover_signal(df=df, fast_line='score', slow_line='zero', pos_signal=1, neg_signal=-1, none_signal=0)
+  df['score_day'] = sda(df['score_signal'], zero_as=1)
   
   # trend
   conditions = {
@@ -1057,18 +1063,30 @@ def calculate_ta_signal(df):
     'up': 'u', 'down': 'd',
   }
   df = assign_condition_value(df=df, column='trend', condition_dict=conditions, value_dict=values, default_value='')
+  df['trend_day'] = sda(series=df['trend'].replace({'u':1, 'd':-1, '': 0}), zero_as=1)
 
   # calculate signal
   df['signal'] = ''
 
   # label potential
-  potential_idx = df.query('(trigger_score > 0 and score > 5) or ((score > 1 and trigger_score > 1) and (0 < ichimoku_fs_signal < 5 or 0 < kama_fs_signal < 5 or 0 < adx_day < 5))').index
+  # potential_idx = df.query('(trigger_score > 3) or ((score > 1 and trigger_score > 1) and (0 < ichimoku_fs_signal < 5 or 0 < kama_fs_signal < 5 or 0 < adx_day < 5 or 0 < trend_day < 5))').index
+  potential_conditions = {
+    '低位反弹1': f'((trigger_score >= 1) and (kama_distance < 0 and kama_fast_signal > 0) and (0 < ichimoku_fs_signal < 5 and candle_entity_middle > tankan > kama_fast))',
+    '低位反弹2': f'((trigger_score >= 1) and (kama_distance < 0 and kama_fast_signal > 0 and kama_slow_signal > 0) and ((ichimoku_distance < 0 and candle_entity_middle > kijun) or (ichimoku_distance > 0 and candle_entity_middle > tankan)))',
+    '高分':     f'((trigger_score > 0 and rank_score > 7.5) and (kama_distance < 0))',
+    'adx':      f'((trigger_score >= 1 and score > 1) and (0 < adx_day < 5))', 
+    'kama':     f'((trigger_score >= 1 and score > 1) and (0 < kama_fs_signal < 5))',
+    'ichimoku': f'((trigger_score >= 1 and score > 1) and (0 < ichimoku_fs_signal < 5))'
+    } 
+  potential_idx = df.query(' or '.join(potential_conditions.values())).index 
   df.loc[potential_idx, 'label'] = 'potential'
 
   none_potential_conditions = {
     'pattern wave': f'((十字星 != "n") or ((rate < 0 or candle_color == -1) and (0 > 平头_day >= -3 or 0 > 腰带_day >= -3)) or (相对窗口位置 == "mid" or (candle_color == -1 and (相对窗口位置 == "mid_up" or 相对窗口位置 == "mid_down"))))',
-    'price fall': f'((candle_color == -1) and (rate < 0))',
-    'adx wave': f'(adx_strong_day < -10 and adx_wave_day > 10) or (adx_strong_day < -10 and adx_value_change_std < 1)',
+    'price fall':   f'((candle_color == -1) and (rate < 0))',
+    'adx wave':     f'(adx_strong_day < -10 and adx_wave_day > 10) or (adx_strong_day < -10 and adx_value_change_std < 1) or (5 > adx_direction_start > -5 and adx_strong_day < 0)',
+    'adx high':     f'(adx_value > 25 and ichimoku_fs_signal > 10)',
+    # 'kama wide':    f'(kama_distance < -0.075 and kama_fast_rate < 0.01)'
     } 
   none_potential_idx = df.query(' or '.join(none_potential_conditions.values())).index 
   df.loc[none_potential_idx, 'label'] = ''
@@ -1076,6 +1094,9 @@ def calculate_ta_signal(df):
   # label signal
   signal_idx = df.query('signal == "b"').index
   df.loc[signal_idx, 'label'] = 'signal'
+
+  # remove redandunt columns
+  # df.drop(['zero', 'score_signal', 'score_day'], axis=1, inplace=True)
 
   return df
 
@@ -4286,7 +4307,9 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     plt.annotate(f'{signal_x[0]}:{text_signal} ', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.05))
 
   # plot signal
-  # signal_val = {'pos_signal':'uu', 'neg_signal':'dd', 'none_signal':'', 'wave_signal': 'nn'}
+  potential_idx = df.query('label == "potential"').index
+  df.loc[potential_idx, 'signal'] = 'b'
+  # signal_val = {'pos_signal':'b', 'neg_signal':'s', 'none_signal':'', 'wave_signal': 'n'}
   if signal_x in df.columns:
     for i in ['pos', 'neg']:
       tmp_signal_value = signal_val[f'{i}_signal']
