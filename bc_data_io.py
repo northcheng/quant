@@ -389,7 +389,7 @@ def get_data_from_marketstack(symbol, api_key, start_date=None, end_date=None, l
         tmp_data = pd.DataFrame(json_data)
         tmp_len = len(tmp_data)
         tmp_end = tmp_data.date.max()[:10]
-        data = pd.concat(data, tmp_data) # data.append(tmp_data)
+        data = pd.concat(data, tmp_data) 
       else:
         print('no data in json')
 
@@ -578,7 +578,7 @@ def get_real_time_data_from_eod(symbols, api_key=default_eod_key, is_print=False
     real_time_data['split'] = 1.0
     
     # concate batches of real-time data 
-    result = pd.concat([result, real_time_data]) # result.append(real_time_data)
+    result = pd.concat([result, real_time_data]) 
     batch_start = batch_end
     
   result.rename(columns={'code':'symbol', 'open':'Open', 'high':'High', 'low':'Low', 'close':'Close', 'adjusted_close': 'Adj Close', 'volume': 'Volume', 'dividend':'Dividend', 'split': 'Split'}, inplace=True)
@@ -630,7 +630,7 @@ def get_real_time_data_from_yfinance(symbols, period='1d', interval='1m'):
         tmp_latest_data['Date'] = tmp_latest_data['Datetime'].max().date()
         
         # append to final result
-        latest_data = pd.concat([latest_data, tmp_latest_data]) # latest_data.append(tmp_latest_data)
+        latest_data = pd.concat([latest_data, tmp_latest_data]) 
       
       # process final result
       latest_data['change'] = latest_data['Close'] - latest_data['Open']
@@ -764,7 +764,7 @@ def get_real_time_data_from_marketstack(symbols, api_key, is_print=False, batch_
             for symbol in tmp_list:
               symbol_data = data.dropna().query(f'symbol == "{symbol}"')
               if len(symbol_data) > 0:
-                result = pd.concat([result, symbol_data.head(1)]) # result.append(symbol_data.head(1).copy())
+                result = pd.concat([result, symbol_data.head(1)]) 
 
     # if not in valid period, get latest eod data instead
     else:
@@ -789,7 +789,7 @@ def get_real_time_data_from_marketstack(symbols, api_key, is_print=False, batch_
           
           # append latest eod data of a symbols onto the result
           if len(data) > 0:
-            result = pd.concat([result, data]) # result.append(data)
+            result = pd.concat([result, data]) 
     
     # start next batch
     batch_start = batch_end
@@ -972,7 +972,7 @@ def update_stock_data_from_yfinance_by_stock(symbols, stock_data_path, file_form
       new_data = get_data_from_yfinance(symbol, interval='1d', start_date='1991-01-01', end_date=required_date, time_col='Date', is_print=is_print)
     
     # append new data to the old data, remove duplicated index, keep the latest
-    tmp_data = pd.concat([old_data, new_data]) # old_data.append(new_data, sort=True)
+    tmp_data = pd.concat([old_data, new_data]) 
     tmp_data = util.remove_duplicated_index(df=tmp_data, keep='last').dropna()
     data[symbol] = tmp_data
 
@@ -1046,7 +1046,7 @@ def update_stock_data_from_yfinance_by_date(symbols, stock_data_path, file_forma
     for symbol in tmp_symbols:
       new_data = tmp_batch_data[symbol].copy()
       new_data = post_process_download_data(df=new_data, source='yfinance')
-      data[symbol] = pd.concat([data[symbol], new_data]) # data[symbol].append(new_data, sort=True)
+      data[symbol] = pd.concat([data[symbol], new_data])
       data[symbol] = util.remove_duplicated_index(df=data[symbol], keep='last').dropna()
 
   # print
@@ -1139,7 +1139,7 @@ def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', req
       new_data = get_data_from_eod(symbol, start_date=tmp_data_date, end_date=required_date, interval='d', is_print=is_print, api_key=api_key, add_dividend=add_dividend, add_split=add_split)
     
       # append new data to the origin
-      data[symbol] = pd.concat([data[symbol], new_data]) # data[symbol].append(new_data, sort=True)
+      data[symbol] = pd.concat([data[symbol], new_data])
       data[symbol] = util.remove_duplicated_index(df=data[symbol], keep='last').dropna()
 
       # save data to local csv files
@@ -1176,7 +1176,6 @@ def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', req
         tmp_idx = tmp_data.index.max()
         for col in data[symbol].columns:
           data[symbol].loc[tmp_idx, col] = tmp_data.loc[tmp_idx, col]
-        # data[symbol] = data[symbol].append(tmp_data)
         data[symbol] = util.remove_duplicated_index(df=data[symbol], keep='last').dropna()
 
   # return
@@ -1259,7 +1258,7 @@ def update_stock_data_from_marketstack(symbols, stock_data_path, api_key, file_f
       new_data = get_data_from_marketstack(symbol, start_date=tmp_data_date, end_date=required_date, is_print=is_print, api_key=api_key)
     
       # append new data to the origin
-      data[symbol] = pd.concat([data[symbol], new_data]) # data[symbol].append(new_data, sort=True)
+      data[symbol] = pd.concat([data[symbol], new_data])
       data[symbol] = util.remove_duplicated_index(df=data[symbol], keep='last').dropna()
 
       # save data to local csv files
@@ -1292,7 +1291,6 @@ def update_stock_data_from_marketstack(symbols, stock_data_path, api_key, file_f
         tmp_idx = tmp_data.index.max()
         for col in data[symbol].columns:
           data[symbol].loc[tmp_idx, col] = tmp_data.loc[tmp_idx, col]
-        # data[symbol] = data[symbol].append(tmp_data)
         data[symbol] = util.remove_duplicated_index(df=data[symbol], keep='last').dropna()
 
   # return
@@ -2106,7 +2104,7 @@ def update_portfolio_support_resistant(config, data, portfolio_file_name='portfo
   # get ta result data
   ta_result = pd.DataFrame()
   for ti in data['result'].keys():
-    ta_result = pd.concat([ta_result, data['result'][ti]]) # ta_result.append(data['result'][ti], sort=True)
+    ta_result = pd.concat([ta_result, data['result'][ti]])
   ta_result = ta_result.set_index('symbol')
   ta_result = util.remove_duplicated_index(df=ta_result)
   
