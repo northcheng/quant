@@ -125,7 +125,7 @@ def load_data(target_list, config, interval='day', load_empty_data=False, load_d
   return data
 
 
-# ================================================ Core calculation ================================================= # 
+# ================================================ Core progress ==================================================== # 
 # preprocess stock data (OHLCV)
 def preprocess(df, symbol, print_error=True):
   '''
@@ -872,11 +872,11 @@ def calculate_ta_feature(df, symbol, start_date=None, end_date=None, indicators=
     df = calculate_ta_data(df=df, indicators=indicators)
 
     # calculate TA trend
-    phase = 'cal_ta_trend'
+    phase = 'cal_ta_static_features'
     df = calculate_ta_static(df=df, indicators=indicators)
 
     # calculate TA derivatives
-    phase = 'cal_ta_derivatives'
+    phase = 'cal_ta_dynamic_features'
     df = calculate_ta_dynamic(df)
 
 
@@ -896,7 +896,6 @@ def calculate_ta_score(df):
   """
 
   # calculate score
-  df['label'] = ''
   df['score'] = 0
   df['up_score'] = 0
   df['down_score'] = 0
@@ -904,10 +903,9 @@ def calculate_ta_score(df):
   df['up_score_description'] = ''
   df['down_score_description'] = ''
   df['trigger_score_description'] = ''
-  columns_to_drop = []
 
-  # trigger_score and trigger_score_description
-  for col in ['窗口_day', 'tankan_signal', 'kijun_signal', 'ichimoku_fs_signal', 'kama_fast_signal', 'kama_slow_signal', 'kama_fs_signal']:
+  # trigger score and description
+  for col in ['窗口_day', 'adx_day', 'tankan_signal', 'kijun_signal', 'ichimoku_fs_signal', 'kama_fast_signal', 'kama_slow_signal', 'kama_fs_signal']:
     col_desc = '_'.join(col.split('_')[0:-1])
     valid_pos_idx = df.query(f'0 < {col} <= 5').index
     valid_neg_idx = df.query(f'-5 <= {col} < 0').index
@@ -917,25 +915,17 @@ def calculate_ta_score(df):
     df.loc[valid_neg_idx, 'trigger_score_description'] += f'| -{col_desc} '
   df['trigger_score_description'] = df['trigger_score_description'].apply(lambda x: x[1:])
 
-  # up_score, down_score, score(up_score + down_score)
-  # add extra features
+  # up/down score and description, score(up_score + down_score)
   df['candle_color_sda'] = sda(series=df['candle_color'], zero_as=0)
   df['rate_direction_sda'] = sda(series=(df['rate'] > 0).replace({True: 1, False:-1}), zero_as=0)
   df['prev_candle_entity_top'] = df['candle_entity_top'].shift(1)
   df['prev_candle_entity_bottom'] = df['candle_entity_bottom'].shift(1)
-  green_idx = df.query('ichimoku_day > 0').index
-  red_idx = df.query('ichimoku_day < 0').index
+  green_idx = df.query('ichimoku_fs_signal > 0').index
+  red_idx = df.query('ichimoku_fs_signal < 0').index
   df.loc[green_idx, 'cloud_top'] = df.loc[green_idx, 'tankan']
   df.loc[green_idx, 'cloud_bottom'] = df.loc[green_idx, 'kijun']
   df.loc[red_idx, 'cloud_top'] = df.loc[red_idx, 'kijun']
   df.loc[red_idx, 'cloud_bottom'] = df.loc[red_idx, 'tankan']
-
-  columns_to_drop.append('candle_color_sda')
-  columns_to_drop.append('rate_direction_sda')
-  columns_to_drop.append('prev_candle_entity_top')
-  columns_to_drop.append('prev_candle_entity_bottom')
-  columns_to_drop.append('cloud_top')
-  columns_to_drop.append('cloud_bottom')
 
   condition_status = {
     '+i_f':            [1, '', '(tankan_rate >=  0.025)'],
@@ -1026,6 +1016,8 @@ def calculate_ta_score(df):
   df['down_score_description'] = df['down_score_description'].apply(lambda x: x[1:])
   df['trigger_score_description'] = df['trigger_score_description'].apply(lambda x: x[1:])
 
+  # drop redundant columns
+  columns_to_drop = ['candle_color_sda', 'rate_direction_sda', 'prev_candle_entity_top', 'prev_candle_entity_bottom'] # , 'cloud_top', 'cloud_bottom'
   for col in columns_to_drop:
     if col in df.columns:
       df.drop(col, axis=1, inplace=True)
@@ -1069,27 +1061,34 @@ def calculate_ta_signal(df):
   df['signal'] = ''
 
   # label potential
-  # potential_idx = df.query('(trigger_score > 3) or ((score > 1 and trigger_score > 1) and (0 < ichimoku_fs_signal < 5 or 0 < kama_fs_signal < 5 or 0 < adx_day < 5 or 0 < trend_day < 5))').index
+  df['label'] = ''
+  df['label_description'] = ''
   potential_conditions = {
-    '低位反弹1': f'((trigger_score >= 1) and (kama_distance < 0 and kama_fast_signal > 0) and (0 < ichimoku_fs_signal < 5 and candle_entity_middle > tankan > kama_fast))',
-    '低位反弹2': f'((trigger_score >= 1) and (kama_distance < 0 and kama_fast_signal > 0 and kama_slow_signal > 0) and ((ichimoku_distance < 0 and candle_entity_middle > kijun) or (ichimoku_distance > 0 and candle_entity_middle > tankan)))',
-    '高分':     f'((trigger_score > 0 and rank_score > 7.5) and (kama_distance < 0))',
-    'adx':      f'((trigger_score >= 1 and score > 1) and (0 < adx_day < 5))', 
-    'kama':     f'((trigger_score >= 1 and score > 1) and (0 < kama_fs_signal < 5))',
-    'ichimoku': f'((trigger_score >= 1 and score > 1) and (0 < ichimoku_fs_signal < 5))'
+    '低位反弹1':  f'((trigger_score >= 1) and (kama_distance < 0 and kama_fast_signal > 0) and (Close > cloud_top and (0 < ichimoku_fs_signal < 5 or ichimoku_distance > -0.01)))',
+    '低位反弹2':  f'((trigger_score >= 1) and (kama_distance < 0 and kama_fast_signal > 0) and (Close > cloud_top and 0 < kama_slow_signal < 5))',
+    'adx':        f'((trigger_score >= 1) and (0 < adx_day < 5))', 
+    'kama':       f'((trigger_score >= 1) and (0 < kama_fs_signal < 5))',
+    'ichimoku':   f'((trigger_score >= 1) and (0 < ichimoku_fs_signal < 5))'
     } 
-  potential_idx = df.query(' or '.join(potential_conditions.values())).index 
-  df.loc[potential_idx, 'label'] = 'potential'
+  for c in potential_conditions:
+    tmp_condition = potential_conditions[c]
+    tmp_idx = df.query(tmp_condition).index
+    df.loc[tmp_idx, 'label'] = 'potential'
+    df.loc[tmp_idx, 'label_description'] += f'{c},'
 
   none_potential_conditions = {
-    'pattern wave': f'((十字星 != "n") or ((rate < 0 or candle_color == -1) and (0 > 平头_day >= -3 or 0 > 腰带_day >= -3)) or (相对窗口位置 == "mid" or (candle_color == -1 and (相对窗口位置 == "mid_up" or 相对窗口位置 == "mid_down"))))',
-    'price fall':   f'((candle_color == -1) and (rate < 0))',
-    'adx wave':     f'(adx_strong_day < -10 and adx_wave_day > 10) or (adx_strong_day < -10 and adx_value_change_std < 1) or (5 > adx_direction_start > -5 and adx_strong_day < 0)',
-    'adx high':     f'(adx_value > 25 and ichimoku_fs_signal > 10)',
-    # 'kama wide':    f'(kama_distance < -0.075 and kama_fast_rate < 0.01)'
+    'pattern wave': f'label == "potential" and ((十字星 != "n") or ((rate < 0 or candle_color == -1) and (0 > 平头_day >= -3 or 0 > 腰带_day >= -3)) or (相对窗口位置 == "mid" or (candle_color == -1 and (相对窗口位置 == "mid_up" or 相对窗口位置 == "mid_down"))))',
+    'price fall':   f'label == "potential" and ((candle_color == -1) and (rate < 0))',
+    'adx wave':     f'label == "potential" and ((adx_strong_day < -10 and adx_wave_day > 10) or (adx_strong_day < -10 and adx_value_change_std < 1) or (5 > adx_direction_start > -5 and adx_strong_day < 0))',
+    'adx high':     f'label == "potential" and ((adx_value > 25 and ichimoku_fs_signal > 10) or (adx_day > 5))',
+    'adx down':     f'label == "potential" and (adx_day < 0)',
+    'window':       f'label == "potential" and ((相对窗口位置 in ["mid", "mid_up", "mid_down", "out"] and candle_entity_middle < candle_gap_top))'
     } 
-  none_potential_idx = df.query(' or '.join(none_potential_conditions.values())).index 
-  df.loc[none_potential_idx, 'label'] = ''
+  for c in none_potential_conditions:
+    tmp_condition = none_potential_conditions[c]
+    tmp_idx = df.query(tmp_condition).index
+    df.loc[tmp_idx, 'label'] = ''
+    df.loc[tmp_idx, 'label_description'] += f'{c},'
   
   # label signal
   signal_idx = df.query('signal == "b"').index
@@ -1275,30 +1274,6 @@ def assign_condition_value(df, column, condition_dict, value_dict, default_value
     else:
       df.loc[condition_idx, column] = condition_value
   
-  return df
-
-# set index-column with specific value
-def set_idx_col_value(df, idx, col, values, set_on_copy=True):
-  """
-  Set specific index-column with specific values
-
-  :param df: dataframe to search
-  :param idx: dictionary of index
-  :param col: target column
-  :param values: dictionary of values, with same keys as idx
-  :param set_on_copy: whether to set values on a copy of df
-  :returns: dataframe with value set
-  :raises: None
-  """
-  
-  # copy dataframe
-  if set_on_copy:
-    df = df.copy()
-
-  # set values to specific index, column
-  for i in idx.keys():
-    df.loc[idx[i], col] = values[i]
-
   return df
 
 
@@ -4271,7 +4246,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
   # plot settings
   settings = {
-    'main': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': '.', 'neg_trend_marker': '.', 'wave_trend_marker': '_', 'signal_alpha': 1, 'trend_alpha': 0.6, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'},
+    'main': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': '.', 'neg_trend_marker': '.', 'wave_trend_marker': '_', 'signal_alpha': 0.5, 'trend_alpha': 0.6, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'},
     'other': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': 's', 'neg_trend_marker': 'x', 'wave_trend_marker': '.', 'signal_alpha': 0.3, 'trend_alpha': 0.3, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'}}
   style = settings['main'] if signal_x in ['signal'] else settings['other']
 
