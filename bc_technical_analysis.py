@@ -454,6 +454,7 @@ def calculate_ta_static(df, indicators=default_indicators):
       df['adx_wave_day'] = sda(series=df['adx_wave_day'], zero_as=None)
 
       # highest(lowest) value of adx_value of previous uptrend(downtrend)
+      df['prev_adx_value'] = df['adx_value'].shift(1)
       extreme_idx = df.query('adx_direction_day == 1 or adx_direction_day == -1').index.tolist()
       for i in range(len(extreme_idx)):
         tmp_idx = extreme_idx[i]
@@ -465,7 +466,7 @@ def calculate_ta_static(df, indicators=default_indicators):
           end = extreme_idx[i]
         tmp_direction = df.loc[tmp_idx, 'adx_direction_day']
         tmp_extreme = df[start:end]['adx_value'].max() if tmp_direction < 0 else df[start:end]['adx_value'].min()
-        tmp_direction_start = df.loc[end, 'adx_value']
+        tmp_direction_start = df.loc[end, 'prev_adx_value']
         df.loc[tmp_idx, 'prev_adx_extreme'] = tmp_extreme
         df.loc[tmp_idx, 'adx_direction_start'] = tmp_direction_start
       df['prev_adx_extreme'] = df['prev_adx_extreme'].fillna(method='ffill')
@@ -1077,12 +1078,14 @@ def calculate_ta_signal(df):
     df.loc[tmp_idx, 'label_description'] += f'{c},'
 
   none_potential_conditions = {
-    'pattern wave': f'label == "potential" and ((十字星 != "n") or ((rate < 0 or candle_color == -1) and (0 > 平头_day >= -3 or 0 > 腰带_day >= -3)) or (相对窗口位置 == "mid" or (candle_color == -1 and (相对窗口位置 == "mid_up" or 相对窗口位置 == "mid_down"))))',
-    'price fall':   f'label == "potential" and ((candle_color == -1) and (rate < 0))',
-    'adx wave':     f'label == "potential" and ((adx_strong_day < -10 and adx_wave_day > 10) or (adx_strong_day < -10 and adx_value_change_std < 1) or (-10 < adx_direction_start < 10 and adx_strong_day < 0))',
-    'adx high':     f'label == "potential" and ((adx_value > 25 and ichimoku_fs_signal > 10))',
-    'adx down':     f'label == "potential" and (adx_day < 0)',
-    'window':       f'label == "potential" and ((相对窗口位置 in ["mid", "mid_up", "mid_down", "out"] and candle_entity_middle < candle_gap_top))'
+    'pattern wave':     f'label == "potential" and ((十字星 != "n") or ((rate < 0 or candle_color == -1) and (0 > 平头_day >= -3 or 0 > 腰带_day >= -3)) or (相对窗口位置 == "mid" or (candle_color == -1 and (相对窗口位置 == "mid_up" or 相对窗口位置 == "mid_down"))))',
+    'price fall':       f'label == "potential" and ((candle_color == -1) and (rate < 0))',
+    'adx wave':         f'label == "potential" and ((adx_strong_day < -10 and adx_wave_day > 10) or (adx_strong_day < -10 and adx_value_change_std < 1) or (-10 < adx_direction_start < 10 and adx_strong_day < 0))',
+    'adx high':         f'label == "potential" and ((adx_value > 25 and ichimoku_fs_signal > 10))',
+    'adx down':         f'label == "potential" and (adx_day < 0)',
+    'ichimoku wave':    f'label == "potential" and (ichimoku_distance == 0)',
+    'ichimoku cloud':   f'label == "potential" and (ichimoku_distance < 0 and ((cloud_top > candle_entity_middle > cloud_bottom) or (candle_entity_middle < cloud_bottom)))',
+    'window':           f'label == "potential" and ((相对窗口位置 in ["mid", "mid_up", "mid_down", "out"] and candle_entity_middle < candle_gap_top))'
     } 
   for c in none_potential_conditions:
     tmp_condition = none_potential_conditions[c]
@@ -3566,6 +3569,7 @@ def cal_kama(df, n1=10, n2=2, n3=30, ohlcv_col=default_ohlcv_col, fillna=False):
   ER_num = abs(close_values - np.roll(close_values, n1))
   ER_den = vol.rolling(n1).sum()
   ER = ER_num / ER_den
+  ER = ER.fillna(method='ffill')
 
   sc = ((ER * (2.0/(n2+1.0) - 2.0/(n3+1.0)) + 2.0/(n3+1.0)) ** 2.0).values
 
@@ -3582,7 +3586,6 @@ def cal_kama(df, n1=10, n2=2, n3=30, ohlcv_col=default_ohlcv_col, fillna=False):
         first_value = False
       else:
         kama[i] = kama[i-1] + sc[i] * (close_values[i] - kama[i-1])
-
   kama = pd.Series(kama, name='kama', index=df[close].index)
 
   # fill na values
