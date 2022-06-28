@@ -1066,9 +1066,9 @@ def calculate_ta_signal(df):
   potential_conditions = {
     '低位反弹1':  f'((trigger_score >= 1) and (kama_distance < 0 and kama_fast_signal > 0) and (Close > cloud_top and (0 < ichimoku_fs_signal < 5 or ichimoku_distance > -0.01)))',
     '低位反弹2':  f'((trigger_score >= 1) and (kama_distance < 0 and kama_fast_signal > 0) and (Close > cloud_top and 0 < kama_slow_signal < 5))',
-    'adx':        f'((trigger_score >= 1) and (0 < adx_day < 5))', 
-    'kama':       f'((trigger_score >= 1) and (0 < kama_fs_signal < 5))',
-    'ichimoku':   f'((trigger_score >= 1) and (0 < ichimoku_fs_signal < 5))'
+    'adx':        f'((trigger_score >= 1) and (kama_distance < 0 and 0 < adx_day < 5))', 
+    'kama':       f'((trigger_score >= 1) and (kama_distance < 0 and 0 < kama_fs_signal < 5))',
+    'ichimoku':   f'((trigger_score >= 1) and (kama_distance < 0 and 0 < ichimoku_fs_signal < 5))'
     } 
   for c in potential_conditions:
     tmp_condition = potential_conditions[c]
@@ -1079,8 +1079,8 @@ def calculate_ta_signal(df):
   none_potential_conditions = {
     'pattern wave': f'label == "potential" and ((十字星 != "n") or ((rate < 0 or candle_color == -1) and (0 > 平头_day >= -3 or 0 > 腰带_day >= -3)) or (相对窗口位置 == "mid" or (candle_color == -1 and (相对窗口位置 == "mid_up" or 相对窗口位置 == "mid_down"))))',
     'price fall':   f'label == "potential" and ((candle_color == -1) and (rate < 0))',
-    'adx wave':     f'label == "potential" and ((adx_strong_day < -10 and adx_wave_day > 10) or (adx_strong_day < -10 and adx_value_change_std < 1) or (5 > adx_direction_start > -5 and adx_strong_day < 0))',
-    'adx high':     f'label == "potential" and ((adx_value > 25 and ichimoku_fs_signal > 10) or (adx_day > 5))',
+    'adx wave':     f'label == "potential" and ((adx_strong_day < -10 and adx_wave_day > 10) or (adx_strong_day < -10 and adx_value_change_std < 1) or (-10 < adx_direction_start < 10 and adx_strong_day < 0))',
+    'adx high':     f'label == "potential" and ((adx_value > 25 and ichimoku_fs_signal > 10))',
     'adx down':     f'label == "potential" and (adx_day < 0)',
     'window':       f'label == "potential" and ((相对窗口位置 in ["mid", "mid_up", "mid_down", "out"] and candle_entity_middle < candle_gap_top))'
     } 
