@@ -1082,7 +1082,7 @@ def calculate_ta_signal(df):
     'pattern wave':     f'label == "potential" and ((十字星 != "n") or ((rate < 0 or candle_color == -1) and (0 > 平头_day >= -3 or 0 > 腰带_day >= -3)) or (相对窗口位置 == "mid" or (candle_color == -1 and (相对窗口位置 == "mid_up" or 相对窗口位置 == "mid_down"))))',
     'price fall':       f'label == "potential" and ((candle_color == -1) and (rate < 0))',
     'adx wave':         f'label == "potential" and ((adx_strong_day < -10 and adx_wave_day > 10) or (adx_strong_day < -10 and adx_value_change_std < 1) or (-10 < adx_direction_start < 10 and adx_strong_day < 0))',
-    'adx high':         f'label == "potential" and ((adx_value > 25 and ichimoku_fs_signal > 10))',
+    # 'adx high':         f'label == "potential" and ((adx_value > 25 and ichimoku_fs_signal > 10))',
     'adx down':         f'label == "potential" and (adx_day < 0)',
     'ichimoku wave':    f'label == "potential" and (ichimoku_distance == 0)',
     'ichimoku cloud':   f'label == "potential" and (ichimoku_distance < 0 and ((cloud_top > candle_entity_middle > cloud_bottom) or (candle_entity_middle < cloud_bottom)))',
@@ -1092,6 +1092,16 @@ def calculate_ta_signal(df):
     tmp_condition = none_potential_conditions[c]
     tmp_idx = df.query(tmp_condition).index
     df.loc[tmp_idx, 'label'] = ''
+    df.loc[tmp_idx, 'label_description'] += f'{c},'
+
+  potential_conditions = {
+    'kama':  f'(0 < kama_fs_signal <= 3)',
+    'ichimoku':  f'(0 < ichimoku_fs_signal <= 3)',
+    } 
+  for c in potential_conditions:
+    tmp_condition = potential_conditions[c]
+    tmp_idx = df.query(tmp_condition).index
+    df.loc[tmp_idx, 'label'] = 'potential'
     df.loc[tmp_idx, 'label_description'] += f'{c},'
   
   # label signal
@@ -5156,7 +5166,7 @@ def plot_scatter(df, target_col, start=None, end=None, marker='.', alpha=1, colo
     return ax
 
 # plot rate and trigger_score/score for each target list
-def plot_summary(data, width=25, unit_size=0.3, wspace=0, hspace=0.1, plot_args=default_plot_args, config=None, save_path=None):
+def plot_summary(data, width=20, unit_size=0.3, wspace=0, hspace=0.1, plot_args=default_plot_args, config=None, save_path=None):
   """
   Plot rate and trigger_score/score for each target list
   :param data: dict of dataframes including 'result'
@@ -5177,7 +5187,7 @@ def plot_summary(data, width=25, unit_size=0.3, wspace=0, hspace=0.1, plot_args=
 
   # create axes for each indicator
   fig = plt.figure(figsize=(width, sum(num_symbols)*unit_size))  
-  gs = gridspec.GridSpec(n_row, 2, height_ratios=num_symbols, width_ratios=[1,3])
+  gs = gridspec.GridSpec(n_row, 2, height_ratios=num_symbols, width_ratios=[1,1])
   gs.update(wspace=wspace, hspace=hspace)
   axes = {}
 
@@ -5193,12 +5203,13 @@ def plot_summary(data, width=25, unit_size=0.3, wspace=0, hspace=0.1, plot_args=
     tmp_data['name'] = tmp_data.index.values
 
     # get data
-    if config is not None:
-      names = config['visualization']['plot_args']['sec_name']
-      for idx, row in tmp_data.iterrows():
-        tmp_name = names.get(idx)
-        if tmp_name is not None:
-          tmp_data.loc[idx, 'name'] = tmp_name
+    if 'a_company' in t:
+      if config is not None:
+        names = config['visualization']['plot_args']['sec_name']
+        for idx, row in tmp_data.iterrows():
+          tmp_name = names.get(idx)
+          if tmp_name is not None:
+            tmp_data.loc[idx, 'name'] = tmp_name
     tmp_data = tmp_data.set_index('name')
     tmp_data['rank_score'] = tmp_data['trigger_score'] #tmp_data['score'] + 
     tmp_data = tmp_data.sort_values('rank_score', ascending=True)
@@ -5222,8 +5233,9 @@ def plot_summary(data, width=25, unit_size=0.3, wspace=0, hspace=0.1, plot_args=
     title_color = 'green' if num_total/2 > num_down else 'red'  
     rate_ax.barh(tmp_data.index, tmp_data['rate'], color=tmp_data['rate_color'], label='rate', alpha=0.5) #, edgecolor='k'
     rate_ax.set_title(f'{t.replace("_day", "")} Rate ({num_total-num_down}/{num_total})', fontsize=25, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1))
-    rate_ax.grid(True, axis='both', linestyle='--', linewidth=0.5, alpha=0.3)
-    rate_ax.yaxis.set_ticks_position("right")
+    rate_ax.grid(True, axis='x', linestyle='--', linewidth=0.5, alpha=0.3)
+    rate_ax.grid(True, axis='y', linestyle='-', linewidth=0.5, alpha=1)
+    rate_ax.yaxis.set_ticks_position("left")
     # rate_ax.spines['right'].set_alpha(0)
     # plt.setp(rate_ax.get_yticklabels(), visible=False)
 
@@ -5243,7 +5255,8 @@ def plot_summary(data, width=25, unit_size=0.3, wspace=0, hspace=0.1, plot_args=
     score_ax.barh(tmp_data.index, tmp_data['score'], color=tmp_data['score_color'], left=tmp_data['score_bottom'],label='score', alpha=0.5) #, edgecolor='k'  
     score_ax.set_title(f'{t.replace("_day", "")} Score', fontsize=25, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1))
     score_ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
-    score_ax.grid(True, axis='both', linestyle='--', linewidth=0.5, alpha=0.3)
+    score_ax.grid(True, axis='x', linestyle='--', linewidth=0.5, alpha=0.3)
+    score_ax.grid(True, axis='y', linestyle='-', linewidth=0.5, alpha=1)
     score_ax.spines['left'].set_alpha(0)
     plt.setp(score_ax.get_yticklabels(), visible=False)
     # score_ax.yaxis.set_ticks_position("right")
