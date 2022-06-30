@@ -5206,13 +5206,13 @@ def plot_summary(data, width=25, unit_size=0.3, wspace=0, hspace=0.1, plot_args=
 
     # get ax
     if i == 0:
-      rate_ax = plt.subplot(gs[i*2]) 
-      score_ax = plt.subplot(gs[i*2+1])
+      rate_ax = plt.subplot(gs[i*2], zorder=1) 
+      score_ax = plt.subplot(gs[i*2+1], zorder=0)
       axes['rate'] = rate_ax
       axes['score'] = score_ax
     else:
-      rate_ax = plt.subplot(gs[i*2], sharex=axes['rate']) 
-      score_ax = plt.subplot(gs[i*2+1], sharex=axes['score'])
+      rate_ax = plt.subplot(gs[i*2], sharex=axes['rate'], zorder=1) 
+      score_ax = plt.subplot(gs[i*2+1], sharex=axes['score'], zorder=0)
       
     # plot rate
     tmp_data['rate_color'] = 'green'
@@ -5223,9 +5223,9 @@ def plot_summary(data, width=25, unit_size=0.3, wspace=0, hspace=0.1, plot_args=
     rate_ax.barh(tmp_data.index, tmp_data['rate'], color=tmp_data['rate_color'], label='rate', alpha=0.5) #, edgecolor='k'
     rate_ax.set_title(f'{t.replace("_day", "")} Rate ({num_total-num_down}/{num_total})', fontsize=25, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1))
     rate_ax.grid(True, axis='both', linestyle='--', linewidth=0.5, alpha=0.3)
-    rate_ax.spines['right'].set_alpha(0)
-    rate_ax.yaxis.set_ticks_position("none")
-    plt.setp(rate_ax.get_yticklabels(), visible=False)
+    rate_ax.yaxis.set_ticks_position("right")
+    # rate_ax.spines['right'].set_alpha(0)
+    # plt.setp(rate_ax.get_yticklabels(), visible=False)
 
     # plot trigger score
     score_ax.barh(tmp_data.index, tmp_data.trigger_score, color='yellow', label='trigger_score', alpha=0.5, edgecolor='k')
@@ -5244,10 +5244,15 @@ def plot_summary(data, width=25, unit_size=0.3, wspace=0, hspace=0.1, plot_args=
     score_ax.set_title(f'{t.replace("_day", "")} Score', fontsize=25, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1))
     score_ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
     score_ax.grid(True, axis='both', linestyle='--', linewidth=0.5, alpha=0.3)
+    score_ax.spines['left'].set_alpha(0)
+    plt.setp(score_ax.get_yticklabels(), visible=False)
+    # score_ax.yaxis.set_ticks_position("right")
 
   # save image
   if save_path is not None:
     plt.savefig(save_path, bbox_inches = 'tight')
+
+  return score_ax
 
 # plot general ta indicators
 def plot_indicator(df, target_col, start=None, end=None, signal_x='signal', signal_y='Close', benchmark=None, boundary=None, color_mode=None, use_ax=None, title=None, plot_price_in_twin_ax=False, trend_val=default_trend_val, signal_val=default_signal_val, plot_args=default_plot_args):
