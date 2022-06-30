@@ -6,6 +6,7 @@ Technical Analysis Calculation and Visualization functions
 """
 import os
 import math
+from pyparsing import nums
 from regex import F
 import sympy
 import datetime
@@ -5155,7 +5156,7 @@ def plot_scatter(df, target_col, start=None, end=None, marker='.', alpha=1, colo
     return ax
 
 # plot rate and trigger_score/score for each target list
-def plot_summary(data, width=25, unit_size=5, save_path=None, plot_args=default_plot_args):
+def plot_summary(data, width=25, unit_size=0.3, wspace=0, hspace=0.1, plot_args=default_plot_args, config=None, save_path=None):
   """
   Plot rate and trigger_score/score for each target list
   :param data: dict of dataframes including 'result'
@@ -5165,87 +5166,84 @@ def plot_summary(data, width=25, unit_size=5, save_path=None, plot_args=default_
   :raises: none
   """
 
+  # 指定默认字体 
+  plt.rcParams['font.sans-serif'] = ['KaiTi'] 
+  plt.rcParams['axes.unicode_minus'] = False
+
   # get pools
   pools = list(data['result'].keys())
+  n_row = len(pools)
+  num_symbols = [len(data['result'][x]) for x in data['result'].keys()]
 
-  # initialize parameters
-  n_row = len(pools) * 2
-  fig, ax =  plt.subplots(n_row, 1, figsize=(width, n_row*unit_size))
-  super_title = 'Summary\n'
-  c = 0
-  r = 0
-  num_total = 0
-  num_down = 0
-  
-  for t in pools:
-    if t in data['result'].keys():
+  # create axes for each indicator
+  fig = plt.figure(figsize=(width, sum(num_symbols)*unit_size))  
+  gs = gridspec.GridSpec(n_row, 2, height_ratios=num_symbols, width_ratios=[1,3])
+  gs.update(wspace=wspace, hspace=hspace)
+  axes = {}
+
+  # plot rate and score
+  for i in range(n_row):
+
+    num_total = num_symbols[i]
+    num_down = 0
+
+    # get target data
+    t = pools[i]
+    tmp_data = data['result'][t][['symbol', 'rate', 'trigger_score', 'score']].set_index('symbol')
+    tmp_data['name'] = tmp_data.index.values
+
+    # get data
+    if config is not None:
+      names = config['visualization']['plot_args']['sec_name']
+      for idx, row in tmp_data.iterrows():
+        tmp_name = names.get(idx)
+        if tmp_name is not None:
+          tmp_data.loc[idx, 'name'] = tmp_name
+    tmp_data = tmp_data.set_index('name')
+    tmp_data['rank_score'] = tmp_data['trigger_score'] #tmp_data['score'] + 
+    tmp_data = tmp_data.sort_values('rank_score', ascending=True)
+    tmp_data['rate'] = tmp_data['rate'] * 100
+
+    # get ax
+    if i == 0:
+      rate_ax = plt.subplot(gs[i*2]) 
+      score_ax = plt.subplot(gs[i*2+1])
+      axes['rate'] = rate_ax
+      axes['score'] = score_ax
+    else:
+      rate_ax = plt.subplot(gs[i*2], sharex=axes['rate']) 
+      score_ax = plt.subplot(gs[i*2+1], sharex=axes['score'])
       
-      # get target data
-      tmp_data = data['result'][t][['symbol', 'rate', 'trigger_score', 'score']].set_index('symbol')
-      tmp_data['rank_score'] = tmp_data['trigger_score'] #tmp_data['score'] + 
-      tmp_data = tmp_data.sort_values('rank_score', ascending=False)
-      tmp_data['rate'] = tmp_data['rate'] * 100
-      num_total = len(tmp_data)
+    # plot rate
+    tmp_data['rate_color'] = 'green'
+    down_idx = tmp_data.query('rate <= 0').index    
+    tmp_data.loc[down_idx, 'rate_color'] = 'red'
+    num_down = len(down_idx)
+    title_color = 'green' if num_total/2 > num_down else 'red'  
+    rate_ax.barh(tmp_data.index, tmp_data['rate'], color=tmp_data['rate_color'], label='rate', alpha=0.5) #, edgecolor='k'
+    rate_ax.set_title(f'{t.replace("_day", "")} Rate ({num_total-num_down}/{num_total})', fontsize=25, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1))
+    rate_ax.grid(True, axis='both', linestyle='--', linewidth=0.5, alpha=0.3)
+    rate_ax.spines['right'].set_alpha(0)
+    rate_ax.yaxis.set_ticks_position("none")
+    plt.setp(rate_ax.get_yticklabels(), visible=False)
 
-      # get axes
-      c = pools.index(t)  
+    # plot trigger score
+    score_ax.barh(tmp_data.index, tmp_data.trigger_score, color='yellow', label='trigger_score', alpha=0.5, edgecolor='k')
+    tmp_data['score_bottom'] = tmp_data['trigger_score']
+    for index, row in tmp_data.iterrows():
+      if (row['trigger_score'] > 0 and row['score'] > 0) or (row['trigger_score'] < 0 and row['score'] < 0):
+        continue
+      else:
+        tmp_data.loc[index, 'score_bottom'] = 0
 
-      rate_ax = ax[c * 2]
-      score_ax = ax[c * 2 +1]  
-
-      # plot rate
-      tmp_data['rate_color'] = 'green'
-      down_idx = tmp_data.query('rate <= 0').index    
-      tmp_data.loc[down_idx, 'rate_color'] = 'red'
-      num_down = len(down_idx)
-      
-      rate_ax.bar(tmp_data.index, tmp_data['rate'], color=tmp_data['rate_color'], label='rate', alpha=0.5) #, edgecolor='k'
-      rate_ax.set_title(f'{t.replace("_day", "")} Rate', rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
-      rate_ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
-      rate_ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
-      rate_ax.grid(True, axis='both', linestyle='--', linewidth=0.5, alpha=0.3)
-      rate_ax.spines['bottom'].set_alpha(0)
-      rate_ax.xaxis.set_ticks_position("none")
-      plt.setp(rate_ax.get_xticklabels(), visible=False)
-
-      # plot trigger_score & score
-      # tmp_data['score_color'] = 'green'
-      # down_idx = tmp_data.query('trigger_score <= 0').index    
-      # tmp_data.loc[down_idx, 'score_color'] = 'red'
-      score_ax.bar(tmp_data.index, tmp_data.trigger_score, color='yellow', label='trigger_score', alpha=0.5, edgecolor='k')
-
-      tmp_data['score_bottom'] = tmp_data['trigger_score']
-      for index, row in tmp_data.iterrows():
-        if (row['trigger_score'] > 0 and row['score'] > 0) or (row['trigger_score'] < 0 and row['score'] < 0):
-          continue
-        else:
-          tmp_data.loc[index, 'score_bottom'] = 0
-
-      tmp_data['score_color'] = 'green'
-      down_idx = tmp_data.query('score <= 0').index    
-      tmp_data.loc[down_idx, 'score_color'] = 'red'
-      score_ax.bar(tmp_data.index, tmp_data['score'], color=tmp_data['score_color'], bottom=tmp_data['score_bottom'], label='score', alpha=0.5) #, edgecolor='k'
-      
-      score_ax.set_title(f'{t.replace("_day", "")} Score', rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
-      score_ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
-      score_ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
-      score_ax.grid(True, axis='both', linestyle='--', linewidth=0.5, alpha=0.3)
-      score_ax.spines['top'].set_alpha(0)
-
-      if num_total > 50:
-        rate_ax.tick_params(axis='x', labelrotation= 90)
-        score_ax.tick_params(axis='x', labelrotation= 90)
-        rate_ax.tick_params(axis='x', labelsize= 8)
-        score_ax.tick_params(axis='x', labelsize= 8)
-
-      # add information to super title
-      super_title += f'{t.replace("_day", "")}: {num_total - num_down}/{num_total} | '
-
-  # set super title
-  super_title = super_title[:-2]    
-  title_color = 'green' if num_total/2 > num_down else 'red'
-  y = 1.18 - (n_row/2) * 0.08
-  fig.suptitle(super_title, x=0.5, y=y, fontsize=25, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1))
+    # plot score
+    tmp_data['score_color'] = 'green'
+    down_idx = tmp_data.query('score <= 0').index    
+    tmp_data.loc[down_idx, 'score_color'] = 'red'
+    score_ax.barh(tmp_data.index, tmp_data['score'], color=tmp_data['score_color'], left=tmp_data['score_bottom'],label='score', alpha=0.5) #, edgecolor='k'  
+    score_ax.set_title(f'{t.replace("_day", "")} Score', fontsize=25, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1))
+    score_ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
+    score_ax.grid(True, axis='both', linestyle='--', linewidth=0.5, alpha=0.3)
 
   # save image
   if save_path is not None:
