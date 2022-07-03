@@ -5,11 +5,348 @@ Utilities used for machine learning perpose
 :autohr: Beichen Chen
 """
 from quant import bc_util as util
-# from tensorflow import keras
+
 import pandas as pd
+import numpy as np
+
 from sklearn import preprocessing
 from sklearn.utils import shuffle
+from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
+
+import torch
+from torch import nn, Tensor
+from torch.optim import SGD, Adam
+from torch.utils.data import Dataset, DataLoader, random_split
+
+
+
+# dataset definition
+class ClassificationDataset(Dataset):
+  
+  # load the dataset
+  def __init__(self, path, feature_column=None, result_column=None, scaler=None):
+
+    # load the csv file as a dataframe
+    df = pd.read_csv(path)
+    
+    if feature_column is None:
+      feature_column = data.columns[:-1]
+    if result_column is None:
+      result_column = data.columns[-1]
+    
+    # store the inputs and outputs
+    self.X = df[feature_column].values
+    self.y = df[result_column].values
+    
+    # ensure input data is floats
+    self.X = self.X.astype('float32')
+    
+    if scaler is None:
+      pass
+    elif scaler == 'MinMax':
+      self.X = preprocessing.MinMaxScaler().fit_transform(self.X)
+    elif scaler == 'Standard':
+      self.X = preprocessing.StandardScaler().fit_transform(self.X)
+    else:
+      pass
+
+    # label encode target and ensure the values are floats
+    self.y = preprocessing.LabelEncoder().fit_transform(self.y)
+
+  # number of rows in the dataset
+  def __len__(self):
+    return len(self.X)
+
+  # get a row at an index
+  def __getitem__(self, idx):
+    return [self.X[idx], self.y[idx]]
+
+  # get indexes for train and test rows
+  def get_splits(self, n_test=0.2):
+
+    # determine sizes
+    test_size = round(n_test * len(self.X))
+    train_size = len(self.X) - test_size
+
+    # calculate the split
+    return random_split(self, [train_size, test_size])
+
+      
+class SimpleClassifier(nn.Module):
+  
+  def __init__(self, n_in, n_out):
+    super(SimpleClassifier, self).__init__()
+    
+    # self.flatten = nn.Flatten()
+    self.linear_relu_stack = nn.Sequential(
+      nn.Linear(n_in, 16),
+      nn.ReLU(),
+      nn.Linear(16, 32),
+      nn.ReLU(),
+      nn.Linear(32, 64),
+      nn.ReLU(),
+      nn.Linear(64, 32),
+      nn.ReLU(),
+      nn.Linear(32, 16),
+      nn.ReLU(),
+      nn.Linear(16, n_out),
+    )
+
+  def forward(self, x):
+    
+    # x = self.flatten(x)
+    logits = self.linear_relu_stack(x)
+    
+    return logits
+  
+
+# prepare the dataset
+def prepare_data(dataset):
+
+  # calculate split
+  train, test = dataset.get_splits()
+
+  # prepare data loaders
+  train_dl = DataLoader(train, batch_size=1, shuffle=True) 
+  test_dl = DataLoader(test, batch_size=32, shuffle=False) 
+
+  return train_dl, test_dl
+
+
+# train the model
+def train_classifier(train_dl, model, epoch=100):
+  
+  # define the optimization
+  criterion = nn.CrossEntropyLoss()
+
+  # optimizer = SGD(model.parameters(), lr=0.01, momentum=0.9)
+  optimizer = Adam(model.parameters())
+
+  # enumerate epochs
+  for epoch in range(epoch):
+
+    # enumerate mini batches
+    for i, (inputs, targets) in enumerate(train_dl):
+      targets = targets.long()
+
+      # clear the gradients
+      optimizer.zero_grad()
+
+      # compute the model output
+      yhat = model(inputs)
+
+      # calculate loss
+      loss = criterion(yhat, targets)
+
+      # credit assignment
+      loss.backward()
+
+      # update model weights
+      optimizer.step()
+
+    if epoch % 10 == 0:
+      print("epoch: {}, batch: {}, loss: {}".format(epoch, i, loss.data))
+
+
+# evaluate the model
+def evaluate_classifier(test_dl, model):
+
+  device = "cuda" if torch.cuda.is_available() else "cpu"
+  print(f"Using {device} device")
+  
+  predictions, actuals = [], []
+  for i, (inputs, targets) in enumerate(test_dl):
+    
+    # evaluate the model on the test set
+    inputs = inputs.to(device)
+    yhat = model(inputs)
+    
+    # retrieve numpy array
+    yhat = yhat.cpu().detach().numpy()
+    actual = targets.numpy()
+    
+    # convert to class labels
+    yhat = np.argmax(yhat, axis=1)
+    
+    # reshape for stacking
+    actual = actual.reshape((len(actual), 1))
+    yhat = yhat.reshape((len(yhat), 1))
+    
+    # store
+    predictions.append(yhat)
+    actuals.append(actual)
+  
+  predictions, actuals = np.vstack(predictions), np.vstack(actuals)
+  
+  # calculate accuracy
+  acc = accuracy_score(actuals, predictions)
+  
+  return acc
+
+
+# make a class prediction for one row of data
+def predict(row, model):
+  
+  # convert row to data
+  row = Tensor([row])
+  
+  # make prediction
+  pred = model(row)
+  
+  # retrieve numpy array
+  pred = pred.detach().numpy()
+  
+  return pred
+
+
+# dataset definition
+class RegressionDataset(Dataset):
+  
+  # load the dataset
+  def __init__(self, path, feature_column=None, result_column=None, scaler=None):
+
+    # load the csv file as a dataframe
+    df = pd.read_csv(path)
+    
+    if feature_column is None:
+      feature_column = data.columns[:-1]
+    if result_column is None:
+      result_column = data.columns[-1]
+    
+    # store the inputs and outputs
+    self.X = df[feature_column].values
+    self.y = df[result_column].values
+    
+    # ensure input data is floats
+    self.X = self.X.astype('float32')
+    
+    if scaler is None:
+      pass
+    elif scaler == 'MinMax':
+      self.X = preprocessing.MinMaxScaler().fit_transform(self.X)
+    elif scaler == 'Standard':
+      self.X = preprocessing.StandardScaler().fit_transform(self.X)
+    else:
+      pass
+
+  # number of rows in the dataset
+  def __len__(self):
+    return len(self.X)
+
+  # get a row at an index
+  def __getitem__(self, idx):
+    return [self.X[idx], self.y[idx]]
+
+  # get indexes for train and test rows
+  def get_splits(self, n_test=0.2):
+
+    # determine sizes
+    test_size = round(n_test * len(self.X))
+    train_size = len(self.X) - test_size
+
+    # calculate the split
+    return random_split(self, [train_size, test_size])
+  
+
+class SimpleRegressor(nn.Module):
+  
+  def __init__(self, n_in, n_out):
+    super(SimpleRegressor, self).__init__()
+    
+    # self.flatten = nn.Flatten()
+    self.linear_relu_stack = nn.Sequential(
+      nn.Linear(n_in, 16),
+      nn.ReLU(),
+      nn.Linear(16, 32),
+      nn.ReLU(),
+      nn.Linear(32, 64),
+      nn.ReLU(),
+      nn.Linear(64, 32),
+      nn.ReLU(),
+      nn.Linear(32, 16),
+      nn.ReLU(),
+      nn.Linear(16, n_out),
+    )
+
+  def forward(self, x):
+    
+    # x = self.flatten(x)
+    logits = self.linear_relu_stack(x)
+    
+    return logits  
+
+  
+# train the model
+def train_regressor(train_dl, model, epoch=100):
+  
+  # define the optimization
+  criterion = nn.MSELoss()
+
+  # optimizer = SGD(model.parameters(), lr=0.01, momentum=0.9)
+  optimizer = Adam(model.parameters())
+
+  # enumerate epochs
+  for epoch in range(epoch):
+
+    # enumerate mini batches
+    for i, (inputs, targets) in enumerate(train_dl):
+      
+      targets = targets.float()
+
+      # clear the gradients
+      optimizer.zero_grad()
+
+      # compute the model output
+      yhat = model(inputs)
+
+      # calculate loss
+      loss = criterion(yhat, targets)
+
+      # credit assignment
+      loss.backward()
+
+      # update model weights
+      optimizer.step()
+
+    if epoch % 10 == 0:
+      print("epoch: {}, batch: {}, loss: {}".format(epoch, i, loss.data))
+      
+      
+# evaluate the model
+def evaluate_regressor(test_dl, model):
+
+  device = "cuda" if torch.cuda.is_available() else "cpu"
+  print(f"Using {device} device")
+  
+  predictions, actuals = [], []
+  for i, (inputs, targets) in enumerate(test_dl):
+    
+    # evaluate the model on the test set
+    inputs = inputs.to(device)
+    yhat = model(inputs)
+    
+    # retrieve numpy array
+    yhat = yhat.cpu().detach().numpy()
+    actual = targets.numpy()
+    
+    # convert to class labels
+    yhat = np.argmax(yhat, axis=1)
+    
+    # reshape for stacking
+    actual = actual.reshape((len(actual), 1))
+    yhat = yhat.reshape((len(yhat), 1))
+    
+    # store
+    predictions.append(yhat)
+    actuals.append(actual)
+  
+  predictions, actuals = np.vstack(predictions), np.vstack(actuals)
+  
+  # calculate accuracy
+  acc = accuracy_score(actuals, predictions)
+  
+  return acc
 
 
 def get_scaler(scale_method='StandardScaler'):
