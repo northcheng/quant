@@ -108,7 +108,7 @@ def prepare_data(dataset):
   train, test = dataset.get_splits()
 
   # prepare data loaders
-  train_dl = DataLoader(train, batch_size=1, shuffle=True) 
+  train_dl = DataLoader(train, batch_size=1, shuffle=False) 
   test_dl = DataLoader(test, batch_size=32, shuffle=False) 
 
   return train_dl, test_dl
