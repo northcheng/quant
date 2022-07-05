@@ -141,11 +141,12 @@
       
       "trigger_score": "触发分数",
       "trigger_score_description": "触发标签",
-      "score": "总分",
+      "score": "状态分数",
       "up_score_description": "+标签",
       "down_score_description": "-标签",
-      
+            
       "label": "分类", 
+      "label_score": "总分",
       "signal": "交易信号"
     },
     "drop_columns": [],

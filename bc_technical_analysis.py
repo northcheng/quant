@@ -1018,6 +1018,11 @@ def calculate_ta_score(df):
   df['down_score_description'] = df['down_score_description'].apply(lambda x: x[1:])
   df['trigger_score_description'] = df['trigger_score_description'].apply(lambda x: x[1:])
 
+  # score_day
+  df['zero'] = 0
+  df['score_day'] = cal_crossover_signal(df=df, fast_line='score', slow_line='zero', pos_signal=1, neg_signal=-1, none_signal=0)
+  df['score_day'] = sda(series=df['score_day'], zero_as=1)
+
   # drop redundant columns
   columns_to_drop = ['candle_color_sda', 'rate_direction_sda', 'prev_candle_entity_top', 'prev_candle_entity_bottom'] # , 'cloud_top', 'cloud_bottom'
   for col in columns_to_drop:
@@ -1064,42 +1069,53 @@ def calculate_ta_signal(df):
 
   # label potential
   df['label'] = ''
+  df['label_score'] = 0
   df['label_description'] = ''
   potential_conditions = {
-    'test': '10 > trend_day > 0 and down_trend_idx == 0 and up_trend_idx >= 3'
-    # '低位反弹1':  f'((trigger_score >= 1) and (kama_distance < 0 and kama_fast_signal > 0) and (Close > cloud_top and (0 < ichimoku_fs_signal < 5 or ichimoku_distance > -0.01)))',
-    # '低位反弹2':  f'((trigger_score >= 1) and (kama_distance < 0 and kama_fast_signal > 0) and (Close > cloud_top and 0 < kama_slow_signal < 5))',
-    # 'adx':        f'((trigger_score >= 1) and (kama_distance < 0 and 0 < adx_day < 5))', 
-    # 'kama':       f'((trigger_score >= 1) and (kama_distance < 0 and 0 < kama_fs_signal < 5))',
-    # 'ichimoku':   f'((trigger_score >= 1) and (kama_distance < 0 and 0 < ichimoku_fs_signal < 5))'
+    'trend':      f'(5 >= trend_day > 0) and (down_trend_idx == 0 and up_trend_idx >= 3)',
+    'score':      f'(5 >= score_day > 0) and (trigger_score >= 1)',
+    'adx':        f'(5 >= adx_day > 0) and (trigger_score >= 1) and (kama_distance < 0)', 
+    'kama':       f'(5 >= kama_fs_signal > 0) and (trigger_score >= 1)',
+    'ichimoku':   f'(5 >= ichimoku_fs_signal > 0 and ichimoku_distance > 0.001)',
+    'rebound':  f'((trigger_score >= 1) and (kama_distance < 0 and kama_fast_signal > 0) and (Close > cloud_top and (0 < ichimoku_fs_signal < 5 or ichimoku_distance > -0.01 or 0 < kama_slow_signal < 5)))',
     } 
-  for c in potential_conditions:
+  for c in potential_conditions.keys():
     tmp_condition = potential_conditions[c]
     tmp_idx = df.query(tmp_condition).index
     df.loc[tmp_idx, 'label'] = 'potential'
+    df.loc[tmp_idx, 'label_score'] += 1
     df.loc[tmp_idx, 'label_description'] += f'{c},'
 
-  # none_potential_conditions = {
-  #   'pattern wave':     f'label == "potential" and ((十字星 != "n") or ((rate < 0 or candle_color == -1) and (0 > 平头_day >= -3 or 0 > 腰带_day >= -3)) or (相对窗口位置 == "mid" or (candle_color == -1 and (相对窗口位置 == "mid_up" or 相对窗口位置 == "mid_down"))))',
-  #   'price fall':       f'label == "potential" and ((candle_color == -1) and (rate < 0))',
-  #   'adx wave':         f'label == "potential" and ((adx_strong_day < -10 and adx_wave_day > 10) or (adx_strong_day < -10 and adx_value_change_std < 1) or (-10 < adx_direction_start < 10 and adx_strong_day < 0))',
-  #   # 'adx high':         f'label == "potential" and ((adx_value > 25 and ichimoku_fs_signal > 10))',
-  #   'adx down':         f'label == "potential" and (adx_day < 0)',
-  #   'ichimoku wave':    f'label == "potential" and (ichimoku_distance == 0)',
-  #   'ichimoku cloud':   f'label == "potential" and (ichimoku_distance < 0 and ((cloud_top > candle_entity_middle > cloud_bottom) or (candle_entity_middle < cloud_bottom)))',
-  #   'window':           f'label == "potential" and ((相对窗口位置 in ["mid", "mid_up", "mid_down", "out"] and candle_entity_middle < candle_gap_top))'
-  #   } 
-  # for c in none_potential_conditions:
-  #   tmp_condition = none_potential_conditions[c]
-  #   tmp_idx = df.query(tmp_condition).index
-  #   df.loc[tmp_idx, 'label'] = ''
-  #   df.loc[tmp_idx, 'label_description'] += f'{c},'
+  # remove false alarm
+  none_potential_idx = []
+  none_potential_conditions = {
+    'pattern wave':     f'label == "potential" and ((十字星 != "n") or ((rate < 0 or candle_color == -1) and (0 > 平头_day >= -3 or 0 > 腰带_day >= -3)) or (相对窗口位置 == "mid" or (candle_color == -1 and (相对窗口位置 == "mid_up" or 相对窗口位置 == "mid_down"))))',
+    'pattern down':     f'label == "potential" and (窗口_day == -1 or 反弹_day == -1 or 突破_day == -1 or 锤子_day == -1 or 流星_day == -1 or 穿刺_day == -1 or 启明黄昏_day == -1)',
 
+    'price fall':       f'label == "potential" and ((candle_color == -1) and (rate < 0))',
+    'price high':       f'label == "potential" and (kama_fs_signal >= 10 and ichimoku_fs_signal >= 10 and Close > kama_fast and Close > tankan)',
+    
+    'adx wave':         f'label == "potential" and (adx_value_change < 5) and ((adx_strong_day < -10 and adx_wave_day > 10) or (adx_strong_day < -10 and adx_value_change_std < 1) or (-10 < adx_direction_start < 10 and adx_strong_day < 0))',
+    'adx down':         f'label == "potential" and (adx_day < 0)',
+    
+    # 'ichimoku wave':    f'label == "potential" and (ichimoku_distance == 0 and kama_distance < 0)',
+    # 'ichimoku cloud':   f'label == "potential" and (ichimoku_distance < 0 and ((cloud_top > candle_entity_middle > cloud_bottom) or (candle_entity_middle < cloud_bottom)))',
+    'window':           f'label == "potential" and ((相对窗口位置 in ["mid", "mid_up", "mid_down", "out"] and candle_entity_middle < candle_gap_top))'
+    } 
+  for c in none_potential_conditions.keys():
+    tmp_condition = none_potential_conditions[c]
+    tmp_idx = df.query(tmp_condition).index
+    none_potential_idx += tmp_idx.tolist()
+    df.loc[tmp_idx, 'label_score'] += -1
+    df.loc[tmp_idx, 'label_description'] += f'{c},'
+  none_potential_idx = list(set(none_potential_idx))
+  df.loc[none_potential_idx, 'label'] = ''
+
+  # # those should be noticed
   # potential_conditions = {
-  #   'kama':  f'(0 < kama_fs_signal <= 3)',
-  #   'ichimoku':  f'(0 < ichimoku_fs_signal <= 3)',
+    
   #   } 
-  # for c in potential_conditions:
+  # for c in potential_conditions.keys():
   #   tmp_condition = potential_conditions[c]
   #   tmp_idx = df.query(tmp_condition).index
   #   df.loc[tmp_idx, 'label'] = 'potential'
@@ -5519,16 +5535,17 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
 
   # get name of the symbol, and linear/candle/adx descriptions
   new_title = args['sec_name'].get(title)
-  trigger_score_desc = f'[Trigger {df.loc[df.index.max(), "trigger_score"]}]:{df.loc[df.index.max(), "trigger_score_description"]}'
+  # trigger_score_desc = f'[Trigger {df.loc[df.index.max(), "trigger_score"]}]:{df.loc[df.index.max(), "trigger_score_description"]}'
   
   # score description
-  score = df.loc[df.index.max(), "score"]
-  up_score = df.loc[df.index.max(), "up_score"]
-  down_score = df.loc[df.index.max(), "down_score"]
-  up_score_desc = f'+{up_score}' if up_score > 0 else '+0.0'
-  down_score_desc = f'{down_score}' if down_score < 0 else '-0.0'
-  score_desc = f'[Score {score}]: {up_score_desc} | {down_score_desc}'
-  desc = '\n' + score_desc + '\n' + trigger_score_desc # 
+  # score = df.loc[df.index.max(), "score"]
+  # up_score = df.loc[df.index.max(), "up_score"]
+  # down_score = df.loc[df.index.max(), "down_score"]
+  # up_score_desc = f'+{up_score}' if up_score > 0 else '+0.0'
+  # down_score_desc = f'{down_score}' if down_score < 0 else '-0.0'
+  score_desc = f'Trigger {df.loc[df.index.max(), "trigger_score"]} | Score {df.loc[df.index.max(), "score"]}'
+  label_score_desc = f'[Label {df.loc[df.index.max(), "label_score"]}]: {df.loc[df.index.max(), "label_description"]}'
+  desc = '\n' + score_desc + '\n' + label_score_desc # 
   
   # construct super title
   if new_title is None:
