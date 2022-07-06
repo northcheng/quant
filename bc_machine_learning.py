@@ -20,7 +20,6 @@ from torch.optim import SGD, Adam
 from torch.utils.data import Dataset, DataLoader, random_split
 
 
-
 # dataset definition
 class ClassificationDataset(Dataset):
   
@@ -80,11 +79,17 @@ class SimpleClassifier(nn.Module):
     
     # self.flatten = nn.Flatten()
     self.linear_relu_stack = nn.Sequential(
-      nn.Linear(n_in, 16),
+      nn.Linear(n_in, 64),
       nn.ReLU(),
-      nn.Linear(16, 32),
+      nn.Linear(64, 32),
+      nn.ReLU(),
+      nn.Linear(32, 32),
       nn.ReLU(),
       nn.Linear(32, 64),
+      nn.ReLU(),
+      nn.Linear(64, 128),
+      nn.ReLU(),
+      nn.Linear(128, 64),
       nn.ReLU(),
       nn.Linear(64, 32),
       nn.ReLU(),
@@ -108,14 +113,16 @@ def prepare_data(dataset):
   train, test = dataset.get_splits()
 
   # prepare data loaders
-  train_dl = DataLoader(train, batch_size=1, shuffle=False) 
-  test_dl = DataLoader(test, batch_size=32, shuffle=False) 
+  train_dl = DataLoader(train, batch_size=128, shuffle=True, drop_last=True)
+  test_dl = DataLoader(test, batch_size=128, shuffle=True, drop_last=True) 
 
   return train_dl, test_dl
 
 
 # train the model
 def train_classifier(train_dl, model, epoch=100):
+
+  device = "cuda" if torch.cuda.is_available() else "cpu"
   
   # define the optimization
   criterion = nn.CrossEntropyLoss()
@@ -128,7 +135,9 @@ def train_classifier(train_dl, model, epoch=100):
 
     # enumerate mini batches
     for i, (inputs, targets) in enumerate(train_dl):
-      targets = targets.long()
+      
+      inputs = inputs.to(device)
+      targets = targets.long().to(device)
 
       # clear the gradients
       optimizer.zero_grad()
@@ -187,21 +196,34 @@ def evaluate_classifier(test_dl, model):
 
 # make a class prediction for one row of data
 def predict(row, model):
+
+  device = "cuda" if torch.cuda.is_available() else "cpu"
+  # print(f"Using {device} device")
   
   # convert row to data
-  row = Tensor([row])
+  row = Tensor([row]).to(device)
   
   # make prediction
   pred = model(row)
+
+  # get probability
+  pred_probab = torch.nn.Softmax(dim=1)(pred).detach().cpu().numpy()
+
+  # get label
+  pred_label = np.argmax(pred.detach().cpu().numpy(), axis=1)
+
+  # result
+  label = pred_label[0]
+  probability = pred_probab[0][label]
   
-  # retrieve numpy array
-  pred = pred.detach().numpy()
-  
-  return pred
+  return (label, probability)
 
 
 # dataset definition
 class RegressionDataset(Dataset):
+
+  device = "cuda" if torch.cuda.is_available() else "cpu"
+  print(f"Using {device} device")
   
   # load the dataset
   def __init__(self, path, feature_column=None, result_column=None, scaler=None):
@@ -256,11 +278,17 @@ class SimpleRegressor(nn.Module):
     
     # self.flatten = nn.Flatten()
     self.linear_relu_stack = nn.Sequential(
-      nn.Linear(n_in, 16),
+      nn.Linear(n_in, 64),
       nn.ReLU(),
-      nn.Linear(16, 32),
+      nn.Linear(64, 32),
+      nn.ReLU(),
+      nn.Linear(32, 32),
       nn.ReLU(),
       nn.Linear(32, 64),
+      nn.ReLU(),
+      nn.Linear(64, 128),
+      nn.ReLU(),
+      nn.Linear(128, 64),
       nn.ReLU(),
       nn.Linear(64, 32),
       nn.ReLU(),
@@ -279,7 +307,10 @@ class SimpleRegressor(nn.Module):
   
 # train the model
 def train_regressor(train_dl, model, epoch=100):
-  
+
+  device = "cuda" if torch.cuda.is_available() else "cpu"
+  print(f"Using {device} device")
+
   # define the optimization
   criterion = nn.MSELoss()
 
@@ -292,7 +323,8 @@ def train_regressor(train_dl, model, epoch=100):
     # enumerate mini batches
     for i, (inputs, targets) in enumerate(train_dl):
       
-      targets = targets.float()
+      inputs = inputs.to(device)
+      targets = targets.float().to(device)
 
       # clear the gradients
       optimizer.zero_grad()
@@ -319,34 +351,19 @@ def evaluate_regressor(test_dl, model):
   device = "cuda" if torch.cuda.is_available() else "cpu"
   print(f"Using {device} device")
   
-  predictions, actuals = [], []
+  # predictions, actuals = [], []
+  mse = []
   for i, (inputs, targets) in enumerate(test_dl):
     
     # evaluate the model on the test set
     inputs = inputs.to(device)
     yhat = model(inputs)
-    
-    # retrieve numpy array
-    yhat = yhat.cpu().detach().numpy()
-    actual = targets.numpy()
-    
-    # convert to class labels
-    yhat = np.argmax(yhat, axis=1)
-    
-    # reshape for stacking
-    actual = actual.reshape((len(actual), 1))
-    yhat = yhat.reshape((len(yhat), 1))
+    targets = targets.float().to(device)
     
     # store
-    predictions.append(yhat)
-    actuals.append(actual)
+    mse.append(nn.functional.mse_loss(yhat, targets))
   
-  predictions, actuals = np.vstack(predictions), np.vstack(actuals)
-  
-  # calculate accuracy
-  acc = accuracy_score(actuals, predictions)
-  
-  return acc
+  return sum(mse)/len(mse)
 
 
 def get_scaler(scale_method='StandardScaler'):
