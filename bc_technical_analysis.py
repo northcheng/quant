@@ -1099,9 +1099,6 @@ def calculate_ta_signal(df):
     'adx down':         f'label == "potential" and (adx_day < 0)',
 
     'trend down':       f'label == "potential" and (trend_idx < 0)',
-    
-    # 'ichimoku wave':    f'label == "potential" and (ichimoku_distance == 0 and kama_distance < 0)',
-    # 'ichimoku cloud':   f'label == "potential" and (ichimoku_distance < 0 and ((cloud_top > candle_entity_middle > cloud_bottom) or (candle_entity_middle < cloud_bottom)))',
     'window':           f'label == "potential" and ((相对窗口位置 in ["mid", "mid_up", "mid_down", "out"] and candle_entity_middle < candle_gap_top))'
     } 
   for c in none_potential_conditions.keys():
@@ -1112,16 +1109,6 @@ def calculate_ta_signal(df):
     df.loc[tmp_idx, 'label_description'] += f'{c},'
   none_potential_idx = list(set(none_potential_idx))
   df.loc[none_potential_idx, 'label'] = ''
-
-  # # those should be noticed
-  # potential_conditions = {
-    
-  #   } 
-  # for c in potential_conditions.keys():
-  #   tmp_condition = potential_conditions[c]
-  #   tmp_idx = df.query(tmp_condition).index
-  #   df.loc[tmp_idx, 'label'] = 'potential'
-  #   df.loc[tmp_idx, 'label_description'] += f'{c},'
   
   # label signal
   signal_idx = df.query('signal == "b"').index
