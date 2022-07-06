@@ -1097,6 +1097,8 @@ def calculate_ta_signal(df):
     
     'adx wave':         f'label == "potential" and (adx_value_change < 5) and ((adx_strong_day < -10 and adx_wave_day > 10) or (adx_strong_day < -10 and adx_value_change_std < 1) or (-10 < adx_direction_start < 10 and adx_strong_day < 0))',
     'adx down':         f'label == "potential" and (adx_day < 0)',
+
+    'trend down':       f'label == "potential" and (trend_idx < 0)',
     
     # 'ichimoku wave':    f'label == "potential" and (ichimoku_distance == 0 and kama_distance < 0)',
     # 'ichimoku cloud':   f'label == "potential" and (ichimoku_distance < 0 and ((cloud_top > candle_entity_middle > cloud_bottom) or (candle_entity_middle < cloud_bottom)))',
