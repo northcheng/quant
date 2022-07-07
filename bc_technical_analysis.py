@@ -31,8 +31,8 @@ default_trend_val = {'pos_trend':'u', 'neg_trend':'d', 'none_trend':'', 'wave_tr
 default_signal_val = {'pos_signal':'b', 'neg_signal':'s', 'none_signal':'', 'wave_signal': 'n'}
 
 # default indicators and dynamic trend for calculation
-default_indicators = {'trend': ['ichimoku', 'kama', 'adx', 'psar', 'trix', 'renko'], 'volume': [], 'volatility': ['bb'], 'other': []}
-default_perspectives = ['candle', 'support_resistant', 'renko']
+default_indicators = {'trend': ['ichimoku', 'kama', 'adx', 'psar', 'trix'], 'volume': [], 'volatility': ['bb'], 'other': []}
+default_perspectives = ['candle', 'support_resistant']
 
 # default arguments for visualization
 default_candlestick_color = {'colorup':'green', 'colordown':'red', 'alpha':0.8}
@@ -3000,7 +3000,7 @@ def add_stc_features(df, n_fast=23, n_slow=50, n_cycle=10, n_smooth=3, ohlcv_col
   return df
 
 # Renko
-def add_renko_features(df, brick_size_factor=0.1, dynamic_brick=False, merge_duplicated=True):
+def add_renko_features(df, brick_size_factor=0.05, dynamic_brick=True, merge_duplicated=True):
   """
   Calculate Renko indicator
   :param df: original OHLCV dataframe
