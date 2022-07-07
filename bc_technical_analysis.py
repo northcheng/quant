@@ -1024,7 +1024,7 @@ def calculate_ta_score(df):
   df['score_day'] = sda(series=df['score_day'], zero_as=1)
 
   # drop redundant columns
-  columns_to_drop = ['candle_color_sda', 'rate_direction_sda', 'prev_candle_entity_top', 'prev_candle_entity_bottom'] # , 'cloud_top', 'cloud_bottom'
+  columns_to_drop = ['zero', 'candle_color_sda', 'rate_direction_sda', 'prev_candle_entity_top', 'prev_candle_entity_bottom'] # , 'cloud_top', 'cloud_bottom'
   for col in columns_to_drop:
     if col in df.columns:
       df.drop(col, axis=1, inplace=True)
@@ -3000,14 +3000,13 @@ def add_stc_features(df, n_fast=23, n_slow=50, n_cycle=10, n_smooth=3, ohlcv_col
   return df
 
 # Renko
-def add_renko_features(df, brick_size_factor=0.1, merge_duplicated=True):
+def add_renko_features(df, brick_size_factor=0.1, dynamic_brick=False, merge_duplicated=True):
   """
   Calculate Renko indicator
   :param df: original OHLCV dataframe
   :param brick_size_factor: if not using atr, brick size will be set to Close*brick_size_factor
   :param merge_duplicated: whether to merge duplicated indexes in the final result
-  :param ohlcv_col: column name of Open/High/Low/Close/Volume
-  :param fillna: whether to fill na with 0
+  :param dynamic_brick: whether to use dynamic brick size
   :param cal_signal: whether to calculate signal
   :returns: dataframe with new features generated
   """
@@ -3016,8 +3015,13 @@ def add_renko_features(df, brick_size_factor=0.1, merge_duplicated=True):
   original_df = util.remove_duplicated_index(df=df, keep='last')
   df = original_df.copy()
 
-  # use dynamic brick size: brick_size_factor * Close price
-  df['bsz'] = (df['Close'] * brick_size_factor).round(3)
+  if dynamic_brick:
+    # use dynamic brick size: brick_size_factor * Close price
+    df['bsz'] = (df['Close'] * brick_size_factor).round(3)
+  
+  else:
+    # use static brick size: brick_size_factor * Close price
+    df['bsz'] = (df['Close'].values[0] * brick_size_factor).round(3)
 
   na_bsz = df.query('bsz != bsz').index 
   df = df.drop(index=na_bsz).reset_index()
@@ -4945,12 +4949,12 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
       hatch = None #'/' if renko_color == 'green' else '\\' # 
       ax.fill_between(df[start:end].index, 10, -10, hatch=hatch, linewidth=1, edgecolor='black', facecolor=renko_color, alpha=0.1)
 
-      # renko_day
-      x_signal = max_idx + datetime.timedelta(days=2)
-      y_signal = 0
-      text_signal = int(df.loc[max_idx, 'renko_duration'])
-      text_color = df.loc[max_idx, 'renko_color'] # fontsize=14, 
-      plt.annotate(f'{df.loc[max_idx, "renko_series_short"]}: {text_signal}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.05))
+    # renko_day
+    x_signal = max_idx + datetime.timedelta(days=2)
+    y_signal = 0
+    text_signal = int(df.loc[max_idx, 'renko_duration'])
+    text_color = df.loc[max_idx, 'renko_color'] # fontsize=14, 
+    plt.annotate(f'{df.loc[max_idx, "renko_series_short"]}: {text_signal}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.05))
   else:
     ax.fill_between(df.index, 10, -10, hatch=None, linewidth=1, edgecolor='black', facecolor='grey', alpha=0.1)
   # # ichimoku_distance_signal
