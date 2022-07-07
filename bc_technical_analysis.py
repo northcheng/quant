@@ -510,11 +510,15 @@ def calculate_ta_static(df, indicators=default_indicators):
         # 'wave': f'{-threshold} <= adx_value_change <= {threshold}'
       } 
       
+      # adx_trend
       values = {
         'up1': 'u', 'up2': 'u', 
         'down1': 'd', 'down2': 'd',
         'wave1': 'n', 'wave2': 'n', 'wave3': 'n'}
       df = assign_condition_value(df=df, column='adx_trend', condition_dict=conditions, value_dict=values, default_value='n') 
+
+      # drop redundant column
+      df.drop(['prev_adx_value'], axis=1, inplace=True)
 
     # ================================ kst trend ==============================
     target_indicator = 'kst'
@@ -1033,7 +1037,7 @@ def calculate_ta_score(df):
   df['score_day'] = sda(series=df['score_day'], zero_as=1)
 
   # drop redundant columns
-  columns_to_drop = ['zero', 'candle_color_sda', 'rate_direction_sda', 'prev_candle_entity_top', 'prev_candle_entity_bottom'] # , 'cloud_top', 'cloud_bottom'
+  columns_to_drop = ['zero', 'candle_color_sda', 'rate_direction_sda', 'prev_candle_entity_top', 'prev_candle_entity_bottom', 'entity_diff', 'shadow_diff'] # , 'cloud_top', 'cloud_bottom'
   for col in columns_to_drop:
     if col in df.columns:
       df.drop(col, axis=1, inplace=True)
@@ -1126,7 +1130,7 @@ def calculate_ta_signal(df):
   df.loc[signal_idx, 'label'] = 'signal'
 
   # remove redandunt columns
-  # df.drop(['zero', 'score_signal', 'score_day'], axis=1, inplace=True)
+  df.drop(['zero', 'score_signal', 'score_day', 'cloud_top', 'cloud_bottom'], axis=1, inplace=True)
 
   return df
 
