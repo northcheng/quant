@@ -19,14 +19,14 @@ columns = [
   'bb_high_band', 'bb_low_band',
 
   'ichimoku_distance', 'ichimoku_distance_change', 
-  'tankan_signal', 'tankan_rate', 'tankan_direction', 'tankan_day',
-  'kijun_signal', 'kijun_rate', 'kijun_direction', 'kijun_day',
+  'tankan_signal', 'tankan_rate', 'tankan_change', 'ichimoku_direction',
+  'kijun_signal', 'kijun_rate',
   'ichimoku_fs_signal', 'ichimoku_distance_signal', 
   'ichimoku_trend',      
 
   'kama_distance', 'kama_distance_change', 
-  'kama_fast_rate', 'kama_fast_signal', 'kama_fast_direction', 'kama_fast_day', 
-  'kama_slow_rate', 'kama_slow_signal', 'kama_slow_direction', 'kama_slow_day',
+  'kama_fast_rate', 'kama_fast_signal', 'kama_fast_change', 'kama_direction', 
+  'kama_slow_rate', 'kama_slow_signal', 
   'kama_fs_signal', 'kama_distance_signal', 
   'kama_trend', 
 
@@ -62,7 +62,9 @@ columns = [
   'trend', 'trend_day', 
   'score', 'up_score', 'down_score', 'up_score_description', 'down_score_description',
   'trigger_score', 'trigger_score_description', 
-  'label', 'signal'
+  'label', 'label_score', 'label_description'
+  'rank_score', 
+  'signal'
 ]
 
 # # expired
