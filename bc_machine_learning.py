@@ -30,9 +30,9 @@ class ClassificationDataset(Dataset):
     df = pd.read_csv(path)
     
     if feature_column is None:
-      feature_column = data.columns[:-1]
+      feature_column = df.columns[:-1]
     if result_column is None:
-      result_column = data.columns[-1]
+      result_column = df.columns[-1]
     
     # store the inputs and outputs
     self.X = df[feature_column].values
@@ -51,7 +51,9 @@ class ClassificationDataset(Dataset):
       pass
 
     # label encode target and ensure the values are floats
-    self.y = preprocessing.LabelEncoder().fit_transform(self.y)
+    le = preprocessing.LabelEncoder()
+    self.y = le.fit_transform(self.y)
+    print(le.classes_)
 
   # number of rows in the dataset
   def __len__(self):
@@ -349,7 +351,6 @@ def train_regressor(train_dl, model, epoch=100):
 def evaluate_regressor(test_dl, model):
 
   device = "cuda" if torch.cuda.is_available() else "cpu"
-  print(f"Using {device} device")
   
   # predictions, actuals = [], []
   mse = []
