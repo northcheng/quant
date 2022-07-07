@@ -299,6 +299,12 @@ def calculate_ta_static(df, indicators=default_indicators):
         df[distance] = df[distance] / df[sl]
         df[distance_change] = df[distance_change] / df[sl]
 
+        fl_change_col = f'{fl}_change'
+        df[fl_change_col] = (df[fl] - df[fl].shift(1)) / df[sl]
+
+        direction_col = f'{target_indicator}_direction'
+        df[direction_col] = sm(series=df[fl_change_col], periods=3).sum()
+
         # fl/sl change rate
         rate_threshold = 0.001
         for col in [fl, sl]:
@@ -306,23 +312,23 @@ def calculate_ta_static(df, indicators=default_indicators):
           df[f'{col}_signal'] = cal_crossover_signal(df=df, fast_line='Close', slow_line=col, pos_signal=1, neg_signal=-1, none_signal=0)
           df[f'{col}_signal'] = sda(series=df[f'{col}_signal'], zero_as=1)
 
-          col_sda = f'{col}_direction'
-          df[col_sda] = df[f'{col}_rate']
-          wave_idx = df.query(f'{-rate_threshold} <= {col}_rate <= {rate_threshold}').index
-          df.loc[wave_idx, col_sda]= 0
-          df[col_sda] = sda(series=df[col_sda], zero_as=0)
+          # col_sda = f'{col}_direction'
+          # df[col_sda] = df[f'{col}_rate']
+          # wave_idx = df.query(f'{-rate_threshold} <= {col}_rate <= {rate_threshold}').index
+          # df.loc[wave_idx, col_sda]= 0
+          # df[col_sda] = sda(series=df[col_sda], zero_as=0)
           
-          sda_threshold = 0
-          conditions = {
-            'up': f'{col_sda} > {sda_threshold}', 
-            'down': f'{col_sda} < {-sda_threshold}', 
-            'wave': f'{-sda_threshold} <= {col_sda} <= {sda_threshold}'} 
-          values = {
-            'up': 1, 
-            'down': -1,
-            'wave': 0}
-          df = assign_condition_value(df=df, column=f'{col}_day', condition_dict=conditions, value_dict=values, default_value=0) 
-          df[f'{col}_day'] = sda(series=df[f'{col}_day'], zero_as=1) 
+          # sda_threshold = 0
+          # conditions = {
+          #   'up': f'{col_sda} > {sda_threshold}', 
+          #   'down': f'{col_sda} < {-sda_threshold}', 
+          #   'wave': f'{-sda_threshold} <= {col_sda} <= {sda_threshold}'} 
+          # values = {
+          #   'up': 1, 
+          #   'down': -1,
+          #   'wave': 0}
+          # df = assign_condition_value(df=df, column=f'{col}_day', condition_dict=conditions, value_dict=values, default_value=0) 
+          # df[f'{col}_day'] = sda(series=df[f'{col}_day'], zero_as=1) 
 
         # fl & sl crossover  
         fs_signal = f'{target_indicator}_fs_signal'
@@ -1102,7 +1108,9 @@ def calculate_ta_signal(df):
     'adx down':         f'label == "potential" and (adx_day < 0)',
 
     'trend down':       f'label == "potential" and (trend_idx < 0)',
-    'window':           f'label == "potential" and ((相对窗口位置 in ["mid", "mid_up", "mid_down", "out"] and candle_entity_middle < candle_gap_top))'
+    'window':           f'label == "potential" and ((相对窗口位置 in ["mid", "mid_up", "mid_down", "out"] and candle_entity_middle < candle_gap_top))',
+
+    'kama momentum':    f'label == "potential" and (kama_direction < 0.01)'
     } 
   for c in none_potential_conditions.keys():
     tmp_condition = none_potential_conditions[c]
