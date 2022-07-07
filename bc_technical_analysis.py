@@ -969,8 +969,11 @@ def calculate_ta_score(df):
     '+影线':           [1, '', '(位置_trend == "d") and (entity_diff > 0.5 and shadow_diff > 1.5 and candle_lower_shadow_pct > 0.5 and candle_upper_shadow_pct < 0.1)'],
     '-影线':           [-1, '', '(位置_trend == "u") and (entity_diff > 0.5 and shadow_diff > 1.5 and candle_upper_shadow_pct > 0.5 and candle_lower_shadow_pct < 0.1)'],
     
-    '+实体':           [1, '', '(candle_entity_top > prev_candle_entity_top) and (candle_entity_bottom > prev_candle_entity_bottom)'],
-    '-实体':           [-1, '', '(candle_entity_top < prev_candle_entity_top) and (candle_entity_bottom < prev_candle_entity_bottom)'],
+    '+实体':           [1, '', '(entity_trend == "u") and (candle_color == 1)'],
+    '-实体':           [-1, '', '(entity_trend == "u") and (candle_color == -1)'],
+
+    '+阶梯':           [1, '', '(candle_entity_top > prev_candle_entity_top) and (candle_entity_bottom > prev_candle_entity_bottom)'],
+    '-阶梯':           [-1, '', '(candle_entity_top < prev_candle_entity_top) and (candle_entity_bottom < prev_candle_entity_bottom)'],
     
     '+窗口':           [1, '', '(candle_color == 1 and ((相对窗口位置 == "mid_up") or (相对窗口位置 == "out")))'],
     '-窗口':           [-1, '', '((相对窗口位置 == "mid_down" or 相对窗口位置 == "mid") or (candle_color == -1 and (相对窗口位置 == "out")))'],
@@ -1092,7 +1095,7 @@ def calculate_ta_signal(df):
     'pattern wave':     f'label == "potential" and ((十字星 != "n") or ((rate < 0 or candle_color == -1) and (0 > 平头_day >= -3 or 0 > 腰带_day >= -3)) or (相对窗口位置 == "mid" or (candle_color == -1 and (相对窗口位置 == "mid_up" or 相对窗口位置 == "mid_down"))))',
     'pattern down':     f'label == "potential" and (窗口_day == -1 or 反弹_day == -1 or 突破_day == -1 or 锤子_day == -1 or 流星_day == -1 or 穿刺_day == -1 or 启明黄昏_day == -1)',
 
-    'price fall':       f'label == "potential" and ((candle_color == -1) and (rate < 0))',
+    'price fall':       f'label == "potential" and ((candle_color == -1 and rate < 0) or (shadow_trend == "u" and upper_shadow_trend == "u") or (candle_color == -1 and entity_trend == "u"))',
     'price high':       f'label == "potential" and (kama_fs_signal >= 10 and ichimoku_fs_signal >= 10 and Close > kama_fast and Close > tankan)',
     
     'adx wave':         f'label == "potential" and (adx_value_change < 5) and ((adx_strong_day < -10 and adx_wave_day > 10) or (adx_strong_day < -10 and adx_value_change_std < 1) or (-10 < adx_direction_start < 10 and adx_strong_day < 0))',
