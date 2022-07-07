@@ -2063,7 +2063,7 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
           pass
         else:
           # 顶部>前顶部, 底部>前底部, 底部穿过前中点
-          if (previous_row['candle_entity_top'] < row['candle_entity_top']) and (previous_row['candle_entity_bottom'] < row['candle_entity_bottom']): # and (previous_row['candle_entity_middle'] > row['candle_entity_bottom'])
+          if (previous_row['candle_entity_top'] < row['candle_entity_top']) and (previous_row['candle_entity_middle'] > row['candle_entity_bottom']): # and (previous_row['candle_entity_middle'] > row['candle_entity_bottom'])
             df.loc[idx, '穿刺_trend'] = 'd'
 
         # =================================== 黄昏星  ===================================== #
