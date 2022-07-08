@@ -1114,7 +1114,7 @@ def calculate_ta_signal(df):
     'trend down':       f'label == "potential" and (trend_idx < 0)',
     'window':           f'label == "potential" and ((相对窗口位置 in ["mid", "mid_up", "mid_down", "out"] and candle_entity_middle < candle_gap_top))',
 
-    'kama momentum':    f'label == "potential" and (kama_direction < 0.01)'
+    'kama momentum':    f'label == "potential" and (kama_direction < 0.01) and (candle_entity_bottom < cloud_top or kama_distance < -0.1)'
     } 
   for c in none_potential_conditions.keys():
     tmp_condition = none_potential_conditions[c]
@@ -1158,6 +1158,7 @@ def visualization(df, start=None, end=None, title=None, save_path=None, visualiz
     is_show = visualization_args.get('show_image')
     is_save = visualization_args.get('save_image')
     plot_args = visualization_args.get('plot_args')
+    
     plot_multiple_indicators(
       df=df, title=title, args=plot_args,  start=start, end=end,
       show_image=is_show, save_image=is_save, save_path=save_path)
@@ -5542,7 +5543,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
   plt.rcParams['axes.unicode_minus'] = False
 
   # get name of the symbol, and linear/candle/adx descriptions
-  new_title = args['sec_name'].get(title)
+  new_title = args['sec_name'].get(title.split('(')[0]) 
   # trigger_score_desc = f'[Trigger {df.loc[df.index.max(), "trigger_score"]}]:{df.loc[df.index.max(), "trigger_score_description"]}'
   
   # score description
@@ -5574,23 +5575,31 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
   plt.close()
 
 # calculate ta indicators, trend and derivatives for historical data
-def plot_historical_evolution(df, symbol, interval, config, his_start_date=None, his_end_date=None, indicators=default_indicators, trend_indicators=['ichimoku', 'aroon', 'adx', 'psar'], volume_indicators=[], volatility_indicators=['bb'], other_indicators=[], is_print=False, create_gif=False, plot_final=False, plot_save_path=None):
+def plot_historical_evolution(df, symbol, interval, config, his_start_date=None, his_end_date=None, indicators=default_indicators, is_print=False, create_gif=False, plot_final=False, remove_origin=True, plot_save_path=None):
   """
   Calculate selected ta features for dataframe
 
   :param df: original dataframe with hlocv features
   :param symbol: symbol of the data
   :param interval: interval of the data
-  :param trend_indicators: trend indicators
-  :param volumn_indicators: volume indicators
-  :param volatility_indicators: volatility indicators
-  :param other_indicators: other indicators
+  :param his_start_date: start date
+  :param his_end_date: end_date
+  :param indicators: indicators to calculate
+  :param is_print: whether to print current progress
+  :param create_gif: whether to create gif from images
+  :param plot_final: whether to combine all images to a final one
+  :param plot_save_path: path to save plots
+  :param remove_origin: whether to remove original images for each day
   :returns: dataframe with ta features, derivatives, signals
   :raises: None
   """
   # copy dataframe
   df = df.copy()
-  today = util.time_2_string(time_object=df.index.max())
+
+  df_max_idx = util.time_2_string(df.index.max())
+  if df_max_idx < his_end_date:
+    print(f'can only evolve to {df_max_idx}')
+    his_end_date = df_max_idx
   
   if df is None or len(df) == 0:
     print(f'{symbol}: No data for calculate_ta_data')
@@ -5626,28 +5635,36 @@ def plot_historical_evolution(df, symbol, interval, config, his_start_date=None,
     phase = 'cal_ta_derivatives(historical)'
     historical_ta_data = pd.DataFrame()
     ed = his_start_date
+
+    current_max_idx = None
     while ed <= his_end_date:   
 
-      # current max index     
+      # calculate sd = ed - interval, et max_idx in df[sd:ed]
       sd = util.string_plus_day(string=ed, diff_days=-config['visualization']['plot_window'][interval])
-      current_max_idx = df[sd:ed].index.max()
+      tmp_max_idx = df[sd:ed].index.max()
+      
+      # decide whether to skip current loop
+      skip = False
+      if current_max_idx is not None and tmp_max_idx <= current_max_idx:
+        skip = True
 
-      # next_ed = ed + 1day
-      next_ed = util.string_plus_day(string=ed, diff_days=1)
-      next_sd = util.string_plus_day(string=next_ed, diff_days=-config['visualization']['plot_window'][interval])
-      next_max_idx = df[next_sd:next_ed].index.max()
+      # update current_max_idx
+      if (current_max_idx is None) or (tmp_max_idx > current_max_idx):
+        current_max_idx = tmp_max_idx
 
-      # if next_ed is weekend or holiday(on which no trading happened), skip; else do the calculation
-      if next_max_idx != current_max_idx:
-        
-        # print current end_date
+      # calculation and visualization
+      if skip:
         if is_print:
-          print(sd, ed)
+          print(f'{ed} - ({sd} ~ {util.time_2_string(tmp_max_idx)}) - skip')
+
+      else:
+        if is_print:
+          print(f'{ed} - ({sd} ~ {util.time_2_string(tmp_max_idx)})')
         
         # calculate the dynamic part: linear features
         ta_data = calculate_ta_dynamic(df=df[sd:ed])
         ta_data = calculate_ta_signal(df=ta_data)
-        historical_ta_data = historical_ta_data.append(ta_data.tail(1))
+        historical_ta_data = pd.concat([historical_ta_data, ta_data.tail(1)])
 
         # create image for gif
         if create_gif:
@@ -5655,7 +5672,7 @@ def plot_historical_evolution(df, symbol, interval, config, his_start_date=None,
           images.append(f'{plot_save_path}{symbol}({ed}).png')
 
       # update ed
-      ed = next_ed
+      ed = util.string_plus_day(string=ed, diff_days=1)
 
     # append data
     historical_ta_data = ta_data.append(historical_ta_data)  
@@ -5664,6 +5681,11 @@ def plot_historical_evolution(df, symbol, interval, config, his_start_date=None,
     # create gif
     if create_gif:
       util.image_2_gif(image_list=images, save_name=f'{plot_save_path}{symbol}({his_start_date}-{his_end_date}).gif')
+
+    # remove original images
+    if remove_origin:
+      for img in images:
+        os.remove(img)
 
     # if plot final data
     if plot_final: 
