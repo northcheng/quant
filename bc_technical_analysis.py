@@ -4746,7 +4746,12 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
   plot_data = df[[date_col, open, high, low, close]]
   
   # plot candlesticks
-  candlestick_ohlc(ax=ax, quotes=plot_data.values, width=width, colorup=color['colorup'], colordown=color['colordown'], alpha=color['alpha'])
+  ls, rs = candlestick_ohlc(ax=ax, quotes=plot_data.values, width=width, colorup=color['colorup'], colordown=color['colordown'], alpha=color['alpha'])
+  
+  # for r in rs:
+  #   r.set_edgecolor('grey')
+  #   # r.set_linewidth(1.)
+
   ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
   ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
 
@@ -4799,18 +4804,23 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
     # ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a > df.senkou_b, facecolor='green', interpolate=True, alpha=alpha)
     # ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a <= df.senkou_b, facecolor='red', interpolate=True, alpha=alpha)
 
-    alpha = 0.2
-    ax.plot(df.index, df.tankan, label='tankan', color='green', linestyle='-', alpha=alpha, linewidth=0.5) # magenta
-    ax.plot(df.index, df.kijun, label='kijun', color='red', linestyle='-', alpha=alpha, linewidth=0.5) # blue
-    alpha = 0.2
-    ax.fill_between(df.index, df.tankan, df.kijun, where=df.tankan > df.kijun, facecolor='green', interpolate=True, alpha=alpha)
-    ax.fill_between(df.index, df.tankan, df.kijun, where=df.tankan <= df.kijun, facecolor='red', interpolate=True, alpha=alpha)
+    alpha = 0.6
+    zorder = 2
+    ax.plot(df.index, df.tankan, label='tankan', color='green', linestyle='-', alpha=alpha, linewidth=0.5, zorder=zorder) # magenta
+    ax.plot(df.index, df.kijun, label='kijun', color='red', linestyle='-', alpha=alpha, linewidth=0.5, zorder=zorder) # blue
+    alpha = 0.1
+    ax.fill_between(df.index, df.tankan, df.kijun, where=df.tankan > df.kijun, facecolor='green', interpolate=True, alpha=alpha, zorder=zorder)
+    ax.fill_between(df.index, df.tankan, df.kijun, where=df.tankan <= df.kijun, facecolor='red', interpolate=True, alpha=alpha, zorder=zorder)
   
   # plot kama_fast/slow lines 
   if 'kama' in target_indicator:
     alpha = 0.6
-    ax.plot(df.index, df.kama_fast, label='kama_fast', color='magenta', alpha=alpha)
-    ax.plot(df.index, df.kama_slow, label='kama_slow', color='blue', alpha=alpha)
+    zorder = 2
+    ax.plot(df.index, df.kama_fast, label='kama_fast', color='magenta', linestyle='-', alpha=alpha, zorder=zorder) # 
+    ax.plot(df.index, df.kama_slow, label='kama_slow', color='blue', linestyle='-', alpha=alpha, zorder=zorder)
+    # alpha = 0.1
+    # ax.fill_between(df.index, df.kama_fast, df.kama_slow, where=df.kama_fast > df.kama_slow, facecolor='green', interpolate=True, alpha=alpha, zorder=-1)
+    # ax.fill_between(df.index, df.kama_fast, df.kama_slow, where=df.kama_fast <= df.kama_slow, facecolor='red', interpolate=True, alpha=alpha, zorder=-1)
   
   # plot bollinger bands
   if 'bb' in target_indicator:
@@ -4819,13 +4829,13 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
     # ax.plot(df.index, df.bb_high_band, label='bb_high_band', color='green', alpha=alpha)
     # ax.plot(df.index, df.bb_low_band, label='bb_low_band', color='red', alpha=alpha)
     # ax.plot(df.index, df.mavg, label='mavg', color='grey', alpha=alpha)
-    ax.fill_between(df.index, df.mavg, df.bb_high_band, facecolor='green', interpolate=True, alpha=alpha_fill)
-    ax.fill_between(df.index, df.mavg, df.bb_low_band, facecolor='red', interpolate=True, alpha=alpha_fill)
+    ax.fill_between(df.index, df.mavg, df.bb_high_band, facecolor='green', interpolate=True, alpha=alpha_fill, zorder=-1)
+    ax.fill_between(df.index, df.mavg, df.bb_low_band, facecolor='red', interpolate=True, alpha=alpha_fill, zorder=-1)
 
   # plot average true range
   if 'atr' in target_indicator:
     alpha = 0.6
-    ax.plot(df.index, df.atr, label='atr', color='green', alpha=alpha)
+    ax.plot(df.index, df.atr, label='atr', color='green', alpha=alpha, zorder=-1)
     # ax.plot(df.index, df.bb_low_band, label='bb_low_band', color='red', alpha=alpha)
     # ax.plot(df.index, df.mavg, label='mavg', color='grey', alpha=alpha)
     # ax.fill_between(df.index, df.mavg, df.bb_high_band, facecolor='green', interpolate=True, alpha=0.1)
@@ -4835,12 +4845,12 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   if 'psar' in target_indicator:
     alpha = 0.6
     s = 10
-    ax.scatter(df.index, df.psar_up, label='psar', color='green', alpha=alpha, s=s, marker='o')
-    ax.scatter(df.index, df.psar_down, label='psar', color='red', alpha=alpha, s=s, marker='o')
+    ax.scatter(df.index, df.psar_up, label='psar', color='green', alpha=alpha, s=s, marker='o', zorder=-1)
+    ax.scatter(df.index, df.psar_down, label='psar', color='red', alpha=alpha, s=s, marker='o', zorder=-1)
 
   # plot renko bricks
   if 'renko' in target_indicator:
-    ax = plot_renko(df, use_ax=ax, plot_args=default_plot_args, plot_in_date=True, close_alpha=0)
+    ax = plot_renko(df, use_ax=ax, plot_args=default_plot_args, plot_in_date=True, close_alpha=0, zorder=-1)
 
   # plot high/low trend
   if 'linear' in target_indicator:
@@ -4854,8 +4864,8 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
     
     linear_direction = df.loc[max_idx, 'linear_direction']
     linear_color = colors[linear_direction]
-    ax.plot(df.index, df.linear_fit_high, label='linear_fit_high', color=linear_color, linestyle='-.', alpha=line_alpha)
-    ax.plot(df.index, df.linear_fit_low, label='linear_fit_low', color=linear_color, linestyle='-.', alpha=line_alpha)
+    ax.plot(df.index, df.linear_fit_high, label='linear_fit_high', color=linear_color, linestyle='-.', alpha=line_alpha, zorder=1)
+    ax.plot(df.index, df.linear_fit_low, label='linear_fit_low', color=linear_color, linestyle='-.', alpha=line_alpha, zorder=1)
 
     # fill between linear_fit_high and linear_fit_low
     fill_alpha = 0.25
