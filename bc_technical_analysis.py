@@ -839,14 +839,20 @@ def calculate_ta_dynamic(df, perspective=default_perspectives):
         resistanter = min(resistant_candidates, key=resistant_candidates.get)
         resistant = resistant_candidates[resistanter]
       
+      valid_idxs = []
       if resistanter == 'linear':
         valid_idxs = df.query('linear_slope == linear_slope').index
+
       elif resistanter == 'gap':
-        valid_idxs = df[df.query('candle_gap == 2 or candle_gap == -2').index[-1]:].index
+        valid_idxs = df.query('candle_gap == 2 or candle_gap == -2').index
+        if len(valid_idxs) > 0:
+          valid_idxs = df[valid_idxs[-1]:].index
+
       elif resistanter == 'renko':
         valid_idxs = df[df.loc[max_idx, 'renko_start']:].index
+
       else:
-        valid_idxs = []
+        pass
 
       df.loc[valid_idxs, 'resistant'] = resistant
       df.loc[valid_idxs, 'resistanter'] = resistanter
@@ -5410,6 +5416,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
   :returns: plot
   :raises: none
   """
+  
   # select plot data
   plot_data = df[start:end].copy()
 
@@ -5619,6 +5626,7 @@ def plot_historical_evolution(df, symbol, interval, config, his_start_date=None,
       images = []
   
   try:
+    
     # preprocess sec_data
     phase = 'preprocess'
     df = preprocess(df=df, symbol=symbol)
@@ -5626,11 +5634,11 @@ def plot_historical_evolution(df, symbol, interval, config, his_start_date=None,
     # calculate TA indicators
     phase = 'cal_ta_indicators' 
     df = calculate_ta_data(df=df, indicators=indicators)
-
+    
     # calculate TA trend
     phase = 'cal_ta_trend'
     df = calculate_ta_static(df=df, indicators=indicators)
-
+    
     # calculate TA derivatives for historical data for period [his_start_date ~ his_end_date]
     phase = 'cal_ta_derivatives(historical)'
     historical_ta_data = pd.DataFrame()
