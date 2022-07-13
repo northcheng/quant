@@ -945,6 +945,10 @@ def calculate_ta_score(df):
   df.loc[red_idx, 'cloud_top'] = df.loc[red_idx, 'kijun']
   df.loc[red_idx, 'cloud_bottom'] = df.loc[red_idx, 'tankan']
 
+  # conditions and corresponding scores
+  labels = {}
+  scores = {}
+  conditions = {}
   condition_status = {
     '+i_f':            [1, '', '(tankan_rate >=  0.025)'],
     '-i_f':            [-1, '', '(tankan_rate <= -0.01)'],
@@ -1006,15 +1010,10 @@ def calculate_ta_score(df):
     # '价格跳空连续下跌, 三只乌鸦?':             [],
     # '平头及平头之后':             [],
   }
-
-  conditions = {}
-  labels = {}
-  scores = {}
   for k in condition_status.keys():
     scores[k] = condition_status[k][0]
     labels[k] = condition_status[k][1]
     conditions[k] = condition_status[k][2]
-  # df = assign_condition_value(df=df, column='label', condition_dict=conditions, value_dict=labels, default_value='')
   
   # calculate score and score_description
   for c in conditions.keys():
