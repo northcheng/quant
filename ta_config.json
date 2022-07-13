@@ -52,8 +52,7 @@
         "target_indicator": [
           "candlestick",
           "ichimoku",
-          "kama",
-          "linear"
+          "kama"
         ],
         "candlestick_width": 0.62,
         "candlestick_color": {
