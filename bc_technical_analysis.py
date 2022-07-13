@@ -1029,7 +1029,7 @@ def calculate_ta_score(df):
     else:
       print(f'{c} not recognized')
 
-  # 后处理
+  # postprocess
   df['score'] = df['up_score'] + df['down_score']
   df[['up_score', 'down_score', 'trigger_score']] = df[['up_score', 'down_score', 'trigger_score']].round(2)
   df['up_score_description'] = df['up_score_description'].apply(lambda x: x[1:])
