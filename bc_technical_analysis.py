@@ -19,7 +19,8 @@ from numpy.lib.stride_tricks import as_strided
 from matplotlib import gridspec
 from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
-from mplfinance.original_flavor import candlestick_ohlc
+# from mplfinance.original_flavor import candlestick_ohlc
+
 from quant import bc_util as util
 from quant import bc_data_io as io_util
 
@@ -4486,7 +4487,7 @@ def plot_score(df, start=None, end=None, width=0.8, use_ax=None, title=None, plo
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
-  ax.grid(True, axis='y', linestyle='--', linewidth=0.5, alpha=0.3)
+  # ax.grid(True, axis='y', linestyle='--', linewidth=0.5, alpha=0.3)
   ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
 
   # return ax
@@ -5059,7 +5060,7 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=green_mask,  facecolor='green', interpolate=False, alpha=0.3, label='adx up') 
   ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=red_mask, facecolor='red', interpolate=False, alpha=0.3, label='adx down')
   ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=yellow_mask, facecolor='yellow', interpolate=False, alpha=0.3, label='adx switch')
-  ax.plot(df.adx_value, color='grey', alpha=0.2)
+  # ax.plot(df.adx_value, color='grey', alpha=0.2)
   # target_col = 'adx_diff_ma'
   # gredn_df = df.loc[green_mask, ]
   # red_df = df.loc[red_mask]
@@ -5515,7 +5516,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
     # set border color
     spine_alpha = 0.3
     for position in ['top', 'bottom', 'left', 'right']:
-      if (i in [1, 2, 3] and position in ['top']) or (i in [0] and position in ['bottom']):
+      if (i in [1, 2, 3] and position in ['top']) or (i in [1, 3] and position in ['bottom']):
         axes[tmp_indicator].spines[position].set_alpha(0)
       else:
         axes[tmp_indicator].spines[position].set_alpha(spine_alpha)
