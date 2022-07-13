@@ -6,8 +6,6 @@ Technical Analysis Calculation and Visualization functions
 """
 import os
 import math
-from pyparsing import nums
-from regex import F
 import sympy
 import datetime
 import ta
@@ -19,6 +17,7 @@ import matplotlib.dates as mdates
 from scipy.stats import linregress
 from numpy.lib.stride_tricks import as_strided
 from matplotlib import gridspec
+from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
 from mplfinance.original_flavor import candlestick_ohlc
 from quant import bc_util as util
@@ -35,7 +34,7 @@ default_indicators = {'trend': ['ichimoku', 'kama', 'adx', 'psar', 'trix'], 'vol
 default_perspectives = ['candle', 'support_resistant']
 
 # default arguments for visualization
-default_candlestick_color = {'colorup':'green', 'colordown':'red', 'alpha':0.8}
+default_candlestick_color = {'color_up':'green', 'color_down':'red', 'shadow_color':'black', 'entity_edge_color':(0,0,0,0.25), 'alpha':0.8}
 default_plot_args = {'figsize':(30, 3), 'title_rotation':'vertical', 'xaxis_position': 'bottom', 'yaxis_position': 'right', 'title_x':-0.01, 'title_y':0.2, 'bbox_to_anchor':(1.02, 0.), 'loc':3, 'ncol':1, 'borderaxespad':0.0}
 
 # ================================================ Load configuration =============================================== # 
@@ -4292,7 +4291,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
   # plot settings
   settings = {
     'main': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': '.', 'neg_trend_marker': '.', 'wave_trend_marker': '_', 'signal_alpha': 0.5, 'trend_alpha': 0.6, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'},
-    'other': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': 's', 'neg_trend_marker': 'x', 'wave_trend_marker': '.', 'signal_alpha': 0.3, 'trend_alpha': 0.3, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'}}
+    'other': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': 's', 'neg_trend_marker': '_', 'wave_trend_marker': '_', 'signal_alpha': 0.3, 'trend_alpha': 0.3, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'}}
   style = settings['main'] if signal_x in ['signal'] else settings['other']
 
   # plot signal base line
@@ -4318,13 +4317,13 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
   # annotate number of days since signal triggered
   annotate_signal_day = True
   max_idx = df.index.max()
-  ys = {'kama_signal': 0, 'ichimoku_signal': 3.5, 'adx_signal': 7}
+  ys = {'kama_signal': 0, 'ichimoku_signal': 2.5, 'adx_signal': 5}
   if signal_x in ['kama_signal', 'ichimoku_signal', 'adx_signal'] and day_col in df.columns and annotate_signal_day:
     x_signal = max_idx + datetime.timedelta(days=2)
     y_signal = ys[signal_x]
     text_signal = int(df.loc[max_idx, day_col])
     text_color = 'red' if text_signal < 0 else 'green'
-    plt.annotate(f'{signal_x[0]}:{text_signal} ', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.05))
+    plt.annotate(f'{signal_x[:4]}:{text_signal} ', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.05))
 
   # plot signal
   potential_idx = df.query('label == "potential"').index
@@ -4495,7 +4494,7 @@ def plot_score(df, start=None, end=None, width=0.8, use_ax=None, title=None, plo
     return ax
 
 # plot candlestick chart
-def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split', 'gap', 'support_resistant', 'pattern'], width=0.8, use_ax=None, ohlcv_col=default_ohlcv_col, color=default_candlestick_color, plot_args=default_plot_args):
+def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split', 'gap', 'support_resistant', 'pattern'], use_ax=None, ohlcv_col=default_ohlcv_col, color=default_candlestick_color, plot_args=default_plot_args, interval='day'):
   """
   Plot candlestick chart
 
@@ -4509,6 +4508,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
   :param ohlcv_col: columns names of Open/High/Low/Close/Volume
   :param color: up/down color of candlestick
   :param plot_args: other plot arguments
+  :param interval: interval of the sec_data(day/week/month/year)
   :returns: a candlestick chart
   :raises: none
   """
@@ -4586,7 +4586,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
       pre_i = idxs.index(start)-1
       pre_start = idxs[pre_i] if pre_i > 0 else start
       tmp_data = df[start:end]
-      ax.fill_between(df[pre_start:end].index, top_value, bottom_value, hatch=gap_hatch, facecolor=gap_color, interpolate=True, alpha=0.2, edgecolor=gap_hatch_color, linewidth=1) #,  
+      ax.fill_between(df[pre_start:end].index, top_value, bottom_value, hatch=gap_hatch, facecolor=gap_color, interpolate=True, alpha=0.3, edgecolor=gap_hatch_color, linewidth=1, zorder=20) #,  
   
   # annotate close price, support/resistant(if exists)
   if 'support_resistant' in add_on:
@@ -4648,7 +4648,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
         x = x - (len_unit * 0.5)
         rect_len = rect_len + len_unit
         y = df.loc[i, 'Low'] - 2*padding if t == 'u' else df.loc[i, 'High'] + 0.5*padding
-        flat = Rectangle((x, y), rect_len, rect_high, facecolor='yellow', edgecolor=t_color, linestyle='-', linewidth=1, fill=True, alpha=0.8)
+        flat = Rectangle((x, y), rect_len, rect_high, facecolor='yellow', edgecolor=t_color, linestyle='-', linewidth=1, fill=True, alpha=0.8, zorder=12)
         ax.add_patch(flat)
         
     # settings for annotate candle patterns
@@ -4739,18 +4739,63 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
         plt.annotate(f'{text}', xy=(x, y), xytext=(x,y_text), fontsize=style['fontsize'], rotation=0, color=style['fontcolor'], va=style['va'],  ha=style['ha'], xycoords='data', textcoords='data', arrowprops=dict(arrowstyle=style['arrowstyle'], alpha=0.3, color='black'), bbox=dict(boxstyle="round", facecolor=style[a], alpha=style['alpha']))
         counter += 1
 
-  # transform date to numbers
-  df.reset_index(inplace=True)
-  df[date_col] = df[date_col].apply(mdates.date2num)
-  plot_data = df[[date_col, open, high, low, close]]
+  # transform date to numbers, plot candlesticks
+  # df.reset_index(inplace=True)
+  # df[date_col] = df[date_col].apply(mdates.date2num)
+  # plot_data = df[[date_col, open, high, low, close]]
+  # ls, rs = candlestick_ohlc(ax=ax, quotes=plot_data.values, width=width, colorup=color['color_up'], colordown=color['color_down'], alpha=color['alpha'])
   
-  # plot candlesticks
-  ls, rs = candlestick_ohlc(ax=ax, quotes=plot_data.values, width=width, colorup=color['colorup'], colordown=color['colordown'], alpha=color['alpha'])
-  
-  # for r in rs:
-  #   r.set_edgecolor('grey')
-  #   # r.set_linewidth(1.)
+  # set offset, bar_width according to data interval
+  if interval == 'day':
+    OFFSET = datetime.timedelta(days=0.5)
+    entity_width = datetime.timedelta(days=1)
+  elif interval == 'week':
+    OFFSET = datetime.timedelta(days=3.5)
+    entity_width = datetime.timedelta(days=7)
+  elif interval == 'month':
+    OFFSET = datetime.timedelta(days=15)
+    entity_width = datetime.timedelta(days=30)
+  elif interval == 'year':
+    OFFSET = datetime.timedelta(days=182.5)
+    entity_width = datetime.timedelta(days=365)
+  else:
+    pass
 
+  # set colors
+  alpha = color['alpha'] 
+  shadow_color = color['shadow_color']
+  entity_edge_color = (0, 0, 0, 0.1)
+
+  # plot each candlestick
+  for idx, row in df.iterrows():
+    
+    # set entity_color
+    if row[close] >= row[open]:
+      entity_color = color['color_up']
+      lower = row[open]
+      height = row[close] - row[open]
+    else:
+      entity_color = color['color_down']
+      lower = row[close]
+      height = row[open] - row[close]
+    
+    # set shadow_color
+    if shadow_color is not None:
+      line_color = shadow_color
+    else:
+      line_color = entity_color
+    
+    # plot shadow
+    vline = Line2D(xdata=(idx, idx), ydata=(row[low], row[high]), color=line_color, linewidth=1, antialiased=True, zorder=10)
+    
+    # plot entity
+    x = idx - OFFSET
+    rect = Rectangle(xy=(x, lower), width=entity_width, height=height, facecolor=entity_color, edgecolor=entity_edge_color, alpha=alpha, zorder=11)
+    
+    # add shadow and entity to plot
+    ax.add_line(vline)
+    ax.add_patch(rect)
+    
   ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
   ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
 
@@ -4759,7 +4804,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
     return ax
 
 # plot ichimoku chart
-def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['split', 'gap', 'support_resistant', 'pattern'], target_indicator = ['price', 'ichimoku', 'kama', 'candlestick', 'bb', 'psar', 'renko', 'linear'], candlestick_width=0.8, use_ax=None, title=None, candlestick_color=default_candlestick_color, ohlcv_col=default_ohlcv_col, plot_args=default_plot_args):
+def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['split', 'gap', 'support_resistant', 'pattern'], target_indicator = ['price', 'ichimoku', 'kama', 'candlestick', 'bb', 'psar', 'renko', 'linear'], interval='day', use_ax=None, title=None, candlestick_color=default_candlestick_color, ohlcv_col=default_ohlcv_col, plot_args=default_plot_args):
   """
   Plot ichimoku chart
 
@@ -4769,7 +4814,7 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   :param date_col: column name of Date
   :param add_on: additional parts on candlestick
   :param target_indicator: indicators need to be ploted on the chart
-  :param candlestick_width: width of candlestick
+  :param interval: interval of the sec_data, which dicides the width of candlestick
   :param use_ax: the already-created ax to draw on
   :param title: plot title
   :param ohlcv_col: columns names of Open/High/Low/Close/Volume
@@ -4803,8 +4848,8 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
     # ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a > df.senkou_b, facecolor='green', interpolate=True, alpha=alpha)
     # ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a <= df.senkou_b, facecolor='red', interpolate=True, alpha=alpha)
 
-    alpha = 0.6
-    zorder = 2
+    alpha = 0.8
+    zorder = 1
     ax.plot(df.index, df.tankan, label='tankan', color='green', linestyle='-', alpha=alpha, linewidth=0.5, zorder=zorder) # magenta
     ax.plot(df.index, df.kijun, label='kijun', color='red', linestyle='-', alpha=alpha, linewidth=0.5, zorder=zorder) # blue
     alpha = 0.1
@@ -4813,10 +4858,10 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   
   # plot kama_fast/slow lines 
   if 'kama' in target_indicator:
-    alpha = 0.6
-    zorder = 2
-    ax.plot(df.index, df.kama_fast, label='kama_fast', color='magenta', linestyle='--', alpha=alpha, zorder=zorder) # 
-    ax.plot(df.index, df.kama_slow, label='kama_slow', color='blue', linestyle='--', alpha=alpha, zorder=zorder)
+    alpha = 0.8
+    zorder = 1
+    ax.plot(df.index, df.kama_fast, label='kama_fast', color='magenta', linestyle='-', alpha=alpha, zorder=zorder) # 
+    ax.plot(df.index, df.kama_slow, label='kama_slow', color='blue', linestyle='-', alpha=alpha, zorder=zorder)
     # alpha = 0.1
     # ax.fill_between(df.index, df.kama_fast, df.kama_slow, where=df.kama_fast > df.kama_slow, facecolor='green', interpolate=True, alpha=alpha, zorder=-1)
     # ax.fill_between(df.index, df.kama_fast, df.kama_slow, where=df.kama_fast <= df.kama_slow, facecolor='red', interpolate=True, alpha=alpha, zorder=-1)
@@ -4825,16 +4870,18 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   if 'bb' in target_indicator:
     alpha = 0.1
     alpha_fill = 0.1
+    zorder = 1
     # ax.plot(df.index, df.bb_high_band, label='bb_high_band', color='green', alpha=alpha)
     # ax.plot(df.index, df.bb_low_band, label='bb_low_band', color='red', alpha=alpha)
     # ax.plot(df.index, df.mavg, label='mavg', color='grey', alpha=alpha)
-    ax.fill_between(df.index, df.mavg, df.bb_high_band, facecolor='green', interpolate=True, alpha=alpha_fill, zorder=-1)
-    ax.fill_between(df.index, df.mavg, df.bb_low_band, facecolor='red', interpolate=True, alpha=alpha_fill, zorder=-1)
+    ax.fill_between(df.index, df.mavg, df.bb_high_band, facecolor='green', interpolate=True, alpha=alpha_fill, zorder=zorder)
+    ax.fill_between(df.index, df.mavg, df.bb_low_band, facecolor='red', interpolate=True, alpha=alpha_fill, zorder=zorder)
 
   # plot average true range
   if 'atr' in target_indicator:
     alpha = 0.6
-    ax.plot(df.index, df.atr, label='atr', color='green', alpha=alpha, zorder=-1)
+    zorder = 1
+    ax.plot(df.index, df.atr, label='atr', color='green', alpha=alpha, zorder=zorder)
     # ax.plot(df.index, df.bb_low_band, label='bb_low_band', color='red', alpha=alpha)
     # ax.plot(df.index, df.mavg, label='mavg', color='grey', alpha=alpha)
     # ax.fill_between(df.index, df.mavg, df.bb_high_band, facecolor='green', interpolate=True, alpha=0.1)
@@ -4844,16 +4891,18 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   if 'psar' in target_indicator:
     alpha = 0.6
     s = 10
-    ax.scatter(df.index, df.psar_up, label='psar', color='green', alpha=alpha, s=s, marker='o', zorder=-1)
-    ax.scatter(df.index, df.psar_down, label='psar', color='red', alpha=alpha, s=s, marker='o', zorder=-1)
+    zorder = 1
+    ax.scatter(df.index, df.psar_up, label='psar', color='green', alpha=alpha, s=s, marker='o', zorder=zorder)
+    ax.scatter(df.index, df.psar_down, label='psar', color='red', alpha=alpha, s=s, marker='o', zorder=zorder)
 
   # plot renko bricks
   if 'renko' in target_indicator:
-    ax = plot_renko(df, use_ax=ax, plot_args=default_plot_args, plot_in_date=True, close_alpha=0, zorder=-1)
+    zorder = 1
+    ax = plot_renko(df, use_ax=ax, plot_args=default_plot_args, plot_in_date=True, close_alpha=0, zorder=zorder)
 
   # plot high/low trend
   if 'linear' in target_indicator:
-
+    zorder = 1
     colors = {'u': 'green', 'd': 'red', 'n': 'orange', '': 'grey'}
     # hatches = {'u': '++', 'd': '--', 'n': '..', '': ''}
 
@@ -4863,8 +4912,8 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
     
     linear_direction = df.loc[max_idx, 'linear_direction']
     linear_color = colors[linear_direction]
-    ax.plot(df.index, df.linear_fit_high, label='linear_fit_high', color=linear_color, linestyle='-.', alpha=line_alpha, zorder=1)
-    ax.plot(df.index, df.linear_fit_low, label='linear_fit_low', color=linear_color, linestyle='-.', alpha=line_alpha, zorder=1)
+    ax.plot(df.index, df.linear_fit_high, label='linear_fit_high', color=linear_color, linestyle='-.', alpha=line_alpha, zorder=zorder)
+    ax.plot(df.index, df.linear_fit_low, label='linear_fit_low', color=linear_color, linestyle='-.', alpha=line_alpha, zorder=zorder)
 
     # fill between linear_fit_high and linear_fit_low
     fill_alpha = 0.25
@@ -4874,7 +4923,7 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   
   # plot candlestick
   if 'candlestick' in target_indicator:
-    ax = plot_candlestick(df=df, start=start, end=end, date_col=date_col, add_on=add_on, width=candlestick_width, ohlcv_col=ohlcv_col, color=candlestick_color, use_ax=ax, plot_args=plot_args)
+    ax = plot_candlestick(df=df, start=start, end=end, date_col=date_col, add_on=add_on, ohlcv_col=ohlcv_col, color=candlestick_color, use_ax=ax, plot_args=plot_args, interval=interval)
   
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
@@ -5141,10 +5190,10 @@ def plot_bar(df, target_col, start=None, end=None, width=0.8, alpha=1, color_mod
 
   # plot indicator
   if 'color' in df.columns:
-    ax.bar(df.index, height=df[target_col], color=df.color, width=width , alpha=alpha, label=target_col)
+    ax.bar(df.index, height=df[target_col], color=df.color, width=width , alpha=alpha, label=target_col, edgecolor=(0,0,0,0.1))
 
   if add_line:
-    v
+    ax.plot(df[target_col], color=df.color, alpha=alpha, label=target_col)
 
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
@@ -5490,10 +5539,11 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
       # get candlestick width and color
       candlestick_color = tmp_args.get('candlestick_color') if tmp_args.get('candlestick_color') is not None else default_candlestick_color
       width = tmp_args.get('candlestick_width') if tmp_args.get('candlestick_width') is not None else 1
+      interval = tmp_args.get('interval') if tmp_args.get('interval') is not None else 'day'
       target_indicator = tmp_args.get('target_indicator') if tmp_args.get('target_indicator') is not None else ['price']
 
       plot_main_indicators(
-        df=plot_data, target_indicator=target_indicator, candlestick_width=width, candlestick_color=candlestick_color,
+        df=plot_data, target_indicator=target_indicator, interval=interval, candlestick_color=candlestick_color,
         use_ax=axes[tmp_indicator], title=tmp_indicator, plot_args=subplot_args)
 
     # plot aroon
@@ -5506,8 +5556,24 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
 
     # plot volume  
     elif tmp_indicator == 'volume':
+      
       alpha = tmp_args.get('alpha') if tmp_args.get('alpha') is not None else 1
-      plot_bar(df=plot_data, target_col=target_col, alpha=alpha, color_mode=color_mode, benchmark=None, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
+      interval = tmp_args.get('interval') if tmp_args.get('interval') is not None else 'day'
+      
+      # set bar_width according to data interval
+      bar_width = 0.8
+      if interval == 'day':
+        bar_width = datetime.timedelta(days=1)
+      elif interval == 'week':
+        bar_width = datetime.timedelta(days=7)
+      elif interval == 'month':
+        bar_width = datetime.timedelta(days=30)
+      elif interval == 'year':
+        bar_width = datetime.timedelta(days=365)
+      else:
+        pass
+
+      plot_bar(df=plot_data, target_col=target_col, width=bar_width, alpha=alpha, color_mode=color_mode, benchmark=None, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
 
     # plot renko
     elif tmp_indicator == 'renko':

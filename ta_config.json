@@ -54,10 +54,12 @@
           "ichimoku",
           "kama"
         ],
+        "intervla": "day",
         "candlestick_width": 0.62,
         "candlestick_color": {
-          "colorup": "green",
-          "colordown": "red",
+          "color_up": "limegreen",
+          "color_down": "tomato",
+          "shadow_color": "black",
           "alpha": 1
         }
       },
@@ -88,6 +90,7 @@
         "color_mode": "up_down",
         "alpha": 0.5,
         "bar_width": 0.8,
+        "interval": "day",
         "marker": "s"
       },
       "adx": {
