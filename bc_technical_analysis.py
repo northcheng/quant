@@ -1079,8 +1079,8 @@ def calculate_ta_signal(df):
   
   # trend
   conditions = {
-    'up':     'trigger_score > 0 and score > 0', # 'adx_trend == "u"',    # score > 0
-    'down':   'trigger_score < 0 and score < 0', # 'adx_trend == "d"',   # score < 0
+    'up':     '(trigger_score > 0 and score > 0) and (adx_trend == "u")', # 'adx_trend == "u"',    # score > 0
+    'down':   '(trigger_score < 0 and score < 0) and (adx_trend == "d")', # 'adx_trend == "d"',   # score < 0
   } 
   values = {
     'up':     'u', 
