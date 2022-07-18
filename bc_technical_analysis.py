@@ -497,7 +497,7 @@ def calculate_ta_static(df, indicators=default_indicators):
         # 2. adx_value > 0 and adx_power_day < 0
         # 3. adx_value < 0 and adx_power_day > 0
         # 'down': '((adx_direction < 0 and adx_strong_day > 0) and ((adx_direction <-5) or (adx_value > 0 and adx_power_day < 0) or (adx_value < 0 and adx_power_day > 0)))',
-        'down1': '(adx_direction < -10 and adx_direction_day < -3)', 
+        'down1': '(adx_direction < -5 and adx_direction_day < -3)', 
         'down2': '((adx_value > 0 and adx_power_day < 0) or (adx_value < 0 and adx_power_day > 0) or (-5 < adx_value < 5 and adx_direction < 0)) and ((adx_direction < -5))',
         # 'down': f'adx_value_change < {-threshold}',
 
@@ -506,7 +506,7 @@ def calculate_ta_static(df, indicators=default_indicators):
         # 2. adx_direction_start in (5, -5) and adx_strong_day in [-1, 1]
         # 'wave': '(((-1 < adx_strength_change < 1) or (-1 < adx_value_change < 1) or (-1 <= adx_power_day <= 1 and -1 <= adx_direction_day <= 1)) and (-5 < adx_direction < 5)) or ((adx_strong_day < 0) and (-5 < adx_direction_start < 5))'
         'wave1': '(-5 <= adx_direction <= 5) and ((-1 <= adx_strength_change <= 1) or (-1 <= adx_value_change <= 1))',
-        'wave2': '(-1<= adx_power_day <= 1) and (-1 <= adx_direction_day <= 1)',
+        'wave2': '(-5 <= adx_direction <= 5) and (-1<= adx_power_day <= 1) and (-1 <= adx_direction_day <= 1)',
         'wave3': '(-5 <= adx_direction <= 5) and (-1 <= adx_strong_day <= 1)'
         # 'wave': f'{-threshold} <= adx_value_change <= {threshold}'
       } 
@@ -1079,22 +1079,22 @@ def calculate_ta_signal(df):
   
   # trend
   conditions = {
-    'up':     'trigger_score > 0 and adx_day > 0 and adx_value_change > 0', # 'adx_trend == "u"',    # score > 0
-    'down':   'trigger_score < 0 and adx_day < 0 and adx_value_change < 0', # 'adx_trend == "d"',   # score < 0
+    'up':     'trigger_score > 0 and score > 0', # 'adx_trend == "u"',    # score > 0
+    'down':   'trigger_score < 0 and score < 0', # 'adx_trend == "d"',   # score < 0
   } 
   values = {
     'up':     'u', 
     'down':   'd',
   }
   df = assign_condition_value(df=df, column='trend', condition_dict=conditions, value_dict=values, default_value='')
-  df['trend_day'] = sda(series=df['trend'].replace({'u':1, 'd':-1, '': 0}), zero_as=1)
+  df['trend_day'] = sda(series=df['trend'].replace({'u':1, 'd':-1, '': 0}), zero_as=None)
 
   # label potential
   df['label'] = ''
   df['label_score'] = 0
   df['label_description'] = ''
   potential_conditions = {
-    'trend':      f'(5 >= trend_day > 0) and (down_trend_idx == 0 and up_trend_idx >= 3)',
+    'trend':      f'(5 >= trend_day > 0) and (trend_idx > 0)',
     'score':      f'(5 >= score_day > 0) and (trigger_score >= 1)',
     'adx':        f'(5 >= adx_day > 0) and (trigger_score >= 1) and (kama_distance < 0)', 
     'kama':       f'(5 >= kama_fs_signal > 0) and (trigger_score >= 1)',
@@ -1104,12 +1104,10 @@ def calculate_ta_signal(df):
   for c in potential_conditions.keys():
     tmp_condition = potential_conditions[c]
     tmp_idx = df.query(tmp_condition).index
-    df.loc[tmp_idx, 'label'] = 'potential'
     df.loc[tmp_idx, 'label_score'] += 1
     df.loc[tmp_idx, 'label_description'] += f'{c},'
 
   # remove false alarm
-  none_potential_idx = []
   none_potential_conditions = {
     'pattern wave':     f'label == "potential" and ((十字星 != "n") or ((rate < 0 or candle_color == -1) and (0 > 平头_day >= -3 or 0 > 腰带_day >= -3)) or (相对窗口位置 == "mid" or (candle_color == -1 and (相对窗口位置 == "mid_up" or 相对窗口位置 == "mid_down"))))',
     'pattern down':     f'label == "potential" and (窗口_day == -1 or 反弹_day == -1 or 突破_day == -1 or 锤子_day == -1 or 流星_day == -1 or 穿刺_day == -1 or 启明黄昏_day == -1)',
@@ -1121,34 +1119,26 @@ def calculate_ta_signal(df):
     'adx down':         f'label == "potential" and (adx_day < 0)',
 
     'trend down':       f'label == "potential" and (trend_idx < 0)',
-    'window':           f'label == "potential" and ((相对窗口位置 in ["mid", "mid_up", "mid_down", "out"] and candle_entity_middle < candle_gap_top))',
-
-    # 'kama momentum':    f'label == "potential" and (kama_direction < 0.01) and (candle_entity_bottom < cloud_top or kama_distance < -0.1)'
+    'window':           f'label == "potential" and ((相对窗口位置 in ["mid", "mid_up", "mid_down", "out"] and candle_entity_middle < candle_gap_top))'
     } 
   for c in none_potential_conditions.keys():
     tmp_condition = none_potential_conditions[c]
     tmp_idx = df.query(tmp_condition).index
-    none_potential_idx += tmp_idx.tolist()
     df.loc[tmp_idx, 'label_score'] += -1
     df.loc[tmp_idx, 'label_description'] += f'{c},'
-  none_potential_idx = list(set(none_potential_idx))
-  df.loc[none_potential_idx, 'label'] = ''
-  
-  # calculate signal
-  df['signal'] = ''
+
+  # label potential
+  df['label'] = ''
   conditions = {
-    'up':     '(label == "potential")', # 'adx_trend == "u"',    # 
-    'down':   '(trigger_score < 0 and -5 <= adx_day < 0)', # 'adx_trend == "d"',   # 
+    'potential':     '0 < trend_day <= 3', 
   } 
   values = {
-    'up':     'b', 
-    'down':   's',
+    'potential':     'potential', 
   }
-  df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
-  df['signal_day'] = sda(series=df['signal'].replace({'b':1, 's':-1, '': 0}), zero_as=1)
-  df = remove_redundant_signal(df=df, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='')
+  df = assign_condition_value(df=df, column='label', condition_dict=conditions, value_dict=values, default_value='')
 
   # # label signal
+  df['signal'] = ''
   # signal_idx = df.query('signal == "b"').index
   # df.loc[signal_idx, 'label'] = 'signal'
 
@@ -4345,9 +4335,9 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     plt.annotate(f'{signal_x[:4]}:{text_signal} ', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.05))
 
   # plot signal
-  # potential_idx = df.query('label == "potential"').index
-  # df.loc[potential_idx, 'signal'] = 'b'
-  signal_val = {'pos_signal':'b', 'neg_signal':'s', 'none_signal':'', 'wave_signal': 'n'}
+  potential_idx = df.query('label == "potential"').index
+  df.loc[potential_idx, 'signal'] = 'b'
+  # signal_val = {'pos_signal':'b', 'neg_signal':'s', 'none_signal':'', 'wave_signal': 'n'}
   if signal_x in df.columns:
     for i in ['pos', 'neg']:
       tmp_signal_value = signal_val[f'{i}_signal']
