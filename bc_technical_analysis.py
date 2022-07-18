@@ -19,6 +19,7 @@ from numpy.lib.stride_tricks import as_strided
 from matplotlib import gridspec
 from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
+
 # from mplfinance.original_flavor import candlestick_ohlc
 
 from quant import bc_util as util
@@ -35,7 +36,7 @@ default_indicators = {'trend': ['ichimoku', 'kama', 'adx', 'psar', 'trix'], 'vol
 default_perspectives = ['candle', 'support_resistant']
 
 # default arguments for visualization
-default_candlestick_color = {'color_up':'green', 'color_down':'red', 'shadow_color':'black', 'entity_edge_color':(0,0,0,0.25), 'alpha':0.8}
+default_candlestick_color = {'color_up':'green', 'color_down':'red', 'shadow_color':'black', 'entity_edge_color':'black', 'alpha':0.8}
 default_plot_args = {'figsize':(30, 3), 'title_rotation':'vertical', 'xaxis_position': 'bottom', 'yaxis_position': 'right', 'title_x':-0.01, 'title_y':0.2, 'bbox_to_anchor':(1.02, 0.), 'loc':3, 'ncol':1, 'borderaxespad':0.0}
 
 # ================================================ Load configuration =============================================== # 
@@ -339,8 +340,8 @@ def calculate_ta_static(df, indicators=default_indicators):
         # distance signal
         distance_change_threshold = 0.001
         conditions = {
-          'up': f'({distance} != 0 and {distance_change} > {distance_change_threshold})',
-          'down': f'({distance} != 0 and {distance_change} < {-distance_change_threshold} and ({fl}_rate < 0 and {sl}_rate <= 0))',
+          'up': f'({distance} != 0 and {distance_change} > {distance_change_threshold} and {fl}_rate > 0)',
+          'down': f'({distance} != 0 and {distance_change} < {-distance_change_threshold} and {fl}_rate < 0)',
           'none': f'({-distance_change_threshold} <= {distance_change} <= {distance_change_threshold})'}
         values = {
           'up': 1, 
@@ -516,6 +517,10 @@ def calculate_ta_static(df, indicators=default_indicators):
         'down1': 'd', 'down2': 'd',
         'wave1': 'n', 'wave2': 'n', 'wave3': 'n'}
       df = assign_condition_value(df=df, column='adx_trend', condition_dict=conditions, value_dict=values, default_value='n') 
+
+      # # conflicted conditions
+      # conflicted_idx = df.query('(adx_trend == "u") and (adx_value_change < 0)').index
+      # df.loc[conflicted_idx, 'adx_trend'] = 'n'
 
       # drop redundant column
       df.drop(['prev_adx_value'], axis=1, inplace=True)
@@ -951,16 +956,16 @@ def calculate_ta_score(df):
   conditions = {}
   condition_status = {
     '+i_f':            [1, '', '(tankan_rate >=  0.025)'],
-    '-i_f':            [-1, '', '(tankan_rate <= -0.01)'],
+    '-i_f':            [-1, '', '(tankan_rate <= -0.025)'],
 
     '+k_f':            [1, '', '(kama_fast_rate >= 0.025)'],
-    '-k_f':            [-1, '', '(kama_fast_rate <= -0.01)'],
+    '-k_f':            [-1, '', '(kama_fast_rate <= -0.025)'],
 
-    '+i_gap':          [1, '', '(ichimoku_distance > 0.1)'],
-    '-i_gap':          [-1, '', '(ichimoku_distance < -0.1)'],
+    '+i_gap':          [1, '', '(ichimoku_distance >= 0.1)'],
+    '-i_gap':          [-1, '', '(ichimoku_distance <= -0.1)'],
 
-    '+k_gap':          [1, '', '(kama_distance > 0.1)'],
-    '-k_gap':          [-1, '', '(kama_distance < -0.1)'],
+    '+k_gap':          [1, '', '(kama_distance >= 0.1)'],
+    '-k_gap':          [-1, '', '(kama_distance <= -0.1)'],
 
     '+i_gap_up':       [1, '', '(ichimoku_distance_signal > 0)'],
     '-i_gap_down':     [-1, '', '(ichimoku_distance_signal < 0)'],
@@ -975,7 +980,7 @@ def calculate_ta_score(df):
     '-rate':           [-1, '', '(rate_direction_sda < -2)'],
     
     '+cloud_top':      [1, '', '(kama_distance < 0 and (((candle_color == 1 and candle_entity_middle > cloud_top) or (candle_color == -1 and candle_entity_bottom > cloud_top))))'],
-    '-cloud_top':      [-3, '', '(kama_distance < 0 and (((candle_color == 1 and candle_entity_middle < cloud_top) or (candle_color == -1 and candle_entity_bottom < cloud_top))))'],
+    '-cloud_top':      [-1, '', '(kama_distance < 0 and (((candle_color == 1 and candle_entity_middle < cloud_top) or (candle_color == -1 and candle_entity_bottom < cloud_top))))'],
     
     '+ta':             [1, '', '(trend_idx > 0)'],
     '-ta':             [-1, '', '(trend_idx <= 0)'],
@@ -998,10 +1003,10 @@ def calculate_ta_score(df):
     '+窗口':           [1, '', '(candle_color == 1 and ((相对窗口位置 == "mid_up") or (相对窗口位置 == "out")))'],
     '-窗口':           [-1, '', '((相对窗口位置 == "mid_down" or 相对窗口位置 == "mid") or (candle_color == -1 and (相对窗口位置 == "out")))'],
     
-    '-高浪':           [-1, '', '(十字星_trend == "u")'],
-    '-十字':           [-2, '', '(十字星_trend == "d")'],
+    # '-高浪':           [-1, '', '(十字星_trend == "u")'],
+    # '-十字':           [-1, '', '(十字星_trend == "d")'],
 
-    '-长期下跌':       [-5, '', '(kama_fs_signal < -25 and ichimoku_distance < 0 and (candle_entity_bottom < cloud_top or candle_entity_bottom < kama_slow)) or (kama_distance < -0.075 and candle_entity_bottom < kama_slow)'],
+    # '-长期下跌':       [-5, '', '(kama_fs_signal < -25 and ichimoku_distance < 0 and (candle_entity_bottom < cloud_top or candle_entity_bottom < kama_slow)) or (kama_distance < -0.075 and candle_entity_bottom < kama_slow)'],
 
     # '支撑':             [],
     # '阻挡':             [],
@@ -1031,7 +1036,8 @@ def calculate_ta_score(df):
 
   # postprocess
   df['score'] = df['up_score'] + df['down_score']
-  df[['up_score', 'down_score', 'trigger_score']] = df[['up_score', 'down_score', 'trigger_score']].round(2)
+  df['score'] = sm(series=df['score'], periods=3).mean()
+  df[['score', 'up_score', 'down_score', 'trigger_score']] = df[['score', 'up_score', 'down_score', 'trigger_score']].round(2)
   df['up_score_description'] = df['up_score_description'].apply(lambda x: x[1:])
   df['down_score_description'] = df['down_score_description'].apply(lambda x: x[1:])
   df['trigger_score_description'] = df['trigger_score_description'].apply(lambda x: x[1:])
@@ -1042,7 +1048,7 @@ def calculate_ta_score(df):
   df['score_day'] = sda(series=df['score_day'], zero_as=1)
 
   # drop redundant columns
-  columns_to_drop = ['zero', 'candle_color_sda', 'rate_direction_sda', 'prev_candle_entity_top', 'prev_candle_entity_bottom', 'entity_diff', 'shadow_diff'] # , 'cloud_top', 'cloud_bottom'
+  columns_to_drop = ['zero'] #, 'candle_color_sda', 'rate_direction_sda', 'prev_candle_entity_top', 'prev_candle_entity_bottom', 'entity_diff', 'shadow_diff'# , 'cloud_top', 'cloud_bottom'
   for col in columns_to_drop:
     if col in df.columns:
       df.drop(col, axis=1, inplace=True)
@@ -1073,17 +1079,15 @@ def calculate_ta_signal(df):
   
   # trend
   conditions = {
-    'up': 'trigger_score > 0 and score > 0',
-    'down': 'trigger_score < 0 and score < 0',
+    'up':     'trigger_score > 0 and adx_day > 0 and adx_value_change > 0', # 'adx_trend == "u"',    # score > 0
+    'down':   'trigger_score < 0 and adx_day < 0 and adx_value_change < 0', # 'adx_trend == "d"',   # score < 0
   } 
   values = {
-    'up': 'u', 'down': 'd',
+    'up':     'u', 
+    'down':   'd',
   }
   df = assign_condition_value(df=df, column='trend', condition_dict=conditions, value_dict=values, default_value='')
   df['trend_day'] = sda(series=df['trend'].replace({'u':1, 'd':-1, '': 0}), zero_as=1)
-
-  # calculate signal
-  df['signal'] = ''
 
   # label potential
   df['label'] = ''
@@ -1095,7 +1099,7 @@ def calculate_ta_signal(df):
     'adx':        f'(5 >= adx_day > 0) and (trigger_score >= 1) and (kama_distance < 0)', 
     'kama':       f'(5 >= kama_fs_signal > 0) and (trigger_score >= 1)',
     'ichimoku':   f'(5 >= ichimoku_fs_signal > 0 and ichimoku_distance > 0.001)',
-    'rebound':  f'((trigger_score >= 1) and (kama_distance < 0 and kama_fast_signal > 0) and (Close > cloud_top and (0 < ichimoku_fs_signal < 5 or ichimoku_distance > -0.01 or 0 < kama_slow_signal < 5)))',
+    'rebound':    f'((trigger_score >= 1) and (kama_distance < 0 and kama_fast_signal > 0) and (Close > cloud_top and (0 < ichimoku_fs_signal < 5 or ichimoku_distance > -0.01 or 0 < kama_slow_signal < 5)))',
     } 
   for c in potential_conditions.keys():
     tmp_condition = potential_conditions[c]
@@ -1110,7 +1114,7 @@ def calculate_ta_signal(df):
     'pattern wave':     f'label == "potential" and ((十字星 != "n") or ((rate < 0 or candle_color == -1) and (0 > 平头_day >= -3 or 0 > 腰带_day >= -3)) or (相对窗口位置 == "mid" or (candle_color == -1 and (相对窗口位置 == "mid_up" or 相对窗口位置 == "mid_down"))))',
     'pattern down':     f'label == "potential" and (窗口_day == -1 or 反弹_day == -1 or 突破_day == -1 or 锤子_day == -1 or 流星_day == -1 or 穿刺_day == -1 or 启明黄昏_day == -1)',
 
-    'price fall':       f'label == "potential" and ((candle_color == -1 and rate < 0) or (shadow_trend == "u" and upper_shadow_trend == "u") or (candle_color == -1 and entity_trend == "u"))',
+    'price fall':       f'label == "potential" and ((candle_color == -1 or rate < 0) or (shadow_trend == "u" and upper_shadow_trend == "u") or (candle_color == -1 and entity_trend == "u"))',
     'price high':       f'label == "potential" and (kama_fs_signal >= 10 and ichimoku_fs_signal >= 10 and Close > kama_fast and Close > tankan)',
     
     'adx wave':         f'label == "potential" and (adx_value_change < 5) and ((adx_strong_day < -10 and adx_wave_day > 10) or (adx_strong_day < -10 and adx_value_change_std < 1) or (-10 < adx_direction_start < 10 and adx_strong_day < 0))',
@@ -1119,7 +1123,7 @@ def calculate_ta_signal(df):
     'trend down':       f'label == "potential" and (trend_idx < 0)',
     'window':           f'label == "potential" and ((相对窗口位置 in ["mid", "mid_up", "mid_down", "out"] and candle_entity_middle < candle_gap_top))',
 
-    'kama momentum':    f'label == "potential" and (kama_direction < 0.01) and (candle_entity_bottom < cloud_top or kama_distance < -0.1)'
+    # 'kama momentum':    f'label == "potential" and (kama_direction < 0.01) and (candle_entity_bottom < cloud_top or kama_distance < -0.1)'
     } 
   for c in none_potential_conditions.keys():
     tmp_condition = none_potential_conditions[c]
@@ -1130,9 +1134,23 @@ def calculate_ta_signal(df):
   none_potential_idx = list(set(none_potential_idx))
   df.loc[none_potential_idx, 'label'] = ''
   
-  # label signal
-  signal_idx = df.query('signal == "b"').index
-  df.loc[signal_idx, 'label'] = 'signal'
+  # calculate signal
+  df['signal'] = ''
+  conditions = {
+    'up':     '(label == "potential")', # 'adx_trend == "u"',    # 
+    'down':   '(trigger_score < 0 and -5 <= adx_day < 0)', # 'adx_trend == "d"',   # 
+  } 
+  values = {
+    'up':     'b', 
+    'down':   's',
+  }
+  df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
+  df['signal_day'] = sda(series=df['signal'].replace({'b':1, 's':-1, '': 0}), zero_as=1)
+  df = remove_redundant_signal(df=df, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='')
+
+  # # label signal
+  # signal_idx = df.query('signal == "b"').index
+  # df.loc[signal_idx, 'label'] = 'signal'
 
   # remove redandunt columns
   df.drop(['zero', 'score_signal', 'score_day', 'cloud_top', 'cloud_bottom'], axis=1, inplace=True)
@@ -1947,7 +1965,7 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
       # -0.5 <= 影线σ <= 0.5, 实体占比 < 1%
       '波动': '(-0.5 <= shadow_diff <= 0.5) and (candle_entity_pct < 0.15)',
       # 影线σ < -0.5, 非长影线, 短实体, 长上影线, 长下影线, 实体占比 < 10%
-      '十字星': '(shadow_diff < -0.5) and (entity_trend == "d" and upper_shadow_trend == "u" and lower_shadow_trend == "u") and (shadow_trend != "u" and candle_entity_pct <= 0.1)',
+      '十字星': '(shadow_diff < -0.5) and (entity_trend == "d" and (upper_shadow_trend == "u" or lower_shadow_trend == "u")) and (shadow_trend != "u" and candle_entity_pct <= 0.1)',
       # 影线σ > 0.5, 长影线, 短实体, 长上影线, 长下影线, 实体占比 < 20%
       '高浪线': '(shadow_diff > 0.5) and (entity_trend == "d" and upper_shadow_trend == "u" and lower_shadow_trend == "u") and (shadow_trend == "u" and candle_entity_pct <= 0.2)'}
     values = {'波动': 'd', '十字星': 'd', '高浪线': 'u'}
@@ -4327,9 +4345,9 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     plt.annotate(f'{signal_x[:4]}:{text_signal} ', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.05))
 
   # plot signal
-  potential_idx = df.query('label == "potential"').index
-  df.loc[potential_idx, 'signal'] = 'b'
-  # signal_val = {'pos_signal':'b', 'neg_signal':'s', 'none_signal':'', 'wave_signal': 'n'}
+  # potential_idx = df.query('label == "potential"').index
+  # df.loc[potential_idx, 'signal'] = 'b'
+  signal_val = {'pos_signal':'b', 'neg_signal':'s', 'none_signal':'', 'wave_signal': 'n'}
   if signal_x in df.columns:
     for i in ['pos', 'neg']:
       tmp_signal_value = signal_val[f'{i}_signal']
@@ -4572,7 +4590,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
       top_value = df.loc[start, 'candle_gap_top']
       bottom_value = df.loc[start, 'candle_gap_bottom']
       gap_color = 'green' if df.loc[start, 'candle_gap'] > 0 else 'red' # 'lightyellow' if df.loc[start, 'candle_gap'] > 0 else 'grey' # 
-      gap_hatch = '----'#'////' if df.loc[start, 'candle_gap'] > 0 else '\\\\\\\\'
+      gap_hatch = '////' if df.loc[start, 'candle_gap'] > 0 else '\\\\\\\\' # 'xxxx'# 
       gap_hatch_color = 'grey'
       
       # gap end
@@ -4587,7 +4605,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
       pre_i = idxs.index(start)-1
       pre_start = idxs[pre_i] if pre_i > 0 else start
       tmp_data = df[start:end]
-      ax.fill_between(df[pre_start:end].index, top_value, bottom_value, hatch=gap_hatch, facecolor=gap_color, interpolate=True, alpha=0.3, edgecolor=gap_hatch_color, linewidth=1, zorder=20) #,  
+      ax.fill_between(df[pre_start:end].index, top_value, bottom_value, hatch=gap_hatch, facecolor=gap_color, interpolate=True, alpha=0.5, edgecolor=gap_hatch_color, linewidth=1, zorder=20) #,  
   
   # annotate close price, support/resistant(if exists)
   if 'support_resistant' in add_on:
@@ -4765,7 +4783,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
   # set colors
   alpha = color['alpha'] 
   shadow_color = color['shadow_color']
-  entity_edge_color = (0, 0, 0, 0.1)
+  entity_edge_color = (0,0,0,0.1)
 
   # plot each candlestick
   for idx, row in df.iterrows():

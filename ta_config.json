@@ -58,9 +58,10 @@
         "candlestick_width": 0.62,
         "candlestick_color": {
           "color_up": "limegreen",
-          "color_down": "tomato",
+          "color_down": "orangered",
           "shadow_color": "black",
-          "alpha": 1
+          "entity_edge_color": "black",
+          "alpha": 0.9
         }
       },
       "signals": {
