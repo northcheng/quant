@@ -362,6 +362,16 @@ def calculate_ta_static(df, indicators=default_indicators):
         }
         df = assign_condition_value(df=df, column=trend_col, condition_dict=conditions, value_dict=values, default_value='n')
     
+    # ichimoku cloud top and bottom
+    if 'ichimoku' in indicators['trend']:
+      # cloud top and bototm
+      green_idx = df.query('ichimoku_fs_signal > 0').index
+      red_idx = df.query('ichimoku_fs_signal < 0').index
+      df.loc[green_idx, 'cloud_top'] = df.loc[green_idx, 'tankan']
+      df.loc[green_idx, 'cloud_bottom'] = df.loc[green_idx, 'kijun']
+      df.loc[red_idx, 'cloud_top'] = df.loc[red_idx, 'kijun']
+      df.loc[red_idx, 'cloud_bottom'] = df.loc[red_idx, 'tankan']
+
     # ================================ aroon trend ============================
     target_indicator = 'aroon'
     if target_indicator in indicators['trend']:
@@ -943,13 +953,7 @@ def calculate_ta_score(df):
   df['rate_direction_sda'] = sda(series=(df['rate'] > 0).replace({True: 1, False:-1}), zero_as=0)
   df['prev_candle_entity_top'] = df['candle_entity_top'].shift(1)
   df['prev_candle_entity_bottom'] = df['candle_entity_bottom'].shift(1)
-  green_idx = df.query('ichimoku_fs_signal > 0').index
-  red_idx = df.query('ichimoku_fs_signal < 0').index
-  df.loc[green_idx, 'cloud_top'] = df.loc[green_idx, 'tankan']
-  df.loc[green_idx, 'cloud_bottom'] = df.loc[green_idx, 'kijun']
-  df.loc[red_idx, 'cloud_top'] = df.loc[red_idx, 'kijun']
-  df.loc[red_idx, 'cloud_bottom'] = df.loc[red_idx, 'tankan']
-
+  
   # conditions and corresponding scores
   labels = {}
   scores = {}
@@ -1071,12 +1075,11 @@ def calculate_ta_signal(df):
 
   # add ta score and description
   df = calculate_ta_score(df)
-  df['rank_score'] = df['trigger_score'] + df['score']
-
   df['zero'] = 0
   df['score_signal'] = cal_crossover_signal(df=df, fast_line='score', slow_line='zero', pos_signal=1, neg_signal=-1, none_signal=0)
   df['score_day'] = sda(df['score_signal'], zero_as=1)
-  
+  df['rank_score'] = df['trigger_score'] + df['score']
+
   # trend
   conditions = {
     'up':     '(trigger_score > 0 and score > 0) and (adx_trend == "u")', # 'adx_trend == "u"',    # score > 0
@@ -1094,7 +1097,7 @@ def calculate_ta_signal(df):
   df['label_score'] = 0
   df['label_description'] = ''
   potential_conditions = {
-    'trend':      f'(5 >= trend_day > 0) and (trend_idx > 0)',
+    'trend':      f'(0 < trend_day <= 3) or ((5 >= trend_day > 0) and (trend_idx > 0))',
     'score':      f'(5 >= score_day > 0) and (trigger_score >= 1)',
     'adx':        f'(5 >= adx_day > 0) and (trigger_score >= 1) and (kama_distance < 0)', 
     'kama':       f'(5 >= kama_fs_signal > 0) and (trigger_score >= 1)',
@@ -1104,38 +1107,33 @@ def calculate_ta_signal(df):
   for c in potential_conditions.keys():
     tmp_condition = potential_conditions[c]
     tmp_idx = df.query(tmp_condition).index
+    df.loc[tmp_idx, 'label'] = 'potential'
     df.loc[tmp_idx, 'label_score'] += 1
     df.loc[tmp_idx, 'label_description'] += f'{c},'
 
   # remove false alarm
+  none_potential_idx = []
   none_potential_conditions = {
     'pattern wave':     f'label == "potential" and ((十字星 != "n") or ((rate < 0 or candle_color == -1) and (0 > 平头_day >= -3 or 0 > 腰带_day >= -3)) or (相对窗口位置 == "mid" or (candle_color == -1 and (相对窗口位置 == "mid_up" or 相对窗口位置 == "mid_down"))))',
     'pattern down':     f'label == "potential" and (窗口_day == -1 or 反弹_day == -1 or 突破_day == -1 or 锤子_day == -1 or 流星_day == -1 or 穿刺_day == -1 or 启明黄昏_day == -1)',
 
-    'price fall':       f'label == "potential" and ((candle_color == -1 or rate < 0) or (shadow_trend == "u" and upper_shadow_trend == "u") or (candle_color == -1 and entity_trend == "u"))',
-    'price high':       f'label == "potential" and (kama_fs_signal >= 10 and ichimoku_fs_signal >= 10 and Close > kama_fast and Close > tankan)',
+    'price fall':       f'label == "potential" and (rank_score < 0) and ((candle_color == -1 or rate < 0) or (shadow_trend == "u" and upper_shadow_trend == "u") or (candle_color == -1 and entity_trend == "u"))',
+    'price high':       f'label == "potential" and (adx_day > 5) and (kama_fs_signal >= 10 and ichimoku_fs_signal >= 10 and Close > kama_fast and Close > tankan)',
     
     'adx wave':         f'label == "potential" and (adx_value_change < 5) and ((adx_strong_day < -10 and adx_wave_day > 10) or (adx_strong_day < -10 and adx_value_change_std < 1) or (-10 < adx_direction_start < 10 and adx_strong_day < 0))',
     'adx down':         f'label == "potential" and (adx_day < 0)',
 
-    'trend down':       f'label == "potential" and (trend_idx < 0)',
+    'trend down':       f'label == "potential" and (rank_score < 0) and (trend_idx < 0)',
     'window':           f'label == "potential" and ((相对窗口位置 in ["mid", "mid_up", "mid_down", "out"] and candle_entity_middle < candle_gap_top))'
     } 
   for c in none_potential_conditions.keys():
     tmp_condition = none_potential_conditions[c]
     tmp_idx = df.query(tmp_condition).index
+    none_potential_idx += tmp_idx.tolist()
     df.loc[tmp_idx, 'label_score'] += -1
     df.loc[tmp_idx, 'label_description'] += f'{c},'
-
-  # label potential
-  df['label'] = ''
-  conditions = {
-    'potential':     '0 < trend_day <= 3', 
-  } 
-  values = {
-    'potential':     'potential', 
-  }
-  df = assign_condition_value(df=df, column='label', condition_dict=conditions, value_dict=values, default_value='')
+  none_potential_idx = list(set(none_potential_idx))
+  df.loc[none_potential_idx, 'label'] = ''
 
   # # label signal
   df['signal'] = ''
@@ -1143,7 +1141,7 @@ def calculate_ta_signal(df):
   # df.loc[signal_idx, 'label'] = 'signal'
 
   # remove redandunt columns
-  df.drop(['zero', 'score_signal', 'score_day', 'cloud_top', 'cloud_bottom'], axis=1, inplace=True)
+  df.drop(['zero', 'score_signal', 'score_day'], axis=1, inplace=True) #, 'cloud_top', 'cloud_bottom'
 
   return df
 
@@ -1832,6 +1830,45 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
 
 # add candle stick patterns
 def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
+
+  # price wave
+  if 'price' > '':
+
+    df['high_day']  = 0
+    df['low_day'] = 0
+    
+    # calculate price range
+    tmp_high = df['High'].values[0]
+    tmp_low = df['Low'].values[0]
+
+    for idx, row in df.iterrows():
+      if row['High'] <= tmp_high:
+        df.loc[idx, 'high_day'] = 1
+      else:
+        tmp_high = row['High']
+      df.loc[idx, 'recent_high'] = tmp_high
+
+      if row['Low'] >= tmp_low:
+        df.loc[idx, 'low_day'] = 1
+      else:
+        tmp_low = row['Low']
+      df.loc[idx, 'recent_low'] = tmp_low
+
+    df['high_day'] = sda(series=df['high_day'], zero_as=None)
+    df['low_day'] = sda(series=df['low_day'], zero_as=None)
+
+
+    # # price wave
+    # conditions = {
+    #   'window':   '(recent_price_range < 0.15) and (recent_high > candle_gap_top and recent_low < candle_gap_bottom)', # 'adx_trend == "u"',    # score > 0
+    #   'cloud':    '(recent_price_range < 0.15) and (recent_high > cloud_top and recent_low < cloud_bottom)', # 'adx_trend == "d"',   # score < 0
+    # } 
+    # values = {
+    #   'window':   'u',
+    #   'cloud':    'u',
+    # }
+    # df = assign_condition_value(df=df, column='price_wave', condition_dict=conditions, value_dict=values, default_value='')
+    # df['price_wave_day'] = sda(series=df['price_wave'].replace({'u':1, 'd':-1, '': 0}), zero_as=None)
 
   # global position
   if 'position' > '':
@@ -4543,6 +4580,11 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
   max_x = max_idx + datetime.timedelta(days=1)
   padding = (df.High.max() - df.Low.min()) / 100
 
+  # wave_hatch = '----'
+  # wave_color = 'orange'
+  # wave_hatch_color = 'grey'
+  # ax.fill_between(df.index, df['recent_high'], df['recent_low'], where=df['price_wave_day'] > 0, hatch=wave_hatch, facecolor=wave_color, interpolate=False, alpha=0.5, edgecolor=wave_hatch_color, linewidth=1, zorder=20)
+
   # for gap which start before 'start_date'
   if df.loc[min_idx, 'candle_gap_top'] > df.loc[min_idx, 'candle_gap_bottom']:
     df.loc[min_idx, 'candle_gap'] = df.loc[min_idx, 'candle_gap_color'] * 2
@@ -5310,8 +5352,7 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0, hspace=0.1, plot_args=
           if tmp_name is not None:
             tmp_data.loc[idx, 'name'] = tmp_name
     tmp_data = tmp_data.set_index('name')
-    tmp_data['rank_score'] = tmp_data['trigger_score'] #tmp_data['score'] + 
-    tmp_data = tmp_data.sort_values('rank_score', ascending=True)
+    tmp_data = tmp_data.sort_values('trigger_score', ascending=True)
     tmp_data['rate'] = tmp_data['rate'] * 100
 
     # get ax
