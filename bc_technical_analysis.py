@@ -1097,7 +1097,7 @@ def calculate_ta_signal(df):
   df['label_score'] = 0
   df['label_description'] = ''
   potential_conditions = {
-    'trend':      f'(0 < trend_day <= 3) or ((5 >= trend_day > 0) and (trend_idx > 0))',
+    'trend':      f'(5 >= trend_day > 0) and (trend_idx > 0)',
     'score':      f'(5 >= score_day > 0) and (trigger_score >= 1)',
     'adx':        f'(5 >= adx_day > 0) and (trigger_score >= 1) and (kama_distance < 0)', 
     'kama':       f'(5 >= kama_fs_signal > 0) and (trigger_score >= 1)',
@@ -1117,13 +1117,13 @@ def calculate_ta_signal(df):
     'pattern wave':     f'label == "potential" and ((十字星 != "n") or ((rate < 0 or candle_color == -1) and (0 > 平头_day >= -3 or 0 > 腰带_day >= -3)) or (相对窗口位置 == "mid" or (candle_color == -1 and (相对窗口位置 == "mid_up" or 相对窗口位置 == "mid_down"))))',
     'pattern down':     f'label == "potential" and (窗口_day == -1 or 反弹_day == -1 or 突破_day == -1 or 锤子_day == -1 or 流星_day == -1 or 穿刺_day == -1 or 启明黄昏_day == -1)',
 
-    'price fall':       f'label == "potential" and (rank_score < 0) and ((candle_color == -1 or rate < 0) or (shadow_trend == "u" and upper_shadow_trend == "u") or (candle_color == -1 and entity_trend == "u"))',
+    'price fall':       f'label == "potential" and ((candle_color == -1 or rate < 0) or (shadow_trend == "u" and upper_shadow_trend == "u") or (candle_color == -1 and entity_trend == "u"))',
     'price high':       f'label == "potential" and (adx_day > 5) and (kama_fs_signal >= 10 and ichimoku_fs_signal >= 10 and Close > kama_fast and Close > tankan)',
     
     'adx wave':         f'label == "potential" and (adx_value_change < 5) and ((adx_strong_day < -10 and adx_wave_day > 10) or (adx_strong_day < -10 and adx_value_change_std < 1) or (-10 < adx_direction_start < 10 and adx_strong_day < 0))',
     'adx down':         f'label == "potential" and (adx_day < 0)',
 
-    'trend down':       f'label == "potential" and (rank_score < 0) and (trend_idx < 0)',
+    'trend down':       f'label == "potential" and (trend_idx < 0)',
     'window':           f'label == "potential" and ((相对窗口位置 in ["mid", "mid_up", "mid_down", "out"] and candle_entity_middle < candle_gap_top))'
     } 
   for c in none_potential_conditions.keys():
