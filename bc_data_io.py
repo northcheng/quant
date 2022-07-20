@@ -559,7 +559,12 @@ def get_real_time_data_from_eod(symbols, api_key=default_eod_key, is_print=False
     # get real-time data for current batch
     url = f'https://eodhistoricaldata.com/api/real-time/{first_symbol}?api_token={api_key}&fmt=json&s={other_symbols}'
     response = requests.get(url, headers=headers)
-    real_time = [] if response.status_code!=200 else response.json()
+    try:
+      real_time = [] if response.status_code!=200 else response.json()
+    except Exception as e:
+      print(e)
+      print(response.status_code, response) 
+      real_time = []
     real_time = [real_time] if isinstance(real_time, dict) else real_time
     
     if is_print:
