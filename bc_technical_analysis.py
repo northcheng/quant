@@ -33,7 +33,7 @@ default_signal_val = {'pos_signal':'b', 'neg_signal':'s', 'none_signal':'', 'wav
 
 # default indicators and dynamic trend for calculation
 default_indicators = {'trend': ['ichimoku', 'kama', 'adx', 'psar', 'trix'], 'volume': [], 'volatility': ['bb'], 'other': []}
-default_perspectives = ['candle', 'support_resistant']
+default_perspectives = ['candle', 'linear', 'support_resistant']
 
 # default arguments for visualization
 default_candlestick_color = {'color_up':'green', 'color_down':'red', 'shadow_color':'black', 'entity_edge_color':'black', 'alpha':0.8}
@@ -1040,7 +1040,7 @@ def calculate_ta_score(df):
 
   # postprocess
   df['score'] = df['up_score'] + df['down_score']
-  df['score'] = sm(series=df['score'], periods=3).mean()
+  # df['score'] = sm(series=df['score'], periods=3).mean()
   df[['score', 'up_score', 'down_score', 'trigger_score']] = df[['score', 'up_score', 'down_score', 'trigger_score']].round(2)
   df['up_score_description'] = df['up_score_description'].apply(lambda x: x[1:])
   df['down_score_description'] = df['down_score_description'].apply(lambda x: x[1:])
@@ -1120,12 +1120,18 @@ def calculate_ta_signal(df):
     'price fall':       f'label == "potential" and ((candle_color == -1 or rate < 0) or (shadow_trend == "u" and upper_shadow_trend == "u") or (candle_color == -1 and entity_trend == "u"))',
     'price high':       f'label == "potential" and (adx_day > 5) and (kama_fs_signal >= 10 and ichimoku_fs_signal >= 10 and Close > kama_fast and Close > tankan)',
     
-    'adx wave':         f'label == "potential" and (adx_value_change < 5) and ((adx_strong_day < -10 and adx_wave_day > 10) or (adx_strong_day < -10 and adx_value_change_std < 1) or (-10 < adx_direction_start < 10 and adx_strong_day < 0))',
+    'adx wave':         f'label == "potential" and (adx_value_change < 5 and adx_strong_day < -10) and ((adx_wave_day > 10) or (adx_value_change_std < 1) or (-10 < adx_direction_start < 10))',
     'adx down':         f'label == "potential" and (adx_day < 0)',
 
     'trend down':       f'label == "potential" and (trend_idx < 0)',
-    'window':           f'label == "potential" and ((相对窗口位置 in ["mid", "mid_up", "mid_down", "out"] and candle_entity_middle < candle_gap_top))'
+    'window':           f'label == "potential" and ((相对窗口位置 in ["mid", "mid_up", "mid_down", "out"] and candle_entity_middle < candle_gap_top))',
+
+    'not yet':          f'label == "potential" and (kama_distance < 0) and ((candle_entity_middle < kama_fast) or (ichimoku_distance < 0 and candle_entity_middle < cloud_top))'
     } 
+
+  if 'linear_slope' in df.columns:
+    none_potential_conditions['linear wave'] = f'label == "potential" and (linear_fit_high_slope == 0 and linear_fit_low_slope == 0)'
+
   for c in none_potential_conditions.keys():
     tmp_condition = none_potential_conditions[c]
     tmp_idx = df.query(tmp_condition).index
