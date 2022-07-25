@@ -1014,10 +1014,6 @@ def calculate_ta_score(df):
 
     # '支撑':             [],
     # '阻挡':             [],
-    # 'adx_strength':             [],
-    # 'adx_10-10':             [],
-    # '价格跳空连续下跌, 三只乌鸦?':             [],
-    # '平头及平头之后':             [],
   }
   for k in condition_status.keys():
     scores[k] = condition_status[k][0]
