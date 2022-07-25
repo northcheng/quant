@@ -1082,8 +1082,8 @@ def calculate_ta_signal(df):
 
   # trend
   conditions = {
-    'up':     '(trigger_score > 0 and score > 0) and (adx_trend == "u")', # 'adx_trend == "u"',    # score > 0
-    'down':   '(trigger_score < 0 and score < 0) and (adx_trend == "d")', # 'adx_trend == "d"',   # score < 0
+    'up':     'adx_trend == "u" and trend_idx > 0',
+    'down':   'adx_trend == "d"',
   } 
   values = {
     'up':     'u', 
@@ -1097,12 +1097,12 @@ def calculate_ta_signal(df):
   df['label_score'] = 0
   df['label_description'] = ''
   potential_conditions = {
-    'trend':      f'(5 >= trend_day > 0) and (trend_idx > 0)',
-    'score':      f'(5 >= score_day > 0) and (trigger_score >= 1)',
-    'adx':        f'(5 >= adx_day > 0) and (trigger_score >= 1) and (kama_distance < 0)', 
-    'kama':       f'(5 >= kama_fs_signal > 0) and (trigger_score >= 1)',
-    'ichimoku':   f'(5 >= ichimoku_fs_signal > 0 and ichimoku_distance > 0.001)',
-    'rebound':    f'((trigger_score >= 1) and (kama_distance < 0 and kama_fast_signal > 0) and (Close > cloud_top and (0 < ichimoku_fs_signal < 5 or ichimoku_distance > -0.01 or 0 < kama_slow_signal < 5)))',
+    'trend':      f'(5 >= trend_day > 0) and (trend_idx > 1) and ((0 < adx_day <= 5) or (0 < ichimoku_day <= 5) or (0 < kama_day <= 5) or (0 < kama_fast_signal <= 5) or (0 < kama_slow_signal <= 5) or (0 < tankan_signal <= 5)or (0 < kijun_signal <= 5))',
+    # 'score':      f'(5 >= score_day > 0) and (trigger_score >= 1)',
+    # 'adx':        f'(5 >= adx_day > 0) and (trigger_score >= 1) and (kama_distance < 0)', 
+    # 'kama':       f'(5 >= kama_fs_signal > 0) and (trigger_score >= 1)',
+    # 'ichimoku':   f'(5 >= ichimoku_fs_signal > 0 and ichimoku_distance > 0.001)',
+    # 'rebound':    f'((trigger_score >= 1) and (kama_distance < 0 and kama_fast_signal > 0) and (Close > cloud_top and (0 < ichimoku_fs_signal < 5 or ichimoku_distance > -0.01 or 0 < kama_slow_signal < 5)))',
     } 
   for c in potential_conditions.keys():
     tmp_condition = potential_conditions[c]
@@ -1116,17 +1116,16 @@ def calculate_ta_signal(df):
   none_potential_conditions = {
     'pattern wave':     f'label == "potential" and ((十字星 != "n") or ((rate < 0 or candle_color == -1) and (0 > 平头_day >= -3 or 0 > 腰带_day >= -3)) or (相对窗口位置 == "mid" or (candle_color == -1 and (相对窗口位置 == "mid_up" or 相对窗口位置 == "mid_down"))))',
     'pattern down':     f'label == "potential" and (窗口_day == -1 or 反弹_day == -1 or 突破_day == -1 or 锤子_day == -1 or 流星_day == -1 or 穿刺_day == -1 or 启明黄昏_day == -1)',
-
+    'window':           f'label == "potential" and ((相对窗口位置 in ["mid", "mid_up", "mid_down", "out"] and candle_entity_middle < candle_gap_top))',
+    
     'price fall':       f'label == "potential" and ((candle_color == -1 or rate < 0) or (shadow_trend == "u" and upper_shadow_trend == "u") or (candle_color == -1 and entity_trend == "u"))',
     'price high':       f'label == "potential" and (adx_day > 5) and (kama_fs_signal >= 10 and ichimoku_fs_signal >= 10 and Close > kama_fast and Close > tankan)',
     
     'adx wave':         f'label == "potential" and (adx_value_change < 5 and adx_strong_day < -10) and ((adx_wave_day > 10) or (adx_value_change_std < 1) or (-10 < adx_direction_start < 10))',
     'adx down':         f'label == "potential" and (adx_day < 0)',
-
     'trend down':       f'label == "potential" and (trend_idx < 0)',
-    'window':           f'label == "potential" and ((相对窗口位置 in ["mid", "mid_up", "mid_down", "out"] and candle_entity_middle < candle_gap_top))',
-
-    'not yet':          f'label == "potential" and (kama_distance < 0) and ((candle_entity_middle < kama_fast) or (ichimoku_distance < 0 and candle_entity_middle < cloud_top))'
+    
+    'not yet':          f'label == "potential" and (kama_distance < 0) and ((candle_entity_middle < kama_fast) or (candle_entity_middle < cloud_bottom))'
     } 
 
   if 'linear_slope' in df.columns:
@@ -4343,7 +4342,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
   # plot settings
   settings = {
     'main': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': '.', 'neg_trend_marker': '.', 'wave_trend_marker': '_', 'signal_alpha': 0.5, 'trend_alpha': 0.6, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'},
-    'other': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': 's', 'neg_trend_marker': '_', 'wave_trend_marker': '_', 'signal_alpha': 0.3, 'trend_alpha': 0.3, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'}}
+    'other': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': 's', 'neg_trend_marker': 'x', 'wave_trend_marker': '_', 'signal_alpha': 0.3, 'trend_alpha': 0.3, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'}}
   style = settings['main'] if signal_x in ['signal'] else settings['other']
 
   # plot signal base line
@@ -5109,9 +5108,14 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
 
   df['prev_adx_day'] = df['adx_day'].shift(1)
   df['next_adx_day'] = df['adx_day'].shift(-1)
-  green_mask = ((df.adx_day > 0))# | (df.prev_adx_day > 0)) 
-  red_mask = ((df.adx_day < 0))# | (df.prev_adx_day < 0)) 
-  yellow_mask = ((df.adx_day > 0) & (df.prev_adx_day < 0)) | ((df.adx_day < 0) & (df.prev_adx_day > 0)) | ((df.adx_day < 0) & (df.next_adx_day > 0)) | ((df.adx_day > 0) & (df.next_adx_day < 0))
+  df['prev_adx_trend'] = df['adx_trend'].shift(1)
+  df['next_adx_trend'] = df['adx_trend'].shift(-1)
+  df['prev_adx_value_change'] = df['adx_value_change'].shift(1)
+  df['next_adx_value_change'] = df['adx_value_change'].shift(-1)
+  green_mask = ((df.adx_value_change > 0))# | (df.prev_adx_day > 0)) 
+  red_mask = ((df.adx_value_change < 0))# | (df.prev_adx_day < 0)) 
+  yellow_mask = ((df.adx_value_change == 0)) | ((df.adx_value_change > 0) & (df.prev_adx_value_change < 0)) | ((df.adx_value_change > 0) & (df.next_adx_value_change < 0)) | ((df.adx_value_change < 0) & (df.prev_adx_value_change > 0)) | ((df.adx_value_change < 0) & (df.next_adx_value_change > 0)) 
+# | ((df.adx_value_change < 0) & (df.prev_adx_day > 0)) | ((df.adx_value_change < 0) & (df.next_adx_day > 0)) | ((df.adx_trend != "n") & (df.next_adx_trend == "n")) | ((df.adx_trend == "n") & (df.next_adx_trend != "n")) | ((df.adx_trend != df.prev_adx_trend)) | ((df.adx_trend != df.next_adx_trend)) | ((df.adx_trend == "n") & (df.prev_adx_trend == "n")) | ((df.adx_trend == "n") & (df.next_adx_trend == "n"))#| ((df.adx_day < 0) & (df.adx_trend != "d")) | ((df.adx_day > 0) & (df.prev_adx_day < 0)) | ((df.adx_day < 0) & (df.prev_adx_day > 0)) | ((df.adx_day < 0) & (df.next_adx_day > 0)) | ((df.adx_day > 0) & (df.next_adx_day < 0))
  
   ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=green_mask,  facecolor='green', interpolate=False, alpha=0.3, label='adx up') 
   ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=red_mask, facecolor='red', interpolate=False, alpha=0.3, label='adx down')
@@ -5513,7 +5517,7 @@ def plot_indicator(df, target_col, start=None, end=None, signal_x='signal', sign
     return ax
 
 # plot multiple indicators on a same chart
-def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, save_image=False, show_image=False, title=None, width=25, unit_size=2.5, wspace=0, hspace=0.015, subplot_args=default_plot_args):
+def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, save_image=False, show_image=False, title=None, width=25, unit_size=3, wspace=0, hspace=0.015, subplot_args=default_plot_args):
   """
   Plot Ichimoku and mean reversion in a same plot
   :param df: dataframe with ichimoku and mean reversion columns
@@ -5571,7 +5575,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
     # set border color
     spine_alpha = 0.3
     for position in ['top', 'bottom', 'left', 'right']:
-      if (i in [1, 2, 3] and position in ['top']) or (i in [1, 3] and position in ['bottom']):
+      if (i in [2, 3] and position in ['top']) or (i in [0] and position in ['bottom']):
         axes[tmp_indicator].spines[position].set_alpha(0)
       else:
         axes[tmp_indicator].spines[position].set_alpha(spine_alpha)
