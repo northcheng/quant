@@ -138,6 +138,8 @@
       "support": "支撑",
       "resistant": "阻挡",
 
+      "kama_fast_rate": "涨跌速率",
+
       "prev_adx_extreme": "ADX起始",
       "adx_value": "ADX差值",
       "adx_strength": "ADX强度", 
