@@ -83,21 +83,21 @@ class SimpleClassifier(nn.Module):
     self.linear_relu_stack = nn.Sequential(
       nn.Linear(n_in, 64),
       nn.ReLU(),
-      nn.Linear(64, 32),
+      nn.Linear(64, 64),
       nn.ReLU(),
-      nn.Linear(32, 32),
+      nn.Linear(64, 64),
       nn.ReLU(),
-      nn.Linear(32, 64),
+      nn.Linear(64, 64),
       nn.ReLU(),
       nn.Linear(64, 128),
       nn.ReLU(),
       nn.Linear(128, 64),
       nn.ReLU(),
-      nn.Linear(64, 32),
+      nn.Linear(64, 64),
       nn.ReLU(),
-      nn.Linear(32, 16),
+      nn.Linear(64, 64),
       nn.ReLU(),
-      nn.Linear(16, n_out),
+      nn.Linear(64, n_out),
     )
 
   def forward(self, x):
@@ -116,7 +116,7 @@ def prepare_data(dataset):
 
   # prepare data loaders
   train_dl = DataLoader(train, batch_size=128, shuffle=True, drop_last=True)
-  test_dl = DataLoader(test, batch_size=128, shuffle=True, drop_last=True) 
+  test_dl = DataLoader(test, batch_size=64, shuffle=True, drop_last=True) 
 
   return train_dl, test_dl
 
@@ -282,21 +282,21 @@ class SimpleRegressor(nn.Module):
     self.linear_relu_stack = nn.Sequential(
       nn.Linear(n_in, 64),
       nn.ReLU(),
-      nn.Linear(64, 32),
+      nn.Linear(64, 64),
       nn.ReLU(),
-      nn.Linear(32, 32),
+      nn.Linear(64, 64),
       nn.ReLU(),
-      nn.Linear(32, 64),
+      nn.Linear(64, 64),
       nn.ReLU(),
       nn.Linear(64, 128),
       nn.ReLU(),
       nn.Linear(128, 64),
       nn.ReLU(),
-      nn.Linear(64, 32),
+      nn.Linear(64, 64),
       nn.ReLU(),
-      nn.Linear(32, 16),
+      nn.Linear(64, 64),
       nn.ReLU(),
-      nn.Linear(16, n_out),
+      nn.Linear(64, n_out),
     )
 
   def forward(self, x):

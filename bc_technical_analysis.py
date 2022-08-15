@@ -1036,7 +1036,6 @@ def calculate_ta_score(df):
 
   # postprocess
   df['score'] = df['up_score'] + df['down_score']
-  # df['score'] = sm(series=df['score'], periods=3).mean()
   df[['score', 'up_score', 'down_score', 'trigger_score']] = df[['score', 'up_score', 'down_score', 'trigger_score']].round(2)
   df['up_score_description'] = df['up_score_description'].apply(lambda x: x[1:])
   df['down_score_description'] = df['down_score_description'].apply(lambda x: x[1:])
@@ -1078,8 +1077,8 @@ def calculate_ta_signal(df):
 
   # trend
   conditions = {
-    'up':     'adx_trend == "u" and trend_idx > 0',
-    'down':   'adx_trend == "d"',
+    'up':     'score > 2', #'adx_trend == "u" and trend_idx > 0',
+    'down':   'score <-2', #'adx_trend == "d"',
   } 
   values = {
     'up':     'u', 
@@ -4368,9 +4367,14 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
   if signal_x in ['kama_signal', 'ichimoku_signal', 'adx_signal'] and day_col in df.columns and annotate_signal_day:
     x_signal = max_idx + datetime.timedelta(days=2)
     y_signal = ys[signal_x]
-    text_signal = int(df.loc[max_idx, day_col])
-    text_color = 'red' if text_signal < 0 else 'green'
-    plt.annotate(f'{signal_x[:4]}:{text_signal} ', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.05))
+
+    if signal_x in ['kama_signal', 'ichimoku_signal']:
+      text_day = int(df.loc[max_idx, day_col.replace('day', 'fs_signal')])
+    else:
+      text_day = int(df.loc[max_idx, day_col])
+    
+    text_color = 'red' if text_day < 0 else 'green'
+    plt.annotate(f'{signal_x[:4]}:{text_day} ', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.05))
 
   # plot signal
   potential_idx = df.query('label == "potential"').index
