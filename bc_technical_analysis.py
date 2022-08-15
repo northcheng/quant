@@ -1092,7 +1092,9 @@ def calculate_ta_signal(df):
   df['label_score'] = 0
   df['label_description'] = ''
   potential_conditions = {
-    'trend':      f'(5 >= trend_day > 0) and (trend_idx > 1) and ((0 < adx_day <= 5) or (0 < ichimoku_day <= 5) or (0 < kama_day <= 5) or (0 < kama_fast_signal <= 5) or (0 < kama_slow_signal <= 5) or (0 < tankan_signal <= 5)or (0 < kijun_signal <= 5))',
+    'main':         f'(5 >= trend_day > 0) and (trend_idx >= 1) and ((0 < adx_day <= 5) or (0 < ichimoku_fs_signal <= 5) or (0 < kama_fs_signal <= 5) or (0 < kama_fast_signal <= 5) or (0 < kama_slow_signal <= 5) or (0 < tankan_signal <= 5) or (0 < kijun_signal <= 5))',
+    'trend':        f'(3 >= trend_day > 0)',
+    'trigger':      f'(trigger_score >= 1)',
     # 'score':      f'(5 >= score_day > 0) and (trigger_score >= 1)',
     # 'adx':        f'(5 >= adx_day > 0) and (trigger_score >= 1) and (kama_distance < 0)', 
     # 'kama':       f'(5 >= kama_fs_signal > 0) and (trigger_score >= 1)',
