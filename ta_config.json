@@ -52,8 +52,7 @@
         "target_indicator": [
           "candlestick",
           "ichimoku",
-          "kama",
-          "linear"
+          "kama"
         ],
         "intervla": "day",
         "candlestick_width": 0.62,

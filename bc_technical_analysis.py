@@ -33,7 +33,7 @@ default_signal_val = {'pos_signal':'b', 'neg_signal':'s', 'none_signal':'', 'wav
 
 # default indicators and dynamic trend for calculation
 default_indicators = {'trend': ['ichimoku', 'kama', 'adx', 'psar', 'trix'], 'volume': [], 'volatility': ['bb'], 'other': []}
-default_perspectives = ['candle', 'linear', 'support_resistant']
+default_perspectives = ['candle', 'support_resistant']
 
 # default arguments for visualization
 default_candlestick_color = {'color_up':'green', 'color_down':'red', 'shadow_color':'black', 'entity_edge_color':'black', 'alpha':0.8}
@@ -2421,6 +2421,22 @@ def add_linear_features(df, max_period=60, min_period=5, is_print=False):
         
   return df
  
+# linear regression for recent kama and ichimoku fast slow lines
+def add_ma_linear_features(df, period=5, target_col=['kama_fast', 'kama_slow', 'tankan', 'kijun']):
+
+  result = {}
+  
+  for col in target_col:
+    if col in df.columns:
+      y = df[col].tail(period).values.tolist()
+      x = list(range(1, period+1))
+      reg_result = linregress(x, y)
+      result[col] = reg_result
+    else:
+      continue
+
+  return result
+
 
 # ================================================ Trend indicators ================================================= #
 # ADX(Average Directional Index) 
@@ -4892,7 +4908,17 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
 
   # as we usually ploting data within a year, therefore log_y is not necessary
   # ax.set_yscale("log")
- 
+
+  plot_colors = {
+    'price': 'black',
+    'tankan': 'green',
+    'kijun': 'red',
+    'kama_fast': 'magenta',
+    'kama_slow': 'blue'
+  }
+  
+  max_idx = df.index.max()
+
   # plot close price
   if 'price' in target_indicator:
     alpha = 0.2
@@ -4924,6 +4950,26 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
     # ax.fill_between(df.index, df.kama_fast, df.kama_slow, where=df.kama_fast > df.kama_slow, facecolor='green', interpolate=True, alpha=alpha, zorder=-1)
     # ax.fill_between(df.index, df.kama_fast, df.kama_slow, where=df.kama_fast <= df.kama_slow, facecolor='red', interpolate=True, alpha=alpha, zorder=-1)
   
+  # plot linear regression prediction for ichimoku/kama fast/slow lines
+  train_period = 5
+  predict_period = 3
+
+  for col in ['tankan', 'kijun', 'kama_fast', 'kama_slow']:
+    if col in df.columns:
+      
+      train_x = list(range(1, train_period+1))
+      train_y = df[col].tail(train_period).values.tolist()
+      reg_result = linregress(train_x, train_y)
+      slope = reg_result[0]
+      intercept = reg_result[1]
+
+      x = [max_idx]
+      y = [df.loc[max_idx, col]]
+      for nd in range(predict_period):
+        x.append(max_idx + datetime.timedelta(days=nd+1))
+        y.append(slope * (train_period+nd+1) + intercept)
+      ax.plot(x, y, color=plot_colors[col], linestyle=':', alpha=0.8)
+
   # plot bollinger bands
   if 'bb' in target_indicator:
     alpha = 0.1
@@ -4966,7 +5012,6 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
 
     # plot aroon_up/aroon_down lines 
     line_alpha = 0.5
-    max_idx = df.index.max()
     
     linear_direction = df.loc[max_idx, 'linear_direction']
     linear_color = colors[linear_direction]
@@ -4977,8 +5022,8 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
     fill_alpha = 0.25
     linear_range = df.linear_direction != ''
     linear_hatch = '--' # hatches[linear_direction]
-    ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=linear_range, facecolor='white', edgecolor=linear_color, hatch=linear_hatch, interpolate=True, alpha=fill_alpha)
-  
+    ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=linear_range, facecolor='white', edgecolor=linear_color, hatch=linear_hatch, interpolate=True, alpha=fill_alpha)    
+
   # plot candlestick
   if 'candlestick' in target_indicator:
     ax = plot_candlestick(df=df, start=start, end=end, date_col=date_col, add_on=add_on, ohlcv_col=ohlcv_col, color=candlestick_color, use_ax=ax, plot_args=plot_args, interval=interval)
