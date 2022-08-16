@@ -4916,6 +4916,13 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
     'kama_fast': 'magenta',
     'kama_slow': 'blue'
   }
+
+  plot_linestyles = {
+    'tankan': ':',
+    'kijun': ':',
+    'kama_fast': '--',
+    'kama_slow': '--'
+  }
   
   max_idx = df.index.max()
 
@@ -4953,7 +4960,6 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   # plot linear regression prediction for ichimoku/kama fast/slow lines
   train_period = 5
   predict_period = 3
-
   for col in ['tankan', 'kijun', 'kama_fast', 'kama_slow']:
     if col in df.columns:
       
@@ -4968,7 +4974,7 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
       for nd in range(predict_period):
         x.append(max_idx + datetime.timedelta(days=nd+1))
         y.append(slope * (train_period+nd+1) + intercept)
-      ax.plot(x, y, color=plot_colors[col], linestyle=':', alpha=0.8)
+      ax.plot(x, y, color=plot_colors[col], linestyle=plot_linestyles[col], alpha=0.8)
 
   # plot bollinger bands
   if 'bb' in target_indicator:
