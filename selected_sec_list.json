@@ -3,12 +3,7 @@
         "TQQQ", "AAPL"
     ],
     "etf_idx": [
-        "SPY", "UVXY", "GLD",
-        "XHB", "XAR", 
-        "XSD", "XTL", "XLK", "XWEB",
-        "XPH", "XBI", "XHS", "XHE", "XLV",
-        "XLP", "XLY", "XRT", "XTN",
-        "XLB", "XLE", "XLI", "XLF", "XLU"
+        "SPY", "DIA", "UVXY", "GLD"
     ],
     "etf_3x": [
         "TQQQ", "UPRO", "UDOW",
