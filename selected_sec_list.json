@@ -17,7 +17,7 @@
         "EDC", "CHAU", "YINN", "CQQQ"
     ],
     "company_star": [
-        "AAPL", "MSFT", "AMZN", "TSLA", "META", "TSM", "NVDA", "JNJ", "UNH", "V", "XOM", "JPM", "MA", "PG", "CVX", "WMT", "HD", "PFE", "BAC", "LLY", "KO", "BABA", "ABBV", "NVO", "AVGO", "ASML", "PEP", "TM", "MRK", "SHEL", "TMO", "VZ", "COST", "ABT", "ADBE", "AZN", "DIS", "NVS", "ORCL", "ACN", "DHR", "CMCSA", "NKE", "CSCO", "MCD", "CRM", "INTC", "TMUS", "AMD", "WFC", "BHP", "LIN", "PM", "UPS", "BMY", "NEE", "QCOM", "TXN", "TTE", "COP", "T", "MS", "RY", "RTX", "UNP", "TD", "HSBC", "SNY", "HON", "AMGN", "SCHW", "IBM", "MDT", "AXP", "LOW", "CVS", "RIO", "AMT", "ANTM", "UL", "EQNR", "CAT", "SAP", "LMT", "INTU", "SPGI", "SONY", "DE", "BUD", "GS", "DEO", "HDB", "BP", "GSK", "BLK", "BTI", "PYPL", "AMAT", "C", "PTR"    
+        "AAPL", "MSFT", "AMZN", "TSLA", "META", "TSM", "NVDA", "JNJ", "UNH", "V", "XOM", "JPM", "MA", "PG", "CVX", "WMT", "HD", "PFE", "BAC", "LLY", "KO", "BABA", "ABBV", "NVO", "AVGO", "ASML", "PEP", "TM", "MRK", "SHEL", "TMO", "VZ", "COST", "ABT", "ADBE", "AZN", "DIS", "NVS", "ORCL", "ACN", "DHR", "CMCSA", "NKE", "CSCO", "MCD", "CRM", "INTC", "TMUS", "AMD", "WFC", "BHP", "LIN", "PM", "UPS", "BMY", "NEE", "QCOM", "TXN", "TTE", "COP", "T", "MS", "RY", "RTX", "UNP", "TD", "HSBC", "SNY", "HON", "AMGN", "SCHW", "IBM", "MDT", "AXP", "LOW", "CVS", "RIO", "AMT", "UL", "EQNR", "CAT", "SAP", "LMT", "INTU", "SPGI", "SONY", "DE", "BUD", "GS", "DEO", "HDB", "BP", "GSK", "BLK", "BTI", "PYPL", "AMAT", "C", "PTR"    
     ],
     "universe": [
         "TQQQ", "UPRO", "UDOW", "TQQQ", "CHAU", "CQQQ", "YINN", "SOXL", "TECL", "GLD"

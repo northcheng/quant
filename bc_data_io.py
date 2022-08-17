@@ -572,11 +572,19 @@ def get_real_time_data_from_eod(symbols, api_key=default_eod_key, is_print=False
   
     # post process downloaded real-time data
     real_time_data = pd.DataFrame(real_time)
-    tz = datetime.timezone(datetime.timedelta(hours=-5))
+    to_drop = []
     for idx, row in real_time_data.iterrows():
-      real_time_data.loc[idx, 'latest_time'] = util.timestamp_2_time(real_time_data.loc[idx, 'timestamp'], unit='s').astimezone(est_tz).replace(tzinfo=None)
-      real_time_data.loc[idx, 'code'] = real_time_data.loc[idx, 'code'].split('.')[0]
-
+      
+      try:
+        real_time_data.loc[idx, 'latest_time'] = util.timestamp_2_time(real_time_data.loc[idx, 'timestamp'], unit='s').astimezone(est_tz).replace(tzinfo=None)
+        real_time_data.loc[idx, 'code'] = real_time_data.loc[idx, 'code'].split('.')[0]
+      except Exception as e:
+        print(e)
+        print(row)
+        to_drop.append(idx)
+        continue
+    
+    real_time_data.drop(to_drop, inplace=True)
     real_time_data['Date'] = real_time_data['latest_time'].apply(lambda x: x.date())
     real_time_data['Adj Close'] = real_time_data['close'].copy()
     real_time_data['dividend'] = 0.0
@@ -588,7 +596,9 @@ def get_real_time_data_from_eod(symbols, api_key=default_eod_key, is_print=False
     
   result.rename(columns={'code':'symbol', 'open':'Open', 'high':'High', 'low':'Low', 'close':'Close', 'adjusted_close': 'Adj Close', 'volume': 'Volume', 'dividend':'Dividend', 'split': 'Split'}, inplace=True)
   result.drop(['timestamp', 'gmtoffset'], axis=1, inplace=True)
-    
+
+  result
+
   return result
 
 
