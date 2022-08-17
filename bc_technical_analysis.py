@@ -4612,7 +4612,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
   idxs = df.index.tolist()
   max_idx = idxs[-1]
   min_idx = df.index.min()
-  max_x = max_idx + datetime.timedelta(days=1)
+  max_x = max_idx + datetime.timedelta(days=5)
   padding = (df.High.max() - df.Low.min()) / 100
 
   # wave_hatch = '----'
