@@ -12,12 +12,14 @@
     ],
     "etf_3x": [
         "TQQQ", "UPRO", "UDOW",
-        "TECL", "SOXL", "LABU",
-        "FAS", "BNKU", "DRN", "TNA",
-        "EDC", "CHAU", "YINN", "CQQQ"
+        "TECL", "SOXL", "WEBL", 
+        "FAS", "BNKU", "DRN", "TNA", "NAIL",
+        "LABU", "DUSL", "UTSL", "RETL",
+        "UGL", "UYM", "ERX", "BOIL", "UCO",
+        "CHAU", "YINN", "CQQQ", "CWEB", "JPNL", "KORU", "MEXX", "EURL", "EDC"
     ],
     "company_star": [
-        "AAPL", "MSFT", "AMZN", "TSLA", "META", "TSM", "NVDA", "JNJ", "UNH", "V", "XOM", "JPM", "MA", "PG", "CVX", "WMT", "HD", "PFE", "BAC", "LLY", "KO", "BABA", "ABBV", "NVO", "AVGO", "ASML", "PEP", "TM", "MRK", "SHEL", "TMO", "VZ", "COST", "ABT", "ADBE", "AZN", "DIS", "NVS", "ORCL", "ACN", "DHR", "CMCSA", "NKE", "CSCO", "MCD", "CRM", "INTC", "TMUS", "AMD", "WFC", "BHP", "LIN", "PM", "UPS", "BMY", "NEE", "QCOM", "TXN", "TTE", "COP", "T", "MS", "RY", "RTX", "UNP", "TD", "HSBC", "SNY", "HON", "AMGN", "SCHW", "IBM", "MDT", "AXP", "LOW", "CVS", "RIO", "AMT", "UL", "EQNR", "CAT", "SAP", "LMT", "INTU", "SPGI", "SONY", "DE", "BUD", "GS", "DEO", "HDB", "BP", "GSK", "BLK", "BTI", "PYPL", "AMAT", "C", "PTR"    
+        "AAPL", "MSFT", "AMZN", "TSLA", "META", "NVDA", "PFE", "WMT", "HD", "COST"
     ],
     "universe": [
         "TQQQ", "UPRO", "UDOW", "TQQQ", "CHAU", "CQQQ", "YINN", "SOXL", "TECL", "GLD"
