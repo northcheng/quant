@@ -7,11 +7,10 @@
     ],
     "etf_3x": [
         "TQQQ", "UPRO", "UDOW",
-        "TECL", "SOXL", "WEBL", 
         "FAS", "BNKU", "DRN", "TNA", "NAIL",
-        "LABU", "DUSL", "UTSL", "RETL",
+        "TECL", "SOXL", "LABU", "DUSL", "UTSL", "RETL",
         "UGL", "UYM", "ERX", "BOIL", "UCO",
-        "CHAU", "YINN", "CQQQ", "CWEB", "JPNL", "KORU", "MEXX", "EURL", "EDC"
+        "EURL", "EDC", "YINN", "CHAU", "CWEB"
     ],
     "company_star": [
         "AAPL", "MSFT", "AMZN", "TSLA", "META", "NVDA", "PFE", "WMT", "HD", "COST"
