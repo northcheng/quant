@@ -143,7 +143,7 @@
       "support": "支撑",
       "resistant": "阻挡",
 
-      "kama_fast_slope": "涨跌速率",
+      "kama_fast_rate": "涨跌速率",
 
       "prev_adx_extreme": "ADX起始",
       "adx_value": "ADX差值",
