@@ -945,9 +945,8 @@ def calculate_ta_score(df):
     valid_neg_idx = df.query(f'-5 <= {col} < 0').index
     df.loc[valid_pos_idx, 'trigger_score'] += df.loc[valid_pos_idx, col].apply(lambda x: 0 if (np.isnan(x) or x == 0) else 1/x)
     df.loc[valid_neg_idx, 'trigger_score'] += df.loc[valid_neg_idx, col].apply(lambda x: 0 if (np.isnan(x) or x == 0) else 1/x)
-    df.loc[valid_pos_idx, 'trigger_score_description'] += f'| +{col_desc} '
-    df.loc[valid_neg_idx, 'trigger_score_description'] += f'| -{col_desc} '
-  df['trigger_score_description'] = df['trigger_score_description'].apply(lambda x: x[1:])
+    df.loc[valid_pos_idx, 'trigger_score_description'] += f'+{col_desc}, '
+    df.loc[valid_neg_idx, 'trigger_score_description'] += f'-{col_desc}, '
 
   # up/down score and description, score(up_score + down_score)
   df['candle_color_sda'] = sda(series=df['candle_color'], zero_as=0)
@@ -1028,30 +1027,30 @@ def calculate_ta_score(df):
     # scores
     if c[0] == '+':
       df.loc[tmp_idx, 'up_score'] += scores[c]
-      df.loc[tmp_idx, 'up_score_description'] += f'| {c} '
+      df.loc[tmp_idx, 'up_score_description'] += f'{c}, '
     elif c[0] == '-':
       df.loc[tmp_idx, 'down_score'] +=scores[c]
-      df.loc[tmp_idx, 'down_score_description'] += f'| {c} '
+      df.loc[tmp_idx, 'down_score_description'] += f'{c}, '
     else:
       print(f'{c} not recognized')
 
   # postprocess
   df['score'] = df['up_score'] + df['down_score']
   df[['score', 'up_score', 'down_score', 'trigger_score']] = df[['score', 'up_score', 'down_score', 'trigger_score']].round(2)
-  df['up_score_description'] = df['up_score_description'].apply(lambda x: x[1:])
-  df['down_score_description'] = df['down_score_description'].apply(lambda x: x[1:])
-  df['trigger_score_description'] = df['trigger_score_description'].apply(lambda x: x[1:])
+  df['up_score_description'] = df['up_score_description'].apply(lambda x: x[:-2])
+  df['down_score_description'] = df['down_score_description'].apply(lambda x: x[:-2])
+  df['trigger_score_description'] = df['trigger_score_description'].apply(lambda x: x[:-2])
 
-  # score_day
-  df['zero'] = 0
-  df['score_day'] = cal_crossover_signal(df=df, fast_line='score', slow_line='zero', pos_signal=1, neg_signal=-1, none_signal=0)
-  df['score_day'] = sda(series=df['score_day'], zero_as=1)
+  # # score_day
+  # df['zero'] = 0
+  # df['score_day'] = cal_crossover_signal(df=df, fast_line='score', slow_line='zero', pos_signal=1, neg_signal=-1, none_signal=0)
+  # df['score_day'] = sda(series=df['score_day'], zero_as=1)
 
-  # drop redundant columns
-  columns_to_drop = ['zero'] #, 'candle_color_sda', 'rate_direction_sda', 'prev_candle_entity_top', 'prev_candle_entity_bottom', 'entity_diff', 'shadow_diff'# , 'cloud_top', 'cloud_bottom'
-  for col in columns_to_drop:
-    if col in df.columns:
-      df.drop(col, axis=1, inplace=True)
+  # # drop redundant columns
+  # columns_to_drop = ['zero'] #, 'candle_color_sda', 'rate_direction_sda', 'prev_candle_entity_top', 'prev_candle_entity_bottom', 'entity_diff', 'shadow_diff'# , 'cloud_top', 'cloud_bottom'
+  # for col in columns_to_drop:
+  #   if col in df.columns:
+  #     df.drop(col, axis=1, inplace=True)
 
   return df
 
@@ -1071,10 +1070,6 @@ def calculate_ta_signal(df):
 
   # add ta score and description
   df = calculate_ta_score(df)
-  df['zero'] = 0
-  df['score_signal'] = cal_crossover_signal(df=df, fast_line='score', slow_line='zero', pos_signal=1, neg_signal=-1, none_signal=0)
-  df['score_day'] = sda(df['score_signal'], zero_as=1)
-  df['rank_score'] = df['trigger_score'] + df['score']
 
   # trend
   conditions = {
@@ -1088,15 +1083,31 @@ def calculate_ta_signal(df):
   df = assign_condition_value(df=df, column='trend', condition_dict=conditions, value_dict=values, default_value='')
   df['trend_day'] = sda(series=df['trend'].replace({'u':1, 'd':-1, '': 0}), zero_as=None)
 
-  # label potential
+  # major score
+  df['major_score'] = 0
+  df['major_score_description'] = ''
+  major_conditions = {
+    'adx':          f'(0 < adx_day <= 5)',
+    'ichimoku':     f'(0 < ichimoku_fs_signal <= 5)',
+    'kama':         f'(0 < kama_fs_signal <= 5)'
+  }
+  for c in major_conditions.keys():
+    tmp_condition = major_conditions[c]
+    tmp_idx = df.query(tmp_condition).index
+    df.loc[tmp_idx, 'major_score'] += 1
+    df.loc[tmp_idx, 'major_score_description'] += f'{c}, '
+  df['major_score_description'] = df['major_score_description'].apply(lambda x: x[:-2])
+
+  # label score
   df['label'] = ''
   df['label_score'] = 0
   df['label_description'] = ''
   potential_conditions = {
-    'main':         f'(5 >= trend_day > 0) and (trend_idx >= 1) and ((0 < adx_day <= 5) or (0 < ichimoku_fs_signal <= 5) or (0 < kama_fs_signal <= 5) or (0 < kama_fast_signal <= 5) or (0 < kama_slow_signal <= 5) or (0 < tankan_signal <= 5) or (0 < kijun_signal <= 5))',
-    'trend':        f'(3 >= trend_day > 0)',
+    'major':        f'(major_score >= 2) and (trend_idx >= 1)',
     'trigger':      f'(trigger_score >= 1)',
-    # 'score':      f'(5 >= score_day > 0) and (trigger_score >= 1)',
+    'trend':        f'(3 >= trend_day > 0)',
+    'score':        f'(major_score > 0) and (trigger_score > 0) and (score > 0)'
+    
     # 'adx':        f'(5 >= adx_day > 0) and (trigger_score >= 1) and (kama_distance < 0)', 
     # 'kama':       f'(5 >= kama_fs_signal > 0) and (trigger_score >= 1)',
     # 'ichimoku':   f'(5 >= ichimoku_fs_signal > 0 and ichimoku_distance > 0.001)',
@@ -1107,7 +1118,7 @@ def calculate_ta_signal(df):
     tmp_idx = df.query(tmp_condition).index
     df.loc[tmp_idx, 'label'] = 'potential'
     df.loc[tmp_idx, 'label_score'] += 1
-    df.loc[tmp_idx, 'label_description'] += f'{c},'
+    df.loc[tmp_idx, 'label_description'] += f'{c}, '
 
   # remove false alarm
   none_potential_idx = []
@@ -1134,25 +1145,15 @@ def calculate_ta_signal(df):
     tmp_idx = df.query(tmp_condition).index
     none_potential_idx += tmp_idx.tolist()
     df.loc[tmp_idx, 'label_score'] += -1
-    df.loc[tmp_idx, 'label_description'] += f'{c},'
+    df.loc[tmp_idx, 'label_description'] += f'{c}, '
   none_potential_idx = list(set(none_potential_idx))
   df.loc[none_potential_idx, 'label'] = ''
+  df['label_description'] = df['label_description'].apply(lambda x: x[:-2])
 
-  # # # label signal
-  # df['signal'] = ''
-  # conditions = {
-  #   'buy':    'trend == "u"', 
-  #   'sell':   'trend == "d" or adx_trend == "d"',
-  # } 
-  # values = {
-  #   'buy':    'b', 
-  #   'sell':   's',
-  # }
-  # df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
-  # df = remove_redundant_signal(df=df, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='', keep='first')
-
-  # remove redandunt columns
-  df.drop(['zero', 'score_signal', 'score_day'], axis=1, inplace=True) #, 'cloud_top', 'cloud_bottom'
+  # # label signal
+  df['signal'] = ''
+  # signal_idx = df.query('signal == "b"').index
+  # df.loc[signal_idx, 'label'] = 'signal'
 
   return df
 
@@ -1219,7 +1220,6 @@ def postprocess(df, keep_columns, drop_columns, sec_names, target_interval=''):
 
   # rename columns, keep 3 digits
   df = df[list(keep_columns.keys())].rename(columns=keep_columns).round(3)
-  df[['ADX差值', 'ADX强度']] = df[['ADX差值', 'ADX强度']].round(0)
   
   # add target-interval info
   df['ti'] = target_interval
@@ -4377,15 +4377,15 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     for i in ['pos', 'neg', 'wave']:
       tmp_trend_value = trend_val[f'{i}_trend']
       tmp_data = df.query(f'{trend_col} == "{tmp_trend_value}"')
-      # if trend_col == 'trend' and i=='wave' and 'uncertain_trend' in df.columns:
-      #   uncertain_up = tmp_data.query('uncertain_trend == "u"')
-      #   uncertain_down = tmp_data.query('uncertain_trend == "d"')
-      #   uncertain_wave = tmp_data.query('trend == "n" and uncertain_trend != "u" and uncertain_trend != "d"')
-      #   ax.scatter(uncertain_up.index, uncertain_up[signal_y], marker=style[f'{i}_trend_marker'], color=style[f'pos_color'], alpha=style['trend_alpha'])
-      #   ax.scatter(uncertain_down.index, uncertain_down[signal_y], marker=style[f'{i}_trend_marker'], color=style[f'neg_color'], alpha=style['trend_alpha'])
-      #   ax.scatter(uncertain_wave.index, uncertain_wave[signal_y], marker=style[f'{i}_trend_marker'], color=style[f'wave_color'], alpha=style['trend_alpha'])
-      # else:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=style[f'{i}_trend_marker'], color=style[f'{i}_color'], alpha=style['trend_alpha'])
+      if trend_col == 'trend' and i=='wave' and 'uncertain_trend' in df.columns:
+        uncertain_up = tmp_data.query('uncertain_trend == "u"')
+        uncertain_down = tmp_data.query('uncertain_trend == "d"')
+        uncertain_wave = tmp_data.query('trend == "n" and uncertain_trend != "u" and uncertain_trend != "d"')
+        ax.scatter(uncertain_up.index, uncertain_up[signal_y], marker=style[f'{i}_trend_marker'], color=style[f'pos_color'], alpha=style['trend_alpha'])
+        ax.scatter(uncertain_down.index, uncertain_down[signal_y], marker=style[f'{i}_trend_marker'], color=style[f'neg_color'], alpha=style['trend_alpha'])
+        ax.scatter(uncertain_wave.index, uncertain_wave[signal_y], marker=style[f'{i}_trend_marker'], color=style[f'wave_color'], alpha=style['trend_alpha'])
+      else:
+        ax.scatter(tmp_data.index, tmp_data[signal_y], marker=style[f'{i}_trend_marker'], color=style[f'{i}_color'], alpha=style['trend_alpha'])
   
   # annotate number of days since signal triggered
   annotate_signal_day = True
@@ -4403,12 +4403,9 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     text_color = 'red' if text_day < 0 else 'green'
     plt.annotate(f'{signal_x[:4]}:{text_day} ', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.05))
 
-  # plot potential
-  if signal_x == 'signal':
-    tmp_data = df.query(f'label == "potential"')
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='^', color='none', edgecolor='black', alpha=0.5)
-    
   # plot signal
+  potential_idx = df.query('label == "potential"').index
+  df.loc[potential_idx, 'signal'] = 'b'
   # signal_val = {'pos_signal':'b', 'neg_signal':'s', 'none_signal':'', 'wave_signal': 'n'}
   if signal_x in df.columns:
     for i in ['pos', 'neg']:
@@ -5363,7 +5360,7 @@ def plot_scatter(df, target_col, start=None, end=None, marker='.', alpha=1, colo
     return ax
 
 # plot rate and trigger_score/score for each target list
-def plot_summary(data, width=20, unit_size=0.3, wspace=0, hspace=0.1, plot_args=default_plot_args, config=None, save_path=None):
+def plot_summary(data, width=20, unit_size=0.3, wspace=0, hspace=0.4, plot_args=default_plot_args, config=None, save_path=None):
   """
   Plot rate and trigger_score/score for each target list
   :param data: dict of dataframes including 'result'
