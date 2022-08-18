@@ -718,17 +718,6 @@ def calculate_ta_dynamic(df, perspective=default_perspectives):
   # derivatives calculation
   try:
 
-    # ================================ linear regression for ichimoku and kama ===
-    max_idx = df.index.max()
-    train_period = 5
-    for col in ['tankan', 'kijun', 'kama_fast', 'kama_slow']:
-      if col in df.columns:
-        train_x = list(range(1, train_period+1))
-        train_y = df[col].tail(train_period).values.tolist()
-        reg_result = linregress(train_x, train_y)
-        df.loc[max_idx, f'{col}_slope'] = reg_result[0]
-        df.loc[max_idx, f'{col}_intercept'] = reg_result[1]
-
     # ================================ renko analysis ============================
     phase = 'renko analysis'
     if 'renko' in perspective:
@@ -4612,7 +4601,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
   idxs = df.index.tolist()
   max_idx = idxs[-1]
   min_idx = df.index.min()
-  max_x = max_idx + datetime.timedelta(days=5)
+  max_x = max_idx + datetime.timedelta(days=1.5)
   padding = (df.High.max() - df.Low.min()) / 100
 
   # wave_hatch = '----'
@@ -4968,32 +4957,6 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
     # alpha = 0.1
     # ax.fill_between(df.index, df.kama_fast, df.kama_slow, where=df.kama_fast > df.kama_slow, facecolor='green', interpolate=True, alpha=alpha, zorder=-1)
     # ax.fill_between(df.index, df.kama_fast, df.kama_slow, where=df.kama_fast <= df.kama_slow, facecolor='red', interpolate=True, alpha=alpha, zorder=-1)
-  
-  # plot linear regression prediction for ichimoku/kama fast/slow lines
-  train_period = 5
-  predict_period = 5
-  pred = {}
-  for col in ['tankan', 'kijun', 'kama_fast', 'kama_slow']:
-    if col in df.columns:
-      
-      slope = df.loc[max_idx, f'{col}_slope']
-      intercept = df.loc[max_idx, f'{col}_intercept']
-
-      x = [max_idx]
-      y = [df.loc[max_idx, col]]
-      for nd in range(predict_period):
-        x.append(max_idx + datetime.timedelta(days=nd+1))
-        y.append(slope * (train_period+nd+1) + intercept)
-      pred[col] = y
-      ax.plot(x, y, color=plot_colors[col], linestyle=plot_linestyles[col], alpha=0.8)
-      
-      if 'tankan' in pred.keys() and 'kijun' in pred.keys():
-        green_idx = []
-        for i in range(len(pred['tankan'])):
-          green_idx.append(x[i] if pred['tankan'][i] > pred['kijun'][i] else False)
-        red_idx = [not x for x in green_idx]
-        ax.fill_between(x, pred['tankan'], pred['kijun'], where=green_idx, facecolor='white', edgecolor='green', interpolate=True, hatch='----', alpha=0.1, zorder=1)
-        ax.fill_between(x, pred['tankan'], pred['kijun'], where=red_idx, facecolor='white', edgecolor='red', interpolate=True, hatch='----', alpha=0.1, zorder=1)
   
   # plot bollinger bands
   if 'bb' in target_indicator:
