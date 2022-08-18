@@ -1152,8 +1152,16 @@ def calculate_ta_signal(df):
 
   # # label signal
   df['signal'] = ''
-  # signal_idx = df.query('signal == "b"').index
-  # df.loc[signal_idx, 'label'] = 'signal'
+  # conditions = {
+  #   'buy':    'trend == "u"', 
+  #   'sell':   'trend == "d" or adx_trend == "d"',
+  # } 
+  # values = {
+  #   'buy':    'b', 
+  #   'sell':   's',
+  # }
+  # df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
+  # df = remove_redundant_signal(df=df, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='', keep='first')
 
   return df
 
@@ -4377,15 +4385,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     for i in ['pos', 'neg', 'wave']:
       tmp_trend_value = trend_val[f'{i}_trend']
       tmp_data = df.query(f'{trend_col} == "{tmp_trend_value}"')
-      if trend_col == 'trend' and i=='wave' and 'uncertain_trend' in df.columns:
-        uncertain_up = tmp_data.query('uncertain_trend == "u"')
-        uncertain_down = tmp_data.query('uncertain_trend == "d"')
-        uncertain_wave = tmp_data.query('trend == "n" and uncertain_trend != "u" and uncertain_trend != "d"')
-        ax.scatter(uncertain_up.index, uncertain_up[signal_y], marker=style[f'{i}_trend_marker'], color=style[f'pos_color'], alpha=style['trend_alpha'])
-        ax.scatter(uncertain_down.index, uncertain_down[signal_y], marker=style[f'{i}_trend_marker'], color=style[f'neg_color'], alpha=style['trend_alpha'])
-        ax.scatter(uncertain_wave.index, uncertain_wave[signal_y], marker=style[f'{i}_trend_marker'], color=style[f'wave_color'], alpha=style['trend_alpha'])
-      else:
-        ax.scatter(tmp_data.index, tmp_data[signal_y], marker=style[f'{i}_trend_marker'], color=style[f'{i}_color'], alpha=style['trend_alpha'])
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=style[f'{i}_trend_marker'], color=style[f'{i}_color'], alpha=style['trend_alpha'])
   
   # annotate number of days since signal triggered
   annotate_signal_day = True
@@ -4403,10 +4403,12 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     text_color = 'red' if text_day < 0 else 'green'
     plt.annotate(f'{signal_x[:4]}:{text_day} ', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.05))
 
+  # plot potential
+  if signal_x == 'signal':
+    tmp_data = df.query(f'label == "potential"')
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='^', color='none', edgecolor='black', alpha=0.5)
+
   # plot signal
-  potential_idx = df.query('label == "potential"').index
-  df.loc[potential_idx, 'signal'] = 'b'
-  # signal_val = {'pos_signal':'b', 'neg_signal':'s', 'none_signal':'', 'wave_signal': 'n'}
   if signal_x in df.columns:
     for i in ['pos', 'neg']:
       tmp_signal_value = signal_val[f'{i}_signal']
