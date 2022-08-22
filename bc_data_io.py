@@ -1778,7 +1778,8 @@ def process_futu_exported(file_path, file_name):
   
   # for chinese stock symbols
   for index, row in universe.iterrows():
-    current_symbol = row['代码']
+    current_symbol = str(row['代码'])
+
     if len(current_symbol) == 6:
       new_symbol = current_symbol
       if current_symbol[0] == '6':
