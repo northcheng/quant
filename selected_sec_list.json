@@ -3,14 +3,17 @@
         "TQQQ", "AAPL"
     ],
     "etf_idx": [
-        "SPY", "DIA", "UVXY", "GLD"
+        "SPY", "DIA", "UVXY", "GLD",
+        "EWH", "EWT", "EWJ", "EWY", "EWS", 
+        "THD", "VNM", "EIDO", "EPHE", "EWM", "INDA", 
+        "ERUS", "EWU", "EZU", "EWA", "EWC", "EWZ", "ENZL"
     ],
     "etf_3x": [
         "TQQQ", "UPRO", "UDOW",
-        "FAS", "BNKU", "DRN", "TNA", "NAIL",
-        "TECL", "SOXL", "LABU", "DUSL", "UTSL", "RETL",
+        "FAS", "BNKU", "DRN", "TNA", "RETL",
+        "TECL", "SOXL", "LABU", "DUSL", "UTSL",
         "UGL", "UYM", "ERX", "BOIL", "UCO",
-        "EURL", "EDC", "YINN", "CHAU", "CWEB"
+        "EURL", "EDC", "YINN", "CHAU"
     ],
     "company_star": [
         "AAPL", "MSFT", "AMZN", "TSLA", "META", "NVDA", "PFE", "WMT", "HD", "COST"
