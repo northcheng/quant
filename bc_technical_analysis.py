@@ -1103,10 +1103,10 @@ def calculate_ta_signal(df):
   df['label_score'] = 0
   df['label_description'] = ''
   potential_conditions = {
-    'major':        f'(major_score >= 2) and (trend_idx >= 1)',
-    'trigger':      f'(trigger_score >= 1)',
-    'trend':        f'(3 >= trend_day > 0)',
-    'score':        f'(major_score > 0) and (trigger_score > 0) and (score > 0)'
+    '典型买入':       f'(major_score >= 2) and (trend_idx >= 1)',
+    '触发买入':       f'(trigger_score >= 1)',
+    '趋势转好':       f'(3 >= trend_day > 0)',
+    '分数达标':       f'(major_score > 0) and (trigger_score > 0) and (score > 0)'
     
     # 'adx':        f'(5 >= adx_day > 0) and (trigger_score >= 1) and (kama_distance < 0)', 
     # 'kama':       f'(5 >= kama_fs_signal > 0) and (trigger_score >= 1)',
@@ -1123,18 +1123,18 @@ def calculate_ta_signal(df):
   # remove false alarm
   none_potential_idx = []
   none_potential_conditions = {
-    'pattern wave':     f'label == "potential" and ((十字星 != "n") or ((rate < 0 or candle_color == -1) and (0 > 平头_day >= -3 or 0 > 腰带_day >= -3)) or (相对窗口位置 == "mid" or (candle_color == -1 and (相对窗口位置 == "mid_up" or 相对窗口位置 == "mid_down"))))',
-    'pattern down':     f'label == "potential" and (窗口_day == -1 or 反弹_day == -1 or 突破_day == -1 or 锤子_day == -1 or 流星_day == -1 or 穿刺_day == -1 or 启明黄昏_day == -1)',
-    'window':           f'label == "potential" and ((相对窗口位置 in ["mid", "mid_up", "mid_down", "out"] and candle_entity_middle < candle_gap_top))',
+    '蜡烛波动':       f'label == "potential" and ((十字星 != "n") or ((rate < 0 or candle_color == -1) and (0 > 平头_day >= -3 or 0 > 腰带_day >= -3)) or (相对窗口位置 == "mid" or (candle_color == -1 and (相对窗口位置 == "mid_up" or 相对窗口位置 == "mid_down"))))',
+    '蜡烛下降':       f'label == "potential" and (窗口_day == -1 or 反弹_day == -1 or 突破_day == -1 or 锤子_day == -1 or 流星_day == -1 or 穿刺_day == -1 or 启明黄昏_day == -1)',
+    '窗口阻挡':       f'label == "potential" and ((相对窗口位置 in ["mid", "mid_up", "mid_down", "out"] and candle_entity_middle < candle_gap_top))',
     
-    'price fall':       f'label == "potential" and ((candle_color == -1 or rate < 0) or (shadow_trend == "u" and upper_shadow_trend == "u") or (candle_color == -1 and entity_trend == "u"))',
-    'price high':       f'label == "potential" and (adx_day > 5) and (kama_fs_signal >= 10 and ichimoku_fs_signal >= 10 and Close > kama_fast and Close > tankan)',
+    '价格下跌':       f'label == "potential" and ((candle_color == -1 or rate < 0) or (shadow_trend == "u" and upper_shadow_trend == "u") or (candle_color == -1 and entity_trend == "u"))',
+    '价格过高':       f'label == "potential" and (adx_day > 5) and (kama_fs_signal >= 10 and ichimoku_fs_signal >= 10 and Close > kama_fast and Close > tankan)',
     
-    'adx wave':         f'label == "potential" and (adx_value_change < 5 and adx_strong_day < -10) and ((adx_wave_day > 10) or (adx_value_change_std < 1) or (-10 < adx_direction_start < 10))',
-    'adx down':         f'label == "potential" and (adx_day < 0)',
-    'trend down':       f'label == "potential" and (trend_idx < 0)',
+    'adx波动':        f'label == "potential" and (adx_value_change < 5 and adx_strong_day < -10) and ((adx_wave_day > 10) or (adx_value_change_std < 1) or (-10 < adx_direction_start < 10))',
+    'adx下降':        f'label == "potential" and (adx_trend == "d")',
+    '趋势下降':       f'label == "potential" and (trend_idx < 0)',
     
-    'not yet':          f'label == "potential" and (kama_distance < 0) and ((candle_entity_middle < kama_fast) or (candle_entity_middle < cloud_bottom))'
+    '仍未突破':       f'label == "potential" and (kama_distance < 0) and ((candle_entity_middle < kama_fast) or (candle_entity_middle < cloud_bottom))'
     } 
 
   if 'linear_slope' in df.columns:
@@ -1150,10 +1150,10 @@ def calculate_ta_signal(df):
   df.loc[none_potential_idx, 'label'] = ''
   df['label_description'] = df['label_description'].apply(lambda x: x[:-2])
 
-  # # label signal
-  df['signal'] = ''
+  # # # label signal
+  # df['signal'] = ''
   # conditions = {
-  #   'buy':    'trend == "u"', 
+  #   'buy':    'label == "potential"', 
   #   'sell':   'trend == "d" or adx_trend == "d"',
   # } 
   # values = {
