@@ -1151,7 +1151,7 @@ def calculate_ta_signal(df):
   df['label_description'] = df['label_description'].apply(lambda x: x[:-2])
 
   # # # label signal
-  # df['signal'] = ''
+  df['signal'] = ''
   # conditions = {
   #   'buy':    'label == "potential"', 
   #   'sell':   'trend == "d" or adx_trend == "d"',
