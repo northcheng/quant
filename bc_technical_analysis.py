@@ -1074,7 +1074,7 @@ def calculate_ta_signal(df):
   # trend
   conditions = {
     'up':     'score > 2', #'adx_trend == "u" and trend_idx > 0',
-    'down':   'score <-2', #'adx_trend == "d"',
+    'down':   'score <-2 or (kama_fast_signal == -1 or kama_slow_signal == -1)', #'adx_trend == "d"',
   } 
   values = {
     'up':     'u', 
@@ -1916,7 +1916,7 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
 
     # X_diff: (X-mean(X, 30))/std(X, 30)
     ma_period = 30
-    std_factor = 0.75
+    std_factor = 0.7
     for col in ['entity', 'shadow']:
       df[f'{col}_ma'] = sm(series=df[f'candle_{col}'], periods=ma_period).mean()
       df[f'{col}_std'] = sm(series=df[f'candle_{col}'], periods=ma_period).std()
@@ -2127,7 +2127,7 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
         pass
       else:
         # =================================== 包孕形态 ==================================== #
-        if (previous_row['candle_entity_top'] > row['candle_entity_top']) and (previous_row['candle_entity_bottom'] < row['candle_entity_bottom']):
+        if (previous_row['candle_entity_top'] > row['candle_entity_top']) and (previous_row['candle_entity_bottom'] < row['candle_entity_bottom']) and (previous_row['High'] > row['High']) and (previous_row['Low'] < row['Low']):
           
           # 空头包孕: 位于顶部, 1-绿, 2-红
           if row['极限_trend'] == 'u':
@@ -2144,7 +2144,7 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
 
         # =================================== 乌云盖顶  =================================== #
         # 1-必须为绿色, 2-必须为红色长实体
-        if (row['位置_trend'] != 'u' or row['entity_trend'] == 'd' or row['candle_color'] == 1 or previous_row['candle_color'] == -1):
+        if (row['位置_trend'] != 'u' or row['entity_trend'] == 'd' or row['candle_color'] == 1 or previous_row['candle_color'] == -1 or previous_row['entity_trend'] == "d"):
           pass
         else:
           # 顶部>前顶部, 底部>前底部, 底部穿过前中点
@@ -2171,7 +2171,7 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
 
         # =================================== 穿刺形态  =================================== #
         # 1-必须为红色, 2-必须为绿色长实体
-        if (row['位置_trend'] != 'd' or row['entity_trend'] == 'd' or row['candle_color'] == -1 or previous_row['candle_color'] == 1):
+        if (row['位置_trend'] != 'd' or row['entity_trend'] != 'u' or row['candle_color'] == -1 or previous_row['candle_color'] == 1):
           pass
         else:
           # 顶部<=前顶部, 底部<前底部, 顶部穿过前中点
