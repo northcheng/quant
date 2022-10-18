@@ -3838,7 +3838,7 @@ def add_rsi_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_si
   # volume = ohlcv_col['volume']
 
   # calculate RSI
-  diff = df[close].pct_change(1)
+  diff = df[close].diff(1)#pct_change(1)
   
   up = diff.copy()
   up[diff < 0] = 0
@@ -3862,6 +3862,51 @@ def add_rsi_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_si
   if cal_signal:
     df['rsi_signal'] = cal_boundary_signal(df=df, upper_col='rsi', lower_col='rsi', upper_boundary=max(boundary), lower_boundary=min(boundary), pos_signal='s', neg_signal='b', none_signal='n')
     df = remove_redundant_signal(df=df, signal_col='rsi_signal', pos_signal='s', neg_signal='b', none_signal='n', keep='first')
+
+  return df
+
+# Stochastic RSI
+def add_srsi_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True, boundary=[20, 80]):
+  """
+  Calculate Stochastic RSI
+
+  :param df: original OHLCV dataframe
+  :param n: ma window size
+  :param ohlcv_col: column name of Open/High/Low/Close/Volume
+  :param fillna: whether to fill na with 0
+  :param cal_signal: whether to calculate signal
+  :param boundary: boundaries for overbuy/oversell
+  :returns: dataframe with new features generated
+  """
+  # copy dataframe
+  df = df.copy()
+
+  # set column names
+  # open = ohlcv_col['open']
+  high = ohlcv_col['high']
+  low = ohlcv_col['low']
+  close = ohlcv_col['close']
+  # volume = ohlcv_col['volume']
+
+  # calculate rsi
+  df = add_rsi_features(df, n=n, ohlcv_col=ohlcv_col, cal_signal=False)
+  
+  # calculate stochastic
+  rsi_min = df['rsi'].rolling(n, min_periods=0).min()
+  rsi_max = df['rsi'].rolling(n, min_periods=0).max()
+  stoch_rsi = (df['rsi'] - rsi_min) / (rsi_max - rsi_min)
+  
+  # fill na values, as 50 is the central line (rsi wave between 0-100)
+  if fillna:
+    stoch_rsi = stoch_rsi.replace([np.inf, -np.inf], np.nan).fillna(50)
+
+  # assign stochastic values to df
+  df['srsi'] = stoch_rsi
+
+  # calculate signals
+  if cal_signal:
+    df['srsi_signal'] = cal_boundary_signal(df=df, upper_col='srsi', lower_col='srsi', upper_boundary=max(boundary), lower_boundary=min(boundary), pos_signal='s', neg_signal='b', none_signal='n')
+    df = remove_redundant_signal(df=df, signal_col='srsi_signal', pos_signal='s', neg_signal='b', none_signal='n', keep='first')
 
   return df
 
@@ -4337,6 +4382,42 @@ def add_kc_features(df, n=10, ohlcv_col=default_ohlcv_col, method='atr', fillna=
 
   return df
 
+# Ulcer Index
+def add_ui_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=False):
+  """
+  Calculate Ulcer Index
+
+  :param df: original OHLCV dataframe
+  :param n: look back window size
+  :param ohlcv_col: column name of Open/High/Low/Close/Volume
+  :param fillna: whether to fill na with 0
+  :param cal_signal: whether to calculate signal
+  :returns: dataframe with new features generated
+  """
+  # copy dataframe
+  df = df.copy()
+
+  # set column names
+  # open = ohlcv_col['open']
+  high = ohlcv_col['high']
+  low = ohlcv_col['low']
+  close = ohlcv_col['close']
+  # volume = ohlcv_col['volume']
+
+  # calculate UI
+  recent_max_close = df[close].rolling(n, min_periods=0).max()
+  pct_drawdown = ((df[close] - recent_max_close) / recent_max_close) * 100
+  sqr_avg = (pct_drawdown ** 2).rolling(n).mean()
+  ui = np.sqrt(sqr_avg)
+
+  # fill na values
+  if fillna:
+    ui = ui.replace([np.inf, -np.inf], np.nan).fillna(method='backfill')
+
+  # assign values to df
+  df['ui'] = ui
+
+  return df
 
 # ================================================ Other indicators ================================================= #
 
