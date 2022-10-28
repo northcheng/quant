@@ -6,7 +6,7 @@
         "SPY", "DIA", "UVXY", "GLD", "UUP",
         "EWH", "EWT", "EWJ", "EWY", "EWS", 
         "THD", "VNM", "EIDO", "EPHE", "EWM", "INDA", 
-        "ERUS", "EWU", "EZU", "EWA", "EWC", "EWZ", "ENZL"
+        "EWU", "EZU", "EWA", "EWC", "EWZ", "ENZL"
     ],
     "etf_3x": [
         "TQQQ", "UPRO", "UDOW",
