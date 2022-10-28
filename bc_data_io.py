@@ -585,7 +585,11 @@ def get_real_time_data_from_eod(symbols, api_key=default_eod_key, is_print=False
         continue
     
     real_time_data.drop(to_drop, inplace=True)
-    real_time_data['Date'] = real_time_data['latest_time'].apply(lambda x: x.date())
+    if 'latest_time' in real_time_data.columns:
+      real_time_data['Date'] = real_time_data['latest_time'].apply(lambda x: x.date())
+    else:
+      real_time_data['Date'] = None
+      
     real_time_data['Adj Close'] = real_time_data['close'].copy()
     real_time_data['dividend'] = 0.0
     real_time_data['split'] = 1.0
