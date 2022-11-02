@@ -1520,7 +1520,7 @@ def cal_change_rate(df, target_col, periods=1, add_accumulation=True, add_prefix
   """
   Calculate change rate of a column with a sliding window
   
-  :param df: original dfframe
+  :param df: original dataframe
   :param target_col: change rate of which column to calculate
   :param periods: calculate the change rate within the period
   :param add_accumulation: wether to add accumulative change rate in a same direction
@@ -5241,7 +5241,7 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   green_mask = ((df.adx_value_change > 0))# | (df.prev_adx_day > 0)) 
   red_mask = ((df.adx_value_change < 0))# | (df.prev_adx_day < 0)) 
   yellow_mask = ((df.adx_value_change == 0)) | ((df.adx_value_change > 0) & (df.prev_adx_value_change < 0)) | ((df.adx_value_change > 0) & (df.next_adx_value_change < 0)) | ((df.adx_value_change < 0) & (df.prev_adx_value_change > 0)) | ((df.adx_value_change < 0) & (df.next_adx_value_change > 0)) 
-# | ((df.adx_value_change < 0) & (df.prev_adx_day > 0)) | ((df.adx_value_change < 0) & (df.next_adx_day > 0)) | ((df.adx_trend != "n") & (df.next_adx_trend == "n")) | ((df.adx_trend == "n") & (df.next_adx_trend != "n")) | ((df.adx_trend != df.prev_adx_trend)) | ((df.adx_trend != df.next_adx_trend)) | ((df.adx_trend == "n") & (df.prev_adx_trend == "n")) | ((df.adx_trend == "n") & (df.next_adx_trend == "n"))#| ((df.adx_day < 0) & (df.adx_trend != "d")) | ((df.adx_day > 0) & (df.prev_adx_day < 0)) | ((df.adx_day < 0) & (df.prev_adx_day > 0)) | ((df.adx_day < 0) & (df.next_adx_day > 0)) | ((df.adx_day > 0) & (df.next_adx_day < 0))
+  # | ((df.adx_value_change < 0) & (df.prev_adx_day > 0)) | ((df.adx_value_change < 0) & (df.next_adx_day > 0)) | ((df.adx_trend != "n") & (df.next_adx_trend == "n")) | ((df.adx_trend == "n") & (df.next_adx_trend != "n")) | ((df.adx_trend != df.prev_adx_trend)) | ((df.adx_trend != df.next_adx_trend)) | ((df.adx_trend == "n") & (df.prev_adx_trend == "n")) | ((df.adx_trend == "n") & (df.next_adx_trend == "n"))#| ((df.adx_day < 0) & (df.adx_trend != "d")) | ((df.adx_day > 0) & (df.prev_adx_day < 0)) | ((df.adx_day < 0) & (df.prev_adx_day > 0)) | ((df.adx_day < 0) & (df.next_adx_day > 0)) | ((df.adx_day > 0) & (df.next_adx_day < 0))
  
   ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=green_mask,  facecolor='green', interpolate=False, alpha=0.3, label='adx up') 
   ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=red_mask, facecolor='red', interpolate=False, alpha=0.3, label='adx down')
@@ -5271,15 +5271,25 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   ax.scatter(strong_trend_idx, df.loc[strong_trend_idx, 'adx'], color=df.loc[strong_trend_idx, 'adx_color'], label='adx strong', alpha=0.4, marker='s')
   ax.scatter(weak_trend_idx, df.loc[weak_trend_idx, 'adx'], color=df.loc[weak_trend_idx, 'adx_color'], label='adx weak', alpha=0.4, marker='_')
 
+  # plot predicted value of adx_value
+  next_idx = df.index.max() + datetime.timedelta(days=1)
+  df.loc[next_idx] = None
+  df['adx_value_prediction'] = df['adx_value'] + df['adx_value_change']
+  df['adx_value_prediction'] = df['adx_value_prediction'].shift(1)
+  ax.plot(df.index, df.adx_value_prediction, color='black', linestyle='-.', alpha=0.5)
+
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
-  # ax.grid(True, axis='both', linestyle='--', linewidth=0.5, alpha=0.3)
+  # ax.grid(True, axis='both', linestyle='.', linewidth=0.5, alpha=0.3)
   ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
 
   # return ax
   if use_ax is not None:
     return ax
+
+  
+
 
 # plot renko chart
 def plot_renko(df, start=None, end=None, use_ax=None, title=None, plot_in_date=True, close_alpha=0.5, save_path=None, save_image=False, show_image=False, plot_args=default_plot_args):
