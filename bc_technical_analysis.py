@@ -692,6 +692,35 @@ def calculate_ta_static(df, indicators=default_indicators):
       # calculate overall trend index 
       df['trend_idx'] = df['up_trend_idx'] + df['down_trend_idx']      
 
+    phase = 'calculate support and resistant'
+
+    # ================================ support & resistant ====================
+    target_indicator = 'support_resistant'
+    if target_indicator > '':
+
+      # candle support & resistant
+      # calculate distance from High/Low to gap_top/gap_bottom, find the minimum one
+      df['h_2_gt'] = abs(df['High'] - df['candle_gap_top']) / df['High']
+      df['h_2_gb'] = abs(df['High'] - df['candle_gap_bottom']) / df['High']
+      df['l_2_gt'] = abs(df['Low'] - df['candle_gap_top']) / df['Low']
+      df['l_2_gb'] = abs(df['Low'] - df['candle_gap_bottom']) / df['Low']
+      df['high_to_gap'] = df[['h_2_gt', 'h_2_gb']].min(axis=1)
+      df['high_to_gap_col'] = df[['h_2_gt', 'h_2_gb']].idxmin(axis=1)
+      df['low_to_gap'] = df[['l_2_gt', 'l_2_gb']].min(axis=1)
+      df['low_to_gap_col'] = df[['l_2_gt', 'l_2_gb']].idxmin(axis=1)
+
+      distance_threshold = 0.01
+      shadow_pct_threhold = 0.05
+      column_name = {'h_2_gt': 'candle_gap_top', 'h_2_gb': 'candle_gap_bottom', 'l_2_gt': 'candle_gap_top', 'l_2_gb': 'candle_gap_bottom'}
+
+      support_idx = df.query(f'Close > candle_gap_bottom and candle_lower_shadow_pct > {shadow_pct_threhold} and low_to_gap < {distance_threshold}').index.tolist()
+      resistant_idx = df.query(f'Close < candle_gap_top and candle_upper_shadow_pct > {shadow_pct_threhold} and high_to_gap < {distance_threshold}').index.tolist()
+      
+      df.loc[support_idx, 'candle_gap_support'] = df.loc[support_idx, 'low_to_gap']
+      df.loc[support_idx, 'candle_gap_supporter'] = df.loc[support_idx, ].apply(lambda x: np.nan if np.isnan(x.low_to_gap) else column_name[x.low_to_gap_col], axis=1)
+      df.loc[resistant_idx, 'candle_gap_resistant'] = df.loc[resistant_idx, 'high_to_gap']
+      df.loc[resistant_idx, 'candle_gap_resistanter'] = df.loc[resistant_idx, ].apply(lambda x: np.nan if np.isnan(x.high_to_gap) else column_name[x.high_to_gap_col ], axis=1)
+
   except Exception as e:
     print(f'[Exception]: @ {phase} - {target_indicator}, {e}')
     
@@ -1012,8 +1041,8 @@ def calculate_ta_score(df):
 
     # '-长期下跌':       [-5, '', '(kama_fs_signal < -25 and ichimoku_distance < 0 and (candle_entity_bottom < cloud_top or candle_entity_bottom < kama_slow)) or (kama_distance < -0.075 and candle_entity_bottom < kama_slow)'],
 
-    # '支撑':             [],
-    # '阻挡':             [],
+    '+支撑':            [2, '', '(candle_gap_support == candle_gap_support)'],
+    '-阻挡':            [-2, '', '(candle_gap_resistant == candle_gap_resistant)'],
   }
   for k in condition_status.keys():
     scores[k] = condition_status[k][0]
@@ -1125,7 +1154,7 @@ def calculate_ta_signal(df):
   none_potential_conditions = {
     '蜡烛波动':       f'label == "potential" and ((十字星 != "n") or ((rate < 0 or candle_color == -1) and (0 > 平头_day >= -3 or 0 > 腰带_day >= -3)) or (相对窗口位置 == "mid" or (candle_color == -1 and (相对窗口位置 == "mid_up" or 相对窗口位置 == "mid_down"))))',
     '蜡烛下降':       f'label == "potential" and (窗口_day == -1 or 反弹_day == -1 or 突破_day == -1 or 锤子_day == -1 or 流星_day == -1 or 穿刺_day == -1 or 启明黄昏_day == -1)',
-    '窗口阻挡':       f'label == "potential" and ((相对窗口位置 in ["mid", "mid_up", "mid_down", "out"] and candle_entity_middle < candle_gap_top))',
+    '窗口阻挡':       f'label == "potential" and ((candle_gap_resistant == candle_gap_resistant) or (相对窗口位置 in ["mid", "mid_down"] and candle_entity_middle < candle_gap_top))', #f'label == "potential" and ()',
     
     '价格下跌':       f'label == "potential" and ((candle_color == -1 or rate < 0) or (shadow_trend == "u" and upper_shadow_trend == "u") or (candle_color == -1 and entity_trend == "u"))',
     '价格过高':       f'label == "potential" and (adx_day > 5) and (kama_fs_signal >= 10 and ichimoku_fs_signal >= 10 and Close > kama_fast and Close > tankan)',
@@ -1149,6 +1178,18 @@ def calculate_ta_signal(df):
   none_potential_idx = list(set(none_potential_idx))
   df.loc[none_potential_idx, 'label'] = ''
   df['label_description'] = df['label_description'].apply(lambda x: x[:-2])
+
+  # # # # label trend
+  # df['trend'] = ''
+  # conditions = {
+  #   'up':     'kama_fast_signal == 1', 
+  #   'down':   'kama_fast_signal == -1',
+  # } 
+  # values = {
+  #   'up':     'u', 
+  #   'down':   'd',
+  # }
+  # df = assign_condition_value(df=df, column='trend', condition_dict=conditions, value_dict=values, default_value='')
 
   # # # label signal
   df['signal'] = ''
@@ -1833,12 +1874,6 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
   df['candle_gap_bottom'] = df['candle_gap_bottom'].fillna(method='ffill') 
   df['candle_gap_color'] = df['candle_gap_color'].fillna(method='ffill')
   # df['candle_gap_height'] = df['candle_gap_height'].fillna(method='ffill')
-
-  # gap support and resistant
-  support_idx = df.query(f'{close} > candle_gap_bottom').index
-  resistant_idx = df.query(f'{close} < candle_gap_top').index
-  df.loc[support_idx, 'candle_gap_support'] = df.loc[support_idx, 'candle_gap_bottom']
-  df.loc[resistant_idx, 'candle_gap_resistant'] = df.loc[resistant_idx, 'candle_gap_top']
   
   # drop intermidiate columns
   for c in ['low_prev_high', 'prev_low_high']:
@@ -4754,6 +4789,12 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
       tmp_data = df[start:end]
       ax.fill_between(df[pre_start:end].index, top_value, bottom_value, hatch=gap_hatch, facecolor=gap_color, interpolate=True, alpha=0.5, edgecolor=gap_hatch_color, linewidth=1, zorder=20) #,  
   
+    # gap support & resistant
+    support_idx = df.query('candle_gap_support == candle_gap_support').index
+    resistant_idx = df.query('candle_gap_resistant == candle_gap_resistant').index
+    ax.scatter(support_idx, df.loc[support_idx, 'Low'] * 0.98, marker='^', color='black', edgecolor='black', zorder=21)
+    ax.scatter(resistant_idx, df.loc[resistant_idx, 'High'] * 1.02, marker='v', color='black', edgecolor='black', zorder=21)
+
   # annotate close price, support/resistant(if exists)
   if 'support_resistant' in add_on:
 
@@ -5045,6 +5086,7 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
     zorder = 1
     ax.plot(df.index, df.kama_fast, label='kama_fast', color='magenta', linestyle='-', alpha=alpha, zorder=zorder) # 
     ax.plot(df.index, df.kama_slow, label='kama_slow', color='blue', linestyle='-', alpha=alpha, zorder=zorder)
+
     # alpha = 0.1
     # ax.fill_between(df.index, df.kama_fast, df.kama_slow, where=df.kama_fast > df.kama_slow, facecolor='green', interpolate=True, alpha=alpha, zorder=-1)
     # ax.fill_between(df.index, df.kama_fast, df.kama_slow, where=df.kama_fast <= df.kama_slow, facecolor='red', interpolate=True, alpha=alpha, zorder=-1)
@@ -5273,7 +5315,7 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
 
   # plot predicted value of adx_value
   next_idx = df.index.max() + datetime.timedelta(days=1)
-  df.loc[next_idx] = None
+  df.loc[next_idx] = np.nan
   df['adx_value_prediction'] = df['adx_value'] + df['adx_value_change']
   df['adx_value_prediction'] = df['adx_value_prediction'].shift(1)
   ax.plot(df.index, df.adx_value_prediction, color='black', linestyle='-.', alpha=0.5)
@@ -5287,9 +5329,6 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   # return ax
   if use_ax is not None:
     return ax
-
-  
-
 
 # plot renko chart
 def plot_renko(df, start=None, end=None, use_ax=None, title=None, plot_in_date=True, close_alpha=0.5, save_path=None, save_image=False, show_image=False, plot_args=default_plot_args):
