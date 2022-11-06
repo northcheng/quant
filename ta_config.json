@@ -160,7 +160,7 @@
       "signal": "交易信号"
     },
     "drop_columns": [],
-    "send_columns": ["名称", "总分", "+标签", "-标签"],
+    "send_columns": ["名称", "涨跌", "总分", "触发分数"],
     "save_result": true,
     "save_data": true,
     "save_pdf": true
