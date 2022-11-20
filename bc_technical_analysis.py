@@ -709,7 +709,7 @@ def calculate_ta_static(df, indicators=default_indicators):
       df['low_to_gap'] = df[['l_2_gt', 'l_2_gb']].min(axis=1)
       df['low_to_gap_col'] = df[['l_2_gt', 'l_2_gb']].idxmin(axis=1)
 
-      distance_threshold = 0.015
+      distance_threshold = 0.01
       shadow_pct_threhold = 0.05
       column_name = {'h_2_gt': 'candle_gap_top', 'h_2_gb': 'candle_gap_bottom', 'l_2_gt': 'candle_gap_top', 'l_2_gb': 'candle_gap_bottom'}
 
