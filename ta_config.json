@@ -66,12 +66,9 @@
       },
       "signals": {
         "signal_list": [
-          "trix_signal",
-          "psar_signal",
           "ichimoku_signal",
           "kama_signal",
           "adx_signal",
-
           "",
           "signal"
         ]
