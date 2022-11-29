@@ -339,7 +339,7 @@ def calculate_ta_static(df, indicators=default_indicators):
 
         # distance signal
         distance_change_threshold = 0.001
-        fl_rate_threshold = 0.01
+        fl_rate_threshold = {'ichimoku': 0.01, 'kama': 0.001}[target_indicator]
         conditions = {
           'up': f'({distance} != 0 and {distance_change} > {distance_change_threshold} and {fl}_rate > {fl_rate_threshold})',
           'down': f'({distance} != 0 and {distance_change} < {-distance_change_threshold} and {fl}_rate < {fl_rate_threshold})',
@@ -1103,7 +1103,7 @@ def calculate_ta_signal(df):
 
   # trend
   conditions = {
-    'up':     'trend_idx > 1', #'adx_trend == "u" and trend_idx > 0',
+    'up':     'trend_idx > 1 and ((Close > tankan and ichimoku_fs_signal > 0) or (Close > kijun and ichimoku_fs_signal < 0))', #'adx_trend == "u" and trend_idx > 0',
     'down':   'trend_idx < 1', #'adx_trend == "d"',
   } 
   values = {

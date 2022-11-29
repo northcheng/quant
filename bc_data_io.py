@@ -2348,8 +2348,9 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
     asset_info += f'<li><b><p>{portfolio}: ${net_value}</b></p>{position}{updated}</li>'
   asset_info += '</ul>'
 
-  # get signal summary
+  # get signal and summary
   signal_info = '<h3>Signals</h3><ul>'
+  summary_info = '<h3>Summary</h3><ul>'
   signal_color = {'b':'green', 's':'red', 'n':'grey'}
   
   if signal_file_date is not None:
@@ -2358,29 +2359,43 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
     signal_file = f'{config["result_path"]}{prefix}{signal_file_date}.xlsx'
     
     if os.path.exists(signal_file):
-      signals = pd.read_excel(signal_file, sheet_name='signal')
-      
-      for s in ['b', 's', 'n']:
-        font_color = signal_color[s]
-        tmp_signals = signals.query(f'交易信号 == "{s}"')['代码'].tolist()
-        signal_info += f'<li>[ <b>{s}</b> ]: <font color="{font_color}">{", ".join(tmp_signals)}</font></li>'
 
-      potentials = pd.read_excel(signal_file, sheet_name='potential')
-      if len(potentials) > 0:
-
-        # symbol name (for cn stocks only)
-        potentials['名称'] = potentials['代码']
-        potentials['名称'] = potentials['名称'].apply(lambda x: config['visualization']['plot_args']['sec_name'][x])
-
-        potentials = potentials.set_index('代码')[config['postprocess']['send_columns']].sort_values('总分', ascending=False).to_html()
-        signal_info += f'</b></p>{potentials}'
+      signal_file_content =pd.read_excel(signal_file, sheet_name=None)
+      for s in signal_file_content.keys():
+        if s == 'signal':
+          signals = signal_file_content.get('signal') # pd.read_excel(signal_file, sheet_name='signal')
+          if signals is not None:
+            # if len(signals) > 0:
+            for s in ['b', 's', 'n']:
+              font_color = signal_color[s]
+              tmp_signals = signals.query(f'交易信号 == "{s}"')['代码'].tolist()
+              signal_info += f'<li>[ <b>{s}</b> ]: <font color="{font_color}">{", ".join(tmp_signals)}</font></li>'
+        
+        elif s == 'potential':
+          potentials = signal_file_content.get('potential') # pd.read_excel(signal_file, sheet_name='potential')
+          if potentials is not None:
+            if len(potentials) > 0:
+              # symbol name (for cn stocks only)
+              potentials['名称'] = potentials['代码']
+              potentials['名称'] = potentials['名称'].apply(lambda x: config['visualization']['plot_args']['sec_name'][x])
+              potentials = potentials.set_index('代码')[config['postprocess']['send_columns']].sort_values('总分', ascending=False).to_html()
+              signal_info += f'</b></p>{potentials}'
+        else:
+          tmp_sheet = signal_file_content.get(s)
+          if tmp_sheet is not None:
+            num_up = len(tmp_sheet.query('涨跌 > 0'))
+            num_total = len(tmp_sheet)
+            font_color = 'green' if num_up > num_total/2 else 'red'
+            summary_info += f'<li>[ <b>{s}</b> ]: <font color="{font_color}">{num_up} / {num_total}</font></li>'
 
     else:
       signal_info += f'<li><p>[Not Found]: {prefix}{signal_file_date}.xlsx</p></li>'
   
   else:
     signal_info += '<li><p>[Not Required]</p></li>'
+    summary_info += '<li><p>[Not Required]</p></li>'
   signal_info += '</ul>'
+  summary_info += '</ul>'
 
   # attachment 1: log file
   log_info = '<h3>Log</h3><ul>'
@@ -2439,7 +2454,7 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
   image_info += '</ul>'
 
   # construct message part by concating info parts
-  full_info = f'<html><body>{asset_info}{signal_info}{log_info}{image_info}</body></html>'
+  full_info = f'<html><body>{asset_info}{summary_info}{signal_info}{log_info}{image_info}</body></html>'
   msg_part = MIMEText(full_info,'html','utf-8')
   m.attach(msg_part)
 

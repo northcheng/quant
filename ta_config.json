@@ -44,7 +44,7 @@
   "visualization": {
     "plot_args": {
       "plot_ratio": {
-        "signals": 1, "adx": 2.5,
+        "signals": 1.5, "adx": 2.5,
         "main_indicators": 9, "volume":1
       },
       
@@ -66,11 +66,13 @@
       },
       "signals": {
         "signal_list": [
+          "",
           "ichimoku_signal",
           "kama_signal",
           "adx_signal",
           "",
-          "signal"
+          "signal",
+          ""
         ]
       },
       "candle": {
