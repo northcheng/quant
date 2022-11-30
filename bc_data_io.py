@@ -2454,7 +2454,7 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
   image_info += '</ul>'
 
   # construct message part by concating info parts
-  full_info = f'<html><body>{asset_info}{summary_info}{signal_info}{log_info}{image_info}</body></html>'
+  full_info = f'<html><body>{asset_info}{summary_info}{signal_info}{image_info}{log_info}</body></html>'
   msg_part = MIMEText(full_info,'html','utf-8')
   m.attach(msg_part)
 
