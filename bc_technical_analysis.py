@@ -286,8 +286,6 @@ def calculate_ta_static(df, indicators=default_indicators):
         # column names
         fl = lines[target_indicator]['fast']
         sl = lines[target_indicator]['slow']
-        # fl_rate = f'{fl}_rate'
-        # sl_rate = f'{sl}_rate'
  
         distance = f'{target_indicator}_distance'
         distance_change = f'{target_indicator}_distance_change'
@@ -340,22 +338,26 @@ def calculate_ta_static(df, indicators=default_indicators):
         # distance signal
         distance_change_threshold = 0.001
         fl_rate_threshold = {'ichimoku': 0.01, 'kama': 0.001}[target_indicator]
+        sl_rate_threshold = {'ichimoku': 0, 'kama': 0}[target_indicator]
         conditions = {
-          'up': f'({distance} != 0 and {distance_change} > {distance_change_threshold} and {fl}_rate > {fl_rate_threshold})',
-          'down': f'({distance} != 0 and {distance_change} < {-distance_change_threshold} and {fl}_rate < {fl_rate_threshold})',
-          'none': f'({-distance_change_threshold} <= {distance_change} <= {distance_change_threshold})'}
+          'up': f'({distance} != 0 and {distance_change} > {distance_change_threshold} and {fl}_rate > {fl_rate_threshold}) or ({fl}_rate > 0 and {sl}_rate > 0)',
+          'down': f'({distance} != 0 and {distance_change} < {-distance_change_threshold} and {fl}_rate < {fl_rate_threshold}) or ({fl}_rate < 0 and {sl}_rate < 0)',
+          'none': f'({-distance_change_threshold} <= {distance_change} <= {distance_change_threshold}) and ({sl}_rate < {sl_rate_threshold})',
+        }
         values = {
           'up': 1, 
           'down': -1,
-          'none': 0}
+          'none': 0
+          }
         df = assign_condition_value(df=df, column=distance_signal, condition_dict=conditions, value_dict=values, default_value=0)
         df[distance_signal] = sda(series=df[distance_signal], zero_as=1).astype(int)
+        
 
         # trend
         rate_threshold = 0.01
         conditions = {
-          'up': f'{distance_signal} > 0', # f'Close > {fl} > {sl}', 
-          'down': f'{distance_signal} < 0', # f'Close < {fl} < {sl}',
+          'up': f'({distance_signal} > 0)', # f'Close > {fl} > {sl}', 
+          'down': f'({distance_signal} < 0)', # f'Close < {fl} < {sl}',
         } 
         values = {
           'up': 'u', 
@@ -535,6 +537,9 @@ def calculate_ta_static(df, indicators=default_indicators):
 
       # drop redundant column
       df.drop(['prev_adx_value'], axis=1, inplace=True)
+
+      df['adx_value_ma'] = df['adx_value'].rolling(3).mean()
+      df['adx_crossover'] = cal_crossover_signal(df=df, fast_line='adx_value', slow_line='adx_value_ma', pos_signal='u', neg_signal='d', none_signal='n')
 
     # ================================ kst trend ==============================
     target_indicator = 'kst'
@@ -1104,7 +1109,7 @@ def calculate_ta_signal(df):
   # trend
   conditions = {
     'up':     'trend_idx > 1 and ((Close > tankan and ichimoku_fs_signal > 0) or (Close > kijun and ichimoku_fs_signal < 0))', #'adx_trend == "u" and trend_idx > 0',
-    'down':   'trend_idx < 1', #'adx_trend == "d"',
+    'down':   'trend_idx < 0', #'adx_trend == "d"',
   } 
   values = {
     'up':     'u', 
@@ -4507,8 +4512,8 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
   # annotate number of days since signal triggered
   annotate_signal_day = True
   max_idx = df.index.max()
-  ys = {'kama_signal': 0, 'ichimoku_signal': 2, 'adx_signal': 4}
-  if signal_x in ['kama_signal', 'ichimoku_signal', 'adx_signal'] and day_col in df.columns and annotate_signal_day:
+  ys = {'ichimoku_signal': 0, 'kama_signal': 2, 'adx_signal': 4}
+  if signal_x in ['ichimoku_signal', 'kama_signal', 'adx_signal'] and day_col in df.columns and annotate_signal_day:
     x_signal = max_idx + datetime.timedelta(days=2)
     y_signal = ys[signal_x]
 
@@ -4520,10 +4525,16 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     text_color = 'red' if text_day < 0 else 'green'
     plt.annotate(f'{signal_x[:4]}:{text_day} ', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.05))
 
-  # # plot potential
-  # if signal_x == 'signal':
-  #   tmp_data = df.query(f'label == "potential"')
-  #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='^', color='none', edgecolor='black', alpha=0.5)
+  # plot potential
+  if signal_x == ' ':
+    tmp_data = df.query(f'adx_crossover == "u"')
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='^', color='none', edgecolor='green', alpha=0.5)
+    tmp_data = df.query(f'adx_crossover == "d"')
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='v', color='none', edgecolor='red', alpha=0.5)
+
+  if signal_x == 'signal':
+    tmp_data = df.query(f'label == "potential"')
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='green', alpha=0.5)
 
   # plot signal
   if signal_x in df.columns:
@@ -5322,7 +5333,6 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   # ax.plot(df.index, df.adx_value_prediction, color='black', linestyle='-.', alpha=0.5)
 
   # plot moving average value of adx_value
-  df['adx_value_ma'] = df['adx_value'].rolling(3).mean()
   ax.plot(df.index, df.adx_value_ma, color='black', linestyle='-.', alpha=0.5)
 
   # title and legend

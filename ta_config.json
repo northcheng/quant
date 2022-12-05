@@ -66,12 +66,12 @@
       },
       "signals": {
         "signal_list": [
-          "",
           "ichimoku_signal",
           "kama_signal",
           "adx_signal",
           "",
           "signal",
+          " ",
           ""
         ]
       },
