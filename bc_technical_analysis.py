@@ -539,7 +539,8 @@ def calculate_ta_static(df, indicators=default_indicators):
       df.drop(['prev_adx_value'], axis=1, inplace=True)
 
       df['adx_value_ma'] = df['adx_value'].rolling(3).mean()
-      df['adx_crossover'] = cal_crossover_signal(df=df, fast_line='adx_value', slow_line='adx_value_ma', pos_signal='u', neg_signal='d', none_signal='n')
+      df['adx_crossover'] = cal_crossover_signal(df=df, fast_line='adx_value', slow_line='adx_value_ma', pos_signal='u', neg_signal='d', none_signal=np.nan)
+      # df['adx_crossover'] = df['adx_crossover'].fillna(method='ffill')
 
     # ================================ kst trend ==============================
     target_indicator = 'kst'
@@ -4526,15 +4527,19 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     plt.annotate(f'{signal_x[:4]}:{text_day} ', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.05))
 
   # plot potential
-  if signal_x == ' ':
-    tmp_data = df.query(f'adx_crossover == "u"')
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='^', color='none', edgecolor='green', alpha=0.5)
-    tmp_data = df.query(f'adx_crossover == "d"')
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='v', color='none', edgecolor='red', alpha=0.5)
-
   if signal_x == 'signal':
-    tmp_data = df.query(f'label == "potential"')
+    tmp_data = df.query(f'(ichimoku_distance_signal > 0 and kama_distance_signal > 0)')
     ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='green', alpha=0.5)
+    tmp_data = df.query(f'(ichimoku_distance_signal < 0 or kama_distance_signal < 0)')
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='red', alpha=0.5)
+
+  if signal_x == '':
+    tmp_data = df.query(f'adx_crossover == "u" and adx_strong_day > 0')
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='^', color='none', edgecolor='green', alpha=0.5)
+    tmp_data = df.query(f'adx_crossover == "d" and adx_strong_day > 0')
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='v', color='none', edgecolor='red', alpha=0.5)
+    # tmp_data = df.query(f'label == "potential"')
+    # ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='green', alpha=0.5)
 
   # plot signal
   if signal_x in df.columns:
@@ -5273,18 +5278,10 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
     plt.annotate(f'{df.loc[max_idx, "renko_series_short"]}: {text_signal}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.05))
   else:
     ax.fill_between(df.index, 10, -10, hatch=None, linewidth=1, edgecolor='black', facecolor='grey', alpha=0.1)
-  # # ichimoku_distance_signal
-  # x_signal = max_idx + datetime.timedelta(days=2)
-  # y_signal = 15
-  # text_signal = int(df.loc[max_idx, 'ichimoku_distance_signal'])
-  # text_color = 'red' if text_signal < 0 else 'green'
-  # plt.annotate(f'ich: {text_signal}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.05))
 
   # plot adx_diff_ma and adx_direction
   df['zero'] = 0
-  # df['prev_adx_day'] = df['adx_day'].shift(1)
-  # green_mask = ((df.adx_day > 0) | (df.prev_adx_day > 0)) 
-  # red_mask = ((df.adx_day < 0) | (df.prev_adx_day < 0)) 
+  ax.plot(df.index, df.zero, color='gray', alpha=0.3)
 
   df['prev_adx_day'] = df['adx_day'].shift(1)
   df['next_adx_day'] = df['adx_day'].shift(-1)
@@ -5295,17 +5292,15 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   green_mask = ((df.adx_value_change > 0))# | (df.prev_adx_day > 0)) 
   red_mask = ((df.adx_value_change < 0))# | (df.prev_adx_day < 0)) 
   yellow_mask = ((df.adx_value_change == 0)) | ((df.adx_value_change > 0) & (df.prev_adx_value_change < 0)) | ((df.adx_value_change > 0) & (df.next_adx_value_change < 0)) | ((df.adx_value_change < 0) & (df.prev_adx_value_change > 0)) | ((df.adx_value_change < 0) & (df.next_adx_value_change > 0)) 
-  # | ((df.adx_value_change < 0) & (df.prev_adx_day > 0)) | ((df.adx_value_change < 0) & (df.next_adx_day > 0)) | ((df.adx_trend != "n") & (df.next_adx_trend == "n")) | ((df.adx_trend == "n") & (df.next_adx_trend != "n")) | ((df.adx_trend != df.prev_adx_trend)) | ((df.adx_trend != df.next_adx_trend)) | ((df.adx_trend == "n") & (df.prev_adx_trend == "n")) | ((df.adx_trend == "n") & (df.next_adx_trend == "n"))#| ((df.adx_day < 0) & (df.adx_trend != "d")) | ((df.adx_day > 0) & (df.prev_adx_day < 0)) | ((df.adx_day < 0) & (df.prev_adx_day > 0)) | ((df.adx_day < 0) & (df.next_adx_day > 0)) | ((df.adx_day > 0) & (df.next_adx_day < 0))
- 
   ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=green_mask,  facecolor='green', interpolate=False, alpha=0.3, label='adx up') 
   ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=red_mask, facecolor='red', interpolate=False, alpha=0.3, label='adx down')
   ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=yellow_mask, facecolor='yellow', interpolate=False, alpha=0.3, label='adx switch')
-  # ax.plot(df.adx_value, color='grey', alpha=0.2)
+
   # target_col = 'adx_diff_ma'
   # gredn_df = df.loc[green_mask, ]
   # red_df = df.loc[red_mask]
-  # ax.bar(gredn_df.index, height=gredn_df[target_col], color='green', width=0.8 , alpha=0.3, label=f'+{target_col}')
-  # ax.bar(red_df.index, height=red_df[target_col], color='red', width=0.8 , alpha=0.3, label=f'-{target_col}')
+  # ax.bar(gredn_df.index, height=gredn_df[target_col], color='green', width=0.8 , alpha=0.4, label=f'+{target_col}')
+  # ax.bar(red_df.index, height=red_df[target_col], color='red', width=0.8 , alpha=0.4, label=f'-{target_col}')
 
   # df['adx_value'] = df['adx_value'] * (df['adx'] / 25)
   # plot_bar(df=df, target_col=target_col, alpha=0.2, width=0.8, color_mode='up_down', benchmark=0, title='', use_ax=ax, plot_args=default_plot_args)
