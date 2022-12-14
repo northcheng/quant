@@ -1215,7 +1215,7 @@ def calculate_ta_signal(df):
   return df
 
 # visualize features and signals
-def visualization(df, start=None, end=None, title=None, save_path=None, visualization_args={}):
+def visualization(df, start=None, end=None, interval='day', title=None, save_path=None, visualization_args={}):
   """
   Visualize features and signals.
 
@@ -1240,7 +1240,7 @@ def visualization(df, start=None, end=None, title=None, save_path=None, visualiz
     plot_args = visualization_args.get('plot_args')
     
     plot_multiple_indicators(
-      df=df, title=title, args=plot_args,  start=start, end=end,
+      df=df, title=title, args=plot_args,  start=start, end=end, interval=interval,
       show_image=is_show, save_image=is_save, save_path=save_path)
   except Exception as e:
     print(phase, e)
@@ -5016,7 +5016,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
     # plot entity
     x = idx - OFFSET
     rect = Rectangle(xy=(x, lower), width=entity_width, height=height, facecolor=entity_color, edgecolor=entity_edge_color, alpha=alpha, zorder=11)
-    
+
     # add shadow and entity to plot
     ax.add_line(vline)
     ax.add_patch(rect)
@@ -5703,7 +5703,7 @@ def plot_indicator(df, target_col, start=None, end=None, signal_x='signal', sign
     return ax
 
 # plot multiple indicators on a same chart
-def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, save_image=False, show_image=False, title=None, width=25, unit_size=3, wspace=0, hspace=0.015, subplot_args=default_plot_args):
+def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', save_path=None, save_image=False, show_image=False, title=None, width=25, unit_size=3, wspace=0, hspace=0.015, subplot_args=default_plot_args):
   """
   Plot Ichimoku and mean reversion in a same plot
   :param df: dataframe with ichimoku and mean reversion columns
@@ -5724,10 +5724,10 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
   # select plot data
   plot_data = df[start:end].copy()
 
+  interval_factor = {'day': 1, 'week': 7, 'month': 30}
   start = util.time_2_string(plot_data.index.min())
   end = util.time_2_string(plot_data.index.max())
-  width = util.num_days_between(start, end) * 0.125
-  print(width)
+  width = util.num_days_between(start, end) / interval_factor[interval] * 0.125
 
   # get indicator names and plot ratio
   plot_ratio = args.get('plot_ratio')
@@ -5790,7 +5790,6 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
       # get candlestick width and color
       candlestick_color = tmp_args.get('candlestick_color') if tmp_args.get('candlestick_color') is not None else default_candlestick_color
       width = tmp_args.get('candlestick_width') if tmp_args.get('candlestick_width') is not None else 1
-      interval = tmp_args.get('interval') if tmp_args.get('interval') is not None else 'day'
       target_indicator = tmp_args.get('target_indicator') if tmp_args.get('target_indicator') is not None else ['price']
 
       plot_main_indicators(
@@ -5809,7 +5808,6 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
     elif tmp_indicator == 'volume':
       
       alpha = tmp_args.get('alpha') if tmp_args.get('alpha') is not None else 1
-      interval = tmp_args.get('interval') if tmp_args.get('interval') is not None else 'day'
       
       # set bar_width according to data interval
       bar_width = 0.8
