@@ -1200,16 +1200,17 @@ def calculate_ta_signal(df):
 
   # # # label signal
   df['signal'] = ''
-  # conditions = {
-  #   'buy':    'label == "potential"', 
-  #   'sell':   'trend == "d" or adx_trend == "d"',
-  # } 
-  # values = {
-  #   'buy':    'b', 
-  #   'sell':   's',
-  # }
-  # df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
-  # df = remove_redundant_signal(df=df, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='', keep='first')
+  acceptable = ['up', 'down', 'out']
+  conditions = {
+    'buy':    f'(相对窗口位置 in {acceptable}) and (ichimoku_distance_signal > 0) and ((adx_strong_day > 0 or adx_value_change > 1) and (adx_direction_day > 1) and (adx_value < 10)) and (candle_entity_bottom > kama_fast) and (ichimoku_distance > 0 or (ichimoku_distance < 0 and candle_entity_bottom > kijun))', 
+    'sell':   f'trend == "d" and adx_direction_day < -1',
+  } 
+  values = {
+    'buy':    'b', 
+    'sell':   's',
+  }
+  df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
+  df = remove_redundant_signal(df=df, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='', keep='first')
 
   return df
 
@@ -4494,7 +4495,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
   # plot settings
   settings = {
-    'main': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': '.', 'neg_trend_marker': '.', 'wave_trend_marker': '_', 'signal_alpha': 0.5, 'trend_alpha': 0.6, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'},
+    'main': {'pos_signal_marker': 's', 'neg_signal_marker': 's', 'pos_trend_marker': '.', 'neg_trend_marker': '.', 'wave_trend_marker': '_', 'signal_alpha': 0.5, 'trend_alpha': 0.6, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'},
     'other': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': 's', 'neg_trend_marker': 'x', 'wave_trend_marker': '_', 'signal_alpha': 0.3, 'trend_alpha': 0.3, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'}}
   style = settings['main'] if signal_x in ['signal'] else settings['other']
 
@@ -4527,17 +4528,17 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     plt.annotate(f'{signal_x[:4]}:{text_day} ', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.05))
 
   # plot potential
-  if signal_x == 'signal':
-    tmp_data = df.query(f'(ichimoku_distance_signal > 0 and kama_distance_signal > 0)')
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='green', alpha=0.5)
-    tmp_data = df.query(f'(ichimoku_distance_signal < 0 or kama_distance_signal < 0)')
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='red', alpha=0.5)
-
   if signal_x == '':
-    tmp_data = df.query(f'adx_crossover == "u" and adx_strong_day > 0')
+    tmp_data = df.query(f'(signal == "b")')
     ax.scatter(tmp_data.index, tmp_data[signal_y], marker='^', color='none', edgecolor='green', alpha=0.5)
-    tmp_data = df.query(f'adx_crossover == "d" and adx_strong_day > 0')
+    tmp_data = df.query(f'(signal == "s")')
     ax.scatter(tmp_data.index, tmp_data[signal_y], marker='v', color='none', edgecolor='red', alpha=0.5)
+
+  if signal_x == 'signal':
+    tmp_data = df.query(f'adx_crossover == "u" and adx_strong_day > 0')
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='green', alpha=0.5)
+    tmp_data = df.query(f'adx_crossover == "d" and adx_strong_day > 0')
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='red', alpha=0.5)
     # tmp_data = df.query(f'label == "potential"')
     # ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='green', alpha=0.5)
 
@@ -4546,7 +4547,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     for i in ['pos', 'neg']:
       tmp_signal_value = signal_val[f'{i}_signal']
       tmp_data = df.query(f'{signal_x} == "{tmp_signal_value}"')
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=style[f'{i}_signal_marker'], color=style[f'{i}_color'], alpha=style['signal_alpha'])
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=style[f'{i}_signal_marker'], color='none', edgecolor=style[f'{i}_color'], alpha=style['signal_alpha'])
     
   # legend and title
   ax.legend(loc='upper left')  
@@ -5723,6 +5724,11 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
   # select plot data
   plot_data = df[start:end].copy()
 
+  start = util.time_2_string(plot_data.index.min())
+  end = util.time_2_string(plot_data.index.max())
+  width = util.num_days_between(start, end) * 0.125
+  print(width)
+
   # get indicator names and plot ratio
   plot_ratio = args.get('plot_ratio')
   if plot_ratio is None :
@@ -5890,8 +5896,10 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, save_path=None, 
 
   # save image
   if save_image and (save_path is not None):
-    plt.savefig(save_path + title + '.png', bbox_inches = 'tight')
-    
+    plt_save_name = save_path + title + '.png'
+    plt.savefig(plt_save_name, bbox_inches = 'tight')
+    print(f'saved at {plt_save_name}')
+
   # show image
   if show_image:
     plt.show()
