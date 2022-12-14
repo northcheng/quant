@@ -5896,7 +5896,6 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   if save_image and (save_path is not None):
     plt_save_name = save_path + title + '.png'
     plt.savefig(plt_save_name, bbox_inches = 'tight')
-    print(f'saved at {plt_save_name}')
 
   # show image
   if show_image:
