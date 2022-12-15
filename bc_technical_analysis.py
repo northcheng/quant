@@ -1197,13 +1197,26 @@ def calculate_ta_signal(df):
   #   'down':   'd',
   # }
   # df = assign_condition_value(df=df, column='trend', condition_dict=conditions, value_dict=values, default_value='')
+  acceptable_window_position = ['up', 'down']
+  buy_conditions = {
+    '不在窗口中或突破窗口': f'((相对窗口位置 in {acceptable_window_position}) or (相对窗口位置 == "out" and candle_color == 1))',
+    'adx趋势显著且不在高位': f'((adx_strong_day > 0 or adx_value_change > 1) and (adx_direction_day > 1) and (adx_value < 10))',
+    'ichimoku间隔扩大': f'(ichimoku_distance_signal > 0)',
+    'ichimoku红云之上或者绿云': f'(ichimoku_distance > 0 or (ichimoku_distance < 0 and candle_entity_bottom > kijun))',
+    '价格突破kama_fast': f'(candle_entity_bottom > kama_fast)',
+  }
+
+  sell_conditions = {
+    '整体下降趋势中': f'(trend == "d")',
+    'adx下降或波动趋势中': f'(adx_direction_day < -1)',
+  }
 
   # # # label signal
   df['signal'] = ''
-  acceptable = ['up', 'down', 'out']
+  
   conditions = {
-    'buy':    f'(相对窗口位置 in {acceptable}) and (ichimoku_distance_signal > 0) and ((adx_strong_day > 0 or adx_value_change > 1) and (adx_direction_day > 1) and (adx_value < 10)) and (candle_entity_bottom > kama_fast) and (ichimoku_distance > 0 or (ichimoku_distance < 0 and candle_entity_bottom > kijun))', 
-    'sell':   f'trend == "d" and adx_direction_day < -1',
+    'buy':    ' and '.join(buy_conditions.values()), 
+    'sell':   ' and '.join(sell_conditions.values()),
   } 
   values = {
     'buy':    'b', 
