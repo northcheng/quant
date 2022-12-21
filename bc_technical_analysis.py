@@ -4547,13 +4547,11 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     tmp_data = df.query(f'(signal == "s")')
     ax.scatter(tmp_data.index, tmp_data[signal_y], marker='v', color='none', edgecolor='red', alpha=0.5)
 
-  if signal_x == 'signal':
-    tmp_data = df.query(f'adx_crossover == "u" and adx_strong_day > 0')
+  if signal_x == '':
+    tmp_data = df.query(f'adx_crossover == "u" and adx_strong_day > 0 and adx_value < 0')
     ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='green', alpha=0.5)
     tmp_data = df.query(f'adx_crossover == "d" and adx_strong_day > 0')
     ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='red', alpha=0.5)
-    # tmp_data = df.query(f'label == "potential"')
-    # ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='green', alpha=0.5)
 
   # plot signal
   if signal_x in df.columns:
@@ -5310,6 +5308,11 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=red_mask, facecolor='red', interpolate=False, alpha=0.3, label='adx down')
   ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=yellow_mask, facecolor='yellow', interpolate=False, alpha=0.3, label='adx switch')
 
+  green_mask = ((df.adx_value > df.adx_value_ma)) # | (df.prev_adx_day > 0)) 
+  red_mask = ((df.adx_value < df.adx_value_ma))# | (df.prev_adx_day < 0)) 
+  ax.fill_between(df.index, df.adx_value, df.adx_value_ma, where=green_mask,  facecolor='green', interpolate=False, alpha=0.6) 
+  ax.fill_between(df.index, df.adx_value, df.adx_value_ma, where=red_mask, facecolor='red', interpolate=False, alpha=0.6)
+  
   # target_col = 'adx_diff_ma'
   # gredn_df = df.loc[green_mask, ]
   # red_df = df.loc[red_mask]
