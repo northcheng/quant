@@ -334,6 +334,7 @@ class FixedPositionTrader:
     # get plot data
     record = self.record[symbol].copy()  
     record = record[start_date:end_date].copy()
+
     if len(record) == 0 or record['value'].sum()==0:
       print(f'no record for {symbol}')
       return None
@@ -343,7 +344,8 @@ class FixedPositionTrader:
     # plot trade signals
     buying_points = record.query('signal == "b"')
     selling_points = record.query('signal == "s"')
-    trade_plot.plot(record.index, record[['Close']], label='Close', alpha=0.5)
+
+    trade_plot.plot(record.index, record['Close'], label='Close', alpha=0.5)
     trade_plot.scatter(buying_points.index,buying_points.Close, c='green', marker='^', label='Buy')
     trade_plot.scatter(selling_points.index,selling_points.Close, c='red', marker='v', label='Sell')
 
@@ -462,8 +464,8 @@ class FixedPositionTrader:
         right_order = [x for x in analysis.index if x != 'benchmark'] + ['benchmark'] 
         analysis = analysis.loc[right_order].copy()
 
-      analysis = analysis.append(pd.DataFrame({'start_date': '', 'end_date': '', 'start_money': analysis_mean['start_money'], 'end_money':analysis_mean['end_money'], 'EAR':total_ear, 'sharp_ratio':total_sharp_ratio, 'max_drawndown':total_max_drawndown}, index=['mean']))
-      analysis = analysis.append(pd.DataFrame({'start_date': '', 'end_date': '', 'start_money': analysis_sum['start_money'], 'end_money':analysis_sum['end_money'], 'EAR':total_ear, 'sharp_ratio':total_sharp_ratio, 'max_drawndown':total_max_drawndown}, index=['total']))
+      analysis = pd.concat([analysis, pd.DataFrame({'start_date': '', 'end_date': '', 'start_money': analysis_mean['start_money'], 'end_money':analysis_mean['end_money'], 'EAR':total_ear, 'sharp_ratio':total_sharp_ratio, 'max_drawndown':total_max_drawndown}, index=['mean'])])
+      analysis = pd.concat([analysis, pd.DataFrame({'start_date': '', 'end_date': '', 'start_money': analysis_sum['start_money'], 'end_money':analysis_sum['end_money'], 'EAR':total_ear, 'sharp_ratio':total_sharp_ratio, 'max_drawndown':total_max_drawndown}, index=['total'])])
 
     # post process
     analysis['profit'] = analysis['end_money'] - analysis['start_money']
@@ -521,8 +523,9 @@ class FixedPositionTrader:
 
     # visualization 
     symbol_to_visualize = 'portfolio'
-    if len(self.sec_list) == 1:
-      symbol_to_visualize = self.sec_list[0]
+    real_sec_list = [x for x in self.sec_list if x != 'benchmark']
+    if len(real_sec_list) == 1:
+      symbol_to_visualize = real_sec_list[0]
     self.visualize(symbol=symbol_to_visualize, start_date=start_date, end_date=end_date, is_show=is_show, save_path=save_path, is_save=is_save)
     visualization_time = datetime.datetime.now()
     print(f'[cost]: visualization {visualization_time - backtest_time}')

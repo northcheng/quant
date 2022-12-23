@@ -540,8 +540,17 @@ def calculate_ta_static(df, indicators=default_indicators):
 
       df['adx_value_ma'] = df['adx_value'].rolling(3).mean()
       df['adx_crossover'] = cal_crossover_signal(df=df, fast_line='adx_value', slow_line='adx_value_ma', pos_signal='u', neg_signal='d', none_signal=np.nan)
-      # df['adx_crossover'] = df['adx_crossover'].fillna(method='ffill')
-
+      df['adx_crossover'] = df['adx_crossover'].fillna(method='ffill')
+      # conditions = {
+      #   'up': f'adx_value > adx_value_ma', 
+      #   'down': f'adx_value < adx_value_ma'
+      #   }
+      # values = {
+      #   'up': 'u', 
+      #   'down': 'd'
+      #   }
+      # df = assign_condition_value(df=df, column='adx_crossover', condition_dict=conditions, value_dict=values, default_value='n') 
+  
     # ================================ kst trend ==============================
     target_indicator = 'kst'
     if target_indicator in indicators['trend']:
@@ -1200,7 +1209,8 @@ def calculate_ta_signal(df):
   acceptable_window_position = ['up', 'down']
   buy_conditions = {
     '不在窗口中或突破窗口': f'((相对窗口位置 in {acceptable_window_position}) or (相对窗口位置 == "out" and candle_color == 1))',
-    'adx趋势显著且不在高位': f'((adx_strong_day > 0 or adx_value_change > 1) and (adx_direction_day > 1) and (adx_value < 10))',
+    'adx趋势显著且不在高位': f'((adx_strong_day > 0) and (adx_direction_day > 1) and (adx_value < 15))',
+    'kama间隔间隔较小': f'(kama_distance > -0.15)',
     'ichimoku间隔扩大': f'(ichimoku_distance_signal > 0)',
     'ichimoku红云之上或者绿云': f'(ichimoku_distance > 0 or (ichimoku_distance < 0 and candle_entity_bottom > kijun))',
     '价格突破kama_fast': f'(candle_entity_bottom > kama_fast)',
@@ -4547,11 +4557,11 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     tmp_data = df.query(f'(signal == "s")')
     ax.scatter(tmp_data.index, tmp_data[signal_y], marker='v', color='none', edgecolor='red', alpha=0.5)
 
-  if signal_x == '':
-    tmp_data = df.query(f'adx_crossover == "u" and adx_strong_day > 0 and adx_value < 0')
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='green', alpha=0.5)
-    tmp_data = df.query(f'adx_crossover == "d" and adx_strong_day > 0')
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='red', alpha=0.5)
+  if signal_x == 'signal':
+    tmp_data = df.query(f'adx_crossover == "u"')
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='green', edgecolor='none', alpha=0.3) #  edgecolor='green'
+    tmp_data = df.query(f'adx_crossover == "d"')
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='red', edgecolor='none', alpha=0.3) # , edgecolor='red'
 
   # plot signal
   if signal_x in df.columns:
