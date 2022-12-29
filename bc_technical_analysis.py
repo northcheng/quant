@@ -1222,8 +1222,8 @@ def calculate_ta_signal(df):
   #   'adx下降或波动趋势中': f'(adx_direction_day < -1)',
   # }
 
-  # # # label signal
-  # df['signal'] = ''
+  # label signal
+  df['signal'] = ''
   
   # # conditions = {
   # #   'buy':    ' and '.join(buy_conditions.values()), 
