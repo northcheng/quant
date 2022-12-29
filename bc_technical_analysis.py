@@ -352,12 +352,11 @@ def calculate_ta_static(df, indicators=default_indicators):
         df = assign_condition_value(df=df, column=distance_signal, condition_dict=conditions, value_dict=values, default_value=0)
         df[distance_signal] = sda(series=df[distance_signal], zero_as=1).astype(int)
         
-
         # trend
         rate_threshold = 0.01
         conditions = {
-          'up': f'({distance_signal} > 0)', # f'Close > {fl} > {sl}', 
-          'down': f'({distance_signal} < 0)', # f'Close < {fl} < {sl}',
+          'up': f'({distance_signal} > 0)', # f'Close > {fl} > {sl}', # f'({fs_signal} > 0)', #
+          'down': f'({distance_signal} < 0)', # f'Close < {fl} < {sl}', # f'({fs_signal} < 0)' # 
         } 
         values = {
           'up': 'u', 
@@ -541,6 +540,8 @@ def calculate_ta_static(df, indicators=default_indicators):
       df['adx_value_ma'] = df['adx_value'].rolling(3).mean()
       df['adx_crossover'] = cal_crossover_signal(df=df, fast_line='adx_value', slow_line='adx_value_ma', pos_signal='u', neg_signal='d', none_signal=np.nan)
       df['adx_crossover'] = df['adx_crossover'].fillna(method='ffill')
+
+      df['adx_ma_diff'] = df['adx_value'] - df['adx_value_ma']
       # conditions = {
       #   'up': f'adx_value > adx_value_ma', 
       #   'down': f'adx_value < adx_value_ma'
@@ -1118,8 +1119,8 @@ def calculate_ta_signal(df):
 
   # trend
   conditions = {
-    'up':     'trend_idx > 1 and ((Close > tankan and ichimoku_fs_signal > 0) or (Close > kijun and ichimoku_fs_signal < 0))', #'adx_trend == "u" and trend_idx > 0',
-    'down':   'trend_idx < 0', #'adx_trend == "d"',
+    'up':     'trend_idx >= 1', # and ((Close > tankan and ichimoku_fs_signal > 0) or (Close > kijun and ichimoku_fs_signal < 0))', #'adx_trend == "u" and trend_idx > 0',
+    'down':   'trend_idx <= 0', #'adx_trend == "d"',
   } 
   values = {
     'up':     'u', 
@@ -1206,34 +1207,40 @@ def calculate_ta_signal(df):
   #   'down':   'd',
   # }
   # df = assign_condition_value(df=df, column='trend', condition_dict=conditions, value_dict=values, default_value='')
-  acceptable_window_position = ['up', 'down']
-  buy_conditions = {
-    '不在窗口中或突破窗口': f'((相对窗口位置 in {acceptable_window_position}) or (相对窗口位置 == "out" and candle_color == 1))',
-    'adx趋势显著且不在高位': f'((adx_strong_day > 0) and (adx_direction_day > 1) and (adx_value < 15))',
-    'kama间隔间隔较小': f'(kama_distance > -0.15)',
-    'ichimoku间隔扩大': f'(ichimoku_distance_signal > 0)',
-    'ichimoku红云之上或者绿云': f'(ichimoku_distance > 0 or (ichimoku_distance < 0 and candle_entity_bottom > kijun))',
-    '价格突破kama_fast': f'(candle_entity_bottom > kama_fast)',
-  }
+  # acceptable_window_position = ['up', 'down']
+  # buy_conditions = {
+  #   '不在窗口中或突破窗口': f'((相对窗口位置 in {acceptable_window_position}) or (相对窗口位置 == "out" and candle_color == 1))',
+  #   'adx趋势显著且不在高位': f'((adx_strong_day > 0) and (adx_direction_day > 1) and (adx_value < 15))',
+  #   'kama间隔间隔较小': f'(kama_distance > -0.15)',
+  #   'ichimoku间隔扩大': f'(ichimoku_distance_signal > 0)',
+  #   'ichimoku红云之上或者绿云': f'(ichimoku_distance > 0 or (ichimoku_distance < 0 and candle_entity_bottom > kijun))',
+  #   '价格突破kama_fast': f'(candle_entity_bottom > kama_fast)',
+  # }
 
-  sell_conditions = {
-    '整体下降趋势中': f'(trend == "d")',
-    'adx下降或波动趋势中': f'(adx_direction_day < -1)',
-  }
+  # sell_conditions = {
+  #   '整体下降趋势中': f'(trend == "d")',
+  #   'adx下降或波动趋势中': f'(adx_direction_day < -1)',
+  # }
 
   # # # label signal
-  df['signal'] = ''
+  # df['signal'] = ''
   
-  conditions = {
-    'buy':    ' and '.join(buy_conditions.values()), 
-    'sell':   ' and '.join(sell_conditions.values()),
-  } 
-  values = {
-    'buy':    'b', 
-    'sell':   's',
-  }
-  df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
-  df = remove_redundant_signal(df=df, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='', keep='first')
+  # # conditions = {
+  # #   'buy':    ' and '.join(buy_conditions.values()), 
+  # #   'sell':   ' and '.join(sell_conditions.values()),
+  # # } 
+  # conditions = {
+  #   'buy_1':  'kama_trend == "u"', 
+  #   # 'buy_2':  'adx_value < 0 and trend == "d" and adx_crossover =="u"', 
+  #   'sell':   'kama_trend == "d"',
+  # } 
+  # values = {
+  #   'buy_1':  'b',
+  #   # 'buy_2':  'b',
+  #   'sell':   's',
+  # }
+  # df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
+  # df = remove_redundant_signal(df=df, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='', keep='first')
 
   return df
 
@@ -4537,7 +4544,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
   # annotate number of days since signal triggered
   annotate_signal_day = True
   max_idx = df.index.max()
-  ys = {'ichimoku_signal': 0, 'kama_signal': 2, 'adx_signal': 4}
+  ys = {'kama_signal': 0, 'ichimoku_signal': 2, 'adx_signal': 4}
   if signal_x in ['ichimoku_signal', 'kama_signal', 'adx_signal'] and day_col in df.columns and annotate_signal_day:
     x_signal = max_idx + datetime.timedelta(days=2)
     y_signal = ys[signal_x]
@@ -4557,11 +4564,11 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     tmp_data = df.query(f'(signal == "s")')
     ax.scatter(tmp_data.index, tmp_data[signal_y], marker='v', color='none', edgecolor='red', alpha=0.5)
 
-  if signal_x == 'signal':
-    tmp_data = df.query(f'adx_crossover == "u"')
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='green', edgecolor='none', alpha=0.3) #  edgecolor='green'
-    tmp_data = df.query(f'adx_crossover == "d"')
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='red', edgecolor='none', alpha=0.3) # , edgecolor='red'
+  if signal_x == 'adx_signal':
+    tmp_data = df.query(f'adx_trend == "n" and adx_crossover == "u" and (adx_ma_diff > 1 or adx_strong_day > 1)')
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='green', alpha=0.3) #  edgecolor='green'
+    tmp_data = df.query(f'adx_trend == "n" and adx_crossover == "d" and (adx_ma_diff < -1 or adx_strong_day > 1)')
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='red', alpha=0.3) # , edgecolor='red'
 
   # plot signal
   if signal_x in df.columns:
@@ -5368,7 +5375,7 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
     return ax
 
 # plot renko chart
-def plot_renko(df, start=None, end=None, use_ax=None, title=None, plot_in_date=True, close_alpha=0.5, save_path=None, save_image=False, show_image=False, plot_args=default_plot_args):
+def plot_renko(df, start=None, end=None, use_ax=None, title=None, plot_in_date=True, close_alpha=0.5, save_path=None, save_image=False, show_image=False, plot_args=default_plot_args, zorder=0):
 
   # copy data frame
   df = df[start:end].copy()
