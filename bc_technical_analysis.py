@@ -1220,26 +1220,25 @@ def calculate_ta_signal(df):
   # sell_conditions = {
   #   '整体下降趋势中': f'(trend == "d")',
   #   'adx下降或波动趋势中': f'(adx_direction_day < -1)',
-  # }
+  # }  
+  
+  # conditions = {
+  #   'buy':    ' and '.join(buy_conditions.values()), 
+  #   'sell':   ' and '.join(sell_conditions.values()),
+  # } 
 
   # label signal
   df['signal'] = ''
   
-  # # conditions = {
-  # #   'buy':    ' and '.join(buy_conditions.values()), 
-  # #   'sell':   ' and '.join(sell_conditions.values()),
-  # # } 
-  # conditions = {
-  #   'buy_1':  'kama_trend == "u"', 
-  #   # 'buy_2':  'adx_value < 0 and trend == "d" and adx_crossover =="u"', 
-  #   'sell':   'kama_trend == "d"',
-  # } 
-  # values = {
-  #   'buy_1':  'b',
-  #   # 'buy_2':  'b',
-  #   'sell':   's',
-  # }
-  # df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
+  conditions = {
+    'buy':    'trend == "u" and ichimoku_trend == "u" and  kama_trend == "u" and (adx_trend == "u" or (adx_trend == "n" and adx_crossover == "u"))', 
+    'sell':   'adx_direction_day == -1',
+  } 
+  values = {
+    'buy':    'b',
+    'sell':   's',
+  }
+  df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
   # df = remove_redundant_signal(df=df, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='', keep='first')
 
   return df
@@ -4572,10 +4571,13 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
   # plot signal
   if signal_x in df.columns:
-    for i in ['pos', 'neg']:
-      tmp_signal_value = signal_val[f'{i}_signal']
-      tmp_data = df.query(f'{signal_x} == "{tmp_signal_value}"')
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=style[f'{i}_signal_marker'], color='none', edgecolor=style[f'{i}_color'], alpha=style['signal_alpha'])
+    if signal_x == 'signal':
+      pass
+    else:
+      for i in ['pos', 'neg']:
+        tmp_signal_value = signal_val[f'{i}_signal']
+        tmp_data = df.query(f'{signal_x} == "{tmp_signal_value}"')
+        ax.scatter(tmp_data.index, tmp_data[signal_y], marker=style[f'{i}_signal_marker'], color='none', edgecolor=style[f'{i}_color'], alpha=style['signal_alpha'])
     
   # legend and title
   ax.legend(loc='upper left')  
@@ -4818,7 +4820,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
       top_value = df.loc[start, 'candle_gap_top']
       bottom_value = df.loc[start, 'candle_gap_bottom']
       gap_color = 'green' if df.loc[start, 'candle_gap'] > 0 else 'red' # 'lightyellow' if df.loc[start, 'candle_gap'] > 0 else 'grey' # 
-      gap_hatch = '////' if df.loc[start, 'candle_gap'] > 0 else '\\\\\\\\' # 'xxxx'# 
+      gap_hatch = '||||' # if df.loc[start, 'candle_gap'] > 0 else '\\\\\\\\' # 'xxxx'# 
       gap_hatch_color = 'grey'
       
       # gap end
