@@ -4846,12 +4846,8 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
   if 'support_resistant' in add_on:
 
     # annotate close price
-    y_resistant = None
-    y_text_resistant = None
     y_close = None
     y_text_close = None
-    y_support = None
-    y_text_support = None
     
     y_close_padding = padding*5
     y_close = df.loc[max_idx, 'Close'].round(2)
@@ -4859,31 +4855,36 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
     close_color = 'blue'
     plt.annotate(f'{y_close}', xy=(max_x, y_text_close), xytext=(max_x, y_text_close), fontsize=13, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=close_color, alpha=0.1))
 
-    # annotate resistant
-    resistant = df.loc[max_idx, 'resistant']
-    if not np.isnan(resistant):
-      
-      y_resistant = resistant.round(2)
-      resistanter = df.loc[max_idx, 'resistanter'][0].upper()
-      y_text_resistant = y_resistant
+    # y_resistant = None
+    # y_text_resistant = None
+    # y_support = None
+    # y_text_support = None
 
-      diff = y_text_resistant - y_text_close
-      if diff < y_close_padding:
-        y_text_resistant = y_text_close + y_close_padding
-      plt.annotate(f'[{resistanter}] {y_resistant}', xy=(max_x, y_text_resistant), xytext=(max_x, y_text_resistant), fontsize=13, xycoords='data', textcoords='data', color='black', va='bottom',  ha='left', bbox=dict(boxstyle="round", facecolor='red', alpha=0.1))
+    # # annotate resistant
+    # resistant = df.loc[max_idx, 'resistant']
+    # if not np.isnan(resistant):
+      
+    #   y_resistant = resistant.round(2)
+    #   resistanter = df.loc[max_idx, 'resistanter'][0].upper()
+    #   y_text_resistant = y_resistant
+
+    #   diff = y_text_resistant - y_text_close
+    #   if diff < y_close_padding:
+    #     y_text_resistant = y_text_close + y_close_padding
+    #   plt.annotate(f'[{resistanter}] {y_resistant}', xy=(max_x, y_text_resistant), xytext=(max_x, y_text_resistant), fontsize=13, xycoords='data', textcoords='data', color='black', va='bottom',  ha='left', bbox=dict(boxstyle="round", facecolor='red', alpha=0.1))
     
-    # annotate support 
-    support = df.loc[max_idx, 'support'] # df.query('support == support')
-    if not np.isnan(support):# len(support) > 0:
+    # # annotate support 
+    # support = df.loc[max_idx, 'support'] # df.query('support == support')
+    # if not np.isnan(support):# len(support) > 0:
       
-      y_support = support.round(2) 
-      supporter = df.loc[max_idx, 'supporter'][0].upper()
-      y_text_support = y_support
+    #   y_support = support.round(2) 
+    #   supporter = df.loc[max_idx, 'supporter'][0].upper()
+    #   y_text_support = y_support
       
-      diff = y_text_close - y_text_support
-      if diff < y_close_padding:
-        y_text_support = y_text_close - y_close_padding
-      plt.annotate(f'[{supporter}] {y_support}', xy=(max_x, y_text_support), xytext=(max_x, y_text_support), fontsize=13, xycoords='data', textcoords='data', color='black', va='top',  ha='left', bbox=dict(boxstyle="round", facecolor='green', alpha=0.1))
+    #   diff = y_text_close - y_text_support
+    #   if diff < y_close_padding:
+    #     y_text_support = y_text_close - y_close_padding
+    #   plt.annotate(f'[{supporter}] {y_support}', xy=(max_x, y_text_support), xytext=(max_x, y_text_support), fontsize=13, xycoords='data', textcoords='data', color='black', va='top',  ha='left', bbox=dict(boxstyle="round", facecolor='green', alpha=0.1))
   
   # annotate candle patterns
   if 'pattern' in add_on:
