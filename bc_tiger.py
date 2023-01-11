@@ -260,6 +260,8 @@ class Tiger:
         # get briefs for stocks in positions
         if get_briefs:
           status = io_util.get_stock_briefs(symbols=[x.contract.symbol for x in self.positions], source='eod', period='1d', interval='1m', api_key=self.eod_api_key)
+          if status.empty:
+            status = pd.DataFrame({'symbol':[]})
           result = pd.merge(result, status, how='left', left_on='symbol', right_on='symbol')
           result['rate'] = round((result['latest_price'] - result['average_cost']) / result['average_cost'], 2)
           result = result[['symbol', 'quantity', 'average_cost', 'latest_price', 'rate', 'latest_time']]
