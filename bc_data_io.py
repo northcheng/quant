@@ -562,9 +562,9 @@ def get_real_time_data_from_eod(symbols, api_key=default_eod_key, is_print=False
     try:
       real_time = [] if response.status_code!=200 else response.json()
     except Exception as e:
-      print(e)
-      print(response.status_code, response) 
+      print(e, response.status_code, response)
       real_time = []
+
     real_time = [real_time] if isinstance(real_time, dict) else real_time
     
     if is_print:
@@ -872,6 +872,7 @@ def get_stock_briefs_from_eod(symbols, api_key=default_eod_key, batch_size=15):
     latest_data['latest_price'] = latest_data['Close'].copy()
     latest_data = latest_data[['latest_time', 'Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume', 'symbol', 'latest_price', 'Date']]
   else:
+    latest_data = pd.DataFrame(columns=['latest_time', 'Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume', 'symbol', 'latest_price', 'Date'])
     print('real time data from eod is empty')
 
   return latest_data
