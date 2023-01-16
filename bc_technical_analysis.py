@@ -979,10 +979,14 @@ def calculate_ta_score(df):
   df['score'] = 0
   df['up_score'] = 0
   df['down_score'] = 0
-  df['trigger_score'] = 0
   df['up_score_description'] = ''
   df['down_score_description'] = ''
+
+  df['trigger_score'] = 0
   df['trigger_score_description'] = ''
+
+  df['major_score'] = 0
+  df['major_score_description'] = ''
 
   # trigger score and description
   for col in ['窗口_day', 'adx_day', 'tankan_signal', 'kijun_signal', 'ichimoku_fs_signal', 'kama_fast_signal', 'kama_slow_signal', 'kama_fs_signal']:
@@ -999,6 +1003,19 @@ def calculate_ta_score(df):
   df['rate_direction_sda'] = sda(series=(df['rate'] > 0).replace({True: 1, False:-1}), zero_as=0)
   df['prev_candle_entity_top'] = df['candle_entity_top'].shift(1)
   df['prev_candle_entity_bottom'] = df['candle_entity_bottom'].shift(1)
+
+  # major score and description
+  major_conditions = {
+    'adx':          f'(0 < adx_day <= 5)',
+    'ichimoku':     f'(0 < ichimoku_day <= 5)',
+    'kama':         f'(0 < kama_day <= 5)'
+  }
+  for c in major_conditions.keys():
+    tmp_condition = major_conditions[c]
+    tmp_idx = df.query(tmp_condition).index
+    df.loc[tmp_idx, 'major_score'] += 1
+    df.loc[tmp_idx, 'major_score_description'] += f'{c}, '
+  df['major_score_description'] = df['major_score_description'].apply(lambda x: x[:-2])
   
   # conditions and corresponding scores
   labels = {}
@@ -1129,21 +1146,6 @@ def calculate_ta_signal(df):
   df = assign_condition_value(df=df, column='trend', condition_dict=conditions, value_dict=values, default_value='')
   df['trend_day'] = sda(series=df['trend'].replace({'u':1, 'd':-1, '': 0}), zero_as=None)
 
-  # major score
-  df['major_score'] = 0
-  df['major_score_description'] = ''
-  major_conditions = {
-    'adx':          f'(0 < adx_day <= 5)',
-    'ichimoku':     f'(0 < ichimoku_day <= 5)',
-    'kama':         f'(0 < kama_day <= 5)'
-  }
-  for c in major_conditions.keys():
-    tmp_condition = major_conditions[c]
-    tmp_idx = df.query(tmp_condition).index
-    df.loc[tmp_idx, 'major_score'] += 1
-    df.loc[tmp_idx, 'major_score_description'] += f'{c}, '
-  df['major_score_description'] = df['major_score_description'].apply(lambda x: x[:-2])
-
   # label score
   df['label'] = ''
   df['label_score'] = 0
@@ -1238,6 +1240,7 @@ def calculate_ta_signal(df):
     'sell':   's',
   }
   df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
+  df['signal_day'] = sda(df['signal'].replace({'b': 1, 's': -1, '': 0}), zero_as=1)
   # df = remove_redundant_signal(df=df, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='', keep='first')
 
   return df

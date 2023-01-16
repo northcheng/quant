@@ -155,7 +155,7 @@
       "trigger_score": "触发分数",
       
       "label": "信号标签", 
-      "label_score": "信号分数",
+      "signal_day": "信号分数",
       "signal": "交易信号"
     },
     "drop_columns": [],
