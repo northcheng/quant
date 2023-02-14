@@ -1874,7 +1874,8 @@ def filter_futu_exported(df, condition=None, q=0.7, price_limit=[5, 1000], marke
     PE_threshold = 0
     filtered_df = filtered_df.query(f'({price_limit[0]} <= close <= {price_limit[1]}) and (PE_TTM > 0)').copy()
     filtered_df = filtered_df.query(f'(volume >= {volume_threshold} or volume_value >= {volume_value_threshold} or market_value >= {market_value_threshold}) and PE >= {PE_threshold} and PB >= {PB_threshold}').copy()
-    filtered_df = filtered_df.sort_values('PE')
+    filtered_df['order'] = filtered_df.sort_values('PE').reset_index().index + filtered_df.sort_values('PB').reset_index().index
+    filtered_df = filtered_df.sort_values('order')
 
     for index, row in filtered_df.iterrows():
       if ('*' in row['name'] or 'ST' in row['name']):
