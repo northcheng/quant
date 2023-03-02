@@ -1233,7 +1233,7 @@ def calculate_ta_signal(df):
   
   conditions = {
     'buy':    'trend == "u" and ichimoku_trend == "u" and  kama_trend == "u" and (adx_trend == "u" or (adx_trend == "n" and adx_crossover == "u"))', 
-    'sell':   'adx_direction_day == -1',
+    'sell':   'adx_direction_day == -1 and (adx_value < 10 or candle_entity_bottom < tankan or candle_entity_bottom < kama_fast or ichimoku_distance < 0 or kama_distance < 0)',
   } 
   values = {
     'buy':    'b',
@@ -4839,11 +4839,11 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
       tmp_data = df[start:end]
       ax.fill_between(df[pre_start:end].index, top_value, bottom_value, hatch=gap_hatch, facecolor=gap_color, interpolate=True, alpha=0.5, edgecolor=gap_hatch_color, linewidth=1, zorder=20) #,  
   
-    # gap support & resistant
-    support_idx = df.query('candle_gap_support == candle_gap_support').index
-    resistant_idx = df.query('candle_gap_resistant == candle_gap_resistant').index
-    ax.scatter(support_idx, df.loc[support_idx, 'Low'] * 0.98, marker='^', color='black', edgecolor='black', zorder=21)
-    ax.scatter(resistant_idx, df.loc[resistant_idx, 'High'] * 1.02, marker='v', color='black', edgecolor='black', zorder=21)
+    # # gap support & resistant
+    # support_idx = df.query('candle_gap_support == candle_gap_support').index
+    # resistant_idx = df.query('candle_gap_resistant == candle_gap_resistant').index
+    # ax.scatter(support_idx, df.loc[support_idx, 'Low'] * 0.98, marker='^', color='black', edgecolor='black', zorder=21)
+    # ax.scatter(resistant_idx, df.loc[resistant_idx, 'High'] * 1.02, marker='v', color='black', edgecolor='black', zorder=21)
 
   # annotate close price, support/resistant(if exists)
   if 'support_resistant' in add_on:
