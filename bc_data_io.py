@@ -1793,6 +1793,7 @@ def process_futu_exported(file_path, file_name):
   
   # for chinese stock symbols
   for index, row in universe.iterrows():
+
     current_symbol = str(row['代码'])
 
     if len(current_symbol) == 6:
@@ -1867,7 +1868,7 @@ def filter_futu_exported(df, condition=None, q=0.7, price_limit=[5, 1000], marke
       if ('.' in row['symbol']):
         to_drop.append(index)
 
-  # for chinese stocks, remove those who's name contains '*' or 'ST'
+  # for chinese stocks
   elif market == 'a':
     
     PB_threshold = 0
@@ -1877,7 +1878,11 @@ def filter_futu_exported(df, condition=None, q=0.7, price_limit=[5, 1000], marke
     filtered_df = filtered_df.sort_values('market_value_circulation', ascending=False)
 
     for index, row in filtered_df.iterrows():
-      if ('*' in row['name'] or 'ST' in row['name']):
+      tmp_symbol_start = row['symbol'].split('.')[0][:2]
+      tmp_name = row['name']
+      
+      # remove those who's symbol not starts with ['60', '00'], or who's name contains ['*', 'ST']
+      if tmp_symbol_start not in ['60', '00'] or ('*' in tmp_name or 'ST' in tmp_name):
         to_drop.append(index)
     
   else:

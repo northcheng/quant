@@ -1155,7 +1155,7 @@ def calculate_ta_signal(df):
     # '触发买入':       f'(trigger_score >= 1)',
     # '分数达标':       f'(major_score > 0) and (trigger_score > 0) and (score > 0)'
     
-    # 'adx':        f'(5 >= adx_day > 0) and (trigger_score >= 1) and (kama_distance < 0)', 
+    'adx':        f'(adx_value <= -25) and (adx_direction > 5 and adx_direction_day > 1)', 
     # 'kama':       f'(5 >= kama_fs_signal > 0) and (trigger_score >= 1)',
     # 'ichimoku':   f'(5 >= ichimoku_fs_signal > 0 and ichimoku_distance > 0.001)',
     # 'rebound':    f'((trigger_score >= 1) and (kama_distance < 0 and kama_fast_signal > 0) and (Close > cloud_top and (0 < ichimoku_fs_signal < 5 or ichimoku_distance > -0.01 or 0 < kama_slow_signal < 5)))',
