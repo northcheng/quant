@@ -1179,7 +1179,7 @@ def calculate_ta_signal(df):
     
     'adx波动':        f'label == "potential" and (adx_value_change < 5 and adx_strong_day < -10) and ((adx_wave_day > 10) or (adx_value_change_std < 1) or (-10 < adx_direction_start < 10))',
     # 'adx下降':        f'label == "potential" and (adx_trend == "d")',
-    # '趋势下降':       f'label == "potential" and (trend_idx < 0)',
+    '趋势下降':       f'label == "potential" and (ichimoku_distance < 0 and kama_distance < 0 and tankan_rate < 0 and kama_fast_rate < 0)',
     
     # '仍未突破':       f'label == "potential" and (kama_distance < 0) and ((candle_entity_middle < kama_fast) or (candle_entity_middle < cloud_bottom))'
     } 
@@ -5921,7 +5921,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   # down_score = df.loc[df.index.max(), "down_score"]
   # up_score_desc = f'+{up_score}' if up_score > 0 else '+0.0'
   # down_score_desc = f'{down_score}' if down_score < 0 else '-0.0'
-  score_desc = f'Trigger {df.loc[df.index.max(), "trigger_score"]} | Major {df.loc[df.index.max(), "major_score"]} | Score {df.loc[df.index.max(), "score"]}'
+  score_desc = f'Signal {df.loc[df.index.max(), "signal_day"]} | Major {df.loc[df.index.max(), "major_score"]} | Trigger {df.loc[df.index.max(), "trigger_score"]} | Score {df.loc[df.index.max(), "score"]}'
   label_score_desc = '' # f'[Label {df.loc[df.index.max(), "label_score"]}]: {df.loc[df.index.max(), "label_description"]}'
   desc = '\n\n' + score_desc # + '\n' + label_score_desc # 
   
