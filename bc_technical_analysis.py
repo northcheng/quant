@@ -989,7 +989,7 @@ def calculate_ta_score(df):
   df['major_score_description'] = ''
 
   # trigger score and description
-  for col in ['窗口_day', 'adx_day', 'tankan_signal', 'kijun_signal', 'ichimoku_fs_signal', 'kama_fast_signal', 'kama_slow_signal', 'kama_fs_signal']:
+  for col in ['窗口_day', 'tankan_signal', 'kijun_signal', 'ichimoku_fs_signal', 'kama_fast_signal', 'kama_slow_signal', 'kama_fs_signal']:
     col_desc = '_'.join(col.split('_')[0:-1])
     valid_pos_idx = df.query(f'0 < {col} <= 5').index
     valid_neg_idx = df.query(f'-5 <= {col} < 0').index
@@ -1135,9 +1135,13 @@ def calculate_ta_signal(df):
   df = calculate_ta_score(df)
 
   # trend
+  # conditions = {
+  #   'up':     'trend_idx >= 1', # and ((Close > tankan and ichimoku_fs_signal > 0) or (Close > kijun and ichimoku_fs_signal < 0))', #'adx_trend == "u" and trend_idx > 0',
+  #   'down':   'trend_idx <= 0', #'adx_trend == "d"',
+  # } 
   conditions = {
-    'up':     'trend_idx >= 1', # and ((Close > tankan and ichimoku_fs_signal > 0) or (Close > kijun and ichimoku_fs_signal < 0))', #'adx_trend == "u" and trend_idx > 0',
-    'down':   'trend_idx <= 0', #'adx_trend == "d"',
+    'up':     'score > 0', # and ((Close > tankan and ichimoku_fs_signal > 0) or (Close > kijun and ichimoku_fs_signal < 0))', #'adx_trend == "u" and trend_idx > 0',
+    'down':   'score < 0', #'adx_trend == "d"',
   } 
   values = {
     'up':     'u', 
@@ -1231,8 +1235,15 @@ def calculate_ta_signal(df):
   # label signal
   df['signal'] = ''
   
+  # conditions = {
+  #   'buy':    'trend == "u" and ichimoku_trend == "u" and  kama_trend == "u" and (adx_trend == "u" or (adx_trend == "n" and adx_crossover == "u"))', 
+  #   'sell':   'adx_direction_day == -1 and (adx_value < 10 or candle_entity_bottom < tankan or candle_entity_bottom < kama_fast or ichimoku_distance < 0 or kama_distance < 0)',
+  # } 
+  # version until 2023-03-29
+
+  # version start from 2023-03-29
   conditions = {
-    'buy':    'trend == "u" and ichimoku_trend == "u" and  kama_trend == "u" and (adx_trend == "u" or (adx_trend == "n" and adx_crossover == "u"))', 
+    'buy':    'adx_day > 0 and (trigger_score > 0)', 
     'sell':   'adx_direction_day == -1 and (adx_value < 10 or candle_entity_bottom < tankan or candle_entity_bottom < kama_fast or ichimoku_distance < 0 or kama_distance < 0)',
   } 
   values = {
@@ -4527,7 +4538,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
   # plot settings
   settings = {
     'main': {'pos_signal_marker': 's', 'neg_signal_marker': 's', 'pos_trend_marker': '.', 'neg_trend_marker': '.', 'wave_trend_marker': '_', 'signal_alpha': 0.5, 'trend_alpha': 0.6, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'},
-    'other': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': 's', 'neg_trend_marker': 'x', 'wave_trend_marker': '_', 'signal_alpha': 0.3, 'trend_alpha': 0.3, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'}}
+    'other': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': 's', 'neg_trend_marker': '_', 'wave_trend_marker': '_', 'signal_alpha': 0.3, 'trend_alpha': 0.3, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'}}
   style = settings['main'] if signal_x in ['signal'] else settings['other']
 
   # plot signal base line
