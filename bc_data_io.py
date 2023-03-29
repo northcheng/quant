@@ -553,8 +553,12 @@ def get_real_time_data_from_eod(symbols, api_key=default_eod_key, is_print=False
     
     # get temporal symbol list
     tmp_list = symbols[batch_start:batch_end]
+    tmp_list_len = len(tmp_list)
     first_symbol = tmp_list[0]
-    other_symbols = ','.join(tmp_list[1:])
+    if tmp_list_len == 1:
+      other_symbols = first_symbol
+    else:
+      other_symbols = ','.join(tmp_list[1:])
   
     # get real-time data for current batch
     url = f'https://eodhistoricaldata.com/api/real-time/{first_symbol}?api_token={api_key}&fmt=json&s={other_symbols}'

@@ -1140,8 +1140,8 @@ def calculate_ta_signal(df):
   #   'down':   'trend_idx <= 0', #'adx_trend == "d"',
   # } 
   conditions = {
-    'up':     'score > 0', # and ((Close > tankan and ichimoku_fs_signal > 0) or (Close > kijun and ichimoku_fs_signal < 0))', #'adx_trend == "u" and trend_idx > 0',
-    'down':   'score < 0', #'adx_trend == "d"',
+    'up':     'score > 0 and adx_day > 0', # and ((Close > tankan and ichimoku_fs_signal > 0) or (Close > kijun and ichimoku_fs_signal < 0))', #'adx_trend == "u" and trend_idx > 0',
+    'down':   'score < 0 or adx_trend == "d"', #'adx_trend == "d"',
   } 
   values = {
     'up':     'u', 
@@ -1201,56 +1201,33 @@ def calculate_ta_signal(df):
   df.loc[none_potential_idx, 'label'] = ''
   df['label_description'] = df['label_description'].apply(lambda x: x[:-2])
 
-  # # label trend
-  # df['trend'] = ''
-  # conditions = {
-  #   'up':     'ichimoku_distance_signal > 0', 
-  #   'down':   'ichimoku_distance_signal < 0',
-  # } 
-  # values = {
-  #   'up':     'u', 
-  #   'down':   'd',
-  # }
-  # df = assign_condition_value(df=df, column='trend', condition_dict=conditions, value_dict=values, default_value='')
-  # acceptable_window_position = ['up', 'down']
-  # buy_conditions = {
-  #   '不在窗口中或突破窗口': f'((相对窗口位置 in {acceptable_window_position}) or (相对窗口位置 == "out" and candle_color == 1))',
-  #   'adx趋势显著且不在高位': f'((adx_strong_day > 0) and (adx_direction_day > 1) and (adx_value < 15))',
-  #   'kama间隔间隔较小': f'(kama_distance > -0.15)',
-  #   'ichimoku间隔扩大': f'(ichimoku_distance_signal > 0)',
-  #   'ichimoku红云之上或者绿云': f'(ichimoku_distance > 0 or (ichimoku_distance < 0 and candle_entity_bottom > kijun))',
-  #   '价格突破kama_fast': f'(candle_entity_bottom > kama_fast)',
-  # }
-
-  # sell_conditions = {
-  #   '整体下降趋势中': f'(trend == "d")',
-  #   'adx下降或波动趋势中': f'(adx_direction_day < -1)',
-  # }  
-  
-  # conditions = {
-  #   'buy':    ' and '.join(buy_conditions.values()), 
-  #   'sell':   ' and '.join(sell_conditions.values()),
-  # } 
-
   # label signal
   df['signal'] = ''
-  
-  # conditions = {
-  #   'buy':    'trend == "u" and ichimoku_trend == "u" and  kama_trend == "u" and (adx_trend == "u" or (adx_trend == "n" and adx_crossover == "u"))', 
-  #   'sell':   'adx_direction_day == -1 and (adx_value < 10 or candle_entity_bottom < tankan or candle_entity_bottom < kama_fast or ichimoku_distance < 0 or kama_distance < 0)',
-  # } 
-  # version until 2023-03-29
 
-  # version start from 2023-03-29
+  # buy and sell conditions
   conditions = {
-    'buy':    'adx_day > 0 and (trigger_score > 0)', 
-    'sell':   'adx_direction_day == -1 and (adx_value < 10 or candle_entity_bottom < tankan or candle_entity_bottom < kama_fast or ichimoku_distance < 0 or kama_distance < 0)',
+    'buy_in_general':    'adx_day > 0 and ((0 < kama_fast_signal <=5) or (0 < tankan_signal <=5))', 
+    'sell_when_dropdown':   '窗口_day == -1 or (相对窗口位置 == "out" and candle_color == -1)',
   } 
   values = {
-    'buy':    'b',
-    'sell':   's',
+    'buy_in_general':    'b',
+    'sell_when_dropdown':   's',
   }
   df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
+
+  # disable some false alarms
+  none_signal_idx = []
+  none_signal_conditions = {
+    '窗口附近': '(candle_color == -1) and ((突破_trend == "u") or (相对窗口位置 == "mid_up" or 相对窗口位置 == "mid" or 相对窗口位置 == "mid_down" or 相对窗口位置 == "in"))'
+  } 
+  for c in none_signal_conditions.keys():
+    tmp_condition = none_signal_conditions[c]
+    tmp_idx = df.query(tmp_condition).index
+    none_signal_idx += tmp_idx.tolist()
+  none_signal_idx = list(set(none_signal_idx))
+  df.loc[none_signal_idx, 'signal'] = ''
+
+  # calculate signal day
   df['signal_day'] = sda(df['signal'].replace({'b': 1, 's': -1, '': 0}), zero_as=1)
   # df = remove_redundant_signal(df=df, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='', keep='first')
 
@@ -4537,8 +4514,8 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
   # plot settings
   settings = {
-    'main': {'pos_signal_marker': 's', 'neg_signal_marker': 's', 'pos_trend_marker': '.', 'neg_trend_marker': '.', 'wave_trend_marker': '_', 'signal_alpha': 0.5, 'trend_alpha': 0.6, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'},
-    'other': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': 's', 'neg_trend_marker': '_', 'wave_trend_marker': '_', 'signal_alpha': 0.3, 'trend_alpha': 0.3, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'}}
+    'main': {'pos_signal_marker': 's', 'neg_signal_marker': 's', 'pos_trend_marker': '.', 'neg_trend_marker': '.', 'wave_trend_marker': '_', 'signal_alpha': 0.5, 'trend_alpha': 0.5, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'},
+    'other': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': 's', 'neg_trend_marker': '_', 'wave_trend_marker': '_', 'signal_alpha': 0.4, 'trend_alpha': 0.4, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'}}
   style = settings['main'] if signal_x in ['signal'] else settings['other']
 
   # plot signal base line
@@ -4572,15 +4549,16 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
   # plot potential
   if signal_x == '':
     tmp_data = df.query(f'(signal == "b")')
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='^', color='none', edgecolor='green', alpha=0.5)
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='green', edgecolor='green', alpha=0.5)
     tmp_data = df.query(f'(signal == "s")')
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='v', color='none', edgecolor='red', alpha=0.5)
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='red', edgecolor='red', alpha=0.5)
 
-  if signal_x == 'adx_signal':
-    tmp_data = df.query(f'adx_trend == "n" and adx_crossover == "u" and (adx_ma_diff > 1 or adx_strong_day > 1)')
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='green', alpha=0.3) #  edgecolor='green'
-    tmp_data = df.query(f'adx_trend == "n" and adx_crossover == "d" and (adx_ma_diff < -1 or adx_strong_day > 1)')
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='red', alpha=0.3) # , edgecolor='red'
+  # plot adx trend shift
+  # if signal_x == 'adx_signal':
+  #   tmp_data = df.query(f'adx_trend == "n" and adx_crossover == "u" and (adx_ma_diff > 1 or adx_strong_day > 1)')
+  #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='^', color='none', edgecolor='green', alpha=0.5) #  edgecolor='green'
+  #   tmp_data = df.query(f'adx_trend == "n" and adx_crossover == "d" and (adx_ma_diff < -1 or adx_strong_day > 1)')
+  #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='v', color='none', edgecolor='red', alpha=0.5) # , edgecolor='red'
 
   # plot signal
   if signal_x in df.columns:
