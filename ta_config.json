@@ -71,8 +71,9 @@
           "adx_signal",
           " ",
           
-          "",
-          "signal"
+          "b",
+          "signal",
+          "s"
         ]
       },
       "candle": {

@@ -280,6 +280,7 @@ def calculate_ta_static(df, indicators=default_indicators):
     lines = {
       'ichimoku': {'fast': 'tankan', 'slow': 'kijun'}, 
       'kama': {'fast': 'kama_fast', 'slow': 'kama_slow'}}
+    
     for target_indicator in ['ichimoku', 'kama']:
       if target_indicator in indicators['trend']:
 
@@ -1206,11 +1207,13 @@ def calculate_ta_signal(df):
 
   # buy and sell conditions
   conditions = {
-    'buy_in_general':    'adx_day > 0 and ((0 < kama_fast_signal <=5) or (0 < tankan_signal <=5))', 
-    'sell_when_dropdown':   '窗口_day == -1 or (相对窗口位置 == "out" and candle_color == -1)',
+    'buy_in_general':    '(adx_day > 0) and ((0 < kama_fast_signal <=5) or (0 < tankan_signal <=5))', 
+    'sell_when_adx_down':   '(adx_direction_day < 0) and (adx_trend != "u")',
+    'sell_when_dropdown':   '(突破_day == -1) or (相对窗口位置 == "out" and candle_color == -1)',
   } 
   values = {
     'buy_in_general':    'b',
+    'sell_when_adx_down': 's',
     'sell_when_dropdown':   's',
   }
   df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
@@ -1218,7 +1221,12 @@ def calculate_ta_signal(df):
   # disable some false alarms
   none_signal_idx = []
   none_signal_conditions = {
-    '窗口附近': '(candle_color == -1) and ((突破_trend == "u") or (相对窗口位置 == "mid_up" or 相对窗口位置 == "mid" or 相对窗口位置 == "mid_down" or 相对窗口位置 == "in"))'
+    '窗口附近(红)': '(signal == "b") and (candle_color == -1) and ((突破_trend == "u") or (相对窗口位置 == "mid_up" or 相对窗口位置 == "mid" or 相对窗口位置 == "mid_down" or 相对窗口位置 == "in"))',
+    '窗口附近(绿)': '(signal == "b") and (candle_color == 1) and (相对窗口位置 == "mid_up" or 相对窗口位置 == "mid" or 相对窗口位置 == "mid_down" or 相对窗口位置 == "in")',
+    'adx下降':      '(signal == "b") and (adx_direction_day < 0)',
+    '高位波动':     '(signal == "s") and (trend == "u") and (ichimoku_distance > 0 and kama_distance > 0) and (candle_entity_middle > tankan or candle_entity_middle > kama_fast)',
+    '低位波动':     '(signal == "b") and (ichimoku_distance < 0 and kama_distance < 0) and (kama_fast_signal < 0)',
+    '大趋势向下':   '(signal == "b") and (ichimoku_trend == "d" and kama_trend == "d")'
   } 
   for c in none_signal_conditions.keys():
     tmp_condition = none_signal_conditions[c]
@@ -4546,10 +4554,13 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     text_color = 'red' if text_day < 0 else 'green'
     plt.annotate(f'{signal_x[:4]}:{text_day} ', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.05))
 
-  # plot potential
-  if signal_x == '':
+  # plot buy signal
+  if signal_x == 'b':
     tmp_data = df.query(f'(signal == "b")')
     ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='green', edgecolor='green', alpha=0.5)
+
+  # plot sell signal
+  if signal_x == 's':
     tmp_data = df.query(f'(signal == "s")')
     ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='red', edgecolor='red', alpha=0.5)
 
