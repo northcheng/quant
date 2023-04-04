@@ -20,6 +20,7 @@ import imageio as imio
 # default arguments
 default_date_format = '%Y-%m-%d'
 
+
 #----------------------- Date manipulation -----------------------#
 def string_2_time(string, diff_days=0, date_format=default_date_format):
   """
@@ -127,6 +128,7 @@ def convert_timezone(time_object, from_tz, to_tz, keep_tzinfo=False):
     result = result.replace(tzinfo=None)
 
   return result
+
 
 #----------------------- Dataframe manipulation ------------------#
 def df_2_timeseries(df, time_col='date'):
