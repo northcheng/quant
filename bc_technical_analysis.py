@@ -211,7 +211,7 @@ def preprocess(df, symbol, print_error=True):
   return df
 
 # calculate indicators according to definition
-def calculate_ta_data(df, indicators=default_indicators):
+def calculate_ta_basic(df, indicators=default_indicators):
   '''
   Calculate indicators according to definition
 
@@ -222,7 +222,7 @@ def calculate_ta_data(df, indicators=default_indicators):
   '''
   # check whether data is empty or None
   if df is None or len(df) == 0:
-    print(f'No data for calculate_ta_data')
+    print(f'No data for calculate_ta_basic')
     return None  
 
   # copy dataframe
@@ -949,8 +949,8 @@ def calculate_ta_feature(df, symbol, start_date=None, end_date=None, indicators=
     df = preprocess(df=df, symbol=symbol)[start_date:end_date].copy()
     
     # calculate TA indicators
-    phase = 'cal_ta_indicators' 
-    df = calculate_ta_data(df=df, indicators=indicators)
+    phase = 'cal_ta_basic_features' 
+    df = calculate_ta_basic(df=df, indicators=indicators)
 
     # calculate TA trend
     phase = 'cal_ta_static_features'
@@ -5972,7 +5972,7 @@ def plot_historical_evolution(df, symbol, interval, config, his_start_date=None,
     his_end_date = df_max_idx
   
   if df is None or len(df) == 0:
-    print(f'{symbol}: No data for calculate_ta_data')
+    print(f'{symbol}: No data for calculation')
     return None   
   else:
     data_start_date = util.string_plus_day(string=his_start_date, diff_days=-config['calculation']['look_back_window'][interval])
@@ -5995,15 +5995,15 @@ def plot_historical_evolution(df, symbol, interval, config, his_start_date=None,
     df = preprocess(df=df, symbol=symbol)
     
     # calculate TA indicators
-    phase = 'cal_ta_indicators' 
-    df = calculate_ta_data(df=df, indicators=indicators)
+    phase = 'cal_ta_basic_features' 
+    df = calculate_ta_basic(df=df, indicators=indicators)
     
     # calculate TA trend
-    phase = 'cal_ta_trend'
+    phase = 'cal_ta_static_features'
     df = calculate_ta_static(df=df, indicators=indicators)
     
     # calculate TA derivatives for historical data for period [his_start_date ~ his_end_date]
-    phase = 'cal_ta_derivatives(historical)'
+    phase = 'cal_ta_dynamic_features_and_signals'
     historical_ta_data = pd.DataFrame()
     ed = his_start_date
 
