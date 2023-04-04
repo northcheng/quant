@@ -1226,7 +1226,7 @@ def calculate_ta_signal(df):
     'adx下降':      '(signal == "b") and (adx_direction_day < 0)',
     '高位波动':     '(signal == "s") and (trend == "u") and (ichimoku_distance > 0 and kama_distance > 0) and (candle_entity_middle > tankan or candle_entity_middle > kama_fast)',
     '低位波动':     '(signal == "b") and (ichimoku_distance < 0 and kama_distance < 0) and (kama_fast_signal < 0)',
-    '大趋势向下':   '(signal == "b") and (ichimoku_trend == "d" and kama_trend == "d")'
+    # '大趋势向下':   '(signal == "b") and (ichimoku_trend == "d" and kama_trend == "d")'
   } 
   for c in none_signal_conditions.keys():
     tmp_condition = none_signal_conditions[c]
@@ -4557,12 +4557,12 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
   # plot buy signal
   if signal_x == 'b':
     tmp_data = df.query(f'(signal == "b")')
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='green', edgecolor='green', alpha=0.5)
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='green', alpha=0.5)
 
   # plot sell signal
   if signal_x == 's':
     tmp_data = df.query(f'(signal == "s")')
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='red', edgecolor='red', alpha=0.5)
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='red', alpha=0.5)
 
   # plot adx trend shift
   # if signal_x == 'adx_signal':
