@@ -1481,6 +1481,9 @@ def sda(series, zero_as=None):
   index_col = series.index.name
   new_series = series.reset_index()
 
+  if index_col is None:
+    print('please assigan a name to index column')
+
   previous_idx = None
   current_idx = None
   for index, row in new_series.iterrows():
@@ -1517,7 +1520,10 @@ def sda(series, zero_as=None):
     previous_idx = index
 
   # reset index back
-  new_series = new_series.set_index(index_col)[target_col].copy()
+  if index_col is not None:
+    new_series = new_series.set_index(index_col)[target_col].copy()
+  else:
+    new_series = new_series[target_col].copy()
 
   return new_series
 
