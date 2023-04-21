@@ -1136,10 +1136,6 @@ def calculate_ta_signal(df):
   df = calculate_ta_score(df)
 
   # trend
-  # conditions = {
-  #   'up':     'trend_idx >= 1', # and ((Close > tankan and ichimoku_fs_signal > 0) or (Close > kijun and ichimoku_fs_signal < 0))', #'adx_trend == "u" and trend_idx > 0',
-  #   'down':   'trend_idx <= 0', #'adx_trend == "d"',
-  # } 
   conditions = {
     'up':     'score > 0 and adx_day > 0', # and ((Close > tankan and ichimoku_fs_signal > 0) or (Close > kijun and ichimoku_fs_signal < 0))', #'adx_trend == "u" and trend_idx > 0',
     'down':   'score < 0 or adx_trend == "d"', #'adx_trend == "d"',

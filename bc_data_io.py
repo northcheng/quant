@@ -2319,7 +2319,7 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
 
 
   # construct asset summary
-  asset_info = '<h3>Assets</h3><ul>'
+  asset_info = '<h3>Portfolio</h3><ul>'
   for portfolio in assets.keys():
     if assets[portfolio] is not None:
       net_value = assets[portfolio].get('net_value')
