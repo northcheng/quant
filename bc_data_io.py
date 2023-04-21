@@ -2295,6 +2295,8 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
   else:
     m['Subject'] = f'[auto_trade] {current_time}'
   
+  m["From"] = f'Autotrade <{from_addr}>' 
+  
   # get portfolio record
   assets = {}
   if os.path.exists(config['config_path']+'portfolio.json'):
