@@ -130,6 +130,7 @@ class FixedPositionTrader:
 
     # initialize back-test columns for records
     for symbol in self.record.keys():
+      self.record[symbol] = ta_util.remove_redundant_signal(self.record[symbol], signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', keep='first')
       self.record[symbol]['holding_price'] = 0
       self.record[symbol]['holding_return'] = 0
       self.record[symbol]['money'] = np.NaN
@@ -261,6 +262,7 @@ class FixedPositionTrader:
       for symbol in self.sec_list:
         
         signal_data = self.record[symbol]
+        status = None
         
         # if current date is trading day
         if date in signal_data.index:
@@ -275,6 +277,8 @@ class FixedPositionTrader:
             signal_data.loc[date, 'holding_return'] = (tmp_price - signal_data.loc[date, 'holding_price']) / signal_data.loc[date, 'holding_price']
             if (stop_profit is not None and signal_data.loc[date, 'holding_return'] >= stop_profit) or (stop_loss is not None and signal_data.loc[date, 'holding_return'] <= stop_loss):
               tmp_signal = 's'
+
+              print(f'stoped on {date} ')
 
           # buy stock
           if tmp_signal == 'b':
