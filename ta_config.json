@@ -66,9 +66,8 @@
       },
       "signals": {
         "signal_list": [
-          "kama_signal",
-          "ichimoku_signal",
-          "adx_signal",
+          "mid_signal",
+          "short_signal",
           " ",
           
           "b",
