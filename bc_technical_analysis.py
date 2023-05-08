@@ -1127,20 +1127,8 @@ def calculate_ta_signal(df):
 
   # add ta score and description
   df = calculate_ta_score(df)
-
-  # trend
-  df['trend'] = ''
-  conditions = {
-    'up':     'signal_score > 0', 
-    'down':   'signal_score <= 0',
-  } 
-  values = {
-    'up':     'u', 
-    'down':   'd',
-  }
-  df = assign_condition_value(df=df, column='trend', condition_dict=conditions, value_dict=values, default_value='')
-  df['trend_day'] = sda(series=df['trend'].replace({'u':1, 'd':-1, '': 0}), zero_as=None)
-
+  
+  # ================================ calculate trend ========================
   # short term trend
   df['short_trend'] = ''
   conditions = {
@@ -1165,46 +1153,51 @@ def calculate_ta_signal(df):
   }
   df = assign_condition_value(df=df, column='mid_trend', condition_dict=conditions, value_dict=values, default_value='')
 
+  # trend
+  df['trend'] = ''
+  conditions = {
+    'up':     'signal_score > 0', 
+    'down':   'signal_score <= 0',
+  } 
+  values = {
+    'up':     'u', 
+    'down':   'd',
+  }
+  df = assign_condition_value(df=df, column='trend', condition_dict=conditions, value_dict=values, default_value='')
+  df['trend_day'] = sda(series=df['trend'].replace({'u':1, 'd':-1, '': 0}), zero_as=None)
+
+  # ================================ calculate signal =======================
   # signal
   df['signal'] = ''
   conditions = {
-    # 'buy_in_general':       '(adx_day > 0) and (signal_score >= 1 and major_score > 0)', 
-    'buy_1':                '(mid_trend == "u" and short_trend == "u") and (adx_strong_day > 0)',
-    'buy_2':                '(mid_trend != "d" and short_trend != "d") and (trend == "u" and trigger_score >= 1)',
-    # 'buy':                  '(short_trend == "u") and ((mid_trend == "u" and adx_strong_day > 0) or (mid_trend == "" and kama_distance_day > 0 and ichimoku_distance_day > 0)) ',
-    'sell':                 '(short_trend_score < 0) and (position_score < 4)'
-    # 'buy':                  '(0 < trend_day < 3) and (adx_day > 0) and (adx_strong_day > 0 or position_score >= 2)',
-    # 'sell':                 '(0 > trend_day >-3)'
-    # 'sell_when_adx_down':   '(adx_direction_day < 0) and (adx_trend != "u")',
-    # 'sell_when_dropdown':   '(突破_day == -1) or (相对窗口位置 == "out" and candle_color == -1)',
-    # 'sell_when_resistant':  '(position_score <= 2 and resistant_score < 0)'
+    'buy_1':          '(mid_trend == "u" and short_trend == "u") and (adx_strong_day > 0)',
+    'buy_2':          '(mid_trend != "d" and short_trend != "d") and (trend == "u" and trigger_score >= 1)',
+    'sell':           '(short_trend == "d") and (position_score < 4)'
   } 
   values = {
-    # 'buy_in_general':       'b',
-    'buy_1':                'b',
-    'buy_2':                'b',
-    # 'buy':                  'b',
-    'sell':                 's'
-    # 'sell_when_adx_down':   's',
-    # 'sell_when_dropdown':   's',
-    # 'sell_when_resistant':  's'
+    'buy_1':          'b',
+    'buy_2':          'b',
+    'sell':           's'
   }
   df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
 
   # disable some false alarms
   none_signal_idx = []
   none_signal_conditions = {
-    '高位波动':       '(signal == "s") and (position_score == 4) and (adx_direction_day > -3)',
-    '上行动力弱':     '(signal == "b") and (candle_color == -1) and (adx_strong_day < 0)'
-    # '窗口附近(红)': '(signal == "b") and (candle_color == -1) and ((突破_trend == "u") or (相对窗口位置 == "mid_up" or 相对窗口位置 == "mid" or 相对窗口位置 == "mid_down" or 相对窗口位置 == "in"))',
-    # '窗口附近(绿)': '(signal == "b") and (candle_color == 1) and (相对窗口位置 == "mid_up" or 相对窗口位置 == "mid" or 相对窗口位置 == "mid_down" or 相对窗口位置 == "in")',
+    
+    '上行动力弱':     '(signal == "b") and (candle_color == -1) and (adx_strong_day < 0)',
+    '价格下降':       '(signal == "b") and (candle_color == -1) and (entity_diff > 1.5)',
+    '窗口附近(红)':   '(signal == "b") and (candle_color == -1) and ((突破_day == "u") or (相对窗口位置 == "mid_up" or 相对窗口位置 == "mid" or 相对窗口位置 == "mid_down" or 相对窗口位置 == "in" or 相对窗口位置 == "out"))',
+    '窗口附近(绿)':   '(signal == "b") and (candle_color == 1) and (相对窗口位置 == "mid_up" or 相对窗口位置 == "mid" or 相对窗口位置 == "mid_down" or 相对窗口位置 == "in" or 相对窗口位置 == "out")',
     # 'adx下降':      '(signal == "b") and (adx_direction_day < 0)',
     # 'adx波动':      '(signal == "b") and (adx_strong_day < 0 and adx_value > 0) and (signal_score < 3)',
-    # '价格下降':     '(signal == "b") and (signal_score < 3)',
-    # '高位波动_1':   '(signal == "s") and (trend == "u") and (突破_day != -1) and (resistant_score >= 0) and (position_score >= 2)',
-    # '高位波动_2':   '(signal == "s") and (trend == "u") and (突破_day != -1) and (resistant_score >= 0) and (position_score >= 2)',
     # # '低位波动':     '(signal == "b") and (ichimoku_distance < 0 and kama_distance < 0) and (kama_fast_day < 0)',
     # # '大趋势向下':   '(signal == "b") and (signal_score <= 0)',
+
+    '高位波动':       '(signal == "s") and (position_score == 4) and (adx_direction_day > -3)',
+    # '高位波动_1':   '(signal == "s") and (trend == "u") and (突破_day != -1) and (resistant_score >= 0) and (position_score >= 2)',
+    # '高位波动_2':   '(signal == "s") and (trend == "u") and (突破_day != -1) and (resistant_score >= 0) and (position_score >= 2)',
+    
     # # '大趋势向上':   '(signal == "s") and (signal_score == 3)',
     # '顶部买入':     '(signal == "b") and (candle_color == -1) and (adx_strong_day < 0 or adx_value > 10)'
   } 
@@ -1219,6 +1212,7 @@ def calculate_ta_signal(df):
   df['signal_day'] = sda(df['signal'].replace({'b': 1, 's': -1, '': 0}), zero_as=1)
   # df = remove_redundant_signal(df=df, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='', keep='first')
 
+  # ================================ calculate potential ====================
   # label score
   df['label'] = ''
   df['label_score'] = 0
