@@ -4990,8 +4990,6 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
       if diff < y_close_padding:
         y_text_support = y_text_close - y_close_padding
       plt.annotate(f'[{y_support} {supporter}]', xy=(max_x, y_text_support), xytext=(max_x, y_text_support), fontsize=13, xycoords='data', textcoords='data', color='black', va='top',  ha='left', bbox=dict(boxstyle="round", facecolor='green', alpha=0.1))
-  
-    print(resistant, support)
 
   # annotate candle patterns
   if 'pattern' in add_on:
