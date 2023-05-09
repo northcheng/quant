@@ -402,8 +402,8 @@ def calculate_ta_static(df, indicators=default_indicators):
       df['adx_strength'] = df['adx']
       df = cal_change(df=df, target_col='adx_value', add_accumulation=False, add_prefix=True)
       df = cal_change(df=df, target_col='adx_strength', add_accumulation=False, add_prefix=True)
-      df['adx_direction'] = df['adx_value_change']
-      df['adx_power'] = df['adx_strength_change']
+      df['adx_direction'] = df['adx_value_change'] # sda of adx_value_change
+      df['adx_power'] = df['adx_strength_change']  # sda of adx_strength_change
       wave_idx = df.query('-1 < adx_direction < 1 and -0.5 < adx_power < 0.5').index
 
       # adx_value_change_std
@@ -432,8 +432,8 @@ def calculate_ta_static(df, indicators=default_indicators):
       # whether strength is strong or weak
       adx_strong_weak_threshold = 25
       conditions = {
-        'up': f'adx_strength >= {adx_strong_weak_threshold}', 
-        'down': f'adx_strength < {adx_strong_weak_threshold}'} 
+        'up': f'adx >= {adx_strong_weak_threshold}', 
+        'down': f'adx < {adx_strong_weak_threshold}'} 
       values = {
         'up': 1, 
         'down': -1}
@@ -692,31 +692,7 @@ def calculate_ta_static(df, indicators=default_indicators):
     # ================================ support & resistant ====================
     target_indicator = 'support_resistant'
     if target_indicator > '':
-
       df = add_support_resistance(df)
-
-      # candle support & resistant
-      # calculate distance from High/Low to gap_top/gap_bottom, find the minimum one
-      df['h_2_gt'] = abs(df['High'] - df['candle_gap_top']) / df['High']
-      df['h_2_gb'] = abs(df['High'] - df['candle_gap_bottom']) / df['High']
-      df['l_2_gt'] = abs(df['Low'] - df['candle_gap_top']) / df['Low']
-      df['l_2_gb'] = abs(df['Low'] - df['candle_gap_bottom']) / df['Low']
-      df['high_to_gap'] = df[['h_2_gt', 'h_2_gb']].min(axis=1)
-      df['high_to_gap_col'] = df[['h_2_gt', 'h_2_gb']].idxmin(axis=1)
-      df['low_to_gap'] = df[['l_2_gt', 'l_2_gb']].min(axis=1)
-      df['low_to_gap_col'] = df[['l_2_gt', 'l_2_gb']].idxmin(axis=1)
-
-      distance_threshold = 0.01
-      shadow_pct_threhold = 0.05
-      column_name = {'h_2_gt': 'candle_gap_top', 'h_2_gb': 'candle_gap_bottom', 'l_2_gt': 'candle_gap_top', 'l_2_gb': 'candle_gap_bottom'}
-
-      support_idx = df.query(f'Close > candle_gap_bottom and candle_lower_shadow_pct > {shadow_pct_threhold} and low_to_gap < {distance_threshold}').index.tolist()
-      resistant_idx = df.query(f'Close < candle_gap_top and candle_upper_shadow_pct > {shadow_pct_threhold} and high_to_gap < {distance_threshold}').index.tolist()
-      
-      df.loc[support_idx, 'candle_gap_support'] = df.loc[support_idx, 'low_to_gap']
-      df.loc[support_idx, 'candle_gap_supporter'] = df.loc[support_idx, ].apply(lambda x: np.nan if np.isnan(x.low_to_gap) else column_name[x.low_to_gap_col], axis=1)
-      df.loc[resistant_idx, 'candle_gap_resistant'] = df.loc[resistant_idx, 'high_to_gap']
-      df.loc[resistant_idx, 'candle_gap_resistanter'] = df.loc[resistant_idx, ].apply(lambda x: np.nan if np.isnan(x.high_to_gap) else column_name[x.high_to_gap_col ], axis=1)
 
   except Exception as e:
     print(f'[Exception]: @ {phase} - {target_indicator}, {e}')
@@ -837,8 +813,17 @@ def calculate_ta_dynamic(df, perspective=default_perspectives):
       renko_resistant = df.loc[max_idx, 'renko_resistant'] if 'renko' in perspective else np.nan
       
       # calculate support and resistant from renko, linear_fit and candle_gap
-      support_candidates = {'linear': linear_fit_support, 'renko': renko_support, 'gap': df.loc[max_idx, 'candle_gap_support']}
-      resistant_candidates = {'linear':linear_fit_resistant, 'renko': renko_resistant, 'gap': df.loc[max_idx, 'candle_gap_resistant']}
+      support_candidates = {'linear': linear_fit_support, 'renko': renko_support}
+      static_support = df.loc[max_idx, 'support_description'].split(', ')
+      static_support = [x for x in static_support if x != '']
+      for ss in static_support:
+        support_candidates[ss] = df.loc[max_idx, ss]
+
+      resistant_candidates = {'linear':linear_fit_resistant, 'renko': renko_resistant}
+      static_resistant = df.loc[max_idx, 'resistant_description'].split(', ')
+      static_resistant = [x for x in static_resistant if x != '']
+      for sr in static_resistant:
+        resistant_candidates[sr] = df.loc[max_idx, sr]
 
       # support
       supporter = ''
@@ -857,10 +842,10 @@ def calculate_ta_dynamic(df, perspective=default_perspectives):
 
       if supporter == 'linear':
         valid_idxs = df.query('linear_slope == linear_slope').index
-      elif supporter == 'gap':
-        valid_idxs = df[df.query('candle_gap == 2 or candle_gap == -2').index[-1]:].index
       elif supporter == 'renko':
         valid_idxs = df[df.loc[max_idx, 'renko_start']:].index
+      elif supporter != '':
+        valid_idxs = df.index[-10:]
       else:
         valid_idxs = []
       df.loc[valid_idxs, 'support'] = support
@@ -880,19 +865,14 @@ def calculate_ta_dynamic(df, perspective=default_perspectives):
       if len(resistant_candidates) > 0:
         resistanter = min(resistant_candidates, key=resistant_candidates.get)
         resistant = resistant_candidates[resistanter]
-      
+
       valid_idxs = []
       if resistanter == 'linear':
         valid_idxs = df.query('linear_slope == linear_slope').index
-
-      elif resistanter == 'gap':
-        valid_idxs = df.query('candle_gap == 2 or candle_gap == -2').index
-        if len(valid_idxs) > 0:
-          valid_idxs = df[valid_idxs[-1]:].index
-
       elif resistanter == 'renko':
         valid_idxs = df[df.loc[max_idx, 'renko_start']:].index
-
+      elif resistanter != '':
+        valid_idxs = df.index[-10:]
       else:
         pass
 
@@ -1089,8 +1069,8 @@ def calculate_ta_score(df):
 
     # '-长期下跌':       [-5, '', '(kama_fs_day < -25 and ichimoku_distance < 0 and (candle_entity_bottom < cloud_top or candle_entity_bottom < kama_slow)) or (kama_distance < -0.075 and candle_entity_bottom < kama_slow)'],
 
-    '+支撑':            [2, '', '(candle_gap_support == candle_gap_support)'],
-    '-阻挡':            [-2, '', '(candle_gap_resistant == candle_gap_resistant)'],
+    '+支撑':            [2, '', '(support_score > 0)'],
+    '-阻挡':            [-2, '', '(resistant_score < 0)'],
   }
   df = cal_score(df=df, condition_dict=score_condition_dict, up_score_col='up_score', down_score_col='down_score')
 
@@ -1139,19 +1119,33 @@ def calculate_ta_signal(df):
     'up':     'u', 
     'down':   'd',
   }
-  df = assign_condition_value(df=df, column='short_trend', condition_dict=conditions, value_dict=values, default_value='')
+  df = assign_condition_value(df=df, column='short_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
   # mid term trend
   df['mid_trend'] = ''
   conditions = {
-    'up':     'mid_trend_score > 0', 
-    'down':   'mid_trend_score < 0',
+    'over ichimoku & kama up':  '(candle_entity_bottom > cloud_top) and (kama_distance < 0 and kama_fast_day > 0)',
+    'over both':                '(ichimoku_distance > 0 and kama_distance > 0)',
+    'down':                     'mid_trend_score < 0',
+  } 
+  values = {
+    'over ichimoku & kama up':  'u',
+    'over both':                'u',                 
+    'down':                     'd',
+  }
+  df = assign_condition_value(df=df, column='mid_trend', condition_dict=conditions, value_dict=values, default_value='n')
+
+  # mid term trend
+  df['overall_trend'] = ''
+  conditions = {
+    'up':     'mid_trend == "u" and short_trend == "u"', 
+    'down':   'mid_trend == "d" or short_trend == "d"',
   } 
   values = {
     'up':     'u', 
     'down':   'd',
   }
-  df = assign_condition_value(df=df, column='mid_trend', condition_dict=conditions, value_dict=values, default_value='')
+  df = assign_condition_value(df=df, column='overall_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
   # trend
   df['trend'] = ''
@@ -1170,14 +1164,15 @@ def calculate_ta_signal(df):
   # signal
   df['signal'] = ''
   conditions = {
-    'buy_1':          '(mid_trend == "u" and short_trend == "u") and (adx_strong_day > 0)',
-    'buy_2':          '(mid_trend != "d" and short_trend != "d") and (trend == "u" and trigger_score >= 1)',
-    'sell':           '(short_trend == "d") and (position_score < 4)'
+    'buy_1':          '(overall_trend == "u") and (adx_strong_day > 0)',
+    'buy_2':          '(overall_trend == "n") and (trigger_score >= 2)',
+    'sell_1':         '(short_trend == "d") and (position_score < 4)',
+    'sell_2':         '(adx_value > 20) and (突破_day == -1)',
   } 
   values = {
     'buy_1':          'b',
     'buy_2':          'b',
-    'sell':           's'
+    'sell_1':         's'
   }
   df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
 
@@ -2097,15 +2092,6 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
     values = {'向上跳空': 'u', '向下跳空': 'd'}
     df = assign_condition_value(df=df, column='窗口_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
-    # window position days (days beyond/below window)
-    conditions = {
-      '向上跳空后天数': '((candle_entity_bottom >= candle_gap_top) or (candle_entity_top > candle_gap_top and candle_entity_bottom < candle_gap_bottom and candle_color == 1))',
-      '向下跳空后天数': '((candle_entity_top <= candle_gap_bottom) or (candle_entity_top > candle_gap_top and candle_entity_bottom < candle_gap_bottom and candle_color ==-1))'}
-    values = {'向上跳空后天数': 1, '向下跳空后天数': -1}
-    df = assign_condition_value(df=df, column='window_position_days', condition_dict=conditions, value_dict=values, default_value=0)
-    df['window_position_days'] = sda(series=df['window_position_days'], zero_as=1)
-    df['previous_window_position_days'] = df['window_position_days'].shift(1)
-
     # window position status (beyond/below/among window)
     conditions = {
       '上方': '(Low >= candle_gap_top)',
@@ -2118,26 +2104,16 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
       '上方': 'up', '中上': 'mid_up',
       '中间': 'mid', '穿刺': 'out',
       '中下': 'mid_down', '下方': 'down'}
-    df = assign_condition_value(df=df, column='相对窗口位置', condition_dict=conditions, value_dict=values, default_value='')#, default_value=0)
-    df['previous_相对窗口位置'] = df['相对窗口位置'].shift(1)
-    df['previous_candle_color'] = df['candle_color'].shift(1)
+    df = assign_condition_value(df=df, column='相对窗口位置', condition_dict=conditions, value_dict=values, default_value='')
 
-    # rebound or hitpeak
-    conditions = {
-      '触底反弹': '(candle_gap != 2 and window_position_days > 2) and ((相对窗口位置 == "up") and (previous_相对窗口位置 == "mid_up" or previous_相对窗口位置 == "mid" or ((previous_相对窗口位置 == "mid_down" or previous_相对窗口位置 == "out")and previous_candle_color == 1)))', 
-      '触顶回落': '(candle_gap !=-2 and window_position_days <-2) and ((相对窗口位置 == "down") and (previous_相对窗口位置 == "mid_down" or previous_相对窗口位置 == "mid" or ((previous_相对窗口位置 == "mid_up" or previous_相对窗口位置 == "out") and previous_candle_color == -1)))'} 
-    values = {'触底反弹': 'u', '触顶回落': 'd'}
-    df = assign_condition_value(df=df, column='反弹_trend', condition_dict=conditions, value_dict=values, default_value='n')
-    
     # break through up or down
+    df['prev_close'] = df['Close'].shift(1)
     conditions = {
-      '向上突破': '((candle_gap != 2 and previous_window_position_days < 0) and ((candle_color == 1 and (相对窗口位置 == "out" or (entity_trend != "d" and candle_entity_middle > candle_gap_top))) or (相对窗口位置 == "up")))',
-      '向下突破': '((candle_gap != -2 and previous_window_position_days > 0) and ((candle_color ==-1 and 相对窗口位置 == "out" or (entity_trend != "d" and candle_entity_middle < candle_gap_bottom)) or (相对窗口位置 == "down")))'}
+      '向上突破': '(candle_gap != 2) and ((candle_entity_bottom > candle_gap_top > prev_close and 相对窗口位置 == "up") or (prev_close < candle_gap_top < candle_entity_middle and 相对窗口位置 == "out"))',
+      '向下突破': '(candle_gap != -2) and ((candle_entity_top < candle_gap_bottom < prev_close and 相对窗口位置 == "down") or (prev_close > candle_gap_bottom > candle_entity_middle and 相对窗口位置 == "out"))'
+    }
     values = {'向上突破': 'u', '向下突破': 'd'}
-    df = assign_condition_value(df=df, column='突破_trend', condition_dict=conditions, value_dict=values)
-    df['prev_突破_trend'] = df['突破_trend'].shift(1)
-    redundant_idx = df.query('(突破_trend == "u" and prev_突破_trend == "u") or (突破_trend == "d" and prev_突破_trend == "d")').index
-    df.loc[redundant_idx, '突破_trend'] = 'n'
+    df = assign_condition_value(df=df, column='突破_trend', condition_dict=conditions, value_dict=values, default_value='n')
   
   # patterns that consist only 1 candlestick
   if '1_candle' > '':
@@ -2329,7 +2305,7 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
                   df.loc[idx, '启明黄昏_trend'] = 'u'
 
   # days since signal triggered
-  all_candle_patterns = ['位置', '窗口', '突破', '反弹', '十字星', '流星', '锤子', '腰带', '平头', '穿刺', '包孕', '吞噬', '启明黄昏']
+  all_candle_patterns = ['位置', '窗口', '突破', '十字星', '流星', '锤子', '腰带', '平头', '穿刺', '包孕', '吞噬', '启明黄昏'] # '反弹', 
   for col in all_candle_patterns:
     df[f'{col}_day'] = df[f'{col}_trend'].replace({'u':1, 'd':-1, 'n':0, '': 0}).fillna(0).astype(int)
 
@@ -2342,8 +2318,7 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
   
   # redundant intermediate columns
   for col in [
-    'window_position_days', 'previous_window_position_days', 'previous_相对窗口位置', 'prev_突破_trend',
-    'previous_candle_color', 'high_diff', 'low_diff', 'candle_upper_shadow_pct_diff', 'candle_lower_shadow_pct_diff', 
+    'prev_close', 'high_diff', 'low_diff', 'candle_upper_shadow_pct_diff', 'candle_lower_shadow_pct_diff', 
     'entity_ma', 'entity_std', 'shadow_ma', 'shadow_std', # 'shadow_diff', 'entity_diff',
     'moving_max', 'moving_min']:
     if col in df.columns:
@@ -2601,12 +2576,14 @@ def add_support_resistance(df, target_col=['kama_fast', 'kama_slow', 'tankan', '
   """
   # copy dataframe
   df = df.copy()
+  col_to_drop = []
 
   # remove columns that not exists
   target_col = [x for x in target_col if x in df.columns]
 
   # calculate middle price
   df['mid_price'] = (df['High'] + df['Low']) / 2
+  col_to_drop.append('mid_price')
   distance_threshold = 0.01
   shadow_pct_threhold = 0.05
 
@@ -2617,15 +2594,10 @@ def add_support_resistance(df, target_col=['kama_fast', 'kama_slow', 'tankan', '
       
       # calculate mutual distnace
       distance_col = f'{col_1}_to_{col_2}'
-      df[distance_col] = abs(df[col_1] - df[col_2]) / df[col_1]
-      
-      generated_cols[col_1].append(distance_col)
-      # # calculate distance from High/Low to gap_top/gap_bottom, find the minimum one
-      # df['high_to_gap'] = df[['h_2_gt', 'h_2_gb']].min(axis=1)
-      # df['high_to_gap_col'] = df[['h_2_gt', 'h_2_gb']].idxmin(axis=1)
-      # df['low_to_gap'] = df[['l_2_gt', 'l_2_gb']].min(axis=1)
-      # df['low_to_gap_col'] = df[['l_2_gt', 'l_2_gb']].idxmin(axis=1)
+      col_to_drop.append(distance_col)
 
+      df[distance_col] = abs(df[col_1] - df[col_2]) / df[col_1]
+      generated_cols[col_1].append(distance_col)
       
   # column_name = {'h_2_gt': 'candle_gap_top', 'h_2_gb': 'candle_gap_bottom', 'l_2_gt': 'candle_gap_top', 'l_2_gb': 'candle_gap_bottom'}
   df['support_score'] = 0
@@ -2649,11 +2621,10 @@ def add_support_resistance(df, target_col=['kama_fast', 'kama_slow', 'tankan', '
     df.loc[resistant_idx, 'resistant_description'] += f'{tmp_col}, '
   df['resistant_description'] = df['resistant_description'].apply(lambda x: x[:-2])
   
-  # support_idx = df.query(f'Close > candle_gap_bottom and candle_lower_shadow_pct > {shadow_pct_threhold} and low_to_gap < {distance_threshold}').index.tolist()
-  # df.loc[support_idx, 'candle_gap_support'] = df.loc[support_idx, 'low_to_gap']
-  # df.loc[support_idx, 'candle_gap_supporter'] = df.loc[support_idx, ].apply(lambda x: np.nan if np.isnan(x.low_to_gap) else column_name[x.low_to_gap_col], axis=1)
-  # df.loc[resistant_idx, 'candle_gap_resistant'] = df.loc[resistant_idx, 'high_to_gap']
-  # df.loc[resistant_idx, 'candle_gap_resistanter'] = df.loc[resistant_idx, ].apply(lambda x: np.nan if np.isnan(x.high_to_gap) else column_name[x.high_to_gap_col ], axis=1)
+  for col in col_to_drop:
+    if col in df.columns:
+      df.drop(col, axis=1, inplace=True)
+  
   return df
 
 # ================================================ Trend indicators ================================================= #
@@ -4971,8 +4942,6 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
       ax.fill_between(df[pre_start:end].index, top_value, bottom_value, hatch=gap_hatch, facecolor=gap_color, interpolate=True, alpha=0.5, edgecolor=gap_hatch_color, linewidth=1, zorder=20) #,  
   
     # # gap support & resistant
-    # support_idx = df.query('candle_gap_support == candle_gap_support').index
-    # resistant_idx = df.query('candle_gap_resistant == candle_gap_resistant').index
     # ax.scatter(support_idx, df.loc[support_idx, 'Low'] * 0.98, marker='^', color='black', edgecolor='black', zorder=21)
     # ax.scatter(resistant_idx, df.loc[resistant_idx, 'High'] * 1.02, marker='v', color='black', edgecolor='black', zorder=21)
 
@@ -4995,31 +4964,35 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
     y_text_support = None
 
     # annotate resistant
-    resistant = df.loc[max_idx, 'High'] + df.loc[max_idx, 'High'] * df.loc[max_idx, 'resistant']
+    resistant = df.loc[max_idx, 'resistant'] # df.loc[max_idx, 'High'] + df.loc[max_idx, 'High'] * 
+    
     if not np.isnan(resistant):
       
       y_resistant = resistant.round(2)
-      resistanter = df.loc[max_idx, 'resistanter'][0].upper()
+      resistanter = df.loc[max_idx, 'resistanter']#[0].upper()
       y_text_resistant = y_resistant
 
       diff = y_text_resistant - y_text_close
       if diff < y_close_padding:
         y_text_resistant = y_text_close + y_close_padding
-      plt.annotate(f'[{resistanter}] {y_resistant}', xy=(max_x, y_text_resistant), xytext=(max_x, y_text_resistant), fontsize=13, xycoords='data', textcoords='data', color='black', va='bottom',  ha='left', bbox=dict(boxstyle="round", facecolor='red', alpha=0.1))
+      print(max_x, resistanter, y_text_resistant)
+      plt.annotate(f'[{y_resistant} {resistanter}]', xy=(max_x, y_text_resistant), xytext=(max_x, y_text_resistant), fontsize=13, xycoords='data', textcoords='data', color='black', va='bottom',  ha='left', bbox=dict(boxstyle="round", facecolor='red', alpha=0.1))
     
     # annotate support 
-    support = df.loc[max_idx, 'Low'] - df.loc[max_idx, 'Low'] * df.loc[max_idx, 'support']
+    support = df.loc[max_idx, 'support'] # df.loc[max_idx, 'Low'] - df.loc[max_idx, 'Low'] * 
     if not np.isnan(support):
       
       y_support = support.round(2) 
-      supporter = df.loc[max_idx, 'supporter'][0].upper()
+      supporter = df.loc[max_idx, 'supporter']#[0].upper()
       y_text_support = y_support
       
       diff = y_text_close - y_text_support
       if diff < y_close_padding:
         y_text_support = y_text_close - y_close_padding
-      plt.annotate(f'[{supporter}] {y_support}', xy=(max_x, y_text_support), xytext=(max_x, y_text_support), fontsize=13, xycoords='data', textcoords='data', color='black', va='top',  ha='left', bbox=dict(boxstyle="round", facecolor='green', alpha=0.1))
+      plt.annotate(f'[{y_support} {supporter}]', xy=(max_x, y_text_support), xytext=(max_x, y_text_support), fontsize=13, xycoords='data', textcoords='data', color='black', va='top',  ha='left', bbox=dict(boxstyle="round", facecolor='green', alpha=0.1))
   
+    print(resistant, support)
+
   # annotate candle patterns
   if 'pattern' in add_on:
     
@@ -5069,8 +5042,8 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
     up_pattern_annotations = {}
     down_pattern_annotations = {}
     for p in pattern_info.keys():
-      # style = 'normal' if p not in ['窗口_day', '突破_day', '反弹_day'] else 'emphasis'
-      style = 'normal' if p not in ['窗口_trend', '突破_trend', '反弹_trend'] else 'emphasis'
+      
+      style = 'normal' if p not in ['窗口_trend', '突破_trend'] else 'emphasis' # , '反弹_trend'
 
       if p in df.columns:
         tmp_up_idx = df.query(f'{p} == "u"').index
