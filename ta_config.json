@@ -66,12 +66,14 @@
       },
       "signals": {
         "signal_list": [
+          "potential",
           " ",
-          "signal",
           "middle_signal",
           "short_signal",
           " ",
-          "bns"
+          "b",
+          "signal",
+          "s"
         ]
       },
       "candle": {
@@ -153,9 +155,9 @@
       "trigger_score_description": "触发标签",
       "trigger_score": "触发分数",
       
-      "label": "信号标签", 
-      "label_score": "潜力分数",
-      "label_description": "信号描述",
+      "potential": "潜力标签", 
+      "potential_score": "潜力分数",
+      "potential_description": "潜力描述",
       
       "signal_day": "信号分数",
       "signal": "交易信号"
