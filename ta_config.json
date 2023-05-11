@@ -66,14 +66,12 @@
       },
       "signals": {
         "signal_list": [
-          "overall_signal",
-          "mid_signal",
+          " ",
+          "signal",
+          "middle_signal",
           "short_signal",
           " ",
-          
-          "b",
-          "signal",
-          "s"
+          "bns"
         ]
       },
       "candle": {
