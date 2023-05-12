@@ -1206,7 +1206,7 @@ def calculate_ta_signal(df):
   df['potential_description'] = ''
   potential_conditions = {
     # '典型买入':       f'(major_score >= 2) and (trend == "u")',
-    '触发':         f'(trigger_score >= 1) and (candle_color == 1) and ((adx < 0 and adx_strong_day > 0) or (-0.15 < kama_distance < 0))',
+    '触发':         f'(trigger_score >= 2) and (candle_color == 1) and (candle_entity_bottom > kama_fast)',
     # '分数达标':       f'(major_score > 0) and (trigger_score > 0) and (score > 0)'
     
     # 'adx':        f'(adx_value <= -25) and (adx_direction > 5 and adx_direction_day > 1)', 
@@ -1224,6 +1224,8 @@ def calculate_ta_signal(df):
   # remove false alarm
   none_potential_idx = []
   none_potential_conditions = {
+    'adx起点高且趋势弱':  '(adx > 0 and adx_strong_day < 0)',
+    'kama距离过大':       '(kama_distance > 0 or kama_distance < -0.15)',
     # # '蜡烛波动':       f'potential == "potential" and ((十字星 != "n") or ((rate < 0 or candle_color == -1) and (0 > 平头_day >= -3 or 0 > 腰带_day >= -3)) or (相对窗口位置 == "mid" or (candle_color == -1 and (相对窗口位置 == "mid_up" or 相对窗口位置 == "mid_down"))))',
     # # '蜡烛下降':       f'potential == "potential" and (窗口_day == -1 or 反弹_day == -1 or 突破_day == -1 or 锤子_day == -1 or 流星_day == -1 or 穿刺_day == -1 or 启明黄昏_day == -1)',
     # '窗口阻挡':       f'potential == "potential" and ((相对窗口位置 in ["mid", "mid_down"]) or (相对窗口位置 in ["out", "mid_up"] and candle_color == -1))', #f'label == "potential" and ()',
