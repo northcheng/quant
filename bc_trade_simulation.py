@@ -448,8 +448,10 @@ class FixedPositionTrader:
       analysis = analysis.sort_values('EAR', ascending=False)
 
     # calculate sum and mean for non benchmark stocks
+    numeric_columns = [x for x in analysis.columns if x not in ['start_date', 'end_date']]
     non_benchmark_list = [x for x in analysis.index.tolist() if x != 'benchmark']
-    non_benchmark_analysis = analysis.loc[non_benchmark_list, analysis.columns].copy()
+    non_benchmark_analysis = analysis.loc[non_benchmark_list, numeric_columns].copy()
+    
     if len(non_benchmark_analysis) > 1:
 
       # calculate sum and mean

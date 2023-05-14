@@ -1182,9 +1182,11 @@ def calculate_ta_signal(df):
     '高位波动':       '(signal == "s") and (position_score == 4) and (adx_direction_day > -3)',
     # '高位波动_1':   '(signal == "s") and (trend == "u") and (突破_day != -1) and (resistant_score >= 0) and (position_score >= 2)',
     # '高位波动_2':   '(signal == "s") and (trend == "u") and (突破_day != -1) and (resistant_score >= 0) and (position_score >= 2)',
+    '突破受阻':       '(signal == "b") and ((tankan_day == 1 and candle_entity_middle < tankan) or (kijun_day == 1 and candle_entity_middle < kijun) or (kama_fast_day == 1 and candle_entity_middle < kama_fast) or (kama_slow_day == 1 and candle_entity_middle < kama_slow))',
     
     # # '大趋势向上':   '(signal == "s") and (signal_score == 3)',
     # '顶部买入':     '(signal == "b") and (candle_color == -1) and (adx_strong_day < 0 or adx_value > 10)',
+    '十字星':         '(signal == "b") and (十字星 == "d")'
   } 
   for c in none_signal_conditions.keys():
     tmp_condition = none_signal_conditions[c]
