@@ -67,7 +67,7 @@
       "signals": {
         "signal_list": [
           "potential",
-          " ",
+          "long_signal",
           "middle_signal",
           "short_signal",
           " ",
