@@ -44,7 +44,7 @@
   "visualization": {
     "plot_args": {
       "plot_ratio": {
-        "signals": 1.5, "adx": 2.5,
+        "signals": 1.75, "adx": 2.25,
         "main_indicators": 9, "volume":1
       },
       
@@ -66,14 +66,17 @@
       },
       "signals": {
         "signal_list": [
-          "potential",
+          " ",
+          "",
+          " ",
           "long_signal",
           "middle_signal",
           "short_signal",
           " ",
           "b",
           "signal",
-          "s"
+          "s",
+          " "
         ]
       },
       "candle": {
