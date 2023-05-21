@@ -33,7 +33,7 @@ default_signal_val = {'pos_signal':'b', 'neg_signal':'s', 'none_signal':'', 'wav
 
 # default indicators and dynamic trend for calculation
 default_indicators = {'trend': ['ichimoku', 'kama', 'adx'], 'volume': [], 'volatility': ['bb'], 'other': []}
-default_perspectives = ['candle', 'support_resistant', 'renko']
+default_perspectives = ['candle', 'support_resistant']
 
 # default arguments for visualization
 default_candlestick_color = {'color_up':'green', 'color_down':'red', 'shadow_color':'black', 'entity_edge_color':'black', 'alpha':0.8}
@@ -410,9 +410,6 @@ def calculate_ta_static(df, indicators=default_indicators):
       df['adx_value_prediction'] = df['adx_value'] + em(series=df['adx_value_change'], periods=3).mean()
       df['adx_value_prediction'] = sm(series=df['adx_value_prediction'], periods=5).mean()
 
-      # adx_value_change_std
-      df['adx_value_change_std'] = em(df['adx_value_change'], 5).mean()
-
       # direction(of value) and power(of strength)
       for col in ['adx_direction', 'adx_power']:
         df.loc[wave_idx, col] = 0
@@ -518,12 +515,11 @@ def calculate_ta_static(df, indicators=default_indicators):
 
       # drop redundant column
       df.drop(['prev_adx_value'], axis=1, inplace=True)
-
       df['adx_value_ma'] = df['adx_value'].rolling(3).mean()
-      df['adx_crossover'] = cal_crossover_signal(df=df, fast_line='adx_value', slow_line='adx_value_ma', pos_signal='u', neg_signal='d', none_signal=np.nan)
-      df['adx_crossover'] = df['adx_crossover'].fillna(method='ffill')
 
-      df['adx_ma_diff'] = df['adx_value'] - df['adx_value_ma']
+      # df['adx_ma_diff'] = df['adx_value'] - df['adx_value_ma']
+      # df['adx_crossover'] = cal_crossover_signal(df=df, fast_line='adx_value', slow_line='adx_value_ma', pos_signal='u', neg_signal='d', none_signal=np.nan)
+      # df['adx_crossover'] = df['adx_crossover'].fillna(method='ffill')
       # conditions = {
       #   'up': f'adx_value > adx_value_ma', 
       #   'down': f'adx_value < adx_value_ma'
@@ -1230,7 +1226,6 @@ def calculate_ta_signal(df):
     '价格下跌':       f'potential == "potential" and ((candle_color == -1 or rate < 0) or (shadow_trend == "u" and upper_shadow_trend == "u") or (candle_color == -1 and entity_trend == "u"))',
     # # '价格过高':       f'potential == "potential" and (adx_day > 5) and (kama_fs_day >= 10 and ichimoku_fs_day >= 10 and Close > kama_fast and Close > tankan)',
     
-    # 'adx波动':        f'potential == "potential" and (adx_value_change < 5 and adx_strong_day < -10) and ((adx_wave_day > 10) or (adx_value_change_std < 1) or (-10 < adx_direction_start < 10))',
     # # 'adx下降':        f'potential == "potential" and (adx_trend == "d")',
     # '趋势下降':       f'potential == "potential" and (ichimoku_distance < 0 and kama_distance < 0 and tankan_rate <= 0 and kama_fast_rate <= 0) or (major_score <= 0)',
     
@@ -1361,7 +1356,7 @@ def postprocess(df, keep_columns, drop_columns, sec_names, target_interval=''):
   df['obos'] = df['bb_trend'].replace({'d': '超买', 'u': '超卖', 'n': ''})
 
   # sort symbols
-  df = df.sort_values(['adx_day', 'adx_value', 'adx_direction_mean', 'adx_direction_day', 'prev_adx_extreme'], ascending=[True, True, True, True, True])
+  df = df.sort_values(['adx_day', 'adx_value', 'adx_direction_day', 'prev_adx_extreme'], ascending=[True, True, True, True])
 
   # add names for symbols
   df['name'] = df['symbol']
@@ -4746,13 +4741,6 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
       text_signal = int(df.loc[max_idx, 'renko_duration'])
       text_color = df.loc[max_idx, 'renko_color'] # fontsize=14, 
       plt.annotate(f'{df.loc[max_idx, "renko_series_short"]}: {text_signal}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.1))
-
-  # plot adx trend shift
-  # if signal_x == 'adx_signal':
-  #   tmp_data = df.query(f'adx_trend == "n" and adx_crossover == "u" and (adx_ma_diff > 1 or adx_strong_day > 1)')
-  #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='^', color='none', edgecolor='green', alpha=0.5) #  edgecolor='green'
-  #   tmp_data = df.query(f'adx_trend == "n" and adx_crossover == "d" and (adx_ma_diff < -1 or adx_strong_day > 1)')
-  #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='v', color='none', edgecolor='red', alpha=0.5) # , edgecolor='red'
 
   # plot signal
   if signal_x in df.columns:
