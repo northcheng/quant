@@ -953,32 +953,28 @@ def calculate_ta_score(df):
   middle_trend_condition_dict = {
     '+ichimoku':       [1, '', '(ichimoku_day > 0)'],
     '-ichimoku':       [-1, '', '(ichimoku_day < 0)'],
-
-    # '+kama':           [1, '', '(kama_day > 0)'],
-    # '-kama':           [-1, '', '(kama_day < 0)'],
   }
   df = cal_score(df=df, condition_dict=middle_trend_condition_dict, up_score_col='middle_trend_score', down_score_col='middle_trend_score')
 
   # long-term trend score and description
   long_trend_condition_dict = {
-    # '+ichimoku':       [1, '', '(ichimoku_day > 0)'],
-    # '-ichimoku':       [-1, '', '(ichimoku_day < 0)'],
-
     '+kama':           [1, '', '(kama_day > 0)'],
     '-kama':           [-1, '', '(kama_day < 0)'],
   }
   df = cal_score(df=df, condition_dict=long_trend_condition_dict, up_score_col='long_trend_score', down_score_col='long_trend_score')
 
   # trigger score and description
-  for col in ['tankan_day', 'kijun_day', 'kama_fast_day', 'kama_slow_day']:
+  for col in ['tankan_day', 'kama_fast_day']: # 'kijun_day', , 'kama_slow_day'
     col_desc = '_'.join(col.split('_')[0:-1])
-    valid_pos_idx = df.query(f'0 < {col} <= 5').index
-    valid_neg_idx = df.query(f'-5 <= {col} < 0').index
+    distance_col = 'ichimoku_distance' if col in ['tankan_day', 'kijun_day'] else 'kama_distance'
+    valid_pos_idx = df.query(f'0 < {col} <= 5 and {distance_col} < 0').index
+    valid_neg_idx = df.query(f'-5 <= {col} < 0  and {distance_col} > 0').index
     df.loc[valid_pos_idx, 'trigger_score'] += df.loc[valid_pos_idx, col].apply(lambda x: 0 if (np.isnan(x) or x == 0) else 1/x)
     df.loc[valid_neg_idx, 'trigger_score'] += df.loc[valid_neg_idx, col].apply(lambda x: 0 if (np.isnan(x) or x == 0) else 1/x)
     df.loc[valid_pos_idx, 'trigger_score_description'] += f'+{col_desc}, '
     df.loc[valid_neg_idx, 'trigger_score_description'] += f'-{col_desc}, '
 
+  for col in ['tankan_day', 'kijun_day', 'kama_fast_day', 'kama_slow_day']:
     up_idx = df.query(f'{col} > 0').index
     down_idx = df.query(f'{col} < 0').index
     df.loc[up_idx, 'position_score'] += 1
@@ -1017,19 +1013,6 @@ def calculate_ta_score(df):
     '-kama':           [-1, '', '(0 > kama_day >= -5)'],
   }
   df = cal_score(df=df, condition_dict=major_condition_dict, up_score_col='major_score', down_score_col='major_score')
-
-  # signal score and description
-  signal_condition_dict = {
-    '+adx':            [1, '', '(adx_trend == "u")'],
-    '-adx':            [-1, '', '(adx_trend == "d")'],
-
-    '+ichimoku':       [1, '', '(ichimoku_trend == "u")'],
-    '-ichimoku':       [-1, '', '(ichimoku_trend == "d")'],
-
-    '+kama':           [1, '', '(kama_trend == "u")'],
-    '-kama':           [-1, '', '(kama_trend == "d")'],
-  }
-  df = cal_score(df=df, condition_dict=signal_condition_dict, up_score_col='signal_score', down_score_col='signal_score')
   
   # up/down score and description
   df['candle_color_sda'] = sda(series=df['candle_color'], zero_as=0)
@@ -1037,61 +1020,59 @@ def calculate_ta_score(df):
   df['prev_candle_entity_top'] = df['candle_entity_top'].shift(1)
   df['prev_candle_entity_bottom'] = df['candle_entity_bottom'].shift(1)
   score_condition_dict = {
-    '+i_f':            [1, '', '(tankan_rate >=  0.025)'],
-    '-i_f':            [-1, '', '(tankan_rate <= -0.025)'],
+    '+i_fast_rate':     [1, '', '(tankan_rate >=  0.025)'],
+    '-i_fast_rate':     [-1, '', '(tankan_rate <= -0.025)'],
 
-    '+k_f':            [1, '', '(kama_fast_rate >= 0.025)'],
-    '-k_f':            [-1, '', '(kama_fast_rate <= -0.025)'],
+    '+k_fast_rate':     [1, '', '(kama_fast_rate >= 0.025)'],
+    '-k_fast_rate':     [-1, '', '(kama_fast_rate <= -0.025)'],
 
-    '+i_gap':          [1, '', '(ichimoku_distance >= 0.1)'],
-    '-i_gap':          [-1, '', '(ichimoku_distance <= -0.1)'],
+    '+i_fast_slow':     [1, '', '(ichimoku_distance >= 0.1)'],
+    '-i_fast_slow':     [-1, '', '(ichimoku_distance <= -0.1)'],
 
-    '+k_gap':          [1, '', '(kama_distance >= 0.1)'],
-    '-k_gap':          [-1, '', '(kama_distance <= -0.1)'],
+    '+k_fast_slow':     [1, '', '(kama_distance >= 0.1)'],
+    '-k_fast_slow':     [-1, '', '(kama_distance <= -0.1)'],
 
-    '+i_gap_up':       [1, '', '(ichimoku_distance_day > 0)'],
-    '-i_gap_down':     [-1, '', '(ichimoku_distance_day < 0)'],
+    '+i_distance':      [1, '', '(ichimoku_distance_day > 0)'],
+    '-i_distance':      [-1, '', '(ichimoku_distance_day < 0)'],
 
-    '+k_gap_up':       [1, '', '(kama_distance_day > 0)'],
-    '-k_gap_down':     [-1, '', '(kama_distance_day < 0)'],
+    '+k_distance':      [1, '', '(kama_distance_day > 0)'],
+    '-k_distance':      [-1, '', '(kama_distance_day < 0)'],
 
-    '+color':          [1, '', '(candle_color_sda > 2)'],
-    '-color':          [-1, '', '(candle_color_sda < -2)'],
+    '+color_sda':       [1, '', '(candle_color_sda > 2)'],
+    '-color_sda':       [-1, '', '(candle_color_sda < -2)'],
 
-    '+rate':           [1, '', '(rate_direction_sda > 2)'],
-    '-rate':           [-1, '', '(rate_direction_sda < -2)'],
+    '+rate_sda':        [1, '', '(rate_direction_sda > 2)'],
+    '-rate_sda':        [-1, '', '(rate_direction_sda < -2)'],
     
-    '+cloud_top':      [1, '', '(kama_distance < 0 and (((candle_color == 1 and candle_entity_middle > cloud_top) or (candle_color == -1 and candle_entity_bottom > cloud_top))))'],
-    '-cloud_top':      [-1, '', '(kama_distance < 0 and (((candle_color == 1 and candle_entity_middle < cloud_top) or (candle_color == -1 and candle_entity_bottom < cloud_top))))'],
+    '+cloud_top':       [1, '', '(kama_distance < 0 and (((candle_color == 1 and candle_entity_middle > cloud_top) or (candle_color == -1 and candle_entity_bottom > cloud_top))))'],
+    '-cloud_top':       [-1, '', '(kama_distance < 0 and (((candle_color == 1 and candle_entity_middle < cloud_top) or (candle_color == -1 and candle_entity_bottom < cloud_top))))'],
     
-    '+ta':             [1, '', '(trend_idx > 0)'],
-    '-ta':             [-1, '', '(trend_idx <= 0)'],
+    '+ta':              [1, '', '(trend_idx > 0)'],
+    '-ta':              [-1, '', '(trend_idx <= 0)'],
 
-    '+adx':            [1, '', '(adx_day > 1)'],
-    '-adx':            [-1, '', '(adx_day < -1)'],
+    '+adx':             [1, '', '(adx_day > 1)'],
+    '-adx':             [-1, '', '(adx_day < -1)'],
 
-    '+位置':           [1, '', '((kama_distance > 0 and candle_entity_bottom > kama_fast) or (kama_distance < 0 and candle_entity_bottom > kama_slow)) and ((ichimoku_distance > 0 and candle_entity_bottom > tankan) or (ichimoku_distance < 0 and candle_entity_bottom > kijun))'],
-    '-位置':           [-1, '', '((kama_distance > 0 and candle_entity_top < kama_slow) or (kama_distance < 0 and candle_entity_top < kama_fast)) and ((ichimoku_distance > 0 and candle_entity_top > kijun) or (ichimoku_distance < 0 and candle_entity_top < tankan))'],
+    '+位置':    [1, '', '((kama_distance > 0 and candle_entity_bottom > kama_fast) or (kama_distance < 0 and candle_entity_bottom > kama_slow)) and ((ichimoku_distance > 0 and candle_entity_bottom > tankan) or (ichimoku_distance < 0 and candle_entity_bottom > kijun))'],
+    '-位置':    [-1, '', '((kama_distance > 0 and candle_entity_top < kama_slow) or (kama_distance < 0 and candle_entity_top < kama_fast)) and ((ichimoku_distance > 0 and candle_entity_top > kijun) or (ichimoku_distance < 0 and candle_entity_top < tankan))'],
 
-    '+影线':           [1, '', '(位置_trend == "d") and (entity_diff > 0.5 and shadow_diff > 1.5 and candle_lower_shadow_pct > 0.5 and candle_upper_shadow_pct < 0.1)'],
-    '-影线':           [-1, '', '(位置_trend == "u") and (entity_diff > 0.5 and shadow_diff > 1.5 and candle_upper_shadow_pct > 0.5 and candle_lower_shadow_pct < 0.1)'],
+    '+影线':    [1, '', '(位置_trend == "d") and (entity_diff > 0.5 and shadow_diff > 1.5 and candle_lower_shadow_pct > 0.5 and candle_upper_shadow_pct < 0.1)'],
+    '-影线':    [-1, '', '(位置_trend == "u") and (entity_diff > 0.5 and shadow_diff > 1.5 and candle_upper_shadow_pct > 0.5 and candle_lower_shadow_pct < 0.1)'],
     
-    '+实体':           [1, '', '(entity_trend == "u") and (candle_color == 1)'],
-    '-实体':           [-1, '', '(entity_trend == "u") and (candle_color == -1)'],
+    '+实体':    [1, '', '(entity_trend == "u") and (candle_color == 1)'],
+    '-实体':    [-1, '', '(entity_trend == "u") and (candle_color == -1)'],
 
-    '+阶梯':           [1, '', '(candle_entity_top > prev_candle_entity_top) and (candle_entity_bottom > prev_candle_entity_bottom)'],
-    '-阶梯':           [-1, '', '(candle_entity_top < prev_candle_entity_top) and (candle_entity_bottom < prev_candle_entity_bottom)'],
+    '+阶梯':    [1, '', '(candle_entity_top > prev_candle_entity_top) and (candle_entity_bottom > prev_candle_entity_bottom)'],
+    '-阶梯':    [-1, '', '(candle_entity_top < prev_candle_entity_top) and (candle_entity_bottom < prev_candle_entity_bottom)'],
     
-    '+窗口':           [1, '', '(candle_color == 1 and ((相对窗口位置 == "mid_up") or (相对窗口位置 == "out")))'],
-    '-窗口':           [-1, '', '((相对窗口位置 == "mid_down" or 相对窗口位置 == "mid") or (candle_color == -1 and (相对窗口位置 == "out")))'],
+    '+窗口':    [1, '', '(candle_color == 1 and ((相对窗口位置 == "mid_up") or (相对窗口位置 == "out")))'],
+    '-窗口':    [-1, '', '((相对窗口位置 == "mid_down" or 相对窗口位置 == "mid") or (candle_color == -1 and (相对窗口位置 == "out")))'],
     
-    # '-高浪':           [-1, '', '(十字星_trend == "u")'],
-    # '-十字':           [-1, '', '(十字星_trend == "d")'],
-
-    # '-长期下跌':       [-5, '', '(kama_fs_day < -25 and ichimoku_distance < 0 and (candle_entity_bottom < cloud_top or candle_entity_bottom < kama_slow)) or (kama_distance < -0.075 and candle_entity_bottom < kama_slow)'],
-
-    '+支撑':            [2, '', '(support_score > 0)'],
-    '-阻挡':            [-2, '', '(resistant_score < 0)'],
+    '+触底':    [1, '', '(突破_day == -1 and candle_color == 1)'],
+    '-触顶':    [-1, '', '(突破_day == 1 and candle_color == -1)'],
+    
+    '+支撑':    [1, '', '(support_score > 0)'],
+    '-阻挡':    [-1, '', '(resistant_score < 0)'],
   }
   df = cal_score(df=df, condition_dict=score_condition_dict, up_score_col='up_score', down_score_col='down_score')
 
@@ -1181,8 +1162,8 @@ def calculate_ta_signal(df):
   # trend
   df['trend'] = ''
   conditions = {
-    'up':     'middle_trend == "u" and short_trend == "u"', 
-    'down':   'middle_trend == "d" or short_trend == "d"',
+    'up':     'score > 1', # 'middle_trend == "u" and short_trend == "u"', 
+    'down':   'score <-1', # 'middle_trend == "d" or short_trend == "d"',
   } 
   values = {
     'up':     'u', 
@@ -1198,8 +1179,8 @@ def calculate_ta_signal(df):
   df['potential_description'] = ''
   potential_conditions = {
     # '典型买入':       f'(major_score >= 2) and (trend == "u")',
-    '触发':         f'(kama_distance < 0 and trigger_score >= 1)', #  and (candle_color == 1) and (candle_entity_bottom > kama_fast)
-    '位置':         f'(position_score == 4 and short_trend == "u")',
+    '触发':         f'(trend != "d" and trigger_score >= 1)', #  and (candle_color == 1) and (candle_entity_bottom > kama_fast)
+    # '位置':         f'(position_score == 4 and short_trend == "u")',
     # '分数达标':       f'(major_score > 0) and (trigger_score > 0) and (score > 0)'
     
     # 'adx':        f'(adx_value <= -25) and (adx_direction > 5 and adx_direction_day > 1)', 
@@ -1249,51 +1230,49 @@ def calculate_ta_signal(df):
   # signal
   df['signal'] = ''
   df['signal_description'] = ''
-  conditions = {
-    'buy_1':          '(trend == "u") and (adx_strong_day > 0)',
-    'buy_2':          '(trend == "n") and (trigger_score >= 1) and (adx_day >= 0)',
-    'sell_1':         '(short_trend == "d") and (position_score < 4)',
-    'sell_2':         '(adx_value > 20) and (突破_day == -1)',
-  } 
-  values = {
-    'buy_1':          'b',
-    'buy_2':          'b',
-    'sell_1':         's',
-    'sell_2':         's',
-  }
-  df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
+  # conditions = {
+  #   'buy_1':          '(trend == "u") and (adx_strong_day > 0)',
+  #   'buy_2':          '(trend == "n") and (trigger_score >= 1) and (adx_day >= 0)',
+  #   'sell_1':         '(short_trend == "d") and (position_score < 4)',
+  #   'sell_2':         '(adx_value > 20) and (突破_day == -1)',
+  # } 
+  # values = {
+  #   'buy_1':          'b',
+  #   'buy_2':          'b',
+  #   'sell_1':         's',
+  #   'sell_2':         's',
+  # }
+  # df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
   
-  # disable some false alarms
-  none_signal_idx = []
-  none_signal_conditions = {
+  # # disable some false alarms
+  # none_signal_idx = []
+  # none_signal_conditions = {
     
-    '上行动力弱':     '(signal == "b") and (candle_color == -1) and (adx_strong_day < 0)',
-    '价格下降':       '(signal == "b") and ((candle_color == -1 and entity_diff > 1.5) or (candle_upper_shadow_pct > 0.25))',
-    '窗口附近(红)':   '(signal == "b") and (candle_color == -1) and ((突破_day == "u") or (相对窗口位置 == "mid_up" or 相对窗口位置 == "mid" or 相对窗口位置 == "mid_down" or 相对窗口位置 == "in" or 相对窗口位置 == "out"))',
-    '窗口附近(绿)':   '(signal == "b") and (candle_color == 1) and (相对窗口位置 == "mid_up" or 相对窗口位置 == "mid" or 相对窗口位置 == "mid_down" or 相对窗口位置 == "in" or 相对窗口位置 == "out")',
-    # 'renko下降':      f'(signal == "b") and (renko_series_short in {["duu","ddu","ddd", "uud", "udd"]})',
-    # 'adx下降':      '(signal == "b") and (adx_direction_day < 0)',
-    # 'adx波动':      '(signal == "b") and (adx_strong_day < 0 and adx_value > 0) and (signal_score < 3)',
-    # '低位波动':     '(signal == "b") and (ichimoku_distance < 0 and kama_distance < 0) and (kama_fast_day < 0)',
-    # '大趋势向下':   '(signal == "b") and (ichimoku_distance < 0 and kama_distance < 0 and candle_entity_middle < cloud_top)',
+  #   '上行动力弱':     '(signal == "b") and (candle_color == -1) and (adx_strong_day < 0)',
+  #   '价格下降':       '(signal == "b") and ((candle_color == -1 and entity_diff > 1.5) or (candle_upper_shadow_pct > 0.25))',
+  #   '窗口附近(红)':   '(signal == "b") and (candle_color == -1) and ((突破_day == "u") or (相对窗口位置 == "mid_up" or 相对窗口位置 == "mid" or 相对窗口位置 == "mid_down" or 相对窗口位置 == "in" or 相对窗口位置 == "out"))',
+  #   '窗口附近(绿)':   '(signal == "b") and (candle_color == 1) and (相对窗口位置 == "mid_up" or 相对窗口位置 == "mid" or 相对窗口位置 == "mid_down" or 相对窗口位置 == "in" or 相对窗口位置 == "out")',
+  #   # 'renko下降':      f'(signal == "b") and (renko_series_short in {["duu","ddu","ddd", "uud", "udd"]})',
+  #   # 'adx下降':      '(signal == "b") and (adx_direction_day < 0)',
+  #   # '低位波动':     '(signal == "b") and (ichimoku_distance < 0 and kama_distance < 0) and (kama_fast_day < 0)',
+  #   # '大趋势向下':   '(signal == "b") and (ichimoku_distance < 0 and kama_distance < 0 and candle_entity_middle < cloud_top)',
 
-    '高位波动':       '(signal == "s") and (position_score == 4) and (adx_direction_day > -3)',
-    # '高位波动_1':   '(signal == "s") and (trend == "u") and (突破_day != -1) and (resistant_score >= 0) and (position_score >= 2)',
-    # '高位波动_2':   '(signal == "s") and (trend == "u") and (突破_day != -1) and (resistant_score >= 0) and (position_score >= 2)',
-    '突破受阻':       '(signal == "b") and ((tankan_day == 1 and candle_entity_middle < tankan) or (kijun_day == 1 and candle_entity_middle < kijun) or (kama_fast_day == 1 and candle_entity_middle < kama_fast) or (kama_slow_day == 1 and candle_entity_middle < kama_slow))',
-    
-    # # '大趋势向上':   '(signal == "s") and (signal_score == 3)',
-    # '顶部买入':     '(signal == "b") and (candle_color == -1) and (adx_strong_day < 0 or adx_value > 10)',
-    '十字星':         '(signal == "b") and (十字星 == "d")'
-  } 
-  for c in none_signal_conditions.keys():
-    tmp_condition = none_signal_conditions[c]
-    tmp_idx = df.query(tmp_condition).index
-    none_signal_idx += tmp_idx.tolist()
-    df.loc[tmp_idx, 'signal_description'] += f'{c}, '
-  none_signal_idx = list(set(none_signal_idx))
-  df.loc[none_signal_idx, 'signal'] = ''
-  df['signal_description'] = df['signal_description'].apply(lambda x: x[:-2])
+  #   '高位波动':       '(signal == "s") and (position_score == 4) and (adx_direction_day > -3)',
+  #   # '高位波动_1':   '(signal == "s") and (trend == "u") and (突破_day != -1) and (resistant_score >= 0) and (position_score >= 2)',
+  #   # '高位波动_2':   '(signal == "s") and (trend == "u") and (突破_day != -1) and (resistant_score >= 0) and (position_score >= 2)',
+  #   '突破受阻':       '(signal == "b") and ((tankan_day == 1 and candle_entity_middle < tankan) or (kijun_day == 1 and candle_entity_middle < kijun) or (kama_fast_day == 1 and candle_entity_middle < kama_fast) or (kama_slow_day == 1 and candle_entity_middle < kama_slow))',
+
+  #   # '顶部买入':     '(signal == "b") and (candle_color == -1) and (adx_strong_day < 0 or adx_value > 10)',
+  #   '十字星':         '(signal == "b") and (十字星 == "d")'
+  # } 
+  # for c in none_signal_conditions.keys():
+  #   tmp_condition = none_signal_conditions[c]
+  #   tmp_idx = df.query(tmp_condition).index
+  #   none_signal_idx += tmp_idx.tolist()
+  #   df.loc[tmp_idx, 'signal_description'] += f'{c}, '
+  # none_signal_idx = list(set(none_signal_idx))
+  # df.loc[none_signal_idx, 'signal'] = ''
+  # df['signal_description'] = df['signal_description'].apply(lambda x: x[:-2])
 
   # calculate signal day
   df['signal_day'] = sda(df['signal'].replace({'b': 1, 's': -1, '': 0}), zero_as=1)
@@ -2067,6 +2046,8 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
       '底部': '(candle_entity_middle < kijun and candle_entity_middle < kama_slow and candle_entity_middle < tankan and candle_entity_middle < kama_fast)'}
     values = {'顶部': 'u', '底部': 'd'}
     df = assign_condition_value(df=df, column='位置_trend', condition_dict=conditions, value_dict=values, default_value='n')
+    df['位置_day'] = df['位置_trend'].replace({'u':1, 'd':-1, 'n':0}).fillna(0).astype(int)
+    df['位置_day'] = sda(series=df['位置_day'], zero_as=1)
     
     df['moving_max'] = sm(series=df['High'], periods=10).max()
     df['moving_min'] = sm(series=df['Low'], periods=10).min()
@@ -2132,12 +2113,12 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
 
     # window position status (beyond/below/among window)
     conditions = {
-      '上方': '(Low >= candle_gap_top)',
-      '中上': '((High > candle_gap_top) and (candle_gap_top > Low >= candle_gap_bottom))',
-      '中间': '((High <= candle_gap_top) and (Low >= candle_gap_bottom))',
-      '穿刺': '((High > candle_gap_top) and (Low < candle_gap_bottom))',
-      '中下': '((Low < candle_gap_bottom) and (candle_gap_top >= High > candle_gap_bottom))',
-      '下方': '(High <= candle_gap_bottom)'}
+      '上方': '(candle_entity_bottom >= candle_gap_top)',
+      '中上': '((candle_entity_top > candle_gap_top) and (candle_gap_top > candle_entity_bottom >= candle_gap_bottom))',
+      '中间': '((candle_entity_top <= candle_gap_top) and (candle_entity_bottom >= candle_gap_bottom))',
+      '穿刺': '((candle_entity_top > candle_gap_top) and (candle_entity_bottom < candle_gap_bottom))',
+      '中下': '((candle_entity_bottom < candle_gap_bottom) and (candle_gap_top >= candle_entity_top > candle_gap_bottom))',
+      '下方': '(candle_entity_top <= candle_gap_bottom)'}
     values = {
       '上方': 'up', '中上': 'mid_up',
       '中间': 'mid', '穿刺': 'out',
@@ -2145,10 +2126,10 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
     df = assign_condition_value(df=df, column='相对窗口位置', condition_dict=conditions, value_dict=values, default_value='')
 
     # break through up or down
-    df['prev_close'] = df['Close'].shift(1)
+    df['prev_相对窗口位置'] = df['相对窗口位置'].shift(1)
     conditions = {
-      '向上突破': '(candle_gap != 2) and ((candle_entity_bottom > candle_gap_top > prev_close and 相对窗口位置 == "up") or (prev_close < candle_gap_top < candle_entity_middle and 相对窗口位置 == "out"))',
-      '向下突破': '(candle_gap != -2) and ((candle_entity_top < candle_gap_bottom < prev_close and 相对窗口位置 == "down") or (prev_close > candle_gap_bottom > candle_entity_middle and 相对窗口位置 == "out"))'
+      '向上突破': f'(candle_gap != 2) and (相对窗口位置 == "up" and prev_相对窗口位置 in {["mid_up", "out", "mid", "mid_down", "down"]})',
+      '向下突破': f'(candle_gap != -2) and (相对窗口位置 == "down" and prev_相对窗口位置 in {["mid_down", "out", "mid", "mid_up", "up"]})'
     }
     values = {'向上突破': 'u', '向下突破': 'd'}
     df = assign_condition_value(df=df, column='突破_trend', condition_dict=conditions, value_dict=values, default_value='n')
@@ -2348,20 +2329,20 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
                   df.loc[idx, '启明黄昏_trend'] = 'u'
 
   # days since signal triggered
-  all_candle_patterns = ['位置', '窗口', '突破', '十字星', '流星', '锤子', '腰带', '平头', '穿刺', '包孕', '吞噬', '启明黄昏'] # '反弹', 
+  all_candle_patterns = ['窗口', '突破', '十字星', '流星', '锤子', '腰带', '平头', '穿刺', '包孕', '吞噬', '启明黄昏'] # '反弹', 
   for col in all_candle_patterns:
     df[f'{col}_day'] = df[f'{col}_trend'].replace({'u':1, 'd':-1, 'n':0, '': 0}).fillna(0).astype(int)
-
-    pre_u_mask = ((df[f'{col}_trend'].shift(-1) == 'u') & ((df[f'{col}_trend'] != 'u') & (df[f'{col}_trend'] != 'd')))
-    pre_d_mask = ((df[f'{col}_trend'].shift(-1) == 'd') & ((df[f'{col}_trend'] != 'u') & (df[f'{col}_trend'] != 'd')))
-    df.loc[pre_u_mask, f'{col}_day'] = np.nan
-    df.loc[pre_d_mask, f'{col}_day'] = np.nan
-
     df[f'{col}_day'] = sda(series=df[f'{col}_day'], zero_as=1)
+
+    # continuous same trend
+    u_mask = df.query(f'{col}_trend == "u"').index
+    d_mask = df.query(f'{col}_trend == "d"').index
+    df.loc[u_mask, f'{col}_day'] = 1
+    df.loc[d_mask, f'{col}_day'] = -1
   
   # redundant intermediate columns
   for col in [
-    'prev_close', 'high_diff', 'low_diff', 'candle_upper_shadow_pct_diff', 'candle_lower_shadow_pct_diff', 
+    'prev_相对窗口位置', 'high_diff', 'low_diff', 'candle_upper_shadow_pct_diff', 'candle_lower_shadow_pct_diff', 
     #'entity_ma', 'entity_std', 'shadow_ma', 'shadow_std', # 'shadow_diff', 'entity_diff',
     'moving_max', 'moving_min']:
     if col in df.columns:
@@ -4702,18 +4683,18 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
   # plot buy signal
   if signal_x == 'b':
     tmp_data = df.query(f'(signal == "b")')
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='green', alpha=1)
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='green', alpha=1)
 
   # plot sell signal
-  if signal_x == 's':
-    tmp_data = df.query(f'(signal == "s")')
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='red', alpha=1)
+  # if signal_x == 's':
+  #   tmp_data = df.query(f'(signal == "s")')
+  #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', alpha=1)
 
-  if signal_x == '':
+  if signal_x == 'b':
 
     # plot potential
     tmp_data = df.query(f'potential == "potential"')
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='^', color='green', alpha=0.5)
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='green', alpha=0.5)
 
     # plot renko
     idxs = df.index.tolist()
@@ -5253,7 +5234,16 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   :raises: none
   """
   # copy dataframe within a specific period
-  df = df[start:end].copy()
+  ohlc_df = df[start:end].copy()
+  max_idx = df.index.max()
+
+  # add extention data
+  if interval == "day":
+    ext_columns = ['tankan', 'kijun', 'kama_fast', 'kama_slow', 'bb_high_band', 'bb_low_band', 'mavg', 'candle_gap_top', 'candle_gap_bottom']
+
+    for i in range(5):
+      next_idx = max_idx + datetime.timedelta(days = i)
+      df.loc[next_idx, ext_columns] = df.loc[max_idx, ext_columns].copy()
 
   # create figure
   ax = use_ax
@@ -5278,14 +5268,12 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
     'kama_fast': '--',
     'kama_slow': '--'
   }
-  
-  max_idx = df.index.max()
 
   # plot close price
   if 'price' in target_indicator:
     alpha = 0.2
     ax.plot(df.index, df[default_ohlcv_col['close']], label='close', color='black', linestyle='--', alpha=alpha)
-
+  
   # plot senkou lines, clouds, tankan and kijun
   if 'ichimoku' in target_indicator:
     # alpha = 0.2
@@ -5315,14 +5303,14 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   
   # plot bollinger bands
   if 'bb' in target_indicator:
-    alpha = 0.1
+    alpha = 0.3
     alpha_fill = 0.1
     zorder = 1
-    # ax.plot(df.index, df.bb_high_band, label='bb_high_band', color='green', alpha=alpha)
-    # ax.plot(df.index, df.bb_low_band, label='bb_low_band', color='red', alpha=alpha)
-    # ax.plot(df.index, df.mavg, label='mavg', color='grey', alpha=alpha)
-    ax.fill_between(df.index, df.mavg, df.bb_high_band, facecolor='green', interpolate=True, alpha=alpha_fill, zorder=zorder)
-    ax.fill_between(df.index, df.mavg, df.bb_low_band, facecolor='red', interpolate=True, alpha=alpha_fill, zorder=zorder)
+    ax.plot(df.index, df.bb_high_band, label='bb_high_band', color='green', linestyle='--', alpha=alpha)
+    ax.plot(df.index, df.bb_low_band, label='bb_low_band', color='red', linestyle='--', alpha=alpha)
+    ax.plot(df.index, df.mavg, label='mavg', color='black', linestyle='--', alpha=alpha)
+    # ax.fill_between(df.index, df.mavg, df.bb_high_band, facecolor='green', interpolate=True, alpha=alpha_fill, zorder=zorder)
+    # ax.fill_between(df.index, df.mavg, df.bb_low_band, facecolor='red', interpolate=True, alpha=alpha_fill, zorder=zorder)
 
   # plot average true range
   if 'atr' in target_indicator:
@@ -5369,13 +5357,12 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
 
   # plot candlestick
   if 'candlestick' in target_indicator:
-    ax = plot_candlestick(df=df, start=start, end=end, date_col=date_col, add_on=add_on, ohlcv_col=ohlcv_col, color=candlestick_color, use_ax=ax, plot_args=plot_args, interval=interval)
+    ax = plot_candlestick(df=ohlc_df, start=start, end=end, date_col=date_col, add_on=add_on, ohlcv_col=ohlcv_col, color=candlestick_color, use_ax=ax, plot_args=plot_args, interval=interval)
   
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
   ax.grid(True, axis='x', linestyle=':', linewidth=0.5)
-
   ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
 
   # return ax
@@ -6094,7 +6081,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   # trigger_score_desc = f'[Trigger {df.loc[df.index.max(), "trigger_score"]}]:{df.loc[df.index.max(), "trigger_score_description"]}'
   
   # score description
-  score_desc = f'Signal {df.loc[df.index.max(), "signal_day"]} | Potential {df.loc[df.index.max(), "potential_score"]} | Major {df.loc[df.index.max(), "major_score"]} | Trigger {df.loc[df.index.max(), "trigger_score"]} | Score {df.loc[df.index.max(), "score"]}'
+  score_desc = f'Major {df.loc[df.index.max(), "major_score"]} | Trigger {df.loc[df.index.max(), "trigger_score"]} | Score {df.loc[df.index.max(), "score"]}'
   label_score_desc = '' # f'[Label {df.loc[df.index.max(), "label_score"]}]: {df.loc[df.index.max(), "label_description"]}'
   desc = '\n\n' + score_desc # + '\n' + label_score_desc # 
   

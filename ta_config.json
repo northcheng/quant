@@ -52,7 +52,8 @@
         "target_indicator": [
           "candlestick",
           "ichimoku",
-          "kama"
+          "kama",
+          "bb"
         ],
         "intervla": "day",
         "candlestick_width": 0.62,
@@ -66,9 +67,7 @@
       },
       "signals": {
         "signal_list": [
-          " ",
-          "",
-          " ",
+          "bb_signal",
           "long_signal",
           "middle_signal",
           "short_signal",
