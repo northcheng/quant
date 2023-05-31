@@ -33,7 +33,7 @@ default_signal_val = {'pos_signal':'b', 'neg_signal':'s', 'none_signal':'', 'wav
 
 # default indicators and dynamic trend for calculation
 default_indicators = {'trend': ['ichimoku', 'kama', 'adx'], 'volume': [], 'volatility': ['bb'], 'other': []}
-default_perspectives = ['candle', 'support_resistant']
+default_perspectives = ['candle']
 
 # default arguments for visualization
 default_candlestick_color = {'color_up':'green', 'color_down':'red', 'shadow_color':'black', 'entity_edge_color':'black', 'alpha':0.8}
@@ -427,9 +427,6 @@ def calculate_ta_static(df, indicators=default_indicators):
         df = assign_condition_value(df=df, column=f'{col}_day', condition_dict=conditions, value_dict=values, default_value=0) 
         df[f'{col}_day'] = sda(series=df[f'{col}_day'], zero_as=1) 
 
-      # moving average of adx direction
-      df['adx_direction_mean'] = em(series=df['adx_value_change'], periods=3).mean()
-
       # whether strength is strong or weak
       adx_strong_weak_threshold = 25
       conditions = {
@@ -515,20 +512,6 @@ def calculate_ta_static(df, indicators=default_indicators):
 
       # drop redundant column
       df.drop(['prev_adx_value'], axis=1, inplace=True)
-      df['adx_value_ma'] = df['adx_value'].rolling(3).mean()
-
-      # df['adx_ma_diff'] = df['adx_value'] - df['adx_value_ma']
-      # df['adx_crossover'] = cal_crossover_signal(df=df, fast_line='adx_value', slow_line='adx_value_ma', pos_signal='u', neg_signal='d', none_signal=np.nan)
-      # df['adx_crossover'] = df['adx_crossover'].fillna(method='ffill')
-      # conditions = {
-      #   'up': f'adx_value > adx_value_ma', 
-      #   'down': f'adx_value < adx_value_ma'
-      #   }
-      # values = {
-      #   'up': 'u', 
-      #   'down': 'd'
-      #   }
-      # df = assign_condition_value(df=df, column='adx_crossover', condition_dict=conditions, value_dict=values, default_value='n') 
   
     # ================================ kst trend ==============================
     target_indicator = 'kst'
@@ -645,17 +628,16 @@ def calculate_ta_static(df, indicators=default_indicators):
     target_indicator = 'overall'
     if target_indicator > '':
     
-      df['trend_idx'] = 0
       df['up_trend_idx'] = 0
       df['down_trend_idx'] = 0
-
+      df['trend_idx'] = 0
+      
       # specify all indicators and specify the exclusives
       all_indicators = []
       for i in indicators.keys():
         all_indicators += [x for x in indicators[i] if x not in all_indicators]
-      # all_indicators = list(set(trend_indicators + volume_indicators + volatility_indicators + other_indicators))
+
       include_indicators = [x for x in all_indicators if x != 'bb'] # ['ichimoku', 'aroon', 'adx', 'psar']
-      # exclude_indicators = [x for x in all_indicators if x not in include_indicators]
       for indicator in all_indicators:
         trend_col = f'{indicator}_trend'
         signal_col = f'{indicator}_signal'
@@ -797,88 +779,6 @@ def calculate_ta_dynamic(df, perspective=default_perspectives):
       max_idx = df.index.max()
       valid_idxs = df.query('linear_slope == linear_slope').index
 
-    # ================================ support and resistant =====================
-    phase = 'support and resistant'
-    if 'support_resistant' in perspective:
-
-      # focus on the last row only
-      max_idx = df.index.max()
-      
-      # linear fit support/resistant
-      linear_fit_support = df.loc[max_idx, 'linear_fit_support'] if 'linear' in perspective else np.nan
-      linear_fit_resistant = df.loc[max_idx, 'linear_fit_resistant'] if 'linear' in perspective else np.nan
-
-      # renko support/resistant
-      renko_support = df.loc[max_idx, 'renko_support'] if 'renko' in perspective else np.nan
-      renko_resistant = df.loc[max_idx, 'renko_resistant'] if 'renko' in perspective else np.nan
-      
-      # calculate support and resistant from renko, linear_fit and candle_gap
-      support_candidates = {'linear': linear_fit_support, 'renko': renko_support}
-      static_support = df.loc[max_idx, 'support_description'].split(', ')
-      static_support = [x for x in static_support if x != '']
-      for ss in static_support:
-        support_candidates[ss] = df.loc[max_idx, ss]
-
-      resistant_candidates = {'linear':linear_fit_resistant, 'renko': renko_resistant}
-      static_resistant = df.loc[max_idx, 'resistant_description'].split(', ')
-      static_resistant = [x for x in static_resistant if x != '']
-      for sr in static_resistant:
-        resistant_candidates[sr] = df.loc[max_idx, sr]
-
-      # support
-      supporter = ''
-      support = np.nan  
-
-      to_pop = []
-      for k in support_candidates.keys():
-        if np.isnan(support_candidates[k]):
-          to_pop += [k]
-      for k in to_pop:
-        support_candidates.pop(k)
-
-      if len(support_candidates) > 0:
-        supporter = max(support_candidates, key=support_candidates.get)
-        support = support_candidates[supporter]
-
-      if supporter == 'linear':
-        valid_idxs = df.query('linear_slope == linear_slope').index
-      elif supporter == 'renko':
-        valid_idxs = df[df.loc[max_idx, 'renko_start']:].index
-      elif supporter != '':
-        valid_idxs = df.index[-10:]
-      else:
-        valid_idxs = []
-      df.loc[valid_idxs, 'support'] = support
-      df.loc[valid_idxs, 'supporter'] = supporter
-
-      # resistant
-      resistanter = ''
-      resistant = np.nan
-
-      to_pop = []
-      for k in resistant_candidates.keys():
-        if np.isnan(resistant_candidates[k]):
-          to_pop += [k]
-      for k in to_pop:
-        resistant_candidates.pop(k)
-
-      if len(resistant_candidates) > 0:
-        resistanter = min(resistant_candidates, key=resistant_candidates.get)
-        resistant = resistant_candidates[resistanter]
-
-      valid_idxs = []
-      if resistanter == 'linear':
-        valid_idxs = df.query('linear_slope == linear_slope').index
-      elif resistanter == 'renko':
-        valid_idxs = df[df.loc[max_idx, 'renko_start']:].index
-      elif resistanter != '':
-        valid_idxs = df.index[-10:]
-      else:
-        pass
-
-      df.loc[valid_idxs, 'resistant'] = resistant
-      df.loc[valid_idxs, 'resistanter'] = resistanter
-
   except Exception as e:
     print(phase, e)
 
@@ -948,6 +848,7 @@ def calculate_ta_score(df):
     '-adx':            [-1, '', '(adx_trend == "d")'],
   }
   df = cal_score(df=df, condition_dict=short_trend_condition_dict, up_score_col='short_trend_score', down_score_col='short_trend_score')
+  df['short_day'] = sda(df['short_trend_score'], zero_as=1)
 
   # mid-term trend score and description
   middle_trend_condition_dict = {
@@ -955,6 +856,7 @@ def calculate_ta_score(df):
     '-ichimoku':       [-1, '', '(ichimoku_day < 0)'],
   }
   df = cal_score(df=df, condition_dict=middle_trend_condition_dict, up_score_col='middle_trend_score', down_score_col='middle_trend_score')
+  df['middle_day'] = sda(df['middle_trend_score'], zero_as=1)
 
   # long-term trend score and description
   long_trend_condition_dict = {
@@ -962,6 +864,7 @@ def calculate_ta_score(df):
     '-kama':           [-1, '', '(kama_day < 0)'],
   }
   df = cal_score(df=df, condition_dict=long_trend_condition_dict, up_score_col='long_trend_score', down_score_col='long_trend_score')
+  df['long_day'] = sda(df['long_trend_score'], zero_as=1)
 
   # trigger score and description
   for col in ['tankan_day', 'kama_fast_day']: # 'kijun_day', , 'kama_slow_day'
@@ -2342,8 +2245,10 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
   
   # redundant intermediate columns
   for col in [
+    'high_day', 'low_day', 'recent_high', 'recent_low',
     'prev_相对窗口位置', 'high_diff', 'low_diff', 'candle_upper_shadow_pct_diff', 'candle_lower_shadow_pct_diff', 
-    #'entity_ma', 'entity_std', 'shadow_ma', 'shadow_std', # 'shadow_diff', 'entity_diff',
+    'entity_ma', 'entity_std', 'shadow_ma', 'shadow_std', # 'shadow_diff', 'entity_diff',
+    
     'moving_max', 'moving_min']:
     if col in df.columns:
       df.drop(col, axis=1, inplace=True)
@@ -2589,7 +2494,7 @@ def add_ma_linear_features(df, period=5, target_col=['kama_fast', 'kama_slow', '
   return result
 
 # kama and ichimoku fast/slow line support and resistance
-def add_support_resistance(df, target_col=['kama_fast', 'kama_slow', 'tankan', 'kijun', 'candle_gap_top', 'candle_gap_bottom']):
+def add_support_resistance(df, target_col=['kama_fast', 'kama_slow', 'tankan', 'kijun', 'candle_gap_top', 'candle_gap_bottom'], perspective=default_perspectives):
   """
   Add support and resistance 
 
@@ -2608,8 +2513,6 @@ def add_support_resistance(df, target_col=['kama_fast', 'kama_slow', 'tankan', '
   # calculate middle price
   df['mid_price'] = (df['High'] + df['Low']) / 2
   col_to_drop.append('mid_price')
-  distance_threshold = 0.01
-  shadow_pct_threhold = 0.05
 
   generated_cols = {'High': [], 'Low': []}
   # calculate support and resistance
@@ -2620,7 +2523,8 @@ def add_support_resistance(df, target_col=['kama_fast', 'kama_slow', 'tankan', '
       distance_col = f'{col_1}_to_{col_2}'
       col_to_drop.append(distance_col)
 
-      df[distance_col] = abs(df[col_1] - df[col_2]) / df[col_1]
+      tmp_distance = abs(df[col_1] - df[col_2]) / df[col_1]
+      df[distance_col] = tmp_distance
       generated_cols[col_1].append(distance_col)
       
   # column_name = {'h_2_gt': 'candle_gap_top', 'h_2_gb': 'candle_gap_bottom', 'l_2_gt': 'candle_gap_top', 'l_2_gb': 'candle_gap_bottom'}
@@ -2630,6 +2534,8 @@ def add_support_resistance(df, target_col=['kama_fast', 'kama_slow', 'tankan', '
   df['resistant_description'] = ''
 
   # calculate support
+  distance_threshold = 0.01
+  shadow_pct_threhold = 0.05
   for col in generated_cols['Low']:
     tmp_col = col.split('_to_')[-1]
     support_idx = df.query(f'mid_price > {tmp_col} and candle_upper_shadow_pct > {shadow_pct_threhold} and {col} < {distance_threshold}').index.tolist()
@@ -2645,9 +2551,115 @@ def add_support_resistance(df, target_col=['kama_fast', 'kama_slow', 'tankan', '
     df.loc[resistant_idx, 'resistant_description'] += f'{tmp_col}, '
   df['resistant_description'] = df['resistant_description'].apply(lambda x: x[:-2])
   
+  # drop unnecessary columns
   for col in col_to_drop:
     if col in df.columns:
       df.drop(col, axis=1, inplace=True)
+
+  # add support/supporter, resistant/resistanter for the last row
+  max_idx = df.index.max() 
+  df['resistant'] = np.nan
+  df['resistanter'] = ''
+  df['support'] = np.nan
+  df['supporter'] = ''
+  if df.loc[max_idx, 'resistant_description'] > '':
+    resistanter_candidates = df.loc[max_idx, 'resistant_description'].split(', ')
+    resistanters = {}
+    for r in resistanter_candidates:
+      resistanters[r] = df.loc[max_idx, r]
+    resistanter = min(resistanters, key=resistanters.get)
+    df.loc[max_idx, 'resistanter'] = resistanter
+    df.loc[max_idx, 'resistant'] = df.loc[max_idx, resistanter]
+
+  if df.loc[max_idx, 'support_description'] > '':
+    supporter_candidates = df.loc[max_idx, 'support_description'].split(', ')
+    supporters = {}
+    for s in supporter_candidates:
+      supporters[s] = df.loc[max_idx, s]
+    supporter = max(supporters, key=supporters.get)
+    df.loc[max_idx, 'supporter'] = supporter
+    df.loc[max_idx, 'support'] = df.loc[max_idx, supporter]
+
+  # ================================ dynamic support and resistant =====================
+  if 'support_resistant' in perspective:
+
+    # focus on the last row only
+    max_idx = df.index.max()
+    
+    # linear fit support/resistant
+    linear_fit_support = df.loc[max_idx, 'linear_fit_support'] if 'linear' in perspective else np.nan
+    linear_fit_resistant = df.loc[max_idx, 'linear_fit_resistant'] if 'linear' in perspective else np.nan
+
+    # renko support/resistant
+    renko_support = df.loc[max_idx, 'renko_support'] if 'renko' in perspective else np.nan
+    renko_resistant = df.loc[max_idx, 'renko_resistant'] if 'renko' in perspective else np.nan
+    
+    # calculate support and resistant from renko, linear_fit and candle_gap
+    support_candidates = {'linear': linear_fit_support, 'renko': renko_support}
+    static_support = df.loc[max_idx, 'support_description'].split(', ')
+    static_support = [x for x in static_support if x != '']
+    for ss in static_support:
+      support_candidates[ss] = df.loc[max_idx, ss]
+
+    resistant_candidates = {'linear':linear_fit_resistant, 'renko': renko_resistant}
+    static_resistant = df.loc[max_idx, 'resistant_description'].split(', ')
+    static_resistant = [x for x in static_resistant if x != '']
+    for sr in static_resistant:
+      resistant_candidates[sr] = df.loc[max_idx, sr]
+
+    # support
+    supporter = ''
+    support = np.nan  
+
+    to_pop = []
+    for k in support_candidates.keys():
+      if np.isnan(support_candidates[k]):
+        to_pop += [k]
+    for k in to_pop:
+      support_candidates.pop(k)
+
+    if len(support_candidates) > 0:
+      supporter = max(support_candidates, key=support_candidates.get)
+      support = support_candidates[supporter]
+
+    if supporter == 'linear':
+      valid_idxs = df.query('linear_slope == linear_slope').index
+    elif supporter == 'renko':
+      valid_idxs = df[df.loc[max_idx, 'renko_start']:].index
+    elif supporter != '':
+      valid_idxs = df.index[-10:]
+    else:
+      valid_idxs = []
+    df.loc[valid_idxs, 'support'] = support
+    df.loc[valid_idxs, 'supporter'] = supporter
+
+    # resistant
+    resistanter = ''
+    resistant = np.nan
+
+    to_pop = []
+    for k in resistant_candidates.keys():
+      if np.isnan(resistant_candidates[k]):
+        to_pop += [k]
+    for k in to_pop:
+      resistant_candidates.pop(k)
+
+    if len(resistant_candidates) > 0:
+      resistanter = min(resistant_candidates, key=resistant_candidates.get)
+      resistant = resistant_candidates[resistanter]
+
+    valid_idxs = []
+    if resistanter == 'linear':
+      valid_idxs = df.query('linear_slope == linear_slope').index
+    elif resistanter == 'renko':
+      valid_idxs = df[df.loc[max_idx, 'renko_start']:].index
+    elif resistanter != '':
+      valid_idxs = df.index[-10:]
+    else:
+      pass
+
+    df.loc[valid_idxs, 'resistant'] = resistant
+    df.loc[valid_idxs, 'resistanter'] = resistanter
   
   return df
 
@@ -4667,18 +4679,14 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
   # annotate number of days since signal triggered
   annotate_signal_day = True
   max_idx = df.index.max()
-  ys = {'kama_signal': 0, 'ichimoku_signal': 2, 'adx_signal': 4}
-  if signal_x in ['ichimoku_signal', 'kama_signal', 'adx_signal'] and day_col in df.columns and annotate_signal_day:
-    x_signal = max_idx + datetime.timedelta(days=2)
-    y_signal = ys[signal_x]
+  ys = {'long_signal': 0, 'middle_signal': 3, 'short_signal': 6}
+  if signal_x in ys.keys() and day_col in df.columns and annotate_signal_day:
 
-    if signal_x in ['kama_signal', 'ichimoku_signal']:
-      text_day = int(df.loc[max_idx, day_col.replace('day', 'fs_day')])
-    else:
-      text_day = int(df.loc[max_idx, day_col])
-    
+    x_signal = max_idx + datetime.timedelta(days=3)
+    y_signal = ys[signal_x]
+    text_day = int(df.loc[max_idx, day_col])
     text_color = 'red' if text_day < 0 else 'green'
-    plt.annotate(f'{signal_x[:4]}:{text_day} ', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.05))
+    plt.annotate(f'{signal_x.replace("_signal", "")}:{text_day} ', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.05))
 
   # plot buy signal
   if signal_x == 'b':
@@ -4690,6 +4698,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
   #   tmp_data = df.query(f'(signal == "s")')
   #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', alpha=1)
 
+  # plot potential
   if signal_x == 'b':
 
     # plot potential
@@ -4929,13 +4938,8 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
   idxs = df.index.tolist()
   max_idx = idxs[-1]
   min_idx = df.index.min()
-  max_x = max_idx + datetime.timedelta(days=1.5)
+  max_x = max_idx + datetime.timedelta(days=5)
   padding = (df.High.max() - df.Low.min()) / 100
-
-  # wave_hatch = '----'
-  # wave_color = 'orange'
-  # wave_hatch_color = 'grey'
-  # ax.fill_between(df.index, df['recent_high'], df['recent_low'], where=df['price_wave_day'] > 0, hatch=wave_hatch, facecolor=wave_color, interpolate=False, alpha=0.5, edgecolor=wave_hatch_color, linewidth=1, zorder=20)
 
   # for gap which start before 'start_date'
   if df.loc[min_idx, 'candle_gap_top'] > df.loc[min_idx, 'candle_gap_bottom']:
@@ -4974,8 +4978,8 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
       top_value = df.loc[start, 'candle_gap_top']
       bottom_value = df.loc[start, 'candle_gap_bottom']
       gap_color = 'green' if df.loc[start, 'candle_gap'] > 0 else 'red' # 'lightyellow' if df.loc[start, 'candle_gap'] > 0 else 'grey' # 
-      gap_hatch = '||||' # if df.loc[start, 'candle_gap'] > 0 else '\\\\\\\\' # 'xxxx'# 
-      gap_hatch_color = 'grey'
+      gap_hatch = None # '||||' # if df.loc[start, 'candle_gap'] > 0 else '\\\\\\\\' # 'xxxx'# 
+      gap_hatch_color = gap_color # 'grey'
       
       # gap end
       end = None
@@ -5006,7 +5010,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
     y_close = df.loc[max_idx, 'Close'].round(2)
     y_text_close = y_close
     close_color = 'blue'
-    plt.annotate(f'{y_close}', xy=(max_x, y_text_close), xytext=(max_x, y_text_close), fontsize=13, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=close_color, alpha=0.1))
+    plt.annotate(f'{y_close}', xy=(max_x, y_text_close), xytext=(max_x, y_text_close), fontsize=13, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=close_color, alpha=0))
 
     y_resistant = None
     y_text_resistant = None
@@ -5014,31 +5018,26 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
     y_text_support = None
 
     # annotate resistant
-    resistant = df.loc[max_idx, 'resistant'] # df.loc[max_idx, 'High'] + df.loc[max_idx, 'High'] * 
-    
-    if not np.isnan(resistant):
-      
-      y_resistant = resistant.round(2)
-      resistanter = df.loc[max_idx, 'resistanter']#[0].upper()
+    if df.loc[max_idx, 'resistanter'] > '':
+      resistant_score = abs(df.loc[max_idx, 'resistant_score'])
+      y_resistant = df.loc[max_idx, 'resistant'].round(2)
       y_text_resistant = y_resistant
 
       diff = y_text_resistant - y_text_close
       if diff < y_close_padding:
         y_text_resistant = y_text_close + y_close_padding
-      plt.annotate(f'[{y_resistant} {resistanter}]', xy=(max_x, y_text_resistant), xytext=(max_x, y_text_resistant), fontsize=13, xycoords='data', textcoords='data', color='black', va='bottom',  ha='left', bbox=dict(boxstyle="round", facecolor='red', alpha=0.1))
+      plt.annotate(f'{y_resistant} [{resistant_score}] ', xy=(max_x, y_text_resistant), xytext=(max_x, y_text_resistant), fontsize=13, xycoords='data', textcoords='data', color='black', va='bottom',  ha='left', bbox=dict(boxstyle="round", facecolor='red', alpha=0.1*resistant_score))
     
     # annotate support 
-    support = df.loc[max_idx, 'support'] # df.loc[max_idx, 'Low'] - df.loc[max_idx, 'Low'] * 
-    if not np.isnan(support):
-      
-      y_support = support.round(2) 
-      supporter = df.loc[max_idx, 'supporter']#[0].upper()
+    if df.loc[max_idx, 'supporter'] > '':
+      support_score = abs(df.loc[max_idx, 'support_score'])
+      y_support = df.loc[max_idx, 'support'].round(2)
       y_text_support = y_support
       
       diff = y_text_close - y_text_support
       if diff < y_close_padding:
         y_text_support = y_text_close - y_close_padding
-      plt.annotate(f'[{y_support} {supporter}]', xy=(max_x, y_text_support), xytext=(max_x, y_text_support), fontsize=13, xycoords='data', textcoords='data', color='black', va='top',  ha='left', bbox=dict(boxstyle="round", facecolor='green', alpha=0.1))
+      plt.annotate(f'{y_support} [{support_score}] ', xy=(max_x, y_text_support), xytext=(max_x, y_text_support), fontsize=13, xycoords='data', textcoords='data', color='black', va='top',  ha='left', bbox=dict(boxstyle="round", facecolor='green', alpha=0.1*support_score))
 
   # annotate candle patterns
   if 'pattern' in add_on:
@@ -5303,14 +5302,14 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   
   # plot bollinger bands
   if 'bb' in target_indicator:
-    alpha = 0.3
+    alpha = 0.5
     alpha_fill = 0.1
-    zorder = 1
-    ax.plot(df.index, df.bb_high_band, label='bb_high_band', color='green', linestyle='--', alpha=alpha)
-    ax.plot(df.index, df.bb_low_band, label='bb_low_band', color='red', linestyle='--', alpha=alpha)
-    ax.plot(df.index, df.mavg, label='mavg', color='black', linestyle='--', alpha=alpha)
-    # ax.fill_between(df.index, df.mavg, df.bb_high_band, facecolor='green', interpolate=True, alpha=alpha_fill, zorder=zorder)
-    # ax.fill_between(df.index, df.mavg, df.bb_low_band, facecolor='red', interpolate=True, alpha=alpha_fill, zorder=zorder)
+    zorder = -1
+    ax.plot(df.index, df.bb_high_band, label='bb_high_band', color='green', linestyle=':', alpha=alpha)
+    ax.plot(df.index, df.bb_low_band, label='bb_low_band', color='red', linestyle=':', alpha=alpha)
+    ax.plot(df.index, df.mavg, label='mavg', color='black', linestyle=':', alpha=alpha)
+    # ax.fill_between(df.index, df.mavg, df.bb_high_band, facecolor='purple', interpolate=True, alpha=alpha_fill, zorder=zorder)
+    # ax.fill_between(df.index, df.mavg, df.bb_low_band, facecolor='grey', interpolate=True, alpha=alpha_fill, zorder=zorder)
 
   # plot average true range
   if 'atr' in target_indicator:
@@ -5477,6 +5476,7 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   df['zero'] = 0
   ax.plot(df.index, df.zero, color='gray', alpha=0.3)
 
+  # df['adx_ma_diff'] = df['adx_value'] - df['adx_value_ma']
   # df['prev_adx_day'] = df['adx_day'].shift(1)
   # df['next_adx_day'] = df['adx_day'].shift(-1)
   # df['prev_adx_trend'] = df['adx_trend'].shift(1)
@@ -5519,20 +5519,8 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   ax.scatter(strong_trend_idx, df.loc[strong_trend_idx, 'adx'], color=df.loc[strong_trend_idx, 'adx_color'], label='adx strong', alpha=0.4, marker='s')
   ax.scatter(weak_trend_idx, df.loc[weak_trend_idx, 'adx'], color=df.loc[weak_trend_idx, 'adx_color'], label='adx weak', alpha=0.4, marker='_')
 
-  # # plot predicted value of adx_value
-  # next_idx = df.index.max() + datetime.timedelta(days=1)
-  # df.loc[next_idx] = np.nan
-  # df['adx_value_prediction'] = df['adx_value'] + df['adx_value_change']
-  # df['adx_value_prediction'] = df['adx_value_prediction'].shift(1)
-  # ax.plot(df.index, df.adx_value_prediction, color='black', linestyle='-.', alpha=0.5)
-
   # plot moving average value of adx_value
   ax.plot(df.index, df.adx_value_prediction, color='black', linestyle='-', alpha=0.5)
-
-  # up_idx = df.query('adx_value > adx_value_prediction').index
-  # down_idx = df.query('adx_value < adx_value_prediction').index
-  # ax.scatter(up_idx, df.loc[up_idx, 'adx_value_prediction'], color='green', alpha=1, marker='_')
-  # ax.scatter(down_idx, df.loc[down_idx, 'adx_value_prediction'], color='red', alpha=1, marker='_')
 
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
