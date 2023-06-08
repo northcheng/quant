@@ -44,8 +44,8 @@
   "visualization": {
     "plot_args": {
       "plot_ratio": {
-        "signals": 1.75, "adx": 2.25,
-        "main_indicators": 9, "volume":1
+        "signals": 1.85, "adx": 2.25,
+        "main_indicators": 9.15, "volume":0.75
       },
       
       "main_indicators": {

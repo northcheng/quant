@@ -5799,7 +5799,7 @@ def plot_indicator(df, target_col, start=None, end=None, signal_x='signal', sign
     return ax
 
 # plot multiple indicators on a same chart
-def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', save_path=None, save_image=False, show_image=False, title=None, width=25, unit_size=3, wspace=0, hspace=0.015, subplot_args=default_plot_args):
+def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', save_path=None, save_image=False, show_image=False, title=None, width=35, unit_size=2.5, wspace=0, hspace=0.015, subplot_args=default_plot_args):
   """
   Plot Ichimoku and mean reversion in a same plot
   :param df: dataframe with ichimoku and mean reversion columns
@@ -5844,19 +5844,25 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
     tmp_args = args.get(tmp_indicator)
 
     # put the main_indicators at the bottom, share_x
-    zorder = 10 if tmp_indicator == 'main_indicators' else 1
+    if tmp_indicator == 'main_indicators':
+      zorder = 10 
+    elif tmp_indicator == 'adx':
+      zorder = 11 
+    else:
+      zorder = 1
+
     if i == 0:
       axes[tmp_indicator] = plt.subplot(gs[i], zorder=zorder) 
     else:
       axes[tmp_indicator] = plt.subplot(gs[i], sharex=axes[indicators[0]], zorder=zorder)
       
     # shows the x_ticklabels on the top at the first ax
-    if i != 0: #i%2 == 0: # 
+    if i != 1: #i%2 == 0: # 
       axes[tmp_indicator].xaxis.set_ticks_position("none")
       plt.setp(axes[tmp_indicator].get_xticklabels(), visible=False)
       axes[tmp_indicator].patch.set_alpha(0.5)
     else:
-      axes[tmp_indicator].xaxis.set_ticks_position("top")
+      axes[tmp_indicator].xaxis.set_ticks_position("bottom")
       axes[tmp_indicator].patch.set_alpha(0.5)
 
     # set border color
@@ -5981,7 +5987,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   # construct super title
   if new_title is None:
     new_title == ''
-  fig.suptitle(f'{title} - {new_title}({close_rate}%){desc}', x=0.5, y=1.03, fontsize=25, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1))
+  fig.suptitle(f'\n{title} - {new_title}({close_rate}%){desc}', x=0.5, y=1.03, fontsize=24, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1))
 
   # save image
   if save_image and (save_path is not None):
