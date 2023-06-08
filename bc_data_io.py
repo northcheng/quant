@@ -2329,8 +2329,9 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
       position = assets[portfolio].get('portfolio')
       if position is not None:
         position = pd.DataFrame(position).fillna(np.nan)
+        
         if len(position) > 0:
-          
+
           # support and resistant
           lower_than_support = position.query('latest_price <= support').index.tolist()
           higher_than_resistant = position.query('latest_price >= resistant').index.tolist()
@@ -2342,7 +2343,7 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
           position['name'] = position['name'].apply(lambda x: config['visualization']['plot_args']['sec_name'].get(x))
 
           # convert to html format
-          position = position.drop('latest_time', axis=1)[['name', 'quantity', 'rate', 'market_value', 'average_cost', 'latest_price', 'support', 'resistant']].to_html()
+          position = position.drop('latest_time', axis=1)[['name', 'quantity', 'rate', 'market_value']].to_html()
           
           for l in lower_than_support:
             position = position.replace(l, f'<font color="red">{l}</front>')
