@@ -5980,7 +5980,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   # trigger_score_desc = f'[Trigger {df.loc[df.index.max(), "trigger_score"]}]:{df.loc[df.index.max(), "trigger_score_description"]}'
   
   # score description
-  score_desc = f'Score {df.loc[df.index.max(), "score"]} | Trigger {df.loc[df.index.max(), "trigger_score"]} | Major {df.loc[df.index.max(), "major_score"]} | [{df.loc[df.index.max(), "potential_score"]}]{df.loc[df.index.max(), "potential_description"]}'
+  score_desc = f'[{df.loc[df.index.max(), "potential_score"]}]{df.loc[df.index.max(), "potential_description"]} | Trigger {df.loc[df.index.max(), "trigger_score"]} | Major {df.loc[df.index.max(), "major_score"]} | Score {df.loc[df.index.max(), "score"]}'
   label_score_desc = '' # f'[Label {df.loc[df.index.max(), "label_score"]}]: {df.loc[df.index.max(), "label_description"]}'
   desc = '\n\n' + score_desc # + '\n' + label_score_desc # 
   
