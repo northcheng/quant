@@ -5987,7 +5987,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   # construct super title
   if new_title is None:
     new_title == ''
-  fig.suptitle(f'\n{title} - {new_title}({close_rate}%){desc}', x=0.5, y=1.03, fontsize=24, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1))
+  fig.suptitle(f'{title} - {new_title}({close_rate}%){desc}', x=0.5, y=1.0, fontsize=24, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1))
 
   # save image
   if save_image and (save_path is not None):
