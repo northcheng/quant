@@ -870,7 +870,7 @@ def calculate_ta_score(df):
   df['long_day'] = sda(df['long_trend_score'], zero_as=1)
 
   # trigger score and description
-  for col in ['tankan_day', 'kama_fast_day']: # 'kijun_day', , 'kama_slow_day'
+  for col in ['tankan_day', 'kama_fast_day', 'bb_day']: # 'kijun_day', , 'kama_slow_day'
     col_desc = '_'.join(col.split('_')[0:-1])
     distance_col = 'ichimoku_distance' if col in ['tankan_day', 'kijun_day'] else 'kama_distance'
     valid_pos_idx = df.query(f'0 < {col} <= 5 and {distance_col} < 0').index
@@ -4566,7 +4566,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
   # plot settings
   settings = {
     'main': {'pos_signal_marker': 's', 'neg_signal_marker': 's', 'pos_trend_marker': '.', 'neg_trend_marker': '.', 'wave_trend_marker': '_', 'signal_alpha': 0.5, 'trend_alpha': 0.5, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'},
-    'other': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': 's', 'neg_trend_marker': '_', 'wave_trend_marker': '_', 'signal_alpha': 0.4, 'trend_alpha': 0.4, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'}}
+    'other': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': 's', 'neg_trend_marker': '_', 'wave_trend_marker': '_', 'signal_alpha': 0.5, 'trend_alpha': 0.5, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'}}
   style = settings['main'] if signal_x in ['signal'] else settings['other']
 
   # plot signal base line
@@ -4898,7 +4898,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
       pre_i = idxs.index(start)-1
       pre_start = idxs[pre_i] if pre_i > 0 else start
       tmp_data = df[start:end]
-      ax.fill_between(df[pre_start:end].index, top_value, bottom_value, hatch=gap_hatch, facecolor=gap_color, interpolate=True, alpha=0.5, edgecolor=gap_hatch_color, linewidth=1, zorder=20) #,  
+      ax.fill_between(df[pre_start:end].index, top_value, bottom_value, hatch=gap_hatch, facecolor=gap_color, interpolate=True, alpha=0.25, edgecolor=gap_hatch_color, linewidth=1, zorder=0) #,  
   
     # # gap support & resistant
     # ax.scatter(support_idx, df.loc[support_idx, 'Low'] * 0.98, marker='^', color='black', edgecolor='black', zorder=21)
@@ -5104,7 +5104,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
     
     # plot entity
     x = idx - OFFSET
-    rect = Rectangle(xy=(x, lower), width=entity_width, height=height, facecolor=entity_color, edgecolor=entity_edge_color, alpha=alpha, zorder=11)
+    rect = Rectangle(xy=(x, lower), width=entity_width, height=height, facecolor=entity_color, linewidth=1, edgecolor=entity_edge_color, alpha=alpha, zorder=11)
 
     # add shadow and entity to plot
     ax.add_line(vline)
@@ -5182,25 +5182,19 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   
   # plot senkou lines, clouds, tankan and kijun
   if 'ichimoku' in target_indicator:
-    # alpha = 0.2
-    # ax.plot(df.index, df.senkou_a, label='senkou_a', color='green', alpha=alpha)
-    # ax.plot(df.index, df.senkou_b, label='senkou_b', color='red', alpha=alpha)
-    # ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a > df.senkou_b, facecolor='green', interpolate=True, alpha=alpha)
-    # ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a <= df.senkou_b, facecolor='red', interpolate=True, alpha=alpha)
-
-    alpha = 0.8
+    alpha = 0.3
     zorder = 1
-    ax.plot(df.index, df.tankan, label='tankan', color='green', linestyle='-', alpha=alpha, linewidth=0.5, zorder=zorder) # magenta
-    ax.plot(df.index, df.kijun, label='kijun', color='red', linestyle='-', alpha=alpha, linewidth=0.5, zorder=zorder) # blue
-    alpha = 0.1
+    ax.plot(df.index, df.tankan, label='tankan', color='green', linestyle='-', alpha=alpha, linewidth=1, zorder=zorder) # magenta
+    ax.plot(df.index, df.kijun, label='kijun', color='red', linestyle='-', alpha=alpha, linewidth=1, zorder=zorder) # blue
     ax.fill_between(df.index, df.tankan, df.kijun, where=df.tankan > df.kijun, facecolor='green', interpolate=True, alpha=alpha, zorder=zorder)
     ax.fill_between(df.index, df.tankan, df.kijun, where=df.tankan <= df.kijun, facecolor='red', interpolate=True, alpha=alpha, zorder=zorder)
-  
+    # , hatch='||||', edgecolor='white'
+    # hatch='||||', edgecolor='white', 
   # plot kama_fast/slow lines 
   if 'kama' in target_indicator:
     alpha = 0.8
-    zorder = 1
-    ax.plot(df.index, df.kama_fast, label='kama_fast', color='magenta', linestyle='-', alpha=alpha, zorder=zorder) # 
+    zorder = 2
+    ax.plot(df.index, df.kama_fast, label='kama_fast', color='magenta', linestyle='-', alpha=alpha, zorder=zorder) # magenta
     ax.plot(df.index, df.kama_slow, label='kama_slow', color='blue', linestyle='-', alpha=alpha, zorder=zorder)
 
     # alpha = 0.1
@@ -5209,15 +5203,16 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   
   # plot bollinger bands
   if 'bb' in target_indicator:
-    alpha = 0.5
-    alpha_fill = 0.1
-    zorder = -1
-    ax.plot(df.index, df.bb_high_band, label='bb_high_band', color='green', linestyle=':', alpha=alpha)
-    ax.plot(df.index, df.bb_low_band, label='bb_low_band', color='red', linestyle=':', alpha=alpha)
-    ax.plot(df.index, df.mavg, label='mavg', color='black', linestyle=':', alpha=alpha)
-    # ax.fill_between(df.index, df.mavg, df.bb_high_band, facecolor='purple', interpolate=True, alpha=alpha_fill, zorder=zorder)
-    # ax.fill_between(df.index, df.mavg, df.bb_low_band, facecolor='grey', interpolate=True, alpha=alpha_fill, zorder=zorder)
-
+    alpha = 0.125
+    alpha_fill = 0.075
+    zorder = 0
+    ax.plot(df.index, df.bb_high_band, label='bb_high_band', color='green', linestyle='-', alpha=alpha)
+    ax.plot(df.index, df.bb_low_band, label='bb_low_band', color='red', linestyle='-', alpha=alpha)
+    ax.plot(df.index, df.mavg, label='mavg', color='black', linestyle='--', alpha=alpha*3, zorder=zorder)
+    ax.fill_between(df.index, df.mavg, df.bb_high_band, facecolor='white', hatch='----', edgecolor='green', interpolate=True, alpha=alpha_fill, zorder=zorder)
+    ax.fill_between(df.index, df.mavg, df.bb_low_band, facecolor='white', hatch='----', edgecolor='red', interpolate=True, alpha=alpha_fill, zorder=zorder)
+    #  
+    # 
   # plot average true range
   if 'atr' in target_indicator:
     alpha = 0.6
@@ -5270,7 +5265,7 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
     extended_data = df.tail(extended).copy()
     extended_data['top'] = extended_data[ext_columns].max().max()
     extended_data['bottom'] = extended_data[ext_columns].min().min()
-    ax.fill_between(extended_data.index, extended_data.top, extended_data.bottom, facecolor='gray', edgecolor='none', interpolate=True, alpha=0.15, zorder=10)
+    ax.fill_between(extended_data.index, extended_data.top, extended_data.bottom, facecolor='grey', edgecolor='none', interpolate=True, alpha=0.25, zorder=10)
 
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
@@ -5384,11 +5379,11 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   #   plt.annotate(f'{df.loc[max_idx, "renko_series_short"]}: {text_signal}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.25))
   # else:
   #   ax.fill_between(df.index, 10, -10, hatch=None, linewidth=1, edgecolor='black', facecolor='grey', alpha=0.1)
-  ax.fill_between(df.index, 10, -10, hatch=None, linewidth=1, edgecolor='black', facecolor='grey', alpha=0.15)
+  ax.fill_between(df.index, 10, -10, hatch=None, linewidth=1, edgecolor='grey', facecolor='grey', alpha=0.15, zorder=2)
 
   # plot adx_diff_ma and adx_direction
   df['zero'] = 0
-  ax.plot(df.index, df.zero, color='gray', alpha=0.3)
+  ax.plot(df.index, df.zero, color='gray', alpha=0.3, zorder=0)
 
   # df['adx_ma_diff'] = df['adx_value'] - df['adx_value_ma']
   # df['prev_adx_day'] = df['adx_day'].shift(1)
@@ -5430,16 +5425,15 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
 
   strong_trend_idx = df.query(f'adx >= {adx_threshold}').index
   weak_trend_idx = df.query(f'adx < {adx_threshold}').index
-  ax.scatter(strong_trend_idx, df.loc[strong_trend_idx, 'adx'], color=df.loc[strong_trend_idx, 'adx_color'], label='adx strong', alpha=0.4, marker='s')
-  ax.scatter(weak_trend_idx, df.loc[weak_trend_idx, 'adx'], color=df.loc[weak_trend_idx, 'adx_color'], label='adx weak', alpha=0.4, marker='_')
+  ax.scatter(strong_trend_idx, df.loc[strong_trend_idx, 'adx'], color=df.loc[strong_trend_idx, 'adx_color'], label='adx strong', alpha=0.4, marker='s', zorder=3)
+  ax.scatter(weak_trend_idx, df.loc[weak_trend_idx, 'adx'], color=df.loc[weak_trend_idx, 'adx_color'], label='adx weak', alpha=0.4, marker='_', zorder=3)
 
   # plot moving average value of adx_value
-  ax.plot(df.index, df.adx_value_prediction, color='black', linestyle='-', alpha=0.5)
+  ax.plot(df.index, df.adx_value_prediction, color='black', linestyle='-', alpha=0.5, zorder=0)
 
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
-  # ax.grid(True, axis='both', linestyle='.', linewidth=0.5, alpha=0.3)
   ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
 
   # return ax
@@ -5808,7 +5802,7 @@ def plot_indicator(df, target_col, start=None, end=None, signal_x='signal', sign
     return ax
 
 # plot multiple indicators on a same chart
-def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', save_path=None, save_image=False, show_image=False, title=None, width=35, unit_size=2.5, wspace=0, hspace=0.015, subplot_args=default_plot_args):
+def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', save_path=None, save_image=False, show_image=False, title=None, width=35, unit_size=3, wspace=0, hspace=0.015, subplot_args=default_plot_args):
   """
   Plot Ichimoku and mean reversion in a same plot
   :param df: dataframe with ichimoku and mean reversion columns
