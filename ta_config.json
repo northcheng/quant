@@ -44,8 +44,8 @@
   "visualization": {
     "plot_args": {
       "plot_ratio": {
-        "signals": 1.85, "adx": 2.25,
-        "main_indicators": 9.15, "volume":0.75
+        "signals": 1.5, "adx": 2,
+        "main_indicators": 9.15, "volume":0.85
       },
       
       "main_indicators": {
@@ -62,7 +62,7 @@
           "color_down": "orangered",
           "shadow_color": "black",
           "entity_edge_color": "black",
-          "alpha": 0.9
+          "alpha": 1
         }
       },
       "signals": {
