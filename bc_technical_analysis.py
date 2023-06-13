@@ -5142,12 +5142,14 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   max_idx = df.index.max()
 
   # add extention data
+  extended = 5
+  ext_columns = ['tankan', 'kijun', 'kama_fast', 'kama_slow', 'bb_high_band', 'bb_low_band', 'mavg', 'candle_gap_top', 'candle_gap_bottom']
   if interval == "day":
-    ext_columns = ['tankan', 'kijun', 'kama_fast', 'kama_slow', 'bb_high_band', 'bb_low_band', 'mavg', 'candle_gap_top', 'candle_gap_bottom']
-
-    for i in range(5):
+    for i in range(extended):
       next_idx = max_idx + datetime.timedelta(days = i)
       df.loc[next_idx, ext_columns] = df.loc[max_idx, ext_columns].copy()
+  else:
+    extended = None
 
   # create figure
   ax = use_ax
@@ -5263,6 +5265,13 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   if 'candlestick' in target_indicator:
     ax = plot_candlestick(df=ohlc_df, start=start, end=end, date_col=date_col, add_on=add_on, ohlcv_col=ohlcv_col, color=candlestick_color, use_ax=ax, plot_args=plot_args, interval=interval)
   
+  # plot mask for extended
+  if extended is not None:
+    extended_data = df.tail(extended).copy()
+    extended_data['top'] = extended_data[ext_columns].max().max()
+    extended_data['bottom'] = extended_data[ext_columns].min().min()
+    ax.fill_between(extended_data.index, extended_data.top, extended_data.bottom, facecolor='gray', edgecolor='none', interpolate=True, alpha=0.15, zorder=10)
+
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
