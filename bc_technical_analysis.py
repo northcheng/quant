@@ -5182,14 +5182,14 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   
   # plot senkou lines, clouds, tankan and kijun
   if 'ichimoku' in target_indicator:
-    alpha = 0.3
+    alpha = 0.4
     zorder = 1
-    ax.plot(df.index, df.tankan, label='tankan', color='green', linestyle='-', alpha=alpha, linewidth=1, zorder=zorder) # magenta
-    ax.plot(df.index, df.kijun, label='kijun', color='red', linestyle='-', alpha=alpha, linewidth=1, zorder=zorder) # blue
+    ax.plot(df.index, df.tankan, label='tankan', color='green', linestyle='-', alpha=alpha, zorder=zorder) # magenta
+    ax.plot(df.index, df.kijun, label='kijun', color='red', linestyle='-', alpha=alpha, zorder=zorder) # blue
+    alpha = 0.2
     ax.fill_between(df.index, df.tankan, df.kijun, where=df.tankan > df.kijun, facecolor='green', interpolate=True, alpha=alpha, zorder=zorder)
     ax.fill_between(df.index, df.tankan, df.kijun, where=df.tankan <= df.kijun, facecolor='red', interpolate=True, alpha=alpha, zorder=zorder)
-    # , hatch='||||', edgecolor='white'
-    # hatch='||||', edgecolor='white', 
+    
   # plot kama_fast/slow lines 
   if 'kama' in target_indicator:
     alpha = 0.8
@@ -5203,16 +5203,15 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   
   # plot bollinger bands
   if 'bb' in target_indicator:
-    alpha = 0.125
+    alpha = 0.15
     alpha_fill = 0.075
     zorder = 0
     ax.plot(df.index, df.bb_high_band, label='bb_high_band', color='green', linestyle='-', alpha=alpha)
     ax.plot(df.index, df.bb_low_band, label='bb_low_band', color='red', linestyle='-', alpha=alpha)
-    ax.plot(df.index, df.mavg, label='mavg', color='black', linestyle='--', alpha=alpha*3, zorder=zorder)
-    ax.fill_between(df.index, df.mavg, df.bb_high_band, facecolor='white', hatch='----', edgecolor='green', interpolate=True, alpha=alpha_fill, zorder=zorder)
-    ax.fill_between(df.index, df.mavg, df.bb_low_band, facecolor='white', hatch='----', edgecolor='red', interpolate=True, alpha=alpha_fill, zorder=zorder)
-    #  
-    # 
+    ax.plot(df.index, df.mavg, label='mavg', color='black', linestyle=':', alpha=alpha*3, zorder=zorder)
+    ax.fill_between(df.index, df.mavg, df.bb_high_band, facecolor='green', interpolate=True, alpha=alpha_fill, zorder=zorder)
+    ax.fill_between(df.index, df.mavg, df.bb_low_band, facecolor='red', interpolate=True, alpha=alpha_fill, zorder=zorder)
+
   # plot average true range
   if 'atr' in target_indicator:
     alpha = 0.6
@@ -5260,12 +5259,12 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   if 'candlestick' in target_indicator:
     ax = plot_candlestick(df=ohlc_df, start=start, end=end, date_col=date_col, add_on=add_on, ohlcv_col=ohlcv_col, color=candlestick_color, use_ax=ax, plot_args=plot_args, interval=interval)
   
-  # plot mask for extended
-  if extended is not None:
-    extended_data = df.tail(extended).copy()
-    extended_data['top'] = extended_data[ext_columns].max().max()
-    extended_data['bottom'] = extended_data[ext_columns].min().min()
-    ax.fill_between(extended_data.index, extended_data.top, extended_data.bottom, facecolor='grey', edgecolor='none', interpolate=True, alpha=0.25, zorder=10)
+  # # plot mask for extended
+  # if extended is not None:
+  #   extended_data = df.tail(extended).copy()
+  #   extended_data['top'] = extended_data[ext_columns].max().max()
+  #   extended_data['bottom'] = extended_data[ext_columns].min().min()
+  #   ax.fill_between(extended_data.index, extended_data.top, extended_data.bottom, facecolor='gray', hatch='|||', edgecolor='white', interpolate=True, alpha=0.25, zorder=10)
 
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
@@ -5383,7 +5382,7 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
 
   # plot adx_diff_ma and adx_direction
   df['zero'] = 0
-  ax.plot(df.index, df.zero, color='gray', alpha=0.3, zorder=0)
+  ax.plot(df.index, df.zero, color='grey', alpha=0.3, zorder=0)
 
   # df['adx_ma_diff'] = df['adx_value'] - df['adx_value_ma']
   # df['prev_adx_day'] = df['adx_day'].shift(1)
@@ -5429,7 +5428,7 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   ax.scatter(weak_trend_idx, df.loc[weak_trend_idx, 'adx'], color=df.loc[weak_trend_idx, 'adx_color'], label='adx weak', alpha=0.4, marker='_', zorder=3)
 
   # plot moving average value of adx_value
-  ax.plot(df.index, df.adx_value_prediction, color='black', linestyle='-', alpha=0.5, zorder=0)
+  ax.plot(df.index, df.adx_value_prediction, color='black', linestyle='-', alpha=0.5, zorder=3)
 
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
