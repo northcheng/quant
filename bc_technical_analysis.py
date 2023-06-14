@@ -5204,7 +5204,7 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   # plot bollinger bands
   if 'bb' in target_indicator:
     alpha = 0.15
-    alpha_fill = 0.075
+    alpha_fill = 0.025
     zorder = 0
     ax.plot(df.index, df.bb_high_band, label='bb_high_band', color='green', linestyle='-', alpha=alpha)
     ax.plot(df.index, df.bb_low_band, label='bb_low_band', color='red', linestyle='-', alpha=alpha)
