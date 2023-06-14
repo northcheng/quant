@@ -4565,8 +4565,8 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
   # plot settings
   settings = {
-    'main': {'pos_signal_marker': 's', 'neg_signal_marker': 's', 'pos_trend_marker': '.', 'neg_trend_marker': '.', 'wave_trend_marker': '_', 'signal_alpha': 0.5, 'trend_alpha': 0.5, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'},
-    'other': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': 's', 'neg_trend_marker': '_', 'wave_trend_marker': '_', 'signal_alpha': 0.5, 'trend_alpha': 0.5, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'}}
+    'main': {'pos_signal_marker': 's', 'neg_signal_marker': 's', 'pos_trend_marker': 's', 'neg_trend_marker': 's', 'wave_trend_marker': '_', 'signal_alpha': 0.8, 'trend_alpha': 0.5, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'},
+    'other': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': 's', 'neg_trend_marker': '_', 'wave_trend_marker': '_', 'signal_alpha': 0.5, 'trend_alpha': 0.3, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'}}
   style = settings['main'] if signal_x in ['signal'] else settings['other']
 
   # plot signal base line
@@ -4596,7 +4596,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
   # plot buy signal
   if signal_x == 'b':
     tmp_data = df.query(f'(signal == "b")')
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='green', alpha=1)
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='green', alpha=0.8)
 
   # plot sell signal
   # if signal_x == 's':
@@ -4608,7 +4608,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
     # plot potential
     tmp_data = df.query(f'potential == "potential"')
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='green', alpha=0.5)
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='green', alpha=0.8)
 
     # plot renko
     idxs = df.index.tolist()
@@ -4882,9 +4882,9 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
       start = idx
       top_value = df.loc[start, 'candle_gap_top']
       bottom_value = df.loc[start, 'candle_gap_bottom']
-      gap_color = 'green' if df.loc[start, 'candle_gap'] > 0 else 'red' # 'lightyellow' if df.loc[start, 'candle_gap'] > 0 else 'grey' # 
-      gap_hatch = None # '||||' # if df.loc[start, 'candle_gap'] > 0 else '\\\\\\\\' # 'xxxx'# 
-      gap_hatch_color = gap_color # 'grey'
+      gap_color = 'white' # 'green' if df.loc[start, 'candle_gap'] > 0 else 'red' # 'lightyellow' if df.loc[start, 'candle_gap'] > 0 else 'grey' # 
+      gap_hatch = 'xxxx' # '////' if df.loc[start, 'candle_gap'] > 0 else '\\\\\\\\' # 'xxxx'# 
+      gap_hatch_color = 'green' if df.loc[start, 'candle_gap'] > 0 else 'red' 
       
       # gap end
       end = None
@@ -4898,7 +4898,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
       pre_i = idxs.index(start)-1
       pre_start = idxs[pre_i] if pre_i > 0 else start
       tmp_data = df[start:end]
-      ax.fill_between(df[pre_start:end].index, top_value, bottom_value, hatch=gap_hatch, facecolor=gap_color, interpolate=True, alpha=0.25, edgecolor=gap_hatch_color, linewidth=1, zorder=0) #,  
+      ax.fill_between(df[pre_start:end].index, top_value, bottom_value, hatch=gap_hatch, facecolor=gap_color, interpolate=True, alpha=0.5, edgecolor=gap_hatch_color, linewidth=1, zorder=0) #,  
   
     # # gap support & resistant
     # ax.scatter(support_idx, df.loc[support_idx, 'Low'] * 0.98, marker='^', color='black', edgecolor='black', zorder=21)
@@ -5203,11 +5203,11 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   
   # plot bollinger bands
   if 'bb' in target_indicator:
-    alpha = 0.15
-    alpha_fill = 0.025
+    alpha = 0.2
+    alpha_fill = 0.02
     zorder = 0
-    ax.plot(df.index, df.bb_high_band, label='bb_high_band', color='green', linestyle='-', alpha=alpha)
-    ax.plot(df.index, df.bb_low_band, label='bb_low_band', color='red', linestyle='-', alpha=alpha)
+    ax.plot(df.index, df.bb_high_band, label='bb_high_band', color='black', linestyle='-', alpha=alpha)
+    ax.plot(df.index, df.bb_low_band, label='bb_low_band', color='black', linestyle='-', alpha=alpha)
     ax.plot(df.index, df.mavg, label='mavg', color='black', linestyle=':', alpha=alpha*3, zorder=zorder)
     ax.fill_between(df.index, df.mavg, df.bb_high_band, facecolor='green', interpolate=True, alpha=alpha_fill, zorder=zorder)
     ax.fill_between(df.index, df.mavg, df.bb_low_band, facecolor='red', interpolate=True, alpha=alpha_fill, zorder=zorder)
@@ -5378,11 +5378,11 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   #   plt.annotate(f'{df.loc[max_idx, "renko_series_short"]}: {text_signal}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.25))
   # else:
   #   ax.fill_between(df.index, 10, -10, hatch=None, linewidth=1, edgecolor='black', facecolor='grey', alpha=0.1)
-  ax.fill_between(df.index, 10, -10, hatch=None, linewidth=1, edgecolor='grey', facecolor='grey', alpha=0.15, zorder=2)
+  ax.fill_between(df.index, 10, -10, hatch=None, linewidth=1, facecolor='grey', edgecolor='black', alpha=0.1, zorder=0)
 
   # plot adx_diff_ma and adx_direction
   df['zero'] = 0
-  ax.plot(df.index, df.zero, color='grey', alpha=0.3, zorder=0)
+  ax.plot(df.index, df.zero, color='black', alpha=0.25, zorder=0)
 
   # df['adx_ma_diff'] = df['adx_value'] - df['adx_value_ma']
   # df['prev_adx_day'] = df['adx_day'].shift(1)
@@ -5859,12 +5859,12 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
       axes[tmp_indicator] = plt.subplot(gs[i], sharex=axes[indicators[0]], zorder=zorder)
       
     # shows the x_ticklabels on the top at the first ax
-    if i != 1: #i%2 == 0: # 
+    if i != 0: #i%2 == 0: # 
       axes[tmp_indicator].xaxis.set_ticks_position("none")
       plt.setp(axes[tmp_indicator].get_xticklabels(), visible=False)
       axes[tmp_indicator].patch.set_alpha(0.5)
     else:
-      axes[tmp_indicator].xaxis.set_ticks_position("bottom")
+      axes[tmp_indicator].xaxis.set_ticks_position("top")
       axes[tmp_indicator].patch.set_alpha(0.5)
 
     # set border color
