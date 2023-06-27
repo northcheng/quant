@@ -1095,15 +1095,17 @@ def calculate_ta_signal(df):
   df['signal_description'] = ''
   
   conditions = {
-    'buy_1':      '((trend_score > 0) and (trend_score_change > 0) and (trigger_score > 0))',
-    'buy_2':      '((-2 < trend_score < 0) and (trend_score_change > 0) and (short_trend_score > 0 and short_day > 1))',
-    'sell_1':     '((trend_score < 0) and (trend_score_change < 0) and (trigger_score < 0))',
+    'buy_1':      '((trend_score > 0) and (trend_score_change > 0) and (trigger_score > 0 or position_score >= 3))',
+    'buy_2':      '((trend_score < 0) and (trend_score_change > 0) and (short_trend_score > 0 and short_day > 1))',
+    'buy_3':      '((trend_score_change > 0) and (3 > bb_day > 0))',
+    'sell_1':     '((trend_score < 0) and (trend_score_change < 0) and (trigger_score < 0 or position_score == 4))',
     'sell_2':     '((2.5 > trend_score > 0) and (trend_score_change < 0) and (short_trend_score < 0))',
-    'sell_3':     '((rate < 0 and candle_color == -1))'
+    'sell_3':     '((trend_score_change < 0) and (-3 < bb_day < 0))',
   } 
   values = {
     'buy_1':      'b',
     'buy_2':      'b',
+    'buy_3':      'b',
     'sell_1':     's',
     'sell_2':     's',
     'sell_3':     's'
@@ -1113,11 +1115,11 @@ def calculate_ta_signal(df):
   # disable some false alarms
   none_signal_idx = []
   none_signal_conditions = {
-    '趋势不明':     '(signal == "b") and (adx_strong_day <= 0)',
-    '价格下跌':     '(signal == "b") and ((position_score >= 3 and candle_color == -1 and rate < 0))',
-    '超卖':         '(signal == "b") and (bb_trend == "d")',
-    '高位':         '(signal == "s") and position_score == 4 and trigger_score >= 0',
-    '低位波动':     '(signal == "b") and (trend_score < 0 and position_score == -4)'
+    '趋势不明':     '(signal == "b") and ((adx_strong_day <= 0 and adx_direction < 10) or (adx_value > 0 and adx_power_day < 0))',
+    # '价格下跌':     '(signal == "b") and ((position_score >= 3 and candle_color == -1 and rate < 0))',
+    # '超卖':         '(signal == "b") and (bb_trend == "d")',
+    # '高位':         '(signal == "s") and position_score == 4 and trigger_score >= 0',
+    # '低位波动':     '(signal == "b") and (trend_score < 0 and position_score == -4)'
 
   } 
   for c in none_signal_conditions.keys():
