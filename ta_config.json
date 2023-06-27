@@ -44,8 +44,8 @@
   "visualization": {
     "plot_args": {
       "plot_ratio": {
-        "signals": 1.5, "adx": 2,
-        "main_indicators": 9.15, "volume":0.85
+        "signals": 1.75, "adx": 2,
+        "main_indicators": 9, "volume":1
       },
       
       "main_indicators": {
@@ -99,11 +99,6 @@
       "adx": {
         "alpha": 0.8
       },
-      "score":{
-        "target_col": ["adx_value_change_std"],
-        "color_mode": "up_down",
-        "benchmark": 0
-      },
       "sec_name": {
 
         "SPY": "1x标普500指数做多ETF", "DIA": "1x道琼斯指数做多ETF", "UVXY": "1x波动性指数做多ETF", "GLD": "1x黄金做多ETF", "UUP": "1x美元做多ETF", "XLB": "SPDR基础材料", "XLE": "SPDR能源", "XLI": "SPDR工业", "XLP": "SPDR主要消费品", "XLY": "SPDR可选消费品", "XLF": "SPDR金融", "XLK": "SPDR高科技", "XLU": "SPDR公共事业", "XLV": "SPDR健康照护", "XITK": "SPDR科技创新", "XAR": "SPDR航天与国防", "XBI": "SPDR生物科技", "XES": "SPDR油气设备与服务", "XHB": "SPDR房屋建筑R", "XHE": "SPDR医疗设备", "XHS": "SPDR医疗服务", "XME": "SPDR金属采矿", "XOP": "SPDR油气开采", "XPH": "SPDR制药", "XRT": "SPDR零售", "XSD": "SPDR半导体", "XSW": "SPDR软件服务", "XTL": "SPDR电信", "XTN": "SPDR交通运输", "XWEB": "SPDR互联网",
@@ -146,16 +141,11 @@
       "obos": "超买超卖",
       "support": "支撑",
       "resistant": "阻挡",
-      
-      "up_score_description": "+标签",
-      "down_score_description": "-标签",
-      "score": "总分",
 
-      "major_score_description": "关键标签",
+      "trend_score": "趋势分数",
       "major_score": "关键分数",
-      
-      "trigger_score_description": "触发标签",
       "trigger_score": "触发分数",
+      "trigger_score_description": "触发标签",
       
       "potential": "潜力标签", 
       "potential_score": "潜力分数",
@@ -165,7 +155,7 @@
       "signal": "交易信号"
     },
     "drop_columns": [],
-    "send_columns": ["名称", "涨跌", "总分", "触发分数"],
+    "send_columns": ["名称", "涨跌", "趋势分数", "触发分数"],
     "save_result": true,
     "save_data": true,
     "save_pdf": true

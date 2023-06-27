@@ -278,7 +278,7 @@ class FixedPositionTrader:
             if (stop_profit is not None and signal_data.loc[date, 'holding_return'] >= stop_profit) or (stop_loss is not None and signal_data.loc[date, 'holding_return'] <= stop_loss):
               tmp_signal = 's'
 
-              print(f'stoped on {date} ')
+              # print(f'stoped on {date} ')
 
           # buy stock
           if tmp_signal == 'b':

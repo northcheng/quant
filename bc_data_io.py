@@ -2301,7 +2301,7 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
   assets = {}
   if os.path.exists(config['config_path']+'portfolio.json'):
     portfolio_record = read_config(file_path=config['config_path'], file_name='portfolio.json')
-    
+
     # for us_stock
     if not cn_stock:
       if 'tiger' in platform:
@@ -2318,7 +2318,6 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
     else:
       pr = portfolio_record.get('pingan')
       assets['snowball'] = pr.get('snowball')
-
 
   # construct asset summary
   asset_info = '<h3>Portfolio</h3><ul>'
@@ -2344,7 +2343,7 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
 
           # convert to html format
           position = position.drop('latest_time', axis=1)[['name', 'quantity', 'rate', 'market_value']].to_html()
-          
+
           for l in lower_than_support:
             position = position.replace(l, f'<font color="red">{l}</front>')
           for h in higher_than_resistant:
