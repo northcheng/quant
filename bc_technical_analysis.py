@@ -1119,7 +1119,7 @@ def calculate_ta_signal(df):
     # '价格下跌':     '(signal == "b") and ((position_score >= 3 and candle_color == -1 and rate < 0))',
     # '超卖':         '(signal == "b") and (bb_trend == "d")',
     # '高位':         '(signal == "s") and position_score == 4 and trigger_score >= 0',
-    # '低位波动':     '(signal == "b") and (trend_score < 0 and position_score == -4)'
+    '低位波动':     '(signal == "b") and (position_score == -4)'
 
   } 
   for c in none_signal_conditions.keys():
@@ -4641,13 +4641,15 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
   # plot buy signal
   if signal_x == 'b':
-    tmp_data = df.query(f'(signal == "b")')
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='green', alpha=0.8)
+    tmp_data = df.query(f'(trigger_score > 0)')
+    tmp_alpha = tmp_data.trigger_score * 0.25
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='green', alpha=tmp_alpha)
 
   # plot sell signal
   if signal_x == 's':
-    tmp_data = df.query(f'(signal == "s")')
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='red', alpha=1)
+    tmp_data = df.query(f'(trigger_score < 0)')
+    tmp_alpha = abs(tmp_data.trigger_score * 0.25)
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='red', alpha=tmp_alpha)
 
   # plot potential
   if signal_x == 'b':
