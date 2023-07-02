@@ -4642,13 +4642,13 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
   # plot buy signal
   if signal_x == 'b':
     tmp_data = df.query(f'(trigger_score > 0)')
-    tmp_alpha = tmp_data.trigger_score * 0.25
+    tmp_alpha = normalize(tmp_data['trigger_score'].abs())
     ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='green', alpha=tmp_alpha)
 
   # plot sell signal
   if signal_x == 's':
     tmp_data = df.query(f'(trigger_score < 0)')
-    tmp_alpha = abs(tmp_data.trigger_score * 0.25)
+    tmp_alpha = normalize(tmp_data['trigger_score'].abs())
     ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='red', alpha=tmp_alpha)
 
   # plot potential
