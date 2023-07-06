@@ -143,6 +143,7 @@
       "resistant": "阻挡",
 
       "trend_score": "趋势分数",
+      "trend_score_change": "趋势变化分数",
       "major_score": "关键分数",
       "trigger_score": "触发分数",
       "trigger_score_description": "触发标签",

@@ -917,7 +917,7 @@ def calculate_ta_score(df):
     df['trend_score'] += df[score_col]
 
   # trigger score and description, position score
-  for col in ['tankan_day', 'kama_fast_day', 'kijun_day', 'kama_slow_day', 'bb_day']:
+  for col in ['tankan_day', 'kama_fast_day', 'kijun_day', 'kama_slow_day']:
     col_desc = '_'.join(col.split('_')[0:-1])
     
     # trigger score
@@ -929,13 +929,12 @@ def calculate_ta_score(df):
     df.loc[valid_neg_idx, 'trigger_score_description'] += f'-{col_desc}, '
 
     # position score
-    if col != 'bb_day':
-      valid_pos_idx = df.query(f'0 < {col}').index
-      valid_neg_idx = df.query(f'{col} < 0').index
-      df.loc[valid_pos_idx, 'position_score'] += 1
-      df.loc[valid_neg_idx, 'position_score'] += -1
-      df.loc[valid_pos_idx, 'position_score_description'] += f'+{col_desc}, '
-      df.loc[valid_neg_idx, 'position_score_description'] += f'-{col_desc}, '
+    valid_pos_idx = df.query(f'0 < {col}').index
+    valid_neg_idx = df.query(f'{col} < 0').index
+    df.loc[valid_pos_idx, 'position_score'] += 1
+    df.loc[valid_neg_idx, 'position_score'] += -1
+    df.loc[valid_pos_idx, 'position_score_description'] += f'+{col_desc}, '
+    df.loc[valid_neg_idx, 'position_score_description'] += f'-{col_desc}, '
 
   df['trigger_score_description'] = df['trigger_score_description'].apply(lambda x: x[:-2])
   df['position_score_description'] = df['position_score_description'].apply(lambda x: x[:-2])
@@ -1056,38 +1055,38 @@ def calculate_ta_signal(df):
   df['potential'] = ''
   df['potential_score'] = 0
   df['potential_description'] = ''
-  # potential_conditions = {
-  #   '触发':         f'(0 < trend_day < 3 and trigger_score > 0) or (trend_score_change > 4.5) ',
-  #   '超卖':         f'(0 < bb_day < 5 and candle_color == 1)'
-  #   } 
-  # for c in potential_conditions.keys():
-  #   tmp_condition = potential_conditions[c]
-  #   tmp_idx = df.query(tmp_condition).index
-  #   df.loc[tmp_idx, 'potential'] = 'potential'
-  #   df.loc[tmp_idx, 'potential_score'] += 1
-  #   df.loc[tmp_idx, 'potential_description'] += f'{c}, '
+  potential_conditions = {
+    # '触发':         f'(0 < trend_day < 3 and trigger_score > 0) or (trend_score_change > 4.5) ',
+    '超卖':         f'(0 < bb_day < 5 and candle_color == 1)'
+    } 
+  for c in potential_conditions.keys():
+    tmp_condition = potential_conditions[c]
+    tmp_idx = df.query(tmp_condition).index
+    df.loc[tmp_idx, 'potential'] = 'potential'
+    df.loc[tmp_idx, 'potential_score'] += 1
+    df.loc[tmp_idx, 'potential_description'] += f'{c}, '
 
-  # # remove false alarm
-  # none_potential_idx = []
-  # none_potential_conditions = {
-  #   '价格下跌':       f'potential == "potential" and ((candle_color == -1) or (shadow_trend == "u" and upper_shadow_trend == "u") or (candle_color == -1 and entity_trend == "u"))',
-  #   '短暂反弹':       f'potential == "potential" and ((adx_diff_ma < 0 and (adx_direction_day == 1 or (adx_direction_day < 0 and adx_value_change > 0) or adx_value_change < 0)) and ((ichimoku_distance <= 0 or ichimoku_distance_day <= -3) and (kama_distance <= 0 or kama_distance_day <= -3)))',
-  #   '趋势下降':       f'potential == "potential" and (trend_score == -3)',
-  #   '趋势不明':       f'potential == "potential" and (trend_score < 1 and trigger_score < 1)'
-  #   } 
+  # remove false alarm
+  none_potential_idx = []
+  none_potential_conditions = {
+    '价格下跌':       f'potential == "potential" and ((candle_color == -1) or (shadow_trend == "u" and upper_shadow_trend == "u") or (candle_color == -1 and entity_trend == "u"))',
+    '短暂反弹':       f'potential == "potential" and ((adx_diff_ma < 0 and (adx_direction_day == 1 or (adx_direction_day < 0 and adx_value_change > 0) or adx_value_change < 0)) and ((ichimoku_distance <= 0 or ichimoku_distance_day <= -3) and (kama_distance <= 0 or kama_distance_day <= -3)))',
+    '趋势下降':       f'potential == "potential" and (trend_score == -3)',
+    '趋势不明':       f'potential == "potential" and (trend_score < 1 and trigger_score < 1)'
+    } 
 
-  # if 'linear_slope' in df.columns:
-  #   none_potential_conditions['linear wave'] = f'potential == "potential" and (linear_fit_high_slope == 0 and linear_fit_low_slope == 0)'
+  if 'linear_slope' in df.columns:
+    none_potential_conditions['linear wave'] = f'potential == "potential" and (linear_fit_high_slope == 0 and linear_fit_low_slope == 0)'
 
-  # for c in none_potential_conditions.keys():
-  #   tmp_condition = none_potential_conditions[c]
-  #   tmp_idx = df.query(tmp_condition).index
-  #   none_potential_idx += tmp_idx.tolist()
-  #   df.loc[tmp_idx, 'potential_score'] += -1
-  #   df.loc[tmp_idx, 'potential_description'] += f'{c}, '
-  # none_potential_idx = list(set(none_potential_idx))
-  # df.loc[none_potential_idx, 'potential'] = ''
-  # df['potential_description'] = df['potential_description'].apply(lambda x: x[:-2])
+  for c in none_potential_conditions.keys():
+    tmp_condition = none_potential_conditions[c]
+    tmp_idx = df.query(tmp_condition).index
+    none_potential_idx += tmp_idx.tolist()
+    df.loc[tmp_idx, 'potential_score'] += -1
+    df.loc[tmp_idx, 'potential_description'] += f'{c}, '
+  none_potential_idx = list(set(none_potential_idx))
+  df.loc[none_potential_idx, 'potential'] = ''
+  df['potential_description'] = df['potential_description'].apply(lambda x: x[:-2])
 
   # ================================ calculate signal =======================
   # signal
@@ -4641,15 +4640,26 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
   # plot buy signal
   if signal_x == 'b':
+    
+    # buy signal
     tmp_data = df.query(f'(trigger_score > 0)')
     tmp_alpha = normalize(tmp_data['trigger_score'].abs())
     ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='green', alpha=tmp_alpha)
+
+    # over-sell
+    tmp_data = df.query('bb_day == 1')
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='^', color='none', edgecolor='green', alpha=0.5)
+
 
   # plot sell signal
   if signal_x == 's':
     tmp_data = df.query(f'(trigger_score < 0)')
     tmp_alpha = normalize(tmp_data['trigger_score'].abs())
     ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='red', alpha=tmp_alpha)
+
+    # over-buy
+    tmp_data = df.query('bb_day == -1')
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='v', color='none', edgecolor='red', alpha=0.5)
 
   # plot potential
   if signal_x == 'b':
@@ -6017,8 +6027,8 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   # adjust plot layout
   max_idx = df.index.max()
   close_rate = (df.loc[max_idx, "rate"]*100).round(2)
-  score_change = df.loc[max_idx, "trend_score_change"]
-  title_color = 'green' if score_change > 0 else 'red'
+  score = df.loc[max_idx, "trend_score"]
+  title_color = 'green' if score > 0 else 'red'
   plt.rcParams['font.sans-serif'] = ['KaiTi'] # 指定默认字体
   plt.rcParams['axes.unicode_minus'] = False
 
@@ -6032,17 +6042,24 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
     score_col = f'{term}_trend_score' if term != '' else 'trend_score'
     socre_change_col = f'{score_col}_change'
     term_score = df.loc[max_idx, score_col]
+    term_score_change = round(df.loc[max_idx, socre_change_col],2)
     term_symbol = score_change_sybol[df.loc[max_idx, socre_change_col] > 0]
-    term_desc = f'[{term_score}]{term_symbol} {df.loc[max_idx, "signal_description"]}' if term == '' else f'| {term_score}{term_symbol}'
-    score_desc += term_desc
+    term_desc = f'[{term_symbol} {term_score_change}]{df.loc[max_idx, "signal_description"]}\n{term_score} = ' if term == '' else f'{term_score}{term_symbol} + '
+    if term != '':
+      if term_score < 0:
+        score_desc = score_desc[:-2] + term_desc
+      else:
+        score_desc += term_desc
+    else:
+      score_desc += term_desc
     
-  desc = score_desc  
+  desc = score_desc[:-2] 
   
   # construct super title
   if new_title is None:
     new_title == ''
   super_title = f'{title}({close_rate}%) - {new_title}'
-  fig.suptitle(f'\n{super_title}\n\n{desc}', x=0.5, y=1.06, fontsize=24, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1))
+  fig.suptitle(f'{super_title}\n{desc}', x=0.5, y=1.05, fontsize=24, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1), linespacing = 1.8)
 
   # save image
   if save_image and (save_path is not None):
