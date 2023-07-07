@@ -6044,16 +6044,21 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
     term_score = df.loc[max_idx, score_col]
     term_score_change = round(df.loc[max_idx, socre_change_col],2)
     term_symbol = score_change_sybol[df.loc[max_idx, socre_change_col] > 0]
-    term_desc = f'[{term_symbol} {term_score_change}]{df.loc[max_idx, "signal_description"]}\n{term_score} = ' if term == '' else f'{term_score}{term_symbol} + '
-    if term != '':
-      if term_score < 0:
-        score_desc = score_desc[:-2] + term_desc
-      else:
-        score_desc += term_desc
-    else:
+    term_desc = f'[{term_symbol} {term_score_change}]{df.loc[max_idx, "signal_description"]}\n{term_score}' if term == '' else f'{term_score}{term_symbol}'
+  
+    if term == '':
+      score_desc += term_desc + ' = '
+    elif term == 'short':
       score_desc += term_desc
-    
-  desc = score_desc[:-2] 
+    elif term in ['middle', 'long']:
+      if term_score < 0:
+        score_desc = score_desc + ' ' + term_desc
+      else:
+        score_desc = score_desc + ' + ' + term_desc
+    else:
+      print(f'unknown term {term}')
+  
+  desc = score_desc
   
   # construct super title
   if new_title is None:
