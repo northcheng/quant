@@ -2400,7 +2400,7 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
               # symbol name (for cn stocks only)
               potentials['名称'] = potentials['代码']
               potentials['名称'] = potentials['名称'].apply(lambda x: config['visualization']['plot_args']['sec_name'][x])
-              potentials = potentials.set_index('代码')[config['postprocess']['send_columns']].sort_values('总分', ascending=False).to_html()
+              potentials = potentials.set_index('代码')[config['postprocess']['send_columns']].sort_values('关键分数', ascending=False).to_html()
               signal_info += f'</b></p>{potentials}'
         else:
           tmp_sheet = signal_file_content.get(s)
