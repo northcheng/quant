@@ -147,6 +147,7 @@
       "major_score": "关键分数",
       "trigger_score": "触发分数",
       "trigger_score_description": "触发标签",
+      "trigger_day": "触发天数",
       
       "potential": "潜力标签", 
       "potential_score": "潜力分数",

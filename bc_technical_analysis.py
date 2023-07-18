@@ -938,6 +938,17 @@ def calculate_ta_score(df):
 
   df['trigger_score_description'] = df['trigger_score_description'].apply(lambda x: x[:-2])
   df['position_score_description'] = df['position_score_description'].apply(lambda x: x[:-2])
+  conditions = {
+    'pos':    f'trigger_score > 0.0', 
+    'neg':    f'trigger_score < 0.0',
+  } 
+  values = {
+    'pos':    1, 
+    'neg':    -1,
+  }
+  df = assign_condition_value(df=df, column='trigger_day', condition_dict=conditions, value_dict=values, default_value=0)
+  df['trigger_day'] = sda(series=df['trigger_day'], zero_as=1)
+
 
   # # up/down score and description
   # df['candle_color_sda'] = sda(series=df['candle_color'], zero_as=0)
@@ -1056,7 +1067,7 @@ def calculate_ta_signal(df):
   df['potential_score'] = 0
   df['potential_description'] = ''
   potential_conditions = {
-    # '触发':         f'(0 < trend_day < 3 and trigger_score > 0) or (trend_score_change > 4.5) ',
+    '触发':         f'(0 < trigger_day < 5 and trigger_score > 0.5 and trend_score > 1) ',
     '超卖':         f'(0 < bb_day < 5 and candle_color == 1)'
     } 
   for c in potential_conditions.keys():
@@ -1069,7 +1080,7 @@ def calculate_ta_signal(df):
   # remove false alarm
   none_potential_idx = []
   none_potential_conditions = {
-    '价格下跌':       f'potential == "potential" and ((candle_color == -1) or (shadow_trend == "u" and upper_shadow_trend == "u") or (candle_color == -1 and entity_trend == "u"))',
+    '价格下跌':       f'potential == "potential" and ((rate < -0.05) or (shadow_trend == "u" and upper_shadow_trend == "u") or (candle_color == -1 and entity_trend == "u"))',
     '短暂反弹':       f'potential == "potential" and ((adx_diff_ma < 0 and (adx_direction_day == 1 or (adx_direction_day < 0 and adx_value_change > 0) or adx_value_change < 0)) and ((ichimoku_distance <= 0 or ichimoku_distance_day <= -3) and (kama_distance <= 0 or kama_distance_day <= -3)))',
     '趋势下降':       f'potential == "potential" and (trend_score == -3)',
     '趋势不明':       f'potential == "potential" and (trend_score < 1 and trigger_score < 1)'
