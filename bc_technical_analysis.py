@@ -1067,7 +1067,7 @@ def calculate_ta_signal(df):
   df['potential_score'] = 0
   df['potential_description'] = ''
   potential_conditions = {
-    '触发':         f'(0 < trigger_day < 5 and trigger_score > 0.5 and trend_score > 1) ',
+    '触发':         f'((0 < trigger_day < 5 and trigger_score > 0.5) and (trend_score_change > 0 and trend_score > 0)) ',
     '超卖':         f'(0 < bb_day < 5 and candle_color == 1)'
     } 
   for c in potential_conditions.keys():
