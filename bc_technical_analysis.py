@@ -4611,7 +4611,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
   # plot settings
   settings = {
     'main': {'pos_signal_marker': 's', 'neg_signal_marker': 's', 'pos_trend_marker': 's', 'neg_trend_marker': 's', 'wave_trend_marker': '_', 'signal_alpha': 0.8, 'trend_alpha': 0.5, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'},
-    'other': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': 's', 'neg_trend_marker': '_', 'wave_trend_marker': '_', 'signal_alpha': 0.5, 'trend_alpha': 0.3, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'}}
+    'other': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': '2', 'neg_trend_marker': '1', 'wave_trend_marker': '_', 'signal_alpha': 0.5, 'trend_alpha': 0.3, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'}}
   style = settings['main'] if signal_x in ['signal'] else settings['other']
 
   # plot signal base line
@@ -4635,8 +4635,8 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
       tmp_up = df.query(f'{score_col} > 0')
       tmp_down = df.query(f'{score_col} < 0')
 
-      ax.scatter(tmp_up.index, tmp_up[signal_y], marker='s', color='green', alpha=tmp_alpha.loc[tmp_up.index])
-      ax.scatter(tmp_down.index, tmp_down[signal_y], marker='s', color='red', alpha=tmp_alpha.loc[tmp_down.index])
+      ax.scatter(tmp_up.index, tmp_up[signal_y], marker='o', color='green', alpha=tmp_alpha.loc[tmp_up.index])
+      ax.scatter(tmp_down.index, tmp_down[signal_y], marker='x', color='red', alpha=tmp_alpha.loc[tmp_down.index])
 
   # annotate number of days since signal triggered
   annotate_signal_day = True
@@ -4650,6 +4650,16 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     text_color = 'red' if text_day < 0 else 'green'
     plt.annotate(f'{signal_x.replace("_signal", "")}:{text_day} ', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.05))
 
+  # plot oversell signal
+  if signal_x == 'bb_low':
+    tmp_data = df.query(f'(bb_day == 1)')
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='green', alpha=0.8)
+
+  # plot overbuy signal
+  if signal_x == 'bb_high':
+    tmp_data = df.query(f'(bb_day == -1)')
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='red', alpha=0.8)
+
   # plot buy signal
   if signal_x == 'b':
     
@@ -4658,10 +4668,10 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     tmp_alpha = normalize(tmp_data['trigger_score'].abs())
     ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='green', alpha=tmp_alpha)
 
-    # over-sell
-    tmp_data = df.query('bb_day == 1')
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='^', color='none', edgecolor='green', alpha=0.5)
-
+    # plot potential
+    tmp_data = df.query(f'potential == "potential"')
+    tmp_alpha = normalize(tmp_data['potential_score'].abs())
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='green', alpha=0.5)
 
   # plot sell signal
   if signal_x == 's':
@@ -4669,18 +4679,9 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     tmp_alpha = normalize(tmp_data['trigger_score'].abs())
     ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='red', alpha=tmp_alpha)
 
-    # over-buy
-    tmp_data = df.query('bb_day == -1')
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='v', color='none', edgecolor='red', alpha=0.5)
+  # plot renko
+  if False: # signal_x == 'b':
 
-  # plot potential
-  if signal_x == 'b':
-
-    # plot potential
-    tmp_data = df.query(f'potential == "potential"')
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='green', alpha=0.8)
-
-    # plot renko
     idxs = df.index.tolist()
     min_idx = df.index.min()
     max_idx = df.index.max()

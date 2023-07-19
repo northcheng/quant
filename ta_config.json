@@ -44,16 +44,15 @@
   "visualization": {
     "plot_args": {
       "plot_ratio": {
-        "signals": 1.75, "adx": 2,
-        "main_indicators": 9, "volume":1
+        "signals": 2, "adx": 2,
+        "main_indicators": 8.75, "volume":1
       },
       
       "main_indicators": {
         "target_indicator": [
           "candlestick",
           "ichimoku",
-          "kama",
-          "bb"
+          "kama"
         ],
         "intervla": "day",
         "candlestick_width": 0.62,
@@ -67,10 +66,11 @@
       },
       "signals": {
         "signal_list": [
-          " ",
+          "bb_low",
           "long_signal",
           "middle_signal",
           "short_signal",
+          "bb_high",
           " ",
           "b",
           "signal",
