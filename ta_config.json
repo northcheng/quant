@@ -45,7 +45,7 @@
     "plot_args": {
       "plot_ratio": {
         "signals": 2, "adx": 2,
-        "main_indicators": 8.75, "volume":1
+        "main_indicators": 9, "volume":1
       },
       
       "main_indicators": {
@@ -65,17 +65,17 @@
         }
       },
       "signals": {
-        "signal_list": [
-          "bb_low",
+        "signal_list": [  
+          "",
           "long_signal",
           "middle_signal",
           "short_signal",
-          "bb_high",
+          "inday_signal",
           " ",
           "b",
           "signal",
           "s",
-          " "
+          ""
         ]
       },
       "candle": {

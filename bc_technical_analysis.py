@@ -850,6 +850,9 @@ def calculate_ta_score(df):
   df['position_score'] = 0
   df['position_score_description'] = ''
 
+  df['inday_trend_score'] = 0
+  df['inday_trend_score_description'] = ''
+
   # calculate short/middle/long trend score/day
   trend_conditions = {
     'short': {
@@ -938,82 +941,68 @@ def calculate_ta_score(df):
 
   df['trigger_score_description'] = df['trigger_score_description'].apply(lambda x: x[:-2])
   df['position_score_description'] = df['position_score_description'].apply(lambda x: x[:-2])
-  conditions = {
+  position_conditions = {
     'pos':    f'trigger_score > 0.0', 
     'neg':    f'trigger_score < 0.0',
   } 
-  values = {
+  position_values = {
     'pos':    1, 
     'neg':    -1,
   }
-  df = assign_condition_value(df=df, column='trigger_day', condition_dict=conditions, value_dict=values, default_value=0)
+  df = assign_condition_value(df=df, column='trigger_day', condition_dict=position_conditions, value_dict=position_values, default_value=0)
   df['trigger_day'] = sda(series=df['trigger_day'], zero_as=1)
 
-
-  # # up/down score and description
   # df['candle_color_sda'] = sda(series=df['candle_color'], zero_as=0)
   # df['rate_direction_sda'] = sda(series=(df['rate'] > 0).replace({True: 1, False:-1}), zero_as=0)
-  # df['prev_candle_entity_top'] = df['candle_entity_top'].shift(1)
-  # df['prev_candle_entity_bottom'] = df['candle_entity_bottom'].shift(1)
-  # score_condition_dict = {
-  #   '+i_fast_rate':     [1, '', '(tankan_rate >=  0.025)'],
-  #   '-i_fast_rate':     [-1, '', '(tankan_rate <= -0.025)'],
+  df['prev_candle_entity_top'] = df['candle_entity_top'].shift(1)
+  df['prev_candle_entity_bottom'] = df['candle_entity_bottom'].shift(1)
+  
+  # inday score and description
+  inday_conditions = {
 
-  #   '+k_fast_rate':     [1, '', '(kama_fast_rate >= 0.025)'],
-  #   '-k_fast_rate':     [-1, '', '(kama_fast_rate <= -0.025)'],
+    '+color':       [1, '', '(candle_color == 1)'],
+    '-color':       [-1, '', '(candle_color == -1)'],
 
-  #   '+i_fast_slow':     [1, '', '(ichimoku_distance >= 0.1)'],
-  #   '-i_fast_slow':     [-1, '', '(ichimoku_distance <= -0.1)'],
-
-  #   '+k_fast_slow':     [1, '', '(kama_distance >= 0.1)'],
-  #   '-k_fast_slow':     [-1, '', '(kama_distance <= -0.1)'],
-
-  #   '+i_distance':      [1, '', '(ichimoku_distance_day > 0)'],
-  #   '-i_distance':      [-1, '', '(ichimoku_distance_day < 0)'],
-
-  #   '+k_distance':      [1, '', '(kama_distance_day > 0)'],
-  #   '-k_distance':      [-1, '', '(kama_distance_day < 0)'],
-
-  #   '+color_sda':       [1, '', '(candle_color_sda > 2)'],
-  #   '-color_sda':       [-1, '', '(candle_color_sda < -2)'],
-
-  #   '+rate_sda':        [1, '', '(rate_direction_sda > 2)'],
-  #   '-rate_sda':        [-1, '', '(rate_direction_sda < -2)'],
+    '+rate':        [1, '', '(rate > 0)'],
+    '-rate':        [-1, '', '(rate < 0)'],
     
-  #   '+cloud_top':       [1, '', '(kama_distance < 0 and (((candle_color == 1 and candle_entity_middle > cloud_top) or (candle_color == -1 and candle_entity_bottom > cloud_top))))'],
-  #   '-cloud_top':       [-1, '', '(kama_distance < 0 and (((candle_color == 1 and candle_entity_middle < cloud_top) or (candle_color == -1 and candle_entity_bottom < cloud_top))))'],
+    '+影线':        [1, '', '(candle_lower_shadow_pct > 0.5 and candle_upper_shadow_pct < 0.1)'], # entity_diff > 0.5 and shadow_diff > 1.5 and 
+    '-影线':        [-1, '', '(candle_upper_shadow_pct > 0.5 and candle_lower_shadow_pct < 0.1)'],
     
-  #   '+ta':              [1, '', '(trend_idx > 0)'],
-  #   '-ta':              [-1, '', '(trend_idx <= 0)'],
+    '+实体':        [1, '', '(entity_trend == "u") and (candle_color == 1)'],
+    '-实体':        [-1, '', '(entity_trend == "u") and (candle_color == -1)'],
 
-  #   '+adx':             [1, '', '(adx_day > 1)'],
-  #   '-adx':             [-1, '', '(adx_day < -1)'],
+    '+阶梯':        [1, '', '(candle_entity_top > prev_candle_entity_top) and (candle_entity_bottom > prev_candle_entity_bottom)'],
+    '-阶梯':        [-1, '', '(candle_entity_top < prev_candle_entity_top) and (candle_entity_bottom < prev_candle_entity_bottom)'],
+    
+    '+窗口':        [1, '', '(candle_color == 1 and ((相对窗口位置 == "mid_up") or (相对窗口位置 == "out")))'],
+    '-窗口':        [-1, '', '((相对窗口位置 == "mid_down" or 相对窗口位置 == "mid") or (candle_color == -1 and (相对窗口位置 == "out")))'],
+    
+    '+触底':        [1, '', '(突破_day == -1 and candle_color == 1)'],
+    '-触顶':        [-1, '', '(突破_day == 1 and candle_color == -1)'],
+    
+    '+支撑':        [1, '', '(support_score > 0)'],
+    '-阻挡':        [-1, '', '(resistant_score < 0)'],
 
-  #   '+位置':            [1, '', '((kama_distance > 0 and candle_entity_bottom > kama_fast) or (kama_distance < 0 and candle_entity_bottom > kama_slow)) and ((ichimoku_distance > 0 and candle_entity_bottom > tankan) or (ichimoku_distance < 0 and candle_entity_bottom > kijun))'],
-  #   '-位置':            [-1, '', '((kama_distance > 0 and candle_entity_top < kama_slow) or (kama_distance < 0 and candle_entity_top < kama_fast)) and ((ichimoku_distance > 0 and candle_entity_top > kijun) or (ichimoku_distance < 0 and candle_entity_top < tankan))'],
+    '+平头':        [1, '', '(平头_day == 1)'],
+    '-平头':        [-1, '', '(平头_day == -1)'],
 
-  #   '+影线':            [1, '', '(位置_trend == "d") and (entity_diff > 0.5 and shadow_diff > 1.5 and candle_lower_shadow_pct > 0.5 and candle_upper_shadow_pct < 0.1)'],
-  #   '-影线':            [-1, '', '(位置_trend == "u") and (entity_diff > 0.5 and shadow_diff > 1.5 and candle_upper_shadow_pct > 0.5 and candle_lower_shadow_pct < 0.1)'],
-    
-  #   '+实体':            [1, '', '(entity_trend == "u") and (candle_color == 1)'],
-  #   '-实体':            [-1, '', '(entity_trend == "u") and (candle_color == -1)'],
+    '+锤子':        [1, '', '(锤子_day == 1)'],
+    '-锤子':        [-1, '', '(锤子_day == -1)'],
 
-  #   '+阶梯':            [1, '', '(candle_entity_top > prev_candle_entity_top) and (candle_entity_bottom > prev_candle_entity_bottom)'],
-  #   '-阶梯':            [-1, '', '(candle_entity_top < prev_candle_entity_top) and (candle_entity_bottom < prev_candle_entity_bottom)'],
-    
-  #   '+窗口':            [1, '', '(candle_color == 1 and ((相对窗口位置 == "mid_up") or (相对窗口位置 == "out")))'],
-  #   '-窗口':            [-1, '', '((相对窗口位置 == "mid_down" or 相对窗口位置 == "mid") or (candle_color == -1 and (相对窗口位置 == "out")))'],
-    
-  #   '+触底':            [1, '', '(突破_day == -1 and candle_color == 1)'],
-  #   '-触顶':            [-1, '', '(突破_day == 1 and candle_color == -1)'],
-    
-  #   '+支撑':            [1, '', '(support_score > 0)'],
-  #   '-阻挡':            [-1, '', '(resistant_score < 0)'],
-  # }
-  # df = cal_score(df=df, condition_dict=score_condition_dict, up_score_col='up_score', down_score_col='down_score')
+    '+腰带':        [1, '', '(腰带_day == 1)'],
+    '-腰带':        [-1, '', '(腰带_day == -1)'],
+
+    '+穿刺':        [1, '', '(穿刺_day == 1)'],
+    '-穿刺':        [-1, '', '(穿刺_day == -1)'],
+
+    '+启明黄昏':    [1, '', '(启明黄昏_day == 1)'],
+    '-启明黄昏':    [-1, '', '(启明黄昏_day == -1)'],
+  }
+  df = cal_score(df=df, condition_dict=inday_conditions, up_score_col='up_score', down_score_col='down_score')
+  df['inday_trend_score'] = df['up_score'] + df['down_score']
 
   # # postprocess
-  # df['score'] = df['up_score'] + df['down_score']
   # df[['trend_score', 'trigger_score', 'score']] = df[['trend_score', 'trigger_score', 'score']].round(2)
 
   return df
@@ -1036,7 +1025,7 @@ def calculate_ta_signal(df):
   df = calculate_ta_score(df)
   
   # ================================ calculate trend ========================
-  for term in ['short', 'middle', 'long', '']:
+  for term in ['inday', 'short', 'middle', 'long', '']:
     
     trend_col = f'{term}_trend' if term != '' else 'trend'
     score_col = f'{term}_trend_score' if term != '' else 'trend_score'
@@ -1046,8 +1035,8 @@ def calculate_ta_signal(df):
 
     # term trend
     term_trend_conditions = {
-      'up':     f'{score_col} > 0.25', 
-      'down':   f'{score_col} < -0.25',
+      'up':     f'{score_col} > 0.1', 
+      'down':   f'{score_col} < -0.1',
     } 
     term_trend_values = {
       'up':     'u', 
@@ -4621,13 +4610,13 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
   trend_col = signal_x.replace('signal', 'trend')
   day_col = signal_x.replace('signal', 'day')
   if trend_col in df.columns:
-    if signal_x not in ['short_signal', 'middle_signal', 'long_signal', 'signal']:
+    if signal_x not in ['inday_signal', 'short_signal', 'middle_signal', 'long_signal', 'signal']:
       for i in ['pos', 'neg', 'wave']:
         tmp_trend_value = trend_val[f'{i}_trend']
         tmp_data = df.query(f'{trend_col} == "{tmp_trend_value}"')
         ax.scatter(tmp_data.index, tmp_data[signal_y], marker=style[f'{i}_trend_marker'], color=style[f'{i}_color'], alpha=style['trend_alpha'])
     
-    elif signal_x in ['short_signal', 'middle_signal', 'long_signal', 'signal']:
+    elif signal_x in ['inday_signal', 'short_signal', 'middle_signal', 'long_signal', 'signal']:
       score_col = signal_x.replace('signal', 'trend_score')
       alpha_factor = 0.8 if signal_x == 'signal' else 0.6
       tmp_alpha = normalize(df[score_col].abs()) * alpha_factor
@@ -4650,16 +4639,6 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     text_color = 'red' if text_day < 0 else 'green'
     plt.annotate(f'{signal_x.replace("_signal", "")}:{text_day} ', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.05))
 
-  # plot oversell signal
-  if signal_x == 'bb_low':
-    tmp_data = df.query(f'(bb_day == 1)')
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='green', alpha=0.8)
-
-  # plot overbuy signal
-  if signal_x == 'bb_high':
-    tmp_data = df.query(f'(bb_day == -1)')
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='red', alpha=0.8)
-
   # plot buy signal
   if signal_x == 'b':
     
@@ -4673,11 +4652,19 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     tmp_alpha = normalize(tmp_data['potential_score'].abs())
     ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='green', alpha=0.5)
 
+    # oversell
+    tmp_data = df.query(f'(bb_day == 1)')
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='green', alpha=0.5) # color='none', edge
+
   # plot sell signal
   if signal_x == 's':
     tmp_data = df.query(f'(trigger_score < 0)')
     tmp_alpha = normalize(tmp_data['trigger_score'].abs())
     ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='red', alpha=tmp_alpha)
+
+    # overbuy
+    tmp_data = df.query(f'(bb_day == -1)')
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', alpha=0.5)
 
   # plot renko
   if False: # signal_x == 'b':
@@ -6040,8 +6027,8 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   # adjust plot layout
   max_idx = df.index.max()
   close_rate = (df.loc[max_idx, "rate"]*100).round(2)
-  score = df.loc[max_idx, "trend_score"]
-  title_color = 'green' if score > 0 else 'red'
+  # score = df.loc[max_idx, "trend_score"]
+  title_color = 'green' if close_rate > 0 else 'red'
   plt.rcParams['font.sans-serif'] = ['KaiTi'] # 指定默认字体
   plt.rcParams['axes.unicode_minus'] = False
 
@@ -6051,19 +6038,19 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   # score description
   score_change_sybol = {True: '↑', False: '↓'}
   score_desc = ''
-  for term in ['', 'short', 'middle', 'long']:
+  for term in ['', 'inday', 'short', 'middle', 'long']:
     score_col = f'{term}_trend_score' if term != '' else 'trend_score'
     socre_change_col = f'{score_col}_change'
     term_score = df.loc[max_idx, score_col]
     term_score_change = round(df.loc[max_idx, socre_change_col],2)
     term_symbol = score_change_sybol[df.loc[max_idx, socre_change_col] > 0]
-    term_desc = f'[{term_symbol} {term_score_change}]{df.loc[max_idx, "signal_description"]}\n{term_score}' if term == '' else f'{term_score}{term_symbol}'
+    term_desc = f'{term_symbol} {term_score_change}{df.loc[max_idx, "signal_description"]} | {term_score}' if term == '' else f'{term_score}{term_symbol}'
   
     if term == '':
       score_desc += term_desc + ' = '
-    elif term == 'short':
+    elif term == 'inday':
       score_desc += term_desc
-    elif term in ['middle', 'long']:
+    elif term in ['short', 'middle', 'long']:
       if term_score < 0:
         score_desc = score_desc + ' ' + term_desc
       else:
@@ -6071,13 +6058,16 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
     else:
       print(f'unknown term {term}')
   
-  desc = score_desc
-  
+  inday_desc = f'[{df.loc[max_idx, "up_score_description"]}] [{df.loc[max_idx, "down_score_description"]}]'
+  inday_desc = inday_desc.replace(', ]', ']')
   # construct super title
   if new_title is None:
     new_title == ''
   super_title = f'{title}({close_rate}%) - {new_title}'
-  fig.suptitle(f'{super_title}\n{desc}', x=0.5, y=1.05, fontsize=24, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1), linespacing = 1.8)
+  super_title = f'{super_title}\n{inday_desc}'
+  super_title = f'{super_title}\n{score_desc}'
+  
+  fig.suptitle(f'{super_title}', x=0.5, y=1.05, fontsize=24, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1), linespacing = 1.8)
 
   # save image
   if save_image and (save_path is not None):
