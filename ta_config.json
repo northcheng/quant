@@ -71,11 +71,12 @@
           "middle_signal",
           "short_signal",
           "inday_signal",
-          " ",
-          "b",
+          "-----",
+          "os",
+          "trigger",
           "signal",
-          "s",
-          ""
+          "ob",
+          " "
         ]
       },
       "candle": {

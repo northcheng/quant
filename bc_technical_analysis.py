@@ -951,7 +951,7 @@ def calculate_ta_score(df):
   }
   df = assign_condition_value(df=df, column='trigger_day', condition_dict=position_conditions, value_dict=position_values, default_value=0)
   df['trigger_day'] = sda(series=df['trigger_day'], zero_as=1)
-
+  
   # df['candle_color_sda'] = sda(series=df['candle_color'], zero_as=0)
   # df['rate_direction_sda'] = sda(series=(df['rate'] > 0).replace({True: 1, False:-1}), zero_as=0)
   df['prev_candle_entity_top'] = df['candle_entity_top'].shift(1)
@@ -962,9 +962,6 @@ def calculate_ta_score(df):
 
     '+color':       [1, '', '(candle_color == 1)'],
     '-color':       [-1, '', '(candle_color == -1)'],
-
-    '+rate':        [1, '', '(rate > 0)'],
-    '-rate':        [-1, '', '(rate < 0)'],
     
     '+影线':        [1, '', '(candle_lower_shadow_pct > 0.5 and candle_upper_shadow_pct < 0.1)'], # entity_diff > 0.5 and shadow_diff > 1.5 and 
     '-影线':        [-1, '', '(candle_upper_shadow_pct > 0.5 and candle_lower_shadow_pct < 0.1)'],
@@ -972,8 +969,8 @@ def calculate_ta_score(df):
     '+实体':        [1, '', '(entity_trend == "u") and (candle_color == 1)'],
     '-实体':        [-1, '', '(entity_trend == "u") and (candle_color == -1)'],
 
-    '+阶梯':        [1, '', '(candle_entity_top > prev_candle_entity_top) and (candle_entity_bottom > prev_candle_entity_bottom)'],
-    '-阶梯':        [-1, '', '(candle_entity_top < prev_candle_entity_top) and (candle_entity_bottom < prev_candle_entity_bottom)'],
+    # '+阶梯':        [1, '', '(candle_entity_top > prev_candle_entity_top) and (candle_entity_bottom > prev_candle_entity_bottom)'],
+    # '-阶梯':        [-1, '', '(candle_entity_top < prev_candle_entity_top) and (candle_entity_bottom < prev_candle_entity_bottom)'],
     
     '+窗口':        [1, '', '(candle_color == 1 and ((相对窗口位置 == "mid_up") or (相对窗口位置 == "out")))'],
     '-窗口':        [-1, '', '((相对窗口位置 == "mid_down" or 相对窗口位置 == "mid") or (candle_color == -1 and (相对窗口位置 == "out")))'],
@@ -983,6 +980,8 @@ def calculate_ta_score(df):
     
     '+支撑':        [1, '', '(support_score > 0)'],
     '-阻挡':        [-1, '', '(resistant_score < 0)'],
+
+    '-十字星':      [-1, '', '(十字星_day == -1)'],
 
     '+平头':        [1, '', '(平头_day == 1)'],
     '-平头':        [-1, '', '(平头_day == -1)'],
@@ -1001,6 +1000,13 @@ def calculate_ta_score(df):
   }
   df = cal_score(df=df, condition_dict=inday_conditions, up_score_col='up_score', down_score_col='down_score')
   df['inday_trend_score'] = df['up_score'] + df['down_score']
+
+  # trigger_score when at high(position_score == 4) or low(position_score == -4) position
+  none_trigger_high = df.query('position_score == 4 and trigger_score == 0 and candle_color == 1').index
+  df.loc[none_trigger_high, 'trigger_score'] = df.loc[none_trigger_high, 'candle_entity_pct']
+
+  none_trigger_low = df.query('position_score == -4 and trigger_score == 0 and  candle_color == -1').index
+  df.loc[none_trigger_low, 'trigger_score'] = df.loc[none_trigger_low, 'candle_entity_pct'] * -1
 
   # # postprocess
   # df[['trend_score', 'trigger_score', 'score']] = df[['trend_score', 'trigger_score', 'score']].round(2)
@@ -1025,6 +1031,7 @@ def calculate_ta_signal(df):
   df = calculate_ta_score(df)
   
   # ================================ calculate trend ========================
+  df['trend_status'] = 0
   for term in ['inday', 'short', 'middle', 'long', '']:
     
     trend_col = f'{term}_trend' if term != '' else 'trend'
@@ -1049,6 +1056,10 @@ def calculate_ta_signal(df):
 
     # term trend score change
     df = cal_change(df=df, target_col=score_col, periods=1, add_accumulation=False, add_prefix=True)
+
+    # trend status (overall)
+    if term in ['short', 'middle', 'long']:
+      df['trend_status'] += df[trend_col].replace({"u": 1, "d": -1, "n": 0})
 
   # ================================ calculate potential ====================
   # label score
@@ -1094,46 +1105,50 @@ def calculate_ta_signal(df):
   df['signal_description'] = ''
   df['signal_day'] = 0
 
-  # conditions = {
-  #   'buy_1':      '((trend_score > 0) and (trend_score_change > 0) and (trigger_score > 0 or position_score >= 3))',
-  #   'buy_2':      '((trend_score < 0) and (trend_score_change > 0) and (short_trend_score > 0 and short_day > 1))',
-  #   'buy_3':      '((trend_score_change > 0) and (3 > bb_day > 0))',
-  #   'sell_1':     '((trend_score < 0) and (trend_score_change < 0) and (trigger_score < 0 or position_score == 4))',
-  #   'sell_2':     '((2.5 > trend_score > 0) and (trend_score_change < 0) and (short_trend_score < 0))',
-  #   'sell_3':     '((trend_score_change < 0) and (-3 < bb_day < 0))',
-  # } 
-  # values = {
-  #   'buy_1':      'b',
-  #   'buy_2':      'b',
-  #   'buy_3':      'b',
-  #   'sell_1':     's',
-  #   'sell_2':     's',
-  #   'sell_3':     's'
-  # }
-  # df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
+  conditions = {
+    'buy':          '(trend_score > 0 and trend_score_change > 0 and trigger_score > 0)',
+    'sell':         '(trend_score < 0 or (trend_score < 0.5 and trend_score_change < 0)) and (trigger_score < 0)',
+    # 'buy_1':      '((trend_score > 0) and (trend_score_change > 0) and (trigger_score > 0 or position_score >= 3))',
+    # 'buy_2':      '((trend_score < 0) and (trend_score_change > 0) and (short_trend_score > 0 and short_day > 1))',
+    # 'buy_3':      '((trend_score_change > 0) and (3 > bb_day > 0))',
+    # 'sell_1':     '((trend_score < 0) and (trend_score_change < 0) and (trigger_score < 0 or position_score == 4))',
+    # 'sell_2':     '((2.5 > trend_score > 0) and (trend_score_change < 0) and (short_trend_score < 0))',
+    # 'sell_3':     '((trend_score_change < 0) and (-3 < bb_day < 0))',
+  } 
+  values = {
+    'buy':          'b',
+    'sell':         's',
+    # 'buy_1':      'b',
+    # 'buy_2':      'b',
+    # 'buy_3':      'b',
+    # 'sell_1':     's',
+    # 'sell_2':     's',
+    # 'sell_3':     's'
+  }
+  df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
   
-  # # disable some false alarms
-  # none_signal_idx = []
-  # none_signal_conditions = {
-  #   '趋势不明':     '(signal == "b") and ((adx_strong_day <= 0 and adx_direction < 10) or (adx_value > 0 and adx_power_day < 0))',
-  #   # '价格下跌':     '(signal == "b") and ((position_score >= 3 and candle_color == -1 and rate < 0))',
-  #   # '超卖':         '(signal == "b") and (bb_trend == "d")',
-  #   # '高位':         '(signal == "s") and position_score == 4 and trigger_score >= 0',
-  #   '低位波动':     '(signal == "b") and (position_score == -4)'
+  # disable some false alarms
+  none_signal_idx = []
+  none_signal_conditions = {
+    '趋势不明':     '(signal == "b") and (inday_trend_score <= 0)',
+    # '价格下跌':     '(signal == "b") and ((position_score >= 3 and candle_color == -1 and rate < 0))',
+    '超卖':         '(signal == "b") and (-3 < bb_day < 0)',
+    # '高位':         '(signal == "s") and position_score == 4 and trigger_score >= 0',
+    '低位波动':     '(signal == "b") and (position_score == -4)'
 
-  # } 
-  # for c in none_signal_conditions.keys():
-  #   tmp_condition = none_signal_conditions[c]
-  #   tmp_idx = df.query(tmp_condition).index
-  #   none_signal_idx += tmp_idx.tolist()
-  #   df.loc[tmp_idx, 'signal_description'] += f'{c}, '
-  # none_signal_idx = list(set(none_signal_idx))
-  # df.loc[none_signal_idx, 'signal'] = ''
-  # df['signal_description'] = df['signal_description'].apply(lambda x: x[:-2])
+  } 
+  for c in none_signal_conditions.keys():
+    tmp_condition = none_signal_conditions[c]
+    tmp_idx = df.query(tmp_condition).index
+    none_signal_idx += tmp_idx.tolist()
+    df.loc[tmp_idx, 'signal_description'] += f'{c}, '
+  none_signal_idx = list(set(none_signal_idx))
+  df.loc[none_signal_idx, 'signal'] = ''
+  df['signal_description'] = df['signal_description'].apply(lambda x: x[:-2])
 
-  # # calculate signal day
-  # df['signal_day'] = sda(df['signal'].replace({'b': 1, 's': -1, '': 0}), zero_as=1)
-  # # df = remove_redundant_signal(df=df, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='', keep='first')
+  # calculate signal day
+  df['signal_day'] = sda(df['signal'].replace({'b': 1, 's': -1, '': 0}), zero_as=1)
+  # df = remove_redundant_signal(df=df, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='', keep='first')
 
   return df
 
@@ -2472,29 +2487,47 @@ def add_support_resistance(df, target_col=['kama_fast', 'kama_slow', 'tankan', '
   df['resistant_score'] = 0
   df['resistant_description'] = ''
 
+  # ================================ intra-day support and resistant ===================
   # calculate support
   distance_threshold = 0.01
   shadow_pct_threhold = 0.05
   for col in generated_cols['Low']:
     tmp_col = col.split('_to_')[-1]
     support_idx = df.query(f'mid_price > {tmp_col} and candle_upper_shadow_pct > {shadow_pct_threhold} and {col} < {distance_threshold}').index.tolist()
-    df.loc[support_idx, 'support_score'] += 1
+    # df.loc[support_idx, 'support_score'] += 1
     df.loc[support_idx, 'support_description'] += f'{tmp_col}, '
-  df['support_description'] = df['support_description'].apply(lambda x: x[:-2])
 
   # calculate resistance
   for col in generated_cols['High']:
     tmp_col = col.split('_to_')[-1]
     resistant_idx = df.query(f'mid_price < {tmp_col} and candle_upper_shadow_pct > {shadow_pct_threhold} and {col} < {distance_threshold}').index.tolist()
-    df.loc[resistant_idx, 'resistant_score'] -= 1
+    # df.loc[resistant_idx, 'resistant_score'] -= 1
     df.loc[resistant_idx, 'resistant_description'] += f'{tmp_col}, '
-  df['resistant_description'] = df['resistant_description'].apply(lambda x: x[:-2])
   
+
+  # ================================ in-day support and resistant ======================
+  for col in target_col:
+
+    support_idx = df.query(f'Open > {col} and Low < {col} and Close > {col}').index
+    # df.loc[support_idx, 'support_score'] += 1
+    df.loc[support_idx, 'support_description'] += f'{col}, '
+
+    resistant_idx = df.query(f'Open < {col} and High > {col} and Close < {col}').index
+    # df.loc[resistant_idx, 'resistant_score'] += 1
+    df.loc[resistant_idx, 'resistant_description'] += f'{col}, '
+
+  df['support_description'] = df['support_description'].apply(lambda x: ', '.join(list(set(x[:-2].split(', ')))))
+  df['resistant_description'] = df['resistant_description'].apply(lambda x: ', '.join(list(set(x[:-2].split(', ')))))
+
+  df['support_score'] = df['support_description'].apply(lambda x: len(list(set(x.split(', ')))))
+  df['resistant_score'] = df['resistant_description'].apply(lambda x: len(list(set(x.split(', ')))))
+
   # drop unnecessary columns
   for col in col_to_drop:
     if col in df.columns:
       df.drop(col, axis=1, inplace=True)
 
+  # ================================ supporter and resistanter =========================
   # add support/supporter, resistant/resistanter for the last row
   max_idx = df.index.max() 
   df['resistant'] = np.nan
@@ -4618,14 +4651,17 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     
     elif signal_x in ['inday_signal', 'short_signal', 'middle_signal', 'long_signal', 'signal']:
       score_col = signal_x.replace('signal', 'trend_score')
-      alpha_factor = 0.8 if signal_x == 'signal' else 0.6
-      tmp_alpha = normalize(df[score_col].abs()) * alpha_factor
+      # alpha_factor = 0.8 if signal_x == 'signal' else 0.6
+      tmp_alpha = normalize(df[score_col].abs()) # * alpha_factor
 
       tmp_up = df.query(f'{score_col} > 0')
       tmp_down = df.query(f'{score_col} < 0')
 
-      ax.scatter(tmp_up.index, tmp_up[signal_y], marker='o', color='green', alpha=tmp_alpha.loc[tmp_up.index])
-      ax.scatter(tmp_down.index, tmp_down[signal_y], marker='x', color='red', alpha=tmp_alpha.loc[tmp_down.index])
+      pos_marker = 's' if signal_x == 'signal' else 's'
+      neg_marker = 's' if signal_x == 'signal' else 's'
+
+      ax.scatter(tmp_up.index, tmp_up[signal_y], marker=pos_marker, color='green', alpha=tmp_alpha.loc[tmp_up.index])
+      ax.scatter(tmp_down.index, tmp_down[signal_y], marker=neg_marker, color='red', alpha=tmp_alpha.loc[tmp_down.index])
 
   # annotate number of days since signal triggered
   annotate_signal_day = True
@@ -4639,71 +4675,78 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     text_color = 'red' if text_day < 0 else 'green'
     plt.annotate(f'{signal_x.replace("_signal", "")}:{text_day} ', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.05))
 
-  # plot buy signal
-  if signal_x == 'b':
+  # plot trigger_score
+  if signal_x == 'trigger':
     
-    # buy signal
+    # trigger_score
     tmp_data = df.query(f'(trigger_score > 0)')
     tmp_alpha = normalize(tmp_data['trigger_score'].abs())
     ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='green', alpha=tmp_alpha)
+
+    tmp_data = df.query(f'(trigger_score < 0)')
+    tmp_alpha = normalize(tmp_data['trigger_score'].abs())
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='red', alpha=tmp_alpha)
 
     # plot potential
     tmp_data = df.query(f'potential == "potential"')
     tmp_alpha = normalize(tmp_data['potential_score'].abs())
     ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='green', alpha=0.5)
 
-    # oversell
+  # overbuy and oversell
+  if signal_x == 'os':
     tmp_data = df.query(f'(bb_day == 1)')
     ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='green', alpha=0.5) # color='none', edge
 
-  # plot sell signal
-  if signal_x == 's':
-    tmp_data = df.query(f'(trigger_score < 0)')
-    tmp_alpha = normalize(tmp_data['trigger_score'].abs())
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='red', alpha=tmp_alpha)
-
-    # overbuy
+  if signal_x == 'ob':
     tmp_data = df.query(f'(bb_day == -1)')
     ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', alpha=0.5)
 
+  # buy and sell
+  if signal_x == ' ':
+    buy_data = df.query('signal == "b"')
+    ax.scatter(buy_data.index, buy_data[signal_y], marker='^', color='green', alpha=0.5)
+
+    sell_data = df.query('signal == "s"')
+    ax.scatter(sell_data.index, sell_data[signal_y], marker='v', color='red', alpha=0.5)
+
   # plot renko
-  if False: # signal_x == 'b':
+  # if False: # signal_x == 'b':
 
-    idxs = df.index.tolist()
-    min_idx = df.index.min()
-    max_idx = df.index.max()
-    signal_y_value = df[signal_y].values.max()
+  #   idxs = df.index.tolist()
+  #   min_idx = df.index.min()
+  #   max_idx = df.index.max()
+  #   signal_y_value = df[signal_y].values.max()
 
-    # plot renko blocks
-    if 'renko' in default_perspectives: 
-      df.loc[min_idx, 'renko_real'] = df.loc[min_idx, 'renko_color']
-      df.loc[max_idx, 'renko_real'] = df.loc[max_idx, 'renko_color']
-      renko_real_idxs = df.query('renko_real == renko_real').index
-      for i in range(1, len(renko_real_idxs)):
-        start = renko_real_idxs[i-1]
-        end = renko_real_idxs[i]
-        end = idxs[idxs.index(end) - 1]
-        renko_color = df.loc[start, 'renko_color']
-        hatch = None #'/' if renko_color == 'green' else '\\' # 
-        ax.fill_between(df[start:end].index, signal_y_value-0.75, signal_y_value+0.75, hatch=hatch, linewidth=1, edgecolor=renko_color, facecolor='None', alpha=0.5)
-        ax.fill_between(df[start:end].index, signal_y_value-0.75, signal_y_value+0.75, hatch=hatch, linewidth=1, facecolor=renko_color, alpha=0.1)
+  #   # plot renko blocks
+  #   if 'renko' in default_perspectives: 
+  #     df.loc[min_idx, 'renko_real'] = df.loc[min_idx, 'renko_color']
+  #     df.loc[max_idx, 'renko_real'] = df.loc[max_idx, 'renko_color']
+  #     renko_real_idxs = df.query('renko_real == renko_real').index
+  #     for i in range(1, len(renko_real_idxs)):
+  #       start = renko_real_idxs[i-1]
+  #       end = renko_real_idxs[i]
+  #       end = idxs[idxs.index(end) - 1]
+  #       renko_color = df.loc[start, 'renko_color']
+  #       hatch = None #'/' if renko_color == 'green' else '\\' # 
+  #       ax.fill_between(df[start:end].index, signal_y_value-0.75, signal_y_value+0.75, hatch=hatch, linewidth=1, edgecolor=renko_color, facecolor='None', alpha=0.5)
+  #       ax.fill_between(df[start:end].index, signal_y_value-0.75, signal_y_value+0.75, hatch=hatch, linewidth=1, facecolor=renko_color, alpha=0.1)
 
-      # renko_day
-      x_signal = max_idx + datetime.timedelta(days=2)
-      y_signal = signal_y_value
-      text_signal = int(df.loc[max_idx, 'renko_duration'])
-      text_color = df.loc[max_idx, 'renko_color'] # fontsize=14, 
-      plt.annotate(f'{df.loc[max_idx, "renko_series_short"]}: {text_signal}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.1))
+  #     # renko_day
+  #     x_signal = max_idx + datetime.timedelta(days=2)
+  #     y_signal = signal_y_value
+  #     text_signal = int(df.loc[max_idx, 'renko_duration'])
+  #     text_color = df.loc[max_idx, 'renko_color'] # fontsize=14, 
+  #     plt.annotate(f'{df.loc[max_idx, "renko_series_short"]}: {text_signal}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.1))
 
   # plot signal
-  if signal_x in df.columns:
-    if signal_x == 'signal':
-      pass
-    else:
-      for i in ['pos', 'neg']:
-        tmp_signal_value = signal_val[f'{i}_signal']
-        tmp_data = df.query(f'{signal_x} == "{tmp_signal_value}"')
-        ax.scatter(tmp_data.index, tmp_data[signal_y], marker=style[f'{i}_signal_marker'], color='none', edgecolor=style[f'{i}_color'], alpha=style['signal_alpha'])
+  # if signal_x in df.columns:
+  #   if signal_x == 'signal':
+  #     pass
+  #   else:
+  #     for i in ['pos', 'neg']:
+  #       tmp_signal_value = signal_val[f'{i}_signal']
+  #       tmp_data = df.query(f'{signal_x} == "{tmp_signal_value}"')
+  #       ax.scatter(tmp_data.index, tmp_data[signal_y], marker=style[f'{i}_signal_marker'], color='none', edgecolor=style[f'{i}_color'], alpha=style['signal_alpha'])
     
   # legend and title
   ax.legend(loc='upper left')  
