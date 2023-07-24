@@ -2494,17 +2494,14 @@ def add_support_resistance(df, target_col=['kama_fast', 'kama_slow', 'tankan', '
   for col in generated_cols['Low']:
     tmp_col = col.split('_to_')[-1]
     support_idx = df.query(f'mid_price > {tmp_col} and candle_upper_shadow_pct > {shadow_pct_threhold} and {col} < {distance_threshold}').index.tolist()
-    # df.loc[support_idx, 'support_score'] += 1
     df.loc[support_idx, 'support_description'] += f'{tmp_col}, '
 
   # calculate resistance
   for col in generated_cols['High']:
     tmp_col = col.split('_to_')[-1]
     resistant_idx = df.query(f'mid_price < {tmp_col} and candle_upper_shadow_pct > {shadow_pct_threhold} and {col} < {distance_threshold}').index.tolist()
-    # df.loc[resistant_idx, 'resistant_score'] -= 1
     df.loc[resistant_idx, 'resistant_description'] += f'{tmp_col}, '
   
-
   # ================================ in-day support and resistant ======================
   for col in target_col:
 
@@ -2519,14 +2516,14 @@ def add_support_resistance(df, target_col=['kama_fast', 'kama_slow', 'tankan', '
   df['support_description'] = df['support_description'].apply(lambda x: ', '.join(list(set(x[:-2].split(', ')))))
   df['resistant_description'] = df['resistant_description'].apply(lambda x: ', '.join(list(set(x[:-2].split(', ')))))
 
-  df['support_score'] = df['support_description'].apply(lambda x: len(list(set(x.split(', ')))))
-  df['resistant_score'] = df['resistant_description'].apply(lambda x: len(list(set(x.split(', ')))))
+  df['support_score'] = df['support_description'].apply(lambda x: len(list(set([s for s in x.split(', ') if s != '']))))
+  df['resistant_score'] = df['resistant_description'].apply(lambda x: -1 * len(list(set([s for s in x.split(', ') if s != '']))))
 
   # drop unnecessary columns
   for col in col_to_drop:
     if col in df.columns:
       df.drop(col, axis=1, inplace=True)
-
+  
   # ================================ supporter and resistanter =========================
   # add support/supporter, resistant/resistanter for the last row
   max_idx = df.index.max() 
@@ -2634,6 +2631,7 @@ def add_support_resistance(df, target_col=['kama_fast', 'kama_slow', 'tankan', '
     df.loc[valid_idxs, 'resistanter'] = resistanter
   
   return df
+
 
 # ================================================ Trend indicators ================================================= #
 # ADX(Average Directional Index) 
