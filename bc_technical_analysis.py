@@ -1125,7 +1125,7 @@ def calculate_ta_signal(df):
     '趋势不明':        '(signal == "b") and (inday_trend_score < 0)',
     '短期趋势下降':     '(signal == "b") and (short_trend_score < -1)',
     '整体趋势波动':     '(signal == "b") and (trend_score < 0.5 and trend_status < 0)',
-    '超卖':           '(signal == "b") and (bb_day == -1)',
+    '超卖':           '(signal == "b") and (bb_day == -1) and (inday_trend_score <=0 or trend_status < 3)',
     # '高位':         '(signal == "s") and position_score == 4 and trigger_score >= 0',
     '低位波动':       '(signal == "b") and (position_score == -4)'
 
