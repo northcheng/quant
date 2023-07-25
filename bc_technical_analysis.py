@@ -35,7 +35,7 @@ default_signal_val = {'pos_signal':'b', 'neg_signal':'s', 'none_signal':'', 'wav
 
 # default indicators and dynamic trend for calculation
 default_indicators = {'trend': ['ichimoku', 'kama', 'adx'], 'volume': [], 'volatility': ['bb'], 'other': []}
-default_perspectives = ['candle']
+default_perspectives = ['candle','support_resistant']
 
 # default arguments for visualization
 default_candlestick_color = {'color_up':'green', 'color_down':'red', 'shadow_color':'black', 'entity_edge_color':'black', 'alpha':0.8}
@@ -243,7 +243,6 @@ def calculate_ta_basic(df, indicators=default_indicators):
 
     # add indicator features
     phase = 'calculate indicators' 
-    indicator_to_calculate = []
     indicator_calculated = []
     for i in indicators.keys():
       tmp_indicators = indicators[i]
@@ -674,13 +673,6 @@ def calculate_ta_static(df, indicators=default_indicators):
       # calculate overall trend index 
       df['trend_idx'] = df['up_trend_idx'] + df['down_trend_idx']      
 
-    phase = 'calculate support and resistant'
-
-    # ================================ support & resistant ====================
-    target_indicator = 'support_resistant'
-    if target_indicator > '':
-      df = add_support_resistance(df)
-
   except Exception as e:
     print(f'[Exception]: @ {phase} - {target_indicator}, {e}')
     
@@ -783,6 +775,11 @@ def calculate_ta_dynamic(df, perspective=default_perspectives):
       # focus on the last row only
       max_idx = df.index.max()
       valid_idxs = df.query('linear_slope == linear_slope').index
+
+    # ================================ support & resistant =======================
+    phase = 'support and resistant'
+    if 'support_resistant' in perspective:
+      df = add_support_resistance(df)
 
   except Exception as e:
     print(phase, e)
@@ -954,24 +951,18 @@ def calculate_ta_score(df):
   
   # df['candle_color_sda'] = sda(series=df['candle_color'], zero_as=0)
   # df['rate_direction_sda'] = sda(series=(df['rate'] > 0).replace({True: 1, False:-1}), zero_as=0)
-  df['prev_candle_entity_top'] = df['candle_entity_top'].shift(1)
-  df['prev_candle_entity_bottom'] = df['candle_entity_bottom'].shift(1)
+  # df['prev_candle_entity_top'] = df['candle_entity_top'].shift(1)
+  # df['prev_candle_entity_bottom'] = df['candle_entity_bottom'].shift(1)
   
   # inday score and description
   inday_conditions = {
-
-    '+color':       [1, '', '(candle_color == 1)'],
-    '-color':       [-1, '', '(candle_color == -1)'],
     
-    '+影线':        [1, '', '(candle_lower_shadow_pct > 0.5 and candle_upper_shadow_pct < 0.1)'], # entity_diff > 0.5 and shadow_diff > 1.5 and 
-    '-影线':        [-1, '', '(candle_upper_shadow_pct > 0.5 and candle_lower_shadow_pct < 0.1)'],
+    '+影线':        [1, '', '(candle_lower_shadow_pct > 0.5 and candle_upper_shadow_pct < 0.15)'], # entity_diff > 0.5 and shadow_diff > 1.5 and 
+    '-影线':        [-1, '', '(candle_upper_shadow_pct > 0.5 and (candle_lower_shadow_pct < 0.15  or candle_color == -1))'],
     
     '+实体':        [1, '', '(entity_trend == "u") and (candle_color == 1)'],
     '-实体':        [-1, '', '(entity_trend == "u") and (candle_color == -1)'],
 
-    # '+阶梯':        [1, '', '(candle_entity_top > prev_candle_entity_top) and (candle_entity_bottom > prev_candle_entity_bottom)'],
-    # '-阶梯':        [-1, '', '(candle_entity_top < prev_candle_entity_top) and (candle_entity_bottom < prev_candle_entity_bottom)'],
-    
     '+窗口':        [1, '', '(candle_color == 1 and ((相对窗口位置 == "mid_up") or (相对窗口位置 == "out")))'],
     '-窗口':        [-1, '', '((相对窗口位置 == "mid_down" or 相对窗口位置 == "mid") or (candle_color == -1 and (相对窗口位置 == "out")))'],
     
@@ -981,7 +972,7 @@ def calculate_ta_score(df):
     '+支撑':        [1, '', '(support_score > 0)'],
     '-阻挡':        [-1, '', '(resistant_score < 0)'],
 
-    '-十字星':      [-1, '', '(十字星_day == -1)'],
+    '-十字星':      [-1, '', '(十字星_day == -1 or 十字星_day == 1)'],
 
     '+平头':        [1, '', '(平头_day == 1)'],
     '-平头':        [-1, '', '(平头_day == -1)'],
@@ -1108,7 +1099,8 @@ def calculate_ta_signal(df):
   conditions = {
     'buy':          '(trend_score > 0 and trend_score_change > 0 and trigger_score > 0)',
     'sell':         '(trend_score < 0 or (trend_score < 0.5 and trend_score_change < 0)) and (trigger_score < 0)',
-    # 'buy_1':      '((trend_score > 0) and (trend_score_change > 0) and (trigger_score > 0 or position_score >= 3))',
+
+    'buy_1':        '((trend_score > 0) and (trend_status == 3) and (trigger_score > 0 or inday_trend_score >= 0))',
     # 'buy_2':      '((trend_score < 0) and (trend_score_change > 0) and (short_trend_score > 0 and short_day > 1))',
     # 'buy_3':      '((trend_score_change > 0) and (3 > bb_day > 0))',
     # 'sell_1':     '((trend_score < 0) and (trend_score_change < 0) and (trigger_score < 0 or position_score == 4))',
@@ -1118,7 +1110,7 @@ def calculate_ta_signal(df):
   values = {
     'buy':          'b',
     'sell':         's',
-    # 'buy_1':      'b',
+    'buy_1':        'b',
     # 'buy_2':      'b',
     # 'buy_3':      'b',
     # 'sell_1':     's',
@@ -1130,11 +1122,12 @@ def calculate_ta_signal(df):
   # disable some false alarms
   none_signal_idx = []
   none_signal_conditions = {
-    '趋势不明':     '(signal == "b") and (inday_trend_score <= 0)',
-    # '价格下跌':     '(signal == "b") and ((position_score >= 3 and candle_color == -1 and rate < 0))',
-    '超卖':         '(signal == "b") and (-3 < bb_day < 0)',
+    '趋势不明':        '(signal == "b") and (inday_trend_score < 0)',
+    '短期趋势下降':     '(signal == "b") and (short_trend_score < -1)',
+    '整体趋势波动':     '(signal == "b") and (trend_score < 0.5 and trend_status < 0)',
+    '超卖':           '(signal == "b") and (bb_day == -1)',
     # '高位':         '(signal == "s") and position_score == 4 and trigger_score >= 0',
-    '低位波动':     '(signal == "b") and (position_score == -4)'
+    '低位波动':       '(signal == "b") and (position_score == -4)'
 
   } 
   for c in none_signal_conditions.keys():
@@ -2493,13 +2486,13 @@ def add_support_resistance(df, target_col=['kama_fast', 'kama_slow', 'tankan', '
   shadow_pct_threhold = 0.05
   for col in generated_cols['Low']:
     tmp_col = col.split('_to_')[-1]
-    support_idx = df.query(f'mid_price > {tmp_col} and candle_upper_shadow_pct > {shadow_pct_threhold} and {col} < {distance_threshold}').index.tolist()
+    support_idx = df.query(f'(十字星_day != 1 and 十字星_day != -1) and ((candle_color == 1 and mid_price > {tmp_col}) or (candle_color == -1 and Close > {tmp_col})) and candle_upper_shadow_pct > {shadow_pct_threhold} and {col} < {distance_threshold}').index.tolist()
     df.loc[support_idx, 'support_description'] += f'{tmp_col}, '
 
   # calculate resistance
   for col in generated_cols['High']:
     tmp_col = col.split('_to_')[-1]
-    resistant_idx = df.query(f'mid_price < {tmp_col} and candle_upper_shadow_pct > {shadow_pct_threhold} and {col} < {distance_threshold}').index.tolist()
+    resistant_idx = df.query(f'(十字星_day != 1 and 十字星_day != -1) and ((candle_color == -1 and mid_price < {tmp_col}) or (candle_color == 1 and Close < {tmp_col})) and candle_upper_shadow_pct > {shadow_pct_threhold} and {col} < {distance_threshold}').index.tolist()
     df.loc[resistant_idx, 'resistant_description'] += f'{tmp_col}, '
   
   # ================================ in-day support and resistant ======================
