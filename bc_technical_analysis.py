@@ -1123,9 +1123,9 @@ def calculate_ta_signal(df):
   none_signal_idx = []
   none_signal_conditions = {
     '趋势不明':        '(signal == "b") and (inday_trend_score < 0)',
-    '短期趋势下降':     '(signal == "b") and (short_trend_score < -1)',
+    '短期趋势下降':     '(signal == "b") and ((short_trend_score < -1) or (short_trend_score <= 0 and inday_trend_score <= 0))',
     '整体趋势波动':     '(signal == "b") and (trend_score < 0.5 and trend_status < 0)',
-    '超卖':           '(signal == "b") and (bb_day == -1) and (inday_trend_score <=0 or trend_status < 3)',
+    '超卖':           '(signal == "b") and (bb_day == -1) and ((inday_trend_score <=0 or trend_status < 3) or (trend_score_change < 0 and inday_trend_score < 0))',
     # '高位':         '(signal == "s") and position_score == 4 and trigger_score >= 0',
     '低位波动':       '(signal == "b") and (position_score == -4)'
 
@@ -2496,13 +2496,15 @@ def add_support_resistance(df, target_col=['kama_fast', 'kama_slow', 'tankan', '
     df.loc[resistant_idx, 'resistant_description'] += f'{tmp_col}, '
   
   # ================================ in-day support and resistant ======================
+  df['prev_close'] = df['Close'].shift(1)
+  col_to_drop.append('prev_close')
   for col in target_col:
 
-    support_idx = df.query(f'Open > {col} and Low < {col} and Close > {col}').index
+    support_idx = df.query(f'prev_close > {col} and Low < {col} and Close > {col}').index
     # df.loc[support_idx, 'support_score'] += 1
     df.loc[support_idx, 'support_description'] += f'{col}, '
 
-    resistant_idx = df.query(f'Open < {col} and High > {col} and Close < {col}').index
+    resistant_idx = df.query(f'prev_close < {col} and High > {col} and Close < {col}').index
     # df.loc[resistant_idx, 'resistant_score'] += 1
     df.loc[resistant_idx, 'resistant_description'] += f'{col}, '
 
@@ -6078,7 +6080,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
     term_score = df.loc[max_idx, score_col]
     term_score_change = round(df.loc[max_idx, socre_change_col],2)
     term_symbol = score_change_sybol[df.loc[max_idx, socre_change_col] > 0]
-    term_desc = f'{term_symbol} {term_score_change}{df.loc[max_idx, "signal_description"]} | {term_score}' if term == '' else f'{term_score}{term_symbol}'
+    term_desc = f'{df.loc[max_idx, "signal_description"]}({term_symbol}{term_score_change}) | {term_score}' if term == '' else f'{term_score}{term_symbol}'
   
     if term == '':
       score_desc += term_desc + ' = '
@@ -6091,9 +6093,10 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
         score_desc = score_desc + ' + ' + term_desc
     else:
       print(f'unknown term {term}')
-  
-  inday_desc = f'[{df.loc[max_idx, "up_score_description"]}] [{df.loc[max_idx, "down_score_description"]}]'
+
+  inday_desc = f'{df.loc[max_idx, "inday_trend_score"]} : [{df.loc[max_idx, "up_score_description"]}] [{df.loc[max_idx, "down_score_description"]}]'
   inday_desc = inday_desc.replace(', ]', ']')
+  
   # construct super title
   if new_title is None:
     new_title == ''
