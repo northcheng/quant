@@ -41,6 +41,7 @@ default_perspectives = ['candle','support_resistant']
 default_candlestick_color = {'color_up':'green', 'color_down':'red', 'shadow_color':'black', 'entity_edge_color':'black', 'alpha':0.8}
 default_plot_args = {'figsize':(30, 3), 'title_rotation':'vertical', 'xaxis_position': 'bottom', 'yaxis_position': 'right', 'title_x':-0.01, 'title_y':0.2, 'bbox_to_anchor':(1.02, 0.), 'loc':3, 'ncol':1, 'borderaxespad':0.0}
 
+
 # ================================================ Load configuration =============================================== # 
 # load configuration
 def load_config(root_paths):
@@ -959,8 +960,8 @@ def calculate_ta_score(df):
     '+影线':        [1, '', '(candle_lower_shadow_pct > 0.5 and candle_upper_shadow_pct < 0.15)'], # entity_diff > 0.5 and shadow_diff > 1.5 and 
     '-影线':        [-1, '', '(candle_upper_shadow_pct > 0.5 and (candle_lower_shadow_pct < 0.15  or candle_color == -1))'],
     
-    '+实体':        [1, '', '(entity_trend == "u") and (candle_color == 1)'],
-    '-实体':        [-1, '', '(entity_trend == "u") and (candle_color == -1)'],
+    '+长实体':        [1, '', '(entity_trend == "u") and (candle_color == 1)'],
+    '-长实体':        [-1, '', '(entity_trend == "u") and (candle_color == -1)'],
 
     '+窗口':        [1, '', '(candle_color == 1 and ((相对窗口位置 == "mid_up") or (相对窗口位置 == "out")))'],
     '-窗口':        [-1, '', '((相对窗口位置 == "mid_down" or 相对窗口位置 == "mid") or (candle_color == -1 and (相对窗口位置 == "out")))'],
@@ -1115,7 +1116,7 @@ def calculate_ta_signal(df):
     'buy_1':        '((trend_score > 0) and (trend_status == 3) and (trigger_score > 0 or inday_trend_score >= 0))',
     'sell_1':       '(short_trend_score < 0 and inday_trend_score < 0)',
 
-    'sell_2':       '(inday_day == -1 and trend_status < 3)'
+    'sell_2':       '(inday_day < 0 and trend_status < 3 and (bb_day == -1 or inday_day == -1 or short_day < -1))'
   } 
   values = {
     'buy':          'b',
@@ -1131,11 +1132,11 @@ def calculate_ta_signal(df):
   # disable some false alarms
   none_signal_idx = []
   none_signal_conditions = {
-    '趋势不明':        '(signal == "b") and (inday_trend_score < 0 and potential != "potential")',
+    '趋势不明':        '(signal == "b") and ((inday_trend_score < 0 and potential != "potential") or (trend_score < 0.5 and short_day == 1))',
     '短期趋势下降':     '(signal == "b") and ((short_trend_score < -1) or (short_trend_score <= 0 and inday_trend_score <= 0))',
     '整体趋势波动':     '(signal == "b") and (trend_score < 0.5 and trend_status < 0)',
-    '超卖':           '(signal == "b") and (bb_day == -1)and ((inday_trend_score <=0 or trend_status < 3) or (trend_score_change < 0 and inday_trend_score < 0))',
-    '低位波动':       '(signal == "b") and (position_score == -4)'
+    '超卖':             '(signal == "b") and (bb_day == -1)and ((inday_trend_score <=0 or trend_status < 3) or (trend_score_change < 0 and inday_trend_score < 0))',
+    '低位波动':         '(signal == "b") and (position_score == -4)'
   } 
   for c in none_signal_conditions.keys():
     tmp_condition = none_signal_conditions[c]
