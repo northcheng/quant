@@ -960,14 +960,20 @@ def calculate_ta_score(df):
     '+影线':        [1, '', '(candle_lower_shadow_pct > 0.5 and candle_upper_shadow_pct < 0.15)'], # entity_diff > 0.5 and shadow_diff > 1.5 and 
     '-影线':        [-1, '', '(candle_upper_shadow_pct > 0.5 and (candle_lower_shadow_pct < 0.15  or candle_color == -1))'],
     
-    '+长实体':        [1, '', '(entity_trend == "u") and (candle_color == 1)'],
-    '-长实体':        [-1, '', '(entity_trend == "u") and (candle_color == -1)'],
+    '+长实体':      [1, '', '(entity_trend == "u") and (candle_color == 1)'],
+    '-长实体':      [-1, '', '(entity_trend == "u") and (candle_color == -1)'],
 
-    '+窗口':        [1, '', '(candle_color == 1 and ((相对窗口位置 == "mid_up") or (相对窗口位置 == "out")))'],
-    '-窗口':        [-1, '', '((相对窗口位置 == "mid_down" or 相对窗口位置 == "mid") or (candle_color == -1 and (相对窗口位置 == "out")))'],
+    '+窗口':        [1, '', '(candle_color == 1 and ((candle_gap == 2) or (相对窗口位置 == "mid_up") or (相对窗口位置 == "out")))'],
+    '-窗口':        [-1, '', '((candle_gap == -2) or (相对窗口位置 == "mid_down" or 相对窗口位置 == "mid") or (candle_color == -1 and (相对窗口位置 == "out")))'],
     
     '+触底':        [1, '', '(突破_day == -1 and candle_color == 1)'],
     '-触顶':        [-1, '', '(突破_day == 1 and candle_color == -1)'],
+
+    # '+rate_sda':    [1, '', '(rate_direction_sda > 2)'],
+    # '-rate_sda':    [-1, '', '(rate_direction_sda < -2)'],
+
+    # '+color_sda':    [1, '', '(candle_color_sda > 2)'],
+    # '-color_sda':    [-1, '', '(candle_color_sda < -2)'],
     
     # '+支撑':        [0, '', '(support_score > 0)'],
     # '-阻挡':        [0, '', '(resistant_score < 0)'],
@@ -1063,7 +1069,7 @@ def calculate_ta_signal(df):
     df = cal_change(df=df, target_col=score_col, periods=1, add_accumulation=False, add_prefix=True)
 
     # trend status (overall)
-    if term in ['short', 'middle', 'long']:
+    if term in ['inday', 'short', 'middle', 'long']:
       df['trend_status'] += df[trend_col].replace({"u": 1, "d": -1, "n": 0})
 
   # ================================ calculate potential ====================
@@ -1110,33 +1116,36 @@ def calculate_ta_signal(df):
   df['signal_day'] = 0
 
   conditions = {
-    'buy':          '(trend_score > 0 and trend_score_change > 0 and trigger_score > 0)',
-    'sell':         '(trend_score < 0 or (trend_score < 0.5 and trend_score_change < 0)) and (trigger_score < 0)',
+    'buy':          '(trend_score > -0.5 and trend_score_change > 0 and trigger_score > 0)',
+    'sell':         '(trend_score < 0.5 and trend_score_change < 0 and trigger_score < 0)',
 
-    'buy_1':        '((trend_score > 0) and (trend_status == 3) and (trigger_score > 0 or inday_trend_score >= 0))',
-    'sell_1':       '(short_trend_score < 0 and inday_trend_score < 0)',
+    # 'buy_1':        '((trend_score > 0) and (trend_status == 3) and (trigger_score > 0 or inday_trend_score >= 0))',
+    # 'sell_1':       '(short_trend_score < 0 and inday_trend_score < 0)',
 
-    'sell_2':       '(inday_day < 0 and trend_status < 3 and (bb_day == -1 or inday_day == -1 or short_day < -1))'
+    # 'buy_2':        '(-0.5 < trend_score < 0.5) and (trend_score_change > 0.5) and (inday_trend_score >= 1 and short_trend_score >= 1 and short_day > 1) and (trigger_score > 0 and potential == "potential")',
+    # 'sell_2':       '(inday_day < 0 and trend_status < 3 and (bb_day == -1 or inday_day == -1 or short_day < -1))'
   } 
   values = {
     'buy':          'b',
     'sell':         's',
 
-    'buy_1':        'b',
-    'sell_1':     's',
+    # 'buy_1':        'b',
+    # 'sell_1':       's',
 
-    'sell_2':     's',
+    # 'buy_2':        'b',
+    # 'sell_2':       's',
   }
   df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
 
   # disable some false alarms
   none_signal_idx = []
   none_signal_conditions = {
-    '趋势不明':        '(signal == "b") and ((inday_trend_score < 0 and potential != "potential") or (trend_score < 0.5 and short_day == 1))',
-    '短期趋势下降':     '(signal == "b") and ((short_trend_score < -1) or (short_trend_score <= 0 and inday_trend_score <= 0))',
-    '整体趋势波动':     '(signal == "b") and (trend_score < 0.5 and trend_status < 0)',
-    '超卖':             '(signal == "b") and (bb_day == -1)and ((inday_trend_score <=0 or trend_status < 3) or (trend_score_change < 0 and inday_trend_score < 0))',
-    '低位波动':         '(signal == "b") and (position_score == -4)'
+    # '趋势不明':        '(signal == "b") and ((inday_trend_score < 0 and potential != "potential") or (trend_score < 0.5 and short_day == 1))',
+    # '短期趋势下降':     '(signal == "b") and ((short_trend_score < -1 and inday_trend_score <= 0))',
+    # '整体趋势波动':     '(signal == "b") and (trend_score < 0.5 and trend_status < 0)',
+    # '超卖':             '(signal == "b") and (bb_day == -1)and ((inday_trend_score <=0 or trend_status < 3) or (trend_score_change < 0 and inday_trend_score < 0))',
+    # '低位波动':         '(signal == "b") and (position_score == -4)',
+    '弱势波动':         '(signal == "b") and ((-10 < adx_direction_start < 10) and (adx_strong_day < 0) and (adx_direction < 5 or adx_value_change < 0.1))',
   } 
   for c in none_signal_conditions.keys():
     tmp_condition = none_signal_conditions[c]
@@ -2529,10 +2538,10 @@ def add_support_resistance(df, target_col=['kama_fast', 'kama_slow', 'tankan', '
   # ================================ breakthorough =====================================
   for col in target_col:
 
-    break_up_idx = df.query(f'entity_diff > -0.5 and candle_color == 1 and Open < {col} and Close > {col}').index
+    break_up_idx = df.query(f'candle_color == 1 and Open < {col} and Close > {col}').index # entity_diff > -0.5 and 
     df.loc[break_up_idx, 'break_up_description'] += f'{col}, '
 
-    break_down_idx = df.query(f'entity_diff > -0.5 and candle_color == -1 and Open > {col} and Close < {col}').index
+    break_down_idx = df.query(f'candle_color == -1 and Open > {col} and Close < {col}').index # entity_diff > -0.5 and 
     df.loc[break_down_idx, 'break_down_description'] += f'{col}, '
 
   df['break_up_description'] = df['break_up_description'].apply(lambda x: ', '.join(list(set(x[:-2].split(', ')))))
