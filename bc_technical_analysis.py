@@ -851,25 +851,35 @@ def calculate_ta_score(df):
   df['inday_trend_score'] = 0
   df['inday_trend_score_description'] = ''
 
+  col_to_drop = []
+
+  # ================================ calculate s/m/l trend/score/day ========
   # calculate short/middle/long trend score/day
   trend_conditions = {
     'short': {
-      '+adx_value':           [1, '', '(adx_value_change > 0.5)'],
-      '-adx_value':           [-1, '', '(adx_value_change < -0.5)'],
-      '+adx_strong':          [1, '', '(adx_direction_day > 0 and adx_strong_day > 0)'],
-      '-adx_strong':          [-1, '', '(adx_direction_day <= 0 and adx_strong_day > 0)'],
+      '+adx_value':           [0.5, '', '(adx_direction_day > 1 and adx_direction > 5)'],
+      '-adx_value':           [-0.5, '', '(adx_direction_day < -1 and adx_direction < -5)'],
+      '+adx_power':           [0.5, '', '(adx_power_day > 1 and adx_value > 0) or (adx_power_day < -1 and adx_value < 0)'],
+      '-adx_power':           [-0.5, '', '(adx_power_day > 1 and adx_value < 0) or (adx_power_day < -1 and adx_value > 0)'],
+      '+adx_trend':           [1, '', '(adx_trend == "u")'],
+      '-adx_trend':           [-1, '', '(adx_trend == "d")'],
+      
     },
     'middle': {
-      '+tankan_rate':         [1, '', '(tankan_rate > 0)'],
-      '-tankan_rate':         [-1, '', '(tankan_rate <= 0)'],
-      '+ichimoku_distance':   [1, '', 'tankan_rate > 0 and ichimoku_distance_change > 0'],
-      '-ichimoku_distance':   [-1, '', 'tankan_rate <= 0 and ichimoku_distance_day < 0'],
+      '+tankan':              [0.5, '', '(tankan_rate > 0)'],
+      '-tankan':              [-0.5, '', '(tankan_rate <= 0)'],
+      '+i_distance_change':   [0.5, '', '(ichimoku_distance_change > 0)'],
+      '-i_distance_change':   [-0.5, '', '(ichimoku_distance_change < 0)'],
+      '+ichimoku_distance':   [1, '', 'ichimoku_distance > 0'], #  tankan_rate > 0 and 
+      '-ichimoku_distance':   [-1, '', 'ichimoku_distance < 0'], # tankan_rate <= 0 and 
     },
     'long': {
-      '+kama_fast':           [1, '', '(kama_fast_rate > 0)'],
-      '-kama_fast':           [-1, '', '(kama_fast_rate <= 0)'],
-      '+kama_distance':       [1, '', '(kama_fast_rate > 0 and kama_distance_change > 0)'],
-      '-kama_distance':       [-1, '', '(kama_fast_rate <= 0 and kama_distance_change < 0)'],
+      '+kama_fast':           [0.5, '', '(kama_fast_rate > 0)'],
+      '-kama_fast':           [-0.5, '', '(kama_fast_rate <= 0)'],
+      '+k_distance_change':   [0.5, '', '(kama_distance > 0)'], # kama_fast_rate > 0 and 
+      '-k_distance_change':   [-0.5, '', '(kama_distance < 0)'], # kama_fast_rate <= 0 and 
+      '+kama_distance':       [1, '', '(kama_distance > 0)'], # kama_fast_rate > 0 and 
+      '-kama_distance':       [-1, '', '(kama_distance < 0)'], # kama_fast_rate <= 0 and 
     },
   }
   wave_conditions = {
@@ -914,16 +924,73 @@ def calculate_ta_score(df):
     # major score
     df['major_score'] += (df[score_col] > 0).replace({True: 1, False: 0})
 
-    # overall score
-    df['trend_score'] += df[score_col]
 
+  # ================================ calculate inday trend ==================
+  # inday score and description
+  df['prev_candle_entity_top'] = df['candle_entity_top'].shift(1)
+  df['prev_candle_entity_bottom'] = df['candle_entity_bottom'].shift(1)
+  col_to_drop += ['prev_candle_entity_top', 'prev_candle_entity_bottom']
+
+  s = 0.5
+  inday_conditions = {
+    
+    '+影线':        [s, '', '(candle_lower_shadow_pct > 0.5 and candle_upper_shadow_pct < 0.15)'], # entity_diff > 0.5 and shadow_diff > 1.5 and 
+    '-影线':        [-s, '', '(candle_upper_shadow_pct > 0.5 and (candle_lower_shadow_pct < 0.15  or candle_color == -1))'],
+    
+    '+长实体':      [s, '', '(entity_trend == "u") and (candle_color == 1)'],
+    '-长实体':      [-s, '', '(entity_trend == "u") and (candle_color == -1)'],
+
+    '+窗口':        [s, '', '(candle_color == 1 and ((candle_gap == 2) or (相对窗口位置 == "mid_up") or (相对窗口位置 == "out")))'],
+    '-窗口':        [-s, '', '((candle_gap == -2) or (相对窗口位置 == "mid_down" or 相对窗口位置 == "mid") or (candle_color == -1 and (相对窗口位置 == "out")))'],
+    
+    '+触底':        [s, '', '(突破_day == -1 and candle_color == 1)'],
+    '-触顶':        [-s, '', '(突破_day == 1 and candle_color == -1)'],
+
+    '+跳升':        [s, '', '(candle_entity_bottom > prev_candle_entity_top)'],
+    '-跳降':        [-s, '', '(candle_entity_top < prev_candle_entity_bottom)'],
+
+    '-十字星':      [-s, '', '(十字星_day == -1 or 十字星_day == 1)'],
+
+    '+平头':        [s, '', '(平头_day == 1)'],
+    '-平头':        [-s, '', '(平头_day == -1)'],
+
+    '+锤子':        [s, '', '(锤子_day == 1)'],
+    '-锤子':        [-s, '', '(锤子_day == -1)'],
+
+    '+腰带':        [s, '', '(腰带_day == 1)'],
+    '-腰带':        [-s, '', '(腰带_day == -1)'],
+
+    '+穿刺':        [s, '', '(穿刺_day == 1)'],
+    '-穿刺':        [-s, '', '(穿刺_day == -1)'],
+
+    '+启明黄昏':    [s, '', '(启明黄昏_day == 1)'],
+    '-启明黄昏':    [-s, '', '(启明黄昏_day == -1)'],
+  }
+  df = cal_score(df=df, condition_dict=inday_conditions, up_score_col='up_score', down_score_col='down_score')
+  df['inday_trend_score'] += df['up_score'] + df['down_score']
+
+  names = {'support':'支撑', 'resistant': '阻挡', 'break_up': '突破', 'break_down': '跌落'}
+  for col in ['support', 'resistant', 'break_up', 'break_down']:
+    df['inday_trend_score'] += df[f'{col}_score'] * s
+
+    desc = df[f'{col}_description'].apply(lambda x: '' if len(x) == 0 else f'{names[col]}: ' + x + '; ')
+
+    if col in ['support', 'break_up']:
+      df['up_score_description'] += desc
+    else:
+      df['down_score_description'] += desc
+
+  df['inday_trend_score_description'] += df['up_score_description'] + df['down_score_description']
+
+  
+  # ================================ calculate trigger/position score =======
   # trigger score and description, position score
   for col in ['tankan_day', 'kama_fast_day', 'kijun_day', 'kama_slow_day']:
     col_desc = '_'.join(col.split('_')[0:-1])
     
     # trigger score
-    valid_pos_idx = df.query(f'0 < {col} <= 5').index
-    valid_neg_idx = df.query(f'-5 <= {col} < 0').index
+    valid_pos_idx = df.query(f'0 < {col} <= 3').index
+    valid_neg_idx = df.query(f'-3 <= {col} < 0').index
     df.loc[valid_pos_idx, 'trigger_score'] += df.loc[valid_pos_idx, col].apply(lambda x: 0 if (np.isnan(x) or x == 0) else 1/x)
     df.loc[valid_neg_idx, 'trigger_score'] += df.loc[valid_neg_idx, col].apply(lambda x: 0 if (np.isnan(x) or x == 0) else 1/x)
     df.loc[valid_pos_idx, 'trigger_score_description'] += f'+{col_desc}, '
@@ -939,6 +1006,7 @@ def calculate_ta_score(df):
 
   df['trigger_score_description'] = df['trigger_score_description'].apply(lambda x: x[:-2])
   df['position_score_description'] = df['position_score_description'].apply(lambda x: x[:-2])
+
   position_conditions = {
     'pos':    f'trigger_score > 0.0', 
     'neg':    f'trigger_score < 0.0',
@@ -950,68 +1018,6 @@ def calculate_ta_score(df):
   df = assign_condition_value(df=df, column='trigger_day', condition_dict=position_conditions, value_dict=position_values, default_value=0)
   df['trigger_day'] = sda(series=df['trigger_day'], zero_as=1)
   
-  # df['candle_color_sda'] = sda(series=df['candle_color'], zero_as=0)
-  # df['rate_direction_sda'] = sda(series=(df['rate'] > 0).replace({True: 1, False:-1}), zero_as=0)
-  # df['prev_candle_entity_top'] = df['candle_entity_top'].shift(1)
-  # df['prev_candle_entity_bottom'] = df['candle_entity_bottom'].shift(1)
-  # inday score and description
-  inday_conditions = {
-    
-    '+影线':        [1, '', '(candle_lower_shadow_pct > 0.5 and candle_upper_shadow_pct < 0.15)'], # entity_diff > 0.5 and shadow_diff > 1.5 and 
-    '-影线':        [-1, '', '(candle_upper_shadow_pct > 0.5 and (candle_lower_shadow_pct < 0.15  or candle_color == -1))'],
-    
-    '+长实体':      [1, '', '(entity_trend == "u") and (candle_color == 1)'],
-    '-长实体':      [-1, '', '(entity_trend == "u") and (candle_color == -1)'],
-
-    '+窗口':        [1, '', '(candle_color == 1 and ((candle_gap == 2) or (相对窗口位置 == "mid_up") or (相对窗口位置 == "out")))'],
-    '-窗口':        [-1, '', '((candle_gap == -2) or (相对窗口位置 == "mid_down" or 相对窗口位置 == "mid") or (candle_color == -1 and (相对窗口位置 == "out")))'],
-    
-    '+触底':        [1, '', '(突破_day == -1 and candle_color == 1)'],
-    '-触顶':        [-1, '', '(突破_day == 1 and candle_color == -1)'],
-
-    # '+rate_sda':    [1, '', '(rate_direction_sda > 2)'],
-    # '-rate_sda':    [-1, '', '(rate_direction_sda < -2)'],
-
-    # '+color_sda':    [1, '', '(candle_color_sda > 2)'],
-    # '-color_sda':    [-1, '', '(candle_color_sda < -2)'],
-    
-    # '+支撑':        [0, '', '(support_score > 0)'],
-    # '-阻挡':        [0, '', '(resistant_score < 0)'],
-
-    # '+突破':        [0, '', '(break_up_score > 0)'],
-    # '-跌落':        [0, '', '(break_down_score < 0)'],
-
-    '-十字星':      [-1, '', '(十字星_day == -1 or 十字星_day == 1)'],
-
-    '+平头':        [1, '', '(平头_day == 1)'],
-    '-平头':        [-1, '', '(平头_day == -1)'],
-
-    '+锤子':        [1, '', '(锤子_day == 1)'],
-    '-锤子':        [-1, '', '(锤子_day == -1)'],
-
-    '+腰带':        [1, '', '(腰带_day == 1)'],
-    '-腰带':        [-1, '', '(腰带_day == -1)'],
-
-    '+穿刺':        [1, '', '(穿刺_day == 1)'],
-    '-穿刺':        [-1, '', '(穿刺_day == -1)'],
-
-    '+启明黄昏':    [1, '', '(启明黄昏_day == 1)'],
-    '-启明黄昏':    [-1, '', '(启明黄昏_day == -1)'],
-  }
-  df = cal_score(df=df, condition_dict=inday_conditions, up_score_col='up_score', down_score_col='down_score')
-  df['inday_trend_score'] += df['up_score'] + df['down_score']
-
-  names = {'support':'支撑', 'resistant': '阻挡', 'break_up': '突破', 'break_down': '跌落'}
-  for col in ['support', 'resistant', 'break_up', 'break_down']:
-    df['inday_trend_score'] += df[f'{col}_score']
-
-    desc = df[f'{col}_description'].apply(lambda x: '' if len(x) == 0 else f'{names[col]}: ' + x + '; ')
-
-    if col in ['support', 'break_up']:
-      df['up_score_description'] += desc
-    else:
-      df['down_score_description'] += desc
-
   # trigger_score when at high(position_score == 4) or low(position_score == -4) position
   none_trigger_high = df.query('position_score == 4 and trigger_score == 0 and candle_color == 1').index
   df.loc[none_trigger_high, 'trigger_score'] = df.loc[none_trigger_high, 'candle_entity_pct']
@@ -1019,8 +1025,18 @@ def calculate_ta_score(df):
   none_trigger_low = df.query('position_score == -4 and trigger_score == 0 and  candle_color == -1').index
   df.loc[none_trigger_low, 'trigger_score'] = df.loc[none_trigger_low, 'candle_entity_pct'] * -1
 
-  # # postprocess
-  # df[['trend_score', 'trigger_score', 'score']] = df[['trend_score', 'trigger_score', 'score']].round(2)
+
+  # ================================ calculate trend score ==================
+  # overall score
+  weights = {'inday': 0.3, 'short': 0.3, 'middle': 0.2, 'long': 0.2}
+  for term in ['inday', 'short', 'middle', 'long']:
+    score_col = f'{term}_trend_score'
+    df['trend_score'] += df[score_col] * weights[term]
+
+  # drop redundant columns
+  for col in col_to_drop:
+    if col in df.columns:
+      df.drop(col, axis=1, inplace=True)
 
   return df
 
@@ -1115,49 +1131,37 @@ def calculate_ta_signal(df):
   df['signal_description'] = ''
   df['signal_day'] = 0
 
-  conditions = {
-    'buy':          '(trend_score > -0.5 and trend_score_change > 0 and trigger_score > 0)',
-    'sell':         '(trend_score < 0.5 and trend_score_change < 0 and trigger_score < 0)',
+  # conditions = {
+  #   'buy':          '(trend_score_change > 0 and trigger_score > 0)',
+  #   'sell':         '(trend_score_change < 0 and trigger_score < 0)',
+  # } 
+  # values = {
+  #   'buy':          'b',
+  #   'sell':         's',
+  # }
+  # df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
 
-    # 'buy_1':        '((trend_score > 0) and (trend_status == 3) and (trigger_score > 0 or inday_trend_score >= 0))',
-    # 'sell_1':       '(short_trend_score < 0 and inday_trend_score < 0)',
+  # # disable some false alarms
+  # none_signal_idx = []
+  # none_signal_conditions = {
+  #   # '趋势不明':        '(signal == "b") and ((inday_trend_score < 0 and potential != "potential") or (trend_score < 0.5 and short_day == 1))',
+  #   # '短期趋势下降':     '(signal == "b") and ((short_trend_score < -1 and inday_trend_score <= 0))',
+  #   # '整体趋势波动':     '(signal == "b") and (trend_score < 0.5 and trend_status < 0)',
+  #   # '超卖':             '(signal == "b") and (bb_day == -1)and ((inday_trend_score <=0 or trend_status < 3) or (trend_score_change < 0 and inday_trend_score < 0))',
+  #   # '低位波动':         '(signal == "b") and (position_score == -4)',
+  #   '弱势波动':         '(signal == "b") and ((-10 < adx_direction_start < 10) and (adx_strong_day < 0) and (adx_direction < 5 or adx_value_change < 0.1))',
+  # } 
+  # for c in none_signal_conditions.keys():
+  #   tmp_condition = none_signal_conditions[c]
+  #   tmp_idx = df.query(tmp_condition).index
+  #   none_signal_idx += tmp_idx.tolist()
+  #   df.loc[tmp_idx, 'signal_description'] += f'{c}, '
+  # none_signal_idx = list(set(none_signal_idx))
+  # df.loc[none_signal_idx, 'signal'] = ''
+  # df['signal_description'] = df['signal_description'].apply(lambda x: x[:-2])
 
-    # 'buy_2':        '(-0.5 < trend_score < 0.5) and (trend_score_change > 0.5) and (inday_trend_score >= 1 and short_trend_score >= 1 and short_day > 1) and (trigger_score > 0 and potential == "potential")',
-    # 'sell_2':       '(inday_day < 0 and trend_status < 3 and (bb_day == -1 or inday_day == -1 or short_day < -1))'
-  } 
-  values = {
-    'buy':          'b',
-    'sell':         's',
-
-    # 'buy_1':        'b',
-    # 'sell_1':       's',
-
-    # 'buy_2':        'b',
-    # 'sell_2':       's',
-  }
-  df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
-
-  # disable some false alarms
-  none_signal_idx = []
-  none_signal_conditions = {
-    # '趋势不明':        '(signal == "b") and ((inday_trend_score < 0 and potential != "potential") or (trend_score < 0.5 and short_day == 1))',
-    # '短期趋势下降':     '(signal == "b") and ((short_trend_score < -1 and inday_trend_score <= 0))',
-    # '整体趋势波动':     '(signal == "b") and (trend_score < 0.5 and trend_status < 0)',
-    # '超卖':             '(signal == "b") and (bb_day == -1)and ((inday_trend_score <=0 or trend_status < 3) or (trend_score_change < 0 and inday_trend_score < 0))',
-    # '低位波动':         '(signal == "b") and (position_score == -4)',
-    '弱势波动':         '(signal == "b") and ((-10 < adx_direction_start < 10) and (adx_strong_day < 0) and (adx_direction < 5 or adx_value_change < 0.1))',
-  } 
-  for c in none_signal_conditions.keys():
-    tmp_condition = none_signal_conditions[c]
-    tmp_idx = df.query(tmp_condition).index
-    none_signal_idx += tmp_idx.tolist()
-    df.loc[tmp_idx, 'signal_description'] += f'{c}, '
-  none_signal_idx = list(set(none_signal_idx))
-  df.loc[none_signal_idx, 'signal'] = ''
-  df['signal_description'] = df['signal_description'].apply(lambda x: x[:-2])
-
-  # calculate signal day
-  df['signal_day'] = sda(df['signal'].replace({'b': 1, 's': -1, '': 0}), zero_as=1)
+  # # calculate signal day
+  # df['signal_day'] = sda(df['signal'].replace({'b': 1, 's': -1, '': 0}), zero_as=1)
   # df = remove_redundant_signal(df=df, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='', keep='first')
 
   return df
@@ -4704,31 +4708,31 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     text_color = 'red' if text_day < 0 else 'green'
     plt.annotate(f'{signal_x.replace("_signal", "")}:{text_day} ', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.05))
 
-  # plot trigger_score
-  if signal_x == 'trigger':
-    
+  # overbuy and oversell
+  if signal_x == 'os':
+
     # trigger_score
     tmp_data = df.query(f'(trigger_score > 0)')
     tmp_alpha = normalize(tmp_data['trigger_score'].abs())
     ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='green', alpha=tmp_alpha)
-
-    tmp_data = df.query(f'(trigger_score < 0)')
-    tmp_alpha = normalize(tmp_data['trigger_score'].abs())
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='red', alpha=tmp_alpha)
 
     # plot potential
     tmp_data = df.query(f'potential == "potential"')
     tmp_alpha = normalize(tmp_data['potential_score'].abs())
     ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='green', alpha=0.5)
 
-  # overbuy and oversell
-  if signal_x == 'os':
     tmp_data = df.query(f'(bb_day == 1)')
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='green', alpha=0.5) # color='none', edge
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='orange', alpha=0.5) # color='none', edge
 
   if signal_x == 'ob':
+
+    # trigger_score
+    tmp_data = df.query(f'(trigger_score < 0)')
+    tmp_alpha = normalize(tmp_data['trigger_score'].abs())
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='red', alpha=tmp_alpha)
+
     tmp_data = df.query(f'(bb_day == -1)')
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', alpha=0.5)
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='orange', alpha=0.5)
 
   # buy and sell
   if signal_x == ' ':
@@ -6120,9 +6124,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   
     if term == '':
       score_desc += term_desc + ' = '
-    elif term == 'inday':
-      score_desc += term_desc
-    elif term in ['short', 'middle', 'long']:
+    elif term in ['inday', 'short', 'middle', 'long']:
       if term_score < 0:
         score_desc = score_desc + ' ' + term_desc
       else:
