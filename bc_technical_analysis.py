@@ -4656,7 +4656,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
   """
   # copy dataframe within the specific period
   df = df[start:end].copy()
-
+  
   # use existed figure or create figure
   ax = use_ax
   if ax is None:
@@ -4685,16 +4685,20 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     elif signal_x in ['inday_signal', 'short_signal', 'middle_signal', 'long_signal', 'signal']:
       score_col = signal_x.replace('signal', 'trend_score')
       # alpha_factor = 0.8 if signal_x == 'signal' else 0.6
-      tmp_alpha = normalize(df[score_col].abs()) # * alpha_factor
 
+      tmp_alpha = normalize(df[score_col].abs()) # * alpha_factor
+      
       tmp_up = df.query(f'{score_col} > 0')
       tmp_down = df.query(f'{score_col} < 0')
 
       pos_marker = 's' if signal_x == 'signal' else 's'
       neg_marker = 's' if signal_x == 'signal' else 's'
 
-      ax.scatter(tmp_up.index, tmp_up[signal_y], marker=pos_marker, color='green', alpha=tmp_alpha.loc[tmp_up.index])
-      ax.scatter(tmp_down.index, tmp_down[signal_y], marker=neg_marker, color='red', alpha=tmp_alpha.loc[tmp_down.index])
+      if len(tmp_up) > 0:
+        ax.scatter(tmp_up.index, tmp_up[signal_y], marker=pos_marker, color='green', alpha=tmp_alpha.loc[tmp_up.index])
+      
+      if len(tmp_down) > 0:
+        ax.scatter(tmp_down.index, tmp_down[signal_y], marker=neg_marker, color='red', alpha=tmp_alpha.loc[tmp_down.index])
 
   # annotate number of days since signal triggered
   annotate_signal_day = True
