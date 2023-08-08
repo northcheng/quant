@@ -4691,8 +4691,8 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
       tmp_up = df.query(f'{score_col} > 0')
       tmp_down = df.query(f'{score_col} < 0')
 
-      pos_marker = 's' if signal_x == 'signal' else 's'
-      neg_marker = 's' if signal_x == 'signal' else 's'
+      pos_marker = '2' if signal_x == 'inday_signal' else 's'
+      neg_marker = '1' if signal_x == 'inday_signal' else 'x'
 
       if len(tmp_up) > 0:
         ax.scatter(tmp_up.index, tmp_up[signal_y], marker=pos_marker, color='green', alpha=tmp_alpha.loc[tmp_up.index])
