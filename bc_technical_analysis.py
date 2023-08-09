@@ -1028,7 +1028,7 @@ def calculate_ta_score(df):
 
   # ================================ calculate trend score ==================
   # overall score
-  weights = {'inday': 0.3, 'short': 0.3, 'middle': 0.2, 'long': 0.2}
+  weights = {'inday': 0.2, 'short': 0.4, 'middle': 0.2, 'long': 0.2}
   for term in ['inday', 'short', 'middle', 'long']:
     score_col = f'{term}_trend_score'
     df['trend_score'] += df[score_col] * weights[term]
@@ -5280,12 +5280,26 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   max_idx = df.index.max()
 
   # add extention data
-  extended = 5
-  ext_columns = ['tankan', 'kijun', 'kama_fast', 'kama_slow', 'bb_high_band', 'bb_low_band', 'mavg', 'candle_gap_top', 'candle_gap_bottom']
+  extended = 3
+  ext_columns = ['tankan', 'kijun', 'kama_fast', 'kama_slow']
+
+  current_idx = max_idx
+  next_idx = None
+
+  period = 3
   if interval == "day":
+    
+    pred = add_ma_linear_features(df, period=period, target_col=ext_columns)
+
     for i in range(extended):
-      next_idx = max_idx + datetime.timedelta(days = i)
-      df.loc[next_idx, ext_columns] = df.loc[max_idx, ext_columns].copy()
+      next_idx = current_idx + datetime.timedelta(days = 1)
+
+      for ec in ext_columns:
+        slope = pred[ec][0]
+        intercept = pred[ec][1]
+        df.loc[next_idx, ec] = (period + i + 1) * ( slope) + intercept   
+      current_idx = next_idx
+
   else:
     extended = None
 
@@ -5397,12 +5411,10 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   if 'candlestick' in target_indicator:
     ax = plot_candlestick(df=ohlc_df, start=start, end=end, date_col=date_col, add_on=add_on, ohlcv_col=ohlcv_col, color=candlestick_color, use_ax=ax, plot_args=plot_args, interval=interval)
   
-  # # plot mask for extended
-  # if extended is not None:
-  #   extended_data = df.tail(extended).copy()
-  #   extended_data['top'] = extended_data[ext_columns].max().max()
-  #   extended_data['bottom'] = extended_data[ext_columns].min().min()
-  #   ax.fill_between(extended_data.index, extended_data.top, extended_data.bottom, facecolor='gray', hatch='|||', edgecolor='white', interpolate=True, alpha=0.25, zorder=10)
+  # plot mask for extended
+  if extended is not None:
+    extended_data = df[ext_columns].tail(extended).copy()
+    ax.plot(extended_data, linestyle=':', color='white')
 
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
@@ -6106,47 +6118,49 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
 
   # adjust plot layout
   max_idx = df.index.max()
+  up_down_symbol = {True: '↑', False: '↓'}
+
   close_rate = (df.loc[max_idx, "rate"]*100).round(2)
-  # score = df.loc[max_idx, "trend_score"]
   title_color = 'green' if close_rate > 0 else 'red'
-  plt.rcParams['font.sans-serif'] = ['KaiTi'] # 指定默认字体
+  title_symbol = up_down_symbol[close_rate > 0]
+  plt.rcParams['font.sans-serif'] = ['SimHei'] 
   plt.rcParams['axes.unicode_minus'] = False
 
   # get name of the symbol, and linear/candle/adx descriptions
   new_title = args['sec_name'].get(title.split('(')[0]) 
   
   # score description
-  score_change_sybol = {True: '↑', False: '↓'}
+  
   score_desc = ''
   for term in ['', 'inday', 'short', 'middle', 'long']:
     score_col = f'{term}_trend_score' if term != '' else 'trend_score'
     socre_change_col = f'{score_col}_change'
     term_score = df.loc[max_idx, score_col]
     term_score_change = round(df.loc[max_idx, socre_change_col],2)
-    term_symbol = score_change_sybol[df.loc[max_idx, socre_change_col] > 0]
-    term_desc = f'{df.loc[max_idx, "signal_description"]}({term_symbol}{term_score_change}) | {term_score}' if term == '' else f'{term_score}{term_symbol}'
+    term_symbol = up_down_symbol[df.loc[max_idx, socre_change_col] > 0]
+    term_desc = f'{term_score}({term_score_change}{term_symbol})' if term == '' else f'{term_score}{term_symbol}'
   
     if term == '':
       score_desc += term_desc + ' = '
     elif term in ['inday', 'short', 'middle', 'long']:
       if term_score < 0:
-        score_desc = score_desc + ' ' + term_desc
+        score_desc +=  ' ' + term_desc
       else:
-        score_desc = score_desc + ' + ' + term_desc
+        score_desc += ' + ' + term_desc
     else:
       print(f'unknown term {term}')
 
-  inday_desc = f'{df.loc[max_idx, "inday_trend_score"]} : [{df.loc[max_idx, "up_score_description"]}] [{df.loc[max_idx, "down_score_description"]}]'
-  inday_desc = inday_desc.replace(', ]', ']')
+  inday_desc = f'[{df.loc[max_idx, "up_score_description"]} | {df.loc[max_idx, "down_score_description"]}]'
+  inday_desc = inday_desc.replace(', ]', ']').replace('; ', '')
   
   # construct super title
   if new_title is None:
     new_title == ''
-  super_title = f'{title}({close_rate}%) - {new_title}'
-  super_title = f'{super_title}\n{inday_desc}'
+  super_title = f'{title}({new_title})  {close_rate}% {title_symbol}'
   super_title = f'{super_title}\n{score_desc}'
+  super_title = f'{super_title}\n{inday_desc}'
   
-  fig.suptitle(f'{super_title}', x=0.5, y=1.05, fontsize=24, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1), linespacing = 1.8)
+  fig.suptitle(f'{super_title}', x=0.5, y=1.05, fontsize=22, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1), linespacing = 1.8)
 
   # save image
   if save_image and (save_path is not None):
