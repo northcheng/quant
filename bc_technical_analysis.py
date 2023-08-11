@@ -1109,7 +1109,7 @@ def calculate_ta_signal(df):
   none_potential_conditions = {
     '价格下跌':       f'potential == "potential" and ((rate < -0.05) or (shadow_trend == "u" and upper_shadow_trend == "u") or (candle_color == -1 and entity_trend == "u"))',
     '短暂反弹':       f'potential == "potential" and ((adx_diff_ma < 0 and (adx_direction_day == 1 or (adx_direction_day < 0 and adx_value_change > 0) or adx_value_change < 0)) and ((ichimoku_distance <= 0 or ichimoku_distance_day <= -3) and (kama_distance <= 0 or kama_distance_day <= -3)))',
-    '趋势下降':       f'potential == "potential" and (trend_score == -3)',
+    '趋势下降':       f'potential == "potential" and ((trend_score == -3) or (trend_score < 0 and trigger_score < 0))',
     } 
 
   if 'linear_slope' in df.columns:
