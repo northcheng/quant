@@ -6151,7 +6151,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
       print(f'unknown term {term}')
 
   inday_desc = f'[{df.loc[max_idx, "up_score_description"]} | {df.loc[max_idx, "down_score_description"]}]'
-  inday_desc = inday_desc.replace(', ]', ']').replace('; ', '')
+  inday_desc = inday_desc.replace(', ]', ']')#.replace('; ', '')
   
   # construct super title
   if new_title is None:
