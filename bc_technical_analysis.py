@@ -904,6 +904,7 @@ def calculate_ta_score(df):
     'middle': 'ichimoku_distance_change',
     'long': 'kama_distance_change'
   }
+  term_weight = {'short':1.0, 'middle':0.9, 'long':0.8}
   for term in ['short', 'middle', 'long']:
 
     # column names
@@ -922,7 +923,7 @@ def calculate_ta_score(df):
     df[score_col] += min_max_normalize(df[key_col])
 
     # major score
-    df['major_score'] += (df[score_col] > 0).replace({True: 1, False: 0})
+    df['major_score'] += (df[score_col] > 0).replace({True: term_weight[term], False: 0})
 
 
   # ================================ calculate inday trend ==================
@@ -1058,7 +1059,6 @@ def calculate_ta_signal(df):
   df = calculate_ta_score(df)
   
   # ================================ calculate trend ========================
-  df['trend_status'] = 0
   for term in ['inday', 'short', 'middle', 'long', '']:
     
     trend_col = f'{term}_trend' if term != '' else 'trend'
@@ -1083,10 +1083,6 @@ def calculate_ta_signal(df):
 
     # term trend score change
     df = cal_change(df=df, target_col=score_col, periods=1, add_accumulation=False, add_prefix=True)
-
-    # trend status (overall)
-    if term in ['inday', 'short', 'middle', 'long']:
-      df['trend_status'] += df[trend_col].replace({"u": 1, "d": -1, "n": 0})
 
   # ================================ calculate potential ====================
   # label score
@@ -1146,8 +1142,8 @@ def calculate_ta_signal(df):
   # none_signal_conditions = {
   #   # '趋势不明':        '(signal == "b") and ((inday_trend_score < 0 and potential != "potential") or (trend_score < 0.5 and short_day == 1))',
   #   # '短期趋势下降':     '(signal == "b") and ((short_trend_score < -1 and inday_trend_score <= 0))',
-  #   # '整体趋势波动':     '(signal == "b") and (trend_score < 0.5 and trend_status < 0)',
-  #   # '超卖':             '(signal == "b") and (bb_day == -1)and ((inday_trend_score <=0 or trend_status < 3) or (trend_score_change < 0 and inday_trend_score < 0))',
+  #   # '整体趋势波动':     '(signal == "b") and (trend_score < 0.5 and major_score < 0)',
+  #   # '超卖':             '(signal == "b") and (bb_day == -1)and ((inday_trend_score <=0 or major_score < 3) or (trend_score_change < 0 and inday_trend_score < 0))',
   #   # '低位波动':         '(signal == "b") and (position_score == -4)',
   #   '弱势波动':         '(signal == "b") and ((-10 < adx_direction_start < 10) and (adx_strong_day < 0) and (adx_direction < 5 or adx_value_change < 0.1))',
   # } 
