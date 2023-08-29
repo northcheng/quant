@@ -2190,13 +2190,15 @@ def update_portfolio_support_resistant(config, data, portfolio_file_name='portfo
               if symbol in ta_result.index:
                 cn_stock['latest_price'][symbol] = ta_result.loc[symbol, 'Close']
                 cn_stock['market_value'][symbol] = cn_stock['latest_price'][symbol] * cn_stock['quantity'][symbol]
-                if symbol in cn_stock['average_cost'].keys():
+                
+                if symbol in cn_stock['average_cost'].keys() and cn_stock['average_cost'][symbol] is not None:
                   cn_stock['rate'][symbol] = round((cn_stock['latest_price'][symbol] - cn_stock['average_cost'][symbol]) / cn_stock['average_cost'][symbol], 2)
+                  
                 else:
                   print(f'please update average_cost for {symbol}')
                   cn_stock['average_cost'][symbol] = None
                   cn_stock['rate'][symbol] = None
-            
+
             # assign the updated values to original portfolio, and update tmp_portfolio
             for d in cn_stock.keys():
               portfolio[platform][account]['portfolio'][d] = cn_stock[d]
