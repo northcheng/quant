@@ -4960,7 +4960,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
   """
   # copy dataframe within a specific period
   df = df[start:end].copy()
-    
+  
   # create figure
   ax = use_ax
   if ax is None:
@@ -4980,10 +4980,6 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
   max_x = max_idx + datetime.timedelta(days=5)
   padding = (df.High.max() - df.Low.min()) / 100
 
-  # for gap which start before 'start_date'
-  if df.loc[min_idx, 'candle_gap_top'] > df.loc[min_idx, 'candle_gap_bottom']:
-    df.loc[min_idx, 'candle_gap'] = df.loc[min_idx, 'candle_gap_color'] * 2
-  
   # annotate split
   if 'split' in add_on and 'Split' in df.columns:
     
@@ -4999,6 +4995,10 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
   
   # annotate gaps
   if 'gap' in add_on:
+
+    # for gap which start before 'start_date'
+    if df.loc[min_idx, 'candle_gap_top'] > df.loc[min_idx, 'candle_gap_bottom']:
+      df.loc[min_idx, 'candle_gap'] = df.loc[min_idx, 'candle_gap_color'] * 2
 
     # invalidate all gaps if there are too many gaps in the data
     up_gap_idxs = df.query('candle_gap == 2').index.tolist()
@@ -5033,7 +5033,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
       pre_start = idxs[pre_i] if pre_i > 0 else start
       tmp_data = df[start:end]
       ax.fill_between(df[pre_start:end].index, top_value, bottom_value, hatch=gap_hatch, facecolor=gap_color, interpolate=True, alpha=0.5, edgecolor=gap_hatch_color, linewidth=1, zorder=0) #,  
-  
+
     # # gap support & resistant
     # ax.scatter(support_idx, df.loc[support_idx, 'Low'] * 0.98, marker='^', color='black', edgecolor='black', zorder=21)
     # ax.scatter(resistant_idx, df.loc[resistant_idx, 'High'] * 1.02, marker='v', color='black', edgecolor='black', zorder=21)
@@ -5213,6 +5213,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
   alpha = color['alpha'] 
   shadow_color = color['shadow_color']
   entity_edge_color = (0,0,0,0.1)
+  ax.fill_between(df.index, df.loc[min_idx, 'High'], df.loc[min_idx, 'Low'], facecolor=None, interpolate=True, alpha=0, linewidth=1, zorder=0)
 
   # plot each candlestick
   for idx, row in df.iterrows():
