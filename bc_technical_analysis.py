@@ -35,7 +35,7 @@ default_signal_val = {'pos_signal':'b', 'neg_signal':'s', 'none_signal':'', 'wav
 
 # default indicators and dynamic trend for calculation
 default_indicators = {'trend': ['ichimoku', 'kama', 'adx'], 'volume': [], 'volatility': ['bb'], 'other': []}
-default_perspectives = ['candle','support_resistant']
+default_perspectives = ['candle','support_resistant', 'renko']
 
 # default arguments for visualization
 default_candlestick_color = {'color_up':'green', 'color_down':'red', 'shadow_color':'black', 'entity_edge_color':'black', 'alpha':0.8}
@@ -5616,7 +5616,7 @@ def plot_renko(df, start=None, end=None, use_ax=None, title=None, plot_in_date=T
   # plot renko
   legends = {'u': 'u', 'd': 'd', 'n':'', '':''}
   for index, row in df.iterrows():
-    renko = Rectangle((index, row['renko_o']), row['renko_countdown_days'], row['renko_brick_height'], facecolor=row['renko_color'], edgecolor='black', linestyle='-', linewidth=1, fill=True, alpha=0.25, label=legends[row['renko_trend']]) #  edgecolor=row['renko_color'], linestyle='-', linewidth=5, 
+    renko = Rectangle((index, row['renko_o']), row['renko_countdown_days'], row['renko_brick_height'], facecolor='white', edgecolor=row['renko_color'], hatch='---', linestyle='-', linewidth=1, fill=True, alpha=0.4, label=legends[row['renko_trend']]) #  edgecolor=row['renko_color'], linestyle='-', linewidth=5, 
     legends[row['renko_trend']] = "_nolegend_"
     ax.add_patch(renko)
   
