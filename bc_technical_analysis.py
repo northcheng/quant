@@ -4687,14 +4687,18 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
       tmp_up = df.query(f'{score_col} > 0')
       tmp_down = df.query(f'{score_col} < 0')
 
-      pos_marker = '2' if signal_x == 'inday_signal' else 's'
-      neg_marker = '1' if signal_x == 'inday_signal' else 'x'
+      pos_marker = 's' if signal_x == 'signal' else 'x'
+      neg_marker = 's' if signal_x == 'signal' else 'x'
 
       if len(tmp_up) > 0:
-        ax.scatter(tmp_up.index, tmp_up[signal_y], marker=pos_marker, color='green', alpha=tmp_alpha.loc[tmp_up.index])
+        facecolor = 'green'
+        alpha = tmp_alpha.loc[tmp_up.index] 
+        ax.scatter(tmp_up.index, tmp_up[signal_y], marker=pos_marker, color=facecolor, alpha=alpha)
       
       if len(tmp_down) > 0:
-        ax.scatter(tmp_down.index, tmp_down[signal_y], marker=neg_marker, color='red', alpha=tmp_alpha.loc[tmp_down.index])
+        facecolor ='red'
+        alpha = tmp_alpha.loc[tmp_up.index] 
+        ax.scatter(tmp_down.index, tmp_down[signal_y], marker=neg_marker, color=facecolor, alpha=alpha)
 
   # annotate number of days since signal triggered
   annotate_signal_day = True
@@ -5016,9 +5020,9 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
       start = idx
       top_value = df.loc[start, 'candle_gap_top']
       bottom_value = df.loc[start, 'candle_gap_bottom']
-      gap_color = 'white' # 'green' if df.loc[start, 'candle_gap'] > 0 else 'red' # 'lightyellow' if df.loc[start, 'candle_gap'] > 0 else 'grey' # 
-      gap_hatch = 'xxxx' # '////' if df.loc[start, 'candle_gap'] > 0 else '\\\\\\\\' # 'xxxx'# 
-      gap_hatch_color = 'green' if df.loc[start, 'candle_gap'] > 0 else 'red' 
+      gap_color = 'green' if df.loc[start, 'candle_gap'] > 0 else 'red' # 'lightyellow' if df.loc[start, 'candle_gap'] > 0 else 'grey' # 
+      gap_hatch = '' # '////' if df.loc[start, 'candle_gap'] > 0 else '\\\\\\\\' # 'xxxx'# 
+      gap_hatch_color = 'black' # 'green' if df.loc[start, 'candle_gap'] > 0 else 'red' 
       
       # gap end
       end = None
@@ -5032,7 +5036,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
       pre_i = idxs.index(start)-1
       pre_start = idxs[pre_i] if pre_i > 0 else start
       tmp_data = df[start:end]
-      ax.fill_between(df[pre_start:end].index, top_value, bottom_value, hatch=gap_hatch, facecolor=gap_color, interpolate=True, alpha=0.5, edgecolor=gap_hatch_color, linewidth=1, zorder=0) #,  
+      ax.fill_between(df[pre_start:end].index, top_value, bottom_value, hatch=gap_hatch, facecolor=gap_color, interpolate=True, alpha=0.5, edgecolor=gap_hatch_color, linewidth=1, zorder=5) #,  
 
     # # gap support & resistant
     # ax.scatter(support_idx, df.loc[support_idx, 'Low'] * 0.98, marker='^', color='black', edgecolor='black', zorder=21)
@@ -5329,9 +5333,14 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
     alpha = 0.2
     ax.plot(df.index, df[default_ohlcv_col['close']], label='close', color='black', linestyle='--', alpha=alpha)
   
+  # plot renko bricks
+  if 'renko' in target_indicator:
+    zorder = 1
+    ax = plot_renko(df, use_ax=ax, plot_args=default_plot_args, plot_in_date=True, close_alpha=0, zorder=zorder)
+
   # plot senkou lines, clouds, tankan and kijun
   if 'ichimoku' in target_indicator:
-    alpha = 0.4
+    alpha = 0.8
     zorder = 1
     ax.plot(df.index, df.tankan, label='tankan', color='green', linestyle='-', alpha=alpha, zorder=zorder) # magenta
     ax.plot(df.index, df.kijun, label='kijun', color='red', linestyle='-', alpha=alpha, zorder=zorder) # blue
@@ -5378,11 +5387,6 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
     zorder = 1
     ax.scatter(df.index, df.psar_up, label='psar', color='green', alpha=alpha, s=s, marker='o', zorder=zorder)
     ax.scatter(df.index, df.psar_down, label='psar', color='red', alpha=alpha, s=s, marker='o', zorder=zorder)
-
-  # plot renko bricks
-  if 'renko' in target_indicator:
-    zorder = 1
-    ax = plot_renko(df, use_ax=ax, plot_args=default_plot_args, plot_in_date=True, close_alpha=0, zorder=zorder)
 
   # plot high/low trend
   if 'linear' in target_indicator:
@@ -5616,9 +5620,10 @@ def plot_renko(df, start=None, end=None, use_ax=None, title=None, plot_in_date=T
   # plot renko
   legends = {'u': 'u', 'd': 'd', 'n':'', '':''}
   for index, row in df.iterrows():
-    renko = Rectangle((index, row['renko_o']), row['renko_countdown_days'], row['renko_brick_height'], facecolor='white', edgecolor=row['renko_color'], hatch='---', linestyle='-', linewidth=1, fill=True, alpha=0.4, label=legends[row['renko_trend']]) #  edgecolor=row['renko_color'], linestyle='-', linewidth=5, 
+    hatch = '----' # '/////' if row['renko_color'] == 'green' else '\\\\\\\\\\'
+    renko = Rectangle((index, row['renko_o']), row['renko_countdown_days'], row['renko_brick_height'], facecolor='none', edgecolor='black', hatch=hatch, linestyle='-', linewidth=0.1, fill=True, alpha=0.5, label=legends[row['renko_trend']]) #  edgecolor=row['renko_color'], linestyle='-', linewidth=5, 
     legends[row['renko_trend']] = "_nolegend_"
-    ax.add_patch(renko)
+    ax.add_patch(renko, )
   
   # modify axes   
   if not plot_in_date:
@@ -5944,7 +5949,7 @@ def plot_indicator(df, target_col, start=None, end=None, signal_x='signal', sign
     return ax
 
 # plot multiple indicators on a same chart
-def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', save_path=None, save_image=False, show_image=False, title=None, width=35, unit_size=2.5, wspace=0, hspace=0.015, subplot_args=default_plot_args):
+def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', save_path=None, save_image=False, show_image=False, title=None, width=35, unit_size=3, wspace=0, hspace=0.015, subplot_args=default_plot_args):
   """
   Plot Ichimoku and mean reversion in a same plot
   :param df: dataframe with ichimoku and mean reversion columns
