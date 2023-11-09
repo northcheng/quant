@@ -4632,163 +4632,92 @@ def add_ui_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_sig
 
 
 # ================================================ Indicator visualization  ========================================= #
-# plot signals on price line
-def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', use_ax=None, title=None, trend_val=default_trend_val, signal_val=default_signal_val, plot_args=default_plot_args):
-  """
-  Plot signals along with the price
+# plot bar
+def plot_bar(df, target_col, start=None, end=None, width=0.8, alpha=1, color_mode='up_down', edge_color=(0,0,0,0.1), benchmark=None, add_line=False, title=None, use_ax=None, plot_args=default_plot_args):
 
-  :param df: dataframe with price and signal columns
-  :param start: start row to plot
-  :param end: end row to stop
-  :param signal_x: columnname of the signal x values (default 'signal')
-  :param signal_y: columnname of the signal y values (default 'Close')
-  :param use_ax: the already-created ax to draw on
-  :param title: plot title
-  :param trend_val: value of different kind of trends (e.g. 'u'/'d'/'n')
-  :param signal_val: value of different kind of signals (e.g. 'b'/'s'/'n')
-  :param plot_args: other plot arguments
-  :returns: a signal plotted price chart
-  :raises: none
-  """
-  # copy dataframe within the specific period
+  # copy dataframe within a specific period
   df = df[start:end].copy()
-  
-  # use existed figure or create figure
+
+  # create figure
   ax = use_ax
   if ax is None:
     fig = mpf.figure(figsize=plot_args['figsize'])
     ax = fig.add_subplot(1,1,1, style='yahoo')
 
-  # plot settings
-  settings = {
-    'main': {'pos_signal_marker': 's', 'neg_signal_marker': 's', 'pos_trend_marker': 's', 'neg_trend_marker': 's', 'wave_trend_marker': '_', 'signal_alpha': 0.8, 'trend_alpha': 0.5, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'},
-    'other': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': '2', 'neg_trend_marker': '1', 'wave_trend_marker': '_', 'signal_alpha': 0.5, 'trend_alpha': 0.3, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'}}
-  style = settings['main'] if signal_x in ['signal'] else settings['other']
+  # plot bar
+  current = target_col
+  previous = 'previous_' + target_col
+  if color_mode == 'up_down':  
+    df['color'] = 'red'  
+    df[previous] = df[current].shift(1)
+    df.loc[df[current] >= df[previous], 'color'] = 'green'
 
-  # plot signal base line
-  ax.plot(df.index, df[signal_y], label=signal_y, alpha=0)
+  # plot in benchmark mode
+  elif color_mode == 'benchmark' and benchmark is not None:
+    df['color'] = 'red'
+    df.loc[df[current] > benchmark, 'color'] = 'green'
 
-  # plot trend
-  trend_col = signal_x.replace('signal', 'trend')
-  day_col = signal_x.replace('signal', 'day')
-  if trend_col in df.columns:
-    if signal_x not in ['inday_signal', 'short_signal', 'middle_signal', 'long_signal', 'signal']:
-      for i in ['pos', 'neg', 'wave']:
-        tmp_trend_value = trend_val[f'{i}_trend']
-        tmp_data = df.query(f'{trend_col} == "{tmp_trend_value}"')
-        ax.scatter(tmp_data.index, tmp_data[signal_y], marker=style[f'{i}_trend_marker'], color=style[f'{i}_color'], alpha=style['trend_alpha'])
-    
-    elif signal_x in ['inday_signal', 'short_signal', 'middle_signal', 'long_signal', 'signal']:
-      score_col = signal_x.replace('signal', 'trend_score')
-      # alpha_factor = 0.8 if signal_x == 'signal' else 0.6
+  # plot indicator
+  if 'color' in df.columns:
+    ax.bar(df.index, height=df[target_col], color=df.color, width=width , alpha=alpha, label=target_col, edgecolor=edge_color)
 
-      tmp_alpha = normalize(df[score_col].abs()) # * alpha_factor
-      
-      tmp_up = df.query(f'{score_col} > 0')
-      tmp_down = df.query(f'{score_col} < 0')
+  if add_line:
+    ax.plot(df[target_col], color=df.color, alpha=alpha, label=target_col)
 
-      pos_marker = 's' if signal_x == 'signal' else 'x'
-      neg_marker = 's' if signal_x == 'signal' else 'x'
-
-      if len(tmp_up) > 0:
-        facecolor = 'green'
-        alpha = tmp_alpha.loc[tmp_up.index] 
-        ax.scatter(tmp_up.index, tmp_up[signal_y], marker=pos_marker, color=facecolor, alpha=alpha)
-      
-      if len(tmp_down) > 0:
-        facecolor ='red'
-        alpha = tmp_alpha.loc[tmp_down.index] 
-        ax.scatter(tmp_down.index, tmp_down[signal_y], marker=neg_marker, color=facecolor, alpha=alpha)
-
-  # annotate number of days since signal triggered
-  annotate_signal_day = True
-  max_idx = df.index.max()
-  ys = {'long_signal': 0, 'middle_signal': 3, 'short_signal': 6}
-  if signal_x in ys.keys() and day_col in df.columns and annotate_signal_day:
-
-    x_signal = max_idx + datetime.timedelta(days=3)
-    y_signal = ys[signal_x]
-    text_day = int(df.loc[max_idx, day_col])
-    text_color = 'red' if text_day < 0 else 'green'
-    plt.annotate(f'{signal_x.replace("_signal", "")}:{text_day} ', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.05))
-
-  # overbuy and oversell
-  if signal_x == 'os':
-
-    # trigger_score
-    tmp_data = df.query(f'(trigger_score > 0)')
-    tmp_alpha = normalize(tmp_data['trigger_score'].abs())
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='green', alpha=tmp_alpha)
-
-    # plot potential
-    tmp_data = df.query(f'potential == "potential"')
-    tmp_alpha = normalize(tmp_data['potential_score'].abs())
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='green', alpha=0.5)
-
-    tmp_data = df.query(f'(bb_day == 1)')
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='orange', alpha=0.5) # color='none', edge
-
-  if signal_x == 'ob':
-
-    # trigger_score
-    tmp_data = df.query(f'(trigger_score < 0)')
-    tmp_alpha = normalize(tmp_data['trigger_score'].abs())
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='red', alpha=tmp_alpha)
-
-    tmp_data = df.query(f'(bb_day == -1)')
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='orange', alpha=0.5)
-
-  # buy and sell
-  if signal_x == ' ':
-    buy_data = df.query('signal == "b"')
-    ax.scatter(buy_data.index, buy_data[signal_y], marker='^', color='green', alpha=0.5)
-
-    sell_data = df.query('signal == "s"')
-    ax.scatter(sell_data.index, sell_data[signal_y], marker='v', color='red', alpha=0.5)
-
-  # plot renko
-  # if False: # signal_x == 'b':
-
-  #   idxs = df.index.tolist()
-  #   min_idx = df.index.min()
-  #   max_idx = df.index.max()
-  #   signal_y_value = df[signal_y].values.max()
-
-  #   # plot renko blocks
-  #   if 'renko' in default_perspectives: 
-  #     df.loc[min_idx, 'renko_real'] = df.loc[min_idx, 'renko_color']
-  #     df.loc[max_idx, 'renko_real'] = df.loc[max_idx, 'renko_color']
-  #     renko_real_idxs = df.query('renko_real == renko_real').index
-  #     for i in range(1, len(renko_real_idxs)):
-  #       start = renko_real_idxs[i-1]
-  #       end = renko_real_idxs[i]
-  #       end = idxs[idxs.index(end) - 1]
-  #       renko_color = df.loc[start, 'renko_color']
-  #       hatch = None #'/' if renko_color == 'green' else '\\' # 
-  #       ax.fill_between(df[start:end].index, signal_y_value-0.75, signal_y_value+0.75, hatch=hatch, linewidth=1, edgecolor=renko_color, facecolor='None', alpha=0.5)
-  #       ax.fill_between(df[start:end].index, signal_y_value-0.75, signal_y_value+0.75, hatch=hatch, linewidth=1, facecolor=renko_color, alpha=0.1)
-
-  #     # renko_day
-  #     x_signal = max_idx + datetime.timedelta(days=2)
-  #     y_signal = signal_y_value
-  #     text_signal = int(df.loc[max_idx, 'renko_duration'])
-  #     text_color = df.loc[max_idx, 'renko_color'] # fontsize=14, 
-  #     plt.annotate(f'{df.loc[max_idx, "renko_series_short"]}: {text_signal}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.1))
-
-  # plot signal
-  # if signal_x in df.columns:
-  #   if signal_x == 'signal':
-  #     pass
-  #   else:
-  #     for i in ['pos', 'neg']:
-  #       tmp_signal_value = signal_val[f'{i}_signal']
-  #       tmp_data = df.query(f'{signal_x} == "{tmp_signal_value}"')
-  #       ax.scatter(tmp_data.index, tmp_data[signal_y], marker=style[f'{i}_signal_marker'], color='none', edgecolor=style[f'{i}_color'], alpha=style['signal_alpha'])
-    
-  # legend and title
-  ax.legend(loc='upper left')  
+  # title and legend
+  ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
-  ax.grid(True, axis='x', linestyle='-', linewidth=0.5, alpha=0.1)
+  ax.grid(True, axis='both', linestyle='-', linewidth=0.5, alpha=0.3)
+
+  ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
+
+  # return ax
+  if use_ax is not None:
+    return ax
+
+# plot volume
+def plot_scatter(df, target_col, start=None, end=None, marker='.', alpha=1, color_mode='up_down', benchmark=None, add_line=False, title=None, use_ax=None, plot_args=default_plot_args):
+
+  # copy dataframe within a specific period
+  df = df[start:end].copy()
+
+  # create figure
+  ax = use_ax
+  if ax is None:
+    fig = mpf.figure(figsize=plot_args['figsize'])
+    ax = fig.add_subplot(1,1,1, style='yahoo')
+
+  # plot bar
+  current = target_col
+  previous = 'previous_' + target_col
+  if color_mode == 'up_down':  
+    df['color'] = 'red'  
+    df[previous] = df[current].shift(1)
+    df.loc[df[current] >= df[previous], 'color'] = 'green'
+
+  # plot in benchmark mode
+  elif color_mode == 'benchmark' and benchmark is not None:
+    df['color'] = 'red'
+    df.loc[df[current] > benchmark, 'color'] = 'green'
+
+  # plot indicator
+  if 'color' in df.columns:
+    # df = cal_change_rate(df=df, target_col='Volume', add_accumulation=False, add_prefix=True)
+    # threshold = 0.2
+    # strong_trend_idx = df.query(f'Volume_rate >= {threshold} or Volume_rate <= {-threshold}').index
+    # weak_trend_idx = df.query(f'{-threshold} < Volume_rate < {threshold}').index
+    # ax.scatter(strong_trend_idx, df.loc[strong_trend_idx, 'Volume'], color=df.loc[strong_trend_idx, 'color'], label=target_col, alpha=0.4, marker='s')
+    # ax.scatter(weak_trend_idx, df.loc[weak_trend_idx, 'adx'], color=df.loc[weak_trend_idx, 'color'], alpha=0.4, marker='_')
+    ax.scatter(df.index, df[target_col], marker=marker,color=df.color, alpha=alpha, label=target_col)
+
+  if add_line:
+    ax.plot(df.index, df[target_col], color='black', linestyle='--', marker='.', alpha=alpha)
+
+  # title and legend
+  ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
+  ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
+  # ax.grid(True, axis='both', linestyle='-', linewidth=0.5, alpha=0.3)
+
   ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
 
   # return ax
@@ -4943,6 +4872,281 @@ def plot_score(df, start=None, end=None, width=0.8, use_ax=None, title=None, plo
   if use_ax is not None:
     return ax
 
+# plot signals on price line
+def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', use_ax=None, title=None, trend_val=default_trend_val, signal_val=default_signal_val, plot_args=default_plot_args):
+  """
+  Plot signals along with the price
+
+  :param df: dataframe with price and signal columns
+  :param start: start row to plot
+  :param end: end row to stop
+  :param signal_x: columnname of the signal x values (default 'signal')
+  :param signal_y: columnname of the signal y values (default 'Close')
+  :param use_ax: the already-created ax to draw on
+  :param title: plot title
+  :param trend_val: value of different kind of trends (e.g. 'u'/'d'/'n')
+  :param signal_val: value of different kind of signals (e.g. 'b'/'s'/'n')
+  :param plot_args: other plot arguments
+  :returns: a signal plotted price chart
+  :raises: none
+  """
+  # copy dataframe within the specific period
+  df = df[start:end].copy()
+  
+  # use existed figure or create figure
+  ax = use_ax
+  if ax is None:
+    fig = mpf.figure(figsize=plot_args['figsize'])
+    ax = fig.add_subplot(1,1,1, style='yahoo')
+
+  # plot settings
+  settings = {
+    'main': {'pos_signal_marker': 's', 'neg_signal_marker': 's', 'pos_trend_marker': 's', 'neg_trend_marker': 's', 'wave_trend_marker': '_', 'signal_alpha': 0.8, 'trend_alpha': 0.5, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'},
+    'other': {'pos_signal_marker': '^', 'neg_signal_marker': 'v', 'pos_trend_marker': '2', 'neg_trend_marker': '1', 'wave_trend_marker': '_', 'signal_alpha': 0.5, 'trend_alpha': 0.3, 'pos_color':'green', 'neg_color':'red', 'wave_color':'orange'}}
+  style = settings['main'] if signal_x in ['signal'] else settings['other']
+
+  # plot signal base line
+  ax.plot(df.index, df[signal_y], label=signal_y, alpha=0)
+
+  # plot trend
+  trend_col = signal_x.replace('signal', 'trend')
+  day_col = signal_x.replace('signal', 'day')
+  if trend_col in df.columns:
+    if signal_x not in ['inday_signal', 'short_signal', 'middle_signal', 'long_signal', 'signal']:
+      for i in ['pos', 'neg', 'wave']:
+        tmp_trend_value = trend_val[f'{i}_trend']
+        tmp_data = df.query(f'{trend_col} == "{tmp_trend_value}"')
+        ax.scatter(tmp_data.index, tmp_data[signal_y], marker=style[f'{i}_trend_marker'], color=style[f'{i}_color'], alpha=style['trend_alpha'])
+    
+    elif signal_x in ['inday_signal', 'short_signal', 'middle_signal', 'long_signal', 'signal']:
+      score_col = signal_x.replace('signal', 'trend_score')
+      # alpha_factor = 0.8 if signal_x == 'signal' else 0.6
+
+      tmp_alpha = normalize(df[score_col].abs()) # * alpha_factor
+      
+      tmp_up = df.query(f'{score_col} > 0')
+      tmp_down = df.query(f'{score_col} < 0')
+
+      pos_marker = 's' if signal_x == 'signal' else 'x'
+      neg_marker = 's' if signal_x == 'signal' else 'x'
+
+      if len(tmp_up) > 0:
+        facecolor = 'green'
+        alpha = tmp_alpha.loc[tmp_up.index] 
+        ax.scatter(tmp_up.index, tmp_up[signal_y], marker=pos_marker, color=facecolor, alpha=alpha)
+      
+      if len(tmp_down) > 0:
+        facecolor ='red'
+        alpha = tmp_alpha.loc[tmp_down.index] 
+        ax.scatter(tmp_down.index, tmp_down[signal_y], marker=neg_marker, color=facecolor, alpha=alpha)
+
+  # annotate number of days since signal triggered
+  annotate_signal_day = True
+  max_idx = df.index.max()
+  ys = {'long_signal': 0, 'middle_signal': 3, 'short_signal': 6}
+  if signal_x in ys.keys() and day_col in df.columns and annotate_signal_day:
+
+    x_signal = max_idx + datetime.timedelta(days=3)
+    y_signal = ys[signal_x]
+    text_day = int(df.loc[max_idx, day_col])
+    text_color = 'red' if text_day < 0 else 'green'
+    plt.annotate(f'{signal_x.replace("_signal", "")}:{text_day} ', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.05))
+
+  # overbuy and oversell
+  if signal_x == 'os':
+
+    # trigger_score
+    tmp_data = df.query(f'(trigger_score > 0)')
+    tmp_alpha = normalize(tmp_data['trigger_score'].abs())
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='green', alpha=tmp_alpha)
+
+    # plot potential
+    tmp_data = df.query(f'potential == "potential"')
+    tmp_alpha = normalize(tmp_data['potential_score'].abs())
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='green', alpha=0.5)
+
+    tmp_data = df.query(f'(bb_day == 1)')
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='orange', alpha=0.5) # color='none', edge
+
+  if signal_x == 'ob':
+
+    # trigger_score
+    tmp_data = df.query(f'(trigger_score < 0)')
+    tmp_alpha = normalize(tmp_data['trigger_score'].abs())
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='red', alpha=tmp_alpha)
+
+    tmp_data = df.query(f'(bb_day == -1)')
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='orange', alpha=0.5)
+
+  # buy and sell
+  if signal_x == ' ':
+    buy_data = df.query('signal == "b"')
+    ax.scatter(buy_data.index, buy_data[signal_y], marker='^', color='green', alpha=0.5)
+
+    sell_data = df.query('signal == "s"')
+    ax.scatter(sell_data.index, sell_data[signal_y], marker='v', color='red', alpha=0.5)
+
+  # plot renko
+  # if False: # signal_x == 'b':
+
+  #   idxs = df.index.tolist()
+  #   min_idx = df.index.min()
+  #   max_idx = df.index.max()
+  #   signal_y_value = df[signal_y].values.max()
+
+  #   # plot renko blocks
+  #   if 'renko' in default_perspectives: 
+  #     df.loc[min_idx, 'renko_real'] = df.loc[min_idx, 'renko_color']
+  #     df.loc[max_idx, 'renko_real'] = df.loc[max_idx, 'renko_color']
+  #     renko_real_idxs = df.query('renko_real == renko_real').index
+  #     for i in range(1, len(renko_real_idxs)):
+  #       start = renko_real_idxs[i-1]
+  #       end = renko_real_idxs[i]
+  #       end = idxs[idxs.index(end) - 1]
+  #       renko_color = df.loc[start, 'renko_color']
+  #       hatch = None #'/' if renko_color == 'green' else '\\' # 
+  #       ax.fill_between(df[start:end].index, signal_y_value-0.75, signal_y_value+0.75, hatch=hatch, linewidth=1, edgecolor=renko_color, facecolor='None', alpha=0.5)
+  #       ax.fill_between(df[start:end].index, signal_y_value-0.75, signal_y_value+0.75, hatch=hatch, linewidth=1, facecolor=renko_color, alpha=0.1)
+
+  #     # renko_day
+  #     x_signal = max_idx + datetime.timedelta(days=2)
+  #     y_signal = signal_y_value
+  #     text_signal = int(df.loc[max_idx, 'renko_duration'])
+  #     text_color = df.loc[max_idx, 'renko_color'] # fontsize=14, 
+  #     plt.annotate(f'{df.loc[max_idx, "renko_series_short"]}: {text_signal}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.1))
+
+  # plot signal
+  # if signal_x in df.columns:
+  #   if signal_x == 'signal':
+  #     pass
+  #   else:
+  #     for i in ['pos', 'neg']:
+  #       tmp_signal_value = signal_val[f'{i}_signal']
+  #       tmp_data = df.query(f'{signal_x} == "{tmp_signal_value}"')
+  #       ax.scatter(tmp_data.index, tmp_data[signal_y], marker=style[f'{i}_signal_marker'], color='none', edgecolor=style[f'{i}_color'], alpha=style['signal_alpha'])
+
+  # legend and title
+  ax.legend(loc='upper left')  
+  
+  ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
+  ax.grid(True, axis='x', linestyle='-', linewidth=0.5, alpha=0.1)
+  ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
+
+  # return ax
+  if use_ax is not None:
+    return ax
+
+# plot adx chart
+def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=default_plot_args):
+  """
+  Plot adx chart
+
+  :param df: dataframe with ichimoku indicator columns
+  :param start: start row to plot
+  :param end: end row to plot
+  :param date_col: column name of Date
+  :param use_ax: the already-created ax to draw on
+  :param title: plot title
+  :param plot_args: other plot arguments
+  :returns: ichimoku plot
+  :raises: none
+  """
+  # copy dataframe within a specific period
+  df = df[start:end].copy()
+  
+  # create figure
+  ax = use_ax
+  if ax is None:
+    fig = mpf.figure(figsize=plot_args['figsize'])
+    ax = fig.add_subplot(1,1,1, style='yahoo')
+
+  # idxs = df.index.tolist()
+  # min_idx = df.index.min()
+  # max_idx = df.index.max()
+
+  # # plot renko blocks
+  # if 'renko' in default_perspectives: 
+  #   df.loc[min_idx, 'renko_real'] = df.loc[min_idx, 'renko_color']
+  #   df.loc[max_idx, 'renko_real'] = df.loc[max_idx, 'renko_color']
+  #   renko_real_idxs = df.query('renko_real == renko_real').index
+  #   for i in range(1, len(renko_real_idxs)):
+  #     start = renko_real_idxs[i-1]
+  #     end = renko_real_idxs[i]
+  #     end = idxs[idxs.index(end) - 1]
+  #     renko_color = df.loc[start, 'renko_color']
+  #     hatch = None #'/' if renko_color == 'green' else '\\' # 
+  #     ax.fill_between(df[start:end].index, 10, -10, hatch=hatch, linewidth=1, edgecolor=renko_color, facecolor='None', alpha=1)
+  #     ax.fill_between(df[start:end].index, 10, -10, hatch=hatch, linewidth=1, facecolor=renko_color, alpha=0.1)
+
+  #   # renko_day
+  #   x_signal = max_idx + datetime.timedelta(days=2)
+  #   y_signal = 0
+  #   text_signal = int(df.loc[max_idx, 'renko_duration'])
+  #   text_color = df.loc[max_idx, 'renko_color'] # fontsize=14, 
+  #   plt.annotate(f'{df.loc[max_idx, "renko_series_short"]}: {text_signal}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.25))
+  # else:
+  #   ax.fill_between(df.index, 10, -10, hatch=None, linewidth=1, edgecolor='black', facecolor='grey', alpha=0.1)
+  ax.fill_between(df.index, 10, -10, hatch=None, linewidth=1, facecolor='grey', edgecolor='black', alpha=0.1, zorder=0)
+
+  # plot adx_diff_ma and adx_direction
+  df['zero'] = 0
+  ax.plot(df.index, df.zero, color='black', alpha=0.25, zorder=0)
+
+  # df['adx_ma_diff'] = df['adx_value'] - df['adx_value_ma']
+  # df['prev_adx_day'] = df['adx_day'].shift(1)
+  # df['next_adx_day'] = df['adx_day'].shift(-1)
+  # df['prev_adx_trend'] = df['adx_trend'].shift(1)
+  # df['next_adx_trend'] = df['adx_trend'].shift(-1)
+  # df['prev_adx_value_change'] = df['adx_value_change'].shift(1)
+  # df['next_adx_value_change'] = df['adx_value_change'].shift(-1)
+  # green_mask = ((df.adx_value_change > 0))# | (df.prev_adx_day > 0)) 
+  # red_mask = ((df.adx_value_change < 0))# | (df.prev_adx_day < 0)) 
+  # yellow_mask = ((df.adx_value_change == 0)) | ((df.adx_value_change > 0) & (df.prev_adx_value_change < 0)) | ((df.adx_value_change > 0) & (df.next_adx_value_change < 0)) | ((df.adx_value_change < 0) & (df.prev_adx_value_change > 0)) | ((df.adx_value_change < 0) & (df.next_adx_value_change > 0)) 
+  # ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=green_mask,  facecolor='green', interpolate=False, alpha=0.3, label='adx up') 
+  # ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=red_mask, facecolor='red', interpolate=False, alpha=0.3, label='adx down')
+  # ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=yellow_mask, facecolor='yellow', interpolate=False, alpha=0.3, label='adx switch')
+
+  # green_mask = ((df.adx_value > df.adx_value_ma)) # | (df.prev_adx_day > 0)) 
+  # red_mask = ((df.adx_value < df.adx_value_ma))# | (df.prev_adx_day < 0)) 
+  # ax.fill_between(df.index, df.adx_value, df.adx_value_ma, where=green_mask,  facecolor='green', interpolate=False, alpha=0.6) 
+  # ax.fill_between(df.index, df.adx_value, df.adx_value_ma, where=red_mask, facecolor='red', interpolate=False, alpha=0.6)
+  
+  target_col = 'adx_diff_ma'
+  # gredn_df = df.loc[green_mask, ]
+  # red_df = df.loc[red_mask]
+  # ax.bar(gredn_df.index, height=gredn_df[target_col], color='green', edge_color=(0,0,0,1), width=datetime.timedelta(days=1), alpha=0.4, label=f'+{target_col}')
+  # ax.bar(red_df.index, height=red_df[target_col], color='red', edge_color=(0,0,0,1), width=datetime.timedelta(days=1), alpha=0.4, label=f'-{target_col}')
+
+  # df['adx_value'] = df['adx_value'] * (df['adx'] / 25)
+  plot_bar(df=df, target_col=target_col, alpha=0.4, width=datetime.timedelta(days=1), color_mode='up_down', edge_color=(1,1,1,0), benchmark=0, title='', use_ax=ax, plot_args=default_plot_args)
+  # 0.8
+  # plot adx with 
+  # color: green(uptrending), red(downtrending), orange(waving); 
+  # marker: _(weak trend), s( strong trend)
+  adx_threshold = 25
+
+  # overlap_mask = green_mask & red_mask
+  df['adx_color'] = 'orange'
+  df.loc[df.adx_power_day > 0, 'adx_color'] = 'green'
+  df.loc[df.adx_power_day < 0, 'adx_color'] = 'red'
+
+  strong_trend_idx = df.query(f'adx >= {adx_threshold}').index
+  weak_trend_idx = df.query(f'adx < {adx_threshold}').index
+  ax.scatter(strong_trend_idx, df.loc[strong_trend_idx, 'adx'], color=df.loc[strong_trend_idx, 'adx_color'], label='adx strong', alpha=0.4, marker='s', zorder=3)
+  ax.scatter(weak_trend_idx, df.loc[weak_trend_idx, 'adx'], color=df.loc[weak_trend_idx, 'adx_color'], label='adx weak', alpha=0.4, marker='_', zorder=3)
+
+  # plot moving average value of adx_value
+  ax.plot(df.index, df.adx_value_prediction, color='black', linestyle='-', alpha=0.5, zorder=3)
+
+  # title and legend
+  ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
+  ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
+  ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
+
+  # return ax
+  if use_ax is not None:
+    return ax
+
 # plot candlestick chart
 def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split', 'gap', 'support_resistant', 'pattern'], use_ax=None, ohlcv_col=default_ohlcv_col, color=default_candlestick_color, plot_args=default_plot_args, interval='day'):
   """
@@ -4964,7 +5168,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
   """
   # copy dataframe within a specific period
   df = df[start:end].copy()
-  
+
   # create figure
   ax = use_ax
   if ax is None:
@@ -5279,7 +5483,7 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   # copy dataframe within a specific period
   ohlc_df = df[start:end].copy()
   max_idx = df.index.max()
-
+  
   # add extention data
   extended = 3
   ext_columns = ['tankan', 'kijun', 'kama_fast', 'kama_slow']
@@ -5337,7 +5541,7 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   if 'renko' in target_indicator:
     zorder = 1
     ax = plot_renko(df, use_ax=ax, plot_args=default_plot_args, plot_in_date=True, close_alpha=0, zorder=zorder)
-
+  
   # plot senkou lines, clouds, tankan and kijun
   if 'ichimoku' in target_indicator:
     alpha = 0.8
@@ -5347,7 +5551,7 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
     alpha = 0.2
     ax.fill_between(df.index, df.tankan, df.kijun, where=df.tankan > df.kijun, facecolor='green', interpolate=True, alpha=alpha, zorder=zorder)
     ax.fill_between(df.index, df.tankan, df.kijun, where=df.tankan <= df.kijun, facecolor='red', interpolate=True, alpha=alpha, zorder=zorder)
-    
+  
   # plot kama_fast/slow lines 
   if 'kama' in target_indicator:
     alpha = 0.8
@@ -5369,7 +5573,7 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
     ax.plot(df.index, df.mavg, label='mavg', color='black', linestyle=':', alpha=alpha*3, zorder=zorder)
     ax.fill_between(df.index, df.mavg, df.bb_high_band, facecolor='green', interpolate=True, alpha=alpha_fill, zorder=zorder)
     ax.fill_between(df.index, df.mavg, df.bb_low_band, facecolor='red', interpolate=True, alpha=alpha_fill, zorder=zorder)
-
+  
   # plot average true range
   if 'atr' in target_indicator:
     alpha = 0.6
@@ -5387,7 +5591,7 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
     zorder = 1
     ax.scatter(df.index, df.psar_up, label='psar', color='green', alpha=alpha, s=s, marker='o', zorder=zorder)
     ax.scatter(df.index, df.psar_down, label='psar', color='red', alpha=alpha, s=s, marker='o', zorder=zorder)
-
+  
   # plot high/low trend
   if 'linear' in target_indicator:
     zorder = 1
@@ -5407,7 +5611,7 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
     linear_range = df.linear_direction != ''
     linear_hatch = '--' # hatches[linear_direction]
     ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=linear_range, facecolor='white', edgecolor=linear_color, hatch=linear_hatch, interpolate=True, alpha=fill_alpha)    
-
+  
   # plot candlestick
   if 'candlestick' in target_indicator:
     ax = plot_candlestick(df=ohlc_df, start=start, end=end, date_col=date_col, add_on=add_on, ohlcv_col=ohlcv_col, color=candlestick_color, use_ax=ax, plot_args=plot_args, interval=interval)
@@ -5416,13 +5620,13 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   if extended is not None:
     extended_data = df[ext_columns].tail(extended).copy()
     ax.plot(extended_data, linestyle=':', color='white')
-
+  
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
   ax.grid(True, axis='x', linestyle=':', linewidth=0.5)
   ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
-
+  
   # return ax
   if use_ax is not None:
     return ax
@@ -5479,120 +5683,9 @@ def plot_aroon(df, start=None, end=None, use_ax=None, title=None, plot_args=defa
   if use_ax is not None:
     return ax
 
-# plot adx chart
-def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=default_plot_args):
-  """
-  Plot adx chart
-
-  :param df: dataframe with ichimoku indicator columns
-  :param start: start row to plot
-  :param end: end row to plot
-  :param date_col: column name of Date
-  :param use_ax: the already-created ax to draw on
-  :param title: plot title
-  :param plot_args: other plot arguments
-  :returns: ichimoku plot
-  :raises: none
-  """
-  # copy dataframe within a specific period
-  df = df[start:end].copy()
-
-  # create figure
-  ax = use_ax
-  if ax is None:
-    fig = mpf.figure(figsize=plot_args['figsize'])
-    ax = fig.add_subplot(1,1,1, style='yahoo')
-
-  # idxs = df.index.tolist()
-  # min_idx = df.index.min()
-  # max_idx = df.index.max()
-
-  # # plot renko blocks
-  # if 'renko' in default_perspectives: 
-  #   df.loc[min_idx, 'renko_real'] = df.loc[min_idx, 'renko_color']
-  #   df.loc[max_idx, 'renko_real'] = df.loc[max_idx, 'renko_color']
-  #   renko_real_idxs = df.query('renko_real == renko_real').index
-  #   for i in range(1, len(renko_real_idxs)):
-  #     start = renko_real_idxs[i-1]
-  #     end = renko_real_idxs[i]
-  #     end = idxs[idxs.index(end) - 1]
-  #     renko_color = df.loc[start, 'renko_color']
-  #     hatch = None #'/' if renko_color == 'green' else '\\' # 
-  #     ax.fill_between(df[start:end].index, 10, -10, hatch=hatch, linewidth=1, edgecolor=renko_color, facecolor='None', alpha=1)
-  #     ax.fill_between(df[start:end].index, 10, -10, hatch=hatch, linewidth=1, facecolor=renko_color, alpha=0.1)
-
-  #   # renko_day
-  #   x_signal = max_idx + datetime.timedelta(days=2)
-  #   y_signal = 0
-  #   text_signal = int(df.loc[max_idx, 'renko_duration'])
-  #   text_color = df.loc[max_idx, 'renko_color'] # fontsize=14, 
-  #   plt.annotate(f'{df.loc[max_idx, "renko_series_short"]}: {text_signal}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.25))
-  # else:
-  #   ax.fill_between(df.index, 10, -10, hatch=None, linewidth=1, edgecolor='black', facecolor='grey', alpha=0.1)
-  ax.fill_between(df.index, 10, -10, hatch=None, linewidth=1, facecolor='grey', edgecolor='black', alpha=0.1, zorder=0)
-
-  # plot adx_diff_ma and adx_direction
-  df['zero'] = 0
-  ax.plot(df.index, df.zero, color='black', alpha=0.25, zorder=0)
-
-  # df['adx_ma_diff'] = df['adx_value'] - df['adx_value_ma']
-  # df['prev_adx_day'] = df['adx_day'].shift(1)
-  # df['next_adx_day'] = df['adx_day'].shift(-1)
-  # df['prev_adx_trend'] = df['adx_trend'].shift(1)
-  # df['next_adx_trend'] = df['adx_trend'].shift(-1)
-  # df['prev_adx_value_change'] = df['adx_value_change'].shift(1)
-  # df['next_adx_value_change'] = df['adx_value_change'].shift(-1)
-  # green_mask = ((df.adx_value_change > 0))# | (df.prev_adx_day > 0)) 
-  # red_mask = ((df.adx_value_change < 0))# | (df.prev_adx_day < 0)) 
-  # yellow_mask = ((df.adx_value_change == 0)) | ((df.adx_value_change > 0) & (df.prev_adx_value_change < 0)) | ((df.adx_value_change > 0) & (df.next_adx_value_change < 0)) | ((df.adx_value_change < 0) & (df.prev_adx_value_change > 0)) | ((df.adx_value_change < 0) & (df.next_adx_value_change > 0)) 
-  # ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=green_mask,  facecolor='green', interpolate=False, alpha=0.3, label='adx up') 
-  # ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=red_mask, facecolor='red', interpolate=False, alpha=0.3, label='adx down')
-  # ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=yellow_mask, facecolor='yellow', interpolate=False, alpha=0.3, label='adx switch')
-
-  # green_mask = ((df.adx_value > df.adx_value_ma)) # | (df.prev_adx_day > 0)) 
-  # red_mask = ((df.adx_value < df.adx_value_ma))# | (df.prev_adx_day < 0)) 
-  # ax.fill_between(df.index, df.adx_value, df.adx_value_ma, where=green_mask,  facecolor='green', interpolate=False, alpha=0.6) 
-  # ax.fill_between(df.index, df.adx_value, df.adx_value_ma, where=red_mask, facecolor='red', interpolate=False, alpha=0.6)
-  
-  target_col = 'adx_diff_ma'
-  # gredn_df = df.loc[green_mask, ]
-  # red_df = df.loc[red_mask]
-  # ax.bar(gredn_df.index, height=gredn_df[target_col], color='green', edge_color=(0,0,0,1), width=datetime.timedelta(days=1), alpha=0.4, label=f'+{target_col}')
-  # ax.bar(red_df.index, height=red_df[target_col], color='red', edge_color=(0,0,0,1), width=datetime.timedelta(days=1), alpha=0.4, label=f'-{target_col}')
-
-  # df['adx_value'] = df['adx_value'] * (df['adx'] / 25)
-  plot_bar(df=df, target_col=target_col, alpha=0.4, width=datetime.timedelta(days=1), color_mode='up_down', edge_color=(1,1,1,0), benchmark=0, title='', use_ax=ax, plot_args=default_plot_args)
-  # 0.8
-  # plot adx with 
-  # color: green(uptrending), red(downtrending), orange(waving); 
-  # marker: _(weak trend), s( strong trend)
-  adx_threshold = 25
-
-  # overlap_mask = green_mask & red_mask
-  df['adx_color'] = 'orange'
-  df.loc[df.adx_power_day > 0, 'adx_color'] = 'green'
-  df.loc[df.adx_power_day < 0, 'adx_color'] = 'red'
-
-  strong_trend_idx = df.query(f'adx >= {adx_threshold}').index
-  weak_trend_idx = df.query(f'adx < {adx_threshold}').index
-  ax.scatter(strong_trend_idx, df.loc[strong_trend_idx, 'adx'], color=df.loc[strong_trend_idx, 'adx_color'], label='adx strong', alpha=0.4, marker='s', zorder=3)
-  ax.scatter(weak_trend_idx, df.loc[weak_trend_idx, 'adx'], color=df.loc[weak_trend_idx, 'adx_color'], label='adx weak', alpha=0.4, marker='_', zorder=3)
-
-  # plot moving average value of adx_value
-  ax.plot(df.index, df.adx_value_prediction, color='black', linestyle='-', alpha=0.5, zorder=3)
-
-  # title and legend
-  ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
-  ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
-  ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
-
-  # return ax
-  if use_ax is not None:
-    return ax
-
 # plot renko chart
 def plot_renko(df, start=None, end=None, use_ax=None, title=None, plot_in_date=True, close_alpha=0.5, save_path=None, save_image=False, show_image=False, plot_args=default_plot_args, zorder=0):
-
+  
   # copy data frame
   df = df[start:end].copy()
 
@@ -5618,11 +5711,11 @@ def plot_renko(df, start=None, end=None, use_ax=None, title=None, plot_in_date=T
     df = df.query('renko_real == "green" or renko_real =="red"').reset_index()
   
   # plot renko
-  legends = {'u': 'u', 'd': 'd', 'n':'', '':''}
+  legends = {'green': 'u', 'red': 'd', np.nan:' '}
   for index, row in df.iterrows():
     hatch = '----' # '/////' if row['renko_color'] == 'green' else '\\\\\\\\\\'
-    renko = Rectangle((index, row['renko_o']), row['renko_countdown_days'], row['renko_brick_height'], facecolor='none', edgecolor='black', hatch=hatch, linestyle='-', linewidth=0.1, fill=True, alpha=0.5, label=legends[row['renko_trend']]) #  edgecolor=row['renko_color'], linestyle='-', linewidth=5, 
-    legends[row['renko_trend']] = "_nolegend_"
+    renko = Rectangle((index, row['renko_o']), row['renko_countdown_days'], row['renko_brick_height'], facecolor='none', edgecolor='black', hatch=hatch, linestyle='-', linewidth=0.1, fill=True, alpha=0.5, label=legends[row['renko_real']]) #  edgecolor=row['renko_color'], linestyle='-', linewidth=5, 
+    legends[row['renko_real']] = "_nolegend_"
     ax.add_patch(renko, )
   
   # modify axes   
@@ -5647,7 +5740,7 @@ def plot_renko(df, start=None, end=None, use_ax=None, title=None, plot_in_date=T
   # ax.grid(True, axis='x', linestyle='--', linewidth=0.5)
 
   ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
-
+  
   # return ax
   if use_ax is not None:
     return ax
@@ -5659,98 +5752,6 @@ def plot_renko(df, start=None, end=None, use_ax=None, title=None, plot_in_date=T
     # show image
     if show_image:
       plt.show()
-
-# plot bar
-def plot_bar(df, target_col, start=None, end=None, width=0.8, alpha=1, color_mode='up_down', edge_color=(0,0,0,0.1), benchmark=None, add_line=False, title=None, use_ax=None, plot_args=default_plot_args):
-
-  # copy dataframe within a specific period
-  df = df[start:end].copy()
-
-  # create figure
-  ax = use_ax
-  if ax is None:
-    fig = mpf.figure(figsize=plot_args['figsize'])
-    ax = fig.add_subplot(1,1,1, style='yahoo')
-
-  # plot bar
-  current = target_col
-  previous = 'previous_' + target_col
-  if color_mode == 'up_down':  
-    df['color'] = 'red'  
-    df[previous] = df[current].shift(1)
-    df.loc[df[current] >= df[previous], 'color'] = 'green'
-
-  # plot in benchmark mode
-  elif color_mode == 'benchmark' and benchmark is not None:
-    df['color'] = 'red'
-    df.loc[df[current] > benchmark, 'color'] = 'green'
-
-  # plot indicator
-  if 'color' in df.columns:
-    ax.bar(df.index, height=df[target_col], color=df.color, width=width , alpha=alpha, label=target_col, edgecolor=edge_color)
-
-  if add_line:
-    ax.plot(df[target_col], color=df.color, alpha=alpha, label=target_col)
-
-  # title and legend
-  ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
-  ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
-  ax.grid(True, axis='both', linestyle='-', linewidth=0.5, alpha=0.3)
-
-  ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
-
-  # return ax
-  if use_ax is not None:
-    return ax
-
-# plot volume
-def plot_scatter(df, target_col, start=None, end=None, marker='.', alpha=1, color_mode='up_down', benchmark=None, add_line=False, title=None, use_ax=None, plot_args=default_plot_args):
-
-  # copy dataframe within a specific period
-  df = df[start:end].copy()
-
-  # create figure
-  ax = use_ax
-  if ax is None:
-    fig = mpf.figure(figsize=plot_args['figsize'])
-    ax = fig.add_subplot(1,1,1, style='yahoo')
-
-  # plot bar
-  current = target_col
-  previous = 'previous_' + target_col
-  if color_mode == 'up_down':  
-    df['color'] = 'red'  
-    df[previous] = df[current].shift(1)
-    df.loc[df[current] >= df[previous], 'color'] = 'green'
-
-  # plot in benchmark mode
-  elif color_mode == 'benchmark' and benchmark is not None:
-    df['color'] = 'red'
-    df.loc[df[current] > benchmark, 'color'] = 'green'
-
-  # plot indicator
-  if 'color' in df.columns:
-    # df = cal_change_rate(df=df, target_col='Volume', add_accumulation=False, add_prefix=True)
-    # threshold = 0.2
-    # strong_trend_idx = df.query(f'Volume_rate >= {threshold} or Volume_rate <= {-threshold}').index
-    # weak_trend_idx = df.query(f'{-threshold} < Volume_rate < {threshold}').index
-    # ax.scatter(strong_trend_idx, df.loc[strong_trend_idx, 'Volume'], color=df.loc[strong_trend_idx, 'color'], label=target_col, alpha=0.4, marker='s')
-    # ax.scatter(weak_trend_idx, df.loc[weak_trend_idx, 'adx'], color=df.loc[weak_trend_idx, 'color'], alpha=0.4, marker='_')
-    ax.scatter(df.index, df[target_col], marker=marker,color=df.color, alpha=alpha, label=target_col)
-
-  if add_line:
-    ax.plot(df.index, df[target_col], color='black', linestyle='--', marker='.', alpha=alpha)
-
-  # title and legend
-  ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
-  ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
-  # ax.grid(True, axis='both', linestyle='-', linewidth=0.5, alpha=0.3)
-
-  ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
-
-  # return ax
-  if use_ax is not None:
-    return ax
 
 # plot rate and trigger_score/trend_score for each target list
 def plot_summary(data, width=20, unit_size=0.3, wspace=0, hspace=0.4, plot_args=default_plot_args, config=None, save_path=None):
@@ -5992,7 +5993,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   for i in range(num_indicators):
     tmp_indicator = indicators[i]
     tmp_args = args.get(tmp_indicator)
-
+    
     # put the main_indicators at the bottom, share_x
     if tmp_indicator == 'main_indicators':
       zorder = 10 
