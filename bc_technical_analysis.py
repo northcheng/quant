@@ -4697,7 +4697,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
       
       if len(tmp_down) > 0:
         facecolor ='red'
-        alpha = tmp_alpha.loc[tmp_up.index] 
+        alpha = tmp_alpha.loc[tmp_down.index] 
         ax.scatter(tmp_down.index, tmp_down[signal_y], marker=neg_marker, color=facecolor, alpha=alpha)
 
   # annotate number of days since signal triggered
