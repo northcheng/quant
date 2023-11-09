@@ -264,20 +264,24 @@ class Tiger:
             status = pd.DataFrame({'symbol':[]})
           result = pd.merge(result, status, how='left', left_on='symbol', right_on='symbol')
           result['rate'] = round((result['latest_price'] - result['average_cost']) / result['average_cost'], 2)
-          result = result[['symbol', 'quantity', 'average_cost', 'latest_price', 'rate', 'latest_time']]
+          result['rate_inday'] = round((result['Open'] - result['Close']) / result['Open'], 2)
+          result['market_value'] = round(result['latest_price'] * result['quantity'], 2)
+          
         else:
           result.rename(columns={'market_price':'latest_price'}, inplace=True)
+          result['market_value'] = round(result['latest_price'] * result['quantity'], 2)
           result['rate'] = round((result['latest_price'] - result['average_cost']) / result['average_cost'], 2)
+          result['rate_inday'] = 0
           result['latest_time'] = None
 
-        # calculate market value
-        result['market_value'] = result['quantity'] * result['latest_price']
+        # select columns
+        result = result[['symbol', 'quantity', 'average_cost', 'latest_price', 'rate', 'rate_inday', 'market_value', 'latest_time']]
 
       else:
-        result = pd.DataFrame({'symbol':[], 'quantity':[], 'average_cost':[], 'latest_price':[], 'rate':[], 'market_value':[], 'latest_time':[]})
+        result = pd.DataFrame({'symbol':[], 'quantity':[], 'average_cost':[], 'latest_price':[], 'rate':[], 'rate_inday':[], 'market_value':[], 'latest_time':[]})
     
     except Exception as e:
-      result = pd.DataFrame({'symbol':[], 'quantity':[], 'average_cost':[], 'latest_price':[], 'rate':[], 'market_value':[], 'latest_time':[]})
+      result = pd.DataFrame({'symbol':[], 'quantity':[], 'average_cost':[], 'latest_price':[], 'rate':[], 'rate_inday':[], 'market_value':[], 'latest_time':[]})
       self.logger.exception(f'[erro]: can not get position summary: {e}')
 
     return result
