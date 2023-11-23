@@ -142,7 +142,8 @@ class Futu:
       # skip symbols that not in auto-trade pool
       if symbol not in pool:
         continue 
-
+      
+      # update position in record
       record_position = self.record[symbol]['position']
       current_position = 0 if (symbol not in position_dict.keys()) else position_dict[symbol]
       if current_position != record_position:
@@ -153,7 +154,7 @@ class Futu:
           self.record[symbol] = {'cash': init_cash, 'position': 0}
         self.logger.error(f'[{account_type[:4]}]: {symbol} position({current_position}) rather than ({record_position}), reset record')
 
-    # add record for symbol in position but not in record
+    # add record for position that not recorded
     for symbol in [x for x in position_dict.keys() if (x in pool and x not in self.record.keys())]:
       record_conflicted = True
       self.record[symbol] = {'cash': 0, 'position': position_dict[symbol]}
@@ -552,8 +553,8 @@ class Futu:
     else:
       self.logger.info(f'[SKIP]: no signal')
              
-
-  def cash_out(self, stop_loss_rate=None, stop_profit_rate=None, clear_all=False, print_summary=True):
+  # stop loss or stop profit or clear all positions
+  def cash_out(self, stop_loss_rate=None, stop_profit_rate=None, stop_loss_rate_inday=None, stop_profit_rate_inday=None, clear_all=False, print_summary=True):
     
     # get current position with summary
     position = self.get_position_summary()
@@ -562,7 +563,6 @@ class Futu:
 
       # set symbol as index
       position = position.set_index('symbol')
-      # position['pl_ratio'] = position['pl_ratio'] / 100
 
       # if clear all positions
       if clear_all:
@@ -570,12 +570,15 @@ class Futu:
       else:
         stop_loss_list = [] if stop_loss_rate is None else position.query(f'rate < {stop_loss_rate}').index.tolist() 
         stop_profit_list = [] if stop_profit_rate is None else position.query(f'rate > {stop_profit_rate}').index.tolist() 
-        cash_out_list = list(set(stop_loss_list + stop_profit_list))
+        stop_loss_list_inday = [] if stop_loss_rate_inday is None else position.query(f'rate_inday < {stop_loss_rate_inday}').index.tolist() 
+        stop_profit_list_inday = [] if stop_profit_rate_inday is None else position.query(f'rate_inday > {stop_profit_rate_inday}').index.tolist() 
+        cash_out_list = list(set(stop_loss_list + stop_profit_list + stop_loss_list_inday + stop_profit_list_inday))
         
       # cash out
       if len(cash_out_list) > 0:
         cash_out_position =  position.loc[cash_out_list, ].copy()
         self.logger.info(f'[STOP]: LOSS: {stop_loss_list}, PROFIT: {stop_profit_list}')
-        
+        self.logger.info(f'[STOP]: LOSS_INDAY: {stop_loss_list}, PROFIT_INDAY: {stop_profit_list}')
+
         for index, row in cash_out_position.iterrows():
           self.trade(symbol=index, action='SELL', quantity=row['quantity'], print_summary=print_summary)

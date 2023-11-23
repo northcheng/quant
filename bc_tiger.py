@@ -633,10 +633,11 @@ class Tiger:
           
 
   # stop loss or stop profit or clear all positions
-  def cash_out(self, stop_loss_rate=None, stop_profit_rate=None, clear_all=False, print_summary=True):
+  def cash_out(self, stop_loss_rate=None, stop_profit_rate=None, stop_loss_rate_inday=None, stop_profit_rate_inday=None, clear_all=False, print_summary=True):
 
     # get current position with summary
     position = self.get_position_summary(get_briefs=True)
+
     if len(position) > 0:
 
       # set symbol as index
@@ -648,12 +649,15 @@ class Tiger:
       else:
         stop_loss_list = [] if stop_loss_rate is None else position.query(f'rate < {stop_loss_rate}').index.tolist() 
         stop_profit_list = [] if stop_profit_rate is None else position.query(f'rate > {stop_profit_rate}').index.tolist() 
-        cash_out_list = list(set(stop_loss_list + stop_profit_list))
+        stop_loss_list_inday = [] if stop_loss_rate_inday is None else position.query(f'rate_inday < {stop_loss_rate_inday}').index.tolist() 
+        stop_profit_list_inday = [] if stop_profit_rate_inday is None else position.query(f'rate_inday > {stop_profit_rate_inday}').index.tolist() 
+        cash_out_list = list(set(stop_loss_list + stop_profit_list + stop_loss_list_inday + stop_profit_list_inday))
         
       # cash out
       if len(cash_out_list) > 0:
         cash_out_position =  position.loc[cash_out_list, ].copy()
         self.logger.info(f'[STOP]: LOSS: {stop_loss_list}, PROFIT: {stop_profit_list}')
+        self.logger.info(f'[STOP]: LOSS_INDAY: {stop_loss_list}, PROFIT_INDAY: {stop_profit_list}')
         
         for index, row in cash_out_position.iterrows():
           self.trade(symbol=index, action='SELL', quantity=row['quantity'], print_summary=print_summary)

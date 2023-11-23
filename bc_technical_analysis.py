@@ -68,6 +68,7 @@ def load_config(root_paths):
   config['api_path'] = config['quant_path']     +   'api_key/'    # configuration for data api, etc.
   config['futu_path'] = config['quant_path']    +   'futuopen/'   # configuration for futu platform
   config['tiger_path'] = config['quant_path']   +   'tigeropen/'  # configuration for tiger platform
+  config['trader_path'] = config['quant_path']  +   'trader/'     # configuration for trader platforms
   config['data_path'] = config['quant_path']    +   'stock_data/' # downloaded stock data (OHLCV)
   config['result_path'] = config['quant_path']  +   'ta_model/'   # results of script execution
   
