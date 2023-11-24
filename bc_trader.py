@@ -57,6 +57,7 @@ class Trader(object):
     
     self.logger.info(f'[{platform}]: instance created: {logger_name}')
   
+
   # get client config
   def set_client_config(self):
     pass
@@ -89,6 +90,7 @@ class Trader(object):
   def update_asset(self):
     self.assets = None
     
+  # get available cash
   def get_available_cash(self):
     
     available_cash = 0
@@ -96,7 +98,7 @@ class Trader(object):
     if self.trade_client is None:
       pass
     else:
-      self.get_asset_summary()
+      self.update_asset()
       if len(self.assets) > 0:
         available_cash = self.assets.loc[0, 'cash']
       else:
@@ -104,6 +106,38 @@ class Trader(object):
         
     return available_cash
   
+  # get quantity of symbol currently in the position
+  def get_in_position_quantity(self, symbol, get_briefs=False):
+
+    # initialize affordable quantity
+    quantity = 0
+
+    # get position summary
+    self.update_position(get_briefs=get_briefs)
+    position = self.positions.copy()
+    if len(position) > 0:
+      position = position.set_index('symbol')
+      if symbol in position.index:
+        quantity = position.loc[symbol, 'quantity']
+
+    return quantity
+
+  # check whether it is affordable to buy certain amount of a stock
+  def get_affordable_quantity(self, symbol, cash=None, trading_fee=3):
+
+    # initialize affordable quantity and available cash
+    quantity = 0
+    available_cash = self.get_available_cash() if (cash is None) else cash
+
+    # get latest price of stock
+    stock_brief = io_util.get_stock_briefs(symbols=[symbol], source='eod', period='1d', interval='1m', api_key=self.eod_api_key).set_index('symbol')
+    latest_price = stock_brief.loc[symbol, 'latest_price']
+
+    # check if it is affordable
+    quantity = math.floor((available_cash-trading_fee)/latest_price)
+
+    return quantity
+
   # synchronize position record with real position status
   def synchronize_position_record(self, config):
     
@@ -270,6 +304,10 @@ class Futu(Trader):
       self.logger.exception(f'[erro]: can not gett asset summary: {e}')
     
     
+
+
+
+
 class Tiger(Trader):
   
   def __init__(self, platform, account_type, config, logger_name=None):
@@ -279,7 +317,6 @@ class Tiger(Trader):
     self.update_trade_time()
 
     
-  
   # get client config
   def set_client_config(self):
     # initialize client_config
@@ -364,7 +401,6 @@ class Tiger(Trader):
     }
     self.assets = pd.DataFrame(result)
   
-  
   # update trade time
   def update_trade_time(self, market=Market, tz='Asia/Shanghai', open_time_adj=0, close_time_adj=0):
 
@@ -433,5 +469,59 @@ class Tiger(Trader):
       'a_status': cn_current_status,
       'a_open_time': cn_open_time, 'a_close_time': cn_close_time
     }
+
+  # update market status
+  def update_market_status(self, market=Market.US, return_str=False):
     
-  
+    try:
+      # get market status
+      status = self.quote_client.get_market_status(market=market)[0]
+      self.trade_time['status'] = status.status
+
+      if return_str:
+        time_format = '%Y-%m-%d %H:%M'
+        pre_open_time = self.trade_time['pre_open_time'].strftime(time_format)
+        post_close_time = self.trade_time['post_close_time'].strftime(time_format)
+        
+        time_format = '%H:%M'
+        open_time = self.trade_time['open_time'].strftime(time_format)
+        close_time = self.trade_time['close_time'].strftime(time_format)
+        
+        time_str = f'<({pre_open_time}){open_time} -- {close_time}({post_close_time})>'
+
+        return time_str
+        
+    except Exception as e:
+      self.logger.error(e)
+
+  # idle for specified time and check position in certain frequency
+  def idle(self, target_time, check_frequency=600):
+    """
+    Sleep with a fixed frequency, until the target time
+
+    :param target_time: the target time in datetime.datetime format
+    :param check_frequency: the fixed sleep_time 
+    :returns: none
+    :raises: none
+    """
+    # get current time
+    now = datetime.datetime.now()
+    while now < target_time:
+
+      # # get position summary
+      # self.update_position()
+      # self.logger.info(f'[rate]:----------------------------------------------\n{self.positions}\n')
+
+      # get current time, calculate difference between current time and target time
+      diff_time = round((target_time - now).total_seconds())
+      sleep_time = (diff_time + 1) if (diff_time <= check_frequency) else check_frequency
+      
+      # sleep
+      self.logger.info(f'[idle]: {now.strftime(format="%Y-%m-%d %H:%M:%S")}: sleep for {sleep_time} seconds')
+      time.sleep(sleep_time)
+
+      # update current time
+      now = datetime.datetime.now()
+
+    self.logger.info(f'[wake]: {now.strftime(format="%Y-%m-%d %H:%M:%S")}: exceed target time({target_time})')
+
