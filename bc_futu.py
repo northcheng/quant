@@ -52,7 +52,6 @@ class Futu:
 
     self.logger.info(f'[futu]: Futu instance created: {logger_name}')
 
-
   # initialize quote context
   def open_quote_context(self, host=None, port=None, is_encrypt=None):
     try:
@@ -64,13 +63,11 @@ class Futu:
       self.quote_context = None
       self.logger.exception(f'[erro]: can not create quote context:{e}')
 
-
   # exit current quote context
   def close_quote_context(self):
     if self.quote_context is not None:
       self.quote_context.close()
       self.quote_context = None
-
 
   # initialize trade context
   def open_trade_context(self, market='US', host=None, port=None, is_encrypt=None):
@@ -91,20 +88,17 @@ class Futu:
       self.trade_context = None
       self.logger.exception(f'[erro]: can not create trade context:{e}')
 
-
   # exit current trade context
   def close_trade_context(self):
     if self.trade_context is not None:
       self.trade_context.close()
       self.trade_context = None
 
-
   # finalize
   def finalize(self):
     self.close_quote_context()
     self.close_trade_context()
     self.logger.info(f'[fin]: Futu instance finalized: {self.logger.name}')
-
 
   # get user info
   def get_user_info(self):
@@ -116,11 +110,9 @@ class Futu:
 
     return acc_list
 
-
   # get position record
   def get_position_record(self):
     return self.__position_record
-
 
   # synchronize position record with real position status
   def synchronize_position_record(self, config):
@@ -164,7 +156,6 @@ class Futu:
     if record_conflicted:
       self.__position_record[self.account_type] = self.record.copy()
       io_util.create_config_file(config_dict=self.__position_record, file_path=config['config_path'], file_name='futu_position_record.json')
-
 
   # update position for an account
   def update_position_record(self, config, init_cash=None, init_position=None, start_time=None, end_time=None, is_print=True):
@@ -230,7 +221,6 @@ class Futu:
     except Exception as e:
       self.logger.exception(f'[erro]: fail updating position records for {self.account_type}, {e}')
   
-
   # update portfolio for an account
   def update_portfolio_record(self, config, position_summary=None, is_print=True):
 
@@ -285,7 +275,6 @@ class Futu:
     if is_print:
       self.logger.info(f'[{self.account_type[:4]}]: net value {old_net_value} --> {net_value}')
 
-
   # get summary of positions
   def get_position_summary(self, get_briefs=False):
 
@@ -321,7 +310,6 @@ class Futu:
 
     return result
 
-
   # get summary of assets
   def get_asset_summary(self, print_summary=False):
     try:
@@ -334,7 +322,6 @@ class Futu:
 
     return self.assets
 
-
   # get available money
   def get_available_cash(self):
     try:
@@ -345,7 +332,6 @@ class Futu:
       self.logger.exception(f'[erro]: can not get available cash: {e}')
     
     return avalialbe_cash
-
 
   # get quantity of symbol currently in the position
   def get_in_position_quantity(self, symbol, get_briefs=False):
@@ -365,7 +351,6 @@ class Futu:
       self.logger.exception(f'[erro]: can not get in position quantity for {symbol}: {e}')
 
     return quantity
-
 
   # check whether it is affordable to buy certain amount of a stock
   def get_affordable_quantity(self, symbol, cash=None, trading_fee=3):
@@ -387,7 +372,6 @@ class Futu:
       self.logger.exception(f'[erro]: can not get affordable quantity: {e}')
 
     return quantity
-
 
   # buy or sell stocks
   def trade(self, symbol, action, quantity, price=None, print_summary=True):
@@ -447,7 +431,6 @@ class Futu:
       self.logger.info(trade_summary)
 
     return trade_summary
-
 
   # auto trade according to signals
   def signal_trade(self, signal, money_per_sec, order_type='market', trading_fee=5, pool=None, according_to_record=True, minimum_position=None):    

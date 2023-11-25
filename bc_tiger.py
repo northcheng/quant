@@ -543,10 +543,7 @@ class Tiger:
 
     # if signal list is not empty
     if len(signal) > 0:
-      # get latest price for signals
-      
-      # if order_type == 'market':
-      # signal_brief = self.quote_client.get_stock_briefs(symbols=signal.index.tolist()).set_index('symbol')
+      # # get latest price for signals
       # signal_brief = io_util.get_stock_briefs(symbols=signal.index.tolist(), source='eod', period='1d', interval='1m', api_key=self.eod_api_key).set_index('symbol')
       # signal = pd.merge(signal, signal_brief[['latest_price']], how='left', left_index=True, right_index=True)
 
@@ -637,7 +634,7 @@ class Tiger:
 
     # get current position with summary
     position = self.get_position_summary(get_briefs=True)
-
+    
     if len(position) > 0:
 
       # set symbol as index

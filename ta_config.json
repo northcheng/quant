@@ -186,11 +186,11 @@
     "pool": {
       "tiger": {
         "real": "tiger_pool",
-        "simu": "tiger_pool"
+        "simu": "etf_3x_all"
       },
       "futu": {
         "real": "futu_pool",
-        "simu": "futu_pool"
+        "simu": "etf_3x_all"
       },
       "simulation_account": "universe",
       "global_account": "tiger_pool",
