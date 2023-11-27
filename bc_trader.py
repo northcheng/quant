@@ -879,14 +879,14 @@ class Tiger(Trader):
 
       # if program runs after market open, api will return trade time for next trade day, 
       # trade time for current trade day need to be calculated manually
-      if status.status in ['Trading', 'Post-Market Trading']:
-        if open_time.weekday() == 0:
+      if cn_status.status in ['Trading', 'Post-Market Trading']:
+        if cn_open_time.weekday() == 0:
           cn_open_time = cn_open_time - datetime.timedelta(days=3)
         else:
           cn_open_time = cn_open_time - datetime.timedelta(days=1)
 
       # calculate close time, pre_open_time, post_close_time
-      cn_close_time = cn_open_time + datetime.timedelta(hours=6.5) #  + close_time_adj
+      cn_close_time = cn_open_time + datetime.timedelta(hours=5.5) #  + close_time_adj
 
     except Exception as e:
       self.logger.error(e)
@@ -904,25 +904,32 @@ class Tiger(Trader):
     }
 
   # update market status
-  def update_market_status(self, market=Market.US, return_str=False):
+  def update_market_status(self, market=Market, return_str=False):
     
     try:
       # get market status
-      status = self.quote_client.get_market_status(market=market)[0]
+      status = self.quote_client.get_market_status(market=Market.US)[0]
       self.trade_time['status'] = status.status
+
+      cn_status = self.quote_client.get_market_status(market=Market.CN)[0]
+      self.trade_time['a_status'] = cn_status.status
 
       if return_str:
         time_format = '%Y-%m-%d %H:%M'
         pre_open_time = self.trade_time['pre_open_time'].strftime(time_format)
         post_close_time = self.trade_time['post_close_time'].strftime(time_format)
-        
+        a_open_time = self.trade_time['a_open_time'].strftime(time_format)
+        a_close_time = self.trade_time['a_close_time'].strftime(time_format)
+
         time_format = '%H:%M'
         open_time = self.trade_time['open_time'].strftime(time_format)
         close_time = self.trade_time['close_time'].strftime(time_format)
         
-        time_str = f'<({pre_open_time}){open_time} -- {close_time}({post_close_time})>'
+        us_time_str = f'<Market US: ({pre_open_time}){open_time} -- {close_time}({post_close_time})>'
+        cn_time_str = f'<Market CN: {a_open_time} -- {a_close_time}>'
+        time_str = us_time_str + '\n' + cn_time_str
 
-        return time_str
+        return (us_time_str, cn_time_str)
         
     except Exception as e:
       self.logger.error(e)
