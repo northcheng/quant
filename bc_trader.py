@@ -879,7 +879,7 @@ class Tiger(Trader):
 
       # if program runs after market open, api will return trade time for next trade day, 
       # trade time for current trade day need to be calculated manually
-      if cn_status.status in ['Trading', 'Post-Market Trading']:
+      if (cn_status.status in ['Trading', 'Post-Market Trading']) or (cn_status.status in ['Closed'] and pre_open_time < cn_open_time):
         if cn_open_time.weekday() == 0:
           cn_open_time = cn_open_time - datetime.timedelta(days=3)
         else:
