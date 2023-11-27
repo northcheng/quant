@@ -1878,7 +1878,7 @@ def filter_futu_exported(df, condition=None, q=0.7, price_limit=[5, 1000], marke
     PB_threshold = 0
     PE_threshold = 0
     filtered_df = filtered_df.query(f'({price_limit[0]} <= close <= {price_limit[1]}) and (PE_TTM > 0)').copy()
-    filtered_df = filtered_df.query(f'(volume >= {volume_threshold} or volume_value >= {volume_value_threshold} or market_value >= {market_value_threshold}) and PE >= {PE_threshold} and PB >= {PB_threshold}').copy()
+    filtered_df = filtered_df.query(f'(volume >= {volume_threshold} or volume_value >= {volume_value_threshold} or market_value >= {market_value_threshold}) and PE >= {PE_threshold} and PB >= {PB_threshold} and rate_5d > 0 and rate_10d > 0').copy()
     filtered_df = filtered_df.sort_values('market_value_circulation', ascending=False)
 
     for index, row in filtered_df.iterrows():
