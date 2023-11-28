@@ -36,11 +36,18 @@ default_signal_val = {'pos_signal':'b', 'neg_signal':'s', 'none_signal':'', 'wav
 # default indicators and dynamic trend for calculation
 default_indicators = {'trend': ['ichimoku', 'kama', 'adx'], 'volume': [], 'volatility': ['bb'], 'other': []}
 default_perspectives = ['candle','support_resistant', 'renko']
+default_support_resistant_col = ['kama_fast', 'kama_slow', 'tankan', 'kijun', 'candle_gap_top', 'candle_gap_bottom', 'renko_top', 'renko_h', 'renko_l']
 
 # default arguments for visualization
 default_candlestick_color = {'color_up':'green', 'color_down':'red', 'shadow_color':'black', 'entity_edge_color':'black', 'alpha':0.8}
 default_plot_args = {'figsize':(30, 3), 'title_rotation':'vertical', 'xaxis_position': 'bottom', 'yaxis_position': 'right', 'title_x':-0.01, 'title_y':0.2, 'bbox_to_anchor':(1.02, 0.), 'loc':3, 'ncol':1, 'borderaxespad':0.0}
 
+# zorders
+default_zorders = {}
+counter = 1
+for item in ['default', 'price', 'kama', 'ichimoku', 'renko', 'candle_pattern', 'gap', 'candle_shadow', 'candle_entity', 'extended']:
+  default_zorders[item] = counter
+  counter += 1
 
 # ================================================ Load configuration =============================================== # 
 # load configuration
@@ -1484,11 +1491,13 @@ def normalize(series, fillna=None):
   normalaized = (normalaized - normalaized.min()) / (normalaized.max() - normalaized.min())
   return normalaized
 
+# min-max normalization
 def min_max_normalize(series, fillna=None):
   normalized = normalize(series, fillna)
   normalized = normalized * 2 - 1
 
   return normalized
+
 
 # ================================================ Change calculation =============================================== #
 # calculate change of a column in certain period
@@ -1624,6 +1633,7 @@ def cal_score(df, condition_dict, up_score_col, down_score_col):
   df[down_score_col] = df[down_score_col].round(2)
 
   return df
+
 
 # ================================================ Signal processing ================================================ #
 # calculate signal that generated from 2 lines crossover
@@ -2460,7 +2470,7 @@ def add_ma_linear_features(df, period=5, target_col=['kama_fast', 'kama_slow', '
   return result
 
 # kama and ichimoku fast/slow line support and resistance
-def add_support_resistance(df, target_col=['kama_fast', 'kama_slow', 'tankan', 'kijun', 'candle_gap_top', 'candle_gap_bottom'], perspective=default_perspectives):
+def add_support_resistance(df, target_col=default_support_resistant_col, perspective=default_perspectives):
   """
   Add support and resistance 
 
@@ -4629,6 +4639,7 @@ def add_ui_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_sig
 
   return df
 
+
 # ================================================ Other indicators ================================================= #
 
 
@@ -4944,14 +4955,14 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
   # annotate number of days since signal triggered
   annotate_signal_day = True
   max_idx = df.index.max()
-  ys = {'long_signal': 0, 'middle_signal': 3, 'short_signal': 6}
+  ys = {'long_signal': 0, 'middle_signal': 2.75, 'short_signal': 5.5}
   if signal_x in ys.keys() and day_col in df.columns and annotate_signal_day:
 
     x_signal = max_idx + datetime.timedelta(days=3)
     y_signal = ys[signal_x]
     text_day = int(df.loc[max_idx, day_col])
     text_color = 'red' if text_day < 0 else 'green'
-    plt.annotate(f'{signal_x.replace("_signal", "")}:{text_day} ', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.05))
+    plt.annotate(f'{signal_x.replace("_signal", "")}:{text_day} ', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
   # overbuy and oversell
   if signal_x == 'os':
@@ -5226,8 +5237,8 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
       top_value = df.loc[start, 'candle_gap_top']
       bottom_value = df.loc[start, 'candle_gap_bottom']
       gap_color = 'green' if df.loc[start, 'candle_gap'] > 0 else 'red' # 'lightyellow' if df.loc[start, 'candle_gap'] > 0 else 'grey' # 
-      gap_hatch = '' # '////' if df.loc[start, 'candle_gap'] > 0 else '\\\\\\\\' # 'xxxx'# 
-      gap_hatch_color = 'black' # 'green' if df.loc[start, 'candle_gap'] > 0 else 'red' 
+      gap_hatch = '||||' # '////' if df.loc[start, 'candle_gap'] > 0 else '\\\\\\\\' # 'xxxx'# 
+      gap_hatch_color = 'black' # 'darkgreen' if df.loc[start, 'candle_gap'] > 0 else 'darkred' 
       
       # gap end
       end = None
@@ -5241,7 +5252,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
       pre_i = idxs.index(start)-1
       pre_start = idxs[pre_i] if pre_i > 0 else start
       tmp_data = df[start:end]
-      ax.fill_between(df[pre_start:end].index, top_value, bottom_value, hatch=gap_hatch, facecolor=gap_color, interpolate=True, alpha=0.5, edgecolor=gap_hatch_color, linewidth=1, zorder=5) #,  
+      ax.fill_between(df[pre_start:end].index, top_value, bottom_value, hatch=gap_hatch, facecolor=gap_color, interpolate=True, alpha=0.3, edgecolor=gap_hatch_color, linewidth=0.1, zorder=default_zorders['gap']) #,  
 
     # # gap support & resistant
     # ax.scatter(support_idx, df.loc[support_idx, 'Low'] * 0.98, marker='^', color='black', edgecolor='black', zorder=21)
@@ -5257,8 +5268,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
     y_close_padding = padding*5
     y_close = df.loc[max_idx, 'Close'].round(2)
     y_text_close = y_close
-    close_color = 'blue'
-    plt.annotate(f'{y_close}', xy=(max_x, y_text_close), xytext=(max_x, y_text_close), fontsize=13, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=close_color, alpha=0))
+    plt.annotate(f'{y_close}', xy=(max_x, y_text_close), xytext=(max_x, y_text_close), fontsize=13, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", alpha=0))
 
     y_resistant = None
     y_text_resistant = None
@@ -5274,7 +5284,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
       diff = y_text_resistant - y_text_close
       if diff < y_close_padding:
         y_text_resistant = y_text_close + y_close_padding
-      plt.annotate(f'{y_resistant} [{resistant_score}] ', xy=(max_x, y_text_resistant), xytext=(max_x, y_text_resistant), fontsize=13, xycoords='data', textcoords='data', color='black', va='bottom',  ha='left', bbox=dict(boxstyle="round", facecolor='red', alpha=0.1*resistant_score))
+      plt.annotate(f'{y_resistant}[{resistant_score}]', xy=(max_x, y_text_resistant), xytext=(max_x, y_text_resistant), fontsize=13, xycoords='data', textcoords='data', color='black', va='bottom',  ha='left', bbox=dict(boxstyle="round", facecolor='red', alpha=0.1*resistant_score))
     
     # annotate support 
     if df.loc[max_idx, 'supporter'] > '':
@@ -5285,7 +5295,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
       diff = y_text_close - y_text_support
       if diff < y_close_padding:
         y_text_support = y_text_close - y_close_padding
-      plt.annotate(f'{y_support} [{support_score}] ', xy=(max_x, y_text_support), xytext=(max_x, y_text_support), fontsize=13, xycoords='data', textcoords='data', color='black', va='top',  ha='left', bbox=dict(boxstyle="round", facecolor='green', alpha=0.1*support_score))
+      plt.annotate(f'{y_support}[{support_score}]', xy=(max_x, y_text_support), xytext=(max_x, y_text_support), fontsize=13, xycoords='data', textcoords='data', color='black', va='top',  ha='left', bbox=dict(boxstyle="round", facecolor='green', alpha=0.1*support_score))
 
   # annotate candle patterns
   if 'pattern' in add_on:
@@ -5304,7 +5314,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
         x = x - (len_unit * 0.5)
         rect_len = rect_len + len_unit
         y = df.loc[i, 'Low'] - 2*padding if t == 'u' else df.loc[i, 'High'] + 0.5*padding
-        flat = Rectangle((x, y), rect_len, rect_high, facecolor='yellow', edgecolor=t_color, linestyle='-', linewidth=1, fill=True, alpha=0.8, zorder=12)
+        flat = Rectangle((x, y), rect_len, rect_high, facecolor='yellow', edgecolor=t_color, linestyle='-', linewidth=1, fill=True, alpha=0.8, zorder=default_zorders['candle_pattern'])
         ax.add_patch(flat)
         
     # settings for annotate candle patterns
@@ -5393,7 +5403,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
         else:
           y_text = df.High.max() + y_text_padding[counter % 2]
           
-        plt.annotate(f'{text}', xy=(x, y), xytext=(x,y_text), fontsize=style['fontsize'], rotation=0, color=style['fontcolor'], va=style['va'],  ha=style['ha'], xycoords='data', textcoords='data', arrowprops=dict(arrowstyle=style['arrowstyle'], alpha=0.3, color='black'), bbox=dict(boxstyle="round", facecolor=style[a], alpha=style['alpha']))
+        plt.annotate(f'{text}', xy=(x, y), xytext=(x,y_text), fontsize=style['fontsize'], rotation=0, color=style['fontcolor'], va=style['va'],  ha=style['ha'], xycoords='data', textcoords='data', arrowprops=dict(arrowstyle=style['arrowstyle'], alpha=0.5, color='black'), bbox=dict(boxstyle="round", facecolor=style[a], edgecolor='none', alpha=style['alpha']))
         counter += 1
 
   # transform date to numbers, plot candlesticks
@@ -5422,7 +5432,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
   alpha = color['alpha'] 
   shadow_color = color['shadow_color']
   entity_edge_color = (0,0,0,0.1)
-  ax.fill_between(df.index, df.loc[min_idx, 'High'], df.loc[min_idx, 'Low'], facecolor=None, interpolate=True, alpha=0, linewidth=1, zorder=0)
+  ax.fill_between(df.index, df.loc[min_idx, 'High'], df.loc[min_idx, 'Low'], facecolor=None, interpolate=True, alpha=0, linewidth=1, zorder=default_zorders['candle_pattern'])
 
   # plot each candlestick
   for idx, row in df.iterrows():
@@ -5444,11 +5454,11 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
       line_color = entity_color
     
     # plot shadow
-    vline = Line2D(xdata=(idx, idx), ydata=(row[low], row[high]), color=line_color, linewidth=1, antialiased=True, zorder=10)
+    vline = Line2D(xdata=(idx, idx), ydata=(row[low], row[high]), color=line_color, linewidth=1, antialiased=True, zorder=default_zorders['candle_shadow'])
     
     # plot entity
     x = idx - OFFSET
-    rect = Rectangle(xy=(x, lower), width=entity_width, height=height, facecolor=entity_color, linewidth=1, edgecolor=entity_edge_color, alpha=alpha, zorder=11)
+    rect = Rectangle(xy=(x, lower), width=entity_width, height=height, facecolor=entity_color, linewidth=1, edgecolor=entity_edge_color, alpha=alpha, zorder=default_zorders['candle_entity'])
 
     # add shadow and entity to plot
     ax.add_line(vline)
@@ -5488,10 +5498,8 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   # add extention data
   extended = 3
   ext_columns = ['tankan', 'kijun', 'kama_fast', 'kama_slow']
-
   current_idx = max_idx
   next_idx = None
-
   period = 3
   if interval == "day":
     
@@ -5505,7 +5513,6 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
         intercept = pred[ec][1]
         df.loc[next_idx, ec] = (period + i + 1) * ( slope) + intercept   
       current_idx = next_idx
-
   else:
     extended = None
 
@@ -5518,47 +5525,29 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   # as we usually ploting data within a year, therefore log_y is not necessary
   # ax.set_yscale("log")
 
-  plot_colors = {
-    'price': 'black',
-    'tankan': 'green',
-    'kijun': 'red',
-    'kama_fast': 'magenta',
-    'kama_slow': 'blue'
-  }
-
-  plot_linestyles = {
-    'tankan': ':',
-    'kijun': ':',
-    'kama_fast': '--',
-    'kama_slow': '--'
-  }
-
   # plot close price
   if 'price' in target_indicator:
     alpha = 0.2
-    ax.plot(df.index, df[default_ohlcv_col['close']], label='close', color='black', linestyle='--', alpha=alpha)
+    ax.plot(df.index, df[default_ohlcv_col['close']], label='close', color='black', linestyle='--', alpha=alpha, zorder=default_zorders['price'])
   
   # plot renko bricks
   if 'renko' in target_indicator:
-    zorder = 1
-    ax = plot_renko(df, use_ax=ax, plot_args=default_plot_args, plot_in_date=True, close_alpha=0, zorder=zorder)
+    ax = plot_renko(df, use_ax=ax, plot_args=default_plot_args, plot_in_date=True, close_alpha=0)
   
   # plot senkou lines, clouds, tankan and kijun
   if 'ichimoku' in target_indicator:
     alpha = 0.8
-    zorder = 1
-    ax.plot(df.index, df.tankan, label='tankan', color='green', linestyle='-', alpha=alpha, zorder=zorder) # magenta
-    ax.plot(df.index, df.kijun, label='kijun', color='red', linestyle='-', alpha=alpha, zorder=zorder) # blue
-    alpha = 0.2
-    ax.fill_between(df.index, df.tankan, df.kijun, where=df.tankan > df.kijun, facecolor='green', interpolate=True, alpha=alpha, zorder=zorder)
-    ax.fill_between(df.index, df.tankan, df.kijun, where=df.tankan <= df.kijun, facecolor='red', interpolate=True, alpha=alpha, zorder=zorder)
+    ax.plot(df.index, df.tankan, label='tankan', color='green', linestyle='-', alpha=alpha, zorder=default_zorders['ichimoku']) # magenta
+    ax.plot(df.index, df.kijun, label='kijun', color='red', linestyle='-', alpha=alpha, zorder=default_zorders['ichimoku']) # blue
+    alpha = 0.25
+    ax.fill_between(df.index, df.tankan, df.kijun, where=df.tankan > df.kijun, facecolor='green', interpolate=True, alpha=alpha, zorder=default_zorders['ichimoku'])
+    ax.fill_between(df.index, df.tankan, df.kijun, where=df.tankan <= df.kijun, facecolor='red', interpolate=True, alpha=alpha, zorder=default_zorders['ichimoku'])
   
   # plot kama_fast/slow lines 
   if 'kama' in target_indicator:
     alpha = 0.8
-    zorder = 2
-    ax.plot(df.index, df.kama_fast, label='kama_fast', color='magenta', linestyle='-', alpha=alpha, zorder=zorder) # magenta
-    ax.plot(df.index, df.kama_slow, label='kama_slow', color='blue', linestyle='-', alpha=alpha, zorder=zorder)
+    ax.plot(df.index, df.kama_fast, label='kama_fast', color='magenta', linestyle='-', alpha=alpha, zorder=default_zorders['kama']) # magenta
+    ax.plot(df.index, df.kama_slow, label='kama_slow', color='blue', linestyle='-', alpha=alpha, zorder=default_zorders['kama'])
 
     # alpha = 0.1
     # ax.fill_between(df.index, df.kama_fast, df.kama_slow, where=df.kama_fast > df.kama_slow, facecolor='green', interpolate=True, alpha=alpha, zorder=-1)
@@ -5568,18 +5557,16 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   if 'bb' in target_indicator:
     alpha = 0.2
     alpha_fill = 0.02
-    zorder = 0
-    ax.plot(df.index, df.bb_high_band, label='bb_high_band', color='black', linestyle='-', alpha=alpha)
-    ax.plot(df.index, df.bb_low_band, label='bb_low_band', color='black', linestyle='-', alpha=alpha)
-    ax.plot(df.index, df.mavg, label='mavg', color='black', linestyle=':', alpha=alpha*3, zorder=zorder)
-    ax.fill_between(df.index, df.mavg, df.bb_high_band, facecolor='green', interpolate=True, alpha=alpha_fill, zorder=zorder)
-    ax.fill_between(df.index, df.mavg, df.bb_low_band, facecolor='red', interpolate=True, alpha=alpha_fill, zorder=zorder)
+    ax.plot(df.index, df.bb_high_band, label='bb_high_band', color='black', linestyle='-', alpha=alpha, zorder=default_zorders['default'])
+    ax.plot(df.index, df.bb_low_band, label='bb_low_band', color='black', linestyle='-', alpha=alpha, zorder=default_zorders['default'])
+    ax.plot(df.index, df.mavg, label='mavg', color='black', linestyle=':', alpha=alpha*3, zorder=default_zorders['default'])
+    ax.fill_between(df.index, df.mavg, df.bb_high_band, facecolor='green', interpolate=True, alpha=alpha_fill, zorder=default_zorders['default'])
+    ax.fill_between(df.index, df.mavg, df.bb_low_band, facecolor='red', interpolate=True, alpha=alpha_fill, zorder=default_zorders['default'])
   
   # plot average true range
   if 'atr' in target_indicator:
     alpha = 0.6
-    zorder = 1
-    ax.plot(df.index, df.atr, label='atr', color='green', alpha=alpha, zorder=zorder)
+    ax.plot(df.index, df.atr, label='atr', color='green', alpha=alpha, zorder=default_zorders['default'])
     # ax.plot(df.index, df.bb_low_band, label='bb_low_band', color='red', alpha=alpha)
     # ax.plot(df.index, df.mavg, label='mavg', color='grey', alpha=alpha)
     # ax.fill_between(df.index, df.mavg, df.bb_high_band, facecolor='green', interpolate=True, alpha=0.1)
@@ -5589,29 +5576,25 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   if 'psar' in target_indicator:
     alpha = 0.6
     s = 10
-    zorder = 1
-    ax.scatter(df.index, df.psar_up, label='psar', color='green', alpha=alpha, s=s, marker='o', zorder=zorder)
-    ax.scatter(df.index, df.psar_down, label='psar', color='red', alpha=alpha, s=s, marker='o', zorder=zorder)
+    ax.scatter(df.index, df.psar_up, label='psar', color='green', alpha=alpha, s=s, marker='o', zorder=default_zorders['default'])
+    ax.scatter(df.index, df.psar_down, label='psar', color='red', alpha=alpha, s=s, marker='o', zorder=default_zorders['default'])
   
   # plot high/low trend
   if 'linear' in target_indicator:
-    zorder = 1
     colors = {'u': 'green', 'd': 'red', 'n': 'orange', '': 'grey'}
     # hatches = {'u': '++', 'd': '--', 'n': '..', '': ''}
-
     # plot aroon_up/aroon_down lines 
     line_alpha = 0.5
-    
     linear_direction = df.loc[max_idx, 'linear_direction']
     linear_color = colors[linear_direction]
-    ax.plot(df.index, df.linear_fit_high, label='linear_fit_high', color=linear_color, linestyle='-.', alpha=line_alpha, zorder=zorder)
-    ax.plot(df.index, df.linear_fit_low, label='linear_fit_low', color=linear_color, linestyle='-.', alpha=line_alpha, zorder=zorder)
+    ax.plot(df.index, df.linear_fit_high, label='linear_fit_high', color=linear_color, linestyle='-.', alpha=line_alpha, zorder=default_zorders['default'])
+    ax.plot(df.index, df.linear_fit_low, label='linear_fit_low', color=linear_color, linestyle='-.', alpha=line_alpha, zorder=default_zorders['default'])
 
     # fill between linear_fit_high and linear_fit_low
     fill_alpha = 0.25
     linear_range = df.linear_direction != ''
     linear_hatch = '--' # hatches[linear_direction]
-    ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=linear_range, facecolor='white', edgecolor=linear_color, hatch=linear_hatch, interpolate=True, alpha=fill_alpha)    
+    ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=linear_range, facecolor='white', edgecolor=linear_color, hatch=linear_hatch, interpolate=True, alpha=fill_alpha, zorder=default_zorders['default'])    
   
   # plot candlestick
   if 'candlestick' in target_indicator:
@@ -5620,7 +5603,7 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   # plot mask for extended
   if extended is not None:
     extended_data = df[ext_columns].tail(extended).copy()
-    ax.plot(extended_data, linestyle=':', color='white')
+    ax.plot(extended_data, linestyle=':', color='white', zorder=default_zorders['extended'])
   
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
@@ -5685,7 +5668,7 @@ def plot_aroon(df, start=None, end=None, use_ax=None, title=None, plot_args=defa
     return ax
 
 # plot renko chart
-def plot_renko(df, start=None, end=None, use_ax=None, title=None, plot_in_date=True, close_alpha=0.5, save_path=None, save_image=False, show_image=False, plot_args=default_plot_args, zorder=0):
+def plot_renko(df, start=None, end=None, use_ax=None, title=None, plot_in_date=True, close_alpha=0.5, save_path=None, save_image=False, show_image=False, plot_args=default_plot_args):
   
   # copy data frame
   df = df[start:end].copy()
@@ -5715,7 +5698,9 @@ def plot_renko(df, start=None, end=None, use_ax=None, title=None, plot_in_date=T
   legends = {'green': 'u', 'red': 'd', np.nan:' '}
   for index, row in df.iterrows():
     hatch = '----' # '/////' if row['renko_color'] == 'green' else '\\\\\\\\\\'
-    renko = Rectangle((index, row['renko_o']), row['renko_countdown_days'], row['renko_brick_height'], facecolor='none', edgecolor='black', hatch=hatch, linestyle='-', linewidth=0.1, fill=True, alpha=0.5, label=legends[row['renko_real']]) #  edgecolor=row['renko_color'], linestyle='-', linewidth=5, 
+    facecolor = 'white'
+    edgecolor = 'black'
+    renko = Rectangle((index, row['renko_o']), row['renko_countdown_days'], row['renko_brick_height'], facecolor=facecolor, edgecolor=edgecolor, hatch=hatch, linestyle='-', linewidth=0.1, fill=False, alpha=0.4, label=legends[row['renko_real']], zorder=default_zorders['renko']) #  edgecolor=row['renko_color'], linestyle='-', linewidth=5, 
     legends[row['renko_real']] = "_nolegend_"
     ax.add_patch(renko, )
   
@@ -5996,17 +5981,10 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
     tmp_args = args.get(tmp_indicator)
     
     # put the main_indicators at the bottom, share_x
-    if tmp_indicator == 'main_indicators':
-      zorder = 10 
-    elif tmp_indicator == 'adx':
-      zorder = 11 
-    else:
-      zorder = 1
-
     if i == 0:
-      axes[tmp_indicator] = plt.subplot(gs[i], zorder=zorder) 
+      axes[tmp_indicator] = plt.subplot(gs[i]) 
     else:
-      axes[tmp_indicator] = plt.subplot(gs[i], sharex=axes[indicators[0]], zorder=zorder)
+      axes[tmp_indicator] = plt.subplot(gs[i], sharex=axes[indicators[0]])
       
     # shows the x_ticklabels on the top at the first ax
     if i != 0: #i%2 == 0: # 
@@ -6134,7 +6112,6 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   new_title = args['sec_name'].get(title.split('(')[0]) 
   
   # score description
-  
   score_desc = ''
   for term in ['', 'inday', 'short', 'middle', 'long']:
     score_col = f'{term}_trend_score' if term != '' else 'trend_score'
