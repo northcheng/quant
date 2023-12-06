@@ -1,71 +1,82 @@
-columns = [
-  'Adj Close', 'Close', 'Dividend', 'High', 'Low', 'Open', 'Split', 'Volume', 
-  'symbol', 'rate', 
-
+[
+  'Open', 'High', 'Low', 'Close', 
+  'Adj Close', 'Volume', 'Dividend', 'Split', 'symbol', 'rate', 
+  
   'candle_color', 
-  'candle_entity', 'candle_entity_top', 'candle_entity_middle', 'candle_entity_bottom', 
-  'candle_shadow', 'candle_upper_shadow', 'candle_lower_shadow', 
-  'candle_entity_pct', 'candle_upper_shadow_pct', 'candle_lower_shadow_pct', 
-  'candle_gap', 'candle_gap_color', 'candle_gap_top', 'candle_gap_bottom', 'candle_gap_support', 'candle_gap_resistant',
+  'candle_shadow', 'candle_upper_shadow', 'candle_lower_shadow', 'candle_upper_shadow_pct', 'candle_lower_shadow_pct', 
+  'candle_entity', 'candle_entity_top', 'candle_entity_middle', 'candle_entity_bottom', 'candle_entity_pct',
+  'candle_gap', 'candle_gap_color', 'candle_gap_top', 'candle_gap_bottom',
 
   'tankan', 'kijun', 'senkou_a', 'senkou_b', 'chikan', 
   'kama_fast', 'kama_slow', 
   'tr', 'atr', 
   'pdi', 'mdi', 
   'dx', 'adx', 'adx_diff', 'adx_diff_ma', 
-  'psar', 'psar_up', 'psar_down', 
-  'trix', 'trix_sign', 'trix_diff', 
   'mavg', 'mstd', 
   'bb_high_band', 'bb_low_band',
-
-  'ichimoku_distance', 'ichimoku_distance_change', 
-  'tankan_signal', 'tankan_rate', 'tankan_change', 'ichimoku_direction',
-  'kijun_signal', 'kijun_rate',
-  'ichimoku_fs_signal', 'ichimoku_distance_signal', 
-  'ichimoku_trend',      
-
-  'kama_distance', 'kama_distance_change', 
-  'kama_fast_rate', 'kama_fast_signal', 'kama_fast_change', 'kama_direction', 
-  'kama_slow_rate', 'kama_slow_signal', 
-  'kama_fs_signal', 'kama_distance_signal', 
-  'kama_trend', 
-
-  'adx_value', 'adx_value_change', 'adx_value_change_std',
-  'adx_strength', 'adx_strength_change',
-  'adx_direction', 'adx_direction_day', 'adx_direction_mean', 
-  'adx_power', 'adx_power_day', 'adx_strong_day', 'adx_wave_day', 
-  'prev_adx_extreme', 'adx_direction_start', 
+  
+  'ichimoku_distance', 'ichimoku_distance_change', 'ichimoku_distance_day', 
+  'tankan_rate', 'tankan_day', 'kijun_rate', 'kijun_day', 
+  'cloud_top', 'cloud_bottom',
+  'ichimoku_fs_day', 'ichimoku_trend', 
+  
+  'kama_distance', 'kama_distance_change', 'kama_distance_day',
+  'kama_fast_rate', 'kama_fast_day', 'kama_slow_rate', 'kama_slow_day', 
+  'kama_fs_day', 'kama_trend', 
+  
+  'adx_value', 'adx_value_change', 'adx_direction', 'adx_value_prediction', 'adx_direction_day', 'adx_direction_start', 
+  'adx_strength', 'adx_strength_change', 'adx_power', 'adx_power_day',
+  'adx_strong_day', 'adx_wave_day', 'prev_adx_extreme',
   'adx_trend', 
-
-  'trix_trend', 
-  'psar_trend',
-  'bb_trend',
-  'trend_idx', 'up_trend_idx', 'down_trend_idx', 
-
-  'ichimoku_signal', 'ichimoku_day', 
+  
+  'bb_trend', 
+  
+  'up_trend_idx', 'down_trend_idx', 'trend_idx', 
+  
+  'ichimoku_signal', 'ichimoku_day',
   'kama_signal', 'kama_day', 
-  'adx_signal', 'adx_day',
-  'psar_signal', 'psar_day', 
-  'trix_signal', 'trix_day', 
+  'adx_signal', 'adx_day', 
   'bb_signal', 'bb_day', 
-
-  '极限_trend', '相对窗口位置', 
-  '位置_trend', '窗口_trend', '反弹_trend', '突破_trend', 
-  '位置_day', '窗口_day', '反弹_day', '突破_day', 
-  'shadow_trend', 'entity_trend', 'upper_shadow_trend', 'lower_shadow_trend', 
-
-  '十字星', '锤子', 
-  '十字星_trend', '锤子_trend', '流星_trend', '腰带_trend', '平头_trend', '穿刺_trend', '吞噬_trend', '包孕_trend', '启明黄昏_trend', 
-  '十字星_day', '锤子_day', '流星_day', '腰带_day', '平头_day', '穿刺_day', '吞噬_day', '包孕_day', '启明黄昏_day', 
-  'support', 'supporter', 'resistant', 'resistanter', 
-
-  'trend', 'trend_day', 
-  'score', 'up_score', 'down_score', 'up_score_description', 'down_score_description',
-  'trigger_score', 'trigger_score_description', 
-  'label', 'label_score', 'label_description'
-  'rank_score', 
-  'signal'
-]
+  
+  'renko_color', 'renko_o', 'renko_h', 'renko_l', 'renko_c', 
+  'renko_real', 'renko_start', 'renko_end', 'renko_duration', 'renko_duration_p1', 
+  'renko_brick_height', 'renko_brick_number', 'renko_brick_length', 'renko_direction', 
+  'renko_series_short', 'renko_series_long', 'renko_series_short_idx', 'renko_series_long_idx', 
+  'renko_countdown_days', 'renko_position', 'renko_support', 'renko_resistant', 
+  'renko_trend', 'renko_signal', 'renko_day', 
+  
+  '位置_trend', '位置_day', 
+  '极限_trend',
+  'entity_diff', 'shadow_diff', 'shadow_trend', 'entity_trend', 'upper_shadow_trend', 'lower_shadow_trend', 
+  '窗口_trend', '相对窗口位置', '突破_trend', 
+  
+  '十字星', '锤子', '十字星_trend', 
+  '腰带_trend', '流星_trend', '锤子_trend', 
+  '平头_trend', '穿刺_trend', '吞噬_trend', '包孕_trend', '启明黄昏_trend', 
+  
+  '窗口_day', '突破_day', '十字星_day', '流星_day', '锤子_day', '腰带_day', 
+  '平头_day', '穿刺_day', '包孕_day', '吞噬_day', '启明黄昏_day',
+  
+  'support_score', 'support_description', 'resistant_score', 'resistant_description', 
+  'break_up_score', 'break_up_description', 'break_down_score', 'break_down_description', 
+  'resistant', 'resistanter', 'support', 'supporter', 
+  
+  'trend_score', 'major_score', 
+  'trigger_score', 'trigger_score_description', 'trigger_day',
+  'position_score', 'position_score_description', 
+  'inday_trend_score', 'inday_trend_score_description', 
+  'short_trend_score', 'short_trend_score_description', 
+  'middle_trend_score', 'middle_trend_score_description', 
+  'long_trend_score', 'long_trend_score_description', 
+  
+  'up_score', 'down_score', 'up_score_description', 'down_score_description', 
+  'inday_trend', 'inday_day', 'inday_trend_score_change', 
+  'short_trend', 'short_day', 'short_trend_score_change', 
+  'middle_trend', 'middle_day', 'middle_trend_score_change', 
+  'long_trend', 'long_day', 'long_trend_score_change', 
+  'trend', 'trend_day', 'trend_score_change',
+  'potential', 'potential_score', 'potential_description', 
+  'signal', 'signal_description', 'signal_day']
 
 # # expired
 # from alpha_vantage.timeseries import TimeSeries
