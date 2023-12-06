@@ -224,6 +224,8 @@ def predict(row, model):
 # dataset definition
 class RegressionDataset(Dataset):
 
+  trained_scaler = None
+
   device = "cuda" if torch.cuda.is_available() else "cpu"
   print(f"Using {device} device")
   
@@ -248,9 +250,14 @@ class RegressionDataset(Dataset):
     if scaler is None:
       pass
     elif scaler == 'MinMax':
-      self.X = preprocessing.MinMaxScaler().fit_transform(self.X)
+      self.trained_scaler = preprocessing.MinMaxScaler()
+      self.trained_scaler.fit(self.X)
+      self.X = self.trained_scaler.transform(self.X)
+      # self.X = preprocessing.MinMaxScaler().fit_transform(self.X)
     elif scaler == 'Standard':
-      self.X = preprocessing.StandardScaler().fit_transform(self.X)
+      self.trained_scaler = preprocessing.StandardScaler()
+      self.trained_scaler.fit(self.X)
+      self.X = self.trained_scaler.fit_transform(self.X)
     else:
       pass
 
@@ -280,21 +287,21 @@ class SimpleRegressor(nn.Module):
     
     # self.flatten = nn.Flatten()
     self.linear_relu_stack = nn.Sequential(
-      nn.Linear(n_in, 64),
+      nn.Linear(n_in, 512),
       nn.ReLU(),
-      nn.Linear(64, 64),
+      nn.Linear(512, 256),
       nn.ReLU(),
-      nn.Linear(64, 64),
-      nn.ReLU(),
-      nn.Linear(64, 64),
-      nn.ReLU(),
-      nn.Linear(64, 128),
+      nn.Linear(256, 128),
       nn.ReLU(),
       nn.Linear(128, 64),
       nn.ReLU(),
-      nn.Linear(64, 64),
+      nn.Linear(64, 128),
       nn.ReLU(),
-      nn.Linear(64, 64),
+      nn.Linear(128, 256),
+      nn.ReLU(),
+      nn.Linear(256, 512),
+      nn.ReLU(),
+      nn.Linear(512, 64),
       nn.ReLU(),
       nn.Linear(64, n_out),
     )
@@ -317,7 +324,7 @@ def train_regressor(train_dl, model, epoch=100):
   criterion = nn.MSELoss()
 
   # optimizer = SGD(model.parameters(), lr=0.01, momentum=0.9)
-  optimizer = Adam(model.parameters())
+  optimizer = SGD(model.parameters(), lr=0.01)
 
   # enumerate epochs
   for epoch in range(epoch):
