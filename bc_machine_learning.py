@@ -236,9 +236,9 @@ class RegressionDataset(Dataset):
     df = pd.read_csv(path)
     
     if feature_column is None:
-      feature_column = data.columns[:-1]
+      feature_column = df.columns[:-1]
     if result_column is None:
-      result_column = data.columns[-1]
+      result_column = df.columns[-1]
     
     # store the inputs and outputs
     self.X = df[feature_column].values
