@@ -1449,7 +1449,7 @@ def load_stock_data(file_path, file_name, file_format='.csv', time_col='Date', s
         df.sort_index(inplace=True)
 
   except Exception as e:
-    print(e)
+    print(file_name, e)
 
   return df
 
