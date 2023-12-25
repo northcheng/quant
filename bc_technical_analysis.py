@@ -5697,12 +5697,12 @@ def plot_renko(df, start=None, end=None, use_ax=None, title=None, plot_in_date=T
   # plot renko
   legends = {'green': 'u', 'red': 'd', np.nan:' '}
   for index, row in df.iterrows():
-    hatch = '----' # '/////' if row['renko_color'] == 'green' else '\\\\\\\\\\'
+    hatch = '----'
     facecolor = 'white'
-    edgecolor = 'black'
-    renko = Rectangle((index, row['renko_o']), row['renko_countdown_days'], row['renko_brick_height'], facecolor=facecolor, edgecolor=edgecolor, hatch=hatch, linestyle='-', linewidth=0.1, fill=False, alpha=0.4, label=legends[row['renko_real']], zorder=default_zorders['renko']) #  edgecolor=row['renko_color'], linestyle='-', linewidth=5, 
+    edgecolor = 'black' if row['renko_color'] == 'green' else 'red'
+    renko = Rectangle((index, row['renko_o']), row['renko_countdown_days'], row['renko_brick_height'], facecolor=facecolor, edgecolor=edgecolor, hatch=hatch, linestyle='-', linewidth=0.1, fill=False, alpha=0.5, label=legends[row['renko_real']], zorder=default_zorders['renko']) #  edgecolor=row['renko_color'], linestyle='-', linewidth=5, 
     legends[row['renko_real']] = "_nolegend_"
-    ax.add_patch(renko, )
+    ax.add_patch(renko)
   
   # modify axes   
   if not plot_in_date:
