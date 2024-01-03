@@ -1092,14 +1092,20 @@ def calculate_ta_signal(df):
     # term trend score change
     df = cal_change(df=df, target_col=score_col, periods=1, add_accumulation=False, add_prefix=True)
 
+  # trend direction
+  df['trend_direction'] = df['trend_score_change'].copy()
+  # mute_idx = df.query('-0.2 < trend_direction < 0.2').index
+  # df.loc[mute_idx, 'trend_direction'] = 0
+  df['trend_direction'] = sda(df['trend_direction'], zero_as=0)
+
   # ================================ calculate potential ====================
   # label score
   df['potential'] = ''
   df['potential_score'] = 0
   df['potential_description'] = ''
   potential_conditions = {
-    '触发':         f'(((0 < trigger_day < 5 and trigger_score > 0.3) or (trigger_day == 1)) and (trend_score_change > 0 and (trend_score > 0 or (trend_score > -0.5 and short_day > 0)))) ',
-    '超卖':         f'(0 < bb_day < 5 and candle_color == 1)',
+    # '触发':         f'(((0 < trigger_day < 5 and trigger_score > 0.3) or (trigger_day == 1)) and (trend_score_change > 0 and (trend_score > 0 or (trend_score > -0.5 and short_day > 0)))) ',
+    # '超卖':         f'(0 < bb_day < 5 and candle_color == 1)',
     '主观':         f'(trend_score > 0 or trend_score_change > 0.5) and trigger_score > 0 and (short_day > 0 or( adx_direction > 0 and adx_value < 0))'
     } 
   for c in potential_conditions.keys():
@@ -1112,9 +1118,9 @@ def calculate_ta_signal(df):
   # remove false alarm
   none_potential_idx = []
   none_potential_conditions = {
-    '价格下跌':       f'potential == "potential" and ((rate < -0.05) or (shadow_trend == "u" and upper_shadow_trend == "u") or (candle_color == -1 and entity_trend == "u"))',
-    '短暂反弹':       f'potential == "potential" and ((adx_diff_ma < 0 and (adx_direction_day == 1 or (adx_direction_day < 0 and adx_value_change > 0) or adx_value_change < 0)) and ((ichimoku_distance <= 0 or ichimoku_distance_day <= -3) and (kama_distance <= 0 or kama_distance_day <= -3)))',
-    '趋势下降':       f'potential == "potential" and ((trend_score == -3) or (trend_score < 0 and trigger_score <= 0))',
+    # '价格下跌':       f'potential == "potential" and ((rate < -0.05) or (shadow_trend == "u" and upper_shadow_trend == "u") or (candle_color == -1 and entity_trend == "u"))',
+    # '短暂反弹':       f'potential == "potential" and ((adx_diff_ma < 0 and (adx_direction_day == 1 or (adx_direction_day < 0 and adx_value_change > 0) or adx_value_change < 0)) and ((ichimoku_distance <= 0 or ichimoku_distance_day <= -3) and (kama_distance <= 0 or kama_distance_day <= -3)))',
+    # '趋势下降':       f'potential == "potential" and ((trend_score == -3) or (trend_score < 0 and trigger_score <= 0))',
     } 
 
   if 'linear_slope' in df.columns:
@@ -4966,7 +4972,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     plt.annotate(f'{signal_x.replace("_signal", "")}:{text_day} ', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
   # overbuy and oversell
-  if signal_x == 'os':
+  if signal_x == 'b&s':
 
     # trigger_score
     tmp_data = df.query(f'(trigger_score > 0)')
@@ -4978,18 +4984,16 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     tmp_alpha = normalize(tmp_data['potential_score'].abs())
     ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='green', alpha=0.5)
 
-    tmp_data = df.query(f'(bb_day == 1)')
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='orange', alpha=0.5) # color='none', edge
-
-  if signal_x == 'ob':
+    # tmp_data = df.query(f'(bb_day == 1)')
+    # ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='orange', alpha=0.5) # color='none', edge
 
     # trigger_score
     tmp_data = df.query(f'(trigger_score < 0)')
     tmp_alpha = normalize(tmp_data['trigger_score'].abs())
     ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='red', alpha=tmp_alpha)
 
-    tmp_data = df.query(f'(bb_day == -1)')
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='orange', alpha=0.5)
+    # tmp_data = df.query(f'(bb_day == -1)')
+    # ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='orange', alpha=0.5)
 
   # buy and sell
   if signal_x == ' ':
@@ -4998,6 +5002,19 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
     sell_data = df.query('signal == "s"')
     ax.scatter(sell_data.index, sell_data[signal_y], marker='v', color='red', alpha=0.5)
+
+  # trend direction
+  if signal_x == 'trend_direction':
+    
+    # trend direction up
+    tmp_data = df.query(f'(trend_direction < 0)')
+    tmp_alpha = normalize(tmp_data['trend_direction'].abs())
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='v', color='red', alpha=tmp_alpha)
+
+    # trend direction down
+    tmp_data = df.query(f'(trend_direction > 0)')
+    tmp_alpha = normalize(tmp_data['trend_direction'].abs())
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='^', color='green', alpha=tmp_alpha)
 
   # plot renko
   # if False: # signal_x == 'b':
