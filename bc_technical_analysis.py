@@ -1094,9 +1094,17 @@ def calculate_ta_signal(df):
 
   # trend direction
   df['trend_direction'] = df['trend_score_change'].copy()
-  # mute_idx = df.query('-0.2 < trend_direction < 0.2').index
-  # df.loc[mute_idx, 'trend_direction'] = 0
   df['trend_direction'] = sda(df['trend_direction'], zero_as=0)
+  trend_direction_conditions = {
+    'pos':    f'trend_direction > 0.0', 
+    'neg':    f'trend_direction < 0.0',
+  } 
+  position_values = {
+    'pos':    1, 
+    'neg':    -1,
+  }
+  df = assign_condition_value(df=df, column='trend_direction_day', condition_dict=trend_direction_conditions, value_dict=position_values, default_value=0)
+  df['trend_direction_day'] = sda(series=df['trend_direction_day'], zero_as=1)
 
   # ================================ calculate potential ====================
   # label score
@@ -1104,36 +1112,41 @@ def calculate_ta_signal(df):
   df['potential_score'] = 0
   df['potential_description'] = ''
   potential_conditions = {
+    'down_1':       f'(trigger_score < 0) and (trend_direction < 0)',
+    'up_1':         f'(trigger_score > 0) and (trend_direction > 0) and (adx_direction > 0) and (adx_strong_day > 0 or adx_strength_change > 0)',
     # '触发':         f'(((0 < trigger_day < 5 and trigger_score > 0.3) or (trigger_day == 1)) and (trend_score_change > 0 and (trend_score > 0 or (trend_score > -0.5 and short_day > 0)))) ',
     # '超卖':         f'(0 < bb_day < 5 and candle_color == 1)',
-    '主观':         f'(trend_score > 0 or trend_score_change > 0.5) and trigger_score > 0 and (short_day > 0 or( adx_direction > 0 and adx_value < 0))'
+    # '主观':         f'(trend_direction > 0) and (trigger_score > 0) and (adx_direction > 0)'
     } 
   for c in potential_conditions.keys():
     tmp_condition = potential_conditions[c]
     tmp_idx = df.query(tmp_condition).index
-    df.loc[tmp_idx, 'potential'] = 'potential'
-    df.loc[tmp_idx, 'potential_score'] += 1
+    if 'up' in c:
+      df.loc[tmp_idx, 'potential'] = 'potential'
+      df.loc[tmp_idx, 'potential_score'] += 1
+    elif 'down' in c:
+      df.loc[tmp_idx, 'potential_score'] -= 1
     df.loc[tmp_idx, 'potential_description'] += f'{c}, '
 
-  # remove false alarm
-  none_potential_idx = []
-  none_potential_conditions = {
-    # '价格下跌':       f'potential == "potential" and ((rate < -0.05) or (shadow_trend == "u" and upper_shadow_trend == "u") or (candle_color == -1 and entity_trend == "u"))',
-    # '短暂反弹':       f'potential == "potential" and ((adx_diff_ma < 0 and (adx_direction_day == 1 or (adx_direction_day < 0 and adx_value_change > 0) or adx_value_change < 0)) and ((ichimoku_distance <= 0 or ichimoku_distance_day <= -3) and (kama_distance <= 0 or kama_distance_day <= -3)))',
-    # '趋势下降':       f'potential == "potential" and ((trend_score == -3) or (trend_score < 0 and trigger_score <= 0))',
-    } 
+  # # remove false alarm
+  # none_potential_idx = []
+  # none_potential_conditions = {
+  #   # '价格下跌':       f'potential == "potential" and ((rate < -0.05) or (shadow_trend == "u" and upper_shadow_trend == "u") or (candle_color == -1 and entity_trend == "u"))',
+  #   # '短暂反弹':       f'potential == "potential" and ((adx_diff_ma < 0 and (adx_direction_day == 1 or (adx_direction_day < 0 and adx_value_change > 0) or adx_value_change < 0)) and ((ichimoku_distance <= 0 or ichimoku_distance_day <= -3) and (kama_distance <= 0 or kama_distance_day <= -3)))',
+  #   # '趋势下降':       f'potential == "potential" and ((trend_score == -3) or (trend_score < 0 and trigger_score <= 0))',
+  #   } 
 
-  if 'linear_slope' in df.columns:
-    none_potential_conditions['linear wave'] = f'potential == "potential" and (linear_fit_high_slope == 0 and linear_fit_low_slope == 0)'
+  # if 'linear_slope' in df.columns:
+  #   none_potential_conditions['linear wave'] = f'potential == "potential" and (linear_fit_high_slope == 0 and linear_fit_low_slope == 0)'
 
-  for c in none_potential_conditions.keys():
-    tmp_condition = none_potential_conditions[c]
-    tmp_idx = df.query(tmp_condition).index
-    none_potential_idx += tmp_idx.tolist()
-    df.loc[tmp_idx, 'potential_score'] += -1
-    df.loc[tmp_idx, 'potential_description'] += f'{c}, '
-  none_potential_idx = list(set(none_potential_idx))
-  df.loc[none_potential_idx, 'potential'] = ''
+  # for c in none_potential_conditions.keys():
+  #   tmp_condition = none_potential_conditions[c]
+  #   tmp_idx = df.query(tmp_condition).index
+  #   none_potential_idx += tmp_idx.tolist()
+  #   df.loc[tmp_idx, 'potential_score'] += -1
+  #   df.loc[tmp_idx, 'potential_description'] += f'{c}, '
+  # none_potential_idx = list(set(none_potential_idx))
+  # df.loc[none_potential_idx, 'potential'] = ''
   df['potential_description'] = df['potential_description'].apply(lambda x: x[:-2])
 
   # ================================ calculate signal =======================
@@ -4990,7 +5003,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     # trigger_score
     tmp_data = df.query(f'(trigger_score < 0)')
     tmp_alpha = normalize(tmp_data['trigger_score'].abs())
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='red', alpha=tmp_alpha)
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='red', alpha=tmp_alpha)
 
     # tmp_data = df.query(f'(bb_day == -1)')
     # ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='orange', alpha=0.5)
