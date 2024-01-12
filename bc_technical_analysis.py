@@ -1113,7 +1113,7 @@ def calculate_ta_signal(df):
   df['potential_description'] = ''
   potential_conditions = {
     'down_1':       f'(trigger_score < 0) and (trend_direction < 0)',
-    'up_1':         f'(trigger_score > 0) and (trend_direction > 0) and (adx_direction > 0) and (adx_strong_day > 0 or adx_strength_change > 0)',
+    'up_1':         f'(trigger_score > 0) and (trend_direction > 0) and (adx_direction > 0) and (adx_strong_day > 0 or adx_wave_day == 0)',
     # '触发':         f'(((0 < trigger_day < 5 and trigger_score > 0.3) or (trigger_day == 1)) and (trend_score_change > 0 and (trend_score > 0 or (trend_score > -0.5 and short_day > 0)))) ',
     # '超卖':         f'(0 < bb_day < 5 and candle_color == 1)',
     # '主观':         f'(trend_direction > 0) and (trigger_score > 0) and (adx_direction > 0)'
