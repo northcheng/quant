@@ -839,6 +839,7 @@ class Tiger(Trader):
 
     # get local timezone
     tz = pytz.timezone(tz)
+    now = datetime.datetime.now()
     
     # get US market trade time
     try:
@@ -850,11 +851,21 @@ class Tiger(Trader):
 
       # if program runs after market open, api will return trade time for next trade day, 
       # trade time for current trade day need to be calculated manually
-      if status.status in ['Trading', 'Post-Market Trading']:
+      if status.status in ['Trading']:
+        if now.hour < 12:
+          origin_date = now.date() - datetime.timedelta(1)
+        else:
+          origin_date = now.date()
+        open_time = open_time.replace(year=origin_date.year, month=origin_date.month, day=origin_date.day) 
+
+      elif status.staus in ['Post-Market Trading']:
         if open_time.weekday() == 0:
           open_time = open_time - datetime.timedelta(days=3)
         else:
           open_time = open_time - datetime.timedelta(days=1)
+
+      else:
+        self.logger.error(f'No method for status [{status.status}]')
 
       # calculate close time, pre_open_time, post_close_time
       close_time = open_time + datetime.timedelta(hours=6.5) #  + close_time_adj
@@ -879,7 +890,11 @@ class Tiger(Trader):
 
       # if program runs after market open, api will return trade time for next trade day, 
       # trade time for current trade day need to be calculated manually 
-      if (cn_status.status in ['Trading', 'Post-Market Trading']) or (cn_status.status in ['Closed', 'Noon Closed'] and pre_open_time < cn_open_time):
+      if cn_status.status in ['Trading']:
+        origin_date = now.date()
+        cn_open_time = cn_open_time.replace(year=origin_date.year, month=origin_date.month, day=origin_date.day) 
+
+      elif (cn_status.status in ['Post-Market Trading']) or (cn_status.status in ['Closed', 'Noon Closed'] and pre_open_time < cn_open_time):
         if cn_open_time.weekday() == 0:
           cn_open_time = cn_open_time - datetime.timedelta(days=3)
         else:
