@@ -858,7 +858,7 @@ class Tiger(Trader):
           origin_date = now.date()
         open_time = open_time.replace(year=origin_date.year, month=origin_date.month, day=origin_date.day) 
 
-      elif status.staus in ['Post-Market Trading']:
+      elif status.status in ['Post-Market Trading']:
         if open_time.weekday() == 0:
           open_time = open_time - datetime.timedelta(days=3)
         else:
