@@ -1112,11 +1112,11 @@ def calculate_ta_signal(df):
   df['potential_score'] = 0
   df['potential_description'] = ''
   potential_conditions = {
-    'down_1':       f'(trigger_score < 0) and (trend_direction < 0)',
     'up_1':         f'(trigger_score > 0) and (trend_direction > 0) and (adx_direction > 0) and (adx_strong_day > 0 or adx_wave_day == 0)',
-    # '触发':         f'(((0 < trigger_day < 5 and trigger_score > 0.3) or (trigger_day == 1)) and (trend_score_change > 0 and (trend_score > 0 or (trend_score > -0.5 and short_day > 0)))) ',
-    # '超卖':         f'(0 < bb_day < 5 and candle_color == 1)',
-    # '主观':         f'(trend_direction > 0) and (trigger_score > 0) and (adx_direction > 0)'
+    # 'up_2':         f'(trigger_score > 0) and (trend_direction > 0) and (trend_direction_day >= 2)',
+    'down_1':       f'(trigger_score < 0) and (trend_direction < 0)',
+    # 'down_2':       f'(trend_direction < 0) and (trend_score < 0)',
+    # 'down_3':       f'(trend_direction < 0) and (candle_upper_shadow_pct > 0.5)',
     } 
   for c in potential_conditions.keys():
     tmp_condition = potential_conditions[c]
@@ -1155,38 +1155,39 @@ def calculate_ta_signal(df):
   df['signal_description'] = ''
   df['signal_day'] = 0
 
-  # conditions = {
-  #   'buy':          '(trend_score_change > 0 and trigger_score > 0)',
-  #   'sell':         '(trend_score_change < 0 and trigger_score < 0)',
-  # } 
-  # values = {
-  #   'buy':          'b',
-  #   'sell':         's',
-  # }
-  # df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
+  conditions = {
+    'buy':          '(potential_score > 0)',
+    'sell':         '(potential_score < 0)',
+  } 
+  values = {
+    'buy':          'b',
+    'sell':         's',
+  }
+  df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
 
-  # # disable some false alarms
-  # none_signal_idx = []
-  # none_signal_conditions = {
-  #   # '趋势不明':        '(signal == "b") and ((inday_trend_score < 0 and potential != "potential") or (trend_score < 0.5 and short_day == 1))',
-  #   # '短期趋势下降':     '(signal == "b") and ((short_trend_score < -1 and inday_trend_score <= 0))',
-  #   # '整体趋势波动':     '(signal == "b") and (trend_score < 0.5 and major_score < 0)',
-  #   # '超卖':             '(signal == "b") and (bb_day == -1)and ((inday_trend_score <=0 or major_score < 3) or (trend_score_change < 0 and inday_trend_score < 0))',
-  #   # '低位波动':         '(signal == "b") and (position_score == -4)',
-  #   '弱势波动':         '(signal == "b") and ((-10 < adx_direction_start < 10) and (adx_strong_day < 0) and (adx_direction < 5 or adx_value_change < 0.1))',
-  # } 
-  # for c in none_signal_conditions.keys():
-  #   tmp_condition = none_signal_conditions[c]
-  #   tmp_idx = df.query(tmp_condition).index
-  #   none_signal_idx += tmp_idx.tolist()
-  #   df.loc[tmp_idx, 'signal_description'] += f'{c}, '
-  # none_signal_idx = list(set(none_signal_idx))
-  # df.loc[none_signal_idx, 'signal'] = ''
-  # df['signal_description'] = df['signal_description'].apply(lambda x: x[:-2])
+  # disable some false alarms
+  none_signal_idx = []
+  none_signal_conditions = {
+    '低位':           '(ichimoku_distance < -0.1 or kama_distance < -0.15)',
+    # '趋势不明':        '(signal == "b") and ((inday_trend_score < 0 and potential != "potential") or (trend_score < 0.5 and short_day == 1))',
+    # '短期趋势下降':     '(signal == "b") and ((short_trend_score < -1 and inday_trend_score <= 0))',
+    # '整体趋势波动':     '(signal == "b") and (trend_score < 0.5 and major_score < 0)',
+    # '超卖':             '(signal == "b") and (bb_day == -1)and ((inday_trend_score <=0 or major_score < 3) or (trend_score_change < 0 and inday_trend_score < 0))',
+    # '低位波动':         '(signal == "b") and (position_score == -4)',
+    # '弱势波动':         '(signal == "b") and ((-10 < adx_direction_start < 10) and (adx_strong_day < 0) and (adx_direction < 5 or adx_value_change < 0.1))',
+  } 
+  for c in none_signal_conditions.keys():
+    tmp_condition = none_signal_conditions[c]
+    tmp_idx = df.query(tmp_condition).index
+    none_signal_idx += tmp_idx.tolist()
+    df.loc[tmp_idx, 'signal_description'] += f'{c}, '
+  none_signal_idx = list(set(none_signal_idx))
+  df.loc[none_signal_idx, 'signal'] = ''
+  df['signal_description'] = df['signal_description'].apply(lambda x: x[:-2])
 
-  # # calculate signal day
-  # df['signal_day'] = sda(df['signal'].replace({'b': 1, 's': -1, '': 0}), zero_as=1)
-  # df = remove_redundant_signal(df=df, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='', keep='first')
+  # calculate signal day
+  df['signal_day'] = sda(df['signal'].replace({'b': 1, 's': -1, '': 0}), zero_as=1)
+  df = remove_redundant_signal(df=df, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='', keep='first')
 
   return df
 
