@@ -74,9 +74,9 @@
           "short_signal",
           "inday_signal",
           "-----",
-          "trend_direction",
           "signal",
-          "b&s",
+          "trend_direction",
+          "trigger",
           " "
           
         ]
