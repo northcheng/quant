@@ -44,7 +44,7 @@
   "visualization": {
     "plot_args": {
       "plot_ratio": {
-        "signals": 2, "adx": 2.5,
+        "signals": 2.2, "adx": 2.3,
         "main_indicators": 11, "volume":1
       },
       
@@ -73,12 +73,12 @@
           "middle_signal",
           "short_signal",
           "inday_signal",
-          "-----",
-          "signal",
-          "trend_direction",
-          "trigger",
-          " "
           
+          "-----",
+          "-",
+          "signal",
+          "+",
+          " "
         ]
       },
       "candle": {

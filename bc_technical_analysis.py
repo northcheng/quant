@@ -963,6 +963,9 @@ def calculate_ta_score(df):
     '+平头':        [s, '', '(平头_day == 1)'],
     '-平头':        [-s, '', '(平头_day == -1)'],
 
+    '+吞噬':        [s, '', '(吞噬_day == 1)'],
+    '-吞噬':        [-s, '', '(吞噬_day == -1)'],
+
     '+锤子':        [s, '', '(锤子_day == 1)'],
     '-锤子':        [-s, '', '(锤子_day == -1)'],
 
@@ -994,12 +997,12 @@ def calculate_ta_score(df):
   
   # ================================ calculate trigger/position score =======
   # trigger score and description, position score
-  for col in ['tankan_day', 'kama_fast_day', 'kijun_day', 'kama_slow_day']:
+  for col in ['tankan_day', 'kama_fast_day', 'kijun_day', 'kama_slow_day', '平头_day', '启明黄昏_day']:
     col_desc = '_'.join(col.split('_')[0:-1])
     
     # trigger score
-    valid_pos_idx = df.query(f'0 < {col} <= 3').index
-    valid_neg_idx = df.query(f'-3 <= {col} < 0').index
+    valid_pos_idx = df.query(f'0 < {col} <= 1').index
+    valid_neg_idx = df.query(f'-1 <= {col} < 0').index
     df.loc[valid_pos_idx, 'trigger_score'] += df.loc[valid_pos_idx, col].apply(lambda x: 0 if (np.isnan(x) or x == 0) else 1/x)
     df.loc[valid_neg_idx, 'trigger_score'] += df.loc[valid_neg_idx, col].apply(lambda x: 0 if (np.isnan(x) or x == 0) else 1/x)
     df.loc[valid_pos_idx, 'trigger_score_description'] += f'+{col_desc}, '
@@ -1065,6 +1068,7 @@ def calculate_ta_signal(df):
 
   # add ta score and description
   df = calculate_ta_score(df)
+  df['trend_status'] = 0
   
   # ================================ calculate trend ========================
   for term in ['inday', 'short', 'middle', 'long', '']:
@@ -1074,6 +1078,10 @@ def calculate_ta_signal(df):
     day_col = f'{term}_day' if term != '' else 'trend_day'
 
     df[score_col] = df[score_col].round(2)
+
+    # trend status
+    if term != '':
+      df['trend_status'] += (df[score_col] > 0).replace({True:1, False:0})
 
     # term trend
     term_trend_conditions = {
@@ -1112,7 +1120,7 @@ def calculate_ta_signal(df):
   df['potential_score'] = 0
   df['potential_description'] = ''
   potential_conditions = {
-    'up_1':         f'(trigger_score > 0) and (trend_direction > 0) and (short_trend_score > 0)',
+    'up_1':         f'(trigger_score > 0) and (trend_direction > 0) and (short_trend_score_change > 0)',
     # 'up_2':         f'(trigger_score > 0) and (trend_direction > 0) and (trend_direction_day >= 2)',
     'down_1':       f'(trigger_score < 0) and (trend_direction < 0) and (short_trend_score < 0 or inday_trend_score < 0)',
     # 'down_2':       f'(trend_direction < 0) and (trend_score < 0)',
@@ -1155,39 +1163,42 @@ def calculate_ta_signal(df):
   df['signal_description'] = ''
   df['signal_day'] = 0
 
-  conditions = {
-    'buy':          '(potential_score > 0)',
-    'sell':         '(potential_score < 0)',
-  } 
-  values = {
-    'buy':          'b',
-    'sell':         's',
-  }
-  df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
+  # conditions = {
+  #   'buy':          '(potential_score > 0)',
+  #   'sell':         '(potential_score < 0)',
+  # } 
+  # values = {
+  #   'buy':          'b',
+  #   'sell':         's',
+  # }
+  # df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
 
-  # disable some false alarms
-  none_signal_idx = []
-  none_signal_conditions = {
-    '低位':           '(ichimoku_distance < -0.15 or kama_distance < -0.15)',
-    # '趋势不明':        '(signal == "b") and ((inday_trend_score < 0 and potential != "potential") or (trend_score < 0.5 and short_day == 1))',
-    # '短期趋势下降':     '(signal == "b") and ((short_trend_score < 0))',
-    # '整体趋势波动':     '(signal == "b") and (trend_score < 0.5 and major_score < 0)',
-    # '超卖':             '(signal == "b") and (bb_day == -1)and ((inday_trend_score <=0 or major_score < 3) or (trend_score_change < 0 and inday_trend_score < 0))',
-    # '低位波动':         '(signal == "b") and (position_score == -4)',
-    # '弱势波动':         '(signal == "b") and ((-10 < adx_direction_start < 10) and (adx_strong_day < 0) and (adx_direction < 5 or adx_value_change < 0.1))',
-  } 
-  for c in none_signal_conditions.keys():
-    tmp_condition = none_signal_conditions[c]
-    tmp_idx = df.query(tmp_condition).index
-    none_signal_idx += tmp_idx.tolist()
-    df.loc[tmp_idx, 'signal_description'] += f'{c}, '
-  none_signal_idx = list(set(none_signal_idx))
-  df.loc[none_signal_idx, 'signal'] = ''
-  df['signal_description'] = df['signal_description'].apply(lambda x: x[:-2])
+  # # disable some false alarms
+  # none_signal_idx = []
+  # none_signal_conditions = {
+  #   # '阻挡':             '(signal == "b") and (candle_upper_shadow_pct > 0.25 and resistant_score < 0)',
+  #   # '支撑':             '(signal == "s") and (candle_lower_shadow_pct > 0.25 and candle_lower_shadow_pct > candle_upper_shadow_pct and support_score > 0)'
+  #   '低位1':           '(signal == "b") and (ichimoku_distance < 0 and kama_distance < 0) and (ichimoku_distance < -0.15 or kama_distance < -0.15)',
+  #   '低位2':           '(signal == "b") and ((ichimoku_distance < 0 and kama_distance > 0) or (ichimoku_distance > 0 and kama_distance < 0)) and (ichimoku_distance < -0.1 or kama_distance < -0.1)',
+  #   # '趋势不明':        '(signal == "b") and ((inday_trend_score < 0 and potential != "potential") or (trend_score < 0.5 and short_day == 1))',
+  #   # '短期趋势下降':     '(signal == "b") and ((short_trend_score < 0))',
+  #   # '整体趋势波动':     '(signal == "b") and (trend_score < 0.5 and major_score < 0)',
+  #   # '超卖':             '(signal == "b") and (bb_day == -1)and ((inday_trend_score <=0 or major_score < 3) or (trend_score_change < 0 and inday_trend_score < 0))',
+  #   # '低位波动':         '(signal == "b") and (position_score == -4)',
+  #   # '弱势波动':         '(signal == "b") and ((-10 < adx_direction_start < 10) and (adx_strong_day < 0) and (adx_direction < 5 or adx_value_change < 0.1))',
+  # } 
+  # for c in none_signal_conditions.keys():
+  #   tmp_condition = none_signal_conditions[c]
+  #   tmp_idx = df.query(tmp_condition).index
+  #   none_signal_idx += tmp_idx.tolist()
+  #   df.loc[tmp_idx, 'signal_description'] += f'{c}, '
+  # none_signal_idx = list(set(none_signal_idx))
+  # df.loc[none_signal_idx, 'signal'] = ''
+  # df['signal_description'] = df['signal_description'].apply(lambda x: x[:-2])
 
-  # calculate signal day
-  df['signal_day'] = sda(df['signal'].replace({'b': 1, 's': -1, '': 0}), zero_as=1)
-  # df = remove_redundant_signal(df=df, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='', keep='first')
+  # # calculate signal day
+  # df['signal_day'] = sda(df['signal'].replace({'b': 1, 's': -1, '': 0}), zero_as=1)
+  # # df = remove_redundant_signal(df=df, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='', keep='first')
 
   return df
 
@@ -4960,8 +4971,8 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
       tmp_up = df.query(f'{score_col} > 0')
       tmp_down = df.query(f'{score_col} < 0')
 
-      pos_marker = 's' if signal_x == 'signal' else 'x'
-      neg_marker = 's' if signal_x == 'signal' else 'x'
+      pos_marker = 's' if signal_x == 'signal' else '.'
+      neg_marker = 's' if signal_x == 'signal' else '|'
 
       if len(tmp_up) > 0:
         facecolor = 'green'
@@ -4986,12 +4997,20 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     plt.annotate(f'{signal_x.replace("_signal", "")}:{text_day} ', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
   # overbuy and oversell
-  if signal_x == 'trigger':
+  if signal_x == '+':
+
+    # trend direction up
+    tmp_data = df.query(f'(trend_direction > 0)')
+    tmp_alpha = normalize(tmp_data['trend_direction'].abs())
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='green', alpha=tmp_alpha)
 
     # trigger_score
     tmp_data = df.query(f'(trigger_score > 0)')
     tmp_alpha = normalize(tmp_data['trigger_score'].abs())
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='green', alpha=tmp_alpha)
+    # tmp_alpha[tmp_alpha < 0.2] = 0.2
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='green', alpha=tmp_alpha)
+
+    
 
     # plot potential
     # tmp_data = df.query(f'potential == "potential"')
@@ -5001,13 +5020,22 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     # tmp_data = df.query(f'(bb_day == 1)')
     # ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='orange', alpha=0.5) # color='none', edge
 
+    # tmp_data = df.query(f'(bb_day == -1)')
+    # ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='orange', alpha=0.5)
+
+  # trend direction
+  if signal_x == '-':
+    
+    # trend direction down
+    tmp_data = df.query(f'(trend_direction < 0)')
+    tmp_alpha = normalize(tmp_data['trend_direction'].abs())
+    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', alpha=tmp_alpha)
+
     # trigger_score
     tmp_data = df.query(f'(trigger_score < 0)')
     tmp_alpha = normalize(tmp_data['trigger_score'].abs())
+    # tmp_alpha[tmp_alpha < 0.2] = 0.2
     ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='red', alpha=tmp_alpha)
-
-    # tmp_data = df.query(f'(bb_day == -1)')
-    # ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='orange', alpha=0.5)
 
   # buy and sell
   if signal_x == ' ':
@@ -5016,19 +5044,6 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
     sell_data = df.query('signal == "s"')
     ax.scatter(sell_data.index, sell_data[signal_y], marker='v', color='none', edgecolor='red', alpha=0.5)
-
-  # trend direction
-  if signal_x == 'trend_direction':
-    
-    # trend direction down
-    tmp_data = df.query(f'(trend_direction > 0)')
-    tmp_alpha = normalize(tmp_data['trend_direction'].abs())
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='green', alpha=tmp_alpha)
-
-    # trend direction up
-    tmp_data = df.query(f'(trend_direction < 0)')
-    tmp_alpha = normalize(tmp_data['trend_direction'].abs())
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='red', alpha=tmp_alpha)
 
   # plot renko
   # if False: # signal_x == 'b':
