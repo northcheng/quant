@@ -75,9 +75,10 @@
           "inday_signal",
           
           "-----",
-          "-",
+
           "signal",
-          "+",
+          "direction",
+          "trigger",
           " "
         ]
       },
