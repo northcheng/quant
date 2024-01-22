@@ -1102,19 +1102,19 @@ def calculate_ta_signal(df):
     # term trend score change
     df = cal_change(df=df, target_col=score_col, periods=1, add_accumulation=False, add_prefix=True)
 
-  # # trend direction
-  # df['trend_direction'] = df['trend_score_change'].copy()
-  # df['trend_direction'] = sda(df['trend_direction'], zero_as=0)
-  # trend_direction_conditions = {
-  #   'pos':    f'trend_direction > 0.0', 
-  #   'neg':    f'trend_direction < 0.0',
-  # } 
-  # position_values = {
-  #   'pos':    1, 
-  #   'neg':    -1,
-  # }
-  # df = assign_condition_value(df=df, column='trend_direction_day', condition_dict=trend_direction_conditions, value_dict=position_values, default_value=0)
-  # df['trend_direction_day'] = sda(series=df['trend_direction_day'], zero_as=1)
+  # trend direction
+  df['trend_direction'] = df['trend_score_change'].copy()
+  df['trend_direction'] = sda(df['trend_direction'], zero_as=0)
+  trend_direction_conditions = {
+    'pos':    f'trend_direction > 0.0', 
+    'neg':    f'trend_direction < 0.0',
+  } 
+  position_values = {
+    'pos':    1, 
+    'neg':    -1,
+  }
+  df = assign_condition_value(df=df, column='trend_direction_day', condition_dict=trend_direction_conditions, value_dict=position_values, default_value=0)
+  df['trend_direction_day'] = sda(series=df['trend_direction_day'], zero_as=1)
 
   # ================================ calculate potential ====================
   # label score
