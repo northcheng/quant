@@ -689,7 +689,7 @@ def get_real_time_data_from_easyquotation(symbols, source='sina'):
   :raises: exception when downloading failed
   """
 
-  df = pd.DataFrame()
+  df = pd.DataFrame(columns=['Open', 'High', 'Low', 'Close', 'Volume', 'Date'])
 
   # create quoataion entity
   quotation = eq.use(source)
@@ -698,7 +698,7 @@ def get_real_time_data_from_easyquotation(symbols, source='sina'):
   # get stock data
   codes = [x.split('.')[0] for x in symbols]
   qt = quotation.stocks(codes) 
-  df = pd.DataFrame(qt).T
+  df = pd.DataFrame(qt).T if len(qt) > 0 else df
 
   idxs = df.index.tolist()
   idx_symbols = [x for x in symbols if x.split('.')[0] in idxs]
@@ -1199,7 +1199,6 @@ def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', req
     else:
       # get real-time data from easyquotation, convert it into time-series data
       real_time_data = get_real_time_data_from_easyquotation(symbols=symbols)
-
     # append it corresponding eod data according to symbols
     for symbol in symbols:
       tmp_data = real_time_data.query(f'symbol == "{symbol}"')[data[symbol].columns].copy()
