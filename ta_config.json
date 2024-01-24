@@ -164,7 +164,7 @@
       "signal": "交易信号"
     },
     "drop_columns": [],
-    "send_columns": ["名称", "涨跌", "趋势分数", "触发分数"],
+    "send_columns": ["名称", "涨跌", "趋势分数", "趋势变化分数", "触发分数"],
     "save_result": true,
     "save_data": true,
     "save_pdf": true
