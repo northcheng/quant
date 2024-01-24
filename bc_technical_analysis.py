@@ -1215,14 +1215,13 @@ def calculate_ta_signal(df):
     tmp_condition = none_signal_conditions[c]
     tmp_idx = df.query(tmp_condition).index
     df.loc[tmp_idx, 'signal_description'] += f'{c}, '
-
-    # none_signal_idx += tmp_idx.tolist()    
-  # none_signal_idx = list(set(none_signal_idx))
-  # df.loc[none_signal_idx, 'signal'] = ''
+    none_signal_idx += tmp_idx.tolist()    
+  none_signal_idx = list(set(none_signal_idx))
+  df.loc[none_signal_idx, 'signal'] = 'n' + df.loc[none_signal_idx, 'signal']
   df['signal_description'] = df['signal_description'].apply(lambda x: x[:-2])
 
   # calculate signal day
-  df['signal_day'] = sda(df['signal'].replace({'b': 1, 's': -1, '': 0}), zero_as=1)
+  df['signal_day'] = sda(df['signal'].replace({'b': 1, 's': -1, '': 0, 'nb': 0, 'ns': 0}), zero_as=1)
   # df = remove_redundant_signal(df=df, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='', keep='first')
 
   return df
@@ -5068,16 +5067,16 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
   # buy and sell
   if signal_x == ' ':
-    buy_data = df.query('signal == "b" and signal_description == ""')
+    buy_data = df.query('signal == "b"')
     ax.scatter(buy_data.index, buy_data[signal_y], marker='^', color='none', edgecolor='green', alpha=0.5)
 
-    buy_data = df.query('signal == "b" and signal_description > ""')
+    buy_data = df.query('signal == "nb"')
     ax.scatter(buy_data.index, buy_data[signal_y], marker='^', color='none', edgecolor='orange', alpha=0.5)
 
-    sell_data = df.query('signal == "s" and signal_description == ""')
+    sell_data = df.query('signal == "s"')
     ax.scatter(sell_data.index, sell_data[signal_y], marker='v', color='none', edgecolor='red', alpha=0.5)
 
-    sell_data = df.query('signal == "s" and signal_description > ""')
+    sell_data = df.query('signal == "ns"')
     ax.scatter(sell_data.index, sell_data[signal_y], marker='v', color='none', edgecolor='orange', alpha=0.5)
 
   # plot renko
