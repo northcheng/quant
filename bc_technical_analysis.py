@@ -1188,7 +1188,6 @@ def calculate_ta_signal(df):
   none_signal_idx = []
   none_signal_conditions = {
     '上影线':           '(signal == "b") and ((candle_upper_shadow_pct > 0.5 and (rate < 0)) or (candle_entity_pct > 0.9 and candle_color == -1))',
-    # '下影线'
 
     '低位_renko':       '(signal == "b") and (trend_position == "l" and renko_real != "green" and candle_entity_middle < renko_h)',
     '高位_renko':       '(signal == "s") and (trend_position == "h" and renko_real != "red" and candle_entity_middle > renko_h)',
@@ -1196,20 +1195,8 @@ def calculate_ta_signal(df):
     '高位_adx':         '(signal == "b") and (adx_value > 0 and adx_strength_change < 0 ) and (adx_value_change < 0 or adx_direction_day == 1)',
     '低位_adx':         '(signal == "b") and (adx_value < 0 and adx_strength_change < 0 ) and (adx_direction_day == 1)',
 
-    # '支撑':             '(signal == "s") and (candle_lower_shadow_pct > 0.25 and candle_lower_shadow_pct > candle_upper_shadow_pct and support_score > 0)'
-    # '低位1':           '(signal == "b") and (ichimoku_distance < 0 and kama_distance < 0) and (ichimoku_distance < -0.15 or kama_distance < -0.15)',
-    # '低位2':           '(signal == "b") and ((ichimoku_distance < 0 and kama_distance > 0) or (ichimoku_distance > 0 and kama_distance < 0)) and (ichimoku_distance < -0.1 or kama_distance < -0.1)',
-    # 'adx下降':         '(signal == "b") and (adx_value_change < 0.5 and adx_direction_day < 1)',
-    # 'adx上升':         '(signal == "s") and (adx_value_change > 1 and adx_direction_day > 0)',
-    # 'adx波动':         '(signal == "b") and (-10 < adx_value < 10 > 1 and (adx_strong_day < 0 or adx_wave_day > 0) and (trigger_score <=0 or trend_score_change <=0))',
     'ichimoku_must':    '(signal == "b") and (Close < cloud_bottom and tankan_day < 0)',
     'ichimoku_kama':    '(signal == "b") and (ichimoku_distance < 0 and kama_distance > 0 and kijun > kama_fast)',
-    # '趋势不明':        '(signal == "b") and ((inday_trend_score < 0 and potential != "potential") or (trend_score < 0.5 and short_day == 1))',
-    # '短期趋势下降':     '(signal == "b") and ((short_trend_score < 0))',
-    # '整体趋势波动':     '(signal == "b") and (trend_score < 0.5 and major_score < 0)',
-    # '超卖':             '(signal == "b") and (bb_day == -1)and ((inday_trend_score <=0 or major_score < 3) or (trend_score_change < 0 and inday_trend_score < 0))',
-    # '低位波动':         '(signal == "b") and (position_score == -4)',
-    # '弱势波动':         '(signal == "b") and ((-10 < adx_direction_start < 10) and (adx_strong_day < 0) and (adx_direction < 5 or adx_value_change < 0.1))',
   } 
   for c in none_signal_conditions.keys():
     tmp_condition = none_signal_conditions[c]
@@ -5043,27 +5030,6 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     tmp_alpha = normalize(tmp_data['trigger_score'].abs())
     # tmp_alpha[tmp_alpha < 0.2] = 0.2
     ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', alpha=tmp_alpha)
-
-  # # trend position
-  # if signal_x == '-----':
-
-  #   # trend position up
-  #   tmp_data = df.query(f'(trend_position == "d")')
-  #   # tmp_alpha = normalize(tmp_data['trigger_score'].abs())
-  #   # tmp_alpha[tmp_alpha < 0.2] = 0.2
-  #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='x', color='green', alpha=0.5)
-
-  #   # trend position down
-  #   tmp_data = df.query(f'(trend_position == "u")')
-  #   # tmp_alpha = normalize(tmp_data['trigger_score'].abs())
-  #   # tmp_alpha[tmp_alpha < 0.2] = 0.2
-  #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='x', color='red', alpha=0.5)
-
-  #   # trend position none
-  #   tmp_data = df.query(f'(trend_position == "n")')
-  #   # tmp_alpha = normalize(tmp_data['trigger_score'].abs())
-  #   # tmp_alpha[tmp_alpha < 0.2] = 0.2
-  #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='x', color='yellow', alpha=0.5)
 
   # buy and sell
   if signal_x == ' ':
