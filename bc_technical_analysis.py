@@ -1189,11 +1189,11 @@ def calculate_ta_signal(df):
   none_signal_conditions = {
     '上影线':           '(signal == "b") and ((candle_upper_shadow_pct > 0.5 and (rate < 0)) or (candle_entity_pct > 0.9 and candle_color == -1))',
 
-    '低位_renko':       '(signal == "b") and (trend_position == "l" and renko_real != "green" and candle_entity_middle < renko_h)',
-    '高位_renko':       '(signal == "s") and (trend_position == "h" and renko_real != "red" and candle_entity_middle > renko_h)',
+    'renko_低位':       '(signal == "b") and (trend_position == "l" and renko_real != "green" and candle_entity_middle < renko_h and ichimoku_distance < -0.05)',
+    'renko_高位':       '(signal == "s") and (trend_position == "h" and renko_real != "red" and candle_entity_middle > renko_h and kama_distance > 0)',
 
-    '高位_adx':         '(signal == "b") and (adx_value > 0 and adx_strength_change < 0 ) and (adx_value_change < 0 or adx_direction_day == 1)',
-    '低位_adx':         '(signal == "b") and (adx_value < 0 and adx_strength_change < 0 ) and (adx_direction_day == 1)',
+    'adx_下行':         '(signal == "b") and (adx_value_change < 0) and (adx_strength_change < 0 or adx_wave_day > 0)',
+    'adx_上行':         '(signal == "b") and (adx_value_change > 0) and ((adx_value > 0 and adx_power_day < 0) or (adx_direction_day == 1 and adx_wave_day > 0))',
 
     'ichimoku_must':    '(signal == "b") and (Close < cloud_bottom and tankan_day < 0)',
     'ichimoku_kama':    '(signal == "b") and (ichimoku_distance < 0 and kama_distance > 0 and kijun > kama_fast)',
