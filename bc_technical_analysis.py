@@ -1136,6 +1136,8 @@ def calculate_ta_signal(df):
   potential_conditions = {
     'up_1':         f'(trigger_score > 0) and (trend_score_change > 0) and (short_trend_score_change > 0 or inday_trend_score_change > 0)',
     'down_1':       f'(trigger_score < 0) and (trend_score_change < 0) and (short_trend_score_change < 0 or inday_trend_score_change < 0)',
+    'up_2':         f'(trend_score > 0 and trend_status == 4 and trend_score_change > 0)',
+    'down_2':       f'(trend_score < 0 and trend_status < 0 and trend_score_change < 0)',
     } 
   for c in potential_conditions.keys():
     tmp_condition = potential_conditions[c]
@@ -1187,16 +1189,19 @@ def calculate_ta_signal(df):
   # disable some false alarms
   none_signal_idx = []
   none_signal_conditions = {
-    '上影线':           '(signal == "b") and ((candle_upper_shadow_pct > 0.5 and (rate < 0)) or (candle_entity_pct > 0.9 and candle_color == -1))',
 
-    'renko_低位':       '(signal == "b") and (trend_position == "l" and renko_real != "green" and candle_entity_middle < renko_h and ichimoku_distance < -0.05)',
-    'renko_高位':       '(signal == "s") and (trend_position == "h" and renko_real != "red" and candle_entity_middle > renko_h and kama_distance > 0)',
+    '上影线':           '(signal == "b") and ((candle_upper_shadow_pct > 0.5 and (rate < 0 or resistant_score < 0)) or (candle_entity_pct > 0.9 and candle_color == -1))',
 
-    'adx_下行':         '(signal == "b") and (adx_value_change < 0) and (adx_strength_change < 0 or adx_wave_day > 0)',
-    'adx_上行':         '(signal == "b") and (adx_value_change > 0) and ((adx_value > 0 and adx_power_day < 0) or (adx_direction_day == 1 and adx_wave_day > 0))',
+    'renko_低位':       '(signal == "b") and (trend_position == "l" and renko_real != "green" and (candle_entity_middle < renko_h or adx_direction_day <= 1 or adx_direction_day == 1 or candle_color == -1) and ichimoku_distance < -0.05)',
+    'renko_高位':       '(signal == "s") and (trend_position == "h" and renko_real != "red" and candle_entity_middle > renko_h and kama_distance > 0) and (support_score > 0 or break_down_score == 0) and (trigger_score_description != "-启明黄昏")',
 
-    'ichimoku_must':    '(signal == "b") and (Close < cloud_bottom and tankan_day < 0)',
-    'ichimoku_kama':    '(signal == "b") and (ichimoku_distance < 0 and kama_distance > 0 and kijun > kama_fast)',
+    'adx_下行':         '(signal == "b") and (adx_value_change < 0) and (adx_strength_change < 0 or adx_wave_day > 0 or (adx_value > 10 and adx_direction < -1))',
+    'adx_上行':         '(signal == "b") and (adx_value_change > 0) and ((adx_value > 0 and adx_power_day < 0 and adx_direction_start > -5) or (adx_direction_day == 1 and adx_wave_day > 0)) and (trigger_score < 1.5)',
+    'adx_初始':         '(signal == "b" or signal == "s") and (adx_power_day == 0)',
+    'adx_波动':         '(signal == "b" or signal == "s") and (-10 < adx_direction_start < 10 and adx_strong_day < 0 and adx_wave_day > 0)',
+
+    'ichimoku_must':    '(signal == "b") and (Close < cloud_bottom and tankan_day < 0 and inday_trend_score < 0.75)',
+    'ichimoku_kama':    '(signal == "b") and ((ichimoku_distance < 0 and kama_distance > 0 and kijun > kama_fast) or (ichimoku_distance > 0 and kama_distance < 0 and kama_slow > tankan))',
   } 
   for c in none_signal_conditions.keys():
     tmp_condition = none_signal_conditions[c]
