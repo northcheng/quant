@@ -1201,7 +1201,7 @@ def calculate_ta_signal(df):
     'adx_波动':         '(signal == "b" or signal == "s") and (-10 < adx_direction_start < 10 and adx_strong_day < 0 and adx_wave_day > 0)',
 
     'ichimoku_must':    '(signal == "b") and (Close < cloud_bottom and tankan_day < 0 and inday_trend_score < 0.75)',
-    'ichimoku_kama':    '(signal == "b") and ((ichimoku_distance < 0 and kama_distance > 0 and kijun > kama_fast) or (ichimoku_distance > 0 and kama_distance < 0 and kama_slow > tankan))',
+    'ichimoku_kama':    '(signal == "b") and ((ichimoku_distance < 0 and kama_distance > 0 and kijun > kama_fast > tankan) or (ichimoku_distance > 0 and kama_distance < 0 and kama_slow > tankan ))',
   } 
   for c in none_signal_conditions.keys():
     tmp_condition = none_signal_conditions[c]
