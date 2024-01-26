@@ -1195,7 +1195,7 @@ def calculate_ta_signal(df):
     'renko_低位':       '(signal == "b") and (trend_position == "l" and renko_real != "green" and (candle_entity_middle < renko_h or adx_direction_day <= 1 or adx_direction_day == 1 or candle_color == -1) and ichimoku_distance < -0.05)',
     'renko_高位':       '(signal == "s") and (trend_position == "h" and renko_real != "red" and candle_entity_middle > renko_h and kama_distance > 0) and (support_score > 0 or break_down_score == 0) and (trigger_score_description != "-启明黄昏")',
 
-    'adx_下行':         '(signal == "b") and (adx_value_change < 0) and (adx_strength_change < 0 or adx_wave_day > 0 or (adx_value > 10 and adx_direction < -1))',
+    'adx_下行':         '(signal == "b") and (adx_value_change < 0) and (adx_strength_change < 0 or (adx_strength_change > 0 and adx_value < 0) or adx_wave_day > 0 or (adx_value > 10 and adx_direction < -1))',
     'adx_上行':         '(signal == "b") and (adx_value_change > 0) and ((adx_value > 0 and adx_power_day < 0 and adx_direction_start > -5) or (adx_direction_day == 1 and adx_wave_day > 0)) and (trigger_score < 1.5)',
     'adx_初始':         '(signal == "b" or signal == "s") and (adx_power_day == 0)',
     'adx_波动':         '(signal == "b" or signal == "s") and (-10 < adx_direction_start < 10 and adx_strong_day < 0 and adx_wave_day > 0)',
@@ -5801,7 +5801,7 @@ def plot_renko(df, start=None, end=None, use_ax=None, title=None, plot_in_date=T
 # plot rate and trigger_score/trend_score for each target list
 def plot_summary(data, width=20, unit_size=0.3, wspace=0, hspace=0.4, plot_args=default_plot_args, config=None, save_path=None):
   """
-  Plot rate and trigger_score/trend_score for each target list
+  Plot rate and trigger_score/trend_score_change for each target list
   :param data: dict of dataframes including 'result'
   :param figsize:  figure size
   :param save_path:  path to save the figure
@@ -5828,7 +5828,7 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0, hspace=0.4, plot_args=
 
     # get target data
     t = pools[i]
-    tmp_data = data['result'][t][['symbol', 'rate', 'trigger_score', 'trend_score']].set_index('symbol')
+    tmp_data = data['result'][t][['symbol', 'rate', 'trigger_score', 'trend_score_change']].set_index('symbol')
     tmp_data['name'] = tmp_data.index.values
 
     # get data
@@ -5871,16 +5871,16 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0, hspace=0.4, plot_args=
     score_ax.barh(tmp_data.index, tmp_data.trigger_score, color='yellow', label='trigger_score', alpha=0.5, edgecolor='k')
     tmp_data['score_bottom'] = tmp_data['trigger_score']
     for index, row in tmp_data.iterrows():
-      if (row['trigger_score'] > 0 and row['trend_score'] > 0) or (row['trigger_score'] < 0 and row['trend_score'] < 0):
+      if False: #(#row['trigger_score'] > 0 and row['trend_score_change'] > 0) or (row['trigger_score'] < 0 and row['trend_score_change'] < 0):
         continue
       else:
         tmp_data.loc[index, 'score_bottom'] = 0
 
     # plot score
     tmp_data['score_color'] = 'green'
-    down_idx = tmp_data.query('trend_score <= 0').index    
+    down_idx = tmp_data.query('trend_score_change <= 0').index    
     tmp_data.loc[down_idx, 'score_color'] = 'red'
-    score_ax.barh(tmp_data.index, tmp_data['trend_score'], color=tmp_data['score_color'], left=tmp_data['score_bottom'],label='trend_score', alpha=0.5) #, edgecolor='k'  
+    score_ax.barh(tmp_data.index, tmp_data['trend_score_change'], color=tmp_data['score_color'], left=tmp_data['score_bottom'],label='trend_score_change', alpha=0.5) #, edgecolor='k'  
     score_ax.set_title(f'{t.replace("_day", "")} Trend Score', fontsize=25, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1))
     score_ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
     score_ax.grid(True, axis='x', linestyle='--', linewidth=0.5, alpha=0.3)

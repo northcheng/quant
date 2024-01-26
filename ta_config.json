@@ -150,7 +150,7 @@
       "trend_score": "趋势分数",
       "trend_score_change": "趋势变化分数",
       "trend_direction": "趋势方向分数",
-      "trend_direction_day": "趋势方向天数",
+      "adx_direction_day": "趋势方向天数",
       "major_score": "关键分数",
       "trigger_score": "触发分数",
       "trigger_score_description": "触发标签",
