@@ -997,7 +997,7 @@ def calculate_ta_score(df):
   
   # ================================ calculate trigger/position score =======
   # trigger score and description, position score
-  for col in ['tankan_day', 'kama_fast_day', 'kijun_day', 'kama_slow_day', '平头_day', '穿刺_day', '吞噬_day', '启明黄昏_day']:
+  for col in ['tankan_day', 'kama_fast_day', 'kijun_day', 'kama_slow_day', '平头_day', '腰带_day', '穿刺_day', '吞噬_day', '启明黄昏_day']:
     col_desc = '_'.join(col.split('_')[0:-1])
     
     # trigger score
@@ -1009,7 +1009,7 @@ def calculate_ta_score(df):
     df.loc[valid_neg_idx, 'trigger_score_description'] += f'-{col_desc}, '
 
     # position score
-    if col in ['平头_day', '启明黄昏_day']:
+    if col in ['平头_day', '腰带_day', '穿刺_day', '吞噬_day', '启明黄昏_day']:
       continue
     else:
       valid_pos_idx = df.query(f'0 < {col}').index
@@ -1141,6 +1141,8 @@ def calculate_ta_signal(df):
     'down_1':       f'(trigger_score < 0) and (trend_score_change < 0) and (short_trend_score_change < 0 or inday_trend_score_change < 0)',
     'up_2':         f'(trend_score > 0 and trend_status == 4 and trend_score_change > 0)',
     'down_2':       f'(trend_score < 0 and trend_status < 0 and trend_score_change < 0)',
+    # 'up_3':         f'(trend_score > 0 and trend_status == 4 and trend_score_change > 0)',
+    'down_3':       f'(adx_strong_day > 0 and adx_power_day > 0) and (adx_value > 25 and adx_direction_day < 0) and (adx_direction_day < -1 or trigger_score < 0)',
     } 
   for c in potential_conditions.keys():
     tmp_condition = potential_conditions[c]
@@ -1193,21 +1195,27 @@ def calculate_ta_signal(df):
   none_signal_idx = []
   none_signal_conditions = {
 
-    '高位买晚':         '(signal == "b") and (candle_color == -1) and (shadow_trend == "u" and entity_trend != "d") and (kama_distance > 0 and ichimoku_distance > 0 and Low > kama_fast and Low > tankan)',
-    '高位卖早':         '(signal == "s") and (candle_color == 1) and (adx_value > 10 and adx_value_change > 0 and adx_strength_change > 0) and (trend_status == 4)',
+    # '高位买晚':         '(signal == "b") and (candle_color == -1) and (shadow_trend == "u" and entity_trend != "d") and (kama_distance > 0 and ichimoku_distance > 0 and Low > kama_fast and Low > tankan)',
+    # '高位卖早':         '(signal == "s") and (candle_color == 1) and (adx_value > 10 and adx_value_change > 0 and adx_strength_change > 0) and (trend_status == 4)',
 
-    '上影线':           '(signal == "b") and ((candle_upper_shadow_pct > 0.5 and (rate < 0 or resistant_score < 0)) or (candle_entity_pct > 0.9 and candle_color == -1))',
+    # 在触发买入信号时: 上影线长度>50% & (涨跌 < 0 | 存在阻挡 | 存在突破(突破后又跌落))
+    '上影线':           '(signal == "b") and (candle_upper_shadow_pct > 0.5 and (rate < 0 or resistant_score < 0 or break_up_score > 0 or (adx_direction_day == 1 and adx_power_day < 0)))',
+    
+    # 在触发买入信号时: 红长实体, 实体长度 > 90%
+    '长实体':           '(signal == "b") and (candle_entity_pct > 0.9 and candle_color == -1)',
+
+    '波动卖出':         '(signal == "s") and (Low > renko_h and adx_value_change > 0 and ichimoku_distance < 0 and Low > cloud_top)',
 
     'renko_低位':       '(signal == "b") and (trend_position == "l" and renko_real != "green" and (candle_entity_middle < renko_h or adx_direction_day <= 1 or adx_direction_day == 1 or candle_color == -1) and ichimoku_distance < -0.05)',
     'renko_高位':       '(signal == "s") and (trend_position == "h" and renko_real != "red" and candle_entity_middle > renko_h and kama_distance > 0) and (support_score > 0 or break_down_score == 0) and (trigger_score_description != "-启明黄昏")',
 
     'adx_下行':         '(signal == "b") and (adx_value_change < 0) and (adx_strength_change < 0 or (adx_strength_change > 0 and adx_value < 0) or adx_wave_day > 0 or (adx_value > 10 and adx_direction < -1))',
-    'adx_上行':         '(signal == "b") and (adx_value_change > 0) and ((adx_value > 0 and adx_power_day < 0 and adx_direction_start > -5) or (adx_direction_day == 1 and adx_wave_day > 0)) and (trigger_score < 1.5)',
+    'adx_高位':         '(signal == "b") and (adx_value_change > 0) and ((adx_value > 0 and adx_power_day < 0 and adx_direction_start > -5) or (adx_direction_day == 1 and adx_wave_day > 0)) and (trigger_score < 1.5)',
     'adx_初始':         '(signal == "b" or signal == "s") and (adx_power_day == 0)',
     'adx_波动':         '(signal == "b" or signal == "s") and (-10 < adx_direction_start < 10 and adx_strong_day < 0 and adx_wave_day > 0)',
 
     'ichimoku_must':    '(signal == "b") and (Close < cloud_bottom and tankan_day < 0 and inday_trend_score < 0.75)',
-    'ichimoku_kama':    '(signal == "b") and ((ichimoku_distance < 0 and kama_distance > 0 and kijun > kama_fast > tankan) or (ichimoku_distance > 0 and kama_distance < 0 and kama_slow > tankan ))',
+    'ichimoku_kama':    '(signal == "b") and ((ichimoku_distance < 0 and kama_distance > 0 and kijun > kama_fast > tankan) or (ichimoku_distance > 0 and kama_distance < -0.05 and kama_slow > tankan ))',
   } 
   for c in none_signal_conditions.keys():
     tmp_condition = none_signal_conditions[c]
