@@ -1223,7 +1223,7 @@ def calculate_ta_signal(df):
     'adx_初始':         '(signal == "b" or signal == "s") and (adx_power_day == 0)',
 
     # B|S:  adx趋势起始于 [-10,10]之间 & adx强度弱 & adx_value 在[-10,10]间波动
-    'adx_波动':         '(signal == "b" or signal == "s") and (-10 < adx_direction_start < 10 and adx_strong_day < 0 and adx_wave_day > 0)',
+    'adx_波动':         '(signal == "b" or signal == "s") and ((adx_strong_day < 0 and adx_wave_day > 0) and (-10 < adx_direction_start < 10))',
 
     # B:  收盘价位于ichimoku云下方 & 价格未上穿tankan & 日内趋势分数<0.75
     'ichimoku_must':    '(signal == "b") and (Close < cloud_bottom and tankan_day < 0 and inday_trend_score < 0.75)',
