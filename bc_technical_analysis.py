@@ -1132,17 +1132,15 @@ def calculate_ta_signal(df):
   df['trend_direction_day'] = sda(series=df['trend_direction_day'], zero_as=1)
 
   # ================================ calculate potential ====================
-  # label score
+  # potnetial score
   df['potential'] = ''
   df['potential_score'] = 0
   df['potential_description'] = ''
   potential_conditions = {
-    'up_短期趋势':         f'(trigger_score > 0) and (trend_score_change > 0) and (short_trend_score_change > 0 or inday_trend_score_change > 0)',
-    'down_短期趋势':       f'(trigger_score < 0) and (trend_score_change < 0) and (short_trend_score_change < 0 or inday_trend_score_change < 0)',
-    'up_整体趋势':         f'(trend_score > 0 and trend_status == 4 and trend_score_change > 0)',
-    'down_整体趋势':       f'(trend_score < 0 and trend_status < 0 and trend_score_change < 0)',
-    # 'up_3_adx':         f'(trend_score > 0 and trend_status == 4 and trend_score_change > 0)',
-    'down_3_adx':         f'(adx_strong_day > 0 and adx_power_day > 0) and (adx_value > 25 and adx_direction_day < 0) and (adx_direction_day < -1 or trigger_score < 0)',
+    '短期趋势_up':         f'(trigger_score > 0) and (trend_score_change > 0) and (short_trend_score_change > 0 or inday_trend_score_change > 0)',
+    '短期趋势_down':       f'(trigger_score < 0) and (trend_score_change < 0) and (short_trend_score_change < 0 or inday_trend_score_change < 0)',
+    '整体趋势_up':         f'(trend_score > 0 and trend_status == 4 and trend_score_change > 0)',
+    '整体趋势_down':       f'(trend_score < 0 and trend_status < 0 and trend_score_change < 0)',
     } 
   for c in potential_conditions.keys():
     tmp_condition = potential_conditions[c]
@@ -1153,26 +1151,6 @@ def calculate_ta_signal(df):
     elif 'down' in c:
       df.loc[tmp_idx, 'potential_score'] -= 1
     df.loc[tmp_idx, 'potential_description'] += f'{c}, '
-
-  # # remove false alarm
-  # none_potential_idx = []
-  # none_potential_conditions = {
-  #   # '价格下跌':       f'potential == "potential" and ((rate < -0.05) or (shadow_trend == "u" and upper_shadow_trend == "u") or (candle_color == -1 and entity_trend == "u"))',
-  #   # '短暂反弹':       f'potential == "potential" and ((adx_diff_ma < 0 and (adx_direction_day == 1 or (adx_direction_day < 0 and adx_value_change > 0) or adx_value_change < 0)) and ((ichimoku_distance <= 0 or ichimoku_distance_day <= -3) and (kama_distance <= 0 or kama_distance_day <= -3)))',
-  #   # '趋势下降':       f'potential == "potential" and ((trend_score == -3) or (trend_score < 0 and trigger_score <= 0))',
-  #   } 
-
-  # if 'linear_slope' in df.columns:
-  #   none_potential_conditions['linear wave'] = f'potential == "potential" and (linear_fit_high_slope == 0 and linear_fit_low_slope == 0)'
-
-  # for c in none_potential_conditions.keys():
-  #   tmp_condition = none_potential_conditions[c]
-  #   tmp_idx = df.query(tmp_condition).index
-  #   none_potential_idx += tmp_idx.tolist()
-  #   df.loc[tmp_idx, 'potential_score'] += -1
-  #   df.loc[tmp_idx, 'potential_description'] += f'{c}, '
-  # none_potential_idx = list(set(none_potential_idx))
-  # df.loc[none_potential_idx, 'potential'] = ''
   df['potential_description'] = df['potential_description'].apply(lambda x: x[:-2])
 
   # ================================ calculate signal =======================
@@ -1194,6 +1172,9 @@ def calculate_ta_signal(df):
   # disable some false alarms
   none_signal_idx = []
   none_signal_conditions = {
+
+    # B|S:  无adx强度数据  
+    '信号不全':       '(signal == "b" or signal == "s") and (adx_power_day == 0)',
 
     # B:  adx_value>0 & ((adx_value在[-10,10]间波动 & adx强度下降 & trend_score<0.5) | (跌落 & adx方向第一天向上))
     '高位买':         '(signal == "b") and ((adx_value > 0 and adx_wave_day > 0 and adx_power_day < 0 and trend_score < 0.5) or (adx_value > 25 and break_down_score < 0 and adx_direction_day == 1))',
@@ -1218,10 +1199,7 @@ def calculate_ta_signal(df):
     
     # B:  adx_value上升 & 触发分数<1.5 ((adx_value>0 & adx强度下降 & adx趋势开始于-5以上 &) | (adx_wave_day>0 & adx方向第一天上升))
     'adx_高位':         '(signal == "b") and (adx_value_change > 0) and (trigger_score < 1.5) and ((adx_value > 0 and adx_power_day < 0 and adx_direction_start > -5) or (adx_direction_day == 1 and adx_wave_day > 0))',
-    
-    # B|S:  无adx强度数据  
-    'adx_初始':         '(signal == "b" or signal == "s") and (adx_power_day == 0)',
-
+  
     # B|S:  adx趋势起始于 [-10,10]之间 & adx强度弱 & adx_value 在[-10,10]间波动
     'adx_波动':         '(signal == "b" or signal == "s") and ((adx_strong_day < 0 and adx_wave_day > 0) and (-10 < adx_direction_start < 10))',
 
@@ -6199,25 +6177,28 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   # get name of the symbol, and linear/candle/adx descriptions
   new_title = args['sec_name'].get(title.split('(')[0]) 
   
-  # score description
-  score_desc = ''
-  for term in ['', 'inday', 'short', 'middle', 'long']:
-    score_col = f'{term}_trend_score' if term != '' else 'trend_score'
-    socre_change_col = f'{score_col}_change'
-    term_score = df.loc[max_idx, score_col]
-    term_score_change = round(df.loc[max_idx, socre_change_col],2)
-    term_symbol = up_down_symbol[df.loc[max_idx, socre_change_col] > 0]
-    term_desc = f'{term_score}({term_score_change}{term_symbol})' if term == '' else f'{term_score}{term_symbol}'
+  # # score description
+  # score_desc = ''
+  # for term in ['', 'inday', 'short', 'middle', 'long']:
+  #   score_col = f'{term}_trend_score' if term != '' else 'trend_score'
+  #   socre_change_col = f'{score_col}_change'
+  #   term_score = df.loc[max_idx, score_col]
+  #   term_score_change = round(df.loc[max_idx, socre_change_col],2)
+  #   term_symbol = up_down_symbol[df.loc[max_idx, socre_change_col] > 0]
+  #   term_desc = f'{term_score}({term_score_change}{term_symbol})' if term == '' else f'{term_score}{term_symbol}'
   
-    if term == '':
-      score_desc += term_desc + ' = '
-    elif term in ['inday', 'short', 'middle', 'long']:
-      if term_score < 0:
-        score_desc +=  ' ' + term_desc
-      else:
-        score_desc += ' + ' + term_desc
-    else:
-      print(f'unknown term {term}')
+  #   if term == '':
+  #     score_desc += term_desc + ' = '
+  #   elif term in ['inday', 'short', 'middle', 'long']:
+  #     if term_score < 0:
+  #       score_desc +=  ' ' + term_desc
+  #     else:
+  #       score_desc += ' + ' + term_desc
+  #   else:
+  #     print(f'unknown term {term}')
+
+  signal_desc = f'[{df.loc[max_idx, "potential_score"]}] : {df.loc[max_idx, "potential_description"]} | {df.loc[max_idx, "signal_description"]}'
+  signal_desc = signal_desc.replace(', ]', ']')#.replace('; ', '')
 
   inday_desc = f'[{df.loc[max_idx, "up_score_description"]} | {df.loc[max_idx, "down_score_description"]}]'
   inday_desc = inday_desc.replace(', ]', ']')#.replace('; ', '')
@@ -6226,7 +6207,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   if new_title is None:
     new_title == ''
   super_title = f'{title}({new_title})  {close_rate}% {title_symbol}'
-  super_title = f'{super_title}\n{score_desc}'
+  super_title = f'{super_title}\n{signal_desc}'
   super_title = f'{super_title}\n{inday_desc}'
   
   fig.suptitle(f'{super_title}', x=0.5, y=1.05, fontsize=22, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1), linespacing = 1.8)
