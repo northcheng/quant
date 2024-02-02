@@ -1192,7 +1192,7 @@ def calculate_ta_signal(df):
     'renko_低位':     '(signal == "b") and (trend_position == "l" and (ichimoku_distance < -0.05 or ichimoku_distance_day < 0) and renko_real != "green" and (candle_entity_top < renko_l or adx_direction_day <= 1 or candle_color == -1))',
     
     # S:  ichimoku绿云 & 实体底部位于cloud_top上方 & 非renko跌落 & (实体中部>renko_h & kama_distance>0) & (有支撑或无跌落) & 非黄昏星形态
-    'renko_高位':     '(signal == "s") and (trend_position == "h" and renko_real != "red" and candle_entity_bottom > renko_h and kama_distance > 0) and (support_score > 0 or break_down_score == 0) and (启明黄昏_day != -1)',
+    'renko_高位':     '(signal == "s") and (trend_position == "h" and renko_real != "red" and candle_entity_bottom > renko_h and kama_distance > 0) and (support_score > 0 or break_down_score == 0) and (启明黄昏_day != -1 and 窗口_day != -1)',
 
     # B:  adx_value下降 & (adx_strength下降 | (adx_strenth上升 & adx_value<0) | adx_wave_day>0 | (adx_value>0 & adx方向第一天下降))
     'adx_下行':       '(signal == "b") and (adx_value_change < 0) and (adx_strength_change < 0 or (adx_strength_change > 0 and adx_value < 0) or adx_wave_day > 0 or (adx_value > 10 and adx_direction < -1))',
