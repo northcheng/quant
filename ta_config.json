@@ -145,25 +145,29 @@
       "rate": "涨跌",
       "support": "支撑",
       "resistant": "阻挡",
+      
+      "adx_direction_start": "趋势起始",
+      "adx_direction_day": "趋势方向天数",
+
+      "trigger_score": "触发分数",
+      "trigger_score_description": "触发标签",
+      "trigger_day": "触发天数",
+
+      "major_score": "关键分数",
 
       "trend_score": "趋势分数",
       "trend_score_change": "趋势变化分数",
       "trend_direction": "趋势方向分数",
-      "adx_direction_day": "趋势方向天数",
-      "major_score": "关键分数",
-      "trigger_score": "触发分数",
-      "trigger_score_description": "触发标签",
-      "trigger_day": "触发天数",
       
       "potential": "潜力标签", 
       "potential_score": "潜力分数",
       "potential_description": "潜力描述",
       
-      "signal_day": "信号分数",
-      "signal": "交易信号"
+      "signal": "交易信号",
+      "signal_day": "信号天数"
     },
     "drop_columns": [],
-    "send_columns": ["名称", "涨跌", "趋势分数", "趋势变化分数", "触发分数"],
+    "send_columns": ["名称", "涨跌", "触发分数", "趋势变化分数", "趋势分数"],
     "save_result": true,
     "save_data": true,
     "save_pdf": true
