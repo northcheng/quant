@@ -412,6 +412,13 @@ def calculate_ta_static(df, indicators=default_indicators):
       df['adx_strength'] = df['adx']
       df = cal_change(df=df, target_col='adx_value', add_accumulation=False, add_prefix=True)
       df = cal_change(df=df, target_col='adx_strength', add_accumulation=False, add_prefix=True)
+
+      # mute micro changes
+      wave_idx = df.query('-0.01 < adx_value_change < 0.01').index
+      df.loc[wave_idx, 'adx_value_change'] = 0
+      wave_idx = df.query('-0.01 < adx_strength_change < 0.01').index
+      df.loc[wave_idx, 'adx_strength_change'] = 0
+      
       df['adx_direction'] = df['adx_value_change'] # sda of adx_value_change
       df['adx_power'] = df['adx_strength_change']  # sda of adx_strength_change
       wave_idx = df.query('-1 < adx_direction < 1 and -0.5 < adx_power < 0.5').index
@@ -1137,10 +1144,10 @@ def calculate_ta_signal(df):
   df['potential_score'] = 0
   df['potential_description'] = ''
   potential_conditions = {
-    '短期趋势_up':         f'(trigger_score > 0) and (trend_score_change > 0) and (short_trend_score_change > 0 or inday_trend_score_change > 0)',
-    '短期趋势_down':       f'(trigger_score < 0) and (trend_score_change < 0) and (short_trend_score_change < 0 or inday_trend_score_change < 0)',
-    '整体趋势_up':         f'(trend_score > 0 and trend_status == 4 and trend_score_change > 0)',
-    '整体趋势_down':       f'(trend_score < 0 and trend_status < 0 and trend_score_change < 0)',
+    '短期趋势_up':    f'(trigger_score > 0) and (trend_score_change > 0) and (short_trend_score_change > 0 or inday_trend_score_change > 0)',
+    '短期趋势_down':  f'(trigger_score < 0) and (trend_score_change < 0) and (short_trend_score_change < 0 or inday_trend_score_change < 0)',
+    '整体趋势_up':    f'(trend_score > 0 and trend_status == 4 and trend_score_change > 0)',
+    '整体趋势_down':  f'(trend_score < 0 and trend_status < 0 and trend_score_change < 0)',
     } 
   for c in potential_conditions.keys():
     tmp_condition = potential_conditions[c]
@@ -1177,7 +1184,7 @@ def calculate_ta_signal(df):
     '信号不全':       '(signal == "b" or signal == "s") and (adx_power_day == 0)',
 
     # B:  adx_value>0 & ((adx_value在[-10,10]间波动 & adx强度下降 & trend_score<0.5) | (跌落 & adx方向第一天向上))
-    '高位买入':       '(signal == "b") and ((adx_value > 0 and adx_wave_day > 0 and adx_power_day < 0 and trend_score < 0.5) or (adx_value > 25 and break_down_score < 0 and adx_direction_day == 1))',
+    '高位买入':       '(signal == "b") and (ichimoku_distance > 0 or kama_distance > 0) and ((adx_value > 0 and adx_wave_day > 0 and adx_power_day < 0 and trend_score < 0.5) or (adx_value > 25 and break_down_score < 0 and adx_direction_day == 1))',
     
     # S:  adx_value上升 & ichimoku红云 & Low位于renko和cloud上方
     '波动卖出':       '(signal == "s") and (Low > renko_h and adx_value_change > 0 and ichimoku_distance < 0 and Low > cloud_top)',
