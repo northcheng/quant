@@ -853,7 +853,7 @@ class Tiger(Trader):
       # trade time for current trade day need to be calculated manually
       if status.status in ['Trading']:
         if now.hour < 12:
-          origin_date = now.date() - datetime.timedelta(1)
+          origin_date = now.date() - datetime.timedelta(days=1)
         else:
           origin_date = now.date()
         open_time = open_time.replace(year=origin_date.year, month=origin_date.month, day=origin_date.day) 
@@ -863,7 +863,8 @@ class Tiger(Trader):
           open_time = open_time - datetime.timedelta(days=3)
         else:
           open_time = open_time - datetime.timedelta(days=1)
-
+      elif status.status in ['Closed']:
+        pass
       else:
         self.logger.error(f'No method for status [{status.status}]')
 
