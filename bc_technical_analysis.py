@@ -432,7 +432,7 @@ def calculate_ta_static(df, indicators=default_indicators):
         df.loc[wave_idx, col] = 0
         df[col] = sda(series=df[col], zero_as=0)
 
-        threshold = 0.5
+        threshold = 0
         conditions = {
           'up': f'{col} > {threshold}', 
           'down': f'{col} < {-threshold}', 
@@ -1182,6 +1182,9 @@ def calculate_ta_signal(df):
 
     # B|S:  无adx强度数据  
     '信号不全':       '(signal == "b" or signal == "s") and (adx_power_day == 0)',
+
+    # B|S:  与adx基本规则冲突
+    'adx_冲突':       '(signal == "b" or signal == "s") and ((adx_value < 0 and adx_power_day > 0) or (adx_value > 10 and adx_power_day < 0))',
 
     # B:  adx_value>0 & ((adx_value在[-10,10]间波动 & adx强度下降 & trend_score<0.5) | (跌落 & adx方向第一天向上))
     '高位买入':       '(signal == "b") and (ichimoku_distance > 0 or kama_distance > 0) and ((adx_value > 0 and adx_wave_day > 0 and adx_power_day < 0 and trend_score < 0.5) or (adx_value > 25 and break_down_score < 0 and adx_direction_day == 1))',
