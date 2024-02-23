@@ -1144,10 +1144,13 @@ def calculate_ta_signal(df):
   df['potential_score'] = 0
   df['potential_description'] = ''
   potential_conditions = {
+    # 'adx趋势_up':     f'(adx_direction_day > 0) and ((adx_value < 0 and adx_power_day < 0) or (adx_value > 10 and adx_power_day > 0))',
+    # 'adx趋势_down':   f'(adx_direction_day < 0) and ((adx_value < 0 and adx_power_day > 0) or (adx_value > 10 and adx_power_day < 0))',
     '短期趋势_up':    f'(trigger_score > 0) and (trend_score_change > 0) and (short_trend_score_change > 0 or inday_trend_score_change > 0)',
     '短期趋势_down':  f'(trigger_score < 0) and (trend_score_change < 0) and (short_trend_score_change < 0 or inday_trend_score_change < 0)',
     '整体趋势_up':    f'(trend_score > 0 and trend_status == 4 and trend_score_change > 0)',
     '整体趋势_down':  f'(trend_score < 0 and trend_status < 0 and trend_score_change < 0)',
+    '其他情况_down':  f'(inday_day < 0 and short_day < 0 and trend_direction_day < -1)',
     } 
   for c in potential_conditions.keys():
     tmp_condition = potential_conditions[c]
@@ -1183,8 +1186,8 @@ def calculate_ta_signal(df):
     # B|S:  无adx强度数据  
     '信号不全':       '(signal == "b" or signal == "s") and (adx_power_day == 0)',
 
-    # B|S:  adx趋势起始于 [-10,10]之间 & adx强度弱 & adx_value 在[-10,10]间波动
-    'adx_波动':       '(signal == "b" or signal == "s") and ((adx_strong_day < 0 and adx_wave_day > 0) and (-10 < adx_direction_start < 10))',
+    # B|S:  adx趋势起始于 [-10,10]之间 & adx强度弱 & adx_value 在[-10,10]间波动 & 未突破
+    'adx_波动':       '(signal == "b" or signal == "s") and ((adx_strong_day < 0 and adx_wave_day > 0) and (-10 < adx_direction_start < 10) and (break_up_score <= 0))',
 
     # # B|S:  与adx基本规则冲突
     # 'adx_冲突':       '(signal == "b" or signal == "s") and ((adx_value < 0 and adx_power_day > 0) or (adx_value > 10 and adx_power_day < 0))',
