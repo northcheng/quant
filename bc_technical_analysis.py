@@ -988,17 +988,19 @@ def calculate_ta_score(df):
   df = cal_score(df=df, condition_dict=inday_conditions, up_score_col='up_score', down_score_col='down_score')
   df['inday_trend_score'] += df['up_score'] + df['down_score']
 
-  names = {'support':'支撑', 'resistant': '阻挡', 'break_up': '突破', 'break_down': '跌落'}
+  names = {'support':'+支撑', 'resistant': '-阻挡', 'break_up': '+突破', 'break_down': '-跌落'}
   for col in ['support', 'resistant', 'break_up', 'break_down']:
     df['inday_trend_score'] += df[f'{col}_score'] * s
 
-    desc = df[f'{col}_description'].apply(lambda x: '' if len(x) == 0 else f'{names[col]}: ' + x + '; ')
+    desc = df[f'{col}_score'].apply(lambda x: f'{names[col]}:[{x}]')  # '' if x == 0 else 
 
     if col in ['support', 'break_up']:
-      df['up_score_description'] += desc
+      df['up_score_description'] = (desc + ', ' + df['up_score_description'])
     else:
-      df['down_score_description'] += desc
+      df['down_score_description'] = (desc + ', ' + df['down_score_description'])
 
+  df['up_score_description'] = df['up_score_description'].apply(lambda x: x[:-2] if x[-2] == ',' else x)
+  df['down_score_description'] = df['down_score_description'].apply(lambda x: x[:-2] if x[-2] == ',' else x)
   df['inday_trend_score_description'] += df['up_score_description'] + df['down_score_description']
 
   
@@ -1695,6 +1697,9 @@ def cal_score(df, condition_dict, up_score_col, down_score_col):
 
   df[up_score_col] = df[up_score_col].round(2)
   df[down_score_col] = df[down_score_col].round(2)
+
+  df[f'{up_score_col}_description'] = df[f'{up_score_col}_description'].apply(lambda x: x[:-2])
+  df[f'{down_score_col}_description'] = df[f'{down_score_col}_description'].apply(lambda x: x[:-2])
 
   return df
 
@@ -6228,11 +6233,11 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   #   else:
   #     print(f'unknown term {term}')
 
-  signal_desc = f'[{df.loc[max_idx, "potential_score"]}] : {df.loc[max_idx, "potential_description"]} | {df.loc[max_idx, "signal_description"]}'
+  signal_desc = f'[{df.loc[max_idx, "potential_score"]}] : {df.loc[max_idx, "potential_description"]} | [X]: {df.loc[max_idx, "signal_description"]}'
   signal_desc = signal_desc.replace(', ]', ']')#.replace('; ', '')
 
-  inday_desc = f'[{df.loc[max_idx, "up_score_description"]} | {df.loc[max_idx, "down_score_description"]}]'
-  inday_desc = inday_desc.replace(', ]', ']')#.replace('; ', '')
+  inday_desc = f'{df.loc[max_idx, "up_score_description"]} | {df.loc[max_idx, "down_score_description"]}'
+  # inday_desc = inday_desc.replace(', ', '')#.replace('; ', '')
   
   # construct super title
   if new_title is None:
