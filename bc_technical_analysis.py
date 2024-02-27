@@ -5819,7 +5819,7 @@ def plot_renko(df, start=None, end=None, use_ax=None, title=None, plot_in_date=T
       plt.show()
 
 # plot rate and trigger_score/trend_score for each target list
-def plot_summary(data, width=20, unit_size=0.3, wspace=0, hspace=0.4, plot_args=default_plot_args, config=None, save_path=None):
+def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_args=default_plot_args, config=None, save_path=None):
   """
   Plot rate and trigger_score/trend_score_change for each target list
   :param data: dict of dataframes including 'result'
@@ -5829,15 +5829,16 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0, hspace=0.4, plot_args=
   :raises: none
   """
 
-  # get pools
+  # get pools and number of symbols in pools
   pools = list(data['result'].keys())
   n_row = len(pools)
   num_symbols = [len(data['result'][x]) for x in data['result'].keys()]
 
-  # create axes for each indicator
+  # create axes for each pool
   fig = plt.figure(figsize=(width, sum(num_symbols)*unit_size))  
   gs = gridspec.GridSpec(n_row, 2, height_ratios=num_symbols, width_ratios=[1,1])
-  gs.update(wspace=wspace, hspace=hspace)
+  # gs.update(wspace=wspace, hspace=hspace)
+  plt.subplots_adjust(wspace=wspace, hspace=hspace)
   axes = {}
 
   # plot rate and score
@@ -5848,7 +5849,8 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0, hspace=0.4, plot_args=
 
     # get target data
     t = pools[i]
-    tmp_data = data['result'][t][['symbol', 'rate', 'trigger_score', 'trend_score_change']].set_index('symbol')
+    tmp_data = data['result'][t].sort_values(by=['trigger_score', 'trend_score_change'], ascending=[False, False]).copy()
+    tmp_data = tmp_data[['symbol', 'rate', 'trigger_score', 'trend_score_change']].set_index('symbol')
     tmp_data['name'] = tmp_data.index.values
 
     # get data
@@ -5880,12 +5882,7 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0, hspace=0.4, plot_args=
     num_down = len(down_idx)
     title_color = 'green' if num_total/2 > num_down else 'red'  
     rate_ax.barh(tmp_data.index, tmp_data['rate'], color=tmp_data['rate_color'], label='rate', alpha=0.5) #, edgecolor='k'
-    rate_ax.set_title(f'{t.replace("_day", "")} Rate ({num_total-num_down}/{num_total})', fontsize=25, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1))
-    rate_ax.grid(True, axis='x', linestyle='--', linewidth=0.5, alpha=0.3)
-    rate_ax.grid(True, axis='y', linestyle='-', linewidth=0.5, alpha=1)
-    rate_ax.yaxis.set_ticks_position("left")
-    # rate_ax.spines['right'].set_alpha(0)
-    # plt.setp(rate_ax.get_yticklabels(), visible=False)
+    rate_ax.set_xlabel(f'[{t.replace("_day", "")}] Rate ({num_total-num_down}/{num_total})', labelpad = 10, fontsize = 20) 
 
     # plot trigger score
     score_ax.barh(tmp_data.index, tmp_data.trigger_score, color='yellow', label='trigger_score', alpha=0.5, edgecolor='k')
@@ -5901,13 +5898,34 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0, hspace=0.4, plot_args=
     down_idx = tmp_data.query('trend_score_change <= 0').index    
     tmp_data.loc[down_idx, 'score_color'] = 'red'
     score_ax.barh(tmp_data.index, tmp_data['trend_score_change'], color=tmp_data['score_color'], left=tmp_data['score_bottom'],label='trend_score_change', alpha=0.5) #, edgecolor='k'  
-    score_ax.set_title(f'{t.replace("_day", "")} Trend Score', fontsize=25, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1))
+    # score_ax.set_title(f'{t.replace("_day", "")} Trend Score', fontsize=25, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1))
+    score_ax.set_xlabel(f'[{t.replace("_day", "")}] Trend Score', labelpad=10, fontsize=20)
     score_ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
+    
+    # borders
+    rate_ax.spines['right'].set_alpha(0)
+    score_ax.spines['left'].set_alpha(0)
+
+    # y label
+    rate_ax.yaxis.set_ticks_position("right")
+    score_ax.yaxis.set_ticks_position("left")
+    # plt.setp(rate_ax.get_yticklabels(), visible=False)
+    plt.setp(score_ax.get_yticklabels(), visible=False)
+    
+    # grid
+    rate_ax.grid(True, axis='x', linestyle='--', linewidth=0.5, alpha=0.3)
+    rate_ax.grid(True, axis='y', linestyle='-', linewidth=0.5, alpha=1)
     score_ax.grid(True, axis='x', linestyle='--', linewidth=0.5, alpha=0.3)
     score_ax.grid(True, axis='y', linestyle='-', linewidth=0.5, alpha=1)
-    score_ax.spines['left'].set_alpha(0)
-    plt.setp(score_ax.get_yticklabels(), visible=False)
-    # score_ax.yaxis.set_ticks_position("right")
+
+    rate_ax.xaxis.set_ticks_position('top') 
+    rate_ax.xaxis.set_label_position('top')
+
+    score_ax.xaxis.set_ticks_position('top') 
+    score_ax.xaxis.set_label_position('top')
+
+    rate_ax.xaxis.label.set_color(title_color)
+    score_ax.xaxis.label.set_color(title_color)
 
   # save image
   if save_path is not None:
