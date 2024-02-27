@@ -5900,7 +5900,7 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
     score_ax.barh(tmp_data.index, tmp_data['trend_score_change'], color=tmp_data['score_color'], left=tmp_data['score_bottom'],label='trend_score_change', alpha=0.5) #, edgecolor='k'  
     # score_ax.set_title(f'{t.replace("_day", "")} Trend Score', fontsize=25, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1))
     score_ax.set_xlabel(f'[{t.replace("_day", "")}] Trend Score', labelpad=10, fontsize=20)
-    score_ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
+    score_ax.legend(loc='upper left', ncol=plot_args['ncol']) 
     
     # borders
     rate_ax.spines['right'].set_alpha(0)
