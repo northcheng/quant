@@ -988,19 +988,20 @@ def calculate_ta_score(df):
   df = cal_score(df=df, condition_dict=inday_conditions, up_score_col='up_score', down_score_col='down_score')
   df['inday_trend_score'] += df['up_score'] + df['down_score']
 
+  # support/resistant, break_up/bread_down description
   names = {'support':'+支撑', 'resistant': '-阻挡', 'break_up': '+突破', 'break_down': '-跌落'}
   for col in ['support', 'resistant', 'break_up', 'break_down']:
     df['inday_trend_score'] += df[f'{col}_score'] * s
 
-    desc = df[f'{col}_score'].apply(lambda x: f'{names[col]}:[{x}]')  # '' if x == 0 else 
+    desc = df[f'{col}_score'].apply(lambda x: '' if x == 0 else f'{names[col]}:[{x}], ')  #  
 
     if col in ['support', 'break_up']:
-      df['up_score_description'] = (desc + ', ' + df['up_score_description'])
+      df['up_score_description'] = (desc + df['up_score_description'])
     else:
-      df['down_score_description'] = (desc + ', ' + df['down_score_description'])
+      df['down_score_description'] = (desc + df['down_score_description'])
 
-  df['up_score_description'] = df['up_score_description'].apply(lambda x: x[:-2] if x[-2] == ',' else x)
-  df['down_score_description'] = df['down_score_description'].apply(lambda x: x[:-2] if x[-2] == ',' else x)
+  df['up_score_description'] = df['up_score_description'].apply(lambda x: x[:-2] if (len(x) >=2 and x[-2] == ',') else x)
+  df['down_score_description'] = df['down_score_description'].apply(lambda x: x[:-2] if (len(x) >=2 and x[-2] == ',') else x)
   df['inday_trend_score_description'] += df['up_score_description'] + df['down_score_description']
 
   
@@ -1146,8 +1147,6 @@ def calculate_ta_signal(df):
   df['potential_score'] = 0
   df['potential_description'] = ''
   potential_conditions = {
-    # 'adx趋势_up':     f'(adx_direction_day > 0) and ((adx_value < 0 and adx_power_day < 0) or (adx_value > 10 and adx_power_day > 0))',
-    # 'adx趋势_down':   f'(adx_direction_day < 0) and ((adx_value < 0 and adx_power_day > 0) or (adx_value > 10 and adx_power_day < 0))',
     '短期趋势_up':    f'(trigger_score > 0) and (trend_score_change > 0) and (short_trend_score_change > 0 or inday_trend_score_change > 0)',
     '短期趋势_down':  f'(trigger_score < 0) and (trend_score_change < 0) and (short_trend_score_change < 0 or inday_trend_score_change < 0)',
     '整体趋势_up':    f'(trend_score > 0 and trend_status == 4 and trend_score_change > 0)',
@@ -1223,6 +1222,10 @@ def calculate_ta_signal(df):
     
     # B:  (ichimoku红云 & kama绿云 & kama_fast位于云中) | (ichimoku绿云 & kama红云<-0.05 & tankan < kama_slow)
     'ichimoku_kama':  '(signal == "b") and ((ichimoku_distance < 0 and kama_distance > 0 and kijun > kama_fast > tankan) or (ichimoku_distance > 0 and kama_distance < -0.05 and kama_slow > tankan ))',
+  
+    # B:  存在阻挡 & (长上影线 | 没有支撑 | 跌落)
+    '上行受阻':       '(signal == "b") and (resistant_score < 0) and (candle_upper_shadow_pct > 0.5 or support_score ==0 or break_down_score < 0)',
+
   } 
   for c in none_signal_conditions.keys():
     tmp_condition = none_signal_conditions[c]
@@ -6233,7 +6236,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   #   else:
   #     print(f'unknown term {term}')
 
-  signal_desc = f'[{df.loc[max_idx, "potential_score"]}] : {df.loc[max_idx, "potential_description"]} | [X]: {df.loc[max_idx, "signal_description"]}'
+  signal_desc = f'[{df.loc[max_idx, "potential_score"]}] : {df.loc[max_idx, "potential_description"]} | {df.loc[max_idx, "signal_description"]}'
   signal_desc = signal_desc.replace(', ]', ']')#.replace('; ', '')
 
   inday_desc = f'{df.loc[max_idx, "up_score_description"]} | {df.loc[max_idx, "down_score_description"]}'
