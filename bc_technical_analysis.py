@@ -5884,8 +5884,8 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
 
     # get target data
     t = pools[i]
-    tmp_data = data['result'][t].sort_values(by=['trigger_score', 'trend_score_change'], ascending=[False, False]).copy()
-    tmp_data = tmp_data[['symbol', 'rate', 'trigger_score', 'trend_score_change']].set_index('symbol')
+    tmp_data = data['result'][t].sort_values(by=['signal_rank', 'inday_trend_score'], ascending=[True, True]).copy()
+    tmp_data = tmp_data[['symbol', 'rate', 'trigger_score', 'trend_score_change', 'signal_rank']].set_index('symbol')
     tmp_data['name'] = tmp_data.index.values
 
     # get data
@@ -5897,7 +5897,7 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
           if tmp_name is not None:
             tmp_data.loc[idx, 'name'] = tmp_name
     tmp_data = tmp_data.set_index('name')
-    tmp_data = tmp_data.sort_values('trigger_score', ascending=True)
+    # tmp_data = tmp_data.sort_values('trigger_score', ascending=True)
     tmp_data['rate'] = tmp_data['rate'] * 100
 
     # get ax
@@ -5909,7 +5909,12 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
     else:
       rate_ax = plt.subplot(gs[i*2], sharex=axes['rate'], zorder=1) 
       score_ax = plt.subplot(gs[i*2+1], sharex=axes['score'], zorder=0)
-      
+    
+    # plot signal rank
+    tmp_data['score_color'] = 'yellow'
+    rate_ax.barh(tmp_data.index, tmp_data['signal_rank'], color=tmp_data['score_color'], label='signal_rank', alpha=0.5, edgecolor='k') #, edgecolor='k'  
+    # score_ax.set_title(f'{t.replace("_day", "")} Trend Score', fontsize=25, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1))
+    
     # plot rate
     tmp_data['rate_color'] = 'green'
     down_idx = tmp_data.query('rate <= 0').index    
@@ -5918,6 +5923,7 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
     title_color = 'green' if num_total/2 > num_down else 'red'  
     rate_ax.barh(tmp_data.index, tmp_data['rate'], color=tmp_data['rate_color'], label='rate', alpha=0.5) #, edgecolor='k'
     rate_ax.set_xlabel(f'[{t.replace("_day", "")}] Rate ({num_total-num_down}/{num_total})', labelpad = 10, fontsize = 20) 
+    rate_ax.legend(loc='upper right', ncol=plot_args['ncol']) 
 
     # plot trigger score
     score_ax.barh(tmp_data.index, tmp_data.trigger_score, color='yellow', label='trigger_score', alpha=0.5, edgecolor='k')
@@ -5934,9 +5940,8 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
     tmp_data.loc[down_idx, 'score_color'] = 'red'
     score_ax.barh(tmp_data.index, tmp_data['trend_score_change'], color=tmp_data['score_color'], left=tmp_data['score_bottom'],label='trend_score_change', alpha=0.5) #, edgecolor='k'  
     # score_ax.set_title(f'{t.replace("_day", "")} Trend Score', fontsize=25, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1))
-    score_ax.set_xlabel(f'[{t.replace("_day", "")}] Trend Score', labelpad=10, fontsize=20)
     score_ax.legend(loc='upper left', ncol=plot_args['ncol']) 
-    
+
     # borders
     rate_ax.spines['right'].set_alpha(0)
     score_ax.spines['left'].set_alpha(0)
@@ -5953,10 +5958,10 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
     score_ax.grid(True, axis='x', linestyle='--', linewidth=0.5, alpha=0.3)
     score_ax.grid(True, axis='y', linestyle='-', linewidth=0.5, alpha=1)
 
-    rate_ax.xaxis.set_ticks_position('top') 
+    # rate_ax.xaxis.set_ticks_position('top') 
     rate_ax.xaxis.set_label_position('top')
 
-    score_ax.xaxis.set_ticks_position('top') 
+    # score_ax.xaxis.set_ticks_position('top') 
     score_ax.xaxis.set_label_position('top')
 
     rate_ax.xaxis.label.set_color(title_color)
