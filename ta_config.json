@@ -158,13 +158,19 @@
       "trend_score": "趋势分数",
       "trend_score_change": "趋势变化分数",
       "trend_direction": "趋势方向分数",
+
+      "inday_trend_score": "日内趋势分数",
+      "short_trend_score": "短期趋势分数",
+      "middle_trend_score": "中期趋势分数",
+      "long_trend_score": "长期趋势分数",
       
       "potential": "潜力标签", 
       "potential_score": "潜力分数",
       "potential_description": "潜力描述",
       
       "signal": "交易信号",
-      "signal_day": "信号天数"
+      "signal_day": "信号天数",
+      "signal_rank": "信号排名"
     },
     "drop_columns": [],
     "send_columns": ["名称", "涨跌", "触发分数", "趋势变化分数", "趋势分数"],

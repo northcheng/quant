@@ -962,13 +962,16 @@ def calculate_ta_score(df):
     '+触底':        [s, '', '(突破_day == -1 and candle_color == 1)'],
     '-触顶':        [-s, '', '(突破_day == 1 and candle_color == -1)'],
 
+    '+支撑':        [s, '', '(support_score > 0 and (candle_color == 1 or rate > 0) and (candle_lower_shadow_pct > candle_upper_shadow_pct))'],
+    '-阻挡':        [-s, '', '(resistant_score < 0 and (candle_color == -1 or rate < 0) and (candle_upper_shadow_pct > candle_lower_shadow_pct))'],
+
     '+跳升':        [s, '', '(candle_entity_bottom > prev_candle_entity_top)'],
     '-跳降':        [-s, '', '(candle_entity_top < prev_candle_entity_bottom)'],
 
     '-十字星':      [-s, '', '(十字星_day == -1 or 十字星_day == 1)'],
 
-    '+平头':        [s, '', '(平头_day == 1)'],
-    '-平头':        [-s, '', '(平头_day == -1)'],
+    '+平头':        [s, '', '((平头_day == 1) or (平头_day == 2 and rate > 0))'],
+    '-平头':        [-s, '', '((平头_day == -1) or (平头_day == -2 and rate < 0))'],
 
     '+吞噬':        [s, '', '(吞噬_day == 1)'],
     '-吞噬':        [-s, '', '(吞噬_day == -1)'],
@@ -993,7 +996,8 @@ def calculate_ta_score(df):
   for col in ['support', 'resistant', 'break_up', 'break_down']:
     df['inday_trend_score'] += df[f'{col}_score'] * s
 
-    desc = df[f'{col}_score'].apply(lambda x: '' if x == 0 else f'{names[col]}:[{x}], ')  #  
+    # desc = df[f'{col}_score'].apply(lambda x: '' if x == 0 else f'{names[col]}:[{x}], ')  #  
+    desc = df[f'{col}_description'].apply(lambda x: '' if x == '' else f'{names[col]}:[{x}], ')
 
     if col in ['support', 'break_up']:
       df['up_score_description'] = (desc + df['up_score_description'])
@@ -1239,6 +1243,29 @@ def calculate_ta_signal(df):
   # calculate signal day
   df['signal_day'] = sda(df['signal'].replace({'b': 1, 's': -1, '': 0, 'nb': 0, 'ns': 0}), zero_as=1)
   # df = remove_redundant_signal(df=df, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='', keep='first')
+
+  # signal rank
+  s = 0.5
+  rank_conditions = {
+    
+    '+adx_低位':          [s, '', '(adx_value < 0 and adx_power_day < 0)'],
+    '+adx_起始':          [s, '', '(adx_direction_start < -10)'],
+    '+ichimoku':          [s, '', '(tankan_day > 0 and kijun_day < 0)'],
+    '+ichimoku_进阶':     [s/2, '', '(tankan_day > 0 and kijun_day < 5)'],
+    '+kama':              [s, '', '(kama_fast_day > 0 and kama_slow_day < 0)'],
+    '+kama_进阶':         [s, '', '(kama_fast_day > 0 and kama_slow_day < 5)'],
+    '+ichimoku_fs':       [s, '', '(ichimoku_fs_day < 0)'],
+    '+ichimoku_fs_进阶':  [s/2, '', '(ichimoku_fs_day < 5)'],
+    '+kama_fs':           [s, '', '(kama_fs_day < 0)'],
+    '+kama_fs_进阶':      [s/2, '', '(kama_fs_day < 5)'],
+
+    '+adx_高位':          [s, '', '(adx_value > 10 and adx_power_day > 0)'],
+    '-adx_弱势':          [-s, '', '(adx_strong_day < 0)'],
+    '-adx_高位下降':       [-s, '', '(adx_value > 10 and adx_power_day < 0)'],
+    
+  }
+  df = cal_score(df=df, condition_dict=rank_conditions, up_score_col='rank_up_score', down_score_col='rank_down_score')
+  df['signal_rank'] = df['rank_up_score'] + df['rank_down_score']
 
   return df
 
