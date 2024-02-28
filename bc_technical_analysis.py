@@ -5862,7 +5862,7 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
     tmp_data['name'] = tmp_data.index.values
 
     # get data
-    if 'a_company' in t:
+    if ('a_company' in t) or ('hs300' in t):
       if config is not None:
         names = config['visualization']['plot_args']['sec_name']
         for idx, row in tmp_data.iterrows():
