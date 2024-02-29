@@ -167,6 +167,9 @@
       "potential": "潜力标签", 
       "potential_score": "潜力分数",
       "potential_description": "潜力描述",
+
+      "support_score": "支撑分数",
+      "resistant_score": "阻挡分数",
       
       "signal": "交易信号",
       "signal_day": "信号天数",
