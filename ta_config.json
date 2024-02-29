@@ -173,7 +173,7 @@
       "signal_rank": "信号排名"
     },
     "drop_columns": [],
-    "send_columns": ["名称", "涨跌", "触发分数", "趋势变化分数", "趋势分数"],
+    "send_columns": ["名称", "涨跌", "信号排名", "触发分数", "趋势分数"],
     "save_result": true,
     "save_data": true,
     "save_pdf": true
