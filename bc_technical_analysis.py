@@ -5255,7 +5255,27 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   ax.scatter(weak_trend_idx, df.loc[weak_trend_idx, 'adx'], color=df.loc[weak_trend_idx, 'adx_color'], label='adx weak', alpha=0.4, marker='_', zorder=3)
 
   # plot moving average value of adx_value
-  ax.plot(df.index, df.adx_value_prediction, color='black', linestyle='-', alpha=0.5, zorder=3)
+  ax.plot(df.index, df.adx_value_prediction, color='black', label='adx prediction',linestyle='-', alpha=0.5, zorder=3) # 
+
+  # annotate adx (adx_strength_change)
+  max_idx = df.index.max()
+  x_signal = max_idx + datetime.timedelta(days=3)
+  v = round(df.loc[max_idx, 'adx'], 1)
+  v_change = round(df.loc[max_idx, 'adx_strength_change'],1)
+  y_signal = 15
+  text_color = 'green' if v_change > 0 else 'red'
+  text_color = 'green' if df.loc[max_idx, 'adx_strength_change'] > 0 else 'red'
+  plt.annotate(f'{v}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+
+  # annotate adx_value(adx_value_change)
+  x_signal = max_idx + datetime.timedelta(days=3)
+  v = round(df.loc[max_idx, 'adx_value'],1)
+  v_change = round(df.loc[max_idx, 'adx_value_change'],1)
+  y_signal = -15
+  text_color = 'green' if v_change > 0 else 'red'
+  plt.annotate(f'{v}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+
+  
 
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
@@ -5303,8 +5323,8 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
   # get indexes and max index
   idxs = df.index.tolist()
   max_idx = idxs[-1]
+  annotation_idx = max_idx + datetime.timedelta(days=3)
   min_idx = df.index.min()
-  max_x = max_idx + datetime.timedelta(days=5)
   padding = (df.High.max() - df.Low.min()) / 100
 
   # annotate split
@@ -5375,7 +5395,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
     y_close_padding = padding*5
     y_close = df.loc[max_idx, 'Close'].round(2)
     y_text_close = y_close
-    plt.annotate(f'{y_close}', xy=(max_x, y_text_close), xytext=(max_x, y_text_close), fontsize=13, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", alpha=0))
+    plt.annotate(f'   {y_close}', xy=(annotation_idx, y_text_close), xytext=(annotation_idx, y_text_close), fontsize=13, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", alpha=0))
 
     y_resistant = None
     y_text_resistant = None
@@ -5391,7 +5411,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
       diff = y_text_resistant - y_text_close
       if diff < y_close_padding:
         y_text_resistant = y_text_close + y_close_padding
-      plt.annotate(f'{y_resistant}[{resistant_score}]', xy=(max_x, y_text_resistant), xytext=(max_x, y_text_resistant), fontsize=13, xycoords='data', textcoords='data', color='black', va='bottom',  ha='left', bbox=dict(boxstyle="round", facecolor='red', alpha=0.1*resistant_score))
+      plt.annotate(f'{y_resistant}[{resistant_score}]', xy=(annotation_idx, y_text_resistant), xytext=(annotation_idx, y_text_resistant), fontsize=13, xycoords='data', textcoords='data', color='black', va='bottom',  ha='left', bbox=dict(boxstyle="round", facecolor='red', alpha=0.1*resistant_score)) # 
     
     # annotate support 
     if df.loc[max_idx, 'supporter'] > '':
@@ -5402,7 +5422,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
       diff = y_text_close - y_text_support
       if diff < y_close_padding:
         y_text_support = y_text_close - y_close_padding
-      plt.annotate(f'{y_support}[{support_score}]', xy=(max_x, y_text_support), xytext=(max_x, y_text_support), fontsize=13, xycoords='data', textcoords='data', color='black', va='top',  ha='left', bbox=dict(boxstyle="round", facecolor='green', alpha=0.1*support_score))
+      plt.annotate(f'{y_support}[{support_score}]', xy=(annotation_idx, y_text_support), xytext=(annotation_idx, y_text_support), fontsize=13, xycoords='data', textcoords='data', color='black', va='top',  ha='left', bbox=dict(boxstyle="round", facecolor='green', alpha=0.1*support_score)) #
 
   # annotate candle patterns
   if 'pattern' in add_on:
