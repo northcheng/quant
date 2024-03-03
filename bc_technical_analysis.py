@@ -5993,6 +5993,41 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
 
   return score_ax
 
+# plot selected 
+def plot_selected(data, config, dst_path=None, file_name=None):
+
+  # initialization
+  selected_data = pd.DataFrame()
+  
+  # get image path
+  if 'result' in data.keys():
+    for ti in data['result'].keys():
+      if len(data['result'][ti]) > 0:
+        
+        # get target_list and interval, then construct image path
+        ti_split = ti.split('_')
+        target_list = target_list = '_'.join(ti_split[:-1])
+        interval = ti_split[-1]
+        img_path = config['result_path'] + target_list + f'/{interval}/'
+        data['result'][ti]['img_path'] = img_path + data['result'][ti]['symbol'] + '.png'
+        selected_data = pd.concat([selected_data, data['result'][ti]])
+
+  # calculate rank and sort by rank    
+  selected_data['rank'] = selected_data['signal_rank'] + selected_data['inday_trend_score']
+  selected_data = selected_data.query('potential_score > 0').sort_values(['resistant_score', 'rank'], ascending=[False, False])
+  selected_data = selected_data[['symbol', 'potential', 'potential_score', 'potential_description', 'signal', 'signal_rank', 'inday_trend_score', 'resistant_score', 'rank', 'rate', 'img_path']]
+
+  # make pdf from images
+  img_to_pdf = selected_data['img_path'].tolist()
+  dst_path = config['home_path'] + 'Desktop/view' if dst_path is None else dst_path
+  if not os.path.exists(dst_path):
+    os.mkdir(dst_path)
+  file_name = dst_path + '/' + 'selected.pdf' if file_name is None else dst_path + '/' + file_name
+  util.image_2_pdf(img_to_pdf, save_name=file_name, is_print=True)
+  print(f'{len(img_to_pdf)}/{len(selected_data)} images saved into {file_name}')
+
+  return selected_data
+
 # plot general ta indicators
 def plot_indicator(df, target_col, start=None, end=None, signal_x='signal', signal_y='Close', benchmark=None, boundary=None, color_mode=None, use_ax=None, title=None, plot_price_in_twin_ax=False, trend_val=default_trend_val, signal_val=default_signal_val, plot_args=default_plot_args):
   """
