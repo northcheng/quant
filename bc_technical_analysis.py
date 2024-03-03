@@ -5230,14 +5230,6 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   # ax.fill_between(df.index, df.adx_value, df.adx_value_ma, where=green_mask,  facecolor='green', interpolate=False, alpha=0.6) 
   # ax.fill_between(df.index, df.adx_value, df.adx_value_ma, where=red_mask, facecolor='red', interpolate=False, alpha=0.6)
   
-  target_col = 'adx_diff_ma'
-  # gredn_df = df.loc[green_mask, ]
-  # red_df = df.loc[red_mask]
-  # ax.bar(gredn_df.index, height=gredn_df[target_col], color='green', edge_color=(0,0,0,1), width=datetime.timedelta(days=1), alpha=0.4, label=f'+{target_col}')
-  # ax.bar(red_df.index, height=red_df[target_col], color='red', edge_color=(0,0,0,1), width=datetime.timedelta(days=1), alpha=0.4, label=f'-{target_col}')
-
-  # df['adx_value'] = df['adx_value'] * (df['adx'] / 25)
-  plot_bar(df=df, target_col=target_col, alpha=0.4, width=datetime.timedelta(days=1), color_mode='up_down', edge_color=(1,1,1,0), benchmark=0, title='', use_ax=ax, plot_args=default_plot_args)
   # 0.8
   # plot adx with 
   # color: green(uptrending), red(downtrending), orange(waving); 
@@ -5251,11 +5243,20 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
 
   strong_trend_idx = df.query(f'adx >= {adx_threshold}').index
   weak_trend_idx = df.query(f'adx < {adx_threshold}').index
-  ax.scatter(strong_trend_idx, df.loc[strong_trend_idx, 'adx'], color=df.loc[strong_trend_idx, 'adx_color'], label='adx strong', alpha=0.4, marker='s', zorder=3)
-  ax.scatter(weak_trend_idx, df.loc[weak_trend_idx, 'adx'], color=df.loc[weak_trend_idx, 'adx_color'], label='adx weak', alpha=0.4, marker='_', zorder=3)
+  ax.scatter(strong_trend_idx, df.loc[strong_trend_idx, 'adx'], color=df.loc[strong_trend_idx, 'adx_color'], label='adx strong', alpha=0.5, marker='s', zorder=3)
+  ax.scatter(weak_trend_idx, df.loc[weak_trend_idx, 'adx'], color=df.loc[weak_trend_idx, 'adx_color'], label='adx weak', alpha=0.5, marker='_', zorder=3)
 
   # plot moving average value of adx_value
   ax.plot(df.index, df.adx_value_prediction, color='black', label='adx prediction',linestyle='-', alpha=0.5, zorder=3) # 
+
+  target_col = 'adx_diff_ma'
+  # gredn_df = df.loc[green_mask, ]
+  # red_df = df.loc[red_mask]
+  # ax.bar(gredn_df.index, height=gredn_df[target_col], color='green', edge_color=(0,0,0,1), width=datetime.timedelta(days=1), alpha=0.4, label=f'+{target_col}')
+  # ax.bar(red_df.index, height=red_df[target_col], color='red', edge_color=(0,0,0,1), width=datetime.timedelta(days=1), alpha=0.4, label=f'-{target_col}')
+
+  # df['adx_value'] = df['adx_value'] * (df['adx'] / 25)
+  plot_bar(df=df, target_col=target_col, alpha=0.4, width=datetime.timedelta(days=1), color_mode='up_down', edge_color=(0.5,0.5,0.5,0), benchmark=0, title='', use_ax=ax, plot_args=default_plot_args)
 
   # annotate adx (adx_strength_change)
   max_idx = df.index.max()
@@ -5274,8 +5275,6 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   y_signal = -15
   text_color = 'green' if v_change > 0 else 'red'
   plt.annotate(f'{v}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
-
-  
 
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
