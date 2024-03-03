@@ -5260,21 +5260,30 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
 
   # annotate adx (adx_strength_change)
   max_idx = df.index.max()
-  x_signal = max_idx + datetime.timedelta(days=3)
+  x_signal = max_idx + datetime.timedelta(days=2)
   v = round(df.loc[max_idx, 'adx'], 1)
   v_change = round(df.loc[max_idx, 'adx_strength_change'],1)
-  y_signal = 15
+  y_signal = 30
   text_color = 'green' if v_change > 0 else 'red'
   text_color = 'green' if df.loc[max_idx, 'adx_strength_change'] > 0 else 'red'
-  plt.annotate(f'{v}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+  plt.annotate(f'S:{v}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
   # annotate adx_value(adx_value_change)
-  x_signal = max_idx + datetime.timedelta(days=3)
+  x_signal = max_idx + datetime.timedelta(days=2)
   v = round(df.loc[max_idx, 'adx_value'],1)
   v_change = round(df.loc[max_idx, 'adx_value_change'],1)
-  y_signal = -15
+  y_signal = 0
   text_color = 'green' if v_change > 0 else 'red'
-  plt.annotate(f'{v}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+  plt.annotate(f'V:{v}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+
+  # annotate adx_value_prediction(adx_value_prediction - adx_value)
+  x_signal = max_idx + datetime.timedelta(days=2)
+  v = round(df.loc[max_idx, 'adx_value_prediction'],1)
+  v_change = round(df.loc[max_idx, 'adx_value_prediction']-df.loc[max_idx, 'adx_value'],1)
+  y_signal = -30
+  text_color = 'green' if v_change > 0 else 'red'
+  plt.annotate(f'P:{v}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+
 
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
