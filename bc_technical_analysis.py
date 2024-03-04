@@ -1175,8 +1175,8 @@ def calculate_ta_signal(df):
   df['signal_day'] = 0
 
   conditions = {
-    'buy':          '(potential_score > 0)',
-    'sell':         '(potential_score < 0)',
+    'buy':          '(adx_direction > 0) and ((adx_power < 0 and adx_value <= 10) or (adx_power > 0 and adx_value > 10))', #'(potential_score > 0)',
+    'sell':         '(adx_direction < 0) and ((adx_power < 0 and (adx_value > 10 or adx_direction_start > 0)) or (adx_power > 0 and adx_value <= 10))', #'(potential_score < 0)',
   } 
   values = {
     'buy':          'b',
@@ -1194,8 +1194,8 @@ def calculate_ta_signal(df):
     # B|S:  adx趋势起始于 [-10,10]之间 & adx强度弱 & adx_value 在[-10,10]间波动 & 未突破
     'adx_波动':       '(signal == "b" or signal == "s") and ((adx_strong_day < 0 and adx_wave_day > 0) and (-10 < adx_direction_start < 10) and (break_up_score <= 0))',
 
-    # # B|S:  与adx基本规则冲突
-    # 'adx_冲突':       '(signal == "b" or signal == "s") and ((adx_value < 0 and adx_power_day > 0) or (adx_value > 10 and adx_power_day < 0))',
+    # B:  adx_strong_day <= -5 & -10 <= adx_direction_start <= 10
+    'adx_弱势':       '(signal == "b") and ((adx_strong_day <= -5) and (adx_direction > 0 and 0 <= adx_direction_start <= 10))',
 
     # B:  adx_value>0 & ((adx_value在[-10,10]间波动 & adx强度下降 & trend_score<0.5) | (跌落 & adx方向第一天向上))
     '高位买入':       '(signal == "b") and (ichimoku_distance > 0 or kama_distance > 0) and ((adx_value > 0 and adx_wave_day > 0 and adx_power_day < 0 and trend_score < 0.5) or (adx_value > 25 and break_down_score < 0 and adx_direction_day == 1))',
@@ -1210,7 +1210,7 @@ def calculate_ta_signal(df):
     '长实体':         '(signal == "b") and (candle_entity_pct > 0.9 and candle_color == -1)',
 
     # # B:  (ichimoku红云<-0.05 | ichimoku红云扩大) & 实体顶部位于cloud下方 & 非renko跃升 & (实体中部<renko_h | adx_value方向向下或第一天向上 | 当天收跌)
-    # 'renko_低位':     '(signal == "b") and (trend_position == "l" and (ichimoku_distance < -0.05 or ichimoku_distance_day < 0) and renko_real != "green" and (candle_entity_top < renko_l or adx_direction_day <= 1 or candle_color == -1))',
+    # 'renko_低位':     '(signal == "b") and (trend_position == "l" and (ichimoku_distance < -0.05) and renko_real != "green" and (candle_entity_top < renko_l or adx_direction_day <= 1))',
     
     # S:  ichimoku绿云 & 实体底部位于cloud_top上方 & 非renko跌落 & (实体中部>renko_h & kama_distance>0) & (有支撑或无跌落) & 非黄昏星形态
     'renko_高位':     '(signal == "s") and (trend_position == "h" and renko_real != "red" and candle_entity_bottom > renko_h and kama_distance > 0) and (support_score > 0 or break_down_score == 0) and (启明黄昏_day != -1 and 窗口_day != -1)',
@@ -1228,7 +1228,7 @@ def calculate_ta_signal(df):
     'ichimoku_kama':  '(signal == "b") and ((ichimoku_distance < 0 and kama_distance > 0 and kijun > kama_fast > tankan) or (ichimoku_distance > 0 and kama_distance < -0.05 and kama_slow > tankan ))',
   
     # B:  存在阻挡 & (长上影线 | 没有支撑 | 跌落)
-    '上行受阻':       '(signal == "b") and (resistant_score < 0) and (candle_upper_shadow_pct > 0.5 or support_score ==0 or break_down_score < 0)',
+    '上行受阻':       '(signal == "b") and (((resistant_score <= -1) and (candle_upper_shadow_pct > 0.5 or break_down_score < 0)) or (resistant_score <= -2 and candle_upper_shadow_pct > 0.3))',
 
   } 
   for c in none_signal_conditions.keys():
@@ -5260,10 +5260,11 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
 
   # annotate adx (adx_strength_change)
   max_idx = df.index.max()
+  before_max_idx = df.index[-2]
   x_signal = max_idx + datetime.timedelta(days=2)
   v = round(df.loc[max_idx, 'adx'], 1)
   v_change = round(df.loc[max_idx, 'adx_strength_change'],1)
-  y_signal = 30
+  y_signal = 25
   text_color = 'green' if v_change > 0 else 'red'
   text_color = 'green' if df.loc[max_idx, 'adx_strength_change'] > 0 else 'red'
   plt.annotate(f'S:{v}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
@@ -5278,12 +5279,11 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
 
   # annotate adx_value_prediction(adx_value_prediction - adx_value)
   x_signal = max_idx + datetime.timedelta(days=2)
-  v = round(df.loc[max_idx, 'adx_value_prediction'],1)
-  v_change = round(df.loc[max_idx, 'adx_value_prediction']-df.loc[max_idx, 'adx_value'],1)
-  y_signal = -30
+  v = round(df.loc[max_idx, 'adx_diff_ma']-df.loc[max_idx, 'adx_value_prediction'],1)
+  v_change = round(v - (df.loc[before_max_idx, 'adx_diff_ma']-df.loc[before_max_idx, 'adx_value_prediction']),1)
+  y_signal = -25
   text_color = 'green' if v_change > 0 else 'red'
   plt.annotate(f'P:{v}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
-
 
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
@@ -6002,7 +6002,7 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
   return score_ax
 
 # plot selected 
-def plot_selected(data, config, dst_path=None, file_name=None):
+def plot_selected(data, config, make_pdf=False, dst_path=None, file_name=None):
 
   # initialization
   selected_data = pd.DataFrame()
@@ -6017,22 +6017,23 @@ def plot_selected(data, config, dst_path=None, file_name=None):
         target_list = target_list = '_'.join(ti_split[:-1])
         interval = ti_split[-1]
         img_path = config['result_path'] + target_list + f'/{interval}/'
-        data['result'][ti]['img_path'] = img_path + data['result'][ti]['symbol'] + '.png'
+        data['result'][ti]['img_path'] = data['result'][ti]['symbol'].apply(lambda x: f'{img_path}{x}.png') 
         selected_data = pd.concat([selected_data, data['result'][ti]])
 
   # calculate rank and sort by rank    
-  selected_data['rank'] = selected_data['signal_rank'] + selected_data['inday_trend_score']
-  selected_data = selected_data.query('potential_score > 0').sort_values(['resistant_score', 'rank'], ascending=[False, False])
-  selected_data = selected_data[['symbol', 'potential', 'potential_score', 'potential_description', 'signal', 'signal_rank', 'inday_trend_score', 'resistant_score', 'rank', 'rate', 'img_path']]
+  # selected_data['rank'] = selected_data['signal_rank'] + selected_data['inday_trend_score']
+  selected_data = selected_data.query('signal == "b"').sort_values(['signal_day', 'signal_rank', 'trend_score'], ascending=[True, False, False])
+  # selected_data = selected_data[['symbol', 'potential', 'potential_score', 'potential_description', 'signal', 'signal_rank', 'inday_trend_score', 'resistant_score', 'rank', 'rate', 'img_path']]
 
   # make pdf from images
-  img_to_pdf = selected_data['img_path'].tolist()
-  dst_path = config['home_path'] + 'Desktop/view' if dst_path is None else dst_path
-  if not os.path.exists(dst_path):
-    os.mkdir(dst_path)
-  file_name = dst_path + '/' + 'selected.pdf' if file_name is None else dst_path + '/' + file_name
-  util.image_2_pdf(img_to_pdf, save_name=file_name, is_print=True)
-  print(f'{len(img_to_pdf)}/{len(selected_data)} images saved into {file_name}')
+  if make_pdf:
+    img_to_pdf = selected_data['img_path'].tolist()
+    dst_path = config['home_path'] + 'Desktop/view' if dst_path is None else dst_path
+    if not os.path.exists(dst_path):
+      os.mkdir(dst_path)
+    file_name = dst_path + '/' + 'selected.pdf' if file_name is None else dst_path + '/' + file_name
+    util.image_2_pdf(img_to_pdf, save_name=file_name, is_print=True)
+    print(f'{len(img_to_pdf)}/{len(selected_data)} images saved into {file_name}')
 
   return selected_data
 
