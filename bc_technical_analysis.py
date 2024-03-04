@@ -1283,6 +1283,7 @@ def calculate_ta_signal(df):
   
   down_idx = df.query('short_trend_score < 0').index
   df.loc[down_idx, 'adx_rank'] = df.loc[down_idx, 'adx_value_change'] - df.loc[up_idx, 'adx_strength_change'].abs()
+  df['adx_rank'] = df['adx_rank'].fillna(0)
 
   s = 0.5
   df['rank_up_score'] = 0 
