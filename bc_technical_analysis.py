@@ -992,21 +992,23 @@ def calculate_ta_score(df):
     '-启明黄昏':    [-s, '', '(启明黄昏_day == -1)'],
   }
   df = cal_score(df=df, condition_dict=inday_conditions, up_score_col='up_score', down_score_col='down_score')
-  df['inday_trend_score'] += df['up_score'] + df['down_score']
 
   # support/resistant, break_up/bread_down description
   names = {'support':'+支撑', 'resistant': '-阻挡', 'break_up': '+突破', 'break_down': '-跌落'}
   for col in ['support', 'resistant', 'break_up', 'break_down']:
-    df['inday_trend_score'] += df[f'{col}_score'] * s
+    # df['inday_trend_score'] += df[f'{col}_score'] * s
 
     # desc = df[f'{col}_score'].apply(lambda x: '' if x == 0 else f'{names[col]}:[{x}], ')  #  
     desc = df[f'{col}_description'].apply(lambda x: '' if x == '' else f'{names[col]}:[{x}], ')
 
     if col in ['support', 'break_up']:
       df['up_score_description'] = (desc + df['up_score_description'])
+      df['up_score'] += df[f'{col}_score'] * s
     else:
       df['down_score_description'] = (desc + df['down_score_description'])
+      df['down_score'] += df[f'{col}_score'] * s
 
+  df['inday_trend_score'] = df['up_score'] + df['down_score']
   df['up_score_description'] = df['up_score_description'].apply(lambda x: x[:-2] if (len(x) >=2 and x[-2] == ',') else x)
   df['down_score_description'] = df['down_score_description'].apply(lambda x: x[:-2] if (len(x) >=2 and x[-2] == ',') else x)
   df['inday_trend_score_description'] += df['up_score_description'] + df['down_score_description']
@@ -1254,13 +1256,13 @@ def calculate_ta_signal(df):
   # df = remove_redundant_signal(df=df, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='', keep='first')
 
   # signal rank
-  df['adx_rank'] = 0
-  up_idx = df.query('short_trend_score > 0').index
-  df.loc[up_idx, 'adx_rank'] = df.loc[up_idx, 'adx_value_change'] + df.loc[up_idx, 'adx_strength_change'].abs()
+  # df['adx_rank'] = 0
+  # up_idx = df.query('short_trend_score > 0').index
+  # df.loc[up_idx, 'adx_rank'] = df.loc[up_idx, 'adx_value_change'] + df.loc[up_idx, 'adx_strength_change'].abs()
   
-  down_idx = df.query('short_trend_score < 0').index
-  df.loc[down_idx, 'adx_rank'] = df.loc[down_idx, 'adx_value_change'] - df.loc[up_idx, 'adx_strength_change'].abs()
-  df['adx_rank'] = df['adx_rank'].fillna(0)
+  # down_idx = df.query('short_trend_score < 0').index
+  # df.loc[down_idx, 'adx_rank'] = df.loc[down_idx, 'adx_value_change'] - df.loc[up_idx, 'adx_strength_change'].abs()
+  # df['adx_rank'] = df['adx_rank'].fillna(0)
 
   s = 0.5
   df['rank_up_score'] = 0 
@@ -1298,7 +1300,7 @@ def calculate_ta_signal(df):
         
   }
   df = cal_score(df=df, condition_dict=rank_conditions, up_score_col='rank_up_score', down_score_col='rank_down_score')
-  df['signal_rank'] = df['rank_up_score'] + df['rank_down_score'] + df['adx_rank']
+  df['signal_rank'] = df['rank_up_score'] + df['rank_down_score']
 
   return df
 
