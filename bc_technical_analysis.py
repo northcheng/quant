@@ -1098,19 +1098,19 @@ def calculate_ta_score(df):
     # term trend score change
     df = cal_change(df=df, target_col=score_col, periods=1, add_accumulation=False, add_prefix=True)
 
-  # # trend direction
-  # df['trend_direction'] = df['trend_score_change'].copy()
-  # df['trend_direction'] = sda(df['trend_direction'], zero_as=0)
-  # trend_direction_conditions = {
-  #   'pos':    f'trend_direction > 0.0', 
-  #   'neg':    f'trend_direction < 0.0',
-  # } 
-  # position_values = {
-  #   'pos':    1, 
-  #   'neg':    -1,
-  # }
-  # df = assign_condition_value(df=df, column='trend_direction_day', condition_dict=trend_direction_conditions, value_dict=position_values, default_value=0)
-  # df['trend_direction_day'] = sda(series=df['trend_direction_day'], zero_as=1)
+  # trend direction
+  df['trend_direction'] = df['trend_score_change'].copy()
+  df['trend_direction'] = sda(df['trend_direction'], zero_as=0)
+  trend_direction_conditions = {
+    'pos':    f'trend_direction > 0.0', 
+    'neg':    f'trend_direction < 0.0',
+  } 
+  position_values = {
+    'pos':    1, 
+    'neg':    -1,
+  }
+  df = assign_condition_value(df=df, column='trend_direction_day', condition_dict=trend_direction_conditions, value_dict=position_values, default_value=0)
+  df['trend_direction_day'] = sda(series=df['trend_direction_day'], zero_as=1)
 
   # drop redundant columns
   for col in col_to_drop:
@@ -1151,48 +1151,25 @@ def calculate_ta_signal(df):
   df['potential_score'] = 0
   df['potential_description'] = ''
   potential_conditions = {
-    '低位_up':      '(adx_direction > 0 and adx_value_change > 0) and (adx_diff_ma < -10 and adx_power < 0)', 
-    '中位_up':      '(adx_direction > 0 and adx_value_change > 0) and (-10 <= adx_diff_ma <= 10 and adx_power < 0) and (adx_direction_start < 0 and adx_direction_day != 1)', 
-    '高位_up':      '(adx_direction > 0 and adx_value_change > 0) and (adx_diff_ma > 10 and adx_power > 0)', 
-        
-    '一般_wave':    '(adx_direction > 0 and adx_value_change <= 0) or (adx_direction < 0 and adx_value_change >= 0)',
-    '中位_wave':    '(adx_direction > 0 and adx_value_change > 0) and (-10 <= adx_diff_ma <= 10 and adx_power > 0)', 
-  
-    '一般_down':    '(adx_direction < 0 and adx_value_change < 0)', 
-    '高位_down':    '(adx_direction > 0 and adx_value_change > 0) and (adx_diff_ma > 10 and adx_power < 0)', 
     
-    # '短期趋势_up':    f'(trigger_score > 0) and (trend_score_change > 0) and (short_trend_score_change > 0 or inday_trend_score_change > 0)',
-    # '短期趋势_down':  f'(trigger_score < 0) and (trend_score_change < 0) and (short_trend_score_change < 0 or inday_trend_score_change < 0)',
-    # '整体趋势_up':    f'(trend_score > 0 and trend_status == 4 and trend_score_change > 0)',
-    # '整体趋势_down':  f'(trend_score < 0 and trend_status < 0 and trend_score_change < 0)',
-    # '其他情况_down':  f'(inday_day < 0 and short_day < 0 and trend_direction_day < -1)',
+    '短期趋势_up':    f'(trigger_score > 0) and (trend_score_change > 0) and (short_trend_score_change > 0 or inday_trend_score_change > 0)',
+    '短期趋势_down':  f'(trigger_score < 0) and (trend_score_change < 0) and (short_trend_score_change < 0 or inday_trend_score_change < 0)',
+    '整体趋势_up':    f'(trend_score > 0 and trend_status == 4 and trend_score_change > 0)',
+    '整体趋势_down':  f'(trend_score < 0 and trend_status < 0 and trend_score_change < 0)',
+    '其他情况_down':  f'(inday_day < 0 and short_day < 0 and trend_direction_day < -1)',
   } 
-  potential_weights = {
-    '低位_up':        3, 
-    '中位_up':        2, 
-    '高位_up':        1,     
-
-    '一般_wave':      0,
-    '中位_wave':      0, 
-
-    '一般_down':      -2, 
-    '高位_down':      -1, 
-
-    # '短期趋势_up':    1,
-    # '短期趋势_down':  -1,
-    # '整体趋势_up':    1,
-    # '整体趋势_down':  -1,
-    # '其他情况_down':  -1,
-  }
   for c in potential_conditions.keys():
     tmp_condition = potential_conditions[c]
     tmp_idx = df.query(tmp_condition).index
-    df.loc[tmp_idx, 'potential_score'] += potential_weights[c]
-    df.loc[tmp_idx, 'potential_description'] += f'{c}, '
-
+    
     # mark potential
     if 'up' in c:
       df.loc[tmp_idx, 'potential'] = 'potential'
+      df.loc[tmp_idx, 'potential_score'] += 1
+    elif 'down' in c:
+      df.loc[tmp_idx, 'potential_score'] -= 1
+
+    df.loc[tmp_idx, 'potential_description'] += f'{c}, '
 
   df['potential_description'] = df['potential_description'].apply(lambda x: x[:-2])
 
@@ -1289,25 +1266,36 @@ def calculate_ta_signal(df):
   df['rank_up_score'] = 0 
   df['rank_down_score'] = 0
   rank_conditions = {
-    
-    '+adx_低位':          [s, '', '(adx_value < 0 and adx_power_day < 0)'],
-    '+adx_起始':          [s, '', '(adx_direction_start < -10)'],
-    '+ichimoku':          [s, '', '(tankan_day > 0 and kijun_day < 0)'],
-    '+ichimoku_进阶':     [s/2, '', '(tankan_day > 0 and kijun_day < 5)'],
-    '+kama':              [s, '', '(kama_fast_day > 0 and kama_slow_day < 0)'],
-    '+kama_进阶':         [s, '', '(kama_fast_day > 0 and kama_slow_day < 5)'],
-    '+ichimoku_fs':       [s, '', '(ichimoku_fs_day < 0)'],
-    '+ichimoku_fs_进阶':  [s/2, '', '(ichimoku_fs_day < 5)'],
-    '+kama_fs':           [s, '', '(kama_fs_day < 0)'],
-    '+kama_fs_进阶':      [s/2, '', '(kama_fs_day < 5)'],
-    '+adx_高位':          [s, '', '(adx_value > 10 and adx_power_day > 0)'],
-    '+触发':              [s, '', '(trigger_score > 0)'],
 
-    '-adx_弱势':          [-s, '', '(adx_strong_day < 0)'],
-    '-adx_波动':          [-s, '', '(adx_wave_day > 0)'],
-    '-adx_高位下降':       [-s, '', '(adx_value > 10 and adx_power_day < 0)'],
-    '-a触发':             [-s, '', '(trigger_score < 0)'],
+    '+adx_low':           [s*2, 'up_low', '(adx_direction > 0 and adx_value_change > 0) and (adx_diff_ma < -10 and adx_power < 0)'], 
+    '+adx_middle':        [s, 'up_middle', '(adx_direction > 0 and adx_value_change > 0) and (-10 <= adx_diff_ma <= 10 and adx_power < 0) and (adx_direction_start < 0 and adx_direction_day != 1)'], 
+    '+adx_high':          [s, 'up_high', '(adx_direction > 0 and adx_value_change > 0) and (adx_diff_ma > 10 and adx_power > 0)'], 
+        
+    '-adx_wave':          [-s, 'wave', '(adx_direction > 0 and adx_value_change <= 0) or (adx_direction < 0 and adx_value_change >= 0)'],
+    # '-adx_wave':          [0, '', '(adx_direction > 0 and adx_value_change > 0) and (-10 <= adx_diff_ma <= 10 and adx_power > 0)'], 
+  
+    '-adx_down':          [-s*2, 'down', '(adx_direction < 0 and adx_value_change < 0)'], 
+    '-adx_high':          [-s, 'down_high', '(adx_diff_ma > 10 and adx_power < 0)'], 
     
+    '+ichimoku':          [s, '', '(tankan_day > 0 and kijun_day < 0)'],
+    '+ichimoku_plus':     [s/2, '', '(tankan_day > 0 and kijun_day < 5)'],
+
+    '+kama':              [s, '', '(kama_fast_day > 0 and kama_slow_day < 0)'],
+    '+kama_plus':         [s, '', '(kama_fast_day > 0 and kama_slow_day < 5)'],
+
+    '+ichimoku_fs':       [s, '', '(ichimoku_fs_day < 0)'],
+    '+ichimoku_fs_plus':  [s/2, '', '(ichimoku_fs_day < 5)'],
+
+    '+kama_fs':           [s, '', '(kama_fs_day < 0)'],
+    '+kama_fs_plus':      [s/2, '', '(kama_fs_day < 5)'],
+
+    '+trigger':           [s, '', '(trigger_score > 0)'],
+    '-trigger':           [-s, '', '(trigger_score < 0)'],
+
+    '-adx_weak':          [-s, '', '(adx_strong_day < 0)'],
+    '-adx_wave':          [-s, '', '(adx_wave_day > 0)'],
+    '-adx_高位下降':       [-s, '', '(adx_value > 10 and adx_power_day < 0)'],
+        
   }
   df = cal_score(df=df, condition_dict=rank_conditions, up_score_col='rank_up_score', down_score_col='rank_down_score')
   df['signal_rank'] = df['rank_up_score'] + df['rank_down_score'] + df['adx_rank']
