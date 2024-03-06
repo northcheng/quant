@@ -316,6 +316,10 @@ def calculate_ta_static(df, indicators=default_indicators):
           df = cal_change_rate(df=df, target_col=col, periods=1, add_accumulation=False, add_prefix=col, drop_na=False)
           df[f'{col}_day'] = cal_crossover_signal(df=df, fast_line='Close', slow_line=col, pos_signal=1, neg_signal=-1, none_signal=0)
           df[f'{col}_day'] = sda(series=df[f'{col}_day'], zero_as=1)
+          extra_up = df.query(f'Low < {col} and Close > {col} and {col}_day != 1').index
+          extra_down = df.query(f'High > {col} and Close < {col} and {col}_day != -1').index
+          df.loc[extra_up, f'{col}_day'] = 1
+          df.loc[extra_down, f'{col}_day'] = -1
 
         # fl & sl crossover  
         fs_day = f'{target_indicator}_fs_day'
@@ -960,8 +964,14 @@ def calculate_ta_score(df):
     '+触底':        [s, '', '(突破_day == -1 and candle_color == 1)'],
     '-触顶':        [-s, '', '(突破_day == 1 and candle_color == -1)'],
 
-    '+支撑':        [s, '', '(support_score > 0 and (candle_color == 1 or rate > 0) and (candle_lower_shadow_pct > candle_upper_shadow_pct))'],
-    '-阻挡':        [-s, '', '(resistant_score < 0 and (candle_color == -1 or rate < 0) and (candle_upper_shadow_pct > candle_lower_shadow_pct))'],
+    # '+支撑':        [s, '', '(support_score > 0 and (candle_color == 1 or rate > 0) and (candle_lower_shadow_pct > candle_upper_shadow_pct))'],
+    # '-阻挡':        [-s, '', '(resistant_score < 0 and (candle_color == -1 or rate < 0) and (candle_upper_shadow_pct > candle_lower_shadow_pct))'],
+
+    # '+突破':        [s, '', '(break_up_score > 0 and (candle_color == 1 or rate > 0))'],
+    # '-跌落':        [-s, '', '(break_down_score < 0 and (candle_color == -1 or rate < 0))'],
+
+    '+renko':       [s, '', '(renko_real == "green")'],
+    '-renko':       [-s, '', '(renko_real == "red")'],
 
     '+跳升':        [s, '', '(candle_entity_bottom > prev_candle_entity_top)'],
     '-跳降':        [-s, '', '(candle_entity_top < prev_candle_entity_bottom)'],
@@ -1153,6 +1163,7 @@ def calculate_ta_signal(df):
     '短期趋势_down':  f'(trigger_score < 0) and (trend_score_change < 0) and (short_trend_score_change < 0 or inday_trend_score_change < 0)',
     '整体趋势_up':    f'(trend_score > 0 and trend_status == 4 and trend_score_change > 0)',
     '整体趋势_down':  f'(trend_score < 0 and trend_status < 0 and trend_score_change < 0)',
+    '其他情况_up':    f'(inday_day > 0 and short_day > 0 and trigger_score > 0 and trend_position == "l")',
     '其他情况_down':  f'(inday_day < 0 and short_day < 0 and trend_direction_day < -1)',
   } 
   for c in potential_conditions.keys():
@@ -1196,44 +1207,44 @@ def calculate_ta_signal(df):
     # B|S:  无adx强度数据  
     '信号不全':       '(signal == "b" or signal == "s") and (adx_power_day == 0)',
 
-    # B|S:  adx趋势起始于 [-10,10]之间 & adx强度弱 & adx_value 在[-10,10]间波动 & 未突破
-    'adx_波动':       '(signal == "b" or signal == "s") and ((adx_strong_day < 0 and adx_wave_day > 0) and ((-10 < adx_direction_start < 10) or (-10 < adx_value < 10)))',
+    # B|S:  adx趋势起始于 [-10,10]之间 & adx强度弱 & 实体 在[renko_l, renko_h]间波动 & 未突破
+    'adx_波动':       '(signal == "b" or signal == "s") and ((adx_strong_day < 0 and adx_wave_day > 0) and ((-10 < adx_direction_start < 10) and (renko_real != "green" and candle_entity_top < renko_h and candle_entity_bottom > renko_l) and (break_up_score == 0)))',
 
     # B:  adx_strong_day <= -5 & -10 <= adx_direction_start <= 10
     'adx_弱势':       '(signal == "b") and ((adx_strong_day <= -5) and (adx_direction > 0 and 0 <= adx_direction_start <= 10))',
 
     # B:  adx_value>0 & ((adx_value在[-10,10]间波动 & adx强度下降 & trend_score<0.5) | (跌落 & adx方向第一天向上))
-    '高位买入':       '(signal == "b") and (ichimoku_distance > 0 or kama_distance > 0) and ((adx_value > 0 and adx_wave_day > 0 and adx_power_day < 0 and trend_score < 0.5) or (adx_value > 25 and break_down_score < 0 and adx_direction_day == 1))',
+    '高位买入':       '(signal == "b") and (support_score == 0 and break_up_score == 0) and (ichimoku_distance > 0 or kama_distance > 0) and ((adx_value > 0 and adx_wave_day > 0 and adx_power_day < 0 and trend_score < 0.5) or (adx_value > 25 and break_down_score < 0 and adx_direction_day == 1))',
     
     # S:  adx_value上升 & ichimoku红云 & Low位于renko和cloud上方
     '波动卖出':       '(signal == "s") and (Low > renko_h and adx_value_change > 0 and ichimoku_distance < 0 and Low > kijun)',
 
     # B:  上影线长度>50% & (涨跌 < 0 | 存在阻挡 | 存在突破(突破后又跌落) | 高位 | 存在跌落)
-    '长上影线':       '(signal == "b") and (candle_upper_shadow_pct > 0.5 and (rate < 0 or resistant_score < 0 or break_up_score > 0 or break_down_score < 0 or trend_position=="h" or (adx_direction_day == 1 and adx_power_day < 0)))',
+    '长上影线':       '(signal == "b") and (candle_upper_shadow_pct > 0.5 and (rate < 0 or resistant_score < 0 or break_down_score < 0 or trend_position=="h" or (adx_direction_day == 1 and adx_power_day < 0)))',
     
     # B:  红长实体 & 实体长度 > 90%
     '长实体':         '(signal == "b") and (candle_entity_pct > 0.9 and candle_color == -1)',
 
     # # B:  (ichimoku红云<-0.05 | ichimoku红云扩大) & 实体顶部位于cloud下方 & 非renko跃升 & (实体中部<renko_h | adx_value方向向下或第一天向上 | 当天收跌)
-    # 'renko_低位':     '(signal == "b") and (trend_position == "l" and (ichimoku_distance < -0.05) and renko_real != "green" and (candle_entity_top < renko_l or adx_direction_day <= 1))',
+    # 'renko_低位':     '(signal == "b") and (renko_real != "green") and (trend_position == "l" and (ichimoku_distance < -0.05) and (candle_entity_top < renko_l or adx_direction_day <= 1))',
     
     # S:  ichimoku绿云 & 实体底部位于cloud_top上方 & 非renko跌落 & (实体中部>renko_h & kama_distance>0) & (有支撑或无跌落) & 非黄昏星形态
     'renko_高位':     '(signal == "s") and (trend_position == "h" and renko_real != "red" and candle_entity_bottom > renko_h and kama_distance > 0) and (support_score > 0 or break_down_score == 0) and (启明黄昏_day != -1 and 窗口_day != -1)',
 
     # B:  adx_value下降 & (adx_strength下降 | (adx_strenth上升 & adx_value<0) | adx_wave_day>0 | (adx_value>0 & adx方向第一天下降))
-    'adx_下行':       '(signal == "b") and (adx_value_change < 0) and (adx_strength_change < 0 or (adx_strength_change > 0 and adx_value < 0) or adx_wave_day > 0 or (adx_value > 10 and adx_direction < -1))',
+    'adx_下行':       '(signal == "b") and (adx_value_change < 0) and (break_up_score < 0 or support_score < 0 or (adx_value > 10 and adx_strong_day > 0)) and (adx_strength_change < 0 or (adx_strength_change > 0 and adx_value < 0) or adx_wave_day > 0 or (adx_value > 10 and adx_direction < -1))',
     
     # B:  adx_value>20 & adx_value上升 & ((adx强度下降 & adx趋势开始于-5以上 &) | (adx_wave_day>0 & adx方向第一天上升))
     'adx_高位':       '(signal == "b") and (adx_value > 20 and adx_value_change > 0) and ((adx_power_day < 0 and adx_direction_start > -5) or (adx_direction_day == 1 and adx_wave_day > 0))',
-      
+    
     # B:  收盘价位于ichimoku云下方 & 价格未上穿tankan & 日内趋势分数<0.75
     'ichimoku':       '(signal == "b") and (((Close < tankan and ichimoku_distance < 0) or (Close < kijun and ichimoku_distance >= 0)) and tankan_day < 0 and inday_trend_score < 0.75)',
     
     # B:  (ichimoku红云 & kama绿云 & kama_fast位于云中) | (ichimoku绿云 & kama红云<-0.05 & tankan < kama_slow)
-    'ichimoku_kama':  '(signal == "b") and ((ichimoku_distance < 0 and kama_distance > 0 and kijun > kama_fast > tankan) or (ichimoku_distance > 0 and kama_distance < -0.05 and kama_slow > tankan ))',
+    'ichimoku_kama':  '(signal == "b") and (trend_position != "l") and ((ichimoku_distance < 0 and kama_distance > 0 and kijun > kama_fast > tankan) or (ichimoku_distance > 0 and kama_distance < -0.05 and kama_slow > tankan ))',
   
     # B:  存在阻挡 & (长上影线 | 没有支撑 | 跌落)
-    '上行受阻':       '(signal == "b") and (((resistant_score <= -1) and (candle_upper_shadow_pct > 0.5 or break_down_score < 0)) or (resistant_score <= -2 and candle_upper_shadow_pct > 0.3))',
+    '上行受阻':       '(signal == "b") and (break_up_score == 0) and (((resistant_score <= -1) and (candle_upper_shadow_pct > 0.5 or break_down_score < 0)) or (resistant_score <= -2 and candle_upper_shadow_pct > 0.3))',
 
   } 
   for c in none_signal_conditions.keys():
@@ -2664,12 +2675,17 @@ def add_support_resistance(df, target_col=default_support_resistant_col, perspec
   df['prev_close'] = df['Close'].shift(1)
   col_to_drop.append('prev_close')
   for col in target_col:
-
-    support_idx = df.query(f'Open > {col} and Low < {col} and Close > {col}').index
+    
+    up_query = f'Open > {col} and Low < {col} and Close > {col}'
+    if 'renko' in col:
+      up_query += ' and (renko_real != "red")'
+    support_idx = df.query(up_query).index
     df.loc[support_idx, 'support_description'] += f'{col}, '
 
-    resistant_idx = df.query(f'Open < {col} and High > {col} and Close < {col}').index
-
+    down_query = f'Open < {col} and High > {col} and Close < {col}'
+    if 'renko' in col:
+      down_query += ' and (renko_real != "green")'
+    resistant_idx = df.query(down_query).index
     df.loc[resistant_idx, 'resistant_description'] += f'{col}, '
 
   df['support_description'] = df['support_description'].apply(lambda x: ', '.join(list(set(x[:-2].split(', ')))))
@@ -2681,10 +2697,20 @@ def add_support_resistance(df, target_col=default_support_resistant_col, perspec
   # ================================ breakthorough =====================================
   for col in target_col:
 
-    break_up_idx = df.query(f'candle_color == 1 and Open < {col} and Close > {col}').index # entity_diff > -0.5 and 
+    up_query = f'candle_color == 1 and Close > {col} and (Open < {col} or prev_close < {col})'
+    if 'renko' in col:
+      up_query += ' and (renko_real != "red")'
+    if f'{col}_day' in df.columns:
+      up_query += f' or ({col}_day == 1)'
+    break_up_idx = df.query(up_query).index # entity_diff > -0.5 and 
     df.loc[break_up_idx, 'break_up_description'] += f'{col}, '
 
-    break_down_idx = df.query(f'candle_color == -1 and Open > {col} and Close < {col}').index # entity_diff > -0.5 and 
+    down_query = f'candle_color == -1 and Close < {col} and (Open > {col} or prev_close > {col})'
+    if 'renko' in col:
+      down_query += ' and (renko_real != "green")'
+    if f'{col}_day' in df.columns:
+      down_query += f' or ({col}_day == -1)'
+    break_down_idx = df.query(down_query).index # entity_diff > -0.5 and 
     df.loc[break_down_idx, 'break_down_description'] += f'{col}, '
 
   df['break_up_description'] = df['break_up_description'].apply(lambda x: ', '.join(list(set(x[:-2].split(', ')))))
