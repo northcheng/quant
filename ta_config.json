@@ -148,6 +148,7 @@
       
       "adx_direction_start": "趋势起始",
       "adx_direction_day": "趋势方向天数",
+      "adx_strong_day": "强趋势天数",
 
       "trigger_score": "触发分数",
       "trigger_score_description": "触发标签",
