@@ -301,7 +301,7 @@ def calculate_ta_static(df, indicators=default_indicators):
         # distance related column names
         distance = f'{target_indicator}_distance'
         distance_change = f'{target_indicator}_distance_change'
-        distance_day = f'{target_indicator}_distance_day'
+        # distance_day = f'{target_indicator}_distance_day'
         trend_col = f'{target_indicator}_trend'
 
         # distance and distance change(normalized by slow_line)
@@ -323,22 +323,22 @@ def calculate_ta_static(df, indicators=default_indicators):
         df[fs_day] = df[fs_day].replace({'u':1, 'd':-1, 'n':0})
         df[fs_day] = sda(series=df[fs_day], zero_as=1)
 
-        # distance signal
-        distance_change_threshold = 0.001
-        fl_rate_threshold = {'ichimoku': 0.01, 'kama': 0.001}[target_indicator]
-        sl_rate_threshold = {'ichimoku': 0, 'kama': 0}[target_indicator]
-        conditions = {
-          'up': f'({distance} != 0 and {distance_change} > {distance_change_threshold} and {fl}_rate > {fl_rate_threshold}) or ({fl}_rate > 0 and {sl}_rate > 0)',
-          'down': f'({distance} != 0 and {distance_change} < {-distance_change_threshold} and {fl}_rate < {fl_rate_threshold}) or ({fl}_rate < 0 and {sl}_rate < 0)',
-          'none': f'({-distance_change_threshold} <= {distance_change} <= {distance_change_threshold}) and ({sl}_rate < {sl_rate_threshold})',
-        }
-        values = {
-          'up': 1, 
-          'down': -1,
-          'none': 0
-          }
-        df = assign_condition_value(df=df, column=distance_day, condition_dict=conditions, value_dict=values, default_value=0)
-        df[distance_day] = sda(series=df[distance_day], zero_as=1).astype(int)
+        # # distance signal
+        # distance_change_threshold = 0.001
+        # fl_rate_threshold = {'ichimoku': 0.01, 'kama': 0.001}[target_indicator]
+        # sl_rate_threshold = {'ichimoku': 0, 'kama': 0}[target_indicator]
+        # conditions = {
+        #   'up': f'({distance} != 0 and {distance_change} > {distance_change_threshold} and {fl}_rate > {fl_rate_threshold}) or ({fl}_rate > 0 and {sl}_rate > 0)',
+        #   'down': f'({distance} != 0 and {distance_change} < {-distance_change_threshold} and {fl}_rate < {fl_rate_threshold}) or ({fl}_rate < 0 and {sl}_rate < 0)',
+        #   'none': f'({-distance_change_threshold} <= {distance_change} <= {distance_change_threshold}) and ({sl}_rate < {sl_rate_threshold})',
+        # }
+        # values = {
+        #   'up': 1, 
+        #   'down': -1,
+        #   'none': 0
+        #   }
+        # df = assign_condition_value(df=df, column=distance_day, condition_dict=conditions, value_dict=values, default_value=0)
+        # df[distance_day] = sda(series=df[distance_day], zero_as=1).astype(int)
         
         # trend
         rate_threshold = 0.01
@@ -357,10 +357,10 @@ def calculate_ta_static(df, indicators=default_indicators):
       # cloud top and bototm
       green_idx = df.query('ichimoku_fs_day > 0').index
       red_idx = df.query('ichimoku_fs_day < 0').index
-      df.loc[green_idx, 'cloud_top'] = df.loc[green_idx, 'tankan']
-      df.loc[green_idx, 'cloud_bottom'] = df.loc[green_idx, 'kijun']
-      df.loc[red_idx, 'cloud_top'] = df.loc[red_idx, 'kijun']
-      df.loc[red_idx, 'cloud_bottom'] = df.loc[red_idx, 'tankan']
+      # df.loc[green_idx, 'cloud_top'] = df.loc[green_idx, 'tankan']
+      # df.loc[green_idx, 'cloud_bottom'] = df.loc[green_idx, 'kijun']
+      # df.loc[red_idx, 'cloud_top'] = df.loc[red_idx, 'kijun']
+      # df.loc[red_idx, 'cloud_bottom'] = df.loc[red_idx, 'tankan']
 
     # ================================ aroon trend ============================
     target_indicator = 'aroon'
@@ -408,8 +408,8 @@ def calculate_ta_static(df, indicators=default_indicators):
     if target_indicator in indicators['trend']:
       
       # adx value and strength
-      df['adx_value'] = df['adx_diff_ma']
-      df['adx_strength'] = df['adx']
+      # df['adx_value'] = df['adx_diff_ma']
+      # df['adx_strength'] = df['adx']
       df = cal_change(df=df, target_col='adx_value', add_accumulation=False, add_prefix=True)
       df = cal_change(df=df, target_col='adx_strength', add_accumulation=False, add_prefix=True)
 
@@ -447,8 +447,8 @@ def calculate_ta_static(df, indicators=default_indicators):
       # whether strength is strong or weak
       adx_strong_weak_threshold = 25
       conditions = {
-        'up': f'adx >= {adx_strong_weak_threshold}', 
-        'down': f'adx < {adx_strong_weak_threshold}'} 
+        'up': f'adx_strength >= {adx_strong_weak_threshold}', 
+        'down': f'adx_strength < {adx_strong_weak_threshold}'} 
       values = {
         'up': 1, 
         'down': -1}
@@ -645,9 +645,9 @@ def calculate_ta_static(df, indicators=default_indicators):
     target_indicator = 'overall'
     if target_indicator > '':
     
-      df['up_trend_idx'] = 0
-      df['down_trend_idx'] = 0
-      df['trend_idx'] = 0
+      # df['up_trend_idx'] = 0
+      # df['down_trend_idx'] = 0
+      # df['trend_idx'] = 0
       
       # specify all indicators and specify the exclusives
       all_indicators = []
@@ -677,17 +677,17 @@ def calculate_ta_static(df, indicators=default_indicators):
         if signal_col not in df.columns:
           df[signal_col] = 'n'
 
-        # calculate overall indicator index according to certain important indicators
-        if indicator in include_indicators:
+      #   # calculate overall indicator index according to certain important indicators
+      #   if indicator in include_indicators:
 
-          # calculate the overall trend value
-          up_idx = df.query(f'{trend_col} == "u"').index
-          down_idx = df.query(f'{trend_col} == "d"').index
-          df.loc[up_idx, 'up_trend_idx'] += 1
-          df.loc[down_idx, 'down_trend_idx'] -= 1
+      #     # calculate the overall trend value
+      #     up_idx = df.query(f'{trend_col} == "u"').index
+      #     down_idx = df.query(f'{trend_col} == "d"').index
+      #     df.loc[up_idx, 'up_trend_idx'] += 1
+      #     df.loc[down_idx, 'down_trend_idx'] -= 1
 
-      # calculate overall trend index 
-      df['trend_idx'] = df['up_trend_idx'] + df['down_trend_idx']      
+      # # calculate overall trend index 
+      # df['trend_idx'] = df['up_trend_idx'] + df['down_trend_idx']      
 
   except Exception as e:
     print(f'[Exception]: @ {phase} - {target_indicator}, {e}')
@@ -722,20 +722,20 @@ def calculate_ta_dynamic(df, perspective=default_perspectives):
       # add renko features
       df = add_renko_features(df=df)
 
-      # calculate renko trend
-      conditions = {
-        'up': '(candle_color == 1) and ((renko_color == "red" and Low > renko_h) or (renko_color == "green"))', 
-        'down': '(renko_color == "red") or (renko_color == "green" and Close < renko_l)'} 
-      values = {
-        'up': 'u', 
-        'down': 'd'}
-      df = assign_condition_value(df=df, column='renko_trend', condition_dict=conditions, value_dict=values, default_value='n')
-      wave_idx = df.query('(renko_trend != "u" and renko_trend != "d") and ((renko_brick_length >= 20 ) and (renko_brick_length>3*renko_duration_p1))').index
-      df.loc[wave_idx, 'renko_trend'] = 'n'
+      # # calculate renko trend
+      # conditions = {
+      #   'up': '(candle_color == 1) and ((renko_color == "red" and Low > renko_h) or (renko_color == "green"))', 
+      #   'down': '(renko_color == "red") or (renko_color == "green" and Close < renko_l)'} 
+      # values = {
+      #   'up': 'u', 
+      #   'down': 'd'}
+      # df = assign_condition_value(df=df, column='renko_trend', condition_dict=conditions, value_dict=values, default_value='n')
+      # wave_idx = df.query('(renko_trend != "u" and renko_trend != "d") and ((renko_brick_length >= 20 ) and (renko_brick_length>3*renko_duration_p1))').index
+      # df.loc[wave_idx, 'renko_trend'] = 'n'
 
-      # calculate renko signal
-      df['renko_signal'] = 'n'
-      df['renko_day'] = sda(series=df['renko_trend'].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
+      # # calculate renko signal
+      # df['renko_signal'] = 'n'
+      # df['renko_day'] = sda(series=df['renko_trend'].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
       
     # ================================ candle analysis ===========================
     phase = 'candle analysis'
@@ -858,7 +858,6 @@ def calculate_ta_score(df):
 
   # initialization
   df['trend_score'] = 0
-  df['major_score'] = 0
   
   df['trigger_score'] = 0
   df['trigger_score_description'] = ''
@@ -939,10 +938,6 @@ def calculate_ta_score(df):
 
     # term trend score += normalized key column score
     df[score_col] += min_max_normalize(df[key_col])
-
-    # major score
-    df['major_score'] += (df[score_col] > 0).replace({True: term_weight[term], False: 0})
-
 
   # ================================ calculate inday trend ==================
   # inday score and description
@@ -1138,8 +1133,8 @@ def calculate_ta_signal(df):
   # check trend position
   df['trend_position'] = 'n'
   trend_position_conditions = {
-    'low':      f'candle_entity_top < cloud_top and ichimoku_distance < 0', 
-    'high':     f'candle_entity_bottom > cloud_bottom and ichimoku_distance > 0',
+    'low':      f'candle_entity_top < kijun and ichimoku_distance < 0', 
+    'high':     f'candle_entity_bottom > tankan and ichimoku_distance > 0',
   } 
   trend_position_values = {
     'low':      'l', 
@@ -1202,7 +1197,7 @@ def calculate_ta_signal(df):
     '信号不全':       '(signal == "b" or signal == "s") and (adx_power_day == 0)',
 
     # B|S:  adx趋势起始于 [-10,10]之间 & adx强度弱 & adx_value 在[-10,10]间波动 & 未突破
-    'adx_波动':       '(signal == "b" or signal == "s") and ((adx_strong_day < 0 and adx_wave_day > 0) and ((-10 < adx_direction_start < 10) or (-10 < adx_diff_ma < 10)))',
+    'adx_波动':       '(signal == "b" or signal == "s") and ((adx_strong_day < 0 and adx_wave_day > 0) and ((-10 < adx_direction_start < 10) or (-10 < adx_value < 10)))',
 
     # B:  adx_strong_day <= -5 & -10 <= adx_direction_start <= 10
     'adx_弱势':       '(signal == "b") and ((adx_strong_day <= -5) and (adx_direction > 0 and 0 <= adx_direction_start <= 10))',
@@ -1211,7 +1206,7 @@ def calculate_ta_signal(df):
     '高位买入':       '(signal == "b") and (ichimoku_distance > 0 or kama_distance > 0) and ((adx_value > 0 and adx_wave_day > 0 and adx_power_day < 0 and trend_score < 0.5) or (adx_value > 25 and break_down_score < 0 and adx_direction_day == 1))',
     
     # S:  adx_value上升 & ichimoku红云 & Low位于renko和cloud上方
-    '波动卖出':       '(signal == "s") and (Low > renko_h and adx_value_change > 0 and ichimoku_distance < 0 and Low > cloud_top)',
+    '波动卖出':       '(signal == "s") and (Low > renko_h and adx_value_change > 0 and ichimoku_distance < 0 and Low > kijun)',
 
     # B:  上影线长度>50% & (涨跌 < 0 | 存在阻挡 | 存在突破(突破后又跌落) | 高位 | 存在跌落)
     '长上影线':       '(signal == "b") and (candle_upper_shadow_pct > 0.5 and (rate < 0 or resistant_score < 0 or break_up_score > 0 or break_down_score < 0 or trend_position=="h" or (adx_direction_day == 1 and adx_power_day < 0)))',
@@ -1232,7 +1227,7 @@ def calculate_ta_signal(df):
     'adx_高位':       '(signal == "b") and (adx_value > 20 and adx_value_change > 0) and ((adx_power_day < 0 and adx_direction_start > -5) or (adx_direction_day == 1 and adx_wave_day > 0))',
       
     # B:  收盘价位于ichimoku云下方 & 价格未上穿tankan & 日内趋势分数<0.75
-    'ichimoku':       '(signal == "b") and (Close < cloud_bottom and tankan_day < 0 and inday_trend_score < 0.75)',
+    'ichimoku':       '(signal == "b") and (((Close < tankan and ichimoku_distance < 0) or (Close < kijun and ichimoku_distance >= 0)) and tankan_day < 0 and inday_trend_score < 0.75)',
     
     # B:  (ichimoku红云 & kama绿云 & kama_fast位于云中) | (ichimoku绿云 & kama红云<-0.05 & tankan < kama_slow)
     'ichimoku_kama':  '(signal == "b") and ((ichimoku_distance < 0 and kama_distance > 0 and kijun > kama_fast > tankan) or (ichimoku_distance > 0 and kama_distance < -0.05 and kama_slow > tankan ))',
@@ -1269,15 +1264,15 @@ def calculate_ta_signal(df):
   df['rank_down_score'] = 0
   rank_conditions = {
 
-    '+adx_low':           [s*2, 'up_low', '(adx_direction > 0 and adx_value_change > 0) and (adx_diff_ma < -10 and adx_power < 0)'], 
-    '+adx_middle':        [s, 'up_middle', '(adx_direction > 0 and adx_value_change > 0) and (-10 <= adx_diff_ma <= 10 and adx_power < 0) and (adx_direction_start < 0 and adx_direction_day != 1)'], 
-    '+adx_high':          [s, 'up_high', '(adx_direction > 0 and adx_value_change > 0) and (adx_diff_ma > 10 and adx_power > 0)'], 
+    '+adx_low':           [s*2, 'up_low', '(adx_direction > 0 and adx_value_change > 0) and (adx_value < -10 and adx_power < 0)'], 
+    '+adx_middle':        [s, 'up_middle', '(adx_direction > 0 and adx_value_change > 0) and (-10 <= adx_value <= 10 and adx_power < 0) and (adx_direction_start < 0 and adx_direction_day != 1)'], 
+    '+adx_high':          [s, 'up_high', '(adx_direction > 0 and adx_value_change > 0) and (adx_value > 10 and adx_power > 0)'], 
         
     '-adx_wave':          [-s, 'wave', '(adx_direction > 0 and adx_value_change <= 0) or (adx_direction < 0 and adx_value_change >= 0)'],
-    # '-adx_wave':          [0, '', '(adx_direction > 0 and adx_value_change > 0) and (-10 <= adx_diff_ma <= 10 and adx_power > 0)'], 
+    # '-adx_wave':          [0, '', '(adx_direction > 0 and adx_value_change > 0) and (-10 <= adx_value <= 10 and adx_power > 0)'], 
   
     '-adx_down':          [-s*2, 'down', '(adx_direction < 0 and adx_value_change < 0)'], 
-    '-adx_high':          [-s, 'down_high', '(adx_diff_ma > 10 and adx_power < 0)'], 
+    '-adx_high':          [-s, 'down_high', '(adx_value > 10 and adx_power < 0)'], 
     
     '+ichimoku':          [s, '', '(tankan_day > 0 and kijun_day < 0)'],
     '+ichimoku_plus':     [s/2, '', '(tankan_day > 0 and kijun_day < 5)'],
@@ -1356,7 +1351,7 @@ def postprocess(df, keep_columns, drop_columns, sec_names, target_interval=''):
   df = df.reset_index().copy()
 
   # sort symbols
-  df = df.sort_values(['adx_day', 'adx_value', 'adx_direction_day', 'prev_adx_extreme'], ascending=[True, True, True, True])
+  df = df.sort_values(['adx_day', 'adx_value', 'adx_direction_day'], ascending=[True, True, True])
 
   # add names for symbols
   df['name'] = df['symbol']
@@ -1955,6 +1950,7 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
   """
   # copy dataframe
   df = df.copy()
+  col_to_drop = [] 
 
   # set column names
   open = ohlcv_col['open']
@@ -1992,9 +1988,10 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
   df['candle_entity_pct'] = df['candle_entity'] / df['candle_shadow']
   df['candle_entity_middle'] = (df['candle_entity_top'] + df['candle_entity_bottom']) * 0.5
 
+  col_to_drop += ['candle_upper_shadow', 'candle_lower_shadow']
+
   # ======================================= gap ====================================================== #
-  # gap_up / gap_down
-  col_to_drop = [] 
+  # gap_up / gap_down  
   for col in [open, close, high, low, 'candle_color', 'candle_entity']:
     prev_col = f'prev_{col}' 
     df[prev_col] = df[col].shift(1)
@@ -2355,10 +2352,11 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
   
   # redundant intermediate columns
   for col in [
-    'recent_high', 'recent_low',
+    'recent_high', 'recent_low',  '极限_trend',
     'prev_相对窗口位置', 'high_diff', 'low_diff', 'candle_upper_shadow_pct_diff', 'candle_lower_shadow_pct_diff', 
-    'entity_ma', 'entity_std', 'shadow_ma', 'shadow_std', # 'shadow_diff', 'entity_diff',
-    
+    'entity_ma', 'entity_std', 'shadow_ma', 'shadow_std',
+    'entity_diff', # 'entity_trend', 'shadow_trend',
+    'shadow_diff', 'upper_shadow_trend', 'lower_shadow_trend', 
     'moving_max', 'moving_min']:
     if col in df.columns:
       df.drop(col, axis=1, inplace=True)
@@ -2866,13 +2864,17 @@ def add_adx_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, adx_th
   df['adx_diff'] = (df['pdi'] - df['mdi'])# * (df['adx']/adx_threshold)
   df['adx_diff_ma'] = em(series=df['adx_diff'], periods=5).mean()
 
+  # rename columns: adx_diff_ma -> adx_value; adx -> adx_strength
+  df['adx_value'] = df['adx_diff_ma']
+  df['adx_strength'] = df['adx']
+
   # fill na values
   if fillna:
     for col in ['pdm', 'mdm', 'atr', 'pdi', 'mdi', 'dx', 'adx']:
       df[col] = df[col].replace([np.inf, -np.inf], np.nan).fillna(0)
   
   # drop redundant columns
-  df.drop(['high_diff', 'low_diff', 'zero', 'pdm', 'mdm'], axis=1, inplace=True)
+  df.drop(['high_diff', 'low_diff', 'zero', 'pdm', 'mdm', 'pdi', 'mdi', 'dx', 'adx', 'adx_diff', 'adx_diff_ma'], axis=1, inplace=True)
 
   return df
 
@@ -3612,19 +3614,19 @@ def add_renko_features(df, brick_size_factor=0.05, dynamic_brick=True, merge_dup
         continue
     renko_df = util.remove_duplicated_index(df=renko_df, keep='last')
 
-  # calculate accumulated renko trend (so called "renko_series")
-  series_len_short = 3
-  series_len_long = 5
-  renko_df['renko_series_short'] = 'n' * series_len_short
-  renko_df['renko_series_long'] = 'n' * series_len_long
-  prev_idx = None
-  for idx, row in renko_df.iterrows():
-    if prev_idx is not None:
-      renko_df.loc[idx, 'renko_series_short'] = (renko_df.loc[prev_idx, 'renko_series_short'] + renko_df.loc[idx, 'renko_direction'])[-series_len_short:]
-      renko_df.loc[idx, 'renko_series_long'] = (renko_df.loc[prev_idx, 'renko_series_long'] + renko_df.loc[idx, 'renko_direction'])[-series_len_long:]
-    prev_idx = idx
-  renko_df['renko_series_short_idx'] = renko_df['renko_series_short'].apply(lambda x: x.count('u') - x.count('d')).astype(int)
-  renko_df['renko_series_long_idx'] = renko_df['renko_series_long'].apply(lambda x: x.count('u') - x.count('d')).astype(int)
+  # # calculate accumulated renko trend (so called "renko_series")
+  # series_len_short = 3
+  # series_len_long = 5
+  # renko_df['renko_series_short'] = 'n' * series_len_short
+  # renko_df['renko_series_long'] = 'n' * series_len_long
+  # prev_idx = None
+  # for idx, row in renko_df.iterrows():
+  #   if prev_idx is not None:
+  #     renko_df.loc[idx, 'renko_series_short'] = (renko_df.loc[prev_idx, 'renko_series_short'] + renko_df.loc[idx, 'renko_direction'])[-series_len_short:]
+  #     renko_df.loc[idx, 'renko_series_long'] = (renko_df.loc[prev_idx, 'renko_series_long'] + renko_df.loc[idx, 'renko_direction'])[-series_len_long:]
+  #   prev_idx = idx
+  # renko_df['renko_series_short_idx'] = renko_df['renko_series_short'].apply(lambda x: x.count('u') - x.count('d')).astype(int)
+  # renko_df['renko_series_long_idx'] = renko_df['renko_series_long'].apply(lambda x: x.count('u') - x.count('d')).astype(int)
     
   # drop currently-existed renko_df columns from df, merge renko_df into df 
   for col in df.columns:
@@ -3637,12 +3639,9 @@ def add_renko_features(df, brick_size_factor=0.05, dynamic_brick=True, merge_dup
   df.loc[red_idx, 'renko_brick_height'] = -df.loc[red_idx, 'renko_brick_height']
 
   # fill na values
-  renko_columns = ['renko_o', 'renko_h','renko_l', 'renko_c', 'renko_color', 'renko_brick_height', 'renko_brick_number','renko_start', 'renko_end', 'renko_duration', 'renko_duration_p1', 'renko_direction', 'renko_series_short', 'renko_series_long', 'renko_series_short_idx', 'renko_series_long_idx'] # , 'renko_direction', 'renko_series_short', 'renko_series_long'
+  renko_columns = ['renko_o', 'renko_h','renko_l', 'renko_c', 'renko_color', 'renko_brick_height', 'renko_brick_number','renko_start', 'renko_end', 'renko_duration', 'renko_duration_p1', 'renko_direction'] # 'renko_series_short', 'renko_series_long', 'renko_series_short_idx', 'renko_series_long_idx'
   for col in renko_columns:
     df[col] = df[col].fillna(method='ffill')
-
-  for col in ['renko_series_short_idx', 'renko_series_long_idx']:
-    df[col] = df[col].fillna(0)
 
   # calculate length(number of days to the end of current brick) 
   # calculate of each brick(or merged brick): renko_brick_length, renko_countdown_days(for ploting)
@@ -4853,7 +4852,7 @@ def plot_scatter(df, target_col, start=None, end=None, marker='.', alpha=1, colo
     # strong_trend_idx = df.query(f'Volume_rate >= {threshold} or Volume_rate <= {-threshold}').index
     # weak_trend_idx = df.query(f'{-threshold} < Volume_rate < {threshold}').index
     # ax.scatter(strong_trend_idx, df.loc[strong_trend_idx, 'Volume'], color=df.loc[strong_trend_idx, 'color'], label=target_col, alpha=0.4, marker='s')
-    # ax.scatter(weak_trend_idx, df.loc[weak_trend_idx, 'adx'], color=df.loc[weak_trend_idx, 'color'], alpha=0.4, marker='_')
+    # ax.scatter(weak_trend_idx, df.loc[weak_trend_idx, 'adx_strength'], color=df.loc[weak_trend_idx, 'color'], alpha=0.4, marker='_')
     ax.scatter(df.index, df[target_col], marker=marker,color=df.color, alpha=alpha, label=target_col)
 
   if add_line:
@@ -4945,13 +4944,13 @@ def plot_up_down(df, col='trend_idx', start=None, end=None, use_ax=None, title=N
     ax.fill_between(df.index, df[plot_col], df.zero, where=green_mask,  facecolor='green', interpolate=False, alpha=0.3) 
     ax.fill_between(df.index, df[plot_col], df.zero, where=red_mask, facecolor='red', interpolate=False, alpha=0.15)
   
-  # ichimoku_distance_day
-  max_idx = df.index.max()
-  x_signal = max_idx + datetime.timedelta(days=2)
-  y_signal = 0
-  text_signal = int(df.loc[max_idx, 'ichimoku_distance_day'])
-  text_color = 'red' if text_signal < 0 else 'green'
-  plt.annotate(f'ich: {text_signal}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.05))
+  # # ichimoku_distance_day
+  # max_idx = df.index.max()
+  # x_signal = max_idx + datetime.timedelta(days=2)
+  # y_signal = 0
+  # text_signal = int(df.loc[max_idx, 'ichimoku_distance_day'])
+  # text_color = 'red' if text_signal < 0 else 'green'
+  # plt.annotate(f'ich: {text_signal}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.05))
 
   # title and legend
   # ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
@@ -5242,7 +5241,7 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   #   ax.fill_between(df.index, 10, -10, hatch=None, linewidth=1, edgecolor='black', facecolor='grey', alpha=0.1)
   ax.fill_between(df.index, 10, -10, hatch=None, linewidth=1, facecolor='grey', edgecolor='black', alpha=0.1, zorder=0)
 
-  # plot adx_diff_ma and adx_direction
+  # plot adx_value and adx_direction
   df['zero'] = 0
   ax.plot(df.index, df.zero, color='black', alpha=0.25, zorder=0)
 
@@ -5256,9 +5255,9 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   # green_mask = ((df.adx_value_change > 0))# | (df.prev_adx_day > 0)) 
   # red_mask = ((df.adx_value_change < 0))# | (df.prev_adx_day < 0)) 
   # yellow_mask = ((df.adx_value_change == 0)) | ((df.adx_value_change > 0) & (df.prev_adx_value_change < 0)) | ((df.adx_value_change > 0) & (df.next_adx_value_change < 0)) | ((df.adx_value_change < 0) & (df.prev_adx_value_change > 0)) | ((df.adx_value_change < 0) & (df.next_adx_value_change > 0)) 
-  # ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=green_mask,  facecolor='green', interpolate=False, alpha=0.3, label='adx up') 
-  # ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=red_mask, facecolor='red', interpolate=False, alpha=0.3, label='adx down')
-  # ax.fill_between(df.index, df.adx_diff_ma, df.zero, where=yellow_mask, facecolor='yellow', interpolate=False, alpha=0.3, label='adx switch')
+  # ax.fill_between(df.index, df.adx_value, df.zero, where=green_mask,  facecolor='green', interpolate=False, alpha=0.3, label='adx up') 
+  # ax.fill_between(df.index, df.adx_value, df.zero, where=red_mask, facecolor='red', interpolate=False, alpha=0.3, label='adx down')
+  # ax.fill_between(df.index, df.adx_value, df.zero, where=yellow_mask, facecolor='yellow', interpolate=False, alpha=0.3, label='adx switch')
 
   # green_mask = ((df.adx_value > df.adx_value_ma)) # | (df.prev_adx_day > 0)) 
   # red_mask = ((df.adx_value < df.adx_value_ma))# | (df.prev_adx_day < 0)) 
@@ -5276,28 +5275,28 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   df.loc[df.adx_power_day > 0, 'adx_color'] = 'green'
   df.loc[df.adx_power_day < 0, 'adx_color'] = 'red'
 
-  strong_trend_idx = df.query(f'adx >= {adx_threshold}').index
-  weak_trend_idx = df.query(f'adx < {adx_threshold}').index
-  ax.scatter(strong_trend_idx, df.loc[strong_trend_idx, 'adx'], color=df.loc[strong_trend_idx, 'adx_color'], label='adx strong', alpha=0.5, marker='s', zorder=3)
-  ax.scatter(weak_trend_idx, df.loc[weak_trend_idx, 'adx'], color=df.loc[weak_trend_idx, 'adx_color'], label='adx weak', alpha=0.5, marker='_', zorder=3)
+  strong_trend_idx = df.query(f'adx_strength >= {adx_threshold}').index
+  weak_trend_idx = df.query(f'adx_strength < {adx_threshold}').index
+  ax.scatter(strong_trend_idx, df.loc[strong_trend_idx, 'adx_strength'], color=df.loc[strong_trend_idx, 'adx_color'], label='adx strong', alpha=0.5, marker='s', zorder=3)
+  ax.scatter(weak_trend_idx, df.loc[weak_trend_idx, 'adx_strength'], color=df.loc[weak_trend_idx, 'adx_color'], label='adx weak', alpha=0.5, marker='_', zorder=3)
 
   # plot moving average value of adx_value
   ax.plot(df.index, df.adx_value_prediction, color='black', label='adx prediction',linestyle='-', alpha=0.5, zorder=3) # 
 
-  target_col = 'adx_diff_ma'
+  target_col = 'adx_value'
   # gredn_df = df.loc[green_mask, ]
   # red_df = df.loc[red_mask]
   # ax.bar(gredn_df.index, height=gredn_df[target_col], color='green', edge_color=(0,0,0,1), width=datetime.timedelta(days=1), alpha=0.4, label=f'+{target_col}')
   # ax.bar(red_df.index, height=red_df[target_col], color='red', edge_color=(0,0,0,1), width=datetime.timedelta(days=1), alpha=0.4, label=f'-{target_col}')
 
-  # df['adx_value'] = df['adx_value'] * (df['adx'] / 25)
+  # df['adx_value'] = df['adx_value'] * (df['adx_strength'] / 25)
   plot_bar(df=df, target_col=target_col, alpha=0.4, width=datetime.timedelta(days=1), color_mode='up_down', edge_color=(0.5,0.5,0.5,0), benchmark=0, title='', use_ax=ax, plot_args=default_plot_args)
 
   # annotate adx (adx_strength_change)
   max_idx = df.index.max()
   before_max_idx = df.index[-2]
   x_signal = max_idx + datetime.timedelta(days=2)
-  v = round(df.loc[max_idx, 'adx'], 1)
+  v = round(df.loc[max_idx, 'adx_strength'], 1)
   v_change = round(df.loc[max_idx, 'adx_strength_change'],1)
   y_signal = 25
   text_color = 'green' if v_change > 0 else 'red'
@@ -5314,8 +5313,8 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
 
   # annotate adx_value_prediction(adx_value_prediction - adx_value)
   x_signal = max_idx + datetime.timedelta(days=2)
-  v = round(df.loc[max_idx, 'adx_diff_ma']-df.loc[max_idx, 'adx_value_prediction'],1)
-  v_change = round(v - (df.loc[before_max_idx, 'adx_diff_ma']-df.loc[before_max_idx, 'adx_value_prediction']),1)
+  v = round(df.loc[max_idx, 'adx_value']-df.loc[max_idx, 'adx_value_prediction'],1)
+  v_change = round(v - (df.loc[before_max_idx, 'adx_value']-df.loc[before_max_idx, 'adx_value_prediction']),1)
   y_signal = -25
   text_color = 'green' if v_change > 0 else 'red'
   plt.annotate(f'P:{v}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
@@ -5517,7 +5516,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
     down_pattern_annotations = {}
     for p in pattern_info.keys():
       
-      style = 'normal' if p not in ['窗口_trend', '突破_trend'] else 'emphasis' # , '反弹_trend'
+      style = 'normal' if p not in ['突破_trend'] else 'emphasis' # , '反弹_trend'
 
       if p in df.columns:
 
