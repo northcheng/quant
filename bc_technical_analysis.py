@@ -1152,6 +1152,14 @@ def calculate_ta_signal(df):
   }
   df = assign_condition_value(df=df, column='trend_position', condition_dict=trend_position_conditions, value_dict=trend_position_values, default_value='n')
 
+  # short trends that start from low
+  df['short_trend_from_low'] = 0
+  up_idx = df.query('short_day == 1 and (adx_direction_start < -10 or trend_position == "l")').index
+  down_idx = df.query('short_day == -1').index
+  df.loc[up_idx, 'short_trend_from_low'] = 1
+  df.loc[down_idx, 'short_trend_from_low'] = -1
+  df['short_trend_from_low'] = sda(df['short_trend_from_low'], zero_as=1)
+
   # ================================ calculate potential ====================
   # potnetial score
   df['potential'] = ''
@@ -1159,6 +1167,7 @@ def calculate_ta_signal(df):
   df['potential_description'] = ''
   potential_conditions = {
     
+    '低位上扬_up':    f'(short_trend_from_low > 0)',
     '短期趋势_up':    f'(trigger_score > 0) and (trend_score_change > 0) and (short_trend_score_change > 0 or inday_trend_score_change > 0)',
     '短期趋势_down':  f'(trigger_score < 0) and (trend_score_change < 0) and (short_trend_score_change < 0 or inday_trend_score_change < 0)',
     '整体趋势_up':    f'(trend_score > 0 and trend_status == 4 and trend_score_change > 0)',
@@ -1275,15 +1284,16 @@ def calculate_ta_signal(df):
   df['rank_down_score'] = 0
   rank_conditions = {
 
-    '+adx_low':           [s*2, 'up_low', '(adx_direction > 0 and adx_value_change > 0) and (adx_value < -10 and adx_power < 0)'], 
-    '+adx_middle':        [s, 'up_middle', '(adx_direction > 0 and adx_value_change > 0) and (-10 <= adx_value <= 10 and adx_power < 0) and (adx_direction_start < 0 and adx_direction_day != 1)'], 
-    '+adx_high':          [s, 'up_high', '(adx_direction > 0 and adx_value_change > 0) and (adx_value > 10 and adx_power > 0)'], 
+    '+from_low':          [s*2, '', '(short_trend_from_low > 0)'], 
+    '+adx_low':           [s*2, '', '(adx_direction > 0 and adx_value_change > 0) and (adx_value < -10 and adx_power < 0)'], 
+    '+adx_middle':        [s, '', '(adx_direction > 0 and adx_value_change > 0) and (-10 <= adx_value <= 10 and adx_power < 0) and (adx_direction_start < 0 and adx_direction_day != 1)'], 
+    '+adx_high':          [s, '', '(adx_direction > 0 and adx_value_change > 0) and (adx_value > 10 and adx_power > 0)'], 
         
-    '-adx_wave':          [-s, 'wave', '(adx_direction > 0 and adx_value_change <= 0) or (adx_direction < 0 and adx_value_change >= 0)'],
+    '-adx_wave':          [-s, '', '(adx_direction > 0 and adx_value_change <= 0) or (adx_direction < 0 and adx_value_change >= 0)'],
     # '-adx_wave':          [0, '', '(adx_direction > 0 and adx_value_change > 0) and (-10 <= adx_value <= 10 and adx_power > 0)'], 
   
-    '-adx_down':          [-s*2, 'down', '(adx_direction < 0 and adx_value_change < 0)'], 
-    '-adx_high':          [-s, 'down_high', '(adx_value > 10 and adx_power < 0)'], 
+    '-adx_down':          [-s*2, '', '(adx_direction < 0 and adx_value_change < 0)'], 
+    '-adx_high':          [-s, '', '(adx_value > 10 and adx_power < 0)'], 
     
     '+ichimoku':          [s, '', '(tankan_day > 0 and kijun_day < 0)'],
     '+ichimoku_plus':     [s/2, '', '(tankan_day > 0 and kijun_day < 5)'],
