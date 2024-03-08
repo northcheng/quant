@@ -1250,7 +1250,7 @@ def calculate_ta_signal(df):
     'ichimoku':       '(signal == "b") and (((Close < tankan and ichimoku_distance < 0) or (Close < kijun and ichimoku_distance >= 0)) and tankan_day < 0 and inday_trend_score < 0.75)',
     
     # B:  (ichimoku红云 & kama绿云 & kama_fast位于云中) | (ichimoku绿云 & kama红云<-0.05 & tankan < kama_slow)
-    'ichimoku_kama':  '(signal == "b") and (trend_position != "l") and ((ichimoku_distance < 0 and kama_distance > 0 and kijun > kama_fast > tankan) or (ichimoku_distance > 0 and kama_distance < -0.05 and kama_slow > tankan ))',
+    'ichimoku_kama':  '(signal == "b") and (trigger_score <= 0) and (trend_position != "l") and ((ichimoku_distance < 0 and kama_distance > 0 and kijun > kama_fast > tankan) or (ichimoku_distance > 0 and kama_distance < -0.05 and kama_slow > tankan ))',
   
     # B:  存在阻挡 & (长上影线 | 没有支撑 | 跌落)
     '上行受阻':       '(signal == "b") and (break_up_score == 0) and (((resistant_score <= -1) and (candle_upper_shadow_pct > 0.5 or break_down_score < 0)) or (resistant_score <= -2 and candle_upper_shadow_pct > 0.3))',
@@ -6405,7 +6405,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   signal_desc = f'[{df.loc[max_idx, "potential_score"]}] : {df.loc[max_idx, "potential_description"]} | {df.loc[max_idx, "signal_description"]}'
   signal_desc = signal_desc.replace(', ]', ']')#.replace('; ', '')
 
-  inday_desc = f'{df.loc[max_idx, "up_score_description"]} | {df.loc[max_idx, "down_score_description"]}'
+  inday_desc = f'[{df.loc[max_idx, "signal_rank"]}] : {df.loc[max_idx, "up_score_description"]} | {df.loc[max_idx, "down_score_description"]}'
   # inday_desc = inday_desc.replace(', ', '')#.replace('; ', '')
   
   # construct super title
