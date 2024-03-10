@@ -1143,19 +1143,23 @@ def calculate_ta_signal(df):
   # check trend position
   df['trend_position'] = 'n'
   trend_position_conditions = {
-    'low':      f'candle_entity_top < kijun and ichimoku_distance < 0', 
-    'high':     f'candle_entity_bottom > tankan and ichimoku_distance > 0',
+    'low_low':      f'candle_entity_top < kijun and ichimoku_distance < 0 and kama_distance <= 0', 
+    'high_low':     f'candle_entity_top < kijun and ichimoku_distance < 0 and kama_distance > 0', 
+    'low_high':     f'candle_entity_bottom > tankan and ichimoku_distance > 0 and kama_distance <= 0',
+    'high_high':    f'candle_entity_bottom > tankan and ichimoku_distance > 0 and kama_distance > 0',
   } 
   trend_position_values = {
-    'low':      'l', 
-    'high':     'h',
+    'low_low':      'l', 
+    'high_low':     'hl',
+    'low_high':     'lh',
+    'high_high':    'h',
   }
   df = assign_condition_value(df=df, column='trend_position', condition_dict=trend_position_conditions, value_dict=trend_position_values, default_value='n')
 
   # short trends that start from low
   df['short_trend_from_low'] = 0
-  up_idx = df.query('short_day == 1 and (adx_direction_start < -10 or trend_position == "l")').index
-  down_idx = df.query('short_day == -1').index
+  up_idx = df.query('(short_day == 1 and adx_direction > 0) and (adx_direction_start < -20 or trend_position == "l")').index
+  down_idx = df.query('(short_day == -1 or adx_direction < 0)').index
   df.loc[up_idx, 'short_trend_from_low'] = 1
   df.loc[down_idx, 'short_trend_from_low'] = -1
   df['short_trend_from_low'] = sda(df['short_trend_from_low'], zero_as=1)
@@ -1253,7 +1257,7 @@ def calculate_ta_signal(df):
     'ichimoku_kama':  '(signal == "b") and (trigger_score <= 0) and (trend_position != "l") and ((ichimoku_distance < 0 and kama_distance > 0 and kijun > kama_fast > tankan) or (ichimoku_distance > 0 and kama_distance < -0.05 and kama_slow > tankan ))',
   
     # B:  存在阻挡 & (长上影线 | 没有支撑 | 跌落)
-    '上行受阻':       '(signal == "b") and (break_up_score == 0) and (((resistant_score <= -1) and (candle_upper_shadow_pct > 0.5 or break_down_score < 0)) or (resistant_score <= -2 and candle_upper_shadow_pct > 0.3))',
+    '上行受阻':       '(signal == "b") and ((十字星 != "n") and (candle_upper_shadow_pct > 0.75 or resistant_score < 0)) or ((break_up_score == 0) and (((resistant_score < 0) and (candle_upper_shadow_pct > 0.5 or break_down_score < 0)) or ((resistant_score < -1 and candle_upper_shadow_pct > 0.3))))',
 
   } 
   for c in none_signal_conditions.keys():
@@ -1285,12 +1289,11 @@ def calculate_ta_signal(df):
   rank_conditions = {
 
     '+from_low':          [s*2, '', '(short_trend_from_low > 0)'], 
-    '+adx_low':           [s*2, '', '(adx_direction > 0 and adx_value_change > 0) and (adx_value < -10 and adx_power < 0)'], 
-    '+adx_middle':        [s, '', '(adx_direction > 0 and adx_value_change > 0) and (-10 <= adx_value <= 10 and adx_power < 0) and (adx_direction_start < 0 and adx_direction_day != 1)'], 
-    '+adx_high':          [s, '', '(adx_direction > 0 and adx_value_change > 0) and (adx_value > 10 and adx_power > 0)'], 
+    # '+adx_low':           [s*2, '', '(adx_direction > 0 and adx_value_change > 0) and (adx_value < -10 and adx_power < 0)'], 
+    # '+adx_middle':        [s, '', '(adx_direction > 0 and adx_value_change > 0) and (-10 <= adx_value <= 10 and adx_power < 0) and (adx_direction_start < 0 and adx_direction_day != 1)'], 
+    # '+adx_high':          [s, '', '(adx_direction > 0 and adx_value_change > 0) and (adx_value > 10 and adx_power > 0)'], 
         
     '-adx_wave':          [-s, '', '(adx_direction > 0 and adx_value_change <= 0) or (adx_direction < 0 and adx_value_change >= 0)'],
-    # '-adx_wave':          [0, '', '(adx_direction > 0 and adx_value_change > 0) and (-10 <= adx_value <= 10 and adx_power > 0)'], 
   
     '-adx_down':          [-s*2, '', '(adx_direction < 0 and adx_value_change < 0)'], 
     '-adx_high':          [-s, '', '(adx_value > 10 and adx_power < 0)'], 
