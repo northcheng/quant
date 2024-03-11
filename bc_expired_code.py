@@ -1,4 +1,4 @@
-#20240306 updated
+#20240311 updated
 [
   # basic
   'Open', 'High', 'Low', 'Close', 'Volume', 
@@ -45,11 +45,11 @@
   
   # dynamic trend
   ## renko
-  'renko_color', 'renko_o', 'renko_h', 'renko_l', 'renko_c', 'renko_real', 'renko_direction', 
-  'renko_start', 'renko_end', 'renko_duration', 'renko_duration_p1',
-  'renko_brick_height', 'renko_brick_number', 'renko_brick_length', 'renko_countdown_days', 'renko_position',
+  'renko_color', 'renko_o', 'renko_h', 'renko_l', 'renko_c', 'renko_real',
+  'renko_start', 'renko_end', # 'renko_duration', 'renko_duration_p1', 'renko_direction', 
+  'renko_brick_height', 'renko_brick_number', # 'renko_brick_length', 'renko_countdown_days', 
   # 'renko_series_short', 'renko_series_short_idx', 'renko_series_long', 'renko_series_long_idx',
-  'renko_support', 'renko_resistant', 
+  #  'renko_position', 'renko_support', 'renko_resistant', 
   # 'renko_trend', 'renko_signal', 'renko_day', 
   
   # candle patterns
@@ -87,6 +87,7 @@
   'trend_direction', 'trend_direction_day', 
 
   # potential and signal
+  'short_trend_from_low', 'short_trend_from_high',
   'potential', 'potential_score', 'potential_description', 
   'signal', 'signal_description', 'signal_day',
   'rank_up_score', 'rank_down_score', 'rank_up_score_description', 'rank_down_score_description', 'signal_rank'

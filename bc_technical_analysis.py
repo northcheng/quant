@@ -725,21 +725,6 @@ def calculate_ta_dynamic(df, perspective=default_perspectives):
       
       # add renko features
       df = add_renko_features(df=df)
-
-      # # calculate renko trend
-      # conditions = {
-      #   'up': '(candle_color == 1) and ((renko_color == "red" and Low > renko_h) or (renko_color == "green"))', 
-      #   'down': '(renko_color == "red") or (renko_color == "green" and Close < renko_l)'} 
-      # values = {
-      #   'up': 'u', 
-      #   'down': 'd'}
-      # df = assign_condition_value(df=df, column='renko_trend', condition_dict=conditions, value_dict=values, default_value='n')
-      # wave_idx = df.query('(renko_trend != "u" and renko_trend != "d") and ((renko_brick_length >= 20 ) and (renko_brick_length>3*renko_duration_p1))').index
-      # df.loc[wave_idx, 'renko_trend'] = 'n'
-
-      # # calculate renko signal
-      # df['renko_signal'] = 'n'
-      # df['renko_day'] = sda(series=df['renko_trend'].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
       
     # ================================ candle analysis ===========================
     phase = 'candle analysis'
@@ -963,12 +948,6 @@ def calculate_ta_score(df):
     
     '+触底':        [s, '', '(突破_day == -1 and candle_color == 1)'],
     '-触顶':        [-s, '', '(突破_day == 1 and candle_color == -1)'],
-
-    # '+支撑':        [s, '', '(support_score > 0 and (candle_color == 1 or rate > 0) and (candle_lower_shadow_pct > candle_upper_shadow_pct))'],
-    # '-阻挡':        [-s, '', '(resistant_score < 0 and (candle_color == -1 or rate < 0) and (candle_upper_shadow_pct > candle_lower_shadow_pct))'],
-
-    # '+突破':        [s, '', '(break_up_score > 0 and (candle_color == 1 or rate > 0))'],
-    # '-跌落':        [-s, '', '(break_down_score < 0 and (candle_color == -1 or rate < 0))'],
 
     '+renko':       [s, '', '(renko_real == "green")'],
     '-renko':       [-s, '', '(renko_real == "red")'],
@@ -1229,19 +1208,19 @@ def calculate_ta_signal(df):
     # B|S:  无adx强度数据  
     '信号不全':       '(signal == "b" or signal == "s") and (adx_power_day == 0)',
 
-    # B|S:  adx趋势起始于 [-10,10]之间 & adx强度弱 & 实体 在[renko_l, renko_h]间波动 & 未突破
-    'adx_波动':       '(signal == "b" or signal == "s") and ((adx_strong_day < 0 and adx_wave_day > 0) and ((-10 < adx_direction_start < 10) and (renko_real != "green" and candle_entity_top < renko_h and candle_entity_bottom > renko_l) and (break_up_score == 0)))',
+    # B:  adx趋势起始于 [-10,10]之间 & adx强度弱 & 实体 在[renko_l, renko_h]间波动 & 未突破
+    'adx_波动':       '(signal == "b") and ((adx_strong_day < 0 and adx_wave_day > 0) and ((-10 < adx_direction_start < 10) and (renko_real != "green" and candle_entity_top < renko_h and candle_entity_bottom > renko_l) and (break_up_score == 0)))',
 
     # B:  adx_strong_day <= -5 & -10 <= adx_direction_start <= 10
     'adx_弱势':       '(signal == "b") and ((adx_strong_day <= -5) and (adx_direction > 0 and 0 <= adx_direction_start <= 10))',
 
-    # B:  adx_value>0 & ((adx_value在[-10,10]间波动 & adx强度下降 & trend_score<0.5) | (跌落 & adx方向第一天向上))
+    # B:  (无支撑/突破) & (ichimoku/kama_distance > 0) & ((adx_value>0 & adx波动中 & adx强度下降 & trend_score<0.5) | (adx_value>25 & 跌落 & adx方向第一天向上))
     '高位买入':       '(signal == "b") and (support_score == 0 and break_up_score == 0) and (ichimoku_distance > 0 or kama_distance > 0) and ((adx_value > 0 and adx_wave_day > 0 and adx_power_day < 0 and trend_score < 0.5) or (adx_value > 25 and break_down_score < 0 and adx_direction_day == 1))',
     
     # S:  adx_value上升 & ichimoku红云 & Low位于renko和cloud上方
     '波动卖出':       '(signal == "s") and (Low > renko_h and adx_value_change > 0 and ichimoku_distance < 0 and Low > kijun)',
 
-    # B:  上影线长度>50% & (涨跌 < 0 | 存在阻挡 | 存在突破(突破后又跌落) | 高位 | 存在跌落)
+    # B:  上影线长度>50% & (涨跌 < 0 | 存在阻挡 | 存在突破(突破后又跌落) | 高位 | adx方向第一天向上但是强度下降)
     '长上影线':       '(signal == "b") and (candle_upper_shadow_pct > 0.5 and (rate < 0 or resistant_score < 0 or break_down_score < 0 or trend_position=="h" or (adx_direction_day == 1 and adx_power_day < 0)))',
     
     # B:  红长实体 & 实体长度 > 90%
@@ -1266,7 +1245,7 @@ def calculate_ta_signal(df):
     'ichimoku_kama':  '(signal == "b") and (trigger_score <= 0) and (trend_position != "l") and ((ichimoku_distance < 0 and kama_distance > 0 and kijun > kama_fast > tankan) or (ichimoku_distance > 0 and kama_distance < -0.05 and kama_slow > tankan ))',
   
     # B:  存在阻挡 & (长上影线 | 没有支撑 | 跌落)
-    '上行受阻':       '(signal == "b") and ((十字星 != "n") and (candle_upper_shadow_pct > 0.75 or resistant_score < 0)) or ((break_up_score == 0) and (((resistant_score < 0) and (candle_upper_shadow_pct > 0.5 or break_down_score < 0)) or ((resistant_score < -1 and candle_upper_shadow_pct > 0.3))))',
+    '上行受阻':        '(signal == "b") and (((十字星 != "n") and (candle_upper_shadow_pct > 0.75 or resistant_score < 0)) or ((break_up_score == 0) and (((resistant_score < 0) and (candle_upper_shadow_pct > 0.5 or break_down_score < 0)) or ((resistant_score < -1 and candle_upper_shadow_pct > 0.3)))))',
 
   } 
   for c in none_signal_conditions.keys():
@@ -2782,85 +2761,85 @@ def add_support_resistance(df, target_col=default_support_resistant_col, perspec
     df.loc[max_idx, 'support'] = df.loc[max_idx, supporter]
 
   # ================================ dynamic support and resistant =====================
-  if 'support_resistant' in perspective:
+  # if 'support_resistant' in perspective:
 
-    # focus on the last row only
-    max_idx = df.index.max()
+  #   # focus on the last row only
+  #   max_idx = df.index.max()
     
-    # linear fit support/resistant
-    linear_fit_support = df.loc[max_idx, 'linear_fit_support'] if 'linear' in perspective else np.nan
-    linear_fit_resistant = df.loc[max_idx, 'linear_fit_resistant'] if 'linear' in perspective else np.nan
+  #   # linear fit support/resistant
+  #   linear_fit_support = df.loc[max_idx, 'linear_fit_support'] if 'linear' in perspective else np.nan
+  #   linear_fit_resistant = df.loc[max_idx, 'linear_fit_resistant'] if 'linear' in perspective else np.nan
 
-    # renko support/resistant
-    renko_support = df.loc[max_idx, 'renko_support'] if 'renko' in perspective else np.nan
-    renko_resistant = df.loc[max_idx, 'renko_resistant'] if 'renko' in perspective else np.nan
+  #   # renko support/resistant
+  #   renko_support = df.loc[max_idx, 'renko_support'] if 'renko' in perspective else np.nan
+  #   renko_resistant = df.loc[max_idx, 'renko_resistant'] if 'renko' in perspective else np.nan
     
-    # calculate support and resistant from renko, linear_fit and candle_gap
-    support_candidates = {'linear': linear_fit_support, 'renko': renko_support}
-    static_support = df.loc[max_idx, 'support_description'].split(', ')
-    static_support = [x for x in static_support if x != '']
-    for ss in static_support:
-      support_candidates[ss] = df.loc[max_idx, ss]
+  #   # calculate support and resistant from renko, linear_fit and candle_gap
+  #   support_candidates = {'linear': linear_fit_support, 'renko': renko_support}
+  #   static_support = df.loc[max_idx, 'support_description'].split(', ')
+  #   static_support = [x for x in static_support if x != '']
+  #   for ss in static_support:
+  #     support_candidates[ss] = df.loc[max_idx, ss]
 
-    resistant_candidates = {'linear':linear_fit_resistant, 'renko': renko_resistant}
-    static_resistant = df.loc[max_idx, 'resistant_description'].split(', ')
-    static_resistant = [x for x in static_resistant if x != '']
-    for sr in static_resistant:
-      resistant_candidates[sr] = df.loc[max_idx, sr]
+  #   resistant_candidates = {'linear':linear_fit_resistant, 'renko': renko_resistant}
+  #   static_resistant = df.loc[max_idx, 'resistant_description'].split(', ')
+  #   static_resistant = [x for x in static_resistant if x != '']
+  #   for sr in static_resistant:
+  #     resistant_candidates[sr] = df.loc[max_idx, sr]
 
-    # support
-    supporter = ''
-    support = np.nan  
+  #   # support
+  #   supporter = ''
+  #   support = np.nan  
 
-    to_pop = []
-    for k in support_candidates.keys():
-      if np.isnan(support_candidates[k]):
-        to_pop += [k]
-    for k in to_pop:
-      support_candidates.pop(k)
+  #   to_pop = []
+  #   for k in support_candidates.keys():
+  #     if np.isnan(support_candidates[k]):
+  #       to_pop += [k]
+  #   for k in to_pop:
+  #     support_candidates.pop(k)
 
-    if len(support_candidates) > 0:
-      supporter = max(support_candidates, key=support_candidates.get)
-      support = support_candidates[supporter]
+  #   if len(support_candidates) > 0:
+  #     supporter = max(support_candidates, key=support_candidates.get)
+  #     support = support_candidates[supporter]
 
-    if supporter == 'linear':
-      valid_idxs = df.query('linear_slope == linear_slope').index
-    elif supporter == 'renko':
-      valid_idxs = df[df.loc[max_idx, 'renko_start']:].index
-    elif supporter != '':
-      valid_idxs = df.index[-10:]
-    else:
-      valid_idxs = []
-    df.loc[valid_idxs, 'support'] = support
-    df.loc[valid_idxs, 'supporter'] = supporter
+  #   if supporter == 'linear':
+  #     valid_idxs = df.query('linear_slope == linear_slope').index
+  #   elif supporter == 'renko':
+  #     valid_idxs = df[df.loc[max_idx, 'renko_start']:].index
+  #   elif supporter != '':
+  #     valid_idxs = df.index[-10:]
+  #   else:
+  #     valid_idxs = []
+  #   df.loc[valid_idxs, 'support'] = support
+  #   df.loc[valid_idxs, 'supporter'] = supporter
 
-    # resistant
-    resistanter = ''
-    resistant = np.nan
+  #   # resistant
+  #   resistanter = ''
+  #   resistant = np.nan
 
-    to_pop = []
-    for k in resistant_candidates.keys():
-      if np.isnan(resistant_candidates[k]):
-        to_pop += [k]
-    for k in to_pop:
-      resistant_candidates.pop(k)
+  #   to_pop = []
+  #   for k in resistant_candidates.keys():
+  #     if np.isnan(resistant_candidates[k]):
+  #       to_pop += [k]
+  #   for k in to_pop:
+  #     resistant_candidates.pop(k)
 
-    if len(resistant_candidates) > 0:
-      resistanter = min(resistant_candidates, key=resistant_candidates.get)
-      resistant = resistant_candidates[resistanter]
+  #   if len(resistant_candidates) > 0:
+  #     resistanter = min(resistant_candidates, key=resistant_candidates.get)
+  #     resistant = resistant_candidates[resistanter]
 
-    valid_idxs = []
-    if resistanter == 'linear':
-      valid_idxs = df.query('linear_slope == linear_slope').index
-    elif resistanter == 'renko':
-      valid_idxs = df[df.loc[max_idx, 'renko_start']:].index
-    elif resistanter != '':
-      valid_idxs = df.index[-10:]
-    else:
-      pass
+  #   valid_idxs = []
+  #   if resistanter == 'linear':
+  #     valid_idxs = df.query('linear_slope == linear_slope').index
+  #   elif resistanter == 'renko':
+  #     valid_idxs = df[df.loc[max_idx, 'renko_start']:].index
+  #   elif resistanter != '':
+  #     valid_idxs = df.index[-10:]
+  #   else:
+  #     pass
 
-    df.loc[valid_idxs, 'resistant'] = resistant
-    df.loc[valid_idxs, 'resistanter'] = resistanter
+  #   df.loc[valid_idxs, 'resistant'] = resistant
+  #   df.loc[valid_idxs, 'resistanter'] = resistanter
   
   return df
 
@@ -3628,13 +3607,11 @@ def add_renko_features(df, brick_size_factor=0.05, dynamic_brick=True, merge_dup
   # renko brick start/end points
   renko_df['renko_start'] = renko_df.index.copy()
   renko_df['renko_end'] = renko_df['renko_start'].shift(-1).fillna(df.index.max())
-  renko_df['renko_duration'] = renko_df['renko_end'] - renko_df['renko_start']
-  renko_df['renko_duration'] = renko_df['renko_duration'].apply(lambda x: x.days+1).astype(float)
-  renko_df['renko_duration_p1'] = renko_df['renko_duration'].shift(1)
+  # renko_df['renko_duration'] = renko_df['renko_end'] - renko_df['renko_start']
+  # renko_df['renko_duration'] = renko_df['renko_duration'].apply(lambda x: x.days+1).astype(float)
 
   # renko color(green/red), trend(u/d), flip_point(renko_real), same-direction-accumulation(renko_brick_sda), sda-moving sum(renko_brick_ms), number of bricks(for later calculation)
   renko_df['renko_color'] = renko_df['renko_color'].replace({True: 'green', False:'red'})
-  renko_df['renko_direction'] = renko_df['renko_color'].replace({'green':'u', 'red':'d'})
   renko_df['renko_real'] = renko_df['renko_color'].copy()
   renko_df['renko_brick_number'] = 1
   
@@ -3672,20 +3649,6 @@ def add_renko_features(df, brick_size_factor=0.05, dynamic_brick=True, merge_dup
         continue
     renko_df = util.remove_duplicated_index(df=renko_df, keep='last')
 
-  # # calculate accumulated renko trend (so called "renko_series")
-  # series_len_short = 3
-  # series_len_long = 5
-  # renko_df['renko_series_short'] = 'n' * series_len_short
-  # renko_df['renko_series_long'] = 'n' * series_len_long
-  # prev_idx = None
-  # for idx, row in renko_df.iterrows():
-  #   if prev_idx is not None:
-  #     renko_df.loc[idx, 'renko_series_short'] = (renko_df.loc[prev_idx, 'renko_series_short'] + renko_df.loc[idx, 'renko_direction'])[-series_len_short:]
-  #     renko_df.loc[idx, 'renko_series_long'] = (renko_df.loc[prev_idx, 'renko_series_long'] + renko_df.loc[idx, 'renko_direction'])[-series_len_long:]
-  #   prev_idx = idx
-  # renko_df['renko_series_short_idx'] = renko_df['renko_series_short'].apply(lambda x: x.count('u') - x.count('d')).astype(int)
-  # renko_df['renko_series_long_idx'] = renko_df['renko_series_long'].apply(lambda x: x.count('u') - x.count('d')).astype(int)
-    
   # drop currently-existed renko_df columns from df, merge renko_df into df 
   for col in df.columns:
     if 'renko' in col:
@@ -3697,38 +3660,38 @@ def add_renko_features(df, brick_size_factor=0.05, dynamic_brick=True, merge_dup
   df.loc[red_idx, 'renko_brick_height'] = -df.loc[red_idx, 'renko_brick_height']
 
   # fill na values
-  renko_columns = ['renko_o', 'renko_h','renko_l', 'renko_c', 'renko_color', 'renko_brick_height', 'renko_brick_number','renko_start', 'renko_end', 'renko_duration', 'renko_duration_p1', 'renko_direction'] # 'renko_series_short', 'renko_series_long', 'renko_series_short_idx', 'renko_series_long_idx'
+  renko_columns = ['renko_o', 'renko_h','renko_l', 'renko_c', 'renko_color', 'renko_brick_height', 'renko_brick_number','renko_start', 'renko_end'] # 'renko_series_short', 'renko_series_long', 'renko_series_short_idx', 'renko_series_long_idx', 'renko_duration_p1', 'renko_direction', 'renko_duration'
   for col in renko_columns:
     df[col] = df[col].fillna(method='ffill')
 
   # calculate length(number of days to the end of current brick) 
   # calculate of each brick(or merged brick): renko_brick_length, renko_countdown_days(for ploting)
-  max_idx = df.index.max()
-  if merge_duplicated:
-    df['s']  = df.index
-    if df['s'].max() == max_idx:
-      max_idx = max_idx + datetime.timedelta(days=1)
-    df['renko_countdown_days'] = df['renko_end'] - df['s'] 
-    df['renko_brick_length'] = df['s'] - df['renko_start']
-    df['renko_brick_length'] = df['renko_brick_length'].apply(lambda x: x.days+1).astype(float)
-    df.drop('s', axis=1, inplace=True)
-  else:
-    df['renko_countdown_days'] = 1
-    df['renko_brick_length'] = 1
+  # max_idx = df.index.max()
+  # if merge_duplicated:
+  #   df['s']  = df.index
+  #   if df['s'].max() == max_idx:
+  #     max_idx = max_idx + datetime.timedelta(days=1)
+  #   # df['renko_countdown_days'] = df['renko_end'] - df['s'] 
+  #   # df['renko_brick_length'] = df['s'] - df['renko_start']
+  #   # df['renko_brick_length'] = df['renko_brick_length'].apply(lambda x: x.days+1).astype(float)
+  #   df.drop('s', axis=1, inplace=True)
+  # else:
+  #   # df['renko_countdown_days'] = 1
+  #   # df['renko_brick_length'] = 1
 
-  # below/among/above renko bricks  
-  above_idx = df.query('Close > renko_h').index
-  among_idx = df.query('renko_l <= Close <= renko_h').index
-  below_idx = df.query('Close < renko_l').index
-  df.loc[above_idx, 'renko_position'] = 1
-  df.loc[among_idx, 'renko_position'] = 0
-  df.loc[below_idx, 'renko_position'] = -1 
+  # # below/among/above renko bricks  
+  # above_idx = df.query('Close > renko_h').index
+  # among_idx = df.query('renko_l <= Close <= renko_h').index
+  # below_idx = df.query('Close < renko_l').index
+  # df.loc[above_idx, 'renko_position'] = 1
+  # df.loc[among_idx, 'renko_position'] = 0
+  # df.loc[below_idx, 'renko_position'] = -1 
 
-  # renko support and resistant
-  df.loc[above_idx, 'renko_support'] = df.loc[above_idx, 'renko_h']
-  df.loc[below_idx, 'renko_resistant'] = df.loc[below_idx, 'renko_l']
-  df.loc[among_idx, 'renko_support'] = df.loc[among_idx, 'renko_l']
-  df.loc[among_idx, 'renko_resistant'] = df.loc[among_idx, 'renko_h']
+  # # renko support and resistant
+  # df.loc[above_idx, 'renko_support'] = df.loc[above_idx, 'renko_h']
+  # df.loc[below_idx, 'renko_resistant'] = df.loc[below_idx, 'renko_l']
+  # df.loc[among_idx, 'renko_support'] = df.loc[among_idx, 'renko_l']
+  # df.loc[among_idx, 'renko_resistant'] = df.loc[among_idx, 'renko_h']
 
   return df
 
@@ -5351,31 +5314,37 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   plot_bar(df=df, target_col=target_col, alpha=0.4, width=datetime.timedelta(days=1), color_mode='up_down', edge_color=(0.5,0.5,0.5,0), benchmark=0, title='', use_ax=ax, plot_args=default_plot_args)
 
   # annotate adx (adx_strength_change)
+  ylim = ax.get_ylim()
+  y_min = ylim[0]
+  y_max = ylim[1]
+  y_range = (y_max - y_min)
+  y_middle = (y_max + y_min)/2
+
   max_idx = df.index.max()
   before_max_idx = df.index[-2]
   x_signal = max_idx + datetime.timedelta(days=2)
   v = round(df.loc[max_idx, 'adx_strength'], 1)
   v_change = round(df.loc[max_idx, 'adx_strength_change'],1)
-  y_signal = 25
+  y_signal = round(y_middle + y_range/4)
   text_color = 'green' if v_change > 0 else 'red'
   text_color = 'green' if df.loc[max_idx, 'adx_strength_change'] > 0 else 'red'
-  plt.annotate(f'S:{v}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+  plt.annotate(f'{v}[{v_change}]', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
   # annotate adx_value(adx_value_change)
   x_signal = max_idx + datetime.timedelta(days=2)
   v = round(df.loc[max_idx, 'adx_value'],1)
   v_change = round(df.loc[max_idx, 'adx_value_change'],1)
-  y_signal = 0
+  y_signal = round(y_middle)
   text_color = 'green' if v_change > 0 else 'red'
-  plt.annotate(f'V:{v}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+  plt.annotate(f'{v}[{v_change}]', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
   # annotate adx_value_prediction(adx_value_prediction - adx_value)
   x_signal = max_idx + datetime.timedelta(days=2)
   v = round(df.loc[max_idx, 'adx_value']-df.loc[max_idx, 'adx_value_prediction'],1)
   v_change = round(v - (df.loc[before_max_idx, 'adx_value']-df.loc[before_max_idx, 'adx_value_prediction']),1)
-  y_signal = -25
+  y_signal = round(y_middle - y_range/4)
   text_color = 'green' if v_change > 0 else 'red'
-  plt.annotate(f'P:{v}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+  plt.annotate(f'{v}[{v_change}]', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
@@ -5423,7 +5392,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
   # get indexes and max index
   idxs = df.index.tolist()
   max_idx = idxs[-1]
-  annotation_idx = max_idx + datetime.timedelta(days=3)
+  annotation_idx = max_idx + datetime.timedelta(days=1)
   min_idx = df.index.min()
   padding = (df.High.max() - df.Low.min()) / 100
 
@@ -5503,8 +5472,8 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
     y_text_support = None
 
     # annotate resistant
-    if df.loc[max_idx, 'resistanter'] > '':
-      resistant_score = abs(df.loc[max_idx, 'resistant_score'])
+    if df.loc[max_idx, 'resistanter'] is not None and df.loc[max_idx, 'resistanter'] > '':
+      resistant_score = int(abs(df.loc[max_idx, 'resistant_score']))
       y_resistant = df.loc[max_idx, 'resistant'].round(2)
       y_text_resistant = y_resistant
 
@@ -5514,8 +5483,8 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
       plt.annotate(f'{y_resistant}[{resistant_score}]', xy=(annotation_idx, y_text_resistant), xytext=(annotation_idx, y_text_resistant), fontsize=13, xycoords='data', textcoords='data', color='black', va='bottom',  ha='left', bbox=dict(boxstyle="round", facecolor='red', alpha=0.1*resistant_score)) # 
     
     # annotate support 
-    if df.loc[max_idx, 'supporter'] > '':
-      support_score = abs(df.loc[max_idx, 'support_score'])
+    if df.loc[max_idx, 'supporter'] is not None and df.loc[max_idx, 'supporter'] > '':
+      support_score = int(abs(df.loc[max_idx, 'support_score']))
       y_support = df.loc[max_idx, 'support'].round(2)
       y_text_support = y_support
       
@@ -5723,8 +5692,12 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   max_idx = df.index.max()
   
   # add extention data
-  extended = 3
+  extended = 2
   ext_columns = ['tankan', 'kijun', 'kama_fast', 'kama_slow']
+  ext_renko = 'renko_real' in df.columns
+  renko_cols = ['renko_color', 'renko_o', 'renko_h', 'renko_l', 'renko_c',  'renko_start', 'renko_brick_height', 'renko_brick_number']
+  candle_gap_cols = ['candle_gap', 'candle_gap_top', 'candle_gap_bottom']
+  support_resistant_cols = ['Close', 'support', 'supporter', 'support_score', 'resistant', 'resistanter', 'resistant_score']
   current_idx = max_idx
   next_idx = None
   period = 3
@@ -5733,16 +5706,25 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
     pred = add_ma_linear_features(df, period=period, target_col=ext_columns)
 
     for i in range(extended):
+
       next_idx = current_idx + datetime.timedelta(days = 1)
 
+      df.loc[next_idx, candle_gap_cols] = df.loc[max_idx, candle_gap_cols]
+      df.loc[next_idx, support_resistant_cols] = df.loc[max_idx, support_resistant_cols]
+      if ext_renko:
+        df.loc[next_idx, renko_cols] = df.loc[max_idx, renko_cols]
+        df.loc[next_idx, 'renko_real'] = np.nan
+        
       for ec in ext_columns:
         slope = pred[ec][0]
         intercept = pred[ec][1]
         df.loc[next_idx, ec] = (period + i + 1) * ( slope) + intercept   
+      
       current_idx = next_idx
+
   else:
     extended = None
-
+  
   # create figure
   ax = use_ax
   if ax is None:
@@ -5759,7 +5741,7 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   
   # plot renko bricks
   if 'renko' in target_indicator:
-    ax = plot_renko(df, use_ax=ax, plot_args=default_plot_args, plot_in_date=True, close_alpha=0)
+    ax = plot_renko(df, use_ax=ax, plot_args=default_plot_args, close_alpha=0)
   
   # plot senkou lines, clouds, tankan and kijun
   if 'ichimoku' in target_indicator:
@@ -5832,7 +5814,7 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   
   # plot candlestick
   if 'candlestick' in target_indicator:
-    ax = plot_candlestick(df=ohlc_df, start=start, end=end, date_col=date_col, add_on=add_on, ohlcv_col=ohlcv_col, color=candlestick_color, use_ax=ax, plot_args=plot_args, interval=interval)
+    ax = plot_candlestick(df=df, start=start, end=end, date_col=date_col, add_on=add_on, ohlcv_col=ohlcv_col, color=candlestick_color, use_ax=ax, plot_args=plot_args, interval=interval)
   
   # plot mask for extended
   if extended is not None:
@@ -5902,10 +5884,12 @@ def plot_aroon(df, start=None, end=None, use_ax=None, title=None, plot_args=defa
     return ax
 
 # plot renko chart
-def plot_renko(df, start=None, end=None, use_ax=None, title=None, plot_in_date=True, close_alpha=0.5, save_path=None, save_image=False, show_image=False, plot_args=default_plot_args):
+def plot_renko(df, start=None, end=None, use_ax=None, title=None, close_alpha=0.5, save_path=None, save_image=False, show_image=False, plot_args=default_plot_args):
   
   # copy data frame
   df = df[start:end].copy()
+  min_idx = df.index.min()
+  max_idx = df.index.max()
 
   # create figure
   ax = use_ax
@@ -5916,43 +5900,26 @@ def plot_renko(df, start=None, end=None, use_ax=None, title=None, plot_in_date=T
   # plot close for displaying the figure
   ax.plot(df.Close, alpha=close_alpha)
 
-  # whether to plot in date axes
-  min_idx = df.index.min()
-  max_idx = df.index.max()
-  if df.loc[min_idx, 'renko_real'] != 'green' or df.loc[min_idx, 'renko_real'] != 'red':
+  # whether to plot in date axes  
+  if df.loc[min_idx, 'renko_real'] not in ['green', 'red']:
     df.loc[min_idx, 'renko_real'] = df.loc[min_idx, 'renko_color'] 
-    df.loc[min_idx, 'renko_countdown_days'] = df.loc[min_idx, 'renko_countdown_days'] 
   
-  if plot_in_date:
-    df = df.query('renko_real == "green" or renko_real =="red"').copy()
-  else:
-    df = df.query('renko_real == "green" or renko_real =="red"').reset_index()
+  # get rows where renko starts
+  df = df.query('renko_real == "green" or renko_real =="red"').copy()
+  df.loc[df.index.max(), 'renko_end'] = max_idx
   
   # plot renko
   legends = {'green': 'u', 'red': 'd', np.nan:' '}
   for index, row in df.iterrows():
+    
+    brick_length = row['renko_end'] - row['renko_start']
+
     hatch = '----'
     facecolor = 'white'
     edgecolor = 'black' if row['renko_color'] == 'green' else 'red'
-    renko = Rectangle((index, row['renko_o']), row['renko_countdown_days'], row['renko_brick_height'], facecolor=facecolor, edgecolor=edgecolor, hatch=hatch, linestyle='-', linewidth=0.1, fill=False, alpha=0.5, label=legends[row['renko_real']], zorder=default_zorders['renko']) #  edgecolor=row['renko_color'], linestyle='-', linewidth=5, 
+    renko = Rectangle((index, row['renko_o']), brick_length, row['renko_brick_height'], facecolor=facecolor, edgecolor=edgecolor, hatch=hatch, linestyle='-', linewidth=0.1, fill=False, alpha=0.5, label=legends[row['renko_real']], zorder=default_zorders['renko']) #  edgecolor=row['renko_color'], linestyle='-', linewidth=5, 
     legends[row['renko_real']] = "_nolegend_"
     ax.add_patch(renko)
-  
-  # modify axes   
-  if not plot_in_date:
-    ax.get_figure().canvas.draw()
-    xlabels = [item.get_text() for item in ax.get_xticklabels()]
-    for i in range(len(xlabels)):  
-      try:
-        idx = int(xlabels[i])
-        if idx in df.index:
-          xlabels[i] = f'{df.loc[idx, "Date"].date()}'
-        else:
-          xlabels[i] = f'{df.index.max().date()}'
-          continue
-      except Exception as e:
-        continue
-    ax.set_xticklabels(xlabels)
   
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
@@ -6351,8 +6318,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
 
     # plot renko
     elif tmp_indicator == 'renko':
-      plot_in_date = tmp_args.get('plot_in_date') if tmp_args.get('plot_in_date') is not None else True
-      plot_renko(plot_data, use_ax=axes[tmp_indicator], title=tmp_indicator, plot_args=default_plot_args, plot_in_date=plot_in_date)
+      plot_renko(plot_data, use_ax=axes[tmp_indicator], title=tmp_indicator, plot_args=default_plot_args)
 
     # plot ta signals or candle patterns
     elif tmp_indicator == 'signals' or tmp_indicator == 'candle':
