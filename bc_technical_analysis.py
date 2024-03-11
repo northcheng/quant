@@ -1156,13 +1156,21 @@ def calculate_ta_signal(df):
   }
   df = assign_condition_value(df=df, column='trend_position', condition_dict=trend_position_conditions, value_dict=trend_position_values, default_value='n')
 
-  # short trends that start from low
+  # short trends up that start from low
   df['short_trend_from_low'] = 0
   up_idx = df.query('(short_day == 1 and adx_direction > 0) and (adx_direction_start < -20 or trend_position == "l")').index
   down_idx = df.query('(short_day == -1 or adx_direction < 0)').index
   df.loc[up_idx, 'short_trend_from_low'] = 1
   df.loc[down_idx, 'short_trend_from_low'] = -1
   df['short_trend_from_low'] = sda(df['short_trend_from_low'], zero_as=1)
+
+  # short trends down that start from high
+  df['short_trend_from_high'] = 0
+  up_idx = df.query('(short_day == -1 and adx_direction < 0) and (adx_direction_start  > 20 or trend_position == "h")').index
+  down_idx = df.query('(short_day == 1 or adx_direction > 0)').index
+  df.loc[up_idx, 'short_trend_from_high'] = 1
+  df.loc[down_idx, 'short_trend_from_high'] = -1
+  df['short_trend_from_high'] = sda(df['short_trend_from_high'], zero_as=1)
 
   # ================================ calculate potential ====================
   # potnetial score
@@ -1171,7 +1179,8 @@ def calculate_ta_signal(df):
   df['potential_description'] = ''
   potential_conditions = {
     
-    '低位上扬_up':    f'(short_trend_from_low > 0)',
+    '低位上扬_up':    f'(10 > short_trend_from_low > 0)',
+    '高位下挫_down':  f'(short_trend_from_high > 0)',
     '短期趋势_up':    f'(trigger_score > 0) and (trend_score_change > 0) and (short_trend_score_change > 0 or inday_trend_score_change > 0)',
     '短期趋势_down':  f'(trigger_score < 0) and (trend_score_change < 0) and (short_trend_score_change < 0 or inday_trend_score_change < 0)',
     '整体趋势_up':    f'(trend_score > 0 and trend_status == 4 and trend_score_change > 0)',
@@ -1289,11 +1298,14 @@ def calculate_ta_signal(df):
   rank_conditions = {
 
     '+from_low':          [s*2, '', '(short_trend_from_low > 0)'], 
+    '+from_low_plus':     [s, '', '(5 > short_trend_from_low > 0)'], 
+    '-from_high':         [-s*2, '', '(short_trend_from_high > 0)'], 
+    '-from_high_plus':    [-s, '', '(5 > short_trend_from_high > 0)'], 
     # '+adx_low':           [s*2, '', '(adx_direction > 0 and adx_value_change > 0) and (adx_value < -10 and adx_power < 0)'], 
     # '+adx_middle':        [s, '', '(adx_direction > 0 and adx_value_change > 0) and (-10 <= adx_value <= 10 and adx_power < 0) and (adx_direction_start < 0 and adx_direction_day != 1)'], 
     # '+adx_high':          [s, '', '(adx_direction > 0 and adx_value_change > 0) and (adx_value > 10 and adx_power > 0)'], 
-        
-    '-adx_wave':          [-s, '', '(adx_direction > 0 and adx_value_change <= 0) or (adx_direction < 0 and adx_value_change >= 0)'],
+    '-adx_weak':          [-s, '', '(adx_strong_day < 0)'],
+    '-adx_wave':          [-s, '', '(adx_direction > 0 and adx_value_change <= 0) or (adx_direction < 0 and adx_value_change >= 0) or (adx_wave_day > 0)'],
   
     '-adx_down':          [-s*2, '', '(adx_direction < 0 and adx_value_change < 0)'], 
     '-adx_high':          [-s, '', '(adx_value > 10 and adx_power < 0)'], 
@@ -1313,9 +1325,10 @@ def calculate_ta_signal(df):
     '+trigger':           [s, '', '(trigger_score > 0)'],
     '-trigger':           [-s, '', '(trigger_score < 0)'],
 
-    '-adx_weak':          [-s, '', '(adx_strong_day < 0)'],
-    '-adx_wave':          [-s, '', '(adx_wave_day > 0)'],
-    '-adx_高位下降':       [-s, '', '(adx_value > 10 and adx_power_day < 0)'],
+    '+support':           [s, '', '(support_score > 0)'],
+    '+support_plus':      [s, '', '(support_score > 0 and (support_score >= 3 or candle_lower_shadow_pct > 0.5))'],
+    '-resistant':         [-s, '', '(resistant_score < 0)'],
+    '-resistant_plus':    [-s, '', '(resistant_score < 0 and ((resistant_score <= -3) or (candle_upper_shadow_pct > 0.5) or (candle_upper_shadow_pct > 0.5 and (rate < 0 or candle_color == -1))))'],
         
   }
   df = cal_score(df=df, condition_dict=rank_conditions, up_score_col='rank_up_score', down_score_col='rank_down_score')
@@ -2715,6 +2728,9 @@ def add_support_resistance(df, target_col=default_support_resistant_col, perspec
       up_query += ' and (renko_real != "red")'
     if f'{col}_day' in df.columns:
       up_query += f' or ({col}_day == 1)'
+    if 'candle_gap' in col:
+      up_query += f' and (candle_gap == 0)'
+    # print(col, up_query)
     break_up_idx = df.query(up_query).index # entity_diff > -0.5 and 
     df.loc[break_up_idx, 'break_up_description'] += f'{col}, '
 
@@ -2723,6 +2739,9 @@ def add_support_resistance(df, target_col=default_support_resistant_col, perspec
       down_query += ' and (renko_real != "green")'
     if f'{col}_day' in df.columns:
       down_query += f' or ({col}_day == -1)'
+    if 'candle_gap' in col:
+      down_query += f' and (candle_gap == 0)'
+    # print(col, down_query)
     break_down_idx = df.query(down_query).index # entity_diff > -0.5 and 
     df.loc[break_down_idx, 'break_down_description'] += f'{col}, '
 
