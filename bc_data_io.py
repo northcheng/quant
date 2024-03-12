@@ -1969,7 +1969,7 @@ def read_config(file_path, file_name):
   return config_dict
 
 
-def add_config(config_key, config_value, file_path, file_name, print=False):
+def add_config(config_key, config_value, file_path, file_name, is_print=False):
   """
   Add a new config in to the config file
 
@@ -1989,14 +1989,14 @@ def add_config(config_key, config_value, file_path, file_name, print=False):
 
     with open(file_path + file_name, 'w', encoding='UTF-8') as f:
       json.dump(new_config, f)
-      if print:
+      if is_print:
         print('Config added successfully')
 
   except Exception as e:
     print(e)
 
 
-def remove_config(config_key, file_path, file_name, print=False):
+def remove_config(config_key, file_path, file_name, is_print=False):
   """
   remove a config from the config file
 
@@ -2014,14 +2014,14 @@ def remove_config(config_key, file_path, file_name, print=False):
 
     with open(file_path + file_name, 'w', encoding='UTF-8') as f:
       json.dump(new_config, f)
-      if print:
+      if is_print:
         print('Config removed successfully')
 
   except Exception as e:
     print(e)
 
 
-def modify_config(config_key, config_value, file_path, file_name, print=False):
+def modify_config(config_key, config_value, file_path, file_name, is_print=False):
   """
   modify the value of a config with certain config_key
 
@@ -2040,7 +2040,7 @@ def modify_config(config_key, config_value, file_path, file_name, print=False):
 
     with open(file_path + file_name, 'w', encoding='UTF-8') as f:
       json.dump(new_config, f)
-      if print:
+      if is_print:
         print('Config modified successfully')
 
   except Exception as e:
