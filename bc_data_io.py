@@ -2286,6 +2286,9 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
   :raise: none
   """
 
+  # default pool
+  pool = '' if pool is None else pool
+
   # get current time
   current_time = datetime.datetime.now().strftime(format="%Y-%m-%d %H:%M:%S")
 
@@ -2378,7 +2381,7 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
   
   if signal_file_date is not None:
     
-    prefix = '' if pool == 'us' else f'{pool}_' # 'a_' if cn_stock else ''
+    prefix = '' if pool in ['us', ''] else f'{pool}_' # 'a_' if cn_stock else ''
     signal_file = f'{config["result_path"]}{prefix}{signal_file_date}.xlsx'
     
     if os.path.exists(signal_file):
@@ -2447,7 +2450,7 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
 
     # initialize header, attach pdfs
     image_info += f'<li>[Requested]: {signal_file_date}</li>'
-    pdf_names = ['portfolio', 'signal', 'potential', 'index'] if pool == 'us' else [f'{pool}_portfolio', f'{pool}_signal', f'{pool}_potential']
+    pdf_names = ['portfolio', 'signal', 'potential', 'index'] if pool in ['us', ''] else [f'{pool}_portfolio', f'{pool}_signal', f'{pool}_potential']
     for p in pdf_names:
 
       # consstruct pdf file path
