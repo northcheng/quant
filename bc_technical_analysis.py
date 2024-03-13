@@ -5903,6 +5903,7 @@ def plot_renko(df, start=None, end=None, use_ax=None, title=None, close_alpha=0.
   # whether to plot in date axes  
   if df.loc[min_idx, 'renko_real'] not in ['green', 'red']:
     df.loc[min_idx, 'renko_real'] = df.loc[min_idx, 'renko_color'] 
+    df.loc[min_idx, 'renko_start'] = min_idx 
   
   # get rows where renko starts
   df = df.query('renko_real == "green" or renko_real =="red"').copy()
@@ -5912,8 +5913,7 @@ def plot_renko(df, start=None, end=None, use_ax=None, title=None, close_alpha=0.
   legends = {'green': 'u', 'red': 'd', np.nan:' '}
   for index, row in df.iterrows():
     
-    brick_length = row['renko_end'] - row['renko_start']
-
+    brick_length = (row['renko_end'] - row['renko_start'])
     hatch = '----'
     facecolor = 'white'
     edgecolor = 'black' if row['renko_color'] == 'green' else 'red'
