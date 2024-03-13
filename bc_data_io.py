@@ -2268,7 +2268,7 @@ def update_portfolio_support_resistant(config, data, portfolio_file_name='portfo
 
 
 #----------------------------- Email sending ------------------------------------#
-def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subject=None, platform=['tiger'], signal_file_date=None, log_file_date=None, test=False, cn_stock=False):
+def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subject=None, platform=['tiger'], signal_file_date=None, log_file_date=None, test=False, cn_stock=False, pool=None):
   """
   send automatic_trader's trading result and technical_analyst's calculation result by email
 
@@ -2378,7 +2378,7 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
   
   if signal_file_date is not None:
     
-    prefix = 'a_' if cn_stock else ''
+    prefix = '' if pool == 'us' else f'{pool}_' # 'a_' if cn_stock else ''
     signal_file = f'{config["result_path"]}{prefix}{signal_file_date}.xlsx'
     
     if os.path.exists(signal_file):
@@ -2447,7 +2447,7 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
 
     # initialize header, attach pdfs
     image_info += f'<li>[Requested]: {signal_file_date}</li>'
-    pdf_names = ['portfolio', 'signal', 'potential', 'index'] if not cn_stock else ['a_portfolio', 'a_signal', 'a_potential']
+    pdf_names = ['portfolio', 'signal', 'potential', 'index'] if pool == 'us' else [f'{pool}_portfolio', f'{pool}_signal', f'{pool}_potential']
     for p in pdf_names:
 
       # consstruct pdf file path
