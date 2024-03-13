@@ -154,13 +154,12 @@
       "trigger_score_description": "触发标签",
       "trigger_day": "触发天数",
 
-      "trend_score": "趋势分数",
-      "trend_score_change": "趋势变化分数",
-
       "inday_trend_score": "日内趋势分数",
       "short_trend_score": "短期趋势分数",
       "middle_trend_score": "中期趋势分数",
       "long_trend_score": "长期趋势分数",
+      "trend_score": "趋势分数",
+      "trend_score_change": "趋势变化分数",
       
       "potential": "潜力标签", 
       "potential_score": "潜力分数",
@@ -174,7 +173,7 @@
       "signal_rank": "信号排名"
     },
     "drop_columns": [],
-    "send_columns": ["名称", "涨跌", "信号排名", "触发分数", "趋势分数"],
+    "send_columns": ["名称", "涨跌", "潜力分数", "信号排名", "支撑", "阻挡"],
     "save_result": true,
     "save_data": true,
     "save_pdf": true

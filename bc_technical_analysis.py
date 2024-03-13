@@ -847,6 +847,7 @@ def calculate_ta_score(df):
 
   # initialization
   df['trend_score'] = 0
+  df['trend_status'] = 0
   
   df['trigger_score'] = 0
   df['trigger_score_description'] = ''
@@ -910,7 +911,7 @@ def calculate_ta_score(df):
     'middle': 'ichimoku_distance_change',
     'long': 'kama_distance_change'
   }
-  term_weight = {'short':1.0, 'middle':0.9, 'long':0.8}
+
   for term in ['short', 'middle', 'long']:
 
     # column names
@@ -940,8 +941,8 @@ def calculate_ta_score(df):
     '+影线':        [s, '', '(candle_lower_shadow_pct > 0.5 and candle_upper_shadow_pct < 0.05)'], # entity_diff > 0.5 and shadow_diff > 1.5 and 
     '-影线':        [-s, '', '(candle_upper_shadow_pct > 0.4 and (candle_lower_shadow_pct < 0.15  or candle_color == -1))'],
     
-    '+长实体':      [s, '', '(entity_trend == "u") and (candle_color == 1)'],
-    '-长实体':      [-s, '', '(entity_trend == "u") and (candle_color == -1)'],
+    '+实体':        [s, '', '(entity_trend == "u") and (candle_color == 1)'],
+    '-实体':        [-s, '', '(entity_trend == "u") and (candle_color == -1)'],
 
     '+窗口':        [s, '', '(candle_color == 1 and ((candle_gap == 2) or (相对窗口位置 == "mid_up") or (相对窗口位置 == "out")))'],
     '-窗口':        [-s, '', '((candle_gap == -2) or (相对窗口位置 == "mid_down" or 相对窗口位置 == "mid") or (candle_color == -1 and (相对窗口位置 == "out")))'],
@@ -995,8 +996,8 @@ def calculate_ta_score(df):
   df['inday_trend_score'] = df['up_score'] + df['down_score']
   df['up_score_description'] = df['up_score_description'].apply(lambda x: x[:-2] if (len(x) >=2 and x[-2] == ',') else x)
   df['down_score_description'] = df['down_score_description'].apply(lambda x: x[:-2] if (len(x) >=2 and x[-2] == ',') else x)
-  df['inday_trend_score_description'] += df['up_score_description'] + df['down_score_description']
-
+  df['inday_trend_score_description'] = df['up_score_description'] + ' | ' + df['down_score_description']
+  col_to_drop += ['up_score', 'down_score', 'up_score_description', 'down_score_description']
   
   # ================================ calculate trigger/position score =======
   # trigger score and description, position score
@@ -1045,14 +1046,14 @@ def calculate_ta_score(df):
 
 
   # ================================ calculate trend score ==================
-  # overall score
+  # # overall score
   weights = {'inday': 0.2, 'short': 0.4, 'middle': 0.2, 'long': 0.2}
   for term in ['inday', 'short', 'middle', 'long']:
     score_col = f'{term}_trend_score'
     df['trend_score'] += df[score_col] * weights[term]
 
   # ================================ calculate trend status and direction ===
-  df['trend_status'] = 0
+  
   for term in ['inday', 'short', 'middle', 'long', '']:
     
     trend_col = f'{term}_trend' if term != '' else 'trend'
@@ -1060,8 +1061,7 @@ def calculate_ta_score(df):
     day_col = f'{term}_day' if term != '' else 'trend_day'
 
     # normalization
-    df[score_col] = min_max_normalize(df[score_col])
-    df[score_col] = df[score_col].round(2)
+    df[score_col] = min_max_normalize(df[score_col]).round(2)
 
     # trend status
     if term != '':
@@ -1084,19 +1084,19 @@ def calculate_ta_score(df):
     # term trend score change
     df = cal_change(df=df, target_col=score_col, periods=1, add_accumulation=False, add_prefix=True)
 
-  # trend direction
-  df['trend_direction'] = df['trend_score_change'].copy()
-  df['trend_direction'] = sda(df['trend_direction'], zero_as=0)
-  trend_direction_conditions = {
-    'pos':    f'trend_direction > 0.0', 
-    'neg':    f'trend_direction < 0.0',
-  } 
-  position_values = {
-    'pos':    1, 
-    'neg':    -1,
-  }
-  df = assign_condition_value(df=df, column='trend_direction_day', condition_dict=trend_direction_conditions, value_dict=position_values, default_value=0)
-  df['trend_direction_day'] = sda(series=df['trend_direction_day'], zero_as=1)
+  # # trend direction
+  # df['trend_direction'] = df['trend_score_change'].copy()
+  # df['trend_direction'] = sda(df['trend_direction'], zero_as=0)
+  # trend_direction_conditions = {
+  #   'pos':    f'trend_direction > 0.0', 
+  #   'neg':    f'trend_direction < 0.0',
+  # } 
+  # position_values = {
+  #   'pos':    1, 
+  #   'neg':    -1,
+  # }
+  # df = assign_condition_value(df=df, column='trend_direction_day', condition_dict=trend_direction_conditions, value_dict=position_values, default_value=0)
+  # df['trend_direction_day'] = sda(series=df['trend_direction_day'], zero_as=1)
 
   # drop redundant columns
   for col in col_to_drop:
@@ -1164,8 +1164,8 @@ def calculate_ta_signal(df):
     '短期趋势_down':  f'(trigger_score < 0) and (trend_score_change < 0) and (short_trend_score_change < 0 or inday_trend_score_change < 0)',
     '整体趋势_up':    f'(trend_score > 0 and trend_status == 4 and trend_score_change > 0)',
     '整体趋势_down':  f'(trend_score < 0 and trend_status < 0 and trend_score_change < 0)',
-    '其他情况_up':    f'(inday_day > 0 and short_day > 0 and trigger_score > 0 and trend_position == "l")',
-    '其他情况_down':  f'(inday_day < 0 and short_day < 0 and trend_direction_day < -1)',
+    # '其他情况_up':    f'(inday_day > 0 and short_day > 0 and trigger_score > 0 and trend_position == "l")',
+    # '其他情况_down':  f'(inday_day < 0 or short_day < 0) and (trigger_score < 0 and trend_position == "h")',
   } 
   for c in potential_conditions.keys():
     tmp_condition = potential_conditions[c]
@@ -1209,7 +1209,7 @@ def calculate_ta_signal(df):
     '信号不全':       '(signal == "b" or signal == "s") and (adx_power_day == 0)',
 
     # B:  adx趋势起始于 [-10,10]之间 & adx强度弱 & 实体 在[renko_l, renko_h]间波动 & 未突破
-    'adx_波动':       '(signal == "b") and ((adx_strong_day < 0 and adx_wave_day > 0) and ((-10 < adx_direction_start < 10) and (renko_real != "green" and candle_entity_top < renko_h and candle_entity_bottom > renko_l) and (break_up_score == 0)))',
+    'adx_波动':       '(signal == "b") and (adx_strong_day < 0 or adx_wave_day > 0) and (-10 < adx_direction_start < 10) and ((renko_real != "green" and candle_entity_bottom < renko_h) and ((break_up_score == 0) or (adx_value > 0 and adx_power_day < 0)))',
 
     # B:  adx_strong_day <= -5 & -10 <= adx_direction_start <= 10
     'adx_弱势':       '(signal == "b") and ((adx_strong_day <= -5) and (adx_direction > 0 and 0 <= adx_direction_start <= 10))',
@@ -6393,7 +6393,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   signal_desc = f'[{df.loc[max_idx, "potential_score"]}] : {df.loc[max_idx, "potential_description"]} | {df.loc[max_idx, "signal_description"]}'
   signal_desc = signal_desc.replace(', ]', ']')#.replace('; ', '')
 
-  inday_desc = f'[{df.loc[max_idx, "signal_rank"]}] : {df.loc[max_idx, "up_score_description"]} | {df.loc[max_idx, "down_score_description"]}'
+  inday_desc = f'[{df.loc[max_idx, "signal_rank"]}] : {df.loc[max_idx, "inday_trend_score_description"]}'
   # inday_desc = inday_desc.replace(', ', '')#.replace('; ', '')
   
   # construct super title

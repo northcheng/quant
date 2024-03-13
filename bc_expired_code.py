@@ -81,10 +81,10 @@
   'short_trend_score', 'short_trend_score_description', 'short_trend', 'short_day', 'short_trend_score_change', 
   'middle_trend_score', 'middle_trend_score_description', 'middle_trend', 'middle_day', 'middle_trend_score_change', 
   'long_trend_score', 'long_trend_score_description', 'long_trend', 'long_day', 'long_trend_score_change', 
-  'up_score', 'up_score_description', 
-  'down_score', 'down_score_description', 
+  # 'up_score', 'up_score_description', 
+  # 'down_score', 'down_score_description', 
   'trend_score', 'trend_status', 'trend', 'trend_day', 'trend_score_change',
-  'trend_direction', 'trend_direction_day', 
+  # 'trend_direction', 'trend_direction_day', 
 
   # potential and signal
   'short_trend_from_low', 'short_trend_from_high',
