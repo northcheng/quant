@@ -25,7 +25,7 @@ from quant import bc_util as util
 from quant import bc_data_io as io_util
 
 # set font for chinese characters 
-plt.rcParams['font.sans-serif'] = ['Microsoft YaHei'] 
+plt.rcParams['font.sans-serif'] = ['SimHei'] 
 plt.rcParams['axes.unicode_minus'] = False
 
 # default values
@@ -4799,7 +4799,7 @@ def add_ui_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_sig
 
 # ================================================ Indicator visualization  ========================================= #
 # plot bar
-def plot_bar(df, target_col, start=None, end=None, width=0.8, alpha=1, color_mode='up_down', edge_color=(0,0,0,0.1), benchmark=None, add_line=False, title=None, use_ax=None, plot_args=default_plot_args):
+def plot_bar(df, target_col, start=None, end=None, width=0.8, alpha=1, color_mode='up_down', edge_color=(0,0,0,0.1), benchmark=None, add_line=False, title=None, use_ax=None, ytick_roration=0, plot_args=default_plot_args):
 
   # copy dataframe within a specific period
   df = df[start:end].copy()
@@ -4808,7 +4808,8 @@ def plot_bar(df, target_col, start=None, end=None, width=0.8, alpha=1, color_mod
   ax = use_ax
   if ax is None:
     fig = mpf.figure(figsize=plot_args['figsize'])
-    ax = fig.add_subplot(1,1,1, style='yahoo')
+    s = mpf.make_mpf_style(base_mpf_style='yahoo', rc={'font.family': 'SimHei', 'axes.unicode_minus': 'False'})
+    ax = fig.add_subplot(1,1,1, style=s)
 
   # plot bar
   current = target_col
@@ -4826,7 +4827,7 @@ def plot_bar(df, target_col, start=None, end=None, width=0.8, alpha=1, color_mod
   # plot indicator
   if 'color' in df.columns:
     ax.bar(df.index, height=df[target_col], color=df.color, width=width , alpha=alpha, label=target_col, edgecolor=edge_color)
-
+    
   if add_line:
     ax.plot(df[target_col], color=df.color, alpha=alpha, label=target_col)
 
@@ -4834,7 +4835,7 @@ def plot_bar(df, target_col, start=None, end=None, width=0.8, alpha=1, color_mod
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
   ax.grid(True, axis='both', linestyle='-', linewidth=0.5, alpha=0.3)
-
+  
   ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
 
   # return ax
@@ -6059,6 +6060,131 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
     plt.savefig(save_path, bbox_inches = 'tight')
 
   return score_ax
+
+def plot_review(prefix, date, sheet_name='signal', width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_args=default_plot_args, config=None, save_path=None):
+  """
+  Plot rate and signal indicators for signal
+  :param df: signal dataframe
+  :param figsize:  figure size
+  :param save_path:  path to save the figure
+  :returns: none
+  :raises: none
+  """
+
+  file_name = f'{prefix}_{date}.xlsx' if prefix != '' else f'{date}.xlsx'
+  file_name = config['result_path'] + file_name
+  if os.path.exists(file_name):
+    df = pd.read_excel(file_name, sheet_name=sheet_name)
+  else:
+    print(f'File not exists: {file_name}')
+    return None
+
+  symbol_list = df['代码'].tolist()
+  if prefix in ['a', 'hs300', 'a_company']:
+    new_data = io_util.get_real_time_data_from_easyquotation(symbols=symbol_list)
+    new_data_date = f'{new_data.index.max()}'[:10]
+  else:
+    new_data = io_util.get_real_time_data_from_eod(symbol_list, api_key=config['api_key']['eod'], is_print=True)
+    new_data_date = f'{new_data["latest_time"].values[0]}'[:10]
+  new_data.rename(columns={'symbol':'代码'}, inplace=True)
+
+  df = pd.merge(df, new_data, how='left', on='代码')
+  df['验证'] = (df['Close'] - df['收盘']) / df['收盘']
+
+  # get pools and number of symbols in pools
+  n_row = 1
+  num_symbols = len(df)
+
+  # create axes for each pool
+  fig = plt.figure(figsize=(width, num_symbols*unit_size))  
+  gs = gridspec.GridSpec(n_row, 2, height_ratios=[num_symbols], width_ratios=[1,1])
+  # gs.update(wspace=wspace, hspace=hspace)
+  plt.subplots_adjust(wspace=wspace, hspace=hspace)
+  axes = {}
+
+  # plot rate and score
+  for i in range(n_row):
+
+    num_total = num_symbols
+
+    # get target data
+    tmp_data = df.sort_values(by=['潜力分数', '信号排名'], ascending=[True, True]).copy()
+    tmp_data = tmp_data[['代码', '名称', '收盘', '验证', '触发分数', '趋势变化分数', '潜力分数', '信号排名']].set_index('名称')
+    tmp_data['name'] = tmp_data.index.values
+    tmp_data['验证'] = tmp_data['验证'] * 100
+
+    # get ax
+    if i == 0:
+      rate_ax = plt.subplot(gs[i*2], zorder=1) 
+      score_ax = plt.subplot(gs[i*2+1], zorder=0)
+      axes['signal'] = rate_ax
+      axes['review'] = score_ax
+    else:
+      rate_ax = plt.subplot(gs[i*2], sharex=axes['signal'], zorder=1) 
+      score_ax = plt.subplot(gs[i*2+1], sharex=axes['review'], zorder=0)
+    
+    # plot signal rank
+    tmp_data['score_color'] = 'yellow'
+    rate_ax.barh(tmp_data.index, tmp_data['信号排名'], color=tmp_data['score_color'], label='信号排名', alpha=0.5, edgecolor='k') #, edgecolor='k'  
+    # score_ax.set_title(f'{t.replace("_day", "")} Trend Score', fontsize=25, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1))
+    
+    # plot rate
+    tmp_data['potential_color'] = 'green'
+    down_idx = tmp_data.query('潜力分数 <= 0').index    
+    tmp_data.loc[down_idx, 'potential_color'] = 'red'
+    title_color = 'black' 
+    rate_ax.barh(tmp_data.index, tmp_data['潜力分数'], color=tmp_data['potential_color'], label='潜力分数', alpha=0.5) #, edgecolor='k'
+    rate_ax.set_xlabel(f'信号排名 - 潜力分数 ({date})', labelpad = 10, fontsize = 20) 
+    rate_ax.legend(loc='upper right', ncol=plot_args['ncol']) 
+
+    # plot trigger score
+    # score_ax.barh(tmp_data.index, tmp_data['验证'], color='yellow', label='trigger_score', alpha=0.5, edgecolor='k')
+    # tmp_data['score_bottom'] = tmp_data['trigger_score']
+    # for index, row in tmp_data.iterrows():
+    #   if False: #(#row['trigger_score'] > 0 and row['trend_score_change'] > 0) or (row['trigger_score'] < 0 and row['trend_score_change'] < 0):
+    #     continue
+    #   else:
+    #     tmp_data.loc[index, 'score_bottom'] = 0
+
+    # plot score
+    tmp_data['score_color'] = 'green'
+    down_idx = tmp_data.query('验证 <= 0').index    
+    tmp_data.loc[down_idx, 'score_color'] = 'red'
+    score_ax.barh(tmp_data.index, tmp_data['验证'], color=tmp_data['score_color'], left=0,label='验证', alpha=0.5) #, edgecolor='k'  
+    score_ax.set_title(f'验证结果({new_data_date})', fontsize=20)
+    score_ax.legend(loc='upper left', ncol=plot_args['ncol']) 
+
+    # borders
+    rate_ax.spines['right'].set_alpha(0)
+    score_ax.spines['left'].set_alpha(0)
+
+    # y label
+    rate_ax.yaxis.set_ticks_position("right")
+    score_ax.yaxis.set_ticks_position("left")
+    # plt.setp(rate_ax.get_yticklabels(), visible=False)
+    plt.setp(score_ax.get_yticklabels(), visible=False)
+    
+    # grid
+    rate_ax.grid(True, axis='x', linestyle='--', linewidth=0.5, alpha=0.3)
+    rate_ax.grid(True, axis='y', linestyle='-', linewidth=0.5, alpha=1)
+    score_ax.grid(True, axis='x', linestyle='--', linewidth=0.5, alpha=0.3)
+    score_ax.grid(True, axis='y', linestyle='-', linewidth=0.5, alpha=1)
+
+    # rate_ax.xaxis.set_ticks_position('top') 
+    rate_ax.xaxis.set_label_position('top')
+
+    # score_ax.xaxis.set_ticks_position('top') 
+    score_ax.xaxis.set_label_position('top')
+
+    rate_ax.xaxis.label.set_color(title_color)
+    score_ax.xaxis.label.set_color(title_color)
+
+  # save image
+  if save_path is not None:
+    plt.savefig(save_path, bbox_inches = 'tight')
+
+  return score_ax
+
 
 # plot selected 
 def plot_selected(data, config, make_pdf=False, dst_path=None, file_name=None):
