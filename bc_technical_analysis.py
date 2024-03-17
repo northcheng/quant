@@ -646,28 +646,23 @@ def calculate_ta_static(df, indicators=default_indicators):
     phase = 'calculate trend overall'
 
     # ================================ overall trend ==========================
-    target_indicator = 'overall'
+    target_indicator = 'trend_day'
     if target_indicator > '':
     
-      # df['up_trend_idx'] = 0
-      # df['down_trend_idx'] = 0
-      # df['trend_idx'] = 0
-      
       # specify all indicators and specify the exclusives
       all_indicators = []
       for i in indicators.keys():
         all_indicators += [x for x in indicators[i] if x not in all_indicators]
 
-      include_indicators = [x for x in all_indicators if x != 'bb'] # ['ichimoku', 'aroon', 'adx', 'psar']
       for indicator in all_indicators:
         trend_col = f'{indicator}_trend'
-        signal_col = f'{indicator}_signal'
+        # signal_col = f'{indicator}_signal'
         day_col = f'{indicator}_day'
 
         if trend_col not in df.columns:
           df[trend_col] = 'n'
-        if signal_col not in df.columns:
-          df[signal_col] = 'n'
+        # if signal_col not in df.columns:
+        #   df[signal_col] = 'n'
         if day_col not in df.columns:
           df[day_col] = 0
 
@@ -677,21 +672,9 @@ def calculate_ta_static(df, indicators=default_indicators):
         else:
           df[day_col] = sda(series=df[trend_col].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1) 
         
-        # signal of individual indicators are set to 'n'
-        if signal_col not in df.columns:
-          df[signal_col] = 'n'
-
-      #   # calculate overall indicator index according to certain important indicators
-      #   if indicator in include_indicators:
-
-      #     # calculate the overall trend value
-      #     up_idx = df.query(f'{trend_col} == "u"').index
-      #     down_idx = df.query(f'{trend_col} == "d"').index
-      #     df.loc[up_idx, 'up_trend_idx'] += 1
-      #     df.loc[down_idx, 'down_trend_idx'] -= 1
-
-      # # calculate overall trend index 
-      # df['trend_idx'] = df['up_trend_idx'] + df['down_trend_idx']      
+        # # signal of individual indicators are set to 'n'
+        # if signal_col not in df.columns:
+        #   df[signal_col] = 'n'   
 
   except Exception as e:
     print(f'[Exception]: @ {phase} - {target_indicator}, {e}')
@@ -788,50 +771,6 @@ def calculate_ta_dynamic(df, perspective=default_perspectives):
 
   except Exception as e:
     print(phase, e)
-
-  return df
-
-# calculate all features (ta_data + ta_static + ta_dynamic) all at once
-def calculate_ta_feature(df, symbol, start_date=None, end_date=None, indicators=default_indicators):
-  """
-  Calculate all features (ta_data + ta_static + ta_dynamic) all at once.
-
-  :param df: original dataframe with hlocv features
-  :param symbol: symbol of the data
-  :param start_date: start date of calculation
-  :param end_date: end date of calculation
-  :param indicators: dictionary of different type of indicators to calculate
-  :returns: dataframe with ta indicators, static/dynamic trend
-  :raises: None
-  """
-  # check whether data is empty or None
-  if df is None or len(df) == 0:
-    print(f'{symbol}: No data for calculate_ta_feature')
-    return None   
-  
-  try:
-    # # preprocess sec_data
-    phase = 'preprocess'
-    df = preprocess(df=df, symbol=symbol)[start_date:end_date].copy()
-    
-    # calculate TA indicators
-    phase = 'cal_ta_basic_features' 
-    df = calculate_ta_basic(df=df, indicators=indicators)
-
-    # calculate TA static trend
-    phase = 'cal_ta_static_features'
-    df = calculate_ta_static(df=df, indicators=indicators)
-
-    # calculate TA dynamic trend
-    phase = 'cal_ta_dynamic_features'
-    df = calculate_ta_dynamic(df)
-
-    # calculate TA scores
-    phase = 'cal_ta_score'
-    df = calculate_ta_score(df)
-
-  except Exception as e:
-    print(symbol, phase, e)
 
   return df
 
@@ -1052,7 +991,7 @@ def calculate_ta_score(df):
     score_col = f'{term}_trend_score'
     df['trend_score'] += df[score_col] * weights[term]
 
-  # ================================ calculate trend status and direction ===
+  # ================================ calculate trend status ================
   
   for term in ['inday', 'short', 'middle', 'long', '']:
     
@@ -1084,40 +1023,7 @@ def calculate_ta_score(df):
     # term trend score change
     df = cal_change(df=df, target_col=score_col, periods=1, add_accumulation=False, add_prefix=True)
 
-  # # trend direction
-  # df['trend_direction'] = df['trend_score_change'].copy()
-  # df['trend_direction'] = sda(df['trend_direction'], zero_as=0)
-  # trend_direction_conditions = {
-  #   'pos':    f'trend_direction > 0.0', 
-  #   'neg':    f'trend_direction < 0.0',
-  # } 
-  # position_values = {
-  #   'pos':    1, 
-  #   'neg':    -1,
-  # }
-  # df = assign_condition_value(df=df, column='trend_direction_day', condition_dict=trend_direction_conditions, value_dict=position_values, default_value=0)
-  # df['trend_direction_day'] = sda(series=df['trend_direction_day'], zero_as=1)
-
-  # drop redundant columns
-  for col in col_to_drop:
-    if col in df.columns:
-      df.drop(col, axis=1, inplace=True)
-
-  return df
-
-# calculate signal according to features
-def calculate_ta_signal(df):
-  """
-  Calculate signal according to features.
-
-  :param df: dataframe with ta features and derived features for calculating signals
-  :raturns: dataframe with signal
-  :raises: None
-  """
-
-  if df is None or len(df) == 0:
-    print(f'No data for calculate_ta_signal')
-    return None
+  # ================================ calculate trend position ===============
 
   # check trend position
   df['trend_position'] = 'n'
@@ -1150,6 +1056,71 @@ def calculate_ta_signal(df):
   df.loc[up_idx, 'short_trend_from_high'] = 1
   df.loc[down_idx, 'short_trend_from_high'] = -1
   df['short_trend_from_high'] = sda(df['short_trend_from_high'], zero_as=1)
+
+  # drop redundant columns
+  for col in col_to_drop:
+    if col in df.columns:
+      df.drop(col, axis=1, inplace=True)
+
+  return df
+
+# calculate all features (ta_basic + ta_static + ta_dynamic + ta_score) all at once
+def calculate_ta_feature(df, symbol, start_date=None, end_date=None, indicators=default_indicators):
+  """
+  Calculate all features (ta_data + ta_static + ta_dynamic) all at once.
+
+  :param df: original dataframe with hlocv features
+  :param symbol: symbol of the data
+  :param start_date: start date of calculation
+  :param end_date: end date of calculation
+  :param indicators: dictionary of different type of indicators to calculate
+  :returns: dataframe with ta indicators, static/dynamic trend
+  :raises: None
+  """
+  # check whether data is empty or None
+  if df is None or len(df) == 0:
+    print(f'{symbol}: No data for calculate_ta_feature')
+    return None   
+  
+  try:
+    # # preprocess sec_data
+    phase = 'preprocess'
+    df = preprocess(df=df, symbol=symbol)[start_date:end_date].copy()
+    
+    # calculate TA indicators
+    phase = 'cal_ta_basic_features' 
+    df = calculate_ta_basic(df=df, indicators=indicators)
+
+    # calculate TA static trend
+    phase = 'cal_ta_static_features'
+    df = calculate_ta_static(df=df, indicators=indicators)
+
+    # calculate TA dynamic trend
+    phase = 'cal_ta_dynamic_features'
+    df = calculate_ta_dynamic(df)
+
+    # calculate TA scores
+    phase = 'cal_ta_score'
+    df = calculate_ta_score(df)
+
+  except Exception as e:
+    print(symbol, phase, e)
+
+  return df
+
+# calculate signal according to features
+def calculate_ta_signal(df):
+  """
+  Calculate signal according to features.
+
+  :param df: dataframe with ta features and derived features for calculating signals
+  :raturns: dataframe with signal
+  :raises: None
+  """
+
+  if df is None or len(df) == 0:
+    print(f'No data for calculate_ta_signal')
+    return None
 
   # ================================ calculate potential ====================
   # potnetial score
