@@ -976,7 +976,6 @@ def calculate_ta_score(df):
   none_trigger_low = df.query('position_score == -4 and trigger_score == 0 and  candle_color == -1').index
   df.loc[none_trigger_low, 'trigger_score'] = df.loc[none_trigger_low, 'candle_entity_pct'] * -1
 
-
   # ================================ calculate trend score ==================
   # # overall score
   weights = {'inday': 0.2, 'short': 0.4, 'middle': 0.2, 'long': 0.2}
@@ -984,8 +983,7 @@ def calculate_ta_score(df):
     score_col = f'{term}_trend_score'
     df['trend_score'] += df[score_col] * weights[term]
 
-  # ================================ calculate trend status ================
-  
+  # ================================ calculate trend status =================
   for term in ['inday', 'short', 'middle', 'long', '']:
     
     trend_col = f'{term}_trend' if term != '' else 'trend'
@@ -1017,7 +1015,6 @@ def calculate_ta_score(df):
     df = cal_change(df=df, target_col=score_col, periods=1, add_accumulation=False, add_prefix=True)
 
   # ================================ calculate trend position ===============
-
   # check trend position
   df['trend_position'] = 'n'
   trend_position_conditions = {
@@ -1196,6 +1193,9 @@ def calculate_ta_signal(df):
     # S:  ichimoku绿云 & 实体底部位于cloud_top上方 & 非renko跌落 & (实体中部>renko_h & kama_distance>0) & (有支撑或无跌落) & 非黄昏星形态
     'renko_高位':     '(signal == "s") and (trend_position == "h" and renko_real != "red" and candle_entity_bottom > renko_h and kama_distance > 0) and (support_score > 0 or break_down_score == 0) and (启明黄昏_day != -1 and 窗口_day != -1)',
 
+    # B:  renko天数>50 & 实体底部<renko_h & (十字星 | renko红色)
+    'renko_波动':     '(signal == "b") and (renko_day < -50 or renko_day > 50) and (candle_entity_bottom < renko_h) and ((renko_color == "red") or (十字星 == "n"))',
+    
     # B:  adx_value下降 & (adx_strength下降 | (adx_strenth上升 & adx_value<0) | adx_wave_day>0 | (adx_value>0 & adx方向第一天下降))
     'adx_下行':       '(signal == "b") and (adx_value_change < 0) and (break_up_score < 0 or support_score < 0 or (adx_value > 10 and adx_strong_day > 0)) and (adx_strength_change < 0 or (adx_strength_change > 0 and adx_value < 0) or adx_wave_day > 0 or (adx_value > 10 and adx_direction < -1))',
     
@@ -3661,6 +3661,10 @@ def add_renko_features(df, brick_size_factor=0.05, dynamic_brick=True, merge_dup
   # df.loc[below_idx, 'renko_resistant'] = df.loc[below_idx, 'renko_l']
   # df.loc[among_idx, 'renko_support'] = df.loc[among_idx, 'renko_l']
   # df.loc[among_idx, 'renko_resistant'] = df.loc[among_idx, 'renko_h']
+
+  # number of days since renko triggered
+  df['renko_day'] = df['renko_color'].replace({'green':1, 'red': -1})
+  df['renko_day'] = sda(df['renko_day'], zero_as=None)
 
   return df
 
