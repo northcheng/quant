@@ -1,4 +1,4 @@
-#20240311 updated
+#20240318 updated
 [
   # basic
   'Open', 'High', 'Low', 'Close', 'Volume', 
@@ -39,9 +39,9 @@
   # 'up_trend_idx', 'down_trend_idx', 'trend_idx', 
   
   # static signals
-  'ichimoku_signal', 'ichimoku_day',
-  'kama_signal', 'kama_day', 
-  'adx_signal', 'adx_day', 
+  'ichimoku_day', # 'ichimoku_signal', 
+  'kama_day', # 'kama_signal', 
+  'adx_day', # 'adx_signal', 
   
   # dynamic trend
   ## renko
@@ -89,9 +89,8 @@
   # potential and signal
   'short_trend_from_low', 'short_trend_from_high',
   'potential', 'potential_score', 'potential_description', 
-  'signal', 'signal_description', 'signal_day',
-  'rank_up_score', 'rank_down_score', 'rank_up_score_description', 'rank_down_score_description', 'signal_rank'
- 
+  'signal', 'signal_description', 'signal_day', 'signal_rank'
+  # 'rank_up_score', 'rank_down_score', 'rank_up_score_description', 'rank_down_score_description', 
  ]
 
 # # expired

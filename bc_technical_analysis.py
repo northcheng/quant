@@ -656,13 +656,10 @@ def calculate_ta_static(df, indicators=default_indicators):
 
       for indicator in all_indicators:
         trend_col = f'{indicator}_trend'
-        # signal_col = f'{indicator}_signal'
         day_col = f'{indicator}_day'
 
         if trend_col not in df.columns:
           df[trend_col] = 'n'
-        # if signal_col not in df.columns:
-        #   df[signal_col] = 'n'
         if day_col not in df.columns:
           df[day_col] = 0
 
@@ -671,10 +668,6 @@ def calculate_ta_static(df, indicators=default_indicators):
           df[day_col] = sda(series=df[trend_col].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1, one_restart=True) 
         else:
           df[day_col] = sda(series=df[trend_col].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1) 
-        
-        # # signal of individual indicators are set to 'n'
-        # if signal_col not in df.columns:
-        #   df[signal_col] = 'n'   
 
   except Exception as e:
     print(f'[Exception]: @ {phase} - {target_indicator}, {e}')
@@ -1283,6 +1276,11 @@ def calculate_ta_signal(df):
   }
   df = cal_score(df=df, condition_dict=rank_conditions, up_score_col='rank_up_score', down_score_col='rank_down_score')
   df['signal_rank'] = df['rank_up_score'] + df['rank_down_score']
+
+  # drop redundant columns
+  for col in ['rank_up_score', 'rank_down_score', 'rank_up_score_description', 'rank_down_score_description']:
+    if col in df.columns:
+      df.drop(col, axis=1, inplace=True)
 
   return df
 
