@@ -72,6 +72,8 @@
   'long_trend', 'long_day', 'long_trend_score_change', 
   'trend', 'trend_day', 'trend_score_change', 'trend_position', 
   'short_trend_from_low', 'short_trend_from_high',
+
+  # calculate_ta_signal()
   'potential', 'potential_score', 'potential_description', 
   'signal', 'signal_description', 'signal_day', 'signal_rank' 
  ]
