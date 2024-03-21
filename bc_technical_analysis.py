@@ -1159,9 +1159,6 @@ def calculate_ta_signal(df):
   }
   df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
   
-  # calculate signal day
-  df['signal_day'] = sda(df['signal'].replace({'b': 1, 's': -1, '': 0, 'nb': 0, 'ns': 0}), zero_as=1)
-
   # disable some false alarms
   none_signal_idx = []
   none_signal_conditions = {
@@ -1222,8 +1219,8 @@ def calculate_ta_signal(df):
   df.loc[none_signal_idx, 'signal'] = 'n' + df.loc[none_signal_idx, 'signal']
   df['signal_description'] = df['signal_description'].apply(lambda x: x[:-2])
 
-  # # calculate signal day
-  # df['signal_day'] = sda(df['signal'].replace({'b': 1, 's': -1, '': 0, 'nb': 0, 'ns': 0}), zero_as=1)
+  # calculate signal day
+  df['signal_day'] = sda(df['signal'].replace({'b': 1, 's': -1, '': 0, 'nb': 0, 'ns': 0}), zero_as=1)
   # df = remove_redundant_signal(df=df, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='', keep='first')
 
   # signal rank
@@ -1240,38 +1237,34 @@ def calculate_ta_signal(df):
   df['rank_down_score'] = 0
   rank_conditions = {
 
-    '+from_low':          [s*2, '', '(short_trend_from_low > 0)'], 
-    '+from_low_plus':     [s, '', '(5 > short_trend_from_low > 0)'], 
-    '-from_high':         [-s*2, '', '(short_trend_from_high > 0)'], 
-    '-from_high_plus':    [-s, '', '(5 > short_trend_from_high > 0)'], 
-    # '+adx_low':           [s*2, '', '(adx_direction > 0 and adx_value_change > 0) and (adx_value < -10 and adx_power < 0)'], 
-    # '+adx_middle':        [s, '', '(adx_direction > 0 and adx_value_change > 0) and (-10 <= adx_value <= 10 and adx_power < 0) and (adx_direction_start < 0 and adx_direction_day != 1)'], 
-    # '+adx_high':          [s, '', '(adx_direction > 0 and adx_value_change > 0) and (adx_value > 10 and adx_power > 0)'], 
+    '+potential':         [s*2, '', '(potential_score > 0)'], 
+    '-potential':         [-s*2, '', '(potential_score < 0)'], 
+
+    '+adx_direction':     [s*2, '', '(adx_direction > 0 and adx_value_change > 0)'], 
+    '-adx_direction':     [-s*2, '', '(adx_direction < 0  and adx_value_change < 0)'], 
+
+    '+adx_from_low':      [s, '', '(short_trend_from_low > 0)'], 
+    '-adx_from_high':     [-s, '', '(short_trend_from_high > 0)'], 
+    
     '-adx_weak':          [-s, '', '(adx_strong_day < 0)'],
     '-adx_wave':          [-s, '', '(adx_direction > 0 and adx_value_change <= 0) or (adx_direction < 0 and adx_value_change >= 0) or (adx_wave_day > 0)'],
   
-    '-adx_down':          [-s*2, '', '(adx_direction < 0 and adx_value_change < 0)'], 
-    '-adx_high':          [-s, '', '(adx_value > 10 and adx_power < 0)'], 
-    
-    '+ichimoku':          [s, '', '(tankan_day > 0 and kijun_day < 0)'],
-    '+ichimoku_plus':     [s/2, '', '(tankan_day > 0 and kijun_day < 5)'],
-
-    '+kama':              [s, '', '(kama_fast_day > 0 and kama_slow_day < 0)'],
-    '+kama_plus':         [s, '', '(kama_fast_day > 0 and kama_slow_day < 5)'],
-
-    '+ichimoku_fs':       [s, '', '(ichimoku_fs_day < 0)'],
-    '+ichimoku_fs_plus':  [s/2, '', '(ichimoku_fs_day < 5)'],
-
-    '+kama_fs':           [s, '', '(kama_fs_day < 0)'],
-    '+kama_fs_plus':      [s/2, '', '(kama_fs_day < 5)'],
-
     '+trigger':           [s, '', '(trigger_score > 0)'],
     '-trigger':           [-s, '', '(trigger_score < 0)'],
 
+    '+trend':             [s, '', '(0 < trend_day < 3)'],
+    '-trend':             [-s, '', '(0 > trend_day > -3)'],
+
+    '+trend_score':       [s, '', '(trend_score_change > 0)'],
+    '-trend_score':       [-s, '', '(trend_score_change < 0)'],
+
+    '+short_trend':       [s, '', '(short_trend_score_change > 0)'],
+    '-short_trend':       [-s, '', '(short_trend_score_change < 0)'],
+
     '+support':           [s, '', '(support_score > 0)'],
     '+support_plus':      [s, '', '(support_score > 0 and (support_score >= 3 or candle_lower_shadow_pct > 0.5))'],
-    '-resistant':         [-s, '', '(resistant_score < 0)'],
-    '-resistant_plus':    [-s, '', '(resistant_score < 0 and ((resistant_score <= -3) or (candle_upper_shadow_pct > 0.5) or (candle_upper_shadow_pct > 0.5 and (rate < 0 or candle_color == -1))))'],
+    '-resistant':         [-s*2, '', '(resistant_score < 0)'],
+    '-resistant_plus':    [-s*2, '', '(resistant_score < 0 and ((resistant_score <= -3) or (candle_upper_shadow_pct > 0.5) or (candle_upper_shadow_pct > 0.5 and (rate < 0 or candle_color == -1))))'],
         
   }
   df = cal_score(df=df, condition_dict=rank_conditions, up_score_col='rank_up_score', down_score_col='rank_down_score')
