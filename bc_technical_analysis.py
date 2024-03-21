@@ -1169,6 +1169,9 @@ def calculate_ta_signal(df):
     # B:  adx趋势起始于 [-10,10]之间 & adx强度弱 & 实体 在[renko_l, renko_h]间波动 & 未突破
     'adx_波动':       '(signal == "b") and (adx_strong_day < 0 or adx_wave_day > 0) and (-10 < adx_direction_start < 10) and ((renko_real != "green" and candle_entity_bottom < renko_h) and ((break_up_score == 0) or (adx_value > 0 and adx_power_day < 0)))',
 
+    # B:  adx_direction_day < 0 & adx_value > 10
+    'adx_逆势':       '(signal == "b") and (adx_direction < 0 and adx_value > 10 and short_trend_score_change < 0)',
+
     # B:  adx_strong_day <= -5 & -10 <= adx_direction_start <= 10
     'adx_弱势':       '(signal == "b") and ((adx_strong_day <= -5) and (adx_direction > 0 and 0 <= adx_direction_start <= 10))',
 
@@ -1240,35 +1243,45 @@ def calculate_ta_signal(df):
     '+potential':         [s*2, '', '(potential_score > 0)'], 
     '-potential':         [-s*2, '', '(potential_score < 0)'], 
 
-    '+adx_direction':     [s*2, '', '(adx_direction > 0 and adx_value_change > 0)'], 
-    '-adx_direction':     [-s*2, '', '(adx_direction < 0  and adx_value_change < 0)'], 
+    '+adx':               [s*2, '', '(adx_direction > 0 and adx_value_change > 0)'], 
+    '-adx':               [-s*2, '', '(adx_direction < 0  and adx_value_change < 0)'], 
 
-    '+adx_from_low':      [s, '', '(short_trend_from_low > 0)'], 
-    '-adx_from_high':     [-s, '', '(short_trend_from_high > 0)'], 
+    '+adx_up':            [s*2, '', '(short_trend_from_low > 0)'], 
+    '-adx_down':          [-s*2, '', '(short_trend_from_high > 0)'], 
     
-    '-adx_weak':          [-s, '', '(adx_strong_day < 0)'],
-    '-adx_wave':          [-s, '', '(adx_direction > 0 and adx_value_change <= 0) or (adx_direction < 0 and adx_value_change >= 0) or (adx_wave_day > 0)'],
+    '-weak':              [-s, '', '(adx_strong_day < 0)'],
+    '-wave':              [-s, '', '(adx_direction > 0 and adx_value_change <= 0) or (adx_direction < 0 and adx_value_change >= 0) or (adx_wave_day > 0)'],
   
+    '+kama':              [s, '', '(0 > kama_distance > -0.15 and kama_distance_change > 0)'], 
+    '-kama':              [-s, '', '(kama_distance_change < 0 and kama_fast_rate <= 0)'], 
+
+    '+ichi':              [s, '', '(0 > ichimoku_distance > -0.1 and ichimoku_distance_change > 0)'], 
+    '-ichi':              [-s, '', '(ichimoku_distance_change < 0 and tankan_rate <= 0)'], 
+
     '+trigger':           [s, '', '(trigger_score > 0)'],
     '-trigger':           [-s, '', '(trigger_score < 0)'],
 
     '+trend':             [s, '', '(0 < trend_day < 3)'],
     '-trend':             [-s, '', '(0 > trend_day > -3)'],
 
-    '+trend_score':       [s, '', '(trend_score_change > 0)'],
-    '-trend_score':       [-s, '', '(trend_score_change < 0)'],
+    '+score':             [s, '', '(trend_score_change > 0)'],
+    '-score':             [-s, '', '(trend_score_change < 0)'],
 
-    '+short_trend':       [s, '', '(short_trend_score_change > 0)'],
-    '-short_trend':       [-s, '', '(short_trend_score_change < 0)'],
+    '+short':             [s*2, '', '(short_trend_score > 0)'],
+    '-short':             [-s*2, '', '(short_trend_score < 0)'],
+
+    '+short_score':       [s, '', '(short_trend_score_change > 0)'],
+    '-short_score':       [-s, '', '(short_trend_score_change < 0)'],
 
     '+support':           [s, '', '(support_score > 0)'],
-    '+support_plus':      [s, '', '(support_score > 0 and (support_score >= 3 or candle_lower_shadow_pct > 0.5))'],
+    '+support_ex':        [s, '', '(support_score > 0 and (support_score >= 3 or candle_lower_shadow_pct > 0.5))'],
     '-resistant':         [-s*2, '', '(resistant_score < 0)'],
-    '-resistant_plus':    [-s*2, '', '(resistant_score < 0 and ((resistant_score <= -3) or (candle_upper_shadow_pct > 0.5) or (candle_upper_shadow_pct > 0.5 and (rate < 0 or candle_color == -1))))'],
+    '-resistant_ex':      [-s*2, '', '(resistant_score < 0 and ((resistant_score <= -3) or (candle_upper_shadow_pct > 0.5) or (candle_upper_shadow_pct > 0.5 and (rate < 0 or candle_color == -1))))'],
         
   }
   df = cal_score(df=df, condition_dict=rank_conditions, up_score_col='rank_up_score', down_score_col='rank_down_score')
   df['signal_rank'] = df['rank_up_score'] + df['rank_down_score']
+  df['signal_rank_description'] = df['rank_up_score_description'] + ' | ' + df['rank_down_score_description']
 
   # drop redundant columns
   for col in ['rank_up_score', 'rank_down_score', 'rank_up_score_description', 'rank_down_score_description']:
@@ -6151,7 +6164,6 @@ def plot_review(prefix, date, sheet_name='signal', width=20, unit_size=0.3, wspa
 
   return score_ax
 
-
 # plot selected 
 def plot_selected(data, config, make_pdf=False, dst_path=None, file_name=None):
 
@@ -6485,7 +6497,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   signal_desc = f'[{df.loc[max_idx, "potential_score"]}] : {df.loc[max_idx, "potential_description"]} | {df.loc[max_idx, "signal_description"]}'
   signal_desc = signal_desc.replace(', ]', ']')#.replace('; ', '')
 
-  inday_desc = f'[{df.loc[max_idx, "signal_rank"]}] : {df.loc[max_idx, "inday_trend_score_description"]}'
+  inday_desc = f'[{df.loc[max_idx, "signal_rank"]}] : {df.loc[max_idx, "signal_rank_description"]}'
   # inday_desc = inday_desc.replace(', ', '')#.replace('; ', '')
   
   # construct super title
