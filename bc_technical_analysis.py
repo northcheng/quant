@@ -1240,9 +1240,6 @@ def calculate_ta_signal(df):
   df['rank_down_score'] = 0
   rank_conditions = {
 
-    '+potential':         [s*2, '', '(potential_score > 0)'], 
-    '-potential':         [-s*2, '', '(potential_score < 0)'], 
-
     '+adx':               [s*2, '', '(adx_direction > 0 and adx_value_change > 0)'], 
     '-adx':               [-s*2, '', '(adx_direction < 0  and adx_value_change < 0)'], 
 
