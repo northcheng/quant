@@ -486,8 +486,11 @@ def calculate_ta_static(df, indicators=default_indicators):
         tmp_direction_start = df.loc[end, 'prev_adx_value']
         df.loc[tmp_idx, 'prev_adx_extreme'] = tmp_extreme
         df.loc[tmp_idx, 'adx_direction_start'] = tmp_direction_start
-      df['prev_adx_extreme'] = df['prev_adx_extreme'].fillna(method='ffill')
-      df['adx_direction_start'] = df['adx_direction_start'].fillna(method='ffill')
+      for col in ['prev_adx_extreme', 'adx_direction_start']:
+        if col not in df.columns:
+          df[col] = np.nan
+        else:
+          df[col] = df[col].fillna(method='ffill')
 
       # overall adx trend
       threshold = 1
@@ -5050,6 +5053,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
   # plot signal base line
   ax.plot(df.index, df[signal_y], label=signal_y, alpha=0)
+  # print(signal_x, signal_y)
 
   # plot trend
   trend_col = signal_x.replace('signal', 'trend')
@@ -5100,28 +5104,34 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
     # trend direction up
     tmp_data = df.query(f'(trend_score_change > 0)')
-    tmp_alpha = normalize(tmp_data['trend_score_change'].abs())
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='green', alpha=tmp_alpha)
+    if len(tmp_data) > 0:
+      tmp_alpha = normalize(tmp_data['trend_score_change'].abs())
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='green', alpha=tmp_alpha)
 
     # trend direction down
     tmp_data = df.query(f'(trend_score_change < 0)')
-    tmp_alpha = normalize(tmp_data['trend_score_change'].abs())
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', alpha=tmp_alpha)
+    if len(tmp_data) > 0:
+      tmp_alpha = normalize(tmp_data['trend_score_change'].abs())
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', alpha=tmp_alpha)
 
   # trend direction
   if signal_x == 'trigger':
 
     # trigger_score
     tmp_data = df.query(f'(trigger_score > 0)')
-    tmp_alpha = normalize(tmp_data['trigger_score'].abs())
-    # print(tmp_alpha)
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='green', alpha=tmp_alpha)
+    if len(tmp_data) > 0:
+      tmp_alpha = normalize(tmp_data['trigger_score'].abs())
+      # print(tmp_alpha)
+      tmp_alpha = 0.5 if tmp_alpha.isna().sum() == len(tmp_data) else tmp_alpha
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='green', alpha=tmp_alpha)
 
     # trigger_score
     tmp_data = df.query(f'(trigger_score < 0)')
-    tmp_alpha = normalize(tmp_data['trigger_score'].abs())
-    # print(tmp_alpha)
-    ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', alpha=tmp_alpha)
+    if len(tmp_data) > 0:
+      tmp_alpha = normalize(tmp_data['trigger_score'].abs())
+      # print(tmp_alpha)
+      tmp_alpha = 0.5 if tmp_alpha.isna().sum() == len(tmp_data) else tmp_alpha
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', alpha=tmp_alpha)
 
   # buy and sell
   if signal_x == ' ':
@@ -6322,6 +6332,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   start = util.time_2_string(plot_data.index.min())
   end = util.time_2_string(plot_data.index.max())
   width = util.num_days_between(start, end) / interval_factor[interval] * 0.125
+  width = 10 if width < 10 else width
 
   # get indicator names and plot ratio
   plot_ratio = args.get('plot_ratio')
@@ -6339,6 +6350,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   axes = {}
   for i in range(num_indicators):
     tmp_indicator = indicators[i]
+    # print(tmp_indicator)
     tmp_args = args.get(tmp_indicator)
     
     # put the main_indicators at the bottom, share_x
