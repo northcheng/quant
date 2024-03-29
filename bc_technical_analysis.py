@@ -1346,7 +1346,7 @@ def postprocess(df, keep_columns, drop_columns, sec_names, target_interval=''):
 
   # add names for symbols
   df['name'] = df['symbol']
-  df['name'] = df['name'].apply(lambda x: sec_names[x])
+  df['name'] = df['name'].apply(lambda x: sec_names[x] if x in sec_names.keys() else x)
 
   # rename columns, keep 3 digits
   df = df[list(keep_columns.keys())].rename(columns=keep_columns).round(3)
