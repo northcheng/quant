@@ -44,7 +44,7 @@
   "visualization": {
     "plot_args": {
       "plot_ratio": {
-        "signals": 2.2, "adx": 2.3,
+        "signals": 4.7, "adx": 2.3,
         "main_indicators": 11, "volume":1
       },
       
@@ -67,6 +67,36 @@
       },
       "signals": {
         "signal_list": [  
+          
+          "",
+          
+          "renko",
+          "kama",
+          "ichimoku",          
+          "gap",
+          "candle",
+
+          "-----",
+          "long_signal",
+          "middle_signal",
+          "short_signal",
+          "inday_signal",
+          
+          "-----",
+          "support_score",
+          "break_up_score",
+          "break_down_score",
+          "resistant_score",
+                    
+          "-----",
+          "position",
+          "direction",
+          "trigger",
+          "key_col_score",
+          " "
+        ],
+
+        "signal_list_old": [  
           
           "",
           "long_signal",
