@@ -28,12 +28,12 @@
   ## ichimoku & kama
   'ichimoku_distance', 'ichimoku_distance_change', 
   'tankan_rate', 'tankan_day', 'kijun_rate', 'kijun_day', 
-  'ichimoku_fs_day', 'ichimoku_trend', 
+  'ichimoku_fs_day', 'ichimoku_trend', '相对ichimoku位置',
   ## kama
   'kama_distance', 'kama_distance_change', 
   'kama_fast_rate', 'kama_fast_day', 
   'kama_slow_rate', 'kama_slow_day', 
-  'kama_fs_day', 'kama_trend',
+  'kama_fs_day', 'kama_trend', '相对kama位置',
   ## adx
   'adx_value_change', 'adx_strength_change', 
   'adx_direction', 'adx_power', 'adx_value_prediction', 'adx_direction_day', 'adx_power_day',
@@ -45,37 +45,38 @@
   # calculate_ta_dynamic()
   ## add_renko_features()
   'renko_o', 'renko_h', 'renko_l', 'renko_c', 'renko_color',
-  'renko_brick_height', 'renko_start', 'renko_end', 'renko_real', 'renko_brick_number', 'renko_day',   
+  'renko_distance', 'renko_start', 'renko_end', 'renko_real', 'renko_brick_number', 'renko_day', '相对renko位置',  
   ## add_candlestick_patterns()
-  '位置_trend', '位置_day', 'shadow_trend', 'entity_trend', 
-  '窗口_trend', '相对窗口位置', '突破_trend', 
+  'shadow_trend', 'entity_trend', '相对gap位置', '相对candle位置',
+  '窗口_trend',  
   '十字星', '锤子', '十字星_trend', '腰带_trend', '流星_trend', '锤子_trend', 
   '平头_trend', '穿刺_trend', '吞噬_trend', '包孕_trend', '启明黄昏_trend', 
-  '窗口_day', '突破_day', '十字星_day', '流星_day', '锤子_day', '腰带_day''平头_day', '穿刺_day', '包孕_day', '吞噬_day', '启明黄昏_day', 
+  '窗口_day', '十字星_day', '流星_day', '锤子_day', '腰带_day', '平头_day', '穿刺_day', '包孕_day', '吞噬_day', '启明黄昏_day', 
+  'pattern_score',
   ## add_support_resistance()
   'support_score', 'support_description', 'resistant_score', 'resistant_description',
   'break_up_score', 'break_up_description', 'break_down_score', 'break_down_description', 
   'resistant', 'resistanter', 'support', 'supporter', 
+  'key_col_up', 'key_col_down', 'key_col_score',
   
   # calculate_ta_score()
   'trend_score', 'trend_status', 
-  'trigger_score', 'trigger_score_description', 
-  'position_score', 'position_score_description', 
-  'inday_trend_score', 'inday_trend_score_description', 
+  'trigger_score', 
   'short_trend_score', 'short_trend_score_description', 
   'middle_trend_score', 'middle_trend_score_description', 
   'long_trend_score', 'long_trend_score_description', 
   'trigger_day', 
-  'inday_trend', 'inday_day', 'inday_trend_score_change', 
   'short_trend', 'short_day', 'short_trend_score_change', 
   'middle_trend', 'middle_day', 'middle_trend_score_change', 
   'long_trend', 'long_day', 'long_trend_score_change', 
-  'trend', 'trend_day', 'trend_score_change', 'trend_position', 
-  'short_trend_from_low', 'short_trend_from_high',
+  'trend', 'trend_day', 'trend_score_change',
+  'up_score', 'down_score', 'up_score_description', 'down_score_description',
+  'ichimoku_position_score', 'kama_position_score', 'renko_position_score',
+  'position', 'position_score', 'position_score_description', 'position_score_change',
 
   # calculate_ta_signal()
   'potential', 'potential_score', 'potential_description', 
-  'signal', 'signal_description', 'signal_day', 'signal_rank' 
+  'signal', 'signal_description', 'signal_day', 'signal_rank', 'signal_rank_description'
  ]
 
 # # expired
