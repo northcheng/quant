@@ -1189,6 +1189,7 @@ def calculate_ta_signal(df):
     df.loc[tmp_idx, 'potential_description'] += f'{c}, '
 
   df['potential_description'] = df['potential_description'].apply(lambda x: x[:-2])
+  df['potential_score'] = df['potential_score'].round(2)
 
   # ================================ calculate signal =======================
   # signal
@@ -5484,11 +5485,11 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
   # annotate number of days since signal triggered
   annotate_signal_day = True
-  max_idx = df.index.max() - datetime.timedelta(days=1)
+  max_idx = df.index.max()
   ys = {'long_signal': 0, 'middle_signal': 2.75, 'short_signal': 5.5}
   if signal_x in ys.keys() and day_col in df.columns and annotate_signal_day:
 
-    x_signal = max_idx + datetime.timedelta(days=3)
+    x_signal = max_idx + datetime.timedelta(days=4)
     y_signal = ys[signal_x]
     text_day = int(df.loc[max_idx, day_col])
     text_color = 'red' if text_day < 0 else 'green'
