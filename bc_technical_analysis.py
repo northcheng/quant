@@ -5489,7 +5489,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
   ys = {'long_signal': 0, 'middle_signal': 2.75, 'short_signal': 5.5}
   if signal_x in ys.keys() and day_col in df.columns and annotate_signal_day:
 
-    x_signal = max_idx + datetime.timedelta(days=4)
+    x_signal = max_idx + datetime.timedelta(days=2)
     y_signal = ys[signal_x]
     text_day = int(df.loc[max_idx, day_col])
     text_color = 'red' if text_day < 0 else 'green'
