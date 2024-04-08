@@ -1217,16 +1217,16 @@ def calculate_ta_signal(df):
 
     # B: 去除高位下行中的买入信号
     # 高位下行: kama_distance > 0 and ichimoku_distance < 0 and (renko_distance < 0 or renko_real == "green")
-    '高位下行':       '''
-                      (signal == "b") and 
-                      (kama_distance > 0 and ichimoku_distance < 0) and 
-                      (renko_distance < 0 or renko_real == "green") and
-                      (
-                        (相对ichimoku位置 in ["mid_up", "mid", "mid_down", "down", "out"]) or
-                        (相对renko位置 in ["mid_up", "mid", "mid_down", "down", "out"]) or
-                        (renko_day == 1)
-                      )
-                      '''.replace('\n', ''),
+    # '高位下行':       '''
+    #                   (signal == "b") and 
+    #                   (kama_distance > 0 and ichimoku_distance < 0) and 
+    #                   (renko_distance < 0 or renko_real == "green") and
+    #                   (
+    #                     (相对ichimoku位置 in ["mid_up", "mid", "mid_down", "down", "out"]) or
+    #                     (相对renko位置 in ["mid_up", "mid", "mid_down", "down", "out"]) or
+    #                     (renko_day == 1)
+    #                   )
+    #                   '''.replace('\n', ''),
 
     # B: 去除上行过程中的波动卖出信号
     # 上行: (相对kama位置 == "up" and 相对ichimoku位置 == "up") and ((kama_distance > 0 or kama_distance_change > 0) and (ichimoku_distance > 0) and (renko_distance > 0))
@@ -1250,8 +1250,9 @@ def calculate_ta_signal(df):
                       (signal == "b") and 
                       (kama_distance > 0 and ichimoku_distance < 0) and 
                       (
-                        (相对ichimoku位置 != "up") or 
-                        (相对renko位置 != "up")
+                        (相对ichimoku位置 in ["mid_up", "mid", "mid_down", "down", "out"]) or 
+                        (相对renko位置 in ["mid_up", "mid", "mid_down", "down", "out"]) or
+                        (renko_day == 1)
                       )
                       '''.replace('\n', ''),
 
