@@ -1141,14 +1141,11 @@ def calculate_ta_signal(df):
 
     '突破失败_down':    f'''
                         ((相对kama位置 in ["mid_up", "mid_down"]) and (kama_fast_break_down != 0 or kama_slow_break_down != 0)) or
-                        ((相对kama位置 in ["mid", "mid_down"]) and (kama_distance < 0 and kama_slow_resistant != 0)) or 
-                        ((相对kama位置 in ["down"]) and (kama_fast_resistant != 0 or kama_slow_resistant != 0)) or 
+                        ((相对kama位置 in ["mid", "mid_down", "down"]) and (kama_fast_resistant != 0 or kama_slow_resistant != 0)) or 
                         ((相对ichimoku位置 in ["mid_up", "mid_down"]) and (tankan_break_down != 0 or kijun_break_down != 0)) or
-                        ((相对ichimoku位置 in ["mid", "mid_down"]) and (ichimoku_distance < 0 and kijun_resistant != 0)) or 
-                        ((相对ichimoku位置 in ["down"]) and (tankan_resistant != 0 or kijun_resistant != 0)) or 
+                        ((相对ichimoku位置 in ["mid", "mid_down", "down"]) and (tankan_resistant != 0 or kijun_resistant != 0)) or 
                         ((相对renko位置 in ["mid_up", "mid_down"]) and (renko_l_break_down != 0 or renko_h_break_down != 0)) or
-                        ((相对renko位置 in ["mid", "mid_down"]) and (renko_distance < 0 and renko_h_resistant != 0)) or 
-                        ((相对renko位置 in ["down"]) and (renko_l_resistant != 0 or renko_h_resistant != 0))
+                        ((相对renko位置 in ["mid", "mid_down", "down"]) and (renko_l_resistant != 0 or renko_h_resistant != 0))
                         '''.replace('\n', ''),
 
     # '中位调整_down':    f'''
