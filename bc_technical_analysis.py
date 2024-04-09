@@ -1094,6 +1094,16 @@ def calculate_ta_signal(df):
                         )
                         '''.replace('\n', ''),
 
+    '窗口阻挡_down':    f'''
+                        (
+                          (相对ichimoku位置 in ["mid_up", "up"]) and 
+                          (相对kama位置 in ["mid_up", "up"]) and 
+                          (相对gap位置 in ["mid_down", "down"]) and (candle_gap_top_resistant != 0 or candle_gap_bottom_resistant != 0) and
+                          (十字星 != "n" or (candle_color == -1 and candle_upper_shadow_pct > 0.3) or (candle_color == 1 and candle_upper_shadow_pct > 0.5)) 
+                          
+                        )
+                        '''.replace('\n', ''),            
+
   } 
   for c in potential_conditions.keys():
     tmp_condition = potential_conditions[c]
@@ -1143,17 +1153,32 @@ def calculate_ta_signal(df):
     # B: 去除上行过程中的波动卖出信号
     # 上行: (相对kama位置 == "up" and 相对ichimoku位置 == "up") and ((kama_distance > 0 or kama_distance_change > 0) and (ichimoku_distance > 0) and (renko_distance > 0))
     '上行波动':       '''
-                      (signal == "s") and (触顶回落_down != -1) and
-                      (相对kama位置 == "up" and 相对ichimoku位置 == "up") and 
                       (
-                        (kama_distance > 0 or kama_distance_change > 0) and 
-                        (ichimoku_distance > 0) and 
-                        (renko_distance > 0)
-                      ) and
+                        (signal == "s") and (触顶回落_down != -1) and
+                        (相对kama位置 == "up" and 相对ichimoku位置 == "up") and 
+                        (
+                          (kama_distance > 0 or kama_distance_change > 0) and 
+                          (ichimoku_distance > 0) and 
+                          (renko_distance > 0)
+                        ) and
+                        (
+                          (adx_direction_day == -1 and adx_power_day == -1) or 
+                          (candle_color == 1 and 相对candle位置 in ["up", "mid_up", "mid", "out"])
+                        )
+                      ) or
                       (
-                        (adx_direction_day == -1 and adx_power_day == -1) or 
-                        (candle_color == 1 and 相对candle位置 in ["up", "mid_up", "mid", "out"])
+                        (signal == "b") and
+                        (相对kama位置 == "up" and 相对ichimoku位置 == "up") and 
+                        (
+                          (kama_distance > 0 or kama_distance_change > 0) and 
+                          (ichimoku_distance > 0) and 
+                          (renko_distance > 0)
+                        ) and
+                        ( 
+                          (candle_color == -1 and 相对candle位置 in ["mid_down", "down", "out"])
+                        )
                       )
+                      
                       '''.replace('\n', ''),
     
     # S: 去除下行过程中的波动买入出信号
