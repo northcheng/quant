@@ -1071,25 +1071,44 @@ def calculate_ta_signal(df):
     '趋势下行_down':    f'(adx_direction < 0) or (adx_value < 0 and adx_power_day > 0) or (adx_value > 10 and adx_power_day < 0)',
 
     '突破失败_down':    f'''
-                        ((相对kama位置 in ["mid_up", "mid_down"]) and (kama_fast_break_down != 0 or kama_slow_break_down != 0)) or
-                        ((相对kama位置 in ["mid", "mid_down", "down"]) and (kama_fast_resistant != 0 or kama_slow_resistant != 0)) or 
-                        ((相对ichimoku位置 in ["mid_up", "mid_down"]) and (tankan_break_down != 0 or kijun_break_down != 0)) or
-                        ((相对ichimoku位置 in ["mid", "mid_down", "down"]) and (tankan_resistant != 0 or kijun_resistant != 0)) or 
-                        ((相对renko位置 in ["mid_up", "mid_down"]) and (renko_l_break_down != 0 or renko_h_break_down != 0)) or
-                        ((相对renko位置 in ["mid", "mid_down", "down"]) and (renko_l_resistant != 0 or renko_h_resistant != 0))
+                        (
+                          ((相对kama位置 in ["mid_up", "mid_down"]) and (kama_fast_break_down != 0 or kama_slow_break_down != 0)) or
+                          ((相对kama位置 in ["mid", "mid_down"]) and (kama_fast_resistant != 0 or kama_slow_resistant != 0)) or 
+                          ((相对ichimoku位置 in ["mid_up", "mid_down"]) and (tankan_break_down != 0 or kijun_break_down != 0)) or
+                          ((相对ichimoku位置 in ["mid", "mid_down"]) and (tankan_resistant != 0 or kijun_resistant != 0)) or 
+                          ((相对renko位置 in ["mid_up", "mid_down"]) and (renko_l_break_down != 0 or renko_h_break_down != 0)) or
+                          ((相对renko位置 in ["mid", "mid_down"]) and (renko_l_resistant != 0 or renko_h_resistant != 0))
+                        )
+                        '''.replace('\n', ''),
+
+    '触顶回落_down':    f'''
+                        (
+                          (kama_distance > 0 and 相对kama位置 == "up") and
+                          (ichimoku_distance > 0 and 相对ichimoku位置 == "up") and
+                          (renko_distance > 0 and 相对renko位置 == "up" or renko_real == "green") and
+                          (
+                            (candle_color == -1 and entity_trend == "u") or
+                            (十字星 != "n" and candle_upper_shadow_pct > candle_lower_shadow_pct) or
+                            (renko_real == "green" and 相对renko位置 in ["mid_up", "up"] and (candle_upper_shadow_pct > candle_lower_shadow_pct or 十字星 != "n"))
+                          )
+                        )
                         '''.replace('\n', ''),
 
   } 
   for c in potential_conditions.keys():
     tmp_condition = potential_conditions[c]
     tmp_idx = df.query(tmp_condition).index
+
+    df[c] = 0
     
     # mark potential
     if 'up' in c:
       df.loc[tmp_idx, 'potential'] = 'potential'
       df.loc[tmp_idx, 'potential_score'] += 1
+      df.loc[tmp_idx, c] += 1
     elif 'down' in c:
       df.loc[tmp_idx, 'potential_score'] -= 1.1
+      df.loc[tmp_idx, c] = -1
 
     df.loc[tmp_idx, 'potential_description'] += f'{c}, '
 
@@ -1130,10 +1149,13 @@ def calculate_ta_signal(df):
                         (kama_distance > 0 or kama_distance_change > 0) and 
                         (ichimoku_distance > 0) and 
                         (renko_distance > 0)
-                      ) and 
+                      ) and
                       (
                         (adx_direction_day == -1 and adx_power_day == -1) or 
                         (candle_color == 1 and 相对candle位置 in ["up", "mid_up", "mid", "out"])
+                      ) and
+                      (
+                        触顶回落_down != -1
                       )
                       '''.replace('\n', ''),
     
@@ -1146,6 +1168,29 @@ def calculate_ta_signal(df):
                         (相对ichimoku位置 in ["mid_up", "mid", "mid_down", "down", "out"]) or 
                         (相对renko位置 in ["mid_up", "mid", "mid_down", "down", "out"]) or
                         (renko_day == 1)
+                      )
+                      '''.replace('\n', ''),
+
+    # B|S: 去除底部波动时的信号
+    # 底部: (kama_distance < 0 and ichimoku_distance < 0)
+    '底部波动':       '''
+                      (
+                        (signal == "s") and 
+                        (kama_distance < 0 and ichimoku_distance < 0) and 
+                        (
+                          (candle_color == 1 and 相对candle位置 in ["mid_up", "up", "out"]) and
+                          (十字星 == "n")
+                        )
+                      ) or
+                      (
+                        (signal == "b") and 
+                        (kama_distance < 0 and ichimoku_distance < 0) and 
+                        (
+                          (candle_color == 1 and 相对candle位置 in ["mid_down", "down"]) or
+                          (candle_color == -1 and 相对candle位置 in ["mid_down", "down", "out"]) or
+                          (相对gap位置 in ["mid_down", "down"] and candle_gap_top_resistant != 0 or candle_gap_bottom_resistant != 0) or
+                          (十字星 != "n" and 相对renko位置 == "down" and 相对kama位置 == "down" and 相对ichimoku位置 == "down")
+                        )
                       )
                       '''.replace('\n', ''),
 
@@ -1227,16 +1272,16 @@ def calculate_ta_signal(df):
 
   # drop redundant columns
   col_to_drop = [
-    'up_pattern_score', 'down_pattern_score', 'up_pattern_description', 'down_pattern_description',
-    # 'up_score', 'down_score', 'up_score_description', 'down_score_description',
-    'candle_position_score',
-    'rank_up_score', 'rank_down_score', 'rank_up_score_description', 'rank_down_score_description'
+    # 'up_pattern_score', 'down_pattern_score', 'up_pattern_description', 'down_pattern_description',
+    # # 'up_score', 'down_score', 'up_score_description', 'down_score_description',
+    # 'candle_position_score',
+    # 'rank_up_score', 'rank_down_score', 'rank_up_score_description', 'rank_down_score_description'
   ]
-  target_cols = default_support_resistant_col
-  for col in target_cols:
-    for idx in ['support', 'resistant', 'break_up', 'break_down']:
-      tmp_col = f'{col}_{idx}'
-      col_to_drop.append(tmp_col)
+  # target_cols = default_support_resistant_col
+  # for col in target_cols:
+  #   for idx in ['support', 'resistant', 'break_up', 'break_down']:
+  #     tmp_col = f'{col}_{idx}'
+  #     col_to_drop.append(tmp_col)
 
   # drop redundant columns
   for col in col_to_drop:
