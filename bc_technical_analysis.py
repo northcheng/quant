@@ -1261,21 +1261,18 @@ def calculate_ta_signal(df):
   df['rank_up_score'] = 0 
   df['rank_down_score'] = 0
   rank_conditions = {
-
-    '+adx':               [s*2, '', '(adx_direction > 0 and adx_value_change > 0)'], 
-    '-adx':               [-s*2, '', '(adx_direction < 0  and adx_value_change < 0)'], 
     
     '-weak':              [-s, '', '(adx_strong_day < 0)'],
     '-wave':              [-s, '', '(adx_direction > 0 and adx_value_change <= 0) or (adx_direction < 0 and adx_value_change >= 0) or (adx_wave_day > 0)'],
+
+    '+from_low':          [s, '', 'adx_direction > 0 and (adx_direction_start < 0 or adx_value < 0)'],
+    '-from_high':         [-s, '', 'adx_direction > 0 and (adx_direction_start > 0 and adx_value > 0)'],
   
     # '+kama':              [s, '', '(0 > kama_distance > -0.15 and kama_distance_change > 0)'], 
     # '-kama':              [-s, '', '(kama_distance_change < 0 and kama_fast_rate <= 0)'], 
 
     # '+ichi':              [s, '', '(0 > ichimoku_distance > -0.1 and ichimoku_distance_change > 0)'], 
     # '-ichi':              [-s, '', '(ichimoku_distance_change < 0 and tankan_rate <= 0)'], 
-
-    '+trigger':           [s, '', '(trigger_score > 0)'],
-    '-trigger':           [-s, '', '(trigger_score < 0)'],
 
     # '+trend':             [s, '', '(0 < trend_day < 3)'],
     # '-trend':             [-s, '', '(0 > trend_day > -3)'],
@@ -1286,12 +1283,18 @@ def calculate_ta_signal(df):
     # '+short':             [s, '', '(short_trend_score > 0)'],
     # '-short':             [-s, '', '(short_trend_score < 0)'],
 
-    '+short_score':       [s, '', '(short_trend_score_change > 0)'],
-    '-short_score':       [-s, '', '(short_trend_score_change < 0)'],
+    '+price':             [s, '', '(candle_color == 1 and 相对candle位置 in ["up", "mid_up", "out"])'],
+    '-price':             [-s, '', '((candle_color == 1 and 相对candle位置 in ["down"]) or (candle_color == -1 and 相对candle位置 in ["mid_up", "mid", "mid_down", "down", "out"]))'],
 
-    # '+support':           [s, '', '(support_score > 0)'],
+    '+candle_pattern':    [s, '', '(up_pattern_score > 0)'],
+    '-candle_pattern':    [-s, '', '(down_pattern_score < 0)'],
+
+    # '+short_score':       [s, '', '(short_trend_score_change > 0)'],
+    # '-short_score':       [-s, '', '(short_trend_score_change < 0)'],
+
+    '+support':           [s, '', '(key_col_up >= 1)'],
     # '+support_ex':        [s, '', '(support_score > 0 and (support_score >= 3 or candle_lower_shadow_pct > 0.5))'],
-    # '-resistant':         [-s*2, '', '(resistant_score < 0)'],
+    '-resistant':         [-s*2, '', '(key_col_down <= -1)'],
     # '-resistant_ex':      [-s*2, '', '(resistant_score < 0 and ((resistant_score <= -3) or (candle_upper_shadow_pct > 0.5) or (candle_upper_shadow_pct > 0.5 and (rate < 0 or candle_color == -1))))'],
         
   }
