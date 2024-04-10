@@ -177,6 +177,7 @@
       "trigger_score": "触发分数",
       "trigger_day": "触发天数",
 
+      "short_day": "短期趋势天数",
       "short_trend_score": "短期趋势分数",
       "middle_trend_score": "中期趋势分数",
       "long_trend_score": "长期趋势分数",
