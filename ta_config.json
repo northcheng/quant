@@ -44,7 +44,7 @@
   "visualization": {
     "plot_args": {
       "plot_ratio": {
-        "signals": 4.7, "adx": 2.3,
+        "signals": 5.2, "adx": 2.3,
         "main_indicators": 11, "volume":1
       },
       
@@ -67,7 +67,6 @@
       },
       "signals": {
         "signal_list": [  
-            
 
           "kama_distance",
           "kama_slow", 
@@ -79,8 +78,10 @@
           "tankan",        
 
           "-----",
+          "kama",
+          "ichimoku",          
           "adx",
-                    
+          
           "-----",
           "support_score",
           "break_up_score",
@@ -89,8 +90,7 @@
 
           "-----",
           "trigger_score",
-          "pattern_score",
-          " "
+          ""
         ]
       },
       "candle": {
