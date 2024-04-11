@@ -998,6 +998,14 @@ def calculate_ta_score(df):
     # term trend score change
     df = cal_change(df=df, target_col=score_col, periods=1, add_accumulation=False, add_prefix=True)
 
+  # adx_change_sum
+  df['adx_change'] = df['adx_value_change'].copy()
+  ud = df.query('short_trend_score > 0 and adx_strength_change <= 0').index
+  df.loc[ud, 'adx_change'] -= df.loc[ud, 'adx_strength_change']
+
+  uu = df.query('short_trend_score > 0 and adx_strength_change > 0').index
+  df.loc[uu, 'adx_change'] += df.loc[uu, 'adx_strength_change']
+
   return df
 
 # calculate all features (ta_basic + ta_static + ta_dynamic + ta_score) all at once
@@ -5451,49 +5459,117 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
     tmp_col_v = f'{signal_x}_rate'
     tmp_col_a = f'{signal_x}_alpha'
+    threhold = 0.000
 
     df[tmp_col_a] = normalize(df[tmp_col_v].abs()).apply(lambda x: x if x > 0.1 else 0.1)
 
-    threhold = 0.000
+    df['none_zero'] = np.NaN
+    none_zero_idx = df.query(f'{tmp_col_v} > {threhold} or {tmp_col_v} < {threhold}').index
+    df.loc[none_zero_idx, 'none_zero'] = df.loc[none_zero_idx, tmp_col_v]
+    df['none_zero'] = df['none_zero'].fillna(method='ffill')
+    
     tmp_data = df.query(f'({tmp_col_v} > {threhold})')
     if len(tmp_data) > 0:
       # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='^', color='green', alpha=tmp_data[tmp_col_a].fillna(0))
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='2', color='green', alpha=tmp_data[tmp_col_a].fillna(0))
   
     tmp_data = df.query(f'({tmp_col_v} < {-threhold})')
     if len(tmp_data) > 0:
       # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='v', color='red', alpha=tmp_data[tmp_col_a].fillna(0))
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='1', color='red', alpha=tmp_data[tmp_col_a].fillna(0))
 
-    tmp_data = df.query(f'({-threhold} <= {tmp_col_v} <= {threhold})')
+    tmp_data = df.query(f'({-threhold} <= {tmp_col_v} <= {threhold} and none_zero > 0)')
     if len(tmp_data) > 0:
       tmp_alpha = 0.1
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='black', alpha=tmp_alpha)
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='green', alpha=tmp_alpha)
 
+    tmp_data = df.query(f'({-threhold} <= {tmp_col_v} <= {threhold} and none_zero < 0)')
+    if len(tmp_data) > 0:
+      tmp_alpha = 0.1
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', alpha=tmp_alpha)
 
   # relative positions
-  if signal_x in [ "kama_distance", "ichimoku_distance"]:
+  if signal_x in [ "kama_distance", "ichimoku_distance", 'adx']:
 
     tmp_col_v = f'{signal_x}_change'
     tmp_col_a = f'{signal_x}_alpha'
+    threhold = 0.000
 
     df[tmp_col_a] = normalize(df[tmp_col_v].abs()).apply(lambda x: x if x > 0.1 else 0.1)
 
-    threhold = 0.000
+    df['none_zero'] = np.NaN
+    none_zero_idx = df.query(f'{tmp_col_v} > {threhold} or {tmp_col_v} < {threhold}').index
+    df.loc[none_zero_idx, 'none_zero'] = df.loc[none_zero_idx, tmp_col_v]
+    df['none_zero'] = df['none_zero'].fillna(method='ffill')
+
+    
     tmp_data = df.query(f'({tmp_col_v} > {threhold})')
     if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='green', alpha=tmp_data[tmp_col_a].fillna(0))
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='^', color='green', alpha=tmp_data[tmp_col_a].fillna(0))
     
   
     tmp_data = df.query(f'({tmp_col_v} < {-threhold})')
     if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='x', color='red', alpha=tmp_data[tmp_col_a].fillna(0))
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='v', color='red', alpha=tmp_data[tmp_col_a].fillna(0))
 
+
+    tmp_data = df.query(f'({-threhold} <= {tmp_col_v} <= {threhold} and none_zero > 0)')
+    if len(tmp_data) > 0:
+      tmp_alpha = 0.1
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='green', alpha=tmp_alpha)
+
+    tmp_data = df.query(f'({-threhold} <= {tmp_col_v} <= {threhold} and none_zero < 0)')
+    if len(tmp_data) > 0:
+      tmp_alpha = 0.1
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='red', alpha=tmp_alpha)
+
+  # relative positions
+  if signal_x in [ "support_score", "resistant_score", "break_up_score", "break_down_score"]:
+
+    tmp_col_v = f'{signal_x}'
+    tmp_col_a = f'{signal_x}_alpha'
+
+    df[tmp_col_a] = normalize(df[tmp_col_v].abs())
+
+    threhold = 0
+    tmp_data = df.query(f'({tmp_col_v} > {threhold})')
+    if len(tmp_data) > 0:
+      # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='green', alpha=tmp_data[tmp_col_a].fillna(0))
+  
+    tmp_data = df.query(f'({tmp_col_v} < {-threhold})')
+    if len(tmp_data) > 0:
+      # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='red', alpha=tmp_data[tmp_col_a].fillna(0))
 
     tmp_data = df.query(f'({-threhold} <= {tmp_col_v} <= {threhold})')
     if len(tmp_data) > 0:
       tmp_alpha = 0.1
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='black', alpha=tmp_alpha)
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='grey', alpha=tmp_alpha)
+
+  # relative positions
+  if signal_x in [ "adx_value", "adx_strength"]:
+
+    tmp_col_v = f'{signal_x}_change'
+    tmp_col_a = f'{signal_x}_alpha'
+
+    df[tmp_col_a] = normalize(df[tmp_col_v].abs())
+
+    threhold = 0
+    tmp_data = df.query(f'({tmp_col_v} > {threhold})')
+    if len(tmp_data) > 0:
+      # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='2', color='green', alpha=tmp_data[tmp_col_a].fillna(0))
+  
+    tmp_data = df.query(f'({tmp_col_v} < {-threhold})')
+    if len(tmp_data) > 0:
+      # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='1', color='red', alpha=tmp_data[tmp_col_a].fillna(0))
+
+    tmp_data = df.query(f'({-threhold} <= {tmp_col_v} <= {threhold})')
+    if len(tmp_data) > 0:
+      tmp_alpha = 0.1
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='grey', alpha=tmp_alpha)
 
   # # relative positions
   # if signal_x in [ "kama", "ichimoku"]:

@@ -67,7 +67,8 @@
       },
       "signals": {
         "signal_list": [  
-          
+            
+
           "kama_distance",
           "kama_slow", 
           "kama_fast", 
@@ -76,33 +77,19 @@
           "ichimoku_distance",
           "kijun",
           "tankan",        
+
+          "-----",
+          "adx",
                     
           "-----",
-          "S&BU",
-          "long_signal",
-          "middle_signal",
-          "short_signal",
-          "R&BD",
+          "support_score",
+          "break_up_score",
+          "break_down_score",
+          "resistant_score",
 
           "-----",
           "trigger_score",
           "pattern_score",
-          " "
-        ],
-
-        "signal_list_old": [  
-          
-          "",
-          "long_signal",
-          "middle_signal",
-          "short_signal",
-          "inday_signal",
-          
-          "-----",
-
-          "signal",
-          "direction",
-          "trigger",
           " "
         ]
       },
