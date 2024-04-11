@@ -200,7 +200,7 @@ class Trader(object):
       self.position_record = io_util.read_config(file_path=config['config_path'], file_name='position.json')[self.platform]
       self.position_record[self.account_type] = self.record.copy()
       self.position_record['updated'][self.account_type] = datetime.datetime.now().strftime(format="%Y-%m-%d %H:%M:%S")
-      io_util.modify_config(self.platform, self.position_record, file_path=config['config_path'], file_name='position.json', print=False)
+      io_util.modify_config(self.platform, self.position_record, file_path=config['config_path'], file_name='position.json', is_print=False)
       # io_util.create_config_file(config_dict=self.position_record, file_path=config['config_path'], file_name='tiger_position_record.json')
       
     except Exception as e:
@@ -262,7 +262,7 @@ class Trader(object):
       # update position_record
       if record_conflicted:
         self.position_record[self.account_type] = self.record.copy()
-        io_util.modify_config(self.platform, self.position_record, file_path=config['config_path'], file_name='position.json', print=False)
+        io_util.modify_config(self.platform, self.position_record, file_path=config['config_path'], file_name='position.json', is_print=False)
         # io_util.create_config_file(config_dict=self.position_record, file_path=config['config_path'], file_name='_position_record.json')
 
   # update portfolio for an account
