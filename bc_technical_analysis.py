@@ -5506,7 +5506,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     tmp_col_a = f'{signal_x}_alpha'
     threhold = 0.000
 
-    df[tmp_col_a] = normalize(df[tmp_col_v].abs()).apply(lambda x: x if x > 0.1 else 0.1)
+    df[tmp_col_a] = normalize(df[tmp_col_v].abs())#.apply(lambda x: x if x > 0.1 else 0.1)
 
     df['none_zero'] = np.NaN
     none_zero_idx = df.query(f'{tmp_col_v} > {threhold} or {tmp_col_v} < {threhold}').index
