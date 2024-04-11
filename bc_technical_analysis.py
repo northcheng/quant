@@ -5499,6 +5499,26 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
       tmp_alpha = 0.1
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', alpha=tmp_alpha)
 
+    # tmp_data = df.query(f'{signal_x}_break_up > 0')
+    # if len(tmp_data) > 0:
+    #   tmp_alpha = 0.5
+    #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='^', color='none', edgecolor='green', alpha=tmp_alpha)
+
+    # tmp_data = df.query(f'{signal_x}_support > 0')
+    # if len(tmp_data) > 0:
+    #   tmp_alpha = 0.5
+    #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='^', color='none', edgecolor='green', alpha=tmp_alpha)
+
+    # tmp_data = df.query(f'{signal_x}_break_down > 0')
+    # if len(tmp_data) > 0:
+    #   tmp_alpha = 0.5
+    #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='v', color='none', edgecolor='red', alpha=tmp_alpha)
+
+    # tmp_data = df.query(f'{signal_x}_resistant < 0')
+    # if len(tmp_data) > 0:
+    #   tmp_alpha = 0.5
+    #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='v', color='none', edgecolor='red', alpha=tmp_alpha)
+
   # relative positions
   if signal_x in [ "kama_distance", "ichimoku_distance", 'adx']:
 
