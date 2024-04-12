@@ -44,7 +44,7 @@
   "visualization": {
     "plot_args": {
       "plot_ratio": {
-        "signals": 5.2, "adx": 2.3,
+        "signals": 4.7, "adx": 2.3,
         "main_indicators": 11, "volume":1
       },
       
@@ -68,14 +68,15 @@
       "signals": {
         "signal_list": [  
 
+          "-----",
           "kama_distance",
-          "kama_slow", 
-          "kama_fast", 
-
+          "kama_slow",
+          "kama_fast",
+          
           "-----",
           "ichimoku_distance",
           "kijun",
-          "tankan",        
+          "tankan",
 
           "-----",
           "kama",
@@ -89,8 +90,9 @@
           "resistant_score",
 
           "-----",
+          "overall",
           "trigger_score",
-          ""
+          " "
         ]
       },
       "candle": {
