@@ -1062,39 +1062,32 @@ def calculate_ta_signal(df):
   
   # ================================ normalized trend score =================
   # adx
-  df['adx_change'] = min_max_normalize(df['adx_value_change'])
-  df['asc_n'] = min_max_normalize(df['adx_strength_change'])
-  ud = df.query('short_trend_score > 0 and adx_strength_change < 0').index
-  df.loc[ud, 'adx_change'] -= df.loc[ud, 'asc_n']
-
-  uu = df.query('short_trend_score > 0 and adx_strength_change > 0').index
-  df.loc[uu, 'adx_change'] += df.loc[uu, 'asc_n']
-
-  du = df.query('short_trend_score <= 0 and adx_strength_change > 0').index
-  df.loc[du, 'adx_change'] -= df.loc[du, 'asc_n']
-
-  dd = df.query('short_trend_score <= 0 and adx_strength_change < 0').index
-  df.loc[dd, 'adx_change'] += df.loc[dd, 'asc_n']
+  df['adx_change'] = df['adx_value'] - df['adx_value_prediction']
 
   # ichimoku / kama
   for idx in ['kama', 'ichimoku']:
     result_col = f'{idx}_change'
     df[result_col] = 0
-    threshold = 0.001
+    
 
     fl_rate = {'kama': 'kama_fast_rate', 'ichimoku': 'tankan_rate'}[idx]
     sl_rate = {'kama': 'kama_slow_rate', 'ichimoku': 'kijun_rate'}[idx]
     dc = f'{idx}_distance_change'
 
-    df[result_col] = min_max_normalize((min_max_normalize(df[fl_rate]) + min_max_normalize(df[sl_rate]) + min_max_normalize(df[dc])))
+    for col in [fl_rate, sl_rate, dc]:
+      col_symbol = (df[col] > 0).replace({True: 1, False: -1})
+      tmp_col = min_max_normalize(df[col]).abs() * col_symbol
 
-    up_idx = df.query(f'({fl_rate} > {threshold} and {sl_rate} > {threshold}) or ({fl_rate} > {threshold} and {dc} > 0)').index
-    df.loc[up_idx, result_col] = df.loc[up_idx, result_col].abs()
+      df[result_col] += tmp_col
 
-    down_idx = df.query(f'({fl_rate} < {threshold} and {sl_rate} < {threshold}) or ({fl_rate} < {threshold} and {dc} < 0)').index
-    df.loc[down_idx, result_col] = -(df.loc[down_idx, result_col].abs())
+    # threshold = 0.001
+    # up_idx = df.query(f'({fl_rate} > {threshold} and {sl_rate} > {threshold}) or ({fl_rate} > {threshold} and {dc} > 0)').index
+    # df.loc[up_idx, result_col] = df.loc[up_idx, result_col].abs()
 
-  df['overall_change'] = (df['adx_change'] + df['ichimoku_change'] + df['kama_change'])
+    # down_idx = df.query(f'({fl_rate} < {threshold} and {sl_rate} < {threshold}) or ({fl_rate} < {threshold} and {dc} < 0)').index
+    # df.loc[down_idx, result_col] = -(df.loc[down_idx, result_col].abs())
+
+  # df['overall_change'] = (df['adx_change'] + df['ichimoku_change'] + df['kama_change'])
   # df = cal_change(df=df, target_col='overall', periods=1, add_accumulation=False, add_prefix=True)
 
   # ================================ calculate potential ====================
@@ -1186,8 +1179,8 @@ def calculate_ta_signal(df):
   df['signal_day'] = 0
 
   conditions = {
-    'buy':      'overall_change > 0', 
-    'sell':     'overall_change < 0 or 突破失败_down < 0',
+    'buy':      'adx_change > 0 and ((adx_value < 10 and adx_direction > 0) or (adx_value > 10 and adx_power_day > 0))', 
+    'sell':     'adx_change < 0',
   } 
   values = {
     'buy':      'b',
@@ -1204,81 +1197,81 @@ def calculate_ta_signal(df):
     # B|S:  无adx强度数据  
     '信号不全':       '(signal == "b" or signal == "s") and (adx_power_day == 0)',
 
-    # B: 去除与趋势冲突的信号  
-    '信号不全':       '''
-                      (
-                        (signal == "b") and ((adx_direction < 0) or (adx_value > 10 and adx_direction_day == 1 and adx_power_day < 0))
-                      ) or
-                      (
-                        (signal == "s") and (ichimoku_distance > 0 and kama_distance > 0 and ichimoku_change > 0 and kama_change > 0)
-                      )
+    # # B: 去除与趋势冲突的信号  
+    # '趋势冲突':       '''
+    #                   (
+    #                     (signal == "b") and ((adx_direction < 0) or (adx_value > 10 and adx_direction_day == 1 and adx_power_day < 0))
+    #                   ) or
+    #                   (
+    #                     (signal == "s") and (ichimoku_distance > 0 and kama_distance > 0 and ichimoku_change > 0 and kama_change > 0)
+    #                   )
 
-                      '''.replace('\n', ''),
+    #                   '''.replace('\n', ''),
 
-    # B: 去除上行过程中的波动卖出信号
-    # 上行: (相对kama位置 == "up" and 相对ichimoku位置 == "up") and ((kama_distance > 0 or kama_distance_change > 0) and (ichimoku_distance > 0) and (renko_distance > 0))
-    '上行波动':       '''
-                      (相对kama位置 == "up" and 相对ichimoku位置 == "up") and 
-                      (kama_distance > 0 or kama_distance_change > 0) and 
-                      (ichimoku_distance > 0) and 
-                      (renko_distance > 0) and
-                      (
-                        (
-                          (signal == "s") and (触顶回落_down != -1) and 
-                          (
-                            (adx_direction_day == -1 and adx_power_day == -1 and (candle_color == 1 or (candle_color == -1 and 相对candle位置 != "out"))) or 
-                            (candle_color == 1 and 相对candle位置 in ["mid", "mid_up", "up", "out"])
-                          ) 
-                        ) or
-                        (
-                          (signal == "b") and
-                          ( 
-                            (candle_color == -1 and 相对candle位置 in ["mid_down", "down", "out"])
-                          )
-                        )
-                      )
-                      '''.replace('\n', ''),
+    # # B: 去除上行过程中的波动卖出信号
+    # # 上行: (相对kama位置 == "up" and 相对ichimoku位置 == "up") and ((kama_distance > 0 or kama_distance_change > 0) and (ichimoku_distance > 0) and (renko_distance > 0))
+    # '上行波动':       '''
+    #                   (相对kama位置 == "up" and 相对ichimoku位置 == "up") and 
+    #                   (kama_distance > 0 or kama_distance_change > 0) and 
+    #                   (ichimoku_distance > 0) and 
+    #                   (renko_distance > 0) and
+    #                   (
+    #                     (
+    #                       (signal == "s") and (触顶回落_down != -1) and 
+    #                       (
+    #                         (adx_direction_day == -1 and adx_power_day == -1 and (candle_color == 1 or (candle_color == -1 and 相对candle位置 != "out"))) or 
+    #                         (candle_color == 1 and 相对candle位置 in ["mid", "mid_up", "up", "out"])
+    #                       ) 
+    #                     ) or
+    #                     (
+    #                       (signal == "b") and
+    #                       ( 
+    #                         (candle_color == -1 and 相对candle位置 in ["mid_down", "down", "out"])
+    #                       )
+    #                     )
+    #                   )
+    #                   '''.replace('\n', ''),
     
-    # S: 去除下行过程中的波动买入出信号
-    # 下行: (kama_distance > 0 and ichimoku_distance < 0)
-    '下行波动':       '''                      
-                      (kama_distance > 0 and ichimoku_distance < 0) and 
-                      (signal == "b") and 
-                      (
-                        (相对ichimoku位置 in ["mid_up", "mid", "mid_down", "down", "out"]) or 
-                        (相对renko位置 in ["mid_up", "mid", "mid_down", "down", "out"]) or
-                        (renko_day == 1) or
-                        (trigger_score < 0 and adx_direction_day == 1 and adx_power_day == -1)
-                      )
-                      '''.replace('\n', ''),
+    # # S: 去除下行过程中的波动买入出信号
+    # # 下行: (kama_distance > 0 and ichimoku_distance < 0)
+    # '下行波动':       '''                      
+    #                   (kama_distance > 0 and ichimoku_distance < 0) and 
+    #                   (signal == "b") and 
+    #                   (
+    #                     (相对ichimoku位置 in ["mid_up", "mid", "mid_down", "down", "out"]) or 
+    #                     (相对renko位置 in ["mid_up", "mid", "mid_down", "down", "out"]) or
+    #                     (renko_day == 1) or
+    #                     (trigger_score < 0 and adx_direction_day == 1 and adx_power_day == -1)
+    #                   )
+    #                   '''.replace('\n', ''),
 
-    # B|S: 去除底部波动时的买卖信号
-    # 底部: (kama_distance < 0 and ichimoku_distance < 0)
-    '底部波动':       '''
-                      (kama_distance < 0 and ichimoku_distance < 0) and 
-                      (
-                        (
-                          (signal == "b") and 
-                          (
-                            (candle_color == 1 and 相对candle位置 in ["mid_down", "down"]) or
-                            (candle_color == -1 and 相对candle位置 in ["mid_down", "down", "out"]) or
-                            (十字星 != "n" and (相对renko位置 == "down" or renko_distance < 0) and 相对kama位置 == "down" and 相对ichimoku位置 == "down") or
-                            ((相对gap位置 in ["mid_down", "down"]) and (candle_gap_top_resistant != 0 or candle_gap_bottom_resistant != 0)) or
-                            (相对kama位置 in ["down"] and 相对ichimoku位置 in ["down"] and renko_distance < 0 and (renko_day ==1 or (renko_h < kama_fast and renko_h < tankan)) and (相对renko位置 in ["mid_up", "mid", "mid_down", "down"]))
-                          )
-                        ) or
-                        (
-                          (signal == "s") and 
-                          (
-                            ((十字星 == "n" and candle_upper_shadow_pct < 0.5) and (candle_color == 1 and 相对candle位置 in ["mid_up", "up", "out"])) or
-                            (
-                              (突破失败_down == -1) and (十字星 == "n") and (trigger_score > -1) and 
-                              (相对candle位置 == "up" and support_score > 0 and candle_lower_shadow_pct > candle_upper_shadow_pct)
-                            )
-                          )
-                        )
-                      )
-                      '''.replace('\n', ''),
+    # # B|S: 去除底部波动时的买卖信号
+    # # 底部: (kama_distance < 0 and ichimoku_distance < 0)
+    # '底部波动':       '''
+    #                   (kama_distance < 0 and ichimoku_distance < 0) and 
+    #                   (
+    #                     (
+    #                       (signal == "b") and 
+    #                       (
+    #                         (candle_color == 1 and 相对candle位置 in ["mid_down", "down"]) or
+    #                         (candle_color == -1 and 相对candle位置 in ["mid_down", "down", "out"]) or
+    #                         (十字星 != "n" and (相对renko位置 == "down" or renko_distance < 0) and 相对kama位置 == "down" and 相对ichimoku位置 == "down") or
+    #                         ((相对gap位置 in ["mid_down", "down"]) and (candle_gap_top_resistant != 0 or candle_gap_bottom_resistant != 0)) or
+    #                         (相对kama位置 in ["down"] and 相对ichimoku位置 in ["down"] and renko_distance < 0 and (renko_day ==1 or (renko_h < kama_fast and renko_h < tankan)) and (相对renko位置 in ["mid_up", "mid", "mid_down", "down"]))
+    #                       )
+    #                     ) or
+    #                     (
+    #                       (signal == "s") and 
+    #                       (
+    #                         ((十字星 == "n" and candle_upper_shadow_pct < 0.5) and (candle_color == 1 and 相对candle位置 in ["mid_up", "up", "out"])) or
+    #                         (
+    #                           (突破失败_down == -1) and (十字星 == "n") and (trigger_score > -1) and 
+    #                           (相对candle位置 == "up" and support_score > 0 and candle_lower_shadow_pct > candle_upper_shadow_pct)
+    #                         )
+    #                       )
+    #                     )
+    #                   )
+    #                   '''.replace('\n', ''),
 
   } 
   for c in none_signal_conditions.keys():
@@ -5573,12 +5566,12 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     
     tmp_data = df.query(f'({tmp_col_v} > {threhold})')
     if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='green', alpha=tmp_data[tmp_col_a].fillna(0))
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='2', color='green', alpha=tmp_data[tmp_col_a].fillna(0))
     
   
     tmp_data = df.query(f'({tmp_col_v} < {-threhold})')
     if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='red', alpha=tmp_data[tmp_col_a].fillna(0))
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='1', color='red', alpha=tmp_data[tmp_col_a].fillna(0))
 
 
     tmp_data = df.query(f'({-threhold} <= {tmp_col_v} <= {threhold} and none_zero > 0)')
@@ -5594,6 +5587,8 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
   # relative positions
   if signal_x in [ "support_score", "resistant_score", "break_up_score", "break_down_score"]:
 
+    marker = '.' if signal_x in ['break_up_score', 'break_down_score'] else '_'
+
     tmp_col_v = f'{signal_x}'
     tmp_col_a = f'{signal_x}_alpha'
 
@@ -5603,17 +5598,17 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     tmp_data = df.query(f'({tmp_col_v} > {threhold})')
     if len(tmp_data) > 0:
       # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='green', alpha=tmp_data[tmp_col_a].fillna(0))
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=marker, color='green', alpha=tmp_data[tmp_col_a].fillna(0))
   
     tmp_data = df.query(f'({tmp_col_v} < {-threhold})')
     if len(tmp_data) > 0:
       # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', alpha=tmp_data[tmp_col_a].fillna(0))
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=marker, color='red', alpha=tmp_data[tmp_col_a].fillna(0))
 
     tmp_data = df.query(f'({-threhold} <= {tmp_col_v} <= {threhold})')
     if len(tmp_data) > 0:
-      tmp_alpha = 0.1
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='grey', alpha=tmp_alpha)
+      tmp_alpha = 0.05
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=marker, color='grey', alpha=tmp_alpha)
 
     if signal_x == 'resistant_score':
       for col in ['触顶回落_down', '窗口阻挡_down']:
@@ -5623,11 +5618,11 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
           tmp_data = df.query(f'({col} > {threhold})')
           if len(tmp_data) > 0:
-            ax.scatter(tmp_data.index, tmp_data[signal_y], marker=marker, color='none', edgecolor='green', alpha=alpha)
+            ax.scatter(tmp_data.index, tmp_data[signal_y], marker='o', color='none', edgecolor='green', alpha=alpha)
         
           tmp_data = df.query(f'({col} < {-threhold})')
           if len(tmp_data) > 0:
-            ax.scatter(tmp_data.index, tmp_data[signal_y], marker=marker, color='none', edgecolor='red', alpha=alpha)
+            ax.scatter(tmp_data.index, tmp_data[signal_y], marker='o', color='none', edgecolor='red', alpha=alpha)
 
     if signal_x == 'break_up_score':
       for col in ['突破失败_down']:
@@ -5636,11 +5631,11 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
           alpha = 0.33
           tmp_data = df.query(f'({col} > {threhold})')
           if len(tmp_data) > 0:
-            ax.scatter(tmp_data.index, tmp_data[signal_y], marker=marker, color='none', edgecolor='green', alpha=alpha)
+            ax.scatter(tmp_data.index, tmp_data[signal_y], marker='o', color='none', edgecolor='green', alpha=alpha)
         
           tmp_data = df.query(f'({col} < {-threhold})')
           if len(tmp_data) > 0:
-            ax.scatter(tmp_data.index, tmp_data[signal_y], marker=marker, color='none', edgecolor='red', alpha=alpha)
+            ax.scatter(tmp_data.index, tmp_data[signal_y], marker='o', color='none', edgecolor='red', alpha=alpha)
 
   # plot renko
   # if False: # signal_x == 'b':
