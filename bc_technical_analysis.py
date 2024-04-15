@@ -5547,12 +5547,12 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     tmp_data = df.query(f'({tmp_col_v} > {threhold})')
     if len(tmp_data) > 0:
       # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='green', alpha=tmp_data[tmp_col_a].fillna(0))
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='2', color='green', alpha=tmp_data[tmp_col_a].fillna(0))
   
     tmp_data = df.query(f'({tmp_col_v} < {-threhold})')
     if len(tmp_data) > 0:
       # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='red', alpha=tmp_data[tmp_col_a].fillna(0))
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='1', color='red', alpha=tmp_data[tmp_col_a].fillna(0))
 
     tmp_data = df.query(f'({-threhold} <= {tmp_col_v} <= {threhold} and none_zero < 0)')
     if len(tmp_data) > 0:
