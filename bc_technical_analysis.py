@@ -998,6 +998,30 @@ def calculate_ta_score(df):
     # term trend score change
     df = cal_change(df=df, target_col=score_col, periods=1, add_accumulation=False, add_prefix=True)
 
+  # ================================ calculate overall distance =============
+  term_trend_conditions = {
+    'rrr':    f'kama_distance <= 0 and ichimoku_distance <= 0 and renko_distance <= 0', 
+    'rrg':    f'kama_distance <= 0 and ichimoku_distance <= 0 and renko_distance >  0',
+    'rgr':    f'kama_distance <= 0 and ichimoku_distance >  0 and renko_distance <= 0', 
+    'rgg':    f'kama_distance <= 0 and ichimoku_distance >  0 and renko_distance >  0',
+    'grr':    f'kama_distance >  0 and ichimoku_distance <= 0 and renko_distance <= 0', 
+    'grg':    f'kama_distance >  0 and ichimoku_distance <= 0 and renko_distance >  0',
+    'ggr':    f'kama_distance >  0 and ichimoku_distance >  0 and renko_distance <= 0', 
+    'ggg':    f'kama_distance >  0 and ichimoku_distance >  0 and renko_distance >  0',
+  } 
+  term_trend_values = {
+    'rrr':    f'rrr', 
+    'rrg':    f'rrg',
+    'rgr':    f'rgr', 
+    'rgg':    f'rgg',
+    'grr':    f'grr', 
+    'grg':    f'grg',
+    'ggr':    f'ggr', 
+    'ggg':    f'ggg',
+  }
+  df = assign_condition_value(df=df, column='kir_distance', condition_dict=term_trend_conditions, value_dict=term_trend_values, default_value='n')
+
+
   
   return df
 
@@ -2793,7 +2817,6 @@ def add_support_resistance(df, target_col=default_support_resistant_col, perspec
       df[distance_col] = tmp_distance
       generated_cols[col_1].append(distance_col)
       
-  # column_name = {'h_2_gt': 'candle_gap_top', 'h_2_gb': 'candle_gap_bottom', 'l_2_gt': 'candle_gap_top', 'l_2_gb': 'candle_gap_bottom'}
   df['support_score'] = 0
   df['support_description'] = ''
   df['resistant_score'] = 0
@@ -2837,9 +2860,6 @@ def add_support_resistance(df, target_col=default_support_resistant_col, perspec
     support_idx = df.query(support_query).index.tolist()
     df.loc[support_idx, 'support_description'] += f'{tmp_col}, '
     df.loc[support_idx, f'{tmp_col}_support'] += 1
-    # # df.loc[support_idx, f'{tmp_col}_score'] += 1
-    # df.loc[support_idx, f'key_col_up'] += 1 if tmp_col in key_cols else 0.33
-    # df.loc[support_idx, f'key_col_description'] += f'S[{tmp_col}], '
 
   # calculate resistance
   for col in generated_cols['High']:
@@ -2871,13 +2891,8 @@ def add_support_resistance(df, target_col=default_support_resistant_col, perspec
     resistant_idx = df.query(resistant_query).index.tolist()
     df.loc[resistant_idx, 'resistant_description'] += f'{tmp_col}, '
     df.loc[resistant_idx, f'{tmp_col}_resistant'] -= 1
-    # # df.loc[resistant_idx, f'{tmp_col}_score'] -= 1 
-    # df.loc[resistant_idx, f'key_col_down'] -= 1 if tmp_col in key_cols else 0.33
-    # df.loc[resistant_idx, f'key_col_description'] += f'R[{tmp_col}], '
 
   # ================================ in-day support and resistant ======================
-  # df['prev_close'] = df['Close'].shift(1)
-  # col_to_drop.append('prev_close')
   for col in target_col:
     
     up_query = f'((Open > {col} and Low < {col} and Close > {col}) or ({col}_day != 1 and Open < {col} and Close > {col})) and ({col}_support == 0)'
@@ -2886,9 +2901,6 @@ def add_support_resistance(df, target_col=default_support_resistant_col, perspec
     support_idx = df.query(up_query).index
     df.loc[support_idx, 'support_description'] += f'{col}, '
     df.loc[support_idx, f'{col}_support'] += 1
-    # # df.loc[support_idx, f'{col}_score'] += 1
-    # df.loc[support_idx, f'key_col_up'] += 1 if col in key_cols else 0.33
-    # df.loc[support_idx, f'key_col_description'] += f'S[{col}], '
     
     down_query = f'((Open < {col} and High > {col} and Close < {col}) or ({col}_day != -1 and Open > {col} and Close < {col})) and ({col}_resistant == 0)'
     if 'renko' in col:
@@ -2896,67 +2908,32 @@ def add_support_resistance(df, target_col=default_support_resistant_col, perspec
     resistant_idx = df.query(down_query).index
     df.loc[resistant_idx, 'resistant_description'] += f'{col}, '
     df.loc[resistant_idx, f'{col}_resistant'] -= 1
-    # # df.loc[resistant_idx, f'{col}_score'] -= 1
-    # df.loc[resistant_idx, f'key_col_down'] -= 1 if col in key_cols else 0.33
-    # df.loc[resistant_idx, f'key_col_description'] += f'R[{col}], '
 
   df['support_description'] = df['support_description'].apply(lambda x: ', '.join(list(set(x[:-2].split(', ')))))
   df['resistant_description'] = df['resistant_description'].apply(lambda x: ', '.join(list(set(x[:-2].split(', ')))))
-
-  df['support_score'] = df['support_description'].apply(lambda x: len(list(set([s for s in x.split(', ') if s != '']))))
-  df['resistant_score'] = df['resistant_description'].apply(lambda x: -1 * len(list(set([s for s in x.split(', ') if s != '']))))
 
   # ================================ breakthorough =====================================
   for col in target_col:
 
     df[f'{col}_break_up'] = 0
     df[f'{col}_break_down'] = 0
-    # up_query = f'(candle_color == 1) and Close > {col} and (Open < {col} or prev_close < {col})'
-    # if 'renko' in col:
-    #   up_query += ' and (renko_real != "red")'
-    # elif 'candle_gap' in col:
-    #   up_query += f' and (candle_gap == 0)'
-    # elif f'{col}_day' in df.columns:
-    #   up_query += f' or ({col}_day == 1)'
+
     up_query = f'({col}_day == 1) and (十字星 == "n" or (十字星 != "n" and candle_entity_bottom > {col}))'
     if 'renko_h' in col:
       up_query += ' or (renko_real == "green")'
-    
-    # print(col, up_query)
     break_up_idx = df.query(up_query).index # entity_diff > -0.5 and 
     df.loc[break_up_idx, 'break_up_description'] += f'{col}, '
     df.loc[break_up_idx, f'{col}_break_up'] += 1
-    # # df.loc[break_up_idx, f'{col}_score'] += 1
-    # df.loc[break_up_idx, f'key_col_up'] += 1 if col in key_cols else 0.33
-    # df.loc[break_up_idx, f'key_col_description'] += f'U[{col}], '
 
-    # down_query = f'(candle_color == -1) and Close < {col} and (Open > {col} or prev_close > {col})'
-    # if 'renko' in col:
-    #   down_query += ' and (renko_real != "green")'
-    # elif 'candle_gap' in col:
-    #   down_query += f' and (candle_gap == 0)'
-    # elif f'{col}_day' in df.columns:
-    #   down_query += f' or ({col}_day == -1)'
     down_query = f'({col}_day == -1) and (十字星 == "n" or (十字星 != "n" and candle_entity_top < {col}))'
     if 'renko' in col:
       down_query += ' or (renko_real == "red")'
-
-    # print(col, down_query)
     break_down_idx = df.query(down_query).index # entity_diff > -0.5 and 
     df.loc[break_down_idx, 'break_down_description'] += f'{col}, '
     df.loc[break_down_idx, f'{col}_break_down'] -= 1
-    # # df.loc[break_down_idx, f'{col}_score'] -= 1
-    # df.loc[break_down_idx, f'key_col_down'] -= 1 if col in key_cols else 0.33
-    # df.loc[break_down_idx, f'key_col_description'] += f'D[{col}], '
 
   df['break_up_description'] = df['break_up_description'].apply(lambda x: ', '.join(list(set(x[:-2].split(', ')))))
   df['break_down_description'] = df['break_down_description'].apply(lambda x: ', '.join(list(set(x[:-2].split(', ')))))
-
-  df['break_up_score'] = df['break_up_description'].apply(lambda x: len(list(set([s for s in x.split(', ') if s != '']))))
-  df['break_down_score'] = df['break_down_description'].apply(lambda x: -1 * len(list(set([s for s in x.split(', ') if s != '']))))
-
-  # df['key_col_score'] = df['key_col_up'] + df['key_col_down']
-  # df['key_col_description'] = df['key_col_description'].apply(lambda x: ', '.join(list(set(x[:-2].split(', ')))))
 
   # drop unnecessary columns
   for col in col_to_drop:
@@ -3072,18 +3049,31 @@ def add_support_resistance(df, target_col=default_support_resistant_col, perspec
   df['key_col_up'] = 0
   df['key_col_down'] = 0
 
+  df['boundary'] = 0
+  df['break'] = 0
+
   # calculate scores
   for col in target_col:
+    for idx in ['support', 'resistant', 'break_up', 'break_down']:
+      tmp_col = f'{col}_{idx}'
+      tmp_value = df[tmp_col] * (1 if col in key_cols else 0.33)
 
-    for idx_up in ['support', 'break_up']:
-      tmp_col = f'{col}_{idx_up}'
-      df['key_col_up'] += df[tmp_col] * (1 if col in key_cols else 0.33)
+      score_col = f'{idx}_score'
+      df[score_col] += tmp_value
 
-    for idx_down in ['resistant', 'break_down']:
-      tmp_col = f'{col}_{idx_down}'
-      df['key_col_down'] += df[tmp_col] * (1 if col in key_cols else 0.33)
+      if idx == 'support':
+        df['boundary'] += tmp_value
+      elif idx == 'resistant':
+        df['boundary'] += tmp_value
+      elif idx == 'break_up':
+        df['break'] += tmp_value
+      elif idx == 'break_down':
+        df['break'] += tmp_value
+      else:
+        print(f'error: {idx} not defined')
 
-  df['key_col_score'] = df['key_col_up'] + df['key_col_down']
+  df['key_col_up'] = df['support_score'] + df['break_up_score']
+  df['key_col_down'] = df['resistant_score'] + df['break_down_score']
 
   return df
 
@@ -5557,12 +5547,12 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     tmp_data = df.query(f'({tmp_col_v} > {threhold})')
     if len(tmp_data) > 0:
       # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='2', color='green', alpha=tmp_data[tmp_col_a].fillna(0))
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='green', alpha=tmp_data[tmp_col_a].fillna(0))
   
     tmp_data = df.query(f'({tmp_col_v} < {-threhold})')
     if len(tmp_data) > 0:
       # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='1', color='red', alpha=tmp_data[tmp_col_a].fillna(0))
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='red', alpha=tmp_data[tmp_col_a].fillna(0))
 
     tmp_data = df.query(f'({-threhold} <= {tmp_col_v} <= {threhold} and none_zero < 0)')
     if len(tmp_data) > 0:
@@ -5611,12 +5601,12 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     
     tmp_data = df.query(f'({tmp_col_v} > {threhold})')
     if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='2', color='green', alpha=tmp_data[tmp_col_a].fillna(0))
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='green', alpha=tmp_data[tmp_col_a].fillna(0))
     
   
     tmp_data = df.query(f'({tmp_col_v} < {-threhold})')
     if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='1', color='red', alpha=tmp_data[tmp_col_a].fillna(0))
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='red', alpha=tmp_data[tmp_col_a].fillna(0))
 
 
     tmp_data = df.query(f'({-threhold} <= {tmp_col_v} <= {threhold} and none_zero > 0)')
