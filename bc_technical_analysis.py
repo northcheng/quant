@@ -36,7 +36,7 @@ default_signal_val = {'pos_signal':'b', 'neg_signal':'s', 'none_signal':'', 'wav
 # default indicators and dynamic trend for calculation
 default_indicators = {'trend': ['ichimoku', 'kama', 'adx'], 'volume': [], 'volatility': [], 'other': []}
 default_perspectives = ['candle','support_resistant', 'renko']
-default_support_resistant_col = ['kama_fast', 'kama_slow', 'tankan', 'kijun', 'candle_gap_top', 'candle_gap_bottom', 'renko_h', 'renko_l']
+default_support_resistant_col = ['kama_fast', 'kama_slow', 'tankan', 'kijun', 'renko_h', 'renko_l', 'candle_gap_top', 'candle_gap_bottom']
 
 # default arguments for visualization
 default_candlestick_color = {'color_up':'green', 'color_down':'red', 'shadow_color':'black', 'entity_edge_color':'black', 'alpha':0.8}
@@ -884,8 +884,8 @@ def calculate_ta_score(df):
 
   # ================================ calculate trigger/position score =======
   # support/resistant, break_up/bread_down, candle_pattern description
-  df['up_score'] = df['key_col_up']# + df['up_pattern_score']
-  df['down_score'] = df['key_col_down']# + df['down_pattern_score']
+  df['up_score'] = df['support_score'] + df['break_up_score']
+  df['down_score'] = df['resistant_score'] + df['break_down_score']
   df['up_score_description'] = ''
   df['down_score_description'] = ''
   names = {'support':'+支撑', 'resistant': '-阻挡', 'break_up': '+突破', 'break_down': '-跌落', 'up_pattern': '+蜡烛', 'down_pattern': '-蜡烛'}
@@ -1005,27 +1005,27 @@ def calculate_ta_score(df):
     df = cal_change(df=df, target_col=score_col, periods=1, add_accumulation=False, add_prefix=True)
 
   # ================================ calculate overall distance =============
-  term_trend_conditions = {
-    'rrr':    f'kama_distance <= 0 and ichimoku_distance <= 0 and renko_distance <= 0', 
-    'rrg':    f'kama_distance <= 0 and ichimoku_distance <= 0 and renko_distance >  0',
-    'rgr':    f'kama_distance <= 0 and ichimoku_distance >  0 and renko_distance <= 0', 
-    'rgg':    f'kama_distance <= 0 and ichimoku_distance >  0 and renko_distance >  0',
-    'grr':    f'kama_distance >  0 and ichimoku_distance <= 0 and renko_distance <= 0', 
-    'grg':    f'kama_distance >  0 and ichimoku_distance <= 0 and renko_distance >  0',
-    'ggr':    f'kama_distance >  0 and ichimoku_distance >  0 and renko_distance <= 0', 
-    'ggg':    f'kama_distance >  0 and ichimoku_distance >  0 and renko_distance >  0',
-  } 
-  term_trend_values = {
-    'rrr':    f'rrr', 
-    'rrg':    f'rrg',
-    'rgr':    f'rgr', 
-    'rgg':    f'rgg',
-    'grr':    f'grr', 
-    'grg':    f'grg',
-    'ggr':    f'ggr', 
-    'ggg':    f'ggg',
-  }
-  df = assign_condition_value(df=df, column='kir_distance', condition_dict=term_trend_conditions, value_dict=term_trend_values, default_value='n')
+  # term_trend_conditions = {
+  #   'rrr':    f'kama_distance <= 0 and ichimoku_distance <= 0 and renko_distance <= 0', 
+  #   'rrg':    f'kama_distance <= 0 and ichimoku_distance <= 0 and renko_distance >  0',
+  #   'rgr':    f'kama_distance <= 0 and ichimoku_distance >  0 and renko_distance <= 0', 
+  #   'rgg':    f'kama_distance <= 0 and ichimoku_distance >  0 and renko_distance >  0',
+  #   'grr':    f'kama_distance >  0 and ichimoku_distance <= 0 and renko_distance <= 0', 
+  #   'grg':    f'kama_distance >  0 and ichimoku_distance <= 0 and renko_distance >  0',
+  #   'ggr':    f'kama_distance >  0 and ichimoku_distance >  0 and renko_distance <= 0', 
+  #   'ggg':    f'kama_distance >  0 and ichimoku_distance >  0 and renko_distance >  0',
+  # } 
+  # term_trend_values = {
+  #   'rrr':    f'rrr', 
+  #   'rrg':    f'rrg',
+  #   'rgr':    f'rgr', 
+  #   'rgg':    f'rgg',
+  #   'grr':    f'grr', 
+  #   'grg':    f'grg',
+  #   'ggr':    f'ggr', 
+  #   'ggg':    f'ggg',
+  # }
+  # df = assign_condition_value(df=df, column='kir_distance', condition_dict=term_trend_conditions, value_dict=term_trend_values, default_value='n')
 
 
   
@@ -1437,12 +1437,6 @@ def calculate_ta_signal(df):
 
     '+short_score':       [s, '', '(trigger_score > 0)'],
     '-short_score':       [-s, '', '(trigger_score < 0)'],
-
-    '+support':           [s, '', '(key_col_up >= 1)'],
-    # '+support_ex':        [s, '', '(support_score > 0 and (support_score >= 3 or candle_lower_shadow_pct > 0.5))'],
-    '-resistant':         [-s, '', '(key_col_down <= -1)'],
-    # '-resistant_ex':      [-s*2, '', '(resistant_score < 0 and ((resistant_score <= -3) or (candle_upper_shadow_pct > 0.5) or (candle_upper_shadow_pct > 0.5 and (rate < 0 or candle_color == -1))))'],
-        
   }
   df = cal_score(df=df, condition_dict=rank_conditions, up_score_col='rank_up_score', down_score_col='rank_down_score')
   df['signal_rank'] = df['rank_up_score'] + df['rank_down_score']
@@ -2973,11 +2967,6 @@ def add_support_resistance(df, target_col=default_support_resistant_col, perspec
 
   df['break_up_description'] = df['break_up_description'].apply(lambda x: ', '.join(list(set(x[:-2].split(', ')))))
   df['break_down_description'] = df['break_down_description'].apply(lambda x: ', '.join(list(set(x[:-2].split(', ')))))
-
-  # drop unnecessary columns
-  for col in col_to_drop:
-    if col in df.columns:
-      df.drop(col, axis=1, inplace=True)
   
   # ================================ supporter and resistanter =========================
   # add support/supporter, resistant/resistanter for the last row
@@ -3084,9 +3073,6 @@ def add_support_resistance(df, target_col=default_support_resistant_col, perspec
 
   #   df.loc[valid_idxs, 'resistant'] = resistant
   #   df.loc[valid_idxs, 'resistanter'] = resistanter
-  
-  df['key_col_up'] = 0
-  df['key_col_down'] = 0
 
   df['boundary'] = 0
   df['break'] = 0
@@ -3111,8 +3097,12 @@ def add_support_resistance(df, target_col=default_support_resistant_col, perspec
       else:
         print(f'error: {idx} not defined')
 
-  df['key_col_up'] = df['support_score'] + df['break_up_score']
-  df['key_col_down'] = df['resistant_score'] + df['break_down_score']
+      # col_to_drop.append(tmp_col)
+
+  # drop unnecessary columns
+  for col in col_to_drop:
+    if col in df.columns:
+      df.drop(col, axis=1, inplace=True)
 
   return df
 
@@ -5564,10 +5554,10 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
     df[tmp_col_a] = normalize(df[tmp_col_v].abs()).apply(lambda x: x if x > 0.1 else 0.1)
 
-    df['none_zero'] = np.NaN
-    none_zero_idx = df.query(f'{tmp_col_v} > {threhold} or {tmp_col_v} < {threhold}').index
-    df.loc[none_zero_idx, 'none_zero'] = df.loc[none_zero_idx, tmp_col_v]
-    df['none_zero'] = df['none_zero'].fillna(method='ffill')
+    # df['none_zero'] = np.NaN
+    # none_zero_idx = df.query(f'{tmp_col_v} > {threhold} or {tmp_col_v} < {threhold}').index
+    # df.loc[none_zero_idx, 'none_zero'] = df.loc[none_zero_idx, tmp_col_v]
+    # df['none_zero'] = df['none_zero'].fillna(method='ffill')
     
     tmp_data = df.query(f'({tmp_col_v} > {threhold})')
     if len(tmp_data) > 0:
@@ -5579,12 +5569,12 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
       # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='1', color='red', alpha=tmp_data[tmp_col_a].fillna(0))
 
-    tmp_data = df.query(f'({-threhold} <= {tmp_col_v} <= {threhold} and none_zero < 0)')
+    tmp_data = df.query(f'({-threhold} <= {tmp_col_v} <= {threhold} and {tmp_col_v}_none_zero > 0)')
     if len(tmp_data) > 0:
       tmp_alpha = 0.2
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='green', alpha=tmp_alpha)
 
-    tmp_data = df.query(f'({-threhold} <= {tmp_col_v} <= {threhold} and none_zero > 0)')
+    tmp_data = df.query(f'({-threhold} <= {tmp_col_v} <= {threhold} and {tmp_col_v}_none_zero < 0)')
     if len(tmp_data) > 0:
       tmp_alpha = 0.2
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', alpha=tmp_alpha)
