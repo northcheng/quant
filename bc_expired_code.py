@@ -79,6 +79,140 @@
   'signal', 'signal_description', 'signal_day', 'signal_rank', 'signal_rank_description'
  ]
 
+#20240416 updated
+[
+
+  'Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume', 'Dividend', 'Split', 'symbol', 'rate', 
+
+  'candle_color', 
+  'candle_shadow', 
+  'candle_entity', 'candle_entity_top', 'candle_entity_bottom',
+  'candle_upper_shadow_pct', 'candle_lower_shadow_pct', 'candle_entity_pct', 'candle_entity_middle', 'candle_gap',
+        
+  'candle_gap_color', 'candle_gap_top', 'candle_gap_bottom', 
+
+  'tankan', 'kijun', 'senkou_a', 'senkou_b', 'chikan', 
+  'kama_fast', 'kama_slow', 
+  'tr', 'atr', 'adx_value', 'adx_strength', 
+
+  'ichimoku_distance', 'ichimoku_distance_change', 
+  'tankan_rate', 'tankan_day', 
+  'kijun_rate', 'kijun_day', 
+  'ichimoku_fs_day', 'ichimoku_trend',
+  '相对ichimoku位置', 
+
+  'kama_distance', 'kama_distance_change',
+  'kama_fast_rate', 'kama_fast_day', 
+  'kama_slow_rate', 'kama_slow_day', 
+  'kama_fs_day', 'kama_trend', 
+  '相对kama位置', 
+
+  'position',
+
+  'tankan_rate_none_zero', 'kijun_rate_none_zero', 
+  'kama_fast_rate_none_zero', 'kama_slow_rate_none_zero',
+
+  'adx_value_change', 'adx_direction', 'adx_direction_day', 
+  'adx_strength_change', 'adx_power', 'adx_power_day',
+  'adx_value_prediction', 
+  'prev_adx_extreme', 'adx_direction_start', 
+  'adx_strong_day', 'adx_wave_day', 
+  'adx_trend', 
+
+  'ichimoku_day', 
+  'kama_day', 
+  'adx_day',
+
+  'renko_o', 'renko_h', 'renko_l', 'renko_c', 'renko_color', 'renko_real',
+  'renko_distance', 'renko_brick_number', 'renko_day', 
+  'renko_start', 'renko_end', 
+  '相对renko位置', 
+
+  'shadow_trend', 'entity_trend', 
+
+  '窗口_trend', '窗口_day', 
+  '十字星', '锤子', 
+  '十字星_trend', '十字星_day', 
+  '腰带_trend', '腰带_day', 
+  '流星_trend', '流星_day', 
+  '锤子_trend', '锤子_day', 
+  '平头_trend', '平头_day', 
+  '穿刺_trend', '穿刺_day', 
+  '吞噬_trend', '吞噬_day', 
+  '包孕_trend', '包孕_day', 
+  '启明黄昏_trend', '启明黄昏_day', 
+
+  '相对gap位置', 
+  '相对candle位置', 'candle_position_score', 
+  'up_pattern_score', 'up_pattern_description', 
+  'down_pattern_score', 'down_pattern_description',
+  'pattern_score', 
+
+  'support_score', 'support_description', 
+  'resistant_score', 'resistant_description',
+  'break_up_score', 'break_up_description', 
+  'break_down_score', 'break_down_description', 
+
+  'kama_fast_support', 'kama_slow_support',
+  'tankan_support', 'kijun_support', 
+  'candle_gap_top_support', 'candle_gap_bottom_support', 
+  'renko_h_support', 'renko_l_support',
+  'kama_fast_resistant', 'kama_slow_resistant', 
+  'tankan_resistant', 'kijun_resistant', 
+  'candle_gap_top_resistant', 'candle_gap_bottom_resistant', 
+  'renko_h_resistant', 'renko_l_resistant',
+  'kama_fast_break_up', 'kama_fast_break_down', 
+  'kama_slow_break_up', 'kama_slow_break_down', 
+  'tankan_break_up', 'tankan_break_down',
+  'kijun_break_up', 'kijun_break_down', 
+  'candle_gap_top_break_up', 'candle_gap_top_break_down', 
+  'candle_gap_bottom_break_up', 'candle_gap_bottom_break_down', 
+  'renko_h_break_up', 'renko_h_break_down', 
+  'renko_l_break_up', 'renko_l_break_down',
+
+  'resistant', 'resistanter', 
+  'support', 'supporter', 
+  # 'key_col_up', 'key_col_down'
+  'boundary', 'break', 
+
+  'trend_score', 'trend_status',
+  'trigger_score', 'trigger_day', 
+  'position_score', 'position_score_description',
+  'short_trend_score', 'short_trend_score_description',
+  'middle_trend_score', 'middle_trend_score_description',
+  'long_trend_score', 'long_trend_score_description', 
+  'up_score', 'up_score_description', 
+  'down_score', 'down_score_description',
+
+  'ichimoku_position_score', 
+  'kama_position_score',
+  'renko_position_score', 
+  'position_score_change', 
+
+  'short_trend', 'short_day', 'short_trend_score_change', 
+  'middle_trend', 'middle_day', 'middle_trend_score_change', 
+  'long_trend', 'long_day', 'long_trend_score_change', 
+  'trend', 'trend_day', 'trend_score_change',
+  # 'kir_distance', 
+
+  'adx_change', 'adx_status', 
+  'ichimoku_status', 'ichimoku_change', 
+  'kama_status', 'kama_change', 
+  'overall_change', 'overall_status', 
+
+  'potential', 'potential_score', 'potential_description', 
+  '一般_up', '一般_down', 
+  '突破失败_down', 
+  '触顶回落_down',
+  '窗口阻挡_down', 
+  '长上影线_down', 
+
+  'signal', 'signal_description', 'signal_day',
+  'rank_up_score', 'rank_up_score_description',
+  'rank_down_score', 'rank_down_score_description', 
+  'signal_rank', 'signal_rank_description'
+]
+
 # # expired
 # from alpha_vantage.timeseries import TimeSeries
 # def get_data_from_tiger(sec_code, interval, start_date=None, end_date=None, time_col='time', minute_level=False, quote_client=None, download_limit=1200, is_print=False):
