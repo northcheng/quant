@@ -1273,9 +1273,10 @@ def calculate_ta_signal(df):
     # B: 去下降趋势中的买入信号  
     '下降趋势':       '''
                       (signal == "b") and 
+                      (adx_value > 10 and adx_direction_start > 10) and
                       (
-                        (adx_value > 0 and adx_power_day < 0) or 
-                        (adx_value > 0 and adx_direction_day < 0)
+                        (adx_power_day < 0) or 
+                        (adx_direction_day < 0)
                       )
                       '''.replace('\n', ''),
                   
@@ -1283,7 +1284,7 @@ def calculate_ta_signal(df):
     '距离过大':       '''
                       (signal == "b") and
                       (
-                        (ichimoku_distance < -0.075) or
+                        (ichimoku_distance < -0.1) or
                         (kama_distance < -0.15)
                       )
                       '''.replace('\n', ''),
