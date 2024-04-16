@@ -1093,7 +1093,8 @@ def calculate_ta_signal(df):
   # ================================ normalized trend score =================
   # adx
   df['adx_change'] = df['adx_value'] - df['adx_value_prediction']
-  df['adx_change'] = normalize(df['adx_change'].abs()) * (df['adx_change'] > 0).replace({True: 1, False: -1})
+  df['adx_status'] = (df['adx_change'] > 0).replace({True: 1, False: -1})
+  df['adx_change'] = normalize(df['adx_change'].abs()) * df['adx_status']
   # df['adx_power_change'] = df['adx_strength_change'].copy()
   # nud_idx = df.query('adx_value_change > 0 and adx_strength_change < 0 and adx_value < 10 and adx_direction_start < 0').index
   # df.loc[nud_idx, 'adx_power_change'] = df.loc[nud_idx, 'adx_power_change'].abs()
@@ -1142,8 +1143,12 @@ def calculate_ta_signal(df):
     # down_idx = df.query(f'({fl_rate} < {threshold} and {sl_rate} < {threshold}) or ({fl_rate} < {threshold} and {dc} < 0)').index
     # df.loc[down_idx, result_col] = -(df.loc[down_idx, result_col].abs())
   
-  df['overall_status'] = (df['adx_change'] > 0).replace({True: 1, False: -1}) + df['ichimoku_status'] + df['kama_status']
-  df['overall_change'] = normalize((df['adx_change'] + df['ichimoku_change'] + df['kama_change']).abs()) * df['overall_status']
+  df['overall_change'] = df['adx_change'] + df['ichimoku_change'] + df['kama_change']
+  df['overall_status'] = df['adx_status'] + df['ichimoku_status'] + df['kama_status']
+  col_symbol = (df['overall_status'] > 0).replace({True: 1, False: -1})
+
+  none_zero_idx = df.query('overall_status != 0').index
+  df.loc[none_zero_idx, 'overall_change'] = df.loc[none_zero_idx, 'overall_change'].abs() * col_symbol.loc[none_zero_idx]
   # df = cal_change(df=df, target_col='overall', periods=1, add_accumulation=False, add_prefix=True)
 
   # ================================ calculate potential ====================
@@ -1267,7 +1272,11 @@ def calculate_ta_signal(df):
 
     # B: 去下降趋势中的买入信号  
     '下降趋势':       '''
-                        (signal == "b") and (adx_value > 0 and adx_power_day < 0)
+                      (signal == "b") and 
+                      (
+                        (adx_value > 0 and adx_power_day < 0) or 
+                        (adx_value > 0 and adx_direction_day < 0)
+                      )
                       '''.replace('\n', ''),
                   
     # B: 去下降趋势中的买入信号  
@@ -1276,6 +1285,14 @@ def calculate_ta_signal(df):
                       (
                         (ichimoku_distance < -0.075) or
                         (kama_distance < -0.15)
+                      )
+                      '''.replace('\n', ''),
+
+    # B|S: 去除过于微弱的信号  
+    '变化微弱':       '''
+                      (signal == "b" or signal == "s") and
+                      (
+                        (-0.01 <= overall_change <= 0.01)
                       )
                       '''.replace('\n', ''),
 
@@ -5511,26 +5528,12 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='grey', alpha=tmp_alpha)
 
   # relative positions
-  if signal_x in [ "kama", 'ichimoku', 'adx', 'adx_power']:
+  if signal_x in [ "kama", 'ichimoku', 'adx', 'overall']:
     
-    # fl_rate = {'kama': 'kama_fast_rate', 'ichimoku': 'tankan_rate'}[signal_x]
-    # sl_rate = {'kama': 'kama_slow_rate', 'ichimoku': 'kijun_rate'}[signal_x]
-    # dc = f'{signal_x}_distance_change'
+    pos_marker = 's' if signal_x in ['overall'] else 'o'
+    neg_marker = 's' if signal_x in ['overall'] else 'x'
+    none_marker = '_'
 
-    # tmp_col_v = f'{signal_x}_result'
-    # tmp_col_a = f'{signal_x}_alpha' 
-
-    # df[tmp_col_v] = 0
-    # df[tmp_col_a] = normalize((normalize(df[fl_rate].abs()) + normalize(df[sl_rate].abs()) + normalize(df[dc].abs())).abs())#.apply(lambda x: x if x > 0.05 else 0.05)
-
-
-    # up_idx = df.query(f'({fl_rate} > 0 and {sl_rate} > 0) or ({fl_rate} > 0 and {dc} > 0)').index
-    # df.loc[up_idx, tmp_col_v] = 1
-
-    # down_idx = df.query(f'({fl_rate} < 0 and {sl_rate} < 0) or ({fl_rate} < 0 and {dc} < 0)').index
-    # df.loc[down_idx, tmp_col_v] = -1
-
-    
     tmp_col_v = f'{signal_x}_change'
     tmp_col_a = f'{signal_x}_alpha'
 
@@ -5539,17 +5542,17 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     tmp_data = df.query(f'({tmp_col_v} > 0)')
     if len(tmp_data) > 0:
       # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='green', alpha=tmp_data[tmp_col_a])
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=pos_marker, color='green', alpha=tmp_data[tmp_col_a])
   
     tmp_data = df.query(f'({tmp_col_v} < 0)')
     if len(tmp_data) > 0:
       # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='red', alpha=tmp_data[tmp_col_a])
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='red', alpha=tmp_data[tmp_col_a])
 
     tmp_data = df.query(f'({tmp_col_v} == 0)')
     if len(tmp_data) > 0:
-      tmp_alpha = 0.05
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='grey', alpha=tmp_data[tmp_col_a])
+      tmp_alpha = 0.2
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=none_marker, color='grey', alpha=tmp_alpha)
 
   # relative positions
   if signal_x in [ "kama_slow", "kama_fast", "kijun", "tankan"]:
@@ -5577,12 +5580,12 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
     tmp_data = df.query(f'({-threhold} <= {tmp_col_v} <= {threhold} and none_zero < 0)')
     if len(tmp_data) > 0:
-      tmp_alpha = 0.1
+      tmp_alpha = 0.2
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='green', alpha=tmp_alpha)
 
     tmp_data = df.query(f'({-threhold} <= {tmp_col_v} <= {threhold} and none_zero > 0)')
     if len(tmp_data) > 0:
-      tmp_alpha = 0.1
+      tmp_alpha = 0.2
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', alpha=tmp_alpha)
 
     # tmp_data = df.query(f'{signal_x}_break_up > 0')
@@ -5665,7 +5668,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
     tmp_data = df.query(f'({-threhold} <= {tmp_col_v} <= {threhold})')
     if len(tmp_data) > 0:
-      tmp_alpha = 0.05
+      tmp_alpha = 0.2
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker=none_marker, color='grey', alpha=tmp_alpha)
 
     # if signal_x == 'resistant_score':

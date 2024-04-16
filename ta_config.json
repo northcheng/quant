@@ -71,15 +71,14 @@
           "kama_distance",
           "kama_slow",
           "kama_fast",
-
           "ichimoku_distance",
           "kijun",
-          "tankan",
+          "tankan",  
 
           "-----",
           "kama",
           "ichimoku",
-          "adx",      
+          "adx",  
 
           "-----",
           "support_score",
@@ -87,9 +86,9 @@
           "break_down_score",
           "pattern_score",          
           "resistant_score",
-          
+
           "-----",
-          "overall_change",
+          "overall",
           "trigger_score",
           " "
         ]
