@@ -45,7 +45,7 @@
     "plot_args": {
       "plot_ratio": {
         "signals": 4, "adx": 2,
-        "main_indicators": 11, "volume":1
+        "main_indicators": 10, "volume":1
       },
       
       "main_indicators": {
@@ -77,17 +77,19 @@
           "tankan",
 
           "-----",
-          "adx_power",
-          "adx",
-          "short_signal",
+          "kama",
+          "ichimoku",
+          "adx",      
 
           "-----",
           "support_score",
           "break_up_score",
           "break_down_score",
+          "pattern_score",          
           "resistant_score",
-
+          
           "-----",
+          "overall_change",
           "trigger_score",
           " "
         ]
