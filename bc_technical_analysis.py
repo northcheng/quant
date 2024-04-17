@@ -1158,71 +1158,74 @@ def calculate_ta_signal(df):
   df['potential_description'] = ''
   potential_conditions = {
 
-    '一般_up':            '(ichimoku_distance_change > 0 and kama_distance_change > 0 and tankan_rate > 0 and kama_fast_rate > 0)',
-    '一般_down':          'adx_value_change < 0',
+    '一般_up':            '(adx_change > 0)',
+    '一般_down':          '(adx_change < 0)',
+
+    '触底向上_up':        '(ichimoku_distance < 0 and (tankan_rate >= 0 and tankan_rate_none_zero > 0) and kijun_rate == 0)',
+    '触顶向下_down':      '(ichimoku_distance > 0 and (taknan_rate <= 0 and tankan_rate_none_zero < 0) and kijun_rate == 0 and adx_value > 10 and adx_direction < 0)'
 
     # # 一般情况
     # '趋势上行_up':      f'(adx_direction > 0) and ((adx_value < 0 and adx_power_day < 0) or (adx_value > 10 and adx_power_day > 0))',
 
     # '趋势下行_down':    f'(adx_direction < 0) or (adx_value < 0 and adx_power_day > 0) or (adx_value > 10 and adx_power_day < 0)',
 
-    '突破失败_down':    f'''
-                        (
-                          ((相对kama位置 in ["mid_up", "mid_down"]) and (kama_fast_break_down != 0 or kama_slow_break_down != 0)) or
-                          ((相对kama位置 in ["mid", "mid_down"]) and (kama_fast_resistant != 0 or kama_slow_resistant != 0)) or 
-                          ((相对ichimoku位置 in ["mid_up", "mid_down"]) and (tankan_break_down != 0 or kijun_break_down != 0)) or
-                          ((相对ichimoku位置 in ["mid", "mid_down"]) and (tankan_resistant != 0 or kijun_resistant != 0)) or 
-                          ((相对renko位置 in ["mid_up", "mid_down"]) and (renko_l_break_down != 0 or renko_h_break_down != 0)) or
-                          ((相对renko位置 in ["mid", "mid_down"]) and (renko_l_resistant != 0 or renko_h_resistant != 0))
-                        )
-                        '''.replace('\n', ''),
+    # '突破失败_down':    f'''
+    #                     (
+    #                       ((相对kama位置 in ["mid_up", "mid_down"]) and (kama_fast_break_down != 0 or kama_slow_break_down != 0)) or
+    #                       ((相对kama位置 in ["mid", "mid_down"]) and (kama_fast_resistant != 0 or kama_slow_resistant != 0)) or 
+    #                       ((相对ichimoku位置 in ["mid_up", "mid_down"]) and (tankan_break_down != 0 or kijun_break_down != 0)) or
+    #                       ((相对ichimoku位置 in ["mid", "mid_down"]) and (tankan_resistant != 0 or kijun_resistant != 0)) or 
+    #                       ((相对renko位置 in ["mid_up", "mid_down"]) and (renko_l_break_down != 0 or renko_h_break_down != 0)) or
+    #                       ((相对renko位置 in ["mid", "mid_down"]) and (renko_l_resistant != 0 or renko_h_resistant != 0))
+    #                     )
+    #                     '''.replace('\n', ''),
 
-    '触顶回落_down':    f'''
-                        (
-                          (kama_distance > 0 and 相对kama位置 == "up") and
-                          (ichimoku_distance > 0 and 相对ichimoku位置 == "up") and
-                          (renko_distance > 0 and 相对renko位置 == "up" or renko_real == "green") and
-                          (
-                            (candle_color == -1 and entity_trend == "u") or
-                            (十字星 != "n" and candle_upper_shadow_pct > candle_lower_shadow_pct) or
-                            (renko_real == "green" and 相对renko位置 in ["mid_up", "up"] and (candle_upper_shadow_pct > candle_lower_shadow_pct or 十字星 != "n"))
-                          )
-                        ) or 
-                        (
-                          (相对kama位置 in ["up"] and 相对ichimoku位置 in ["up"] and 相对renko位置 in ["up"]) and
-                          (十字星 != "n" or candle_entity_pct < 0.2) and
-                          (
-                            (kijun_day == 1) or
-                            (kama_slow_day == 1) or
-                            (renko_day == 1)
-                          )
-                        )
-                        '''.replace('\n', ''),
+    # '触顶回落_down':    f'''
+    #                     (
+    #                       (kama_distance > 0 and 相对kama位置 == "up") and
+    #                       (ichimoku_distance > 0 and 相对ichimoku位置 == "up") and
+    #                       (renko_distance > 0 and 相对renko位置 == "up" or renko_real == "green") and
+    #                       (
+    #                         (candle_color == -1 and entity_trend == "u") or
+    #                         (十字星 != "n" and candle_upper_shadow_pct > candle_lower_shadow_pct) or
+    #                         (renko_real == "green" and 相对renko位置 in ["mid_up", "up"] and (candle_upper_shadow_pct > candle_lower_shadow_pct or 十字星 != "n"))
+    #                       )
+    #                     ) or 
+    #                     (
+    #                       (相对kama位置 in ["up"] and 相对ichimoku位置 in ["up"] and 相对renko位置 in ["up"]) and
+    #                       (十字星 != "n" or candle_entity_pct < 0.2) and
+    #                       (
+    #                         (kijun_day == 1) or
+    #                         (kama_slow_day == 1) or
+    #                         (renko_day == 1)
+    #                       )
+    #                     )
+    #                     '''.replace('\n', ''),
 
-    '窗口阻挡_down':    f'''
-                        (
-                          (相对ichimoku位置 in ["mid_up", "up"]) and 
-                          (相对kama位置 in ["mid_up", "up"]) and 
-                          (相对gap位置 in ["mid_down", "down"]) and (candle_gap_top_resistant != 0 or candle_gap_bottom_resistant != 0) and
-                          (
-                            (十字星 != "n") or 
-                            (candle_color == -1 and candle_upper_shadow_pct > 0.3) or 
-                            (candle_color == 1 and candle_upper_shadow_pct > 0.5)
-                          ) 
-                        )
-                        '''.replace('\n', ''),   
+    # '窗口阻挡_down':    f'''
+    #                     (
+    #                       (相对ichimoku位置 in ["mid_up", "up"]) and 
+    #                       (相对kama位置 in ["mid_up", "up"]) and 
+    #                       (相对gap位置 in ["mid_down", "down"]) and (candle_gap_top_resistant != 0 or candle_gap_bottom_resistant != 0) and
+    #                       (
+    #                         (十字星 != "n") or 
+    #                         (candle_color == -1 and candle_upper_shadow_pct > 0.3) or 
+    #                         (candle_color == 1 and candle_upper_shadow_pct > 0.5)
+    #                       ) 
+    #                     )
+    #                     '''.replace('\n', ''),   
 
-      '长上影线_down':   f'''
-                        (
-                          (resistant_score < 0 or break_up_score > 0) and 
-                          (candle_upper_shadow_pct > 0.5) and 
-                          (
-                            (相对renko位置 in ["up"]) or 
-                            (相对kama位置 in ["up"]) or 
-                            (相对ichimoku位置 in ["up"])
-                          ) 
-                        )
-                        '''.replace('\n', ''),               
+    #   '长上影线_down':   f'''
+    #                     (
+    #                       (resistant_score < 0 or break_up_score > 0) and 
+    #                       (candle_upper_shadow_pct > 0.5) and 
+    #                       (
+    #                         (相对renko位置 in ["up"]) or 
+    #                         (相对kama位置 in ["up"]) or 
+    #                         (相对ichimoku位置 in ["up"])
+    #                       ) 
+    #                     )
+    #                     '''.replace('\n', ''),               
 
   } 
   for c in potential_conditions.keys():
@@ -1273,10 +1276,15 @@ def calculate_ta_signal(df):
     # B: 去下降趋势中的买入信号  
     '下降趋势':       '''
                       (signal == "b") and 
-                      (adx_value > 10 and adx_direction_start > 10) and
                       (
-                        (adx_power_day < 0) or 
-                        (adx_direction_day < 0)
+                        (
+                          (adx_value > 10 and adx_direction_start > 10) and
+                          (adx_power_day < 0 or adx_direction_day < 0)
+                        ) or
+                        (
+                          (ichimoku_status == 0) and
+                          (tankan_rate_none_zero < 0 and kijun_rate_none_zero < 0)
+                        )
                       )
                       '''.replace('\n', ''),
                   
