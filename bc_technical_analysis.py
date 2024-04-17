@@ -1005,27 +1005,27 @@ def calculate_ta_score(df):
     df = cal_change(df=df, target_col=score_col, periods=1, add_accumulation=False, add_prefix=True)
 
   # ================================ calculate overall distance =============
-  # term_trend_conditions = {
-  #   'rrr':    f'kama_distance <= 0 and ichimoku_distance <= 0 and renko_distance <= 0', 
-  #   'rrg':    f'kama_distance <= 0 and ichimoku_distance <= 0 and renko_distance >  0',
-  #   'rgr':    f'kama_distance <= 0 and ichimoku_distance >  0 and renko_distance <= 0', 
-  #   'rgg':    f'kama_distance <= 0 and ichimoku_distance >  0 and renko_distance >  0',
-  #   'grr':    f'kama_distance >  0 and ichimoku_distance <= 0 and renko_distance <= 0', 
-  #   'grg':    f'kama_distance >  0 and ichimoku_distance <= 0 and renko_distance >  0',
-  #   'ggr':    f'kama_distance >  0 and ichimoku_distance >  0 and renko_distance <= 0', 
-  #   'ggg':    f'kama_distance >  0 and ichimoku_distance >  0 and renko_distance >  0',
-  # } 
-  # term_trend_values = {
-  #   'rrr':    f'rrr', 
-  #   'rrg':    f'rrg',
-  #   'rgr':    f'rgr', 
-  #   'rgg':    f'rgg',
-  #   'grr':    f'grr', 
-  #   'grg':    f'grg',
-  #   'ggr':    f'ggr', 
-  #   'ggg':    f'ggg',
-  # }
-  # df = assign_condition_value(df=df, column='kir_distance', condition_dict=term_trend_conditions, value_dict=term_trend_values, default_value='n')
+  term_trend_conditions = {
+    'rrr':    f'kama_distance <= 0 and ichimoku_distance <= 0 and renko_distance <= 0', 
+    'rrg':    f'kama_distance <= 0 and ichimoku_distance <= 0 and renko_distance >  0',
+    'rgr':    f'kama_distance <= 0 and ichimoku_distance >  0 and renko_distance <= 0', 
+    'rgg':    f'kama_distance <= 0 and ichimoku_distance >  0 and renko_distance >  0',
+    'grr':    f'kama_distance >  0 and ichimoku_distance <= 0 and renko_distance <= 0', 
+    'grg':    f'kama_distance >  0 and ichimoku_distance <= 0 and renko_distance >  0',
+    'ggr':    f'kama_distance >  0 and ichimoku_distance >  0 and renko_distance <= 0', 
+    'ggg':    f'kama_distance >  0 and ichimoku_distance >  0 and renko_distance >  0',
+  } 
+  term_trend_values = {
+    'rrr':    f'rrr', 
+    'rrg':    f'rrg',
+    'rgr':    f'rgr', 
+    'rgg':    f'rgg',
+    'grr':    f'grr', 
+    'grg':    f'grg',
+    'ggr':    f'ggr', 
+    'ggg':    f'ggg',
+  }
+  df = assign_condition_value(df=df, column='kir_distance', condition_dict=term_trend_conditions, value_dict=term_trend_values, default_value='n')
 
 
   
@@ -1158,11 +1158,14 @@ def calculate_ta_signal(df):
   df['potential_description'] = ''
   potential_conditions = {
 
-    '一般_up':            '(adx_change > 0)',
-    '一般_down':          '(adx_change < 0)',
+    '一般_up':            '(overall_change > 0)',
+    '一般_down':          '(overall_change < 0)',
 
-    '触底向上_up':        '(ichimoku_distance < 0 and (tankan_rate >= 0 and tankan_rate_none_zero > 0) and kijun_rate == 0)',
-    '触顶向下_down':      '(ichimoku_distance > 0 and (tankan_rate <= 0 and tankan_rate_none_zero < 0) and kijun_rate == 0 and adx_value > 10 and adx_direction < 0)'
+    '触底_up':            '(ichimoku_distance < 0 and (tankan_rate >= 0 and tankan_rate_none_zero > 0) and kijun_rate == 0)',
+    '触顶_down':          '(ichimoku_distance > 0 and (tankan_rate <= 0 and tankan_rate_none_zero < 0) and kijun_rate == 0 and adx_value > 10 and adx_direction < 0)',
+
+    '只有_up':            '(trigger_score > 0) and (resistant_score == 0 and break_down_score == 0 and down_pattern_score == 0) and (boundary_score > 0 or break_score > 0 or pattern_score > 0)',
+    '只有_down':          '(trigger_score < 0) and (support_score == 0 and break_up_score == 0 and up_pattern_score == 0) and (boundary_score < 0 or break_score < 0 or pattern_score < 0)',
 
     # # 一般情况
     # '趋势上行_up':      f'(adx_direction > 0) and ((adx_value < 0 and adx_power_day < 0) or (adx_value > 10 and adx_power_day > 0))',
@@ -1240,7 +1243,7 @@ def calculate_ta_signal(df):
       df.loc[tmp_idx, 'potential_score'] += 1
       df.loc[tmp_idx, c] += 1
     elif 'down' in c:
-      df.loc[tmp_idx, 'potential_score'] -= 1.1
+      df.loc[tmp_idx, 'potential_score'] -= 1
       df.loc[tmp_idx, c] = -1
 
     df.loc[tmp_idx, 'potential_description'] += f'{c}, '
@@ -1255,8 +1258,8 @@ def calculate_ta_signal(df):
   df['signal_day'] = 0
 
   conditions = {
-    'buy':      'overall_change > 0 and trigger_score >= 0', 
-    'sell':     'overall_change < 0 and trigger_score <= 0',
+    'buy':      'potential_score > 0 and trigger_score > 0', 
+    'sell':     'potential_score < 0 and trigger_score <= 0',
   } 
   values = {
     'buy':      'b',
@@ -1284,6 +1287,9 @@ def calculate_ta_signal(df):
                         (
                           (ichimoku_status == 0) and
                           (tankan_rate_none_zero < 0 and kijun_rate_none_zero < 0)
+                        ) or
+                        (
+                          (adx_direction < 0)
                         )
                       )
                       '''.replace('\n', ''),
@@ -1294,6 +1300,14 @@ def calculate_ta_signal(df):
                       (
                         (ichimoku_distance < -0.1) or
                         (kama_distance < -0.15)
+                      )
+                      '''.replace('\n', ''),
+
+    # B|S: 去除低位买入的信号  
+    '低位买入':       '''
+                      (signal == "b") and
+                      (
+                        (kir_distance == "rrr") and (相对renko位置 in ["down"])
                       )
                       '''.replace('\n', ''),
 
@@ -3082,8 +3096,8 @@ def add_support_resistance(df, target_col=default_support_resistant_col, perspec
   #   df.loc[valid_idxs, 'resistant'] = resistant
   #   df.loc[valid_idxs, 'resistanter'] = resistanter
 
-  df['boundary'] = 0
-  df['break'] = 0
+  df['boundary_score'] = 0
+  df['break_score'] = 0
 
   # calculate scores
   for col in target_col:
@@ -3095,13 +3109,13 @@ def add_support_resistance(df, target_col=default_support_resistant_col, perspec
       df[score_col] += tmp_value
 
       if idx == 'support':
-        df['boundary'] += tmp_value
+        df['boundary_score'] += tmp_value
       elif idx == 'resistant':
-        df['boundary'] += tmp_value
+        df['boundary_score'] += tmp_value
       elif idx == 'break_up':
-        df['break'] += tmp_value
+        df['break_score'] += tmp_value
       elif idx == 'break_down':
-        df['break'] += tmp_value
+        df['break_score'] += tmp_value
       else:
         print(f'error: {idx} not defined')
 
