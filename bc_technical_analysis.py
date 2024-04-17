@@ -1094,6 +1094,7 @@ def calculate_ta_signal(df):
   # adx
   df['adx_change'] = df['adx_value'] - df['adx_value_prediction']
   df['adx_status'] = (df['adx_change'] > 0).replace({True: 1, False: -1})
+  df['adx_status_day'] = sda(df['adx_status'], zero_as=0)
   df['adx_change'] = normalize(df['adx_change'].abs()) * df['adx_status']
   # df['adx_power_change'] = df['adx_strength_change'].copy()
   # nud_idx = df.query('adx_value_change > 0 and adx_strength_change < 0 and adx_value < 10 and adx_direction_start < 0').index
