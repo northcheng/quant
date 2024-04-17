@@ -1162,7 +1162,7 @@ def calculate_ta_signal(df):
     '一般_down':          '(adx_change < 0)',
 
     '触底向上_up':        '(ichimoku_distance < 0 and (tankan_rate >= 0 and tankan_rate_none_zero > 0) and kijun_rate == 0)',
-    '触顶向下_down':      '(ichimoku_distance > 0 and (taknan_rate <= 0 and tankan_rate_none_zero < 0) and kijun_rate == 0 and adx_value > 10 and adx_direction < 0)'
+    '触顶向下_down':      '(ichimoku_distance > 0 and (tankan_rate <= 0 and tankan_rate_none_zero < 0) and kijun_rate == 0 and adx_value > 10 and adx_direction < 0)'
 
     # # 一般情况
     # '趋势上行_up':      f'(adx_direction > 0) and ((adx_value < 0 and adx_power_day < 0) or (adx_value > 10 and adx_power_day > 0))',
