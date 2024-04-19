@@ -68,17 +68,17 @@
       "signals": {
         "signal_list": [  
 
-          "kama_distance",
           "kama_slow",
           "kama_fast",
-          "ichimoku_distance",
           "kijun",
           "tankan",  
+          "adx_power",
+          "adx_direction",
 
           "-----",
           "kama",
           "ichimoku",
-          "adx",  
+          "adx", 
 
           "-----",
           "support_score",
@@ -88,8 +88,8 @@
           "resistant_score",
 
           "-----",
-          "overall",
-          "trigger_score",
+          "overall", 
+          "trigger",
           " "
         ]
       },
