@@ -1708,7 +1708,7 @@ def wma(series, periods, fillna=False):
   :raises: none
   """
   weight = pd.Series([i * 2 / (periods * (periods + 1)) for i in range(1, periods + 1)])
-  weighted_average = sm(series=series, periods=periods).apply(lambda x: (weight * x).sum(), raw=True)
+  weighted_average = sm(series=series, periods=periods, fillna=fillna).apply(lambda x: (weight * x).sum(), raw=True)
   return weighted_average
 
 # same direction accumulation
@@ -5676,8 +5676,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     #         ax.scatter(tmp_data.index, tmp_data[signal_y], marker='o', color='none', edgecolor='red', alpha=alpha)
 
   # legend and title
-  ax.legend(loc='upper left')  
-  
+  ax.legend(loc='upper left') 
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
   ax.grid(True, axis='x', linestyle='-', linewidth=0.5, alpha=0.1)
   ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])

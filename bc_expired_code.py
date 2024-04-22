@@ -79,22 +79,34 @@
   'signal', 'signal_description', 'signal_day', 'signal_rank', 'signal_rank_description'
  ]
 
-#20240416 updated
+#20240419 updated
 [
+  # sec_data
+  'Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume', 'Dividend', 'Split', 
 
-  'Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume', 'Dividend', 'Split', 'symbol', 'rate', 
+  # preprocess()
+  'symbol', 
+  
+  # calculate_ta_basic: cal_change_rate()
+  'rate',  
 
+  # calculate_ta_basic: add_candlestick_features()
   'candle_color', 
   'candle_shadow', 
   'candle_entity', 'candle_entity_top', 'candle_entity_bottom',
   'candle_upper_shadow_pct', 'candle_lower_shadow_pct', 'candle_entity_pct', 'candle_entity_middle', 'candle_gap',
-        
   'candle_gap_color', 'candle_gap_top', 'candle_gap_bottom', 
 
+  # calculate_ta_basic()
+  ## add_ichimoku_features
   'tankan', 'kijun', 'senkou_a', 'senkou_b', 'chikan', 
+  ## add_kama_features
   'kama_fast', 'kama_slow', 
+  ## add_adx_features
   'tr', 'atr', 'adx_value', 'adx_strength', 
 
+  # calculate_ta_static()
+  ## ichimoku & kama
   'ichimoku_distance', 'ichimoku_distance_change', 
   'tankan_rate', 'tankan_day', 
   'kijun_rate', 'kijun_day', 
@@ -108,10 +120,10 @@
   '相对kama位置', 
 
   'position',
-
   'tankan_rate_none_zero', 'kijun_rate_none_zero', 
   'kama_fast_rate_none_zero', 'kama_slow_rate_none_zero',
 
+  ## adx
   'adx_value_change', 'adx_direction', 'adx_direction_day', 
   'adx_strength_change', 'adx_power', 'adx_power_day',
   'adx_value_prediction', 
@@ -119,17 +131,18 @@
   'adx_strong_day', 'adx_wave_day', 
   'adx_trend', 
 
-  'ichimoku_day', 
-  'kama_day', 
-  'adx_day',
+  ## trend_days
+  'ichimoku_day', 'kama_day', 'adx_day',
 
+  # calculate_ta_dynamic()
+  ## add_renko_features()
   'renko_o', 'renko_h', 'renko_l', 'renko_c', 'renko_color', 'renko_real',
   'renko_distance', 'renko_brick_number', 'renko_day', 
   'renko_start', 'renko_end', 
   '相对renko位置', 
 
+  # add_candle_patterns()
   'shadow_trend', 'entity_trend', 
-
   '窗口_trend', '窗口_day', 
   '十字星', '锤子', 
   '十字星_trend', '十字星_day', 
@@ -141,13 +154,13 @@
   '吞噬_trend', '吞噬_day', 
   '包孕_trend', '包孕_day', 
   '启明黄昏_trend', '启明黄昏_day', 
-
   '相对gap位置', 
   '相对candle位置', 'candle_position_score', 
   'up_pattern_score', 'up_pattern_description', 
   'down_pattern_score', 'down_pattern_description',
   'pattern_score', 
 
+  ## add_support_resistance()
   'support_score', 'support_description', 
   'resistant_score', 'resistant_description',
   'break_up_score', 'break_up_description', 
@@ -172,9 +185,9 @@
 
   'resistant', 'resistanter', 
   'support', 'supporter', 
-  # 'key_col_up', 'key_col_down'
-  'boundary', 'break', 
+  'boundary_score', 'break_score',
 
+  # calculate_ta_score()
   'trend_score', 'trend_status',
   'trigger_score', 'trigger_day', 
   'position_score', 'position_score_description',
@@ -193,19 +206,19 @@
   'middle_trend', 'middle_day', 'middle_trend_score_change', 
   'long_trend', 'long_day', 'long_trend_score_change', 
   'trend', 'trend_day', 'trend_score_change',
-  # 'kir_distance', 
-
-  'adx_change', 'adx_status', 
+  'kir_distance', 
+ 
+  # calculate_ta_signal()
+  'adx_direction_change', 'adx_power_change',
+  'adx_change', 'adx_status', 'adx_status_day',
   'ichimoku_status', 'ichimoku_change', 
   'kama_status', 'kama_change', 
   'overall_change', 'overall_status', 
 
   'potential', 'potential_score', 'potential_description', 
   '一般_up', '一般_down', 
-  '突破失败_down', 
-  '触顶回落_down',
-  '窗口阻挡_down', 
-  '长上影线_down', 
+  '触底_up', '触顶_down',
+  '只有_up', '只有_down'
 
   'signal', 'signal_description', 'signal_day',
   'rank_up_score', 'rank_up_score_description',
