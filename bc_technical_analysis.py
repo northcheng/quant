@@ -2886,6 +2886,37 @@ def add_support_resistance(df, target_col=default_support_resistant_col, perspec
   df['break_down_score'] = 0
   df['break_down_description'] = ''
 
+  # ================================ breakthorough =====================================
+  for col in target_col:
+
+    df[f'{col}_break_up'] = 0
+    df[f'{col}_break_down'] = 0
+
+    up_query = f'({col}_day == 1) and (十字星 == "n" or (十字星 != "n" and candle_entity_bottom > {col}))'
+    if 'renko_h' in col:
+      up_query += ' or (renko_real == "green")'
+    elif 'candle_gap' in col:
+      up_query += ' and (窗口_day != 1)'
+    else:
+      pass
+    break_up_idx = df.query(up_query).index # entity_diff > -0.5 and 
+    df.loc[break_up_idx, 'break_up_description'] += f'{col}, '
+    df.loc[break_up_idx, f'{col}_break_up'] += 1
+
+    down_query = f'({col}_day == -1) and (十字星 == "n" or (十字星 != "n" and candle_entity_top < {col}))'
+    if 'renko' in col:
+      down_query += ' or (renko_real == "red")'
+    elif 'candle_gap' in col:
+      down_query += ' and (窗口_day != -1)'
+    else:
+      pass
+    break_down_idx = df.query(down_query).index # entity_diff > -0.5 and 
+    df.loc[break_down_idx, 'break_down_description'] += f'{col}, '
+    df.loc[break_down_idx, f'{col}_break_down'] -= 1
+
+  df['break_up_description'] = df['break_up_description'].apply(lambda x: ', '.join(list(set(x[:-2].split(', ')))))
+  df['break_down_description'] = df['break_down_description'].apply(lambda x: ', '.join(list(set(x[:-2].split(', ')))))
+
   # ================================ intra-day support and resistant ===================
   # calculate support
   distance_threshold = 0.0075
@@ -2896,25 +2927,31 @@ def add_support_resistance(df, target_col=default_support_resistant_col, perspec
     df[f'{tmp_col}_support'] = 0
     support_query = f'''
     (
-      (
-        (candle_color == 1 and mid_price > {tmp_col}) or 
-        (candle_color == -1 and Close > {tmp_col})
-      ) and 
-      (
-        (candle_lower_shadow_pct > {shadow_pct_threhold}) or 
-        (candle_lower_shadow_pct > candle_upper_shadow_pct)
-      ) and 
-      (
-        (十字星 == "n") or 
-        (十字星 != "n" and Low > {tmp_col}) 
-      ) and
-      (
-        ({col} < {distance_threshold})
-      )
-    ) or 
+      (candle_entity_bottom > {tmp_col}) and
+      ({tmp_col}_break_up == 0)
+    ) and
     (
-      (candle_color == 1 and {tmp_col}_day != 1) and
-      ({col} < {distance_threshold_strict})
+      (
+        (
+          (candle_color == 1 and mid_price > {tmp_col}) or 
+          (candle_color == -1 and Close > {tmp_col})
+        ) and 
+        (
+          (candle_lower_shadow_pct > {shadow_pct_threhold}) or 
+          (candle_lower_shadow_pct > candle_upper_shadow_pct)
+        ) and 
+        (
+          (十字星 == "n") or 
+          (十字星 != "n" and Low > {tmp_col}) 
+        ) and
+        (
+          ({col} < {distance_threshold})
+        )
+      ) or 
+      (
+        (candle_color == 1 and {tmp_col}_day != 1) and
+        ({col} < {distance_threshold_strict})
+      )
     )
     '''.replace('\n', ' ')
     support_idx = df.query(support_query).index.tolist()
@@ -2927,25 +2964,31 @@ def add_support_resistance(df, target_col=default_support_resistant_col, perspec
     df[f'{tmp_col}_resistant'] = 0
     resistant_query = f'''
     (
+      (candle_entity_top < {tmp_col}) and
+      ({tmp_col}_break_down == 0)
+    ) and
+    (
       (
-        (candle_color == -1 and mid_price < {tmp_col}) or 
-        (candle_color == 1 and Close < {tmp_col})
-      ) and 
+        (
+          (candle_color == -1 and mid_price < {tmp_col}) or 
+          (candle_color == 1 and Close < {tmp_col})
+        ) and 
+        (
+          (candle_upper_shadow_pct > {shadow_pct_threhold}) or 
+          (candle_upper_shadow_pct > candle_lower_shadow_pct)
+        ) and 
+        (
+          ({col} < {distance_threshold})
+        )
+      ) or 
       (
-        (candle_upper_shadow_pct > {shadow_pct_threhold}) or 
-        (candle_upper_shadow_pct > candle_lower_shadow_pct)
-      ) and 
+        (十字星 != "n") and 
+        (High > {tmp_col} > Low)
+      ) or
       (
-        ({col} < {distance_threshold})
+        (candle_color == -1 and {tmp_col}_day != -1) and
+        ({col} < {distance_threshold_strict})
       )
-    ) or 
-    (
-      (十字星 != "n") and 
-      (High > {tmp_col} > Low)
-    ) or
-    (
-      (candle_color == -1 and {tmp_col}_day != -1) and
-      ({col} < {distance_threshold_strict})
     )
     '''.replace('\n', ' ')
     resistant_idx = df.query(resistant_query).index.tolist()
@@ -2955,14 +2998,14 @@ def add_support_resistance(df, target_col=default_support_resistant_col, perspec
   # ================================ in-day support and resistant ======================
   for col in target_col:
     
-    up_query = f'((Open > {col} and Low < {col} and Close > {col}) or ({col}_day != 1 and Open < {col} and Close > {col})) and ({col}_support == 0)'
+    up_query = f'((Open > {col} and Low < {col} and Close > {col}) or ({col}_day != 1 and Open < {col} and Close > {col})) and ({col}_support == 0) and (candle_entity_bottom > {col}) and ({col}_break_up == 0)'
     if 'renko' in col:
       up_query += ' and (renko_real != "red")'
     support_idx = df.query(up_query).index
     df.loc[support_idx, 'support_description'] += f'{col}, '
     df.loc[support_idx, f'{col}_support'] += 1
     
-    down_query = f'((Open < {col} and High > {col} and Close < {col}) or ({col}_day != -1 and Open > {col} and Close < {col})) and ({col}_resistant == 0)'
+    down_query = f'((Open < {col} and High > {col} and Close < {col}) or ({col}_day != -1 and Open > {col} and Close < {col})) and ({col}_resistant == 0) and (candle_entity_top < {col}) and ({col}_break_down == 0)'
     if 'renko' in col:
       down_query += ' and (renko_real != "green")'
     resistant_idx = df.query(down_query).index
@@ -2971,29 +3014,6 @@ def add_support_resistance(df, target_col=default_support_resistant_col, perspec
 
   df['support_description'] = df['support_description'].apply(lambda x: ', '.join(list(set(x[:-2].split(', ')))))
   df['resistant_description'] = df['resistant_description'].apply(lambda x: ', '.join(list(set(x[:-2].split(', ')))))
-
-  # ================================ breakthorough =====================================
-  for col in target_col:
-
-    df[f'{col}_break_up'] = 0
-    df[f'{col}_break_down'] = 0
-
-    up_query = f'({col}_day == 1) and (十字星 == "n" or (十字星 != "n" and candle_entity_bottom > {col}))'
-    if 'renko_h' in col:
-      up_query += ' or (renko_real == "green")'
-    break_up_idx = df.query(up_query).index # entity_diff > -0.5 and 
-    df.loc[break_up_idx, 'break_up_description'] += f'{col}, '
-    df.loc[break_up_idx, f'{col}_break_up'] += 1
-
-    down_query = f'({col}_day == -1) and (十字星 == "n" or (十字星 != "n" and candle_entity_top < {col}))'
-    if 'renko' in col:
-      down_query += ' or (renko_real == "red")'
-    break_down_idx = df.query(down_query).index # entity_diff > -0.5 and 
-    df.loc[break_down_idx, 'break_down_description'] += f'{col}, '
-    df.loc[break_down_idx, f'{col}_break_down'] -= 1
-
-  df['break_up_description'] = df['break_up_description'].apply(lambda x: ', '.join(list(set(x[:-2].split(', ')))))
-  df['break_down_description'] = df['break_down_description'].apply(lambda x: ', '.join(list(set(x[:-2].split(', ')))))
   
   # ================================ supporter and resistanter =========================
   # add support/supporter, resistant/resistanter for the last row
