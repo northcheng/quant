@@ -884,8 +884,8 @@ def calculate_ta_score(df):
 
   # ================================ calculate trigger/position score =======
   # support/resistant, break_up/bread_down, candle_pattern description
-  df['up_score'] = df['support_score'] + df['break_up_score']
-  df['down_score'] = df['resistant_score'] + df['break_down_score']
+  df['up_score'] = df['break_up_score'] + df['support_score'] * 0.66
+  df['down_score'] = df['break_down_score'] + df['resistant_score'] * 0.66
   df['up_score_description'] = ''
   df['down_score_description'] = ''
   names = {'support':'+支撑', 'resistant': '-阻挡', 'break_up': '+突破', 'break_down': '-跌落', 'up_pattern': '+蜡烛', 'down_pattern': '-蜡烛'}
@@ -1103,19 +1103,11 @@ def calculate_ta_signal(df):
                   (adx_value_change < 0 and adx_strength_change < 0 and adx_value < 0) or
                   (adx_value_change < 0 and adx_strength_change > 0 and adx_value < 0)
                   '''.replace('\n', '')
-  # nud_idx = df.query('adx_value_change > 0 and adx_strength_change < 0 and adx_value < 10 and adx_direction_start < 0').index
-  # df.loc[nud_idx, 'adx_power_change'] = df.loc[nud_idx, 'adx_power_change'].abs()
 
-  # nuu_idx = df.query('adx_value_change > 0 and adx_strength_change > 0 and adx_value < 0').index
-  # df.loc[nuu_idx, 'adx_power_change'] = df.loc[nuu_idx, 'adx_power_change'].abs() * -1
-
-  # ndd_idx = df.query('adx_value_change < 0 and adx_strength_change < 0 and adx_value < 0').index
-  # df.loc[ndd_idx, 'adx_power_change'] = df.loc[ndd_idx, 'adx_power_change'].abs() * -1
-
-  # ndu_idx = df.query('adx_value_change < 0 and adx_strength_change > 0 and adx_value < 0').index
-  # df.loc[ndu_idx, 'adx_power_change'] = df.loc[ndu_idx, 'adx_power_change'].abs() * -1
   reverse_idx = df.query(reverse_query).index
   df.loc[reverse_idx, 'adx_power_change'] = df.loc[reverse_idx, 'adx_power_change'] * -1
+  col_symbol = (df['adx_power_change'] > 0).replace({True: 1, False: -1})
+  df['adx_power_change'] = normalize(df['adx_power_change'].abs()) * col_symbol
 
   # ichimoku / kama
   for idx in ['kama', 'ichimoku']:
@@ -1140,18 +1132,13 @@ def calculate_ta_signal(df):
     df[result_col] = 0
     for col in [fl_rate, sl_rate]:
       # col_symbol = (df[col] > 0).replace({True: 1, False: -1})
+      # df[result_col] += normalize(df[col].abs()) * col_symbol
       df[result_col] += df[col]
 
     col_symbol = (df[result_col] > 0).replace({True: 1, False: -1})
     df[result_col] = normalize(df[result_col].abs()) * col_symbol # * df[status_col]
 
-    # threshold = 0.001
-    # up_idx = df.query(f'({fl_rate} > {threshold} and {sl_rate} > {threshold}) or ({fl_rate} > {threshold} and {dc} > 0)').index
-    # df.loc[up_idx, result_col] = df.loc[up_idx, result_col].abs()
-
-    # down_idx = df.query(f'({fl_rate} < {threshold} and {sl_rate} < {threshold}) or ({fl_rate} < {threshold} and {dc} < 0)').index
-    # df.loc[down_idx, result_col] = -(df.loc[down_idx, result_col].abs())
-  
+  # overall  
   df['overall_change'] = df['adx_change'] + df['ichimoku_change'] + df['kama_change']
   df['overall_status'] = df['adx_status'] + df['ichimoku_status'] + df['kama_status']
   col_symbol = (df['overall_status'] > 0).replace({True: 1, False: -1})
@@ -1167,15 +1154,38 @@ def calculate_ta_signal(df):
   df['potential_description'] = ''
   potential_conditions = {
 
-    '一般_up':            '(overall_change > 0)',
-    '一般_down':          '(overall_change < 0)',
-
+    '整体_up':            '(overall_change > 0)',
     '触底_up':            '(ichimoku_distance < 0 and (tankan_rate >= 0 and tankan_rate_none_zero > 0) and kijun_rate == 0)',
+    '所有_up':            '(trigger_score > 0) and (resistant_score == 0 and break_down_score == 0 and down_pattern_score == 0) and (boundary_score > 0 or break_score > 0 or pattern_score > 0)',
+    '影线_up':            '''
+                          (
+                            (support_score > 0) and 
+                            (candle_lower_shadow_pct > 0.5) and 
+                            (
+                              (相对renko位置 in ["up"]) or 
+                              (相对kama位置 in ["up"]) or 
+                              (相对ichimoku位置 in ["up"])
+                            ) 
+                          )
+                          '''.replace('\n', ''),
+
+    '整体_down':          '(overall_change < 0)',
     '触顶_down':          '(ichimoku_distance > 0 and (tankan_rate <= 0 and tankan_rate_none_zero < 0) and kijun_rate == 0 and adx_value > 10 and adx_direction < 0)',
-
-    '只有_up':            '(trigger_score > 0) and (resistant_score == 0 and break_down_score == 0 and down_pattern_score == 0) and (boundary_score > 0 or break_score > 0 or pattern_score > 0)',
-    '只有_down':          '(trigger_score < 0) and (support_score == 0 and break_up_score == 0 and up_pattern_score == 0) and (boundary_score < 0 or break_score < 0 or pattern_score < 0)',
-
+    '所有_down':          '(trigger_score < 0) and (support_score == 0 and break_up_score == 0 and up_pattern_score == 0) and (boundary_score < 0 or break_score < 0 or pattern_score < 0)',
+    '影线_down':          '''
+                          (
+                            (resistant_score < 0 or break_up_score > 0) and 
+                            (
+                              (candle_upper_shadow_pct > 0.5) or
+                              (candle_upper_shadow_pct > 0.3 and candle_lower_shadow_pct < 0.1)
+                            ) and 
+                            (
+                              (相对renko位置 in ["mid_up", "mid", "mid_down"]) or 
+                              (相对kama位置 in ["mid_up", "mid", "mid_down"]) or 
+                              (相对ichimoku位置 in ["mid_up", "mid", "mid_down"])
+                            ) 
+                          )
+                          '''.replace('\n', ''),     
     # # 一般情况
     # '趋势上行_up':      f'(adx_direction > 0) and ((adx_value < 0 and adx_power_day < 0) or (adx_value > 10 and adx_power_day > 0))',
 
@@ -1226,20 +1236,9 @@ def calculate_ta_signal(df):
     #                       ) 
     #                     )
     #                     '''.replace('\n', ''),   
-
-    #   '长上影线_down':   f'''
-    #                     (
-    #                       (resistant_score < 0 or break_up_score > 0) and 
-    #                       (candle_upper_shadow_pct > 0.5) and 
-    #                       (
-    #                         (相对renko位置 in ["up"]) or 
-    #                         (相对kama位置 in ["up"]) or 
-    #                         (相对ichimoku位置 in ["up"])
-    #                       ) 
-    #                     )
-    #                     '''.replace('\n', ''),               
-
   } 
+  df['potential_up'] = ''
+  df['potential_down'] = ''
   for c in potential_conditions.keys():
     tmp_condition = potential_conditions[c]
     tmp_idx = df.query(tmp_condition).index
@@ -1250,14 +1249,18 @@ def calculate_ta_signal(df):
     if 'up' in c:
       df.loc[tmp_idx, 'potential'] = 'potential'
       df.loc[tmp_idx, 'potential_score'] += 1
+      df.loc[tmp_idx, 'potential_up'] += f'{c.replace("_up", "")}, '
       df.loc[tmp_idx, c] += 1
     elif 'down' in c:
       df.loc[tmp_idx, 'potential_score'] -= 1
+      df.loc[tmp_idx, 'potential_down'] += f'{c.replace("_down", "")}, '
       df.loc[tmp_idx, c] = -1
 
-    df.loc[tmp_idx, 'potential_description'] += f'{c}, '
+    # df.loc[tmp_idx, 'potential_description'] += f'{c}, '
+  df['potential_up'] = df['potential_up'].apply(lambda x: '+[' + x[:-2] + ']' if len(x) > 0 else '')
+  df['potential_down'] = df['potential_down'].apply(lambda x: '-[' + x[:-2] + ']' if len(x) > 0 else '')
 
-  df['potential_description'] = df['potential_description'].apply(lambda x: x[:-2])
+  df['potential_description'] = df['potential_up'] + ' | ' + df['potential_down']
   df['potential_score'] = df['potential_score'].round(2)
 
   # ================================ calculate signal =======================
@@ -3128,7 +3131,7 @@ def add_support_resistance(df, target_col=default_support_resistant_col, perspec
   for col in target_col:
     for idx in ['support', 'resistant', 'break_up', 'break_down']:
       tmp_col = f'{col}_{idx}'
-      tmp_value = df[tmp_col] * (1 if col in key_cols else 0.33)
+      tmp_value = df[tmp_col] * (1 if col in key_cols else 0.66)
 
       score_col = f'{idx}_score'
       df[score_col] += tmp_value
@@ -5478,7 +5481,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     ax.scatter(sell_data.index, sell_data[signal_y], marker='v', color='none', edgecolor='orange', alpha=0.5)
 
   # trigger
-  if signal_x == 'trigger':
+  if signal_x in ['trigger', 'momentum']:
 
     # trigger_score
     tmp_col_v = f'{signal_x}_score'
@@ -7017,8 +7020,9 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   #   else:
   #     print(f'unknown term {term}')
 
-  signal_desc = f'[{df.loc[max_idx, "potential_score"]}] : {df.loc[max_idx, "potential_description"]} | {df.loc[max_idx, "signal_description"]}'
+  signal_desc = f'[{df.loc[max_idx, "potential_score"]}] : {df.loc[max_idx, "potential_description"]} | {df.loc[max_idx, "signal_description"]}' #  | [S({df.loc[max_idx, "support_score"]}), U({df.loc[max_idx, "break_up_score"]}), D({df.loc[max_idx, "break_down_score"]}), R({df.loc[max_idx, "support_score"]})]
   signal_desc = signal_desc.replace(', ]', ']')#.replace('; ', '')
+  signal_desc = signal_desc[:-2] if signal_desc[-2:] == '| ' else signal_desc
 
   trigger_desc = f'[{df.loc[max_idx, "trigger_score"]}] : {df.loc[max_idx, "up_score_description"]} | {df.loc[max_idx, "down_score_description"]}'
   # inday_desc = inday_desc.replace(', ', '')#.replace('; ', '')
