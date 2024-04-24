@@ -5890,7 +5890,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
   # get indexes and max index
   idxs = df.index.tolist()
   max_idx = idxs[-1]
-  annotation_idx = max_idx + datetime.timedelta(days=1)
+  annotation_idx = max_idx + datetime.timedelta(days=3)
   min_idx = df.index.min()
   padding = (df.High.max() - df.Low.min()) / 100
 
@@ -5971,7 +5971,9 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
 
     # annotate resistant
     if df.loc[max_idx, 'resistanter'] is not None and df.loc[max_idx, 'resistanter'] > '':
-      resistant_score = int(abs(df.loc[max_idx, 'resistant_score']))
+      resistants = df.loc[max_idx, 'resistant_description'].split(', ') if df.loc[max_idx, 'resistant_description'] is not None else []
+      resistants = [x for x in resistants if x != '']
+      resistant_score = len(resistants)
       y_resistant = df.loc[max_idx, 'resistant'].round(2)
       y_text_resistant = y_resistant
 
@@ -5982,7 +5984,9 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
     
     # annotate support 
     if df.loc[max_idx, 'supporter'] is not None and df.loc[max_idx, 'supporter'] > '':
-      support_score = int(abs(df.loc[max_idx, 'support_score']))
+      supports = df.loc[max_idx, 'support_description'].split(', ') if df.loc[max_idx, 'support_description'] is not None else []
+      supports = [x for x in supports if x != '']
+      support_score = len(supports)
       y_support = df.loc[max_idx, 'support'].round(2)
       y_text_support = y_support
       
@@ -6196,7 +6200,7 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   support_resistant_cols = ['Close', 'support', 'supporter', 'support_score', 'resistant', 'resistanter', 'resistant_score']
   current_idx = max_idx
   next_idx = None
-  period = 3
+
   if interval == "day":
     
     # pred = add_ma_linear_features(df, period=period, target_col=ext_columns)
@@ -6311,7 +6315,7 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   
   # plot candlestick
   if 'candlestick' in target_indicator:
-    ax = plot_candlestick(df=df, start=start, end=end, date_col=date_col, add_on=add_on, ohlcv_col=ohlcv_col, color=candlestick_color, use_ax=ax, plot_args=plot_args, interval=interval)
+    ax = plot_candlestick(df=df[:-extended], start=start, end=end, date_col=date_col, add_on=add_on, ohlcv_col=ohlcv_col, color=candlestick_color, use_ax=ax, plot_args=plot_args, interval=interval)
   
   # plot mask for extended
   if extended is not None:
