@@ -1087,7 +1087,8 @@ def calculate_ta_signal(df):
     print(f'No data for calculate_ta_signal')
     return None
 
-  
+  col_to_drop = []
+
   # ================================ normalized trend score =================
   # adx
   df['adx_change'] = df['adx_value'] - df['adx_value_prediction']
@@ -1259,6 +1260,7 @@ def calculate_ta_signal(df):
     # df.loc[tmp_idx, 'potential_description'] += f'{c}, '
   df['potential_up'] = df['potential_up'].apply(lambda x: '+[' + x[:-2] + ']' if len(x) > 0 else '')
   df['potential_down'] = df['potential_down'].apply(lambda x: '-[' + x[:-2] + ']' if len(x) > 0 else '')
+  col_to_drop += ['potential_up', 'potential_down']
 
   df['potential_description'] = df['potential_up'] + ' | ' + df['potential_down']
   df['potential_score'] = df['potential_score'].round(2)
@@ -1321,9 +1323,17 @@ def calculate_ta_signal(df):
 
     # B|S: 去除过于微弱的信号  
     '变化微弱':       '''
-                      (signal == "b" or signal == "s") and
                       (
+                        (signal == "b" or signal == "s") and
                         (-0.01 <= overall_change <= 0.01)
+                      ) or
+                      (
+                        (signal == "b") and
+                        (adx_strong_day < 0 and adx_wave_day > 0) and 
+                        (
+                          (candle_color == -1) and
+                          (resistant_score < 0 or position_score <= -6)
+                        )
                       )
                       '''.replace('\n', ''),
 
@@ -1473,12 +1483,12 @@ def calculate_ta_signal(df):
   df['signal_rank_description'] = df['rank_up_score_description'] + ' | ' + df['rank_down_score_description']
 
   # drop redundant columns
-  col_to_drop = [
+  # col_to_drop = [
     # 'up_pattern_score', 'down_pattern_score', 'up_pattern_description', 'down_pattern_description',
     # # 'up_score', 'down_score', 'up_score_description', 'down_score_description',
     # 'candle_position_score',
     # 'rank_up_score', 'rank_down_score', 'rank_up_score_description', 'rank_down_score_description'
-  ]
+  # ]
   # target_cols = default_support_resistant_col
   # for col in target_cols:
   #   for idx in ['support', 'resistant', 'break_up', 'break_down']:
@@ -3149,10 +3159,10 @@ def add_support_resistance(df, target_col=default_support_resistant_col, perspec
 
       # col_to_drop.append(tmp_col)
 
-  # drop unnecessary columns
-  for col in col_to_drop:
-    if col in df.columns:
-      df.drop(col, axis=1, inplace=True)
+  # # drop unnecessary columns
+  # for col in col_to_drop:
+  #   if col in df.columns:
+  #     df.drop(col, axis=1, inplace=True)
 
   return df
 
@@ -5890,7 +5900,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
   # get indexes and max index
   idxs = df.index.tolist()
   max_idx = idxs[-1]
-  annotation_idx = max_idx + datetime.timedelta(days=3)
+  annotation_idx = max_idx + datetime.timedelta(days=1)
   min_idx = df.index.min()
   padding = (df.High.max() - df.Low.min()) / 100
 
@@ -5962,7 +5972,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
     y_close_padding = padding*5
     y_close = df.loc[max_idx, 'Close'].round(2)
     y_text_close = y_close
-    plt.annotate(f'   {y_close}', xy=(annotation_idx, y_text_close), xytext=(annotation_idx, y_text_close), fontsize=13, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", alpha=0))
+    plt.annotate(f'{y_close}', xy=(annotation_idx, y_text_close), xytext=(annotation_idx, y_text_close), fontsize=13, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", alpha=0))
 
     y_resistant = None
     y_text_resistant = None
@@ -6188,16 +6198,14 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   :raises: none
   """
   # copy dataframe within a specific period
-  ohlc_df = df[start:end].copy()
   max_idx = df.index.max()
   
   # add extention data
   extended = 2
   ext_columns = ['tankan', 'kijun', 'kama_fast', 'kama_slow']
-  ext_renko = 'renko_real' in df.columns
   renko_cols = ['renko_color', 'renko_o', 'renko_h', 'renko_l', 'renko_c',  'renko_start', 'renko_distance', 'renko_brick_number']
   candle_gap_cols = ['candle_gap', 'candle_gap_top', 'candle_gap_bottom']
-  support_resistant_cols = ['Close', 'support', 'supporter', 'support_score', 'resistant', 'resistanter', 'resistant_score']
+  support_resistant_cols = ['Close', 'support', 'supporter', 'support_score', 'support_description', 'resistant', 'resistanter', 'resistant_score', 'resistant_description']
   current_idx = max_idx
   next_idx = None
 
@@ -6208,19 +6216,17 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
     for i in range(extended):
 
       next_idx = current_idx + datetime.timedelta(days = 1)
-
       df.loc[next_idx, candle_gap_cols] = df.loc[max_idx, candle_gap_cols]
       df.loc[next_idx, support_resistant_cols] = df.loc[max_idx, support_resistant_cols]
       df.loc[next_idx, ext_columns] = df.loc[max_idx, ext_columns]
-      if ext_renko:
-        df.loc[next_idx, renko_cols] = df.loc[max_idx, renko_cols]
-        df.loc[next_idx, 'renko_real'] = np.nan
-        
       # for ec in ext_columns:
       #   slope = pred[ec][0]
       #   intercept = pred[ec][1]
-      #   df.loc[next_idx, ec] = (period + i + 1) * ( slope) + intercept   
-      
+      #   df.loc[next_idx, ec] = (period + i + 1) * ( slope) + intercept  
+      if 'renko_real' in df.columns:
+        df.loc[next_idx, 'renko_real'] = np.nan
+        df.loc[next_idx, renko_cols] = df.loc[max_idx, renko_cols]
+
       current_idx = next_idx
 
   else:
@@ -6315,7 +6321,7 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   
   # plot candlestick
   if 'candlestick' in target_indicator:
-    ax = plot_candlestick(df=df[:-extended], start=start, end=end, date_col=date_col, add_on=add_on, ohlcv_col=ohlcv_col, color=candlestick_color, use_ax=ax, plot_args=plot_args, interval=interval)
+    ax = plot_candlestick(df=df, start=start, end=end, date_col=date_col, add_on=add_on, ohlcv_col=ohlcv_col, color=candlestick_color, use_ax=ax, plot_args=plot_args, interval=interval)
   
   # plot mask for extended
   if extended is not None:
