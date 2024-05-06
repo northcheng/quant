@@ -1095,6 +1095,7 @@ def calculate_ta_signal(df):
   df['adx_status'] = (df['adx_change'] > 0).replace({True: 1, False: -1})
   df['adx_status_day'] = sda(df['adx_status'], zero_as=0)
   df['adx_change'] = normalize(df['adx_change'].abs()) * df['adx_status']
+  df['adx_change_day'] = sda((df['adx_change'] > 0).replace({True: 1, False: -1}), zero_as=1)
   
   df['adx_direction_change'] = df['adx_change'].copy()
   df['adx_power_change'] = df['adx_strength_change'].copy()
