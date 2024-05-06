@@ -1093,7 +1093,6 @@ def calculate_ta_signal(df):
   # adx
   df['adx_change'] = df['adx_value'] - df['adx_value_prediction']
   df['adx_status'] = (df['adx_change'] > 0).replace({True: 1, False: -1})
-  df['adx_status_day'] = sda(df['adx_status'], zero_as=0)
   df['adx_change'] = normalize(df['adx_change'].abs()) * df['adx_status']
   df['adx_change_day'] = sda((df['adx_change'] > 0).replace({True: 1, False: -1}), zero_as=1)
   
@@ -1110,6 +1109,8 @@ def calculate_ta_signal(df):
   df.loc[reverse_idx, 'adx_power_change'] = df.loc[reverse_idx, 'adx_power_change'] * -1
   col_symbol = (df['adx_power_change'] > 0).replace({True: 1, False: -1})
   df['adx_power_change'] = normalize(df['adx_power_change'].abs()) * col_symbol
+
+  df['adx_syn'] = df['adx_direction_day'] - df['adx_power_day'] * col_symbol
 
   # ichimoku / kama
   for idx in ['kama', 'ichimoku']:
