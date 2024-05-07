@@ -1111,6 +1111,13 @@ def calculate_ta_signal(df):
   df['adx_power_change'] = normalize(df['adx_power_change'].abs()) * col_symbol
 
   df['adx_syn'] = df['adx_direction_day'] + df['adx_power_day']
+  # up_0_idx = df.query('(adx_direction_start < -10 and adx_direction_day > 0 and adx_syn == 0)').index
+  # up_1_idx = df.query('(adx_direction_start < -10 and adx_direction_day > 0 and (adx_syn == 1 or adx_syn == -1))').index
+  # down_0_idx = df.query('adx_direction_day < 0 and ((adx_value < 0 and adx_syn == 0) or (adx_value > 0 and adx_power_day == adx_direction_day))').index
+  # down_1_idx = df.query('adx_direction_day < 0 and ((adx_value < 0 and (adx_syn == 1 or adx_syn == -1)) or (adx_power_day-adx_direction_day == 1 or adx_power_day-adx_direction_day == -1))').index
+  # df['adx_syn'] = np.nan
+  # df.loc[up_0_idx, 'adx_syn'] = 0
+
 
   # ichimoku / kama
   for idx in ['kama', 'ichimoku']:
@@ -1443,7 +1450,7 @@ def calculate_ta_signal(df):
   df['rank_down_score'] = 0
   rank_conditions = {
 
-    '+adx_syn':         [s, '', '(adx_direction_start < -10 and adx_direction_day > 0 and adx_syn == 0)'],
+    '+adx_syn':         [s, '', '(adx_direction_start < -10 and adx_direction_day > 0 and -1 <= adx_syn <= 1)'],
     '-adx_wave':        [-s, '', '(adx_strong_day < 0)'],
     '-adx_wake':        [-s, '', '(adx_wave_day > 0)'],
     '-renko':           [-s, '', '(renko_day > 50 or renko_day < -50)'],
