@@ -1110,7 +1110,7 @@ def calculate_ta_signal(df):
   col_symbol = (df['adx_power_change'] > 0).replace({True: 1, False: -1})
   df['adx_power_change'] = normalize(df['adx_power_change'].abs()) * col_symbol
 
-  df['adx_syn'] = df['adx_direction_day'] - df['adx_power_day'] * col_symbol
+  df['adx_syn'] = df['adx_direction_day'] + df['adx_power_day']
 
   # ichimoku / kama
   for idx in ['kama', 'ichimoku']:
@@ -1305,7 +1305,16 @@ def calculate_ta_signal(df):
                         )
                       )
                       '''.replace('\n', ''),
-                  
+
+    # B: 长期波动  
+    '长期波动':       '''
+                      (signal == "b") and
+                      (
+                        (renko_day > 50 or renko_day < -50) and
+                        (renko_color == "red" or 相对renko位置 in ["down", "mid_down", "mid", "mid_up"])
+                      )
+                      '''.replace('\n', ''),
+
     # B: 去下降趋势中的买入信号  
     '距离过大':       '''
                       (signal == "b") and
@@ -1413,6 +1422,7 @@ def calculate_ta_signal(df):
     none_signal_idx += tmp_idx.tolist()    
   none_signal_idx = list(set(none_signal_idx))
   df.loc[none_signal_idx, 'signal'] = 'n' + df.loc[none_signal_idx, 'signal']
+  df.loc[none_signal_idx, 'potential'] = 'none_potential'
   df['signal_description'] = df['signal_description'].apply(lambda x: x[:-2])
 
   # calculate signal day
@@ -1433,52 +1443,12 @@ def calculate_ta_signal(df):
   df['rank_down_score'] = 0
   rank_conditions = {
 
-    '+adx_up':            [s, '', '(adx_direction > 0)'],
-    '+from_low':          [s, '', '(adx_direction_start < -10)'],
+    '+adx_syn':         [s, '', '(adx_direction_start < -10 and adx_direction_day > 0 and adx_syn == 0)'],
+    '-adx_wave':        [-s, '', '(adx_strong_day < 0)'],
+    '-adx_wake':        [-s, '', '(adx_wave_day > 0)'],
+    '-renko':           [-s, '', '(renko_day > 50 or renko_day < -50)'],
+    '-cross':           [-s, '', '(十字星 != "n")'],
     
-    '-weak':              [-s, '', '(adx_strong_day < 0)'],
-    '-power_down':        [-s, '', '(adx_value > 0 and adx_power_day < 0)'],
-    '-wave':              [-s, '', '(adx_direction > 0 and adx_value_change <= 0) or (adx_direction < 0 and adx_value_change >= 0) or (adx_wave_day > 0)'],
-
-    '+from_low':          [s, '', 'adx_direction > 0 and (adx_direction_start < 0 or adx_value < 0)'],
-    '-from_high':         [-s, '', 'adx_direction > 0 and (adx_direction_start > 0 and adx_value > 0)'],
-
-    '+kama_fast':         [s, '', '(kama_fast_rate > 0)'], 
-    '-kama_fast':         [-s, '', '(kama_fast_rate < 0)'],
-    '+kama_slow':         [s, '', '(kama_slow_rate > 0)'],
-    '-kama_slow':         [-s, '', '(kama_slow_rate < 0)'],
-    '+kama_change':       [s, '', '(kama_change > 0)'], 
-    '-kama_change':       [-s, '', '(kama_change < 0)'], 
-    '-kama_gap':          [-s, '', '(kama_distance < -0.15)'],
-
-    '+tankan':            [s, '', '(tankan_rate > 0)'], 
-    '-tankan':            [-s, '', '(tankan_rate < 0)'], 
-    '+kijun':             [s, '', '(kijun_rate > 0)'], 
-    '-kijun':             [-s, '', '(kijun_rate < 0)'], 
-    '+ichimoku_change':   [s, '', '(ichimoku_change > 0)'], 
-    '-ichimoku_change':   [-s, '', '(ichimoku_change < 0)'], 
-    '-ichimoku_gap':      [-s, '', '(ichimoku_distance < -0.1)'],
-
-    # '+trend':             [s, '', '(0 < trend_day < 3)'],
-    # '-trend':             [-s, '', '(0 > trend_day > -3)'],
-
-    # '+score':             [s, '', '(trend_score_change > 0)'],
-    # '-score':             [-s, '', '(trend_score_change < 0)'],
-
-    # '+short':             [s, '', '(short_trend_score > 0)'],
-    # '-short':             [-s, '', '(short_trend_score < 0)'],
-
-    '+price':             [s, '', '(candle_color == 1 and 相对candle位置 in ["up", "mid_up", "out"])'],
-    '-price':             [-s, '', '((candle_color == 1 and 相对candle位置 in ["down"]) or (candle_color == -1 and 相对candle位置 in ["mid_up", "mid", "mid_down", "down", "out"]))'],
-
-    '+candle_pattern':    [s, '', '(up_pattern_score > 0)'],
-    '-candle_pattern':    [-s, '', '(down_pattern_score < 0)'],
-
-    # '+short_score':       [s, '', '(short_trend_score_change > 0)'],
-    # '-short_score':       [-s, '', '(short_trend_score_change < 0)'],
-
-    '+short_score':       [s, '', '(trigger_score > 0)'],
-    '-short_score':       [-s, '', '(trigger_score < 0)'],
   }
   df = cal_score(df=df, condition_dict=rank_conditions, up_score_col='rank_up_score', down_score_col='rank_down_score')
   df['signal_rank'] = df['rank_up_score'] + df['rank_down_score']
