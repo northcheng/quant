@@ -1169,7 +1169,7 @@ def calculate_ta_signal(df):
     '所有_up':            '(trigger_score > 0) and (resistant_score == 0 and break_down_score == 0 and down_pattern_score == 0) and (boundary_score > 0 or break_score > 0 or pattern_score > 0)',
     '影线_up':            '''
                           (
-                            (support_score > 0) and 
+                            (support_score > 0 or break_up_score > 0) and 
                             (candle_lower_shadow_pct > 0.5) and 
                             (
                               (相对renko位置 in ["up"]) or 
@@ -1184,15 +1184,14 @@ def calculate_ta_signal(df):
     '所有_down':          '(trigger_score < 0) and (support_score == 0 and break_up_score == 0 and up_pattern_score == 0) and (boundary_score < 0 or break_score < 0 or pattern_score < 0)',
     '影线_down':          '''
                           (
-                            (resistant_score < 0 or break_up_score > 0) and 
                             (
                               (candle_upper_shadow_pct > 0.5) or
                               (candle_upper_shadow_pct > 0.3 and candle_lower_shadow_pct < 0.1)
                             ) and 
                             (
-                              (相对renko位置 in ["mid_up", "mid", "mid_down"]) or 
-                              (相对kama位置 in ["mid_up", "mid", "mid_down"]) or 
-                              (相对ichimoku位置 in ["mid_up", "mid", "mid_down"])
+                              (相对renko位置 in ["up", "out", "mid_up", "mid", "mid_down"]) or 
+                              (相对kama位置 in ["up", "out", "mid_up", "mid", "mid_down"]) or 
+                              (相对ichimoku位置 in ["up", "out", "mid_up", "mid", "mid_down"])
                             ) 
                           )
                           '''.replace('\n', ''),     
