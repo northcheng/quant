@@ -67,6 +67,9 @@
       },
       "signals": {
         "signal_list": [  
+          
+          "adx_syn",
+          "adx_pred_syn",
 
           "kama_slow",
           "kama_fast",

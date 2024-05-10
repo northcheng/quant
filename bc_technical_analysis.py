@@ -1095,6 +1095,9 @@ def calculate_ta_signal(df):
   df['adx_status'] = (df['adx_change'] > 0).replace({True: 1, False: -1})
   df['adx_change'] = normalize(df['adx_change'].abs()) * df['adx_status']
   df['adx_change_day'] = sda((df['adx_change'] > 0).replace({True: 1, False: -1}), zero_as=1)
+
+  df['adx_pred_syn'] = ((df['adx_change'] - df['adx_change'].shift(1)) > 0).replace({True: 1, False: -1})
+  df['adx_pred_syn'] = sda(df['adx_pred_syn'], zero_as=1)
   
   df['adx_direction_change'] = df['adx_change'].copy()
   df['adx_power_change'] = df['adx_strength_change'].copy()
@@ -1110,14 +1113,21 @@ def calculate_ta_signal(df):
   col_symbol = (df['adx_power_change'] > 0).replace({True: 1, False: -1})
   df['adx_power_change'] = normalize(df['adx_power_change'].abs()) * col_symbol
 
-  df['adx_syn'] = df['adx_direction_day'] + df['adx_power_day']
-  # up_0_idx = df.query('(adx_direction_start < -10 and adx_direction_day > 0 and adx_syn == 0)').index
-  # up_1_idx = df.query('(adx_direction_start < -10 and adx_direction_day > 0 and (adx_syn == 1 or adx_syn == -1))').index
-  # down_0_idx = df.query('adx_direction_day < 0 and ((adx_value < 0 and adx_syn == 0) or (adx_value > 0 and adx_power_day == adx_direction_day))').index
-  # down_1_idx = df.query('adx_direction_day < 0 and ((adx_value < 0 and (adx_syn == 1 or adx_syn == -1)) or (adx_power_day-adx_direction_day == 1 or adx_power_day-adx_direction_day == -1))').index
-  # df['adx_syn'] = np.nan
-  # df.loc[up_0_idx, 'adx_syn'] = 0
-
+  # df['adx_syn'] = df['adx_direction_day'] + df['adx_power_day']
+  conditions = {
+    'neg_u':      f'(adx_value < 0 and adx_direction_day > 0 and adx_power_day < 0)', 
+    'neg_d':      f'(adx_value < 0 and adx_direction_day < 0)',
+    'pos_u':      f'(adx_value >=0 and adx_direction_day > 0 and ((adx_value <= 10 and adx_power_day < 0 and adx_direction_start < -5) or (adx_value > 10 and adx_power_day > 0)))', 
+    'pos_d':      f'(adx_value >=0 and adx_direction_day < 0)',
+  } 
+  values = {
+    'neg_u':      1, 
+    'neg_d':      -1,
+    'pos_u':      1, 
+    'pos_d':      -1,
+  }
+  df = assign_condition_value(df=df, column='adx_syn', condition_dict=conditions, value_dict=values, default_value=0)
+  df['adx_syn'] = sda(df['adx_syn'], zero_as=1)
 
   # ichimoku / kama
   for idx in ['kama', 'ichimoku']:
@@ -5632,7 +5642,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', alpha=tmp_alpha)
 
   # support/resistant break_up/break_down
-  if signal_x in [ "support_score", "resistant_score", "break_up_score", "break_down_score", "pattern_score", 'overall_change']:
+  if signal_x in ["support_score", "resistant_score", "break_up_score", "break_down_score", "pattern_score", 'overall_change']:
 
     pos_marker = '.' if signal_x in ['break_up_score', 'break_down_score', 'pattern_score', 'overall_change'] else '^'
     neg_marker = '.' if signal_x in ['break_up_score', 'break_down_score', 'pattern_score', 'overall_change'] else 'v'
@@ -5685,6 +5695,27 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     #       tmp_data = df.query(f'({col} < {-threhold})')
     #       if len(tmp_data) > 0:
     #         ax.scatter(tmp_data.index, tmp_data[signal_y], marker='o', color='none', edgecolor='red', alpha=alpha)
+
+  if signal_x in ['adx_syn', 'adx_pred_syn']:
+    pos_marker = '.'
+    neg_marker = '.'
+    none_marker = '_'
+
+    tmp_col_v = f'{signal_x}'
+    tmp_col_a = f'{signal_x}_alpha'
+
+    df[tmp_col_a] = 1
+
+    threhold = 0
+    tmp_data = df.query(f'({tmp_col_v} > {threhold})')
+    if len(tmp_data) > 0:
+      # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=pos_marker, color='green', alpha=tmp_data[tmp_col_a].fillna(0))
+  
+    tmp_data = df.query(f'({tmp_col_v} < {-threhold})')
+    if len(tmp_data) > 0:
+      # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='red', alpha=tmp_data[tmp_col_a].fillna(0))
 
   # legend and title
   ax.legend(loc='upper left') 
