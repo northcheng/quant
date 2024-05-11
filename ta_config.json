@@ -68,9 +68,6 @@
       "signals": {
         "signal_list": [  
           
-          "adx_syn",
-          "adx_pred_syn",
-
           "kama_slow",
           "kama_fast",
           "kijun",
@@ -82,6 +79,8 @@
           "kama",
           "ichimoku",
           "adx", 
+          "adx_pred_syn",
+          "adx_syn",
 
           "-----",
           "support_score",
