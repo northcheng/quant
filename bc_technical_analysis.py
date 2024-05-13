@@ -5697,10 +5697,10 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     #       if len(tmp_data) > 0:
     #         ax.scatter(tmp_data.index, tmp_data[signal_y], marker='o', color='none', edgecolor='red', alpha=alpha)
 
-  if signal_x in ['adx_syn', 'adx_pred_syn']:
-    pos_marker = '.' if signal_x in ['adx_pred_syn'] else 'o'
-    neg_marker = '.' if signal_x in ['adx_pred_syn'] else 'o'
-    none_marker = '_' if signal_x in ['adx_pred_syn'] else '_'
+  if signal_x in ['adx_syn']:
+    pos_marker = 'o'
+    neg_marker = 'o'
+    none_marker = '_'
 
     tmp_col_v = f'{signal_x}'
     tmp_col_a = f'{signal_x}_alpha'
@@ -5710,24 +5710,35 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     threhold = 0
     tmp_data = df.query(f'({tmp_col_v} > {threhold})')
 
-    if signal_x in ['adx_syn']:
-      if len(tmp_data) > 0:
-        # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
-        ax.scatter(tmp_data.index, tmp_data[signal_y], marker=pos_marker, color='none', edgecolor='green', alpha=0.5)
-    
-      tmp_data = df.query(f'({tmp_col_v} < {-threhold})')
-      if len(tmp_data) > 0:
-        # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
-        ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='none', edgecolor='red', alpha=0.5)
-    else:
-      if len(tmp_data) > 0:
-        # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
-        ax.scatter(tmp_data.index, tmp_data[signal_y], marker=pos_marker, color='green', alpha=tmp_data[tmp_col_a].fillna(0))
-    
-      tmp_data = df.query(f'({tmp_col_v} < {-threhold})')
-      if len(tmp_data) > 0:
-        # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
-        ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='red', alpha=tmp_data[tmp_col_a].fillna(0))
+    if len(tmp_data) > 0:
+      # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=pos_marker, color='none', edgecolor='green', alpha=0.5)
+  
+    tmp_data = df.query(f'({tmp_col_v} < {-threhold})')
+    if len(tmp_data) > 0:
+      # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='none', edgecolor='red', alpha=0.5)
+
+    pos_marker = '.'
+    neg_marker = '.'
+    none_marker = '_'
+
+    tmp_col_v = f'adx_pred_syn'
+    tmp_col_a = f'adx_pred_syn_alpha'
+
+    df[tmp_col_a] = normalize(df[tmp_col_v].abs())
+
+    threhold = 0
+    tmp_data = df.query(f'({tmp_col_v} > {threhold})')
+
+    if len(tmp_data) > 0:
+      # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=pos_marker, color='green', alpha=tmp_data[tmp_col_a].fillna(0))
+  
+    tmp_data = df.query(f'({tmp_col_v} < {-threhold})')
+    if len(tmp_data) > 0:
+      # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='red', alpha=tmp_data[tmp_col_a].fillna(0))
 
   # legend and title
   ax.legend(loc='upper left') 
