@@ -1190,6 +1190,16 @@ def calculate_ta_signal(df):
                             ) 
                           )
                           '''.replace('\n', ''),
+    '转换_up':            '''
+                          ( 
+                            (adx_pred_syn > 0) and 
+                            (
+                              (adx_syn == 0 and prev_adx_syn <= 0) or 
+                              (adx_syn == 1 and prev_adx_syn < 0)
+                            ) 
+                          )
+                          '''.replace('\n', ''),
+
 
     '整体_down':          '(overall_change < 0)',
     '触顶_down':          '(ichimoku_distance > 0 and (tankan_rate <= 0 and tankan_rate_none_zero < 0) and kijun_rate == 0 and adx_value > 10 and adx_direction < 0)',
@@ -1461,6 +1471,7 @@ def calculate_ta_signal(df):
   df['rank_down_score'] = 0
   rank_conditions = {
 
+    '+turn_up':         [s, '', '转换_up == 1'],
     '+adx_syn':         [s, '', '(adx_direction_start < -10 and adx_direction_day > 0 and -1 <= adx_syn <= 1)'],
     '-adx_wave':        [-s, '', '(adx_strong_day < 0)'],
     '-adx_wake':        [-s, '', '(adx_wave_day > 0)'],
