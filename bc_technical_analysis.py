@@ -1472,7 +1472,7 @@ def calculate_ta_signal(df):
   rank_conditions = {
 
     '+turn_up':         [s, '', '转换_up == 1'],
-    '+adx_syn':         [s, '', '(adx_direction_start < -10 and adx_direction_day > 0 and -1 <= adx_syn <= 1)'],
+    '+adx_syn':         [s*2, '', '(adx_direction_start < -10 and adx_direction_day > 0 and -1 <= adx_syn <= 1)'],
     '-adx_wave':        [-s, '', '(adx_strong_day < 0)'],
     '-adx_wake':        [-s, '', '(adx_wave_day > 0)'],
     '-renko':           [-s, '', '(renko_day > 50 or renko_day < -50)'],
