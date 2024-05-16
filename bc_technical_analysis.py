@@ -1127,7 +1127,7 @@ def calculate_ta_signal(df):
   }
   df = assign_condition_value(df=df, column='adx_syn', condition_dict=conditions, value_dict=values, default_value=0)
   df['prev_adx_syn'] = df['adx_syn'].shift(1)
-  
+
   df['adx_pred_syn'] = sda(df['adx_pred_syn'], zero_as=None)
   df['adx_syn'] = sda(df['adx_syn'], zero_as=None)
   df['prev_adx_syn'] = sda(df['prev_adx_syn'], zero_as=1)
@@ -1193,7 +1193,16 @@ def calculate_ta_signal(df):
                           '''.replace('\n', ''),
     '转换_up':            '''
                           ( 
-                            (adx_pred_syn > 0) and 
+                            (adx_pred_syn > 0) and
+                            (adx_value < -10) and
+                            (
+                              (adx_direction_change > 0 and adx_power_change > 0) or
+                              (
+                                (adx_direction_change > 0 or adx_power_change > 0) and 
+                                (tankan_rate == 0 and tankan_rate_none_zero < 0 and kijun_rate == 0 and kijun_rate_none_zero < 0)
+                              )
+                            ) and
+                            
                             (
                               (adx_syn == 0 and prev_adx_syn <= 0) or 
                               (adx_syn == 1 and prev_adx_syn < 0)
@@ -1303,8 +1312,8 @@ def calculate_ta_signal(df):
   df['signal_day'] = 0
 
   conditions = {
-    'buy':      'adx_change > 0 and adx_pred_syn > 0 and adx_syn >= 0', # 'potential_score > 0 and trigger_score > 0', 
-    'sell':     'adx_change < 0', # 'potential_score < 0 and trigger_score <= 0',
+    'buy':      '转换_up == 1', # 'adx_change > 0 and adx_pred_syn > 0 and adx_syn >= 0', # 'potential_score > 0 and trigger_score > 0', 
+    'sell':     '转换_up != 1 and adx_change < 0', # 'potential_score < 0 and trigger_score <= 0',
   } 
   values = {
     'buy':      'b',
