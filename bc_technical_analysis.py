@@ -1126,10 +1126,11 @@ def calculate_ta_signal(df):
     'pos_d':      -1,
   }
   df = assign_condition_value(df=df, column='adx_syn', condition_dict=conditions, value_dict=values, default_value=0)
-
+  df['prev_adx_syn'] = df['adx_syn'].shift(1)
+  
   df['adx_pred_syn'] = sda(df['adx_pred_syn'], zero_as=None)
   df['adx_syn'] = sda(df['adx_syn'], zero_as=None)
-  df['prev_adx_syn'] = df['adx_syn'].shift(1)
+  df['prev_adx_syn'] = sda(df['prev_adx_syn'], zero_as=1)
 
   # ichimoku / kama
   for idx in ['kama', 'ichimoku']:
