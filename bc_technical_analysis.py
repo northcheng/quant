@@ -1194,15 +1194,7 @@ def calculate_ta_signal(df):
     '转换_up':            '''
                           ( 
                             (adx_pred_syn > 0) and
-                            (adx_value < -10) and
-                            (
-                              (adx_direction_change > 0 and adx_power_change > 0) or
-                              (
-                                (adx_direction_change > 0 or adx_power_change > 0) and 
-                                (tankan_rate == 0 and tankan_rate_none_zero < 0 and kijun_rate == 0 and kijun_rate_none_zero < 0)
-                              )
-                            ) and
-                            
+                            (adx_direction_change > 0) and
                             (
                               (adx_syn == 0 and prev_adx_syn <= 0) or 
                               (adx_syn == 1 and prev_adx_syn < 0)
