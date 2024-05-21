@@ -1090,15 +1090,16 @@ def calculate_ta_signal(df):
   col_to_drop = []
 
   # ================================ normalized trend score =================
-  # adx
+  # adx_change: (实际值 - 预测值与), adx_status: ± of adx_change
   df['adx_change'] = df['adx_value'] - df['adx_value_prediction']
   df['adx_status'] = (df['adx_change'] > 0).replace({True: 1, False: -1})
   df['adx_change'] = normalize(df['adx_change'].abs()) * df['adx_status']
   df['adx_change_day'] = sda((df['adx_change'] > 0).replace({True: 1, False: -1}), zero_as=1)
 
+  # adx_pred_syn: ± of change of adx_change 
   df['adx_pred_syn'] = ((df['adx_change'] - df['adx_change'].shift(1)) > 0).replace({True: 1, False: -1})  
   
-  df['adx_direction_change'] = df['adx_change'].copy()
+  # df['adx_direction_change'] = df['adx_change'].copy()
   df['adx_power_change'] = df['adx_strength_change'].copy()
   reverse_query = f'''
                   (adx_value_change > 0 and adx_strength_change < 0 and adx_value < 10 and adx_direction_start < 0) or
@@ -1130,7 +1131,7 @@ def calculate_ta_signal(df):
 
   df['adx_pred_syn'] = sda(df['adx_pred_syn'], zero_as=None)
   df['adx_syn'] = sda(df['adx_syn'], zero_as=None)
-  df['prev_adx_syn'] = sda(df['prev_adx_syn'], zero_as=1)
+  df['prev_adx_syn'] = sda(df['prev_adx_syn'], zero_as=0)
 
   # ichimoku / kama
   for idx in ['kama', 'ichimoku']:
@@ -1194,7 +1195,7 @@ def calculate_ta_signal(df):
     '转换_up':            '''
                           ( 
                             (adx_pred_syn > 0) and
-                            (adx_direction_change > 0) and
+                            (adx_change > 0) and
                             (
                               (adx_syn == 0 and prev_adx_syn <= 0) or 
                               (adx_syn == 1 and prev_adx_syn < 0)
@@ -1473,8 +1474,8 @@ def calculate_ta_signal(df):
   df['rank_down_score'] = 0
   rank_conditions = {
 
-    '+turn_up':         [s, '', '转换_up == 1'],
     '+adx_syn':         [s*2, '', '(adx_direction_start < -10 and adx_direction_day > 0 and -1 <= adx_syn <= 1)'],
+    '+turn_up':         [s, '', '转换_up == 1'],
     '-adx_wave':        [-s, '', '(adx_strong_day < 0)'],
     '-adx_wake':        [-s, '', '(adx_wave_day > 0)'],
     '-renko':           [-s, '', '(renko_day > 50 or renko_day < -50)'],
@@ -1484,6 +1485,19 @@ def calculate_ta_signal(df):
   df = cal_score(df=df, condition_dict=rank_conditions, up_score_col='rank_up_score', down_score_col='rank_down_score')
   df['signal_rank'] = df['rank_up_score'] + df['rank_down_score']
   df['signal_rank_description'] = df['rank_up_score_description'] + ' | ' + df['rank_down_score_description']
+
+  # tier
+  df['tier'] = 0
+  tier_1_idx = df.query('adx_direction_start < -10').index
+  tier_2_idx = df.query('adx_direction_start > 10').index
+  tier_3_idx = df.query('10 > adx_direction_start >= -10').index
+  tier_4_idx = df.query('adx_strong_day < 0 or adx_wave_day > 0').index
+  tier_5_idx = df.query('影线_down == -1').index
+  df.loc[tier_1_idx, 'tier'] = 1
+  df.loc[tier_2_idx, 'tier'] = 2
+  df.loc[tier_3_idx, 'tier'] = 3
+  df.loc[tier_4_idx, 'tier'] = 4
+  df.loc[tier_5_idx, 'tier'] = 5
 
   # drop redundant columns
   # col_to_drop = [
@@ -3162,10 +3176,10 @@ def add_support_resistance(df, target_col=default_support_resistant_col, perspec
 
       # col_to_drop.append(tmp_col)
 
-  # # drop unnecessary columns
-  # for col in col_to_drop:
-  #   if col in df.columns:
-  #     df.drop(col, axis=1, inplace=True)
+  # drop unnecessary columns
+  for col in col_to_drop:
+    if col in df.columns:
+      df.drop(col, axis=1, inplace=True)
 
   return df
 
@@ -5494,7 +5508,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     ax.scatter(sell_data.index, sell_data[signal_y], marker='v', color='none', edgecolor='orange', alpha=0.5)
 
   # trigger
-  if signal_x in ['trigger', 'momentum']:
+  if signal_x in ['trigger']:
 
     # trigger_score
     tmp_col_v = f'{signal_x}_score'
@@ -5529,8 +5543,8 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
   # adx_change, ichimoku_change, kama_change, overall_change
   if signal_x in ['adx', 'ichimoku', "kama", 'overall']:
     
-    pos_marker = 's' if signal_x in ['overall'] else 'o'
-    neg_marker = 's' if signal_x in ['overall'] else 'x'
+    pos_marker = 's' if signal_x in ['overall'] else '.'
+    neg_marker = 's' if signal_x in ['overall'] else '_'
     none_marker = '_'
 
     tmp_col_v = f'{signal_x}_change'
@@ -5547,9 +5561,9 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='red', alpha=tmp_data[tmp_col_a])
 
   # ichimoku/kama fast/slow lines
-  if signal_x in [ "adx_direction", "adx_power"]:
+  if signal_x in ["adx_value", "adx_power", "tankan", "kijun", "kama_fast", "kama_slow"]:
 
-    tmp_col_v = f'{signal_x}_change'
+    tmp_col_v = f'{signal_x}_rate' if 'adx' not in signal_x else f'{signal_x}_change'
     tmp_col_a = f'{signal_x}_alpha'
     threhold = 0.000
 
@@ -5570,59 +5584,16 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
       # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='1', color='red', alpha=tmp_data[tmp_col_a].fillna(0))
 
-  # ichimoku/kama fast/slow lines
-  if signal_x in [ "kama_slow", "kama_fast", "kijun", "tankan"]:
+    if 'adx' not in signal_x:
+      tmp_data = df.query(f'({-threhold} <= {tmp_col_v} <= {threhold} and {tmp_col_v}_none_zero > 0)')
+      if len(tmp_data) > 0:
+        tmp_alpha = 0.2
+        ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='green', alpha=tmp_alpha)
 
-    tmp_col_v = f'{signal_x}_rate'
-    tmp_col_a = f'{signal_x}_alpha'
-    threhold = 0.000
-
-    df[tmp_col_a] = normalize(df[tmp_col_v].abs()).apply(lambda x: x if x > 0.1 else 0.1)
-
-    # df['none_zero'] = np.NaN
-    # none_zero_idx = df.query(f'{tmp_col_v} > {threhold} or {tmp_col_v} < {threhold}').index
-    # df.loc[none_zero_idx, 'none_zero'] = df.loc[none_zero_idx, tmp_col_v]
-    # df['none_zero'] = df['none_zero'].fillna(method='ffill')
-    
-    tmp_data = df.query(f'({tmp_col_v} > {threhold})')
-    if len(tmp_data) > 0:
-      # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='2', color='green', alpha=tmp_data[tmp_col_a].fillna(0))
-  
-    tmp_data = df.query(f'({tmp_col_v} < {-threhold})')
-    if len(tmp_data) > 0:
-      # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='1', color='red', alpha=tmp_data[tmp_col_a].fillna(0))
-
-    tmp_data = df.query(f'({-threhold} <= {tmp_col_v} <= {threhold} and {tmp_col_v}_none_zero > 0)')
-    if len(tmp_data) > 0:
-      tmp_alpha = 0.2
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='green', alpha=tmp_alpha)
-
-    tmp_data = df.query(f'({-threhold} <= {tmp_col_v} <= {threhold} and {tmp_col_v}_none_zero < 0)')
-    if len(tmp_data) > 0:
-      tmp_alpha = 0.2
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', alpha=tmp_alpha)
-
-    # tmp_data = df.query(f'{signal_x}_break_up > 0')
-    # if len(tmp_data) > 0:
-    #   tmp_alpha = 0.5
-    #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='^', color='none', edgecolor='green', alpha=tmp_alpha)
-
-    # tmp_data = df.query(f'{signal_x}_support > 0')
-    # if len(tmp_data) > 0:
-    #   tmp_alpha = 0.5
-    #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='^', color='none', edgecolor='green', alpha=tmp_alpha)
-
-    # tmp_data = df.query(f'{signal_x}_break_down > 0')
-    # if len(tmp_data) > 0:
-    #   tmp_alpha = 0.5
-    #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='v', color='none', edgecolor='red', alpha=tmp_alpha)
-
-    # tmp_data = df.query(f'{signal_x}_resistant < 0')
-    # if len(tmp_data) > 0:
-    #   tmp_alpha = 0.5
-    #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='v', color='none', edgecolor='red', alpha=tmp_alpha)
+      tmp_data = df.query(f'({-threhold} <= {tmp_col_v} <= {threhold} and {tmp_col_v}_none_zero < 0)')
+      if len(tmp_data) > 0:
+        tmp_alpha = 0.2
+        ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', alpha=tmp_alpha)
 
   # ichimoku/kama distance
   if signal_x in [ "kama_distance", "ichimoku_distance"]:

@@ -73,13 +73,13 @@
           "kijun",
           "tankan",  
           "adx_power",
-          "adx_direction",
+          "adx_value",
 
           "-----",
           "kama",
           "ichimoku",
           "adx",
-          "adx_syn",
+          "overall",
 
           "-----",
           "support_score",
@@ -89,7 +89,7 @@
           "resistant_score",
 
           "-----",
-          "overall", 
+          "adx_syn",
           "trigger",
           " "
         ]
@@ -185,7 +185,8 @@
       
       "signal": "交易信号",
       "signal_day": "信号天数",
-      "signal_rank": "信号排名"
+      "signal_rank": "信号排名",
+      "tier": "信号分级"
     },
     "drop_columns": [],
     "send_columns": ["名称", "涨跌", "潜力分数", "信号排名", "支撑", "阻挡"],
