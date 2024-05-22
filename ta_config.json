@@ -67,28 +67,27 @@
       },
       "signals": {
         "signal_list": [  
-          
+
           "kama_slow",
           "kama_fast",
+          "kama",
           "kijun",
           "tankan",  
+          "ichimoku",
           "adx_power",
           "adx_value",
-
-          "-----",
-          "kama",
-          "ichimoku",
           "adx",
-          "overall",
 
           "-----",
           "support_score",
           "break_up_score",
-          "break_down_score",
-          "pattern_score",          
+          "break_down_score",                  
           "resistant_score",
+          
 
           "-----",
+          
+          "overall",
           "adx_syn",
           "trigger",
           " "

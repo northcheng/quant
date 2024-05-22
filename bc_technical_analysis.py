@@ -1219,7 +1219,17 @@ def calculate_ta_signal(df):
                               (相对ichimoku位置 in ["up", "out", "mid_up", "mid", "mid_down"])
                             ) 
                           )
-                          '''.replace('\n', ''),     
+                          '''.replace('\n', ''),    
+    '转换_down':          '''
+                          ( 
+                            (adx_pred_syn < 0) and
+                            (adx_change < 0) and
+                            (
+                              (adx_syn == 0 and prev_adx_syn <= 0) or 
+                              (adx_syn == 1 and prev_adx_syn < 0)
+                            ) 
+                          )
+                          '''.replace('\n', ''), 
     # # 一般情况
     # '趋势上行_up':      f'(adx_direction > 0) and ((adx_value < 0 and adx_power_day < 0) or (adx_value > 10 and adx_power_day > 0))',
 
@@ -5543,8 +5553,8 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
   # adx_change, ichimoku_change, kama_change, overall_change
   if signal_x in ['adx', 'ichimoku', "kama", 'overall']:
     
-    pos_marker = 's' if signal_x in ['overall'] else '.'
-    neg_marker = 's' if signal_x in ['overall'] else '_'
+    pos_marker = 'o' if signal_x in ['overall'] else '.'
+    neg_marker = 'o' if signal_x in ['overall'] else '.'
     none_marker = '_'
 
     tmp_col_v = f'{signal_x}_change'
