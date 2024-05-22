@@ -1197,8 +1197,8 @@ def calculate_ta_signal(df):
                             (adx_pred_syn > 0) and
                             (adx_change > 0) and
                             (
-                              (adx_syn == 0 and prev_adx_syn <= 0) or 
-                              (adx_syn == 1 and prev_adx_syn < 0)
+                              (adx_syn == 0 or adx_syn == 1) and 
+                              (prev_adx_syn < 0)
                             ) 
                           )
                           '''.replace('\n', ''),
@@ -1225,8 +1225,8 @@ def calculate_ta_signal(df):
                             (adx_pred_syn < 0) and
                             (adx_change < 0) and
                             (
-                              (adx_syn == 0 and prev_adx_syn <= 0) or 
-                              (adx_syn == 1 and prev_adx_syn < 0)
+                              (adx_syn == 0 or adx_syn == -1) and 
+                              (prev_adx_syn > 0)
                             ) 
                           )
                           '''.replace('\n', ''), 
@@ -1497,17 +1497,18 @@ def calculate_ta_signal(df):
   df['signal_rank_description'] = df['rank_up_score_description'] + ' | ' + df['rank_down_score_description']
 
   # tier
-  df['tier'] = 0
-  tier_1_idx = df.query('adx_direction_start < -10').index
-  tier_2_idx = df.query('adx_direction_start > 10').index
-  tier_3_idx = df.query('10 > adx_direction_start >= -10').index
-  tier_4_idx = df.query('adx_strong_day < 0 or adx_wave_day > 0').index
-  tier_5_idx = df.query('影线_down == -1').index
-  df.loc[tier_1_idx, 'tier'] = 1
-  df.loc[tier_2_idx, 'tier'] = 2
-  df.loc[tier_3_idx, 'tier'] = 3
+  df['tier'] = 1
+  # tier_1_idx = df.query('adx_direction_start < -10').index
+  # tier_2_idx = df.query('adx_direction_start > 10').index
+  # tier_3_idx = df.query('10 > adx_direction_start >= -10').index
+  
+  tier_0_idx = df.query('adx_syn == 1 and prev_adx_syn < 0 and 转换_up == 1 and adx_direction_day == 1 and signal_day == 1 and adx_direction_start < 0').index
+  tier_4_idx = df.query('adx_strong_day < 0 or adx_wave_day > 0 or 影线_down == -1').index
+  # df.loc[tier_1_idx, 'tier'] = 1
+  # df.loc[tier_2_idx, 'tier'] = 2
+  # df.loc[tier_3_idx, 'tier'] = 3
   df.loc[tier_4_idx, 'tier'] = 4
-  df.loc[tier_5_idx, 'tier'] = 5
+  df.loc[tier_0_idx, 'tier'] = 0
 
   # drop redundant columns
   # col_to_drop = [
