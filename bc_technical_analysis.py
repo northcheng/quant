@@ -5737,8 +5737,8 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='red', alpha=tmp_data[tmp_col_a].fillna(0))
 
   if signal_x in ['overall']:
-    pos_marker = 'o'
-    neg_marker = 'o'
+    pos_marker = 's'
+    neg_marker = 's'
     none_marker = '_'
 
     tmp_col_v = f'overall_change'
@@ -5758,8 +5758,8 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
       # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='none', edgecolor='red', alpha=0.5)
 
-    pos_marker = '.'
-    neg_marker = '.'
+    pos_marker = ','
+    neg_marker = ','
     none_marker = '_'
 
     tmp_col_v = f'overall_change_change'
