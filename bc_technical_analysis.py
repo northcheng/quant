@@ -5552,7 +5552,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='red', alpha=tmp_data['position_a'])
     
   # adx_change, ichimoku_change, kama_change, overall_change
-  if signal_x in ['adx', 'ichimoku', "kama", 'overall']:
+  if signal_x in ['adx', 'ichimoku', "kama"]:
     
     pos_marker = 'o' if signal_x in ['overall'] else '.'
     neg_marker = 'o' if signal_x in ['overall'] else '.'
@@ -5722,6 +5722,50 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     tmp_col_v = f'adx_pred_syn'
     tmp_col_a = f'adx_pred_syn_alpha'
 
+    df[tmp_col_a] = normalize(df[tmp_col_v].abs())
+
+    threhold = 0
+    tmp_data = df.query(f'({tmp_col_v} > {threhold})')
+
+    if len(tmp_data) > 0:
+      # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=pos_marker, color='green', alpha=tmp_data[tmp_col_a].fillna(0))
+  
+    tmp_data = df.query(f'({tmp_col_v} < {-threhold})')
+    if len(tmp_data) > 0:
+      # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='red', alpha=tmp_data[tmp_col_a].fillna(0))
+
+  if signal_x in ['overall']:
+    pos_marker = 'o'
+    neg_marker = 'o'
+    none_marker = '_'
+
+    tmp_col_v = f'overall_change'
+    tmp_col_a = f'overall_change_alpha'
+
+    df[tmp_col_a] = 0.5 #if signal_x in ['adx_pred_syn'] else normalize(df[tmp_col_v].abs())
+
+    threhold = 0
+    tmp_data = df.query(f'({tmp_col_v} > {threhold})')
+
+    if len(tmp_data) > 0:
+      # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=pos_marker, color='none', edgecolor='green', alpha=0.5)
+  
+    tmp_data = df.query(f'({tmp_col_v} < {-threhold})')
+    if len(tmp_data) > 0:
+      # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='none', edgecolor='red', alpha=0.5)
+
+    pos_marker = '.'
+    neg_marker = '.'
+    none_marker = '_'
+
+    tmp_col_v = f'overall_change_change'
+    tmp_col_a = f'overall_change_change_alpha'
+
+    df[tmp_col_v] = df[f'overall_change'] - df[f'overall_change'].shift(1)
     df[tmp_col_a] = normalize(df[tmp_col_v].abs())
 
     threhold = 0
