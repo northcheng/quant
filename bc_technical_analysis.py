@@ -898,7 +898,7 @@ def calculate_ta_score(df):
     else:
       df['down_score_description'] = (desc + df['down_score_description'])
 
-  df['trigger_score'] = (df['up_score'] + df['down_score'] + df['candle_position_score']).round(2) # 
+  df['trigger_score'] = (df['up_score'] + df['down_score']).round(2) #  + df['candle_position_score'] 
   df['up_score_description'] = df['up_score_description'].apply(lambda x: x[:-2] if (len(x) >=2 and x[-2] == ',') else x)
   df['down_score_description'] = df['down_score_description'].apply(lambda x: x[:-2] if (len(x) >=2 and x[-2] == ',') else x)
 
@@ -1167,8 +1167,11 @@ def calculate_ta_signal(df):
   df['overall_status'] = df['adx_status'] + df['ichimoku_status'] + df['kama_status']
   col_symbol = (df['overall_status'] > 0).replace({True: 1, False: -1})
 
+  df['overall_change_diff'] = df['overall_change'] - df['overall_change'].shift(1)
+
   none_zero_idx = df.query('overall_status != 0').index
   df.loc[none_zero_idx, 'overall_change'] = df.loc[none_zero_idx, 'overall_change'].abs() * col_symbol.loc[none_zero_idx]
+  df['overall_day'] = sda((df['overall_change'] > 0).replace({True: 1, False: -1}))
   # df = cal_change(df=df, target_col='overall', periods=1, add_accumulation=False, add_prefix=True)
 
   # ================================ calculate potential ====================
@@ -1315,12 +1318,16 @@ def calculate_ta_signal(df):
   df['signal_day'] = 0
 
   conditions = {
-    'buy':      '转换_up == 1', # 'adx_change > 0 and adx_pred_syn > 0 and adx_syn >= 0', # 'potential_score > 0 and trigger_score > 0', 
-    'sell':     '转换_up != 1 and adx_change < 0', # 'potential_score < 0 and trigger_score <= 0',
+    'down':     'adx_value_change < 0 and (overall_change < 0 or (overall_change_diff <=0 and (adx_syn < 0 or adx_pred_syn <= 0) and trigger_score <= 0))', # 'potential_score < 0 and trigger_score <= 0',
+    'sell':     '(adx_value_change < 0 and overall_change < 0 and overall_change_diff <=0 and (adx_syn <=0 or adx_syn == 0 and prev_adx_syn > 0) and (trigger_score <= 0 or break_down_score < 0 or pattern_score < 0))',
+    'up':       '(adx_value_change > 0 and (overall_change > 0 or overall_change_diff >=0) and (adx_syn > 0 or (adx_syn == 0 and prev_adx_syn < 0) or (adx_pred_syn > 0)) and trigger_score >= 0)',
+    'buy':      '(adx_direction_day == 1 or (adx_value_change > 0 and overall_day == 1)) and (adx_syn == 1 or (adx_syn == 0 and prev_adx_syn < 0)) and trigger_score > 0 and break_down_score == 0', # 'adx_change > 0 and adx_pred_syn > 0 and adx_syn >= 0', # 'potential_score > 0 and trigger_score > 0', 
   } 
   values = {
-    'buy':      'b',
+    'down':     'ns',
     'sell':     's',
+    'up':       'nb',
+    'buy':      'b',
   }
   df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
   
@@ -5507,16 +5514,16 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
   # buy and sell
   if signal_x == ' ':
     buy_data = df.query('signal == "b"')
-    ax.scatter(buy_data.index, buy_data[signal_y], marker='^', color='none', edgecolor='green', alpha=0.5)
+    ax.scatter(buy_data.index, buy_data[signal_y], marker='^', color='green', alpha=0.5)
 
     buy_data = df.query('signal == "nb"')
-    ax.scatter(buy_data.index, buy_data[signal_y], marker='^', color='none', edgecolor='orange', alpha=0.5)
+    ax.scatter(buy_data.index, buy_data[signal_y], marker='^', color='none', edgecolor='green', alpha=0.5)
 
     sell_data = df.query('signal == "s"')
-    ax.scatter(sell_data.index, sell_data[signal_y], marker='v', color='none', edgecolor='red', alpha=0.5)
+    ax.scatter(sell_data.index, sell_data[signal_y], marker='v', color='red', alpha=0.5)
 
     sell_data = df.query('signal == "ns"')
-    ax.scatter(sell_data.index, sell_data[signal_y], marker='v', color='none', edgecolor='orange', alpha=0.5)
+    ax.scatter(sell_data.index, sell_data[signal_y], marker='v', color='none', edgecolor='red', alpha=0.5)
 
   # trigger
   if signal_x in ['trigger']:
@@ -5758,14 +5765,13 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
       # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='none', edgecolor='red', alpha=0.5)
 
-    pos_marker = ','
-    neg_marker = ','
+    pos_marker = '.'
+    neg_marker = '.'
     none_marker = '_'
 
-    tmp_col_v = f'overall_change_change'
-    tmp_col_a = f'overall_change_change_alpha'
+    tmp_col_v = f'overall_change_diff'
+    tmp_col_a = f'overall_change_diff_alpha'
 
-    df[tmp_col_v] = df[f'overall_change'] - df[f'overall_change'].shift(1)
     df[tmp_col_a] = normalize(df[tmp_col_v].abs())
 
     threhold = 0
