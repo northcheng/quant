@@ -186,11 +186,10 @@
       
       "signal": "交易信号",
       "signal_day": "信号天数",
-      "signal_rank": "信号排名",
       "tier": "信号分级"
     },
     "drop_columns": [],
-    "send_columns": ["名称", "涨跌", "潜力分数", "信号排名", "支撑", "阻挡"],
+    "send_columns": ["名称", "涨跌", "潜力分数", "信号分级", "支撑", "阻挡"],
     "save_result": true,
     "save_data": true,
     "save_pdf": true

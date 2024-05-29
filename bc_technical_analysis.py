@@ -1515,24 +1515,24 @@ def calculate_ta_signal(df):
   df['signal_description'] = df['signal_description'].apply(lambda x: x[:-2])
 
   # calculate signal day
-  df['signal_day'] = sda(df['signal'].replace({'b': 1, 's': -1, '': 0, 'nb': 0, 'ns': 0}), zero_as=1)
+  df['signal_day'] = sda(df['signal'].replace({'b': 1, 's': -1, '': 0, 'nb': 1, 'ns': -1}), zero_as=1)
   # df = remove_redundant_signal(df=df, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='', keep='first')
 
-  # signal rank
-  s = 0.5
-  df['rank_up_score'] = 0 
-  df['rank_down_score'] = 0
-  rank_conditions = {
-    '+adx_syn':         [s*2, '', '(adx_direction_start < -10 and adx_direction_day > 0 and -1 <= adx_syn <= 1)'],
-    '+turn_up':         [s, '', '转换_up == 1'],
-    '-adx_wave':        [-s, '', '(adx_strong_day < 0)'],
-    '-adx_wake':        [-s, '', '(adx_wave_day > 0)'],
-    '-renko':           [-s, '', '(renko_day > 50 or renko_day < -50)'],
-    '-cross':           [-s, '', '(十字星 != "n")'],
-  }
-  df = cal_score(df=df, condition_dict=rank_conditions, up_score_col='rank_up_score', down_score_col='rank_down_score')
-  df['signal_rank'] = df['rank_up_score'] + df['rank_down_score']
-  df['signal_rank_description'] = df['rank_up_score_description'] + ' | ' + df['rank_down_score_description']
+  # # signal rank
+  # s = 0.5
+  # df['rank_up_score'] = 0 
+  # df['rank_down_score'] = 0
+  # rank_conditions = {
+  #   '+adx_syn':         [s*2, '', '(adx_direction_start < -10 and adx_direction_day > 0 and -1 <= adx_syn <= 1)'],
+  #   '+turn_up':         [s, '', '转换_up == 1'],
+  #   '-adx_wave':        [-s, '', '(adx_strong_day < 0)'],
+  #   '-adx_wake':        [-s, '', '(adx_wave_day > 0)'],
+  #   '-renko':           [-s, '', '(renko_day > 50 or renko_day < -50)'],
+  #   '-cross':           [-s, '', '(十字星 != "n")'],
+  # }
+  # df = cal_score(df=df, condition_dict=rank_conditions, up_score_col='rank_up_score', down_score_col='rank_down_score')
+  # df['signal_rank'] = df['rank_up_score'] + df['rank_down_score']
+  # df['signal_rank_description'] = df['rank_up_score_description'] + ' | ' + df['rank_down_score_description']
 
   # tier
   df['tier'] = 10
@@ -6590,8 +6590,8 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
 
     # get target data
     t = pools[i]
-    tmp_data = data['result'][t].sort_values(by=['signal_rank', 'short_trend_score'], ascending=[True, True]).copy()
-    tmp_data = tmp_data[['symbol', 'rate', 'trigger_score', 'trend_score_change', 'signal_rank']].set_index('symbol')
+    tmp_data = data['result'][t].sort_values(by=['tier', 'short_trend_score'], ascending=[True, True]).copy()
+    tmp_data = tmp_data[['symbol', 'rate', 'trigger_score', 'trend_score_change', 'tier']].set_index('symbol')
     tmp_data['name'] = tmp_data.index.values
 
     # get data
@@ -6618,7 +6618,7 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
     
     # plot signal rank
     tmp_data['score_color'] = 'yellow'
-    rate_ax.barh(tmp_data.index, tmp_data['signal_rank'], color=tmp_data['score_color'], label='signal_rank', alpha=0.5, edgecolor='k') #, edgecolor='k'  
+    rate_ax.barh(tmp_data.index, tmp_data['tier'], color=tmp_data['score_color'], label='tier', alpha=0.5, edgecolor='k') #, edgecolor='k'  
     # score_ax.set_title(f'{t.replace("_day", "")} Trend Score', fontsize=25, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1))
     
     # plot rate
@@ -6727,8 +6727,8 @@ def plot_review(prefix, date, sheet_name='signal', width=20, unit_size=0.3, wspa
     num_total = num_symbols
 
     # get target data
-    tmp_data = df.sort_values(by=['潜力分数', '信号排名'], ascending=[True, True]).copy()
-    tmp_data = tmp_data[['代码', '名称', '收盘', '验证', '触发分数', '趋势变化分数', '潜力分数', '信号排名']].set_index('名称')
+    tmp_data = df.sort_values(by=['信号分级', '潜力分数'], ascending=[True, True]).copy()
+    tmp_data = tmp_data[['代码', '名称', '收盘', '验证', '触发分数', '趋势变化分数', '潜力分数', '信号分级']].set_index('名称')
     tmp_data['name'] = tmp_data.index.values
     tmp_data['验证'] = tmp_data['验证'] * 100
 
@@ -6744,7 +6744,7 @@ def plot_review(prefix, date, sheet_name='signal', width=20, unit_size=0.3, wspa
     
     # plot signal rank
     tmp_data['score_color'] = 'yellow'
-    rate_ax.barh(tmp_data.index, tmp_data['信号排名'], color=tmp_data['score_color'], label='信号排名', alpha=0.5, edgecolor='k') #, edgecolor='k'  
+    rate_ax.barh(tmp_data.index, tmp_data['信号分级'], color=tmp_data['score_color'], label='信号分级', alpha=0.5, edgecolor='k') #, edgecolor='k'  
     # score_ax.set_title(f'{t.replace("_day", "")} Trend Score', fontsize=25, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1))
     
     # plot rate
@@ -6753,7 +6753,7 @@ def plot_review(prefix, date, sheet_name='signal', width=20, unit_size=0.3, wspa
     tmp_data.loc[down_idx, 'potential_color'] = 'red'
     title_color = 'black' 
     rate_ax.barh(tmp_data.index, tmp_data['潜力分数'], color=tmp_data['potential_color'], label='潜力分数', alpha=0.5) #, edgecolor='k'
-    rate_ax.set_xlabel(f'信号排名 - 潜力分数 ({date})', labelpad = 10, fontsize = 20) 
+    rate_ax.set_xlabel(f'信号分级 - 潜力分数 ({date})', labelpad = 10, fontsize = 20) 
     rate_ax.legend(loc='upper right', ncol=plot_args['ncol']) 
 
     # plot trigger score
@@ -6825,7 +6825,7 @@ def plot_selected(data, config, make_pdf=False, dst_path=None, file_name=None):
 
   # calculate rank and sort by rank    
   # selected_data['rank'] = selected_data['signal_rank'] + selected_data['inday_trend_score']
-  selected_data = selected_data.query('adx_direction > 0').sort_values(['signal_rank', 'signal_day', 'adx_direction_start'], ascending=[False, True, True])
+  selected_data = selected_data.query('adx_direction > 0').sort_values(['tier', 'signal_day', 'adx_direction_start'], ascending=[True, True, True])
   # selected_data = selected_data[['symbol', 'potential', 'potential_score', 'potential_description', 'signal', 'signal_rank', 'inday_trend_score', 'resistant_score', 'rank', 'rate', 'img_path']]
 
   # make pdf from images
