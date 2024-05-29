@@ -1126,7 +1126,8 @@ def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', req
   # get the benchmark of eod data
   today = util.time_2_string(datetime.datetime.today().date())
   start_date = util.string_plus_day(today, -7)
-  benchmark_data = get_data_from_eod(symbol='AAPL', start_date=start_date, end_date=today, interval='d', is_print=False, api_key=api_key, add_dividend=False, add_split=False)
+  benchmark_symbol = 'AAPL' if not cn_stock else '000001.SHE'
+  benchmark_data = get_data_from_eod(symbol=benchmark_symbol, start_date=start_date, end_date=today, interval='d', is_print=False, api_key=api_key, add_dividend=False, add_split=False)
   benchmark_date = util.time_2_string(benchmark_data.index.max())
   start_date = util.string_plus_day(benchmark_date, -window_size)
 
