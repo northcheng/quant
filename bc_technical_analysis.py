@@ -1537,20 +1537,24 @@ def calculate_ta_signal(df):
   # tier
   df['tier'] = 10
   conditions = {
+    '7':        '(adx_direction_day > 0)',
+    '6':        '(adx_direction_day > 0) and  (0 < adx_syn) and                           (adx_pred_syn > 0)',
+    '5':        '(adx_direction_day > 0) and  (0 < adx_syn <= 3) and                      (adx_pred_syn > 0) and  (overall_day > 0 or overall_change_diff > 0) and (trigger_score >= 0)', 
+    '4':        '(adx_direction_day > 0) and  (0 < adx_syn <= 3 and prev_adx_syn < 0) and (adx_pred_syn > 0) and  (overall_day > 0 or overall_change_diff > 0) and (trigger_score >= 0)',
+    '3':        '(adx_direction_day > 0) and  (adx_syn == 1 and prev_adx_syn < 0) and     (adx_pred_syn > 0) and  (overall_day > 0 or overall_change_diff > 0) and (trigger_score >= 0)', 
+    '2':        '(adx_direction_day == 1) and (adx_syn == 1 and prev_adx_syn < 0) and     (adx_pred_syn > 0) and  (overall_day == 1) and                           (trigger_score > 0 or break_up_score > 0)',
+    '1':        '(adx_direction_day == 1) and (adx_syn == 1 and prev_adx_syn < 0) and     (adx_pred_syn == 1) and (overall_day == 1) and                           (trigger_score > 0) and (adx_direction_start < 0)', 
     '0':        'signal == "b"', 
-    '1':        '(adx_syn == 1 and prev_adx_syn < 0) and (adx_pred_syn == 1) and (overall_day == 1) and (adx_direction_day == 1) and (trigger_score > 0) and (adx_direction_start < 0)', 
-    '2':        '(adx_syn == 1 and prev_adx_syn < 0) and (adx_pred_syn > 0) and (overall_day == 1) and (adx_direction_day == 1) and (trigger_score > 0 or break_up_score > 0)',
-    '3':        '(adx_syn == 1 and prev_adx_syn < 0) and (adx_pred_syn > 0) and (overall_day > 0 or overall_change_diff > 0) and (adx_direction_day > 0) and (trigger_score >= 0)', 
-    '4':        '(0 < adx_syn <= 3 and prev_adx_syn < 0) and (adx_pred_syn > 0) and (overall_day > 0 or overall_change_diff > 0) and (adx_direction_day > 0) and (trigger_score >= 0)',
-    '5':        '(0 < adx_syn <= 3) and (adx_pred_syn > 0) and (overall_day > 0 or overall_change_diff > 0) and (adx_direction_day > 0) and trigger_score >= 0', 
   } 
   values = {
-    '0':        0,
-    '1':        1,
-    '2':        2,
-    '3':        3,
-    '4':        4,
+    '7':        7,
+    '6':        6,
     '5':        5,
+    '4':        4,
+    '3':        3,
+    '2':        2,
+    '1':        1,
+    '0':        0, 
   }
   df = assign_condition_value(df=df, column='tier', condition_dict=conditions, value_dict=values, default_value=10)
 
