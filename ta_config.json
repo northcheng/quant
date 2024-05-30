@@ -67,24 +67,21 @@
       },
       "signals": {
         "signal_list": [  
-
-          "kama_slow",
-          "kama_fast",
-          "kama",
-          "kijun",
-          "tankan",  
-          "ichimoku",
-          "adx_power",
-          "adx_value",
-          "adx",
-
+          
+          "一般",
+          "完美",
+          "反弹",
           "-----",
+
+          "kama",
+          "ichimoku",
+          "adx",
+          "-----",
+
           "support_score",
           "break_up_score",
           "break_down_score",                  
           "resistant_score",
-          
-
           "-----",
           
           "overall",
@@ -162,8 +159,6 @@
       "adx_strong_day": "强趋势天数",
       "adx_syn": "adx趋势变化",
       "prev_adx_syn": "adx前趋势",
-      "adx_pred_syn": "adx趋势变化预测",
-      "转换_up": "adx趋势变化天数",
 
       "trigger_score": "触发分数",
       "trigger_day": "触发天数",

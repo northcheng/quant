@@ -281,7 +281,7 @@ def calculate_ta_static(df, indicators=default_indicators):
   if df is None or len(df) == 0:
     print(f'No data for calculate_ta_static')
     return None
-  
+
   # trend calculation
   try:
     phase = 'calculate trend for trend_indicators'
@@ -448,7 +448,7 @@ def calculate_ta_static(df, indicators=default_indicators):
 
       # adx_value_prediction
       df['adx_value_prediction'] = df['adx_value'] + em(series=df['adx_value_change'], periods=3).mean()
-      df['adx_value_prediction'] = sm(series=df['adx_value_prediction'], periods=5).mean()
+      df['adx_value_prediction'] = em(series=df['adx_value_prediction'], periods=5).mean()
 
       # direction(of value) and power(of strength)
       for col in ['adx_direction', 'adx_power']:
@@ -468,26 +468,43 @@ def calculate_ta_static(df, indicators=default_indicators):
         df[f'{col}_day'] = sda(series=df[f'{col}_day'], zero_as=1) 
 
       # highest(lowest) value of adx_value of previous uptrend(downtrend)
-      df['prev_adx_value'] = df['adx_value'].shift(1)
-      extreme_idx = df.query('adx_direction_day == 1 or adx_direction_day == -1').index.tolist()
-      for i in range(len(extreme_idx)):
-        tmp_idx = extreme_idx[i]
-        if i == 0:
-          start = df.index.min()
-          end = extreme_idx[i]
+      base_columns = {'adx_direction': 'adx_value', 'adx_power': 'adx_strength'}
+      for col in ['adx_direction', 'adx_power']:
+        start_col = f'{col}_start'
+        day_col = f'{col}_day'
+        base_col = base_columns[col]
+        prev_col = f'prev_{base_col}'
+        
+        df[prev_col] = df[base_col].shift(1)
+        extreme_idx = df.query(f'{day_col} == 1 or {day_col} == -1').index.tolist()
+
+        for i in range(len(extreme_idx)):
+          tmp_idx = extreme_idx[i]
+          if i == 0:
+            start = df.index.min()
+            end = extreme_idx[i]
+          else:
+            start = extreme_idx[i-1]
+            end = extreme_idx[i]
+
+          tmp_day = df.loc[tmp_idx, day_col]
+          tmp_extreme = df[start:end][base_col].max() if tmp_day < 0 else df[start:end][base_col].min()
+          tmp_start = df.loc[end, prev_col]
+          df.loc[tmp_idx, start_col] = tmp_start
+
+          if col == 'adx_power':
+            df.loc[tmp_idx, 'adx_power_start_adx_value'] = df.loc[tmp_idx, 'adx_value']
+        
+        if start_col not in df.columns:
+          df[start_col] = np.nan
         else:
-          start = extreme_idx[i-1]
-          end = extreme_idx[i]
-        tmp_direction = df.loc[tmp_idx, 'adx_direction_day']
-        tmp_extreme = df[start:end]['adx_value'].max() if tmp_direction < 0 else df[start:end]['adx_value'].min()
-        tmp_direction_start = df.loc[end, 'prev_adx_value']
-        df.loc[tmp_idx, 'prev_adx_extreme'] = tmp_extreme
-        df.loc[tmp_idx, 'adx_direction_start'] = tmp_direction_start
-      for col in ['prev_adx_extreme', 'adx_direction_start']:
-        if col not in df.columns:
-          df[col] = np.nan
-        else:
-          df[col] = df[col].fillna(method='ffill')
+          df[start_col] = df[start_col].fillna(method='ffill')
+
+        if col == 'adx_power':
+          if 'adx_power_start_adx_value' not in df.columns:
+            df['adx_power_start_adx_value'] = np.nan
+          else:
+            df['adx_power_start_adx_value'] = df['adx_power_start_adx_value'].fillna(method='ffill')
 
       # whether strength is strong or weak
       adx_strong_weak_threshold = 25
@@ -1097,7 +1114,7 @@ def calculate_ta_signal(df):
   df['adx_change_day'] = sda((df['adx_change'] > 0).replace({True: 1, False: -1}), zero_as=1)
 
   # adx_pred_syn: ± of change of adx_change 
-  df['adx_pred_syn'] = ((df['adx_change'] - df['adx_change'].shift(1)) > 0).replace({True: 1, False: -1})  
+  # df['adx_pred_syn'] = (df['adx_change'] - df['adx_change'].shift(1))# > 0).replace({True: 1, False: -1})  
   
   # when adx_power goes down but actually adx trend goes up
   df['adx_power_change'] = df['adx_strength_change'].copy()
@@ -1114,10 +1131,10 @@ def calculate_ta_signal(df):
 
   # the true adx trend
   conditions = {
-    'neg_u':      f'(adx_value < 0 and adx_direction_day > 0 and adx_power_day < 0)', 
-    'neg_d':      f'(adx_value < 0 and adx_direction_day < 0)',
-    'pos_u':      f'(adx_value >=0 and adx_direction_day > 0 and ((adx_value <= 10 and adx_power_day < 0 and adx_direction_start < -5) or (adx_value > 10 and adx_power_day > 0)))', 
-    'pos_d':      f'(adx_value >=0 and adx_direction_day < 0)',
+    'neg_u':      f'(adx_value < 0 and adx_value_change > 0 and adx_power_day < 0)', 
+    'neg_d':      f'(adx_value < 0 and adx_value_change < 0)',
+    'pos_u':      f'(adx_value >=0 and adx_value_change > 0 and ((adx_value <= 10 and adx_power_day < 0 and adx_direction_start < -5) or (adx_value > 10 and adx_power_day > 0)))', 
+    'pos_d':      f'(adx_value >=0 and adx_value_change < 0 and ((adx_value <= 10) or (adx_value > 10 and adx_power_day < 0)))',
   } 
   values = {
     'neg_u':      1, 
@@ -1129,7 +1146,6 @@ def calculate_ta_signal(df):
   df['prev_adx_syn'] = df['adx_syn'].shift(1)
 
   # number of days since adx_syn/adx_pred_syn/prev_adx_syn goes up or down
-  df['adx_pred_syn'] = sda(df['adx_pred_syn'], zero_as=None)
   df['adx_syn'] = sda(df['adx_syn'], zero_as=None)
   df['prev_adx_syn'] = sda(df['prev_adx_syn'], zero_as=0)
 
@@ -1183,101 +1199,74 @@ def calculate_ta_signal(df):
   # mark potential
   potential_conditions = {
 
-    '整体_up':            '''
-                          (adx_value_change > 0) and 
-                          (overall_change > 0 or overall_change_diff >=0) and 
-                          (
-                            adx_syn > 0 or 
-                            (adx_syn == 0 and prev_adx_syn < 0) or 
-                            (adx_pred_syn > 0)
-                          ) and 
-                          (trigger_score >= 0)
+    '完美_up':            '''
+                          (trigger_score > 0) and
+                          (adx_syn == 1 or (adx_syn == 0 and prev_adx_syn < 0)) and
+                          (overall_change > 0 or (overall_change_diff > 0 and overall_change > -0.1)) and
+                          (adx_direction_day == 1)
                           '''.replace('\n', ''),
 
-    '触底_up':            '''
-                          (ichimoku_distance < 0 and kijun_rate == 0 and (tankan_rate >= 0 and tankan_rate_none_zero > 0) and ichimoku_distance_change_sda > 0) and
+    '反弹_up':            '''
+                          (ichimoku_distance < 0 and kijun_rate == 0) and
                           ((kama_distance > 0 and kijun > kama_fast) or (kama_distance < 0)) and
-                          (adx_syn >= 0)
+                          (adx_syn > 0) and
+                          (break_up_score > 0 or support_score > 0 or pattern_score > 0)
                           '''.replace('\n', ''),
 
-    '所有_up':            '''
-                          (trigger_score > 0) and 
-                          (boundary_score > 0 or break_score > 0) and 
-                          (resistant_score == 0 and break_down_score == 0 and down_pattern_score == 0)
+    '一般_up':            '''
+                          (trigger_score >= 0 and break_down_score == 0) and
+                          (adx_syn > 0) and
+                          (overall_change > 0 or (overall_change_diff > 0)) and
+                          (adx_value_change > 0)
                           '''.replace('\n', ''),
 
-    '影线_up':            '''
-                          (
-                            (support_score > 0 or break_up_score > 0) and 
-                            (candle_lower_shadow_pct > 0.5) and 
-                            (
-                              (相对renko位置 in ["up"]) or 
-                              (相对kama位置 in ["up"]) or 
-                              (相对ichimoku位置 in ["up"])
-                            ) 
-                          )
-                          '''.replace('\n', ''),
+    # '影线_up':            '''
+    #                       (
+    #                         (support_score > 0 or break_up_score > 0) and 
+    #                         (candle_lower_shadow_pct > 0.5) and 
+    #                         (
+    #                           (相对renko位置 in ["up"]) or 
+    #                           (相对kama位置 in ["up"]) or 
+    #                           (相对ichimoku位置 in ["up"])
+    #                         ) 
+    #                       )
+    #                       '''.replace('\n', ''),
 
-    '转换_up':            '''
-                          ( 
-                            (adx_pred_syn > 0) and
-                            (adx_change > 0) and
-                            (
-                              (adx_syn == 0 or adx_syn == 1) and 
-                              (prev_adx_syn < 0)
-                            ) 
-                          )
-                          '''.replace('\n', ''),
-
-
-    '整体_down':          '''
-                          (adx_value_change < 0) and 
-                          (
-                            overall_change < 0 or 
-                            (
-                              overall_change_diff <=0 and 
-                              (adx_syn < 0 or adx_pred_syn <= 0) and 
-                              trigger_score <= 0
-                            )
-                          )
-                          '''.replace('\n', ''),
-
-    '触顶_down':          '''
-                          (ichimoku_distance > 0 and kijun_rate == 0 and (tankan_rate <= 0 and tankan_rate_none_zero < 0) and ichimoku_distance_change_sda < 0) and
-                          (kama_distance > 0) and 
-                          (adx_value > 10 and adx_direction < 0)
-                          '''.replace('\n', ''),
-
-    '所有_down':          '''
-                          (trigger_score < 0) and 
-                          (boundary_score < 0 or break_score < 0) and 
-                          (support_score == 0 and break_up_score == 0 and up_pattern_score == 0)
-                          '''.replace('\n', ''),
     
-    '影线_down':          '''
-                          (
-                            (
-                              (candle_upper_shadow_pct > 0.5) or
-                              (candle_upper_shadow_pct > 0.3 and candle_lower_shadow_pct < 0.1)
-                            ) and 
-                            (
-                              (相对renko位置 in ["up", "out", "mid_up", "mid", "mid_down"]) or 
-                              (相对kama位置 in ["up", "out", "mid_up", "mid", "mid_down"]) or 
-                              (相对ichimoku位置 in ["up", "out", "mid_up", "mid", "mid_down"])
-                            ) 
-                          )
-                          '''.replace('\n', ''),    
-    
-    '转换_down':          '''
-                          ( 
-                            (adx_pred_syn < 0) and
-                            (adx_change < 0) and
-                            (
-                              (adx_syn == 0 or adx_syn == -1) and 
-                              (prev_adx_syn > 0)
-                            ) 
-                          )
-                          '''.replace('\n', ''), 
+    '完美_down':          '''
+                          (trigger_score < 0) and
+                          (adx_syn == -1 or (adx_syn == 0 and prev_adx_syn > 0)) and
+                          (overall_change < 0 or (overall_change_diff < 0 and overall_change < 0.1)) and
+                          (adx_direction_day == -1)
+                          '''.replace('\n', ''),
+
+    '反弹_down':          '''
+                          (ichimoku_distance > 0 and kama_distance > 0) and
+                          (相对ichimoku位置 in ["up"]) and
+                          (adx_syn < 0) and
+                          (break_down_score < 0 or resistant_score < 0 or pattern_score < 0)
+                          '''.replace('\n', ''),
+
+    '一般_down':            '''
+                          (trigger_score <=0 and break_up_score == 0) and
+                          (adx_syn < 0) and
+                          (overall_change < 0 or (overall_change_diff < 0)) and
+                          (adx_value_change < 0)
+                          '''.replace('\n', ''),
+
+    # '影线_down':          '''
+    #                       (
+    #                         (
+    #                           (candle_upper_shadow_pct > 0.5) or
+    #                           (candle_upper_shadow_pct > 0.3 and candle_lower_shadow_pct < 0.1)
+    #                         ) and 
+    #                         (
+    #                           (相对renko位置 in ["up", "out", "mid_up", "mid", "mid_down"]) or 
+    #                           (相对kama位置 in ["up", "out", "mid_up", "mid", "mid_down"]) or 
+    #                           (相对ichimoku位置 in ["up", "out", "mid_up", "mid", "mid_down"])
+    #                         ) 
+    #                       )
+    #                       '''.replace('\n', ''),    
     
   } 
   for c in potential_conditions.keys():
@@ -1298,11 +1287,8 @@ def calculate_ta_signal(df):
   # unmark false potential
   none_potential_conditions = {
 
-    # '整体_up':            '(overall_change > 0)',
-
-    '触底_up':            '''
-                          (触底_up == 1) and
-                          (影线_down < 0) and
+    '反弹_up':            '''
+                          (反弹_up == 1) and
                           (
                             candle_color == -1 or
                             resistant_score <= 2 or
@@ -1310,67 +1296,13 @@ def calculate_ta_signal(df):
                             trigger_score < 0
                           )
                           '''.replace('\n', ''),
-
-    # '所有_up':            '(trigger_score > 0) and (resistant_score == 0 and break_down_score == 0 and down_pattern_score == 0) and (boundary_score > 0 or break_score > 0 or pattern_score > 0)',
-    
-    # '影线_up':            '''
-    #                       (
-    #                         (support_score > 0 or break_up_score > 0) and 
-    #                         (candle_lower_shadow_pct > 0.5) and 
-    #                         (
-    #                           (相对renko位置 in ["up"]) or 
-    #                           (相对kama位置 in ["up"]) or 
-    #                           (相对ichimoku位置 in ["up"])
-    #                         ) 
-    #                       )
-    #                       '''.replace('\n', ''),
-
-    # '转换_up':            '''
-    #                       ( 
-    #                         (adx_pred_syn > 0) and
-    #                         (adx_change > 0) and
-    #                         (
-    #                           (adx_syn == 0 or adx_syn == 1) and 
-    #                           (prev_adx_syn < 0)
-    #                         ) 
-    #                       )
-    #                       '''.replace('\n', ''),
-
-
-    # '整体_down':          '(overall_change < 0)',
-    # '触顶_down':          '(ichimoku_distance > 0 and (tankan_rate <= 0 and tankan_rate_none_zero < 0) and kijun_rate == 0 and adx_value > 10 and adx_direction < 0)',
-    # '所有_down':          '(trigger_score < 0) and (support_score == 0 and break_up_score == 0 and up_pattern_score == 0) and (boundary_score < 0 or break_score < 0 or pattern_score < 0)',
-    # '影线_down':          '''
-    #                       (
-    #                         (
-    #                           (candle_upper_shadow_pct > 0.5) or
-    #                           (candle_upper_shadow_pct > 0.3 and candle_lower_shadow_pct < 0.1)
-    #                         ) and 
-    #                         (
-    #                           (相对renko位置 in ["up", "out", "mid_up", "mid", "mid_down"]) or 
-    #                           (相对kama位置 in ["up", "out", "mid_up", "mid", "mid_down"]) or 
-    #                           (相对ichimoku位置 in ["up", "out", "mid_up", "mid", "mid_down"])
-    #                         ) 
-    #                       )
-    #                       '''.replace('\n', ''),    
-    # '转换_down':          '''
-    #                       ( 
-    #                         (adx_pred_syn < 0) and
-    #                         (adx_change < 0) and
-    #                         (
-    #                           (adx_syn == 0 or adx_syn == -1) and 
-    #                           (prev_adx_syn > 0)
-    #                         ) 
-    #                       )
-    #                       '''.replace('\n', ''), 
-    
   } 
   for c in none_potential_conditions.keys():
     tmp_condition = none_potential_conditions[c]
     tmp_idx = df.query(tmp_condition).index
     df.loc[tmp_idx, c] = 0
 
-  # calculate potential score
+  # calculate potential score and description
   for c in potential_conditions.keys():
     if 'up' in c:
       tmp_idx = df.query(f'{c} == 1').index
@@ -1383,23 +1315,6 @@ def calculate_ta_signal(df):
     else:
       pass
  
-  # mute false signal
-  mute_conditions = {
-
-    '长期波动':            '''
-                          (adx_strong_day < -5) and
-                          (adx_wave_day > 5) and
-                          (renko_day > 60 or renko_day < -60)
-                          '''.replace('\n', ''),
-  } 
-  for c in mute_conditions.keys():
-    tmp_condition = mute_conditions[c]
-    tmp_idx = df.query(tmp_condition).index
-
-    df.loc[tmp_idx, 'potential'] = 'potential_mute'
-    df.loc[tmp_idx, 'potential_score'] = 0
-    df.loc[tmp_idx, 'potential_down'] += f'{c.replace("_down", "")}, '
-
   # final post-processing
   df['potential_score'] = df['potential_score'].round(2)
   df['potential_up'] = df['potential_up'].apply(lambda x: '+[' + x[:-2] + ']' if len(x) > 0 else '')
@@ -1407,14 +1322,14 @@ def calculate_ta_signal(df):
   df['potential_description'] = df['potential_up'] + ' | ' + df['potential_down']
   
   # final potential label and description
-  df['potential'] = ''
+  # df['potential'] = ''
   conditions = {
     'potential_up':     'potential_score > 0',
     'potential_down':   'potential_score < 0'
   } 
   values = {
     'potential_up':     'potential',
-    'potential_up':     'potential_down',
+    'potential_down':   'none_potential',
   }
   df = assign_condition_value(df=df, column='potential', condition_dict=conditions, value_dict=values, default_value='')
   
@@ -1425,15 +1340,15 @@ def calculate_ta_signal(df):
   df['signal_day'] = 0
 
   conditions = {
-    'down':     '整体_down < 0', 
-    'sell':     '(adx_value_change < 0 and overall_change < 0 and overall_change_diff <=0 and (adx_syn <=0 or adx_syn == 0 and prev_adx_syn > 0) and (trigger_score <= 0 or break_down_score < 0 or pattern_score < 0))',
-    'up':       '整体_up > 0',
-    'buy':      '(adx_direction_day == 1 or (adx_value_change > 0 and overall_day == 1)) and (adx_syn == 1 or (adx_syn == 0 and prev_adx_syn < 0)) and trigger_score > 0 and break_down_score == 0', 
+    # 'down':     '整体_down < 0', 
+    'sell':     'potential_score < 0', #'(adx_value_change < 0 and overall_change < 0 and overall_change_diff <=0 and (adx_syn <=0 or adx_syn == 0 and prev_adx_syn > 0) and (trigger_score <= 0 or break_down_score < 0 or pattern_score < 0))',
+    # 'up':       '整体_up > 0',
+    'buy':      'potential_score > 0', #'(adx_change > 0 and (overall_change > 0 or (adx_syn > 0)))', # '(adx_direction_day == 1 or (adx_value_change > 0 and overall_day == 1)) and (adx_syn == 1 or (adx_syn == 0 and prev_adx_syn < 0)) and trigger_score > 0 and break_down_score == 0', 
   } 
   values = {
-    'down':     'ns',
+    # 'down':     'ns',
     'sell':     's',
-    'up':       'nb',
+    # 'up':       'nb',
     'buy':      'b',
   }
   df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
@@ -1455,6 +1370,10 @@ def calculate_ta_signal(df):
                         ) or
                         (
                           (adx_direction < 0)
+                        ) or
+                        (
+                          (adx_power_day < 0 and adx_power_start_adx_value > 10 and adx_value > -10) and
+                          (adx_strong_day < 0 or adx_change < 0 or (adx_direction_day == 1 and -10 < adx_value < 10))
                         )
                       )
                       '''.replace('\n', ''),
@@ -1462,9 +1381,14 @@ def calculate_ta_signal(df):
     # B: 长期波动  
     '长期波动':       '''
                       (signal == "b") and
+                      (renko_day > 50 or renko_day < -50) and
                       (
-                        (renko_day > 50 or renko_day < -50) and
-                        (renko_color == "red" or 相对renko位置 in ["down", "mid_down", "mid", "mid_up"])
+                        (
+                          (renko_color == "red" or 相对renko位置 in ["down", "mid_down", "mid", "mid_up"])
+                        ) or
+                        (
+                          (adx_strong_day < -5) and (adx_wave_day > 5)
+                        )
                       )
                       '''.replace('\n', ''),
 
@@ -1481,7 +1405,8 @@ def calculate_ta_signal(df):
     '低位买入':       '''
                       (signal == "b") and
                       (
-                        (kir_distance == "rrr") and (相对renko位置 in ["down"])
+                        (kir_distance == "rrr") and (相对renko位置 in ["down"]) and 
+                        (candle_entity_bottom < kama_fast and candle_entity_bottom < tankan and candle_entity_bottom < renko_l)
                       )
                       '''.replace('\n', ''),
 
@@ -1501,7 +1426,13 @@ def calculate_ta_signal(df):
                       )
                       '''.replace('\n', ''),
 
-    
+    # B: 其他情况  
+    '受到阻挡':       '''
+                      (
+                        (signal == "b") and
+                        (resistant_score < -2)
+                      )
+                      '''.replace('\n', ''),
   } 
   for c in none_signal_conditions.keys():
     tmp_condition = none_signal_conditions[c]
@@ -1524,7 +1455,6 @@ def calculate_ta_signal(df):
   # df['rank_down_score'] = 0
   # rank_conditions = {
   #   '+adx_syn':         [s*2, '', '(adx_direction_start < -10 and adx_direction_day > 0 and -1 <= adx_syn <= 1)'],
-  #   '+turn_up':         [s, '', '转换_up == 1'],
   #   '-adx_wave':        [-s, '', '(adx_strong_day < 0)'],
   #   '-adx_wake':        [-s, '', '(adx_wave_day > 0)'],
   #   '-renko':           [-s, '', '(renko_day > 50 or renko_day < -50)'],
@@ -1537,21 +1467,21 @@ def calculate_ta_signal(df):
   # tier
   df['tier'] = 10
   conditions = {
-    '7':        '(adx_direction_day > 0)',
-    '6':        '(adx_direction_day > 0) and  (0 < adx_syn) and                           (adx_pred_syn > 0)',
-    '5':        '(adx_direction_day > 0) and  (0 < adx_syn <= 3) and                      (adx_pred_syn > 0) and  (overall_day > 0 or overall_change_diff > 0) and (trigger_score >= 0)', 
-    '4':        '(adx_direction_day > 0) and  (0 < adx_syn <= 3 and prev_adx_syn < 0) and (adx_pred_syn > 0) and  (overall_day > 0 or overall_change_diff > 0) and (trigger_score >= 0)',
-    '3':        '(adx_direction_day > 0) and  (adx_syn == 1 and prev_adx_syn < 0) and     (adx_pred_syn > 0) and  (overall_day > 0 or overall_change_diff > 0) and (trigger_score >= 0)', 
-    '2':        '(adx_direction_day == 1) and (adx_syn == 1 and prev_adx_syn < 0) and     (adx_pred_syn > 0) and  (overall_day == 1) and                           (trigger_score > 0 or break_up_score > 0)',
-    '1':        '(adx_direction_day == 1) and (adx_syn == 1 and prev_adx_syn < 0) and     (adx_pred_syn == 1) and (overall_day == 1) and                           (trigger_score > 0) and (adx_direction_start < 0)', 
-    '0':        'signal == "b"', 
+    # '7':        '(adx_direction_day > 0)',
+    # '6':        '(adx_direction_day > 0) and  (0 < adx_syn) and                           (adx_change_day > 0)',
+    # '5':        '(adx_direction_day > 0) and  (0 < adx_syn <= 3) and                      (adx_change_day > 0) and  (overall_day > 0 or overall_change_diff > 0) and (trigger_score >= 0)', 
+    # '4':        '(adx_direction_day > 0) and  (0 < adx_syn <= 3 and prev_adx_syn < 0) and (adx_change_day > 0) and  (overall_day > 0 or overall_change_diff > 0) and (trigger_score >= 0)',
+    # '3':        '(adx_direction_day > 0) and  (adx_syn == 1 and prev_adx_syn < 0) and     (adx_change_day > 0) and  (overall_day > 0 or overall_change_diff > 0) and (trigger_score >= 0)', 
+    '2':        '一般_up == 1',
+    '1':        '反弹_up == 1', 
+    '0':        '完美_up == 1', 
   } 
   values = {
-    '7':        7,
-    '6':        6,
-    '5':        5,
-    '4':        4,
-    '3':        3,
+    # '7':        7,
+    # '6':        6,
+    # '5':        5,
+    # '4':        4,
+    # '3':        3,
     '2':        2,
     '1':        1,
     '0':        0, 
@@ -4094,6 +4024,8 @@ def add_renko_features(df, brick_size_factor=0.05, dynamic_brick=True, merge_dup
 
   # number of days since renko triggered
   df['renko_day'] = df['renko_color'].replace({'green':1, 'red': -1})
+  real_idx = df.query('renko_real in ["red", "green"]').index
+  df.loc[real_idx, 'renko_day'] = 0
   df['renko_day'] = sda(df['renko_day'], zero_as=None)
 
   # renko position status (beyond/below/among brick)
@@ -5558,13 +5490,13 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     ax.scatter(buy_data.index, buy_data[signal_y], marker='^', color='green', alpha=0.5)
 
     buy_data = df.query('signal == "nb"')
-    ax.scatter(buy_data.index, buy_data[signal_y], marker='^', color='none', edgecolor='green', alpha=0.5)
+    ax.scatter(buy_data.index, buy_data[signal_y], marker='^', color='orange', alpha=0.5)
 
     sell_data = df.query('signal == "s"')
     ax.scatter(sell_data.index, sell_data[signal_y], marker='v', color='red', alpha=0.5)
 
     sell_data = df.query('signal == "ns"')
-    ax.scatter(sell_data.index, sell_data[signal_y], marker='v', color='none', edgecolor='red', alpha=0.5)
+    ax.scatter(sell_data.index, sell_data[signal_y], marker='v', color='orange', alpha=0.5)
 
   # trigger
   if signal_x in ['trigger']:
@@ -5741,6 +5673,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     #       if len(tmp_data) > 0:
     #         ax.scatter(tmp_data.index, tmp_data[signal_y], marker='o', color='none', edgecolor='red', alpha=alpha)
 
+  # adx_syn(whether adx_value and adx_strength goes the same direction)
   if signal_x in ['adx_syn']:
     pos_marker = 'o'
     neg_marker = 'o'
@@ -5748,25 +5681,23 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
     tmp_col_v = f'{signal_x}'
     tmp_col_a = f'{signal_x}_alpha'
-
-    df[tmp_col_a] = normalize(df[tmp_col_v].abs()).apply(lambda x: 0.2 if x < 0.2 else x)
-    df['color'] = 'white'
+    tmp_alpha = 0.7
 
     threhold = 0
     tmp_data = df.query(f'({tmp_col_v} > {threhold})')
     if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=pos_marker, color=tmp_data['color'], edgecolor='green', alpha=tmp_data[tmp_col_a].fillna(0))
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=pos_marker, color='none', edgecolor='green', alpha=tmp_alpha)
   
     tmp_data = df.query(f'({tmp_col_v} < {-threhold})')
     if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color=tmp_data['color'], edgecolor='red', alpha=tmp_data[tmp_col_a].fillna(0))
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='none', edgecolor='red', alpha=tmp_alpha)
 
     pos_marker = '.'
     neg_marker = '.'
     none_marker = '_'
 
-    tmp_col_v = f'adx_pred_syn'
-    tmp_col_a = f'adx_pred_syn_alpha'
+    tmp_col_v = f'adx_change'
+    tmp_col_a = f'adx_change_alpha'
 
     df[tmp_col_a] = normalize(df[tmp_col_v].abs())
 
@@ -5791,17 +5722,16 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     tmp_col_v = f'overall_change'
     tmp_col_a = f'overall_change_alpha'
 
-    df[tmp_col_a] = normalize(df[tmp_col_v].abs()).apply(lambda x: 0.2 if x < 0.2 else x)
-    df['color'] = 'white'
+    tmp_alpha = 0.7
 
     threhold = 0
     tmp_data = df.query(f'({tmp_col_v} > {threhold})')
     if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=pos_marker, color=tmp_data['color'], edgecolor='green', alpha=tmp_data[tmp_col_a].fillna(0))
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=pos_marker, color='none', edgecolor='green', alpha=tmp_alpha)
   
     tmp_data = df.query(f'({tmp_col_v} < {-threhold})')
     if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color=tmp_data['color'], edgecolor='red', alpha=tmp_data[tmp_col_a].fillna(0))
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='none', edgecolor='red', alpha=tmp_alpha)
 
     pos_marker = '.'
     neg_marker = '.'
@@ -5823,6 +5753,31 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     if len(tmp_data) > 0:
       # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='red', alpha=tmp_data[tmp_col_a].fillna(0))
+
+  # poteltials
+  if signal_x in ["一般", "完美", "反弹"]:
+
+    tmp_col_up = f'{signal_x}_up'
+    tmp_col_down = f'{signal_x}_down'
+    tmp_col_a = f'{signal_x}_alpha'
+    threhold = 0.000
+
+    df[tmp_col_a] = 0.5
+
+    # up
+    tmp_data = df.query(f'({tmp_col_up} == 1)')
+    if len(tmp_data) > 0:
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='o', color='green', alpha=tmp_data[tmp_col_a])
+
+    # down
+    tmp_data = df.query(f'({tmp_col_down} == -1)')
+    if len(tmp_data) > 0:
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='x', color='red', alpha=tmp_data[tmp_col_a])
+
+    # none
+    tmp_data = df.query(f'({tmp_col_up} == 0) or ({tmp_col_down} == 0)')
+    if len(tmp_data) > 0:
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='grey', alpha=0.25)
 
   # legend and title
   ax.legend(loc='upper left') 
