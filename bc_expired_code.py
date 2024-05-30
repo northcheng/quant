@@ -1,4 +1,4 @@
-#20240521 updated
+#20240530 updated
 [
   # sec_data
   'Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume', 'Dividend', 'Split', 
