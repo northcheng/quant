@@ -282,21 +282,23 @@ def calculate_ta_static(df, indicators=default_indicators):
     print(f'No data for calculate_ta_static')
     return None
 
+  # columns to drop
+  col_to_drop = []
+
   # trend calculation
   try:
     phase = 'calculate trend for trend_indicators'
     
     # ================================ ichimoku/kama trend ====================
-    lines = {
-      'ichimoku': {'fast': 'tankan', 'slow': 'kijun'}, 
-      'kama': {'fast': 'kama_fast', 'slow': 'kama_slow'}}
-
+    lines = {'ichimoku': {'fast': 'tankan', 'slow': 'kijun'}, 'kama': {'fast': 'kama_fast', 'slow': 'kama_slow'}}
     for target_indicator in ['ichimoku', 'kama']:
       if target_indicator in indicators['trend']:
 
         # fast/slow line column names
         fl = lines[target_indicator]['fast']
         sl = lines[target_indicator]['slow']
+        fl_rate = f'{fl}_rate'
+        sl_rate = f'{sl}_rate'
  
         # distance related column names
         distance = f'{target_indicator}_distance'
@@ -304,7 +306,6 @@ def calculate_ta_static(df, indicators=default_indicators):
         # distance_day = f'{target_indicator}_distance_day'
         trend_col = f'{target_indicator}_trend'
         
-
         # distance and distance change(normalized by slow_line)
         df[distance] = df[fl] - df[sl]
         df[distance_change] = df[distance] - df[distance].shift(1)
@@ -319,40 +320,65 @@ def calculate_ta_static(df, indicators=default_indicators):
           df[f'{col}_day'] = cal_crossover_signal(df=df, fast_line='Close', slow_line=col, pos_signal=1, neg_signal=-1, none_signal=0)
           df[f'{col}_day'] = sda(series=df[f'{col}_day'], zero_as=1)
 
-          # fl/sl with none zero rate          
-          rate_col = f'{col}_rate'
-          none_zero_col = f'{rate_col}_none_zero'
-          df[none_zero_col] = np.NaN
-          none_zero_idx = df.query(f'{rate_col} > {threshold} or {rate_col} < {threshold}').index
-          df.loc[none_zero_idx, none_zero_col] = df.loc[none_zero_idx, rate_col]
-          df[none_zero_col] = df[none_zero_col].fillna(method='ffill')
+          # # fl/sl with none zero rate          
+          # rate_col = f'{col}_rate'
+          # none_zero_col = f'{rate_col}_none_zero'
+          # df[none_zero_col] = np.NaN
+          # none_zero_idx = df.query(f'{rate_col} > {threshold} or {rate_col} < {threshold}').index
+          # df.loc[none_zero_idx, none_zero_col] = df.loc[none_zero_idx, rate_col]
+          # df[none_zero_col] = df[none_zero_col].fillna(method='ffill')
 
         # fl & sl crossover  
-        fs_day = f'{target_indicator}_fs_day'
+        fs_day = f'{target_indicator}_cross_day'
         df[fs_day] = cal_crossover_signal(df, fast_line=fl, slow_line=sl, result_col=fs_day, pos_signal='u', neg_signal='d', none_signal='n')
         df[fs_day] = df[fs_day].replace({'u':1, 'd':-1, 'n':0})
         df[fs_day] = sda(series=df[fs_day], zero_as=1)
         
-        # trend
-        rate_threshold = 0.01
+        # change
+        result_col = f'{target_indicator}_change'
+        status_col = f'{target_indicator}_status'
+        df[result_col] = 0
+        for col in [fl_rate, sl_rate]:
+          df[result_col] += df[col]
+        col_symbol = (df[result_col] > 0).replace({True: 1, False: -1})
+        df[result_col] = normalize(df[result_col].abs()) * col_symbol
+
+        # status
+        threshold = 0.00
         conditions = {
-          'up':     f'({distance} > 0)',#f'({distance_day} > 0) and ({distance} > -0.15)', # f'Close > {fl} > {sl}', # f'({fs_day} > 0)', #  
-          'down':   f'({distance} < 0)', #f'({distance_day} < 0)', # f'Close < {fl} < {sl}', # f'({fs_day} < 0)' # 
+          'up':       f'({fl_rate} > {threshold} and {sl_rate} > {threshold}) or ({fl_rate} > {threshold} and {distance_change} >= {threshold})', 
+          'down':     f'({fl_rate} < {threshold} and {sl_rate} < {threshold}) or ({fl_rate} < {threshold} and {distance_change} <= {threshold})',
         } 
         values = {
-          'up': 'u', 
-          'down': 'd',
+          'up':       1,
+          'down':     -1
         }
-        df = assign_condition_value(df=df, column=trend_col, condition_dict=conditions, value_dict=values, default_value='n')
+        df = assign_condition_value(df=df, column=status_col, condition_dict=conditions, value_dict=values, default_value=0)
 
-        # cloud
+        # # trend
+        # rate_threshold = 0.01
+        # conditions = {
+        #   'up':     f'({distance} > 0)',#f'({distance_day} > 0) and ({distance} > -0.15)', # f'Close > {fl} > {sl}', # f'({fs_day} > 0)', #  
+        #   'down':   f'({distance} < 0)', #f'({distance_day} < 0)', # f'Close < {fl} < {sl}', # f'({fs_day} < 0)' # 
+        # } 
+        # values = {
+        #   'up': 'u', 
+        #   'down': 'd',
+        # }
+        # df = assign_condition_value(df=df, column=trend_col, condition_dict=conditions, value_dict=values, default_value='n')
+
         # cloud top and bototm
+        cloud_top_col = f'{target_indicator}_cloud_top'
+        cloud_bottom_col = f'{target_indicator}_cloud_bottom'
+        col_to_drop.append(cloud_top_col)
+        col_to_drop.append(cloud_bottom_col)
+
         green_idx = df.query(f'{fs_day} > 0').index
         red_idx = df.query(f'{fs_day} < 0').index
-        df.loc[green_idx, f'{target_indicator}_cloud_top'] = df.loc[green_idx, fl]
-        df.loc[green_idx, f'{target_indicator}_cloud_bottom'] = df.loc[green_idx, sl]
-        df.loc[red_idx, f'{target_indicator}_cloud_top'] = df.loc[red_idx, sl]
-        df.loc[red_idx, f'{target_indicator}_cloud_bottom'] = df.loc[red_idx, fl]
+        df.loc[green_idx, cloud_top_col] = df.loc[green_idx, fl]
+        df.loc[green_idx, cloud_bottom_col] = df.loc[green_idx, sl]
+        df.loc[red_idx, cloud_top_col] = df.loc[red_idx, sl]
+        df.loc[red_idx, cloud_bottom_col] = df.loc[red_idx, fl]
 
         conditions = {
           '上方': f'(candle_entity_bottom >= {target_indicator}_cloud_top)',
@@ -392,6 +418,9 @@ def calculate_ta_static(df, indicators=default_indicators):
       df[aroon_col] = df[aroon_col].round(1)
       for col in aroon_col:
         df = cal_change(df=df, target_col=col, add_prefix=True, add_accumulation=True)
+        col_to_drop.append(f'{col}_change')
+        col_to_drop.append(f'{col}_acc_change')
+        col_to_drop.append(f'{col}_acc_change_count')
 
       # calculate aroon trend
       df['aroon_trend'] = ''
@@ -422,9 +451,6 @@ def calculate_ta_static(df, indicators=default_indicators):
       # 1=. aroon_gap keep steady and aroon_up/aroon_down keep changing toward a same direction
       wave_idx = df.query('-32<=aroon_gap<=32 and ((aroon_gap_change==0 and aroon_up_change==aroon_down_change<0) or ((aroon_up_change<0 and aroon_down<=4) or (aroon_down_change<0 and aroon_up<=4)))').index
       df.loc[wave_idx, 'aroon_trend'] = 'n'
-
-      # drop intermediate columns
-      df.drop(['aroon_up_change', 'aroon_up_acc_change', 'aroon_up_acc_change_count', 'aroon_down_change', 'aroon_down_acc_change', 'aroon_down_acc_change_count', 'aroon_gap_change', 'aroon_gap_acc_change', 'aroon_gap_acc_change_count'], axis=1, inplace=True)
 
     # ================================ adx trend ==============================
     target_indicator = 'adx'
@@ -474,6 +500,7 @@ def calculate_ta_static(df, indicators=default_indicators):
         day_col = f'{col}_day'
         base_col = base_columns[col]
         prev_col = f'prev_{base_col}'
+        col_to_drop.append(prev_col)
         
         df[prev_col] = df[base_col].shift(1)
         extreme_idx = df.query(f'{day_col} == 1 or {day_col} == -1').index.tolist()
@@ -528,50 +555,70 @@ def calculate_ta_static(df, indicators=default_indicators):
       df = assign_condition_value(df=df, column='adx_wave_day', condition_dict=conditions, value_dict=values, default_value=0)
       df['adx_wave_day'] = sda(series=df['adx_wave_day'], zero_as=None)
 
-      # overall adx trend
-      threshold = 1
-      conditions = {
-        # adx_direction > 0 and (at least 1)
-        # 1. adx_direction > 5
-        # 2. adx_value < 0 and adx_power_day < 0
-        # 3. adx_value > 0 and adx_power_day > 0
-        # 'up': '((adx_direction > 0 and adx_strong_day > 0) and ((adx_direction > 5) or (adx_value < 0 and adx_power_day < 0) or (adx_value > 0 and adx_power_day > 0)))', 
-        'up1': '(candle_color == 1 or rate > 0) and (adx_direction > 10 and adx_direction_day > 2)',
-        'up2': '(candle_color == 1 or rate > 0) and ((adx_value < 0 and adx_power_day < 0) or (adx_value > 0 and adx_power_day > 0) or (-5 < adx_value < 5 and adx_direction > 0)) and ((adx_direction > 5))',
-        # 'up': f'adx_value_change > {threshold}',
-
-        # adx_direction < 0 and (at least 1)
-        # 1. adx_direction < -5
-        # 2. adx_value > 0 and adx_power_day < 0
-        # 3. adx_value < 0 and adx_power_day > 0
-        # 'down': '((adx_direction < 0 and adx_strong_day > 0) and ((adx_direction <-5) or (adx_value > 0 and adx_power_day < 0) or (adx_value < 0 and adx_power_day > 0)))',
-        'down1': '(adx_direction < -5 and adx_direction_day < -2)', 
-        'down2': '((adx_value > 0 and adx_power_day < 0) or (adx_value < 0 and adx_power_day > 0) or (-5 < adx_value < 5 and adx_direction < 0)) and ((adx_direction < -5))',
-        'down3': '(adx_strength > 0) and (adx_value < 20 and adx_direction < 5)',
-
-        # at least 1 of following
-        # 1. adx_direction in (-5, 5) and (adx_strength_change in (-1, 1) or adx_value_change in (-1, 1) or (adx_power_day in [-1,1] and adx_direction_day in [-1,1]))
-        # 2. adx_direction_start in (5, -5) and adx_strong_day in [-1, 1]
-        # 'wave': '(((-1 < adx_strength_change < 1) or (-1 < adx_value_change < 1) or (-1 <= adx_power_day <= 1 and -1 <= adx_direction_day <= 1)) and (-5 < adx_direction < 5)) or ((adx_strong_day < 0) and (-5 < adx_direction_start < 5))'
-        'wave1': '(-5 <= adx_direction <= 5) and ((-1 <= adx_strength_change <= 1) or (-1 <= adx_value_change <= 1))',
-        'wave2': '(-5 <= adx_direction <= 5) and (-1<= adx_power_day <= 1) and (-1 <= adx_direction_day <= 1)',
-        'wave3': '(-5 <= adx_direction <= 5) and (-1 <= adx_strong_day <= 1)'
-        # 'wave': f'{-threshold} <= adx_value_change <= {threshold}'
-      } 
-      
       # adx_trend
+      # adx_change: (实际值 - 预测值与), adx_status: ± of adx_change
+      df['adx_change'] = df['adx_value'] - df['adx_value_prediction']
+      df['adx_status'] = (df['adx_change'] > 0).replace({True: 1, False: -1})
+      df['adx_change'] = normalize(df['adx_change'].abs()) * df['adx_status']
+
+      # the true adx trend
+      conditions = {
+        'neg_u':      f'(adx_value < 0 and adx_value_change > 0 and adx_power_day < 0)', 
+        'neg_d':      f'(adx_value < 0 and adx_value_change < 0)',
+        'pos_u':      f'(adx_value >=0 and adx_value_change > 0 and ((adx_value <= 10 and adx_power_day < 0 and adx_direction_start < -5) or (adx_value > 10 and adx_power_day > 0)))', 
+        'pos_d':      f'(adx_value >=0 and adx_value_change < 0 and ((adx_value <= 10) or (adx_value > 10 and adx_power_day < 0)))',
+      } 
       values = {
-        'up1': 'u', 'up2': 'u', 
-        'down1': 'd', 'down2': 'd', 'down3': 'd',
-        'wave1': 'n', 'wave2': 'n', 'wave3': 'n'}
-      df = assign_condition_value(df=df, column='adx_trend', condition_dict=conditions, value_dict=values, default_value='n') 
+        'neg_u':      1, 
+        'neg_d':      -1,
+        'pos_u':      1, 
+        'pos_d':      -1,
+      }
+      df = assign_condition_value(df=df, column='adx_trend', condition_dict=conditions, value_dict=values, default_value=0)
+      df['adx_day'] = sda(df['adx_trend'], zero_as=None)
+      
+      # # overall adx trend
+      # threshold = 1
+      # conditions = {
+      #   # adx_direction > 0 and (at least 1)
+      #   # 1. adx_direction > 5
+      #   # 2. adx_value < 0 and adx_power_day < 0
+      #   # 3. adx_value > 0 and adx_power_day > 0
+      #   # 'up': '((adx_direction > 0 and adx_strong_day > 0) and ((adx_direction > 5) or (adx_value < 0 and adx_power_day < 0) or (adx_value > 0 and adx_power_day > 0)))', 
+      #   'up1': '(candle_color == 1 or rate > 0) and (adx_direction > 10 and adx_direction_day > 2)',
+      #   'up2': '(candle_color == 1 or rate > 0) and ((adx_value < 0 and adx_power_day < 0) or (adx_value > 0 and adx_power_day > 0) or (-5 < adx_value < 5 and adx_direction > 0)) and ((adx_direction > 5))',
+      #   # 'up': f'adx_value_change > {threshold}',
+
+      #   # adx_direction < 0 and (at least 1)
+      #   # 1. adx_direction < -5
+      #   # 2. adx_value > 0 and adx_power_day < 0
+      #   # 3. adx_value < 0 and adx_power_day > 0
+      #   # 'down': '((adx_direction < 0 and adx_strong_day > 0) and ((adx_direction <-5) or (adx_value > 0 and adx_power_day < 0) or (adx_value < 0 and adx_power_day > 0)))',
+      #   'down1': '(adx_direction < -5 and adx_direction_day < -2)', 
+      #   'down2': '((adx_value > 0 and adx_power_day < 0) or (adx_value < 0 and adx_power_day > 0) or (-5 < adx_value < 5 and adx_direction < 0)) and ((adx_direction < -5))',
+      #   'down3': '(adx_strength > 0) and (adx_value < 20 and adx_direction < 5)',
+
+      #   # at least 1 of following
+      #   # 1. adx_direction in (-5, 5) and (adx_strength_change in (-1, 1) or adx_value_change in (-1, 1) or (adx_power_day in [-1,1] and adx_direction_day in [-1,1]))
+      #   # 2. adx_direction_start in (5, -5) and adx_strong_day in [-1, 1]
+      #   # 'wave': '(((-1 < adx_strength_change < 1) or (-1 < adx_value_change < 1) or (-1 <= adx_power_day <= 1 and -1 <= adx_direction_day <= 1)) and (-5 < adx_direction < 5)) or ((adx_strong_day < 0) and (-5 < adx_direction_start < 5))'
+      #   'wave1': '(-5 <= adx_direction <= 5) and ((-1 <= adx_strength_change <= 1) or (-1 <= adx_value_change <= 1))',
+      #   'wave2': '(-5 <= adx_direction <= 5) and (-1<= adx_power_day <= 1) and (-1 <= adx_direction_day <= 1)',
+      #   'wave3': '(-5 <= adx_direction <= 5) and (-1 <= adx_strong_day <= 1)'
+      #   # 'wave': f'{-threshold} <= adx_value_change <= {threshold}'
+      # } 
+      
+      # # adx_trend
+      # values = {
+      #   'up1': 'u', 'up2': 'u', 
+      #   'down1': 'd', 'down2': 'd', 'down3': 'd',
+      #   'wave1': 'n', 'wave2': 'n', 'wave3': 'n'}
+      # df = assign_condition_value(df=df, column='adx_trend', condition_dict=conditions, value_dict=values, default_value='n') 
+      # df['adx_day'] = sda(series=df['adx_trend'].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1) 
 
       # # conflicted conditions
       # conflicted_idx = df.query('(adx_trend == "u") and (adx_value_change < 0)').index
       # df.loc[conflicted_idx, 'adx_trend'] = 'n'
-
-      # drop redundant column
-      df.drop(['prev_adx_value'], axis=1, inplace=True)
   
     # ================================ kst trend ==============================
     target_indicator = 'kst'
@@ -684,32 +731,32 @@ def calculate_ta_static(df, indicators=default_indicators):
 
     phase = 'calculate trend overall'
 
-    # ================================ overall trend ==========================
-    target_indicator = 'trend_day'
-    if target_indicator > '':
+    # # ================================ overall trend ==========================
+    # target_indicator = 'trend_day'
+    # if target_indicator > '':
     
-      # specify all indicators and specify the exclusives
-      all_indicators = []
-      for i in indicators.keys():
-        all_indicators += [x for x in indicators[i] if x not in all_indicators]
+    #   # specify all indicators and specify the exclusives
+    #   all_indicators = []
+    #   for i in indicators.keys():
+    #     all_indicators += [x for x in indicators[i] if x not in all_indicators]
 
-      for indicator in all_indicators:
-        trend_col = f'{indicator}_trend'
-        day_col = f'{indicator}_day'
+    #   for indicator in all_indicators:
+    #     trend_col = f'{indicator}_trend'
+    #     day_col = f'{indicator}_day'
 
-        if trend_col not in df.columns:
-          df[trend_col] = 'n'
-        if day_col not in df.columns:
-          df[day_col] = 0
+    #     if trend_col not in df.columns:
+    #       df[trend_col] = 'n'
+    #     if day_col not in df.columns:
+    #       df[day_col] = 0
 
-        # calculate number of days since trend shifted
-        if indicator in ['bb']:
-          df[day_col] = sda(series=df[trend_col].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1, one_restart=True) 
-        else:
-          df[day_col] = sda(series=df[trend_col].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1) 
+    #     # calculate number of days since trend shifted
+    #     if indicator in ['bb']:
+    #       df[day_col] = sda(series=df[trend_col].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1, one_restart=True) 
+    #     else:
+    #       df[day_col] = sda(series=df[trend_col].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1) 
 
     # remove redandunt columns
-    for col in ['ichimoku_cloud_top', 'ichimoku_cloud_bottom', 'kama_cloud_top', 'kama_cloud_bottom']:
+    for col in col_to_drop:
       if col in df.columns:
         df.drop(col, axis=1, inplace=True)
 
@@ -822,82 +869,120 @@ def calculate_ta_score(df):
   """
 
   # initialization
-  df['trend_score'] = 0
-  df['trend_status'] = 0
+  # df['trend_score'] = 0
+  # df['trend_status'] = 0
   
   df['trigger_score'] = 0
-
   df['position_score'] = 0
   df['position_score_description'] = ''
 
-  # ================================ calculate s/m/l trend/score/day ========
-  # calculate short/middle/long trend score/day
-  trend_conditions = {
-    'short': {
-      '+adx_value':           [0.5, '', '(adx_direction_day > 1 and adx_direction > 5)'],
-      '-adx_value':           [-0.5, '', '(adx_direction_day < -1 and adx_direction < -5)'],
-      '+adx_power':           [0.5, '', '(adx_power_day > 1 and adx_value > 0) or (adx_power_day < -1 and adx_value < 0)'],
-      '-adx_power':           [-0.5, '', '(adx_power_day > 1 and adx_value < 0) or (adx_power_day < -1 and adx_value > 0)'],
-      '+adx_trend':           [1, '', '(adx_trend == "u")'],
-      '-adx_trend':           [-1, '', '(adx_trend == "d")'],
+  # # ================================ calculate s/m/l trend/score/day ========
+  # # calculate short/middle/long trend score/day
+  # trend_conditions = {
+  #   'short': {
+  #     '+adx_value':           [0.5, '', '(adx_direction_day > 1 and adx_direction > 5)'],
+  #     '-adx_value':           [-0.5, '', '(adx_direction_day < -1 and adx_direction < -5)'],
+  #     '+adx_power':           [0.5, '', '(adx_power_day > 1 and adx_value > 0) or (adx_power_day < -1 and adx_value < 0)'],
+  #     '-adx_power':           [-0.5, '', '(adx_power_day > 1 and adx_value < 0) or (adx_power_day < -1 and adx_value > 0)'],
+  #     '+adx_trend':           [1, '', '(adx_trend == "u")'],
+  #     '-adx_trend':           [-1, '', '(adx_trend == "d")'],
       
-    },
-    'middle': {
-      '+tankan':              [0.5, '', '(tankan_rate > 0)'],
-      '-tankan':              [-0.5, '', '(tankan_rate <= 0)'],
-      '+i_distance_change':   [0.5, '', '(ichimoku_distance_change > 0)'],
-      '-i_distance_change':   [-0.5, '', '(ichimoku_distance_change < 0)'],
-      '+ichimoku_distance':   [1, '', 'ichimoku_distance > 0'], #  tankan_rate > 0 and 
-      '-ichimoku_distance':   [-1, '', 'ichimoku_distance < 0'], # tankan_rate <= 0 and 
-    },
-    'long': {
-      '+kama_fast':           [0.5, '', '(kama_fast_rate > 0)'],
-      '-kama_fast':           [-0.5, '', '(kama_fast_rate <= 0)'],
-      '+k_distance_change':   [0.5, '', '(kama_distance > 0)'], # kama_fast_rate > 0 and 
-      '-k_distance_change':   [-0.5, '', '(kama_distance < 0)'], # kama_fast_rate <= 0 and 
-      '+kama_distance':       [1, '', '(kama_distance > 0)'], # kama_fast_rate > 0 and 
-      '-kama_distance':       [-1, '', '(kama_distance < 0)'], # kama_fast_rate <= 0 and 
-    },
-  }
-  wave_conditions = {
-    'short': [
-      '-0.5 <= adx_value_change <= 0.5',
-      'adx_strong_day < 0',
-      'adx_wave_day > 0',
-    ],
-    'middle': [
-      'ichimoku_distance == 0',
-      '-0.01 < ichimoku_distance_change < 0.01',
-      'tankan_rate == 0'
-    ],
-    'long': [
-      'kama_distance == 0',
-      '-0.01 < kama_distance_change < 0.01',
-      'kama_fast_rate == 0'
-    ]
-  }
-  key_columns = {
-    'short': 'adx_value_change',
-    'middle': 'ichimoku_distance_change',
-    'long': 'kama_distance_change'
-  }
+  #   },
+  #   'middle': {
+  #     '+tankan':              [0.5, '', '(tankan_rate > 0)'],
+  #     '-tankan':              [-0.5, '', '(tankan_rate <= 0)'],
+  #     '+i_distance_change':   [0.5, '', '(ichimoku_distance_change > 0)'],
+  #     '-i_distance_change':   [-0.5, '', '(ichimoku_distance_change < 0)'],
+  #     '+ichimoku_distance':   [1, '', 'ichimoku_distance > 0'], #  tankan_rate > 0 and 
+  #     '-ichimoku_distance':   [-1, '', 'ichimoku_distance < 0'], # tankan_rate <= 0 and 
+  #   },
+  #   'long': {
+  #     '+kama_fast':           [0.5, '', '(kama_fast_rate > 0)'],
+  #     '-kama_fast':           [-0.5, '', '(kama_fast_rate <= 0)'],
+  #     '+k_distance_change':   [0.5, '', '(kama_distance > 0)'], # kama_fast_rate > 0 and 
+  #     '-k_distance_change':   [-0.5, '', '(kama_distance < 0)'], # kama_fast_rate <= 0 and 
+  #     '+kama_distance':       [1, '', '(kama_distance > 0)'], # kama_fast_rate > 0 and 
+  #     '-kama_distance':       [-1, '', '(kama_distance < 0)'], # kama_fast_rate <= 0 and 
+  #   },
+  # }
+  # wave_conditions = {
+  #   'short': [
+  #     '-0.5 <= adx_value_change <= 0.5',
+  #     'adx_strong_day < 0',
+  #     'adx_wave_day > 0',
+  #   ],
+  #   'middle': [
+  #     'ichimoku_distance == 0',
+  #     '-0.01 < ichimoku_distance_change < 0.01',
+  #     'tankan_rate == 0'
+  #   ],
+  #   'long': [
+  #     'kama_distance == 0',
+  #     '-0.01 < kama_distance_change < 0.01',
+  #     'kama_fast_rate == 0'
+  #   ]
+  # }
+  # key_columns = {
+  #   'short': 'adx_value_change',
+  #   'middle': 'ichimoku_distance_change',
+  #   'long': 'kama_distance_change'
+  # }
 
-  for term in ['short', 'middle', 'long']:
+  # for term in ['short', 'middle', 'long']:
 
-    # column names
-    score_col = f'{term}_trend_score'
-    key_col = key_columns[term]
+  #   # column names
+  #   score_col = f'{term}_trend_score'
+  #   key_col = key_columns[term]
 
-    # term trend score
-    trend_condition = trend_conditions[term]
-    df = cal_score(df=df, condition_dict=trend_condition, up_score_col=score_col, down_score_col=score_col)
-    wave_condition = wave_conditions[term]
-    for c in wave_condition:
-      tmp_idx = df.query(c).index
-      df.loc[tmp_idx, score_col] *= 0.8
+  #   # term trend score
+  #   trend_condition = trend_conditions[term]
+  #   df = cal_score(df=df, condition_dict=trend_condition, up_score_col=score_col, down_score_col=score_col)
+  #   wave_condition = wave_conditions[term]
+  #   for c in wave_condition:
+  #     tmp_idx = df.query(c).index
+  #     df.loc[tmp_idx, score_col] *= 0.8
 
-    # term trend score += normalized key column score
-    df[score_col] += min_max_normalize(df[key_col])
+  #   # term trend score += normalized key column score
+  #   df[score_col] += min_max_normalize(df[key_col])
+
+  # # # ================================ calculate trend score ==================
+  # # # overall score
+  # weights = {'short': 0.5, 'middle': 0.3, 'long': 0.2}
+  # for term in ['short', 'middle', 'long']:
+  #   score_col = f'{term}_trend_score'
+  #   df['trend_score'] += df[score_col] * weights[term]
+
+  # # ================================ calculate trend status =================
+  # for term in ['short', 'middle', 'long', '']:
+    
+  #   trend_col = f'{term}_trend' if term != '' else 'trend'
+  #   score_col = f'{term}_trend_score' if term != '' else 'trend_score'
+  #   day_col = f'{term}_day' if term != '' else 'trend_day'
+
+  #   # normalization
+  #   df[score_col] = min_max_normalize(df[score_col]).round(2)
+
+  #   # trend status
+  #   if term != '':
+  #     df['trend_status'] += (df[score_col] > 0).replace({True:1, False:-1})
+
+  #   # term trend
+  #   term_trend_conditions = {
+  #     'up':     f'{score_col} > 0', 
+  #     'down':   f'{score_col} <= 0',
+  #   } 
+  #   term_trend_values = {
+  #     'up':     'u', 
+  #     'down':   'd',
+  #   }
+  #   df = assign_condition_value(df=df, column=trend_col, condition_dict=term_trend_conditions, value_dict=term_trend_values, default_value='n')
+
+  #   # term trend day
+  #   df[day_col] = sda(df[trend_col].replace({"u":1, "d":-1, "n":0}), zero_as=1)
+
+  #   # term trend score change
+  #   df = cal_change(df=df, target_col=score_col, periods=1, add_accumulation=False, add_prefix=True)
+
 
   # ================================ calculate trigger/position score =======
   # support/resistant, break_up/bread_down, candle_pattern description
@@ -915,7 +1000,7 @@ def calculate_ta_score(df):
     else:
       df['down_score_description'] = (desc + df['down_score_description'])
 
-  df['trigger_score'] = (df['up_score'] + df['down_score']).round(2) #  + df['candle_position_score'] 
+  df['trigger_score'] = (df['up_score'] + df['down_score']).round(2)
   df['up_score_description'] = df['up_score_description'].apply(lambda x: x[:-2] if (len(x) >=2 and x[-2] == ',') else x)
   df['down_score_description'] = df['down_score_description'].apply(lambda x: x[:-2] if (len(x) >=2 and x[-2] == ',') else x)
 
@@ -983,43 +1068,6 @@ def calculate_ta_score(df):
     df['position_score'] += df[col_v]
 
   df = cal_change(df=df, target_col='position_score', periods=1, add_accumulation=False, add_prefix=True)
-  # ================================ calculate trend score ==================
-  # # overall score
-  weights = {'short': 0.5, 'middle': 0.3, 'long': 0.2}
-  for term in ['short', 'middle', 'long']:
-    score_col = f'{term}_trend_score'
-    df['trend_score'] += df[score_col] * weights[term]
-
-  # ================================ calculate trend status =================
-  for term in ['short', 'middle', 'long', '']:
-    
-    trend_col = f'{term}_trend' if term != '' else 'trend'
-    score_col = f'{term}_trend_score' if term != '' else 'trend_score'
-    day_col = f'{term}_day' if term != '' else 'trend_day'
-
-    # normalization
-    df[score_col] = min_max_normalize(df[score_col]).round(2)
-
-    # trend status
-    if term != '':
-      df['trend_status'] += (df[score_col] > 0).replace({True:1, False:-1})
-
-    # term trend
-    term_trend_conditions = {
-      'up':     f'{score_col} > 0', 
-      'down':   f'{score_col} <= 0',
-    } 
-    term_trend_values = {
-      'up':     'u', 
-      'down':   'd',
-    }
-    df = assign_condition_value(df=df, column=trend_col, condition_dict=term_trend_conditions, value_dict=term_trend_values, default_value='n')
-
-    # term trend day
-    df[day_col] = sda(df[trend_col].replace({"u":1, "d":-1, "n":0}), zero_as=1)
-
-    # term trend score change
-    df = cal_change(df=df, target_col=score_col, periods=1, add_accumulation=False, add_prefix=True)
 
   # ================================ calculate overall distance =============
   term_trend_conditions = {
@@ -1043,6 +1091,7 @@ def calculate_ta_score(df):
     'ggg':    f'ggg',
   }
   df = assign_condition_value(df=df, column='kir_distance', condition_dict=term_trend_conditions, value_dict=term_trend_values, default_value='n')
+
 
   return df
 
@@ -1104,90 +1153,16 @@ def calculate_ta_signal(df):
     print(f'No data for calculate_ta_signal')
     return None
 
+  # columns to drop
   col_to_drop = []
 
-  # ================================ adx, ichimoku, kama change =============
-  # adx_change: (实际值 - 预测值与), adx_status: ± of adx_change
-  df['adx_change'] = df['adx_value'] - df['adx_value_prediction']
-  df['adx_status'] = (df['adx_change'] > 0).replace({True: 1, False: -1})
-  df['adx_change'] = normalize(df['adx_change'].abs()) * df['adx_status']
-  df['adx_change_day'] = sda((df['adx_change'] > 0).replace({True: 1, False: -1}), zero_as=1)
-
-  # adx_pred_syn: ± of change of adx_change 
-  # df['adx_pred_syn'] = (df['adx_change'] - df['adx_change'].shift(1))# > 0).replace({True: 1, False: -1})  
-  
-  # when adx_power goes down but actually adx trend goes up
-  df['adx_power_change'] = df['adx_strength_change'].copy()
-  reverse_query = f'''
-                  (adx_value_change > 0 and adx_strength_change < 0 and adx_value < 10 and adx_direction_start < 0) or
-                  (adx_value_change > 0 and adx_strength_change > 0 and adx_value < 0) or
-                  (adx_value_change < 0 and adx_strength_change < 0 and adx_value < 0) or
-                  (adx_value_change < 0 and adx_strength_change > 0 and adx_value < 0)
-                  '''.replace('\n', '')
-  reverse_idx = df.query(reverse_query).index
-  df.loc[reverse_idx, 'adx_power_change'] = df.loc[reverse_idx, 'adx_power_change'] * -1
-  col_symbol = (df['adx_power_change'] > 0).replace({True: 1, False: -1})
-  df['adx_power_change'] = normalize(df['adx_power_change'].abs()) * col_symbol
-
-  # the true adx trend
-  conditions = {
-    'neg_u':      f'(adx_value < 0 and adx_value_change > 0 and adx_power_day < 0)', 
-    'neg_d':      f'(adx_value < 0 and adx_value_change < 0)',
-    'pos_u':      f'(adx_value >=0 and adx_value_change > 0 and ((adx_value <= 10 and adx_power_day < 0 and adx_direction_start < -5) or (adx_value > 10 and adx_power_day > 0)))', 
-    'pos_d':      f'(adx_value >=0 and adx_value_change < 0 and ((adx_value <= 10) or (adx_value > 10 and adx_power_day < 0)))',
-  } 
-  values = {
-    'neg_u':      1, 
-    'neg_d':      -1,
-    'pos_u':      1, 
-    'pos_d':      -1,
-  }
-  df = assign_condition_value(df=df, column='adx_syn', condition_dict=conditions, value_dict=values, default_value=0)
-  df['prev_adx_syn'] = df['adx_syn'].shift(1)
-
-  # number of days since adx_syn/adx_pred_syn/prev_adx_syn goes up or down
-  df['adx_syn'] = sda(df['adx_syn'], zero_as=None)
-  df['prev_adx_syn'] = sda(df['prev_adx_syn'], zero_as=0)
-
-  # ichimoku / kama change
-  for idx in ['kama', 'ichimoku']:
-    result_col = f'{idx}_change'
-    status_col = f'{idx}_status'
-    
-    fl_rate = {'kama': 'kama_fast_rate', 'ichimoku': 'tankan_rate'}[idx]
-    sl_rate = {'kama': 'kama_slow_rate', 'ichimoku': 'kijun_rate'}[idx]
-    dc = f'{idx}_distance_change'
-
-    threshold = 0.00
-    conditions = {
-      'up':       f'({fl_rate} > {threshold} and {sl_rate} > {threshold}) or ({fl_rate} > {threshold} and {dc} >= {threshold})', 
-      'down':     f'({fl_rate} < {threshold} and {sl_rate} < {threshold}) or ({fl_rate} < {threshold} and {dc} <= {threshold})',
-    } 
-    values = {
-      'up':       1,
-      'down':     -1
-    }
-    df = assign_condition_value(df=df, column=status_col, condition_dict=conditions, value_dict=values, default_value=0)
-    df[f'{dc}_sda'] = sda(df[dc], zero_as=0)
-
-    df[result_col] = 0
-    for col in [fl_rate, sl_rate]:
-      df[result_col] += df[col]
-
-    col_symbol = (df[result_col] > 0).replace({True: 1, False: -1})
-    df[result_col] = normalize(df[result_col].abs()) * col_symbol # * df[status_col]
-
-  # overall  
+  # overall change and status 
   df['overall_change'] = df['adx_change'] + df['ichimoku_change'] + df['kama_change']
   df['overall_status'] = df['adx_status'] + df['ichimoku_status'] + df['kama_status']
-  col_symbol = (df['overall_status'] > 0).replace({True: 1, False: -1})
-
   df['overall_change_diff'] = df['overall_change'] - df['overall_change'].shift(1)
-
+  col_symbol = (df['overall_status'] > 0).replace({True: 1, False: -1})
   none_zero_idx = df.query('overall_status != 0').index
   df.loc[none_zero_idx, 'overall_change'] = df.loc[none_zero_idx, 'overall_change'].abs() * col_symbol.loc[none_zero_idx]
-  df['overall_day'] = sda((df['overall_change'] > 0).replace({True: 1, False: -1}))
-  # df = cal_change(df=df, target_col='overall', periods=1, add_accumulation=False, add_prefix=True)
 
   # ================================ calculate potential ====================
   df['potential_score'] = 0
@@ -1197,11 +1172,13 @@ def calculate_ta_signal(df):
   col_to_drop += ['potential_up', 'potential_down']
 
   # mark potential
+  df['prev_adx_day'] = sda(df['adx_trend'].shift(1), zero_as=0)
+  col_to_drop.append('prev_adx_day')
   potential_conditions = {
 
     '完美_up':            '''
                           (trigger_score > 0) and
-                          (adx_syn == 1 or (adx_syn == 0 and prev_adx_syn < 0)) and
+                          (adx_day == 1 or (adx_day == 0 and prev_adx_day < 0)) and
                           (overall_change > 0 or (overall_change_diff > 0 and overall_change > -0.1)) and
                           (adx_direction_day == 1)
                           '''.replace('\n', ''),
@@ -1209,13 +1186,13 @@ def calculate_ta_signal(df):
     '反弹_up':            '''
                           (ichimoku_distance < 0 and kijun_rate == 0) and
                           ((kama_distance > 0 and kijun > kama_fast) or (kama_distance < 0)) and
-                          (adx_syn > 0) and
+                          (adx_day > 0) and
                           (break_up_score > 0 or support_score > 0 or pattern_score > 0)
                           '''.replace('\n', ''),
 
     '一般_up':            '''
                           (trigger_score >= 0 and break_down_score == 0) and
-                          (adx_syn > 0) and
+                          (adx_day > 0) and
                           (overall_change > 0 or (overall_change_diff > 0)) and
                           (adx_value_change > 0)
                           '''.replace('\n', ''),
@@ -1235,7 +1212,7 @@ def calculate_ta_signal(df):
     
     '完美_down':          '''
                           (trigger_score < 0) and
-                          (adx_syn == -1 or (adx_syn == 0 and prev_adx_syn > 0)) and
+                          (adx_day == -1 or (adx_day == 0 and prev_adx_day > 0)) and
                           (overall_change < 0 or (overall_change_diff < 0 and overall_change < 0.1)) and
                           (adx_direction_day == -1)
                           '''.replace('\n', ''),
@@ -1243,13 +1220,13 @@ def calculate_ta_signal(df):
     '反弹_down':          '''
                           (ichimoku_distance > 0 and kama_distance > 0) and
                           (相对ichimoku位置 in ["up"]) and
-                          (adx_syn < 0) and
+                          (adx_day < 0) and
                           (break_down_score < 0 or resistant_score < 0 or pattern_score < 0)
                           '''.replace('\n', ''),
 
     '一般_down':            '''
                           (trigger_score <=0 and break_up_score == 0) and
-                          (adx_syn < 0) and
+                          (adx_day < 0) and
                           (overall_change < 0 or (overall_change_diff < 0)) and
                           (adx_value_change < 0)
                           '''.replace('\n', ''),
@@ -1322,7 +1299,6 @@ def calculate_ta_signal(df):
   df['potential_description'] = df['potential_up'] + ' | ' + df['potential_down']
   
   # final potential label and description
-  # df['potential'] = ''
   conditions = {
     'potential_up':     'potential_score > 0',
     'potential_down':   'potential_score < 0'
@@ -1339,16 +1315,12 @@ def calculate_ta_signal(df):
   df['signal_description'] = ''
   df['signal_day'] = 0
 
-  conditions = {
-    # 'down':     '整体_down < 0', 
-    'sell':     'potential_score < 0', #'(adx_value_change < 0 and overall_change < 0 and overall_change_diff <=0 and (adx_syn <=0 or adx_syn == 0 and prev_adx_syn > 0) and (trigger_score <= 0 or break_down_score < 0 or pattern_score < 0))',
-    # 'up':       '整体_up > 0',
-    'buy':      'potential_score > 0', #'(adx_change > 0 and (overall_change > 0 or (adx_syn > 0)))', # '(adx_direction_day == 1 or (adx_value_change > 0 and overall_day == 1)) and (adx_syn == 1 or (adx_syn == 0 and prev_adx_syn < 0)) and trigger_score > 0 and break_down_score == 0', 
+  conditions = {    
+    'sell':     'potential_score < 0',
+    'buy':      'potential_score > 0',
   } 
   values = {
-    # 'down':     'ns',
     'sell':     's',
-    # 'up':       'nb',
     'buy':      'b',
   }
   df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
@@ -1437,51 +1409,21 @@ def calculate_ta_signal(df):
   for c in none_signal_conditions.keys():
     tmp_condition = none_signal_conditions[c]
     tmp_idx = df.query(tmp_condition).index
-    df.loc[tmp_idx, 'potential_score'] -= 0.5
     df.loc[tmp_idx, 'signal_description'] += f'{c}, '
     none_signal_idx += tmp_idx.tolist()    
   none_signal_idx = list(set(none_signal_idx))
   df.loc[none_signal_idx, 'signal'] = 'n' + df.loc[none_signal_idx, 'signal']
-  df.loc[none_signal_idx, 'potential'] = 'none_potential'
   df['signal_description'] = df['signal_description'].apply(lambda x: x[:-2])
-
-  # calculate signal day
   df['signal_day'] = sda(df['signal'].replace({'b': 1, 's': -1, '': 0, 'nb': 1, 'ns': -1}), zero_as=1)
-  # df = remove_redundant_signal(df=df, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='', keep='first')
-
-  # # signal rank
-  # s = 0.5
-  # df['rank_up_score'] = 0 
-  # df['rank_down_score'] = 0
-  # rank_conditions = {
-  #   '+adx_syn':         [s*2, '', '(adx_direction_start < -10 and adx_direction_day > 0 and -1 <= adx_syn <= 1)'],
-  #   '-adx_wave':        [-s, '', '(adx_strong_day < 0)'],
-  #   '-adx_wake':        [-s, '', '(adx_wave_day > 0)'],
-  #   '-renko':           [-s, '', '(renko_day > 50 or renko_day < -50)'],
-  #   '-cross':           [-s, '', '(十字星 != "n")'],
-  # }
-  # df = cal_score(df=df, condition_dict=rank_conditions, up_score_col='rank_up_score', down_score_col='rank_down_score')
-  # df['signal_rank'] = df['rank_up_score'] + df['rank_down_score']
-  # df['signal_rank_description'] = df['rank_up_score_description'] + ' | ' + df['rank_down_score_description']
 
   # tier
   df['tier'] = 10
   conditions = {
-    # '7':        '(adx_direction_day > 0)',
-    # '6':        '(adx_direction_day > 0) and  (0 < adx_syn) and                           (adx_change_day > 0)',
-    # '5':        '(adx_direction_day > 0) and  (0 < adx_syn <= 3) and                      (adx_change_day > 0) and  (overall_day > 0 or overall_change_diff > 0) and (trigger_score >= 0)', 
-    # '4':        '(adx_direction_day > 0) and  (0 < adx_syn <= 3 and prev_adx_syn < 0) and (adx_change_day > 0) and  (overall_day > 0 or overall_change_diff > 0) and (trigger_score >= 0)',
-    # '3':        '(adx_direction_day > 0) and  (adx_syn == 1 and prev_adx_syn < 0) and     (adx_change_day > 0) and  (overall_day > 0 or overall_change_diff > 0) and (trigger_score >= 0)', 
     '2':        '一般_up == 1',
     '1':        '反弹_up == 1', 
     '0':        '完美_up == 1', 
   } 
   values = {
-    # '7':        7,
-    # '6':        6,
-    # '5':        5,
-    # '4':        4,
-    # '3':        3,
     '2':        2,
     '1':        1,
     '0':        0, 
@@ -1560,7 +1502,7 @@ def postprocess(df, keep_columns, drop_columns, sec_names, target_interval=''):
   df = df.reset_index().copy()
 
   # sort symbols
-  df = df.sort_values(['adx_day', 'adx_value', 'adx_direction_day'], ascending=[True, True, True])
+  df = df.sort_values(['adx_direction_day', 'adx_direction'], ascending=[True, False])
 
   # add names for symbols
   df['name'] = df['symbol']
@@ -3163,7 +3105,7 @@ def add_support_resistance(df, target_col=default_support_resistant_col, perspec
       else:
         print(f'error: {idx} not defined')
 
-      # col_to_drop.append(tmp_col)
+      col_to_drop.append(tmp_col)
 
   # drop unnecessary columns
   for col in col_to_drop:
@@ -5554,17 +5496,25 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
   # ichimoku/kama fast/slow lines
   if signal_x in ["adx_value", "adx_power", "tankan", "kijun", "kama_fast", "kama_slow"]:
 
+    # if signal_x == 'adx_power':
+      # # when adx_power goes down but actually adx trend goes up
+      # df['adx_power_change'] = df['adx_strength_change'].copy()
+      # reverse_query = f'''
+      #                 (adx_value_change > 0 and adx_strength_change < 0 and adx_value < 10 and adx_direction_start < 0) or
+      #                 (adx_value_change > 0 and adx_strength_change > 0 and adx_value < 0) or
+      #                 (adx_value_change < 0 and adx_strength_change < 0 and adx_value < 0) or
+      #                 (adx_value_change < 0 and adx_strength_change > 0 and adx_value < 0)
+      #                 '''.replace('\n', '')
+      # reverse_idx = df.query(reverse_query).index
+      # df.loc[reverse_idx, 'adx_power_change'] = df.loc[reverse_idx, 'adx_power_change'] * -1
+      # col_symbol = (df['adx_power_change'] > 0).replace({True: 1, False: -1})
+      # df['adx_power_change'] = normalize(df['adx_power_change'].abs()) * col_symbol
+
     tmp_col_v = f'{signal_x}_rate' if 'adx' not in signal_x else f'{signal_x}_change'
     tmp_col_a = f'{signal_x}_alpha'
     threhold = 0.000
 
     df[tmp_col_a] = normalize(df[tmp_col_v].abs()).apply(lambda x: x if x > 0.1 else 0.1)
-
-    # df['none_zero'] = np.NaN
-    # none_zero_idx = df.query(f'{tmp_col_v} > {threhold} or {tmp_col_v} < {threhold}').index
-    # df.loc[none_zero_idx, 'none_zero'] = df.loc[none_zero_idx, tmp_col_v]
-    # df['none_zero'] = df['none_zero'].fillna(method='ffill')
-    
     tmp_data = df.query(f'({tmp_col_v} > {threhold})')
     if len(tmp_data) > 0:
       # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
@@ -5679,8 +5629,8 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     neg_marker = 'o'
     none_marker = '_'
 
-    tmp_col_v = f'{signal_x}'
-    tmp_col_a = f'{signal_x}_alpha'
+    tmp_col_v = f'adx_day'
+    tmp_col_a = f'adx_day_alpha'
     tmp_alpha = 0.7
 
     threhold = 0
@@ -6521,7 +6471,7 @@ def plot_renko(df, start=None, end=None, use_ax=None, title=None, close_alpha=0.
 # plot rate and trigger_score/trend_score for each target list
 def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_args=default_plot_args, config=None, save_path=None):
   """
-  Plot rate and trigger_score/trend_score_change for each target list
+  Plot rate and trigger_score/overall_change for each target list
   :param data: dict of dataframes including 'result'
   :param figsize:  figure size
   :param save_path:  path to save the figure
@@ -6549,8 +6499,8 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
 
     # get target data
     t = pools[i]
-    tmp_data = data['result'][t].sort_values(by=['tier', 'short_trend_score'], ascending=[True, True]).copy()
-    tmp_data = tmp_data[['symbol', 'rate', 'trigger_score', 'trend_score_change', 'tier']].set_index('symbol')
+    tmp_data = data['result'][t].sort_values(by=['tier', 'signal_day'], ascending=[True, True]).copy()
+    tmp_data = tmp_data[['symbol', 'rate', 'trigger_score', 'overall_change', 'tier']].set_index('symbol')
     tmp_data['name'] = tmp_data.index.values
 
     # get data
@@ -6594,16 +6544,16 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
     score_ax.barh(tmp_data.index, tmp_data.trigger_score, color='yellow', label='trigger_score', alpha=0.5, edgecolor='k')
     tmp_data['score_bottom'] = tmp_data['trigger_score']
     for index, row in tmp_data.iterrows():
-      if False: #(#row['trigger_score'] > 0 and row['trend_score_change'] > 0) or (row['trigger_score'] < 0 and row['trend_score_change'] < 0):
+      if False: #(#row['trigger_score'] > 0 and row['overall_change'] > 0) or (row['trigger_score'] < 0 and row['overall_change'] < 0):
         continue
       else:
         tmp_data.loc[index, 'score_bottom'] = 0
 
     # plot score
     tmp_data['score_color'] = 'green'
-    down_idx = tmp_data.query('trend_score_change <= 0').index    
+    down_idx = tmp_data.query('overall_change <= 0').index    
     tmp_data.loc[down_idx, 'score_color'] = 'red'
-    score_ax.barh(tmp_data.index, tmp_data['trend_score_change'], color=tmp_data['score_color'], left=tmp_data['score_bottom'],label='trend_score_change', alpha=0.5) #, edgecolor='k'  
+    score_ax.barh(tmp_data.index, tmp_data['overall_change'], color=tmp_data['score_color'], left=tmp_data['score_bottom'],label='overall_change', alpha=0.5) #, edgecolor='k'  
     # score_ax.set_title(f'{t.replace("_day", "")} Trend Score', fontsize=25, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1))
     score_ax.legend(loc='upper left', ncol=plot_args['ncol']) 
 

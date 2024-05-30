@@ -67,10 +67,9 @@
       },
       "signals": {
         "signal_list": [  
-          
+          "反弹",
           "一般",
           "完美",
-          "反弹",
           "-----",
 
           "kama",
@@ -157,18 +156,10 @@
       "adx_direction_start": "趋势起始",
       "adx_direction_day": "趋势方向天数",
       "adx_strong_day": "强趋势天数",
-      "adx_syn": "adx趋势变化",
-      "prev_adx_syn": "adx前趋势",
+      "adx_trend": "adx趋势变化",
 
       "trigger_score": "触发分数",
       "trigger_day": "触发天数",
-
-      "short_day": "短期趋势天数",
-      "short_trend_score": "短期趋势分数",
-      "middle_trend_score": "中期趋势分数",
-      "long_trend_score": "长期趋势分数",
-      "trend_score": "趋势分数",
-      "trend_score_change": "趋势变化分数",
 
       "position_score_change": "位置变化分数",
       
