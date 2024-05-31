@@ -1,4 +1,4 @@
-#20240530 updated
+#20240531 updated
 [
   # sec_data
   'Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume', 'Dividend', 'Split', 
@@ -78,10 +78,27 @@
   'support_score', 'support_description',
   'resistant_score', 'resistant_description',
   'break_up_score', 'break_up_description',
-  'break_down_score', 'break_down_description'
+  'break_down_score', 'break_down_description',
   'resistant', 'resistanter', 
   'support', 'supporter', 
   'boundary_score', 'break_score',
+
+  'kama_fast_break_up', 'kama_fast_break_down',
+  'kama_slow_break_up', 'kama_slow_break_down',
+  'tankan_break_up', 'tankan_break_down',
+  'kijun_break_up', 'kijun_break_down',
+  'renko_h_break_up', 'renko_h_break_down',
+  'renko_l_break_up', 'renko_l_break_down',
+  'candle_gap_top_break_up', 'candle_gap_top_break_down',
+  'candle_gap_bottom_break_up', 'candle_gap_bottom_break_down',
+  'kama_fast_support', 'kama_slow_support',
+  'tankan_support', 'kijun_support',
+  'renko_h_support', 'renko_l_support',
+  'candle_gap_top_support', 'candle_gap_bottom_support',
+  'kama_fast_resistant', 'kama_slow_resistant',
+  'tankan_resistant', 'kijun_resistant',
+  'renko_h_resistant', 'renko_l_resistant',
+  'candle_gap_top_resistant', 'candle_gap_bottom_resistant',
 
   # calculate_ta_score()
   'trigger_score', 'trigger_day', 
@@ -102,8 +119,8 @@
   'overall_change', 'overall_status', 'overall_change_diff',
 
   'potential', 'potential_score', 'potential_description', 
-  '完美_up', '反弹_up', '一般_up',
-  '完美_down', '反弹_down', '一般_down',
+  '完美_up', '反弹_up', '一般_up', '前瞻_up', '边界_up',
+  '完美_down', '反弹_down', '一般_down', '前瞻_down', '边界_down',
   
   'signal', 'signal_description', 'signal_day',
   'tier'

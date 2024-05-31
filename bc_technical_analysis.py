@@ -1184,18 +1184,36 @@ def calculate_ta_signal(df):
                           '''.replace('\n', ''),
 
     '前瞻_up':            '''
-                          (trigger_score <= 0 and break_down_score == 0) and
+                          (break_down_score == 0) and
                           (position_score < 0) and
                           (adx_day == 1 or (adx_day == 0 and prev_adx_day < 0)) and
                           (overall_change > 0 or (overall_change_diff > 0)) and
-                          (adx_direction_day == 1)
+                          (adx_direction_day == 1 or (adx_direction_day < 0 and adx_value_change > 0))
                           '''.replace('\n', ''),
 
     '反弹_up':            '''
-                          (ichimoku_distance < 0 and kijun_rate == 0) and
-                          ((kama_distance > 0 and kijun > kama_fast) or (kama_distance < 0)) and
-                          (adx_day > 0) and
-                          (break_up_score > 0 or support_score > 0 or pattern_score > 0)
+                          (
+                            (ichimoku_distance < 0 and kijun_rate == 0) and
+                            ((kama_distance > 0 and kijun > kama_fast) or (kama_distance < 0)) and
+                            (adx_day > 0) and
+                            (break_up_score > 0 or support_score > 0 or pattern_score > 0)
+                          )
+                          '''.replace('\n', ''),
+
+    '边界_up':            '''
+                          (
+                            (kama_distance > 0) and 
+                            (相对renko位置 in ["down", "mid_down", "mid"]) and
+                            (
+                              (ichimoku_distance < 0 and tankan > kama_slow) or
+                              (ichimoku_distance_change < 0 and kijun > kama_slow)
+                            ) and
+                            (
+                              (candle_lower_shadow_pct > 0.5 and kama_slow_support == 1) or 
+                              (kama_slow_break_up == 1) or 
+                              (Open < kama_slow < Close)
+                            )
+                          )
                           '''.replace('\n', ''),
 
     '一般_up':            '''
@@ -1226,11 +1244,11 @@ def calculate_ta_signal(df):
                           '''.replace('\n', ''),
 
     '前瞻_down':            '''
-                          (trigger_score >= 0 and break_up_score == 0) and
+                          (break_up_score == 0) and
                           (position_score > 0) and
                           (adx_day == -1 or (adx_day == 0 and prev_adx_day > 0)) and
                           (overall_change < 0 or (overall_change_diff < 0)) and
-                          (adx_direction_day == -1)
+                          (adx_direction_day == -1 or (adx_direction_day > 0 and adx_value_change < 0))
                           '''.replace('\n', ''),
 
     '反弹_down':          '''
@@ -1245,6 +1263,12 @@ def calculate_ta_signal(df):
                           (adx_day < 0) and
                           (overall_change < 0 or (overall_change_diff < 0)) and
                           (adx_value_change < 0)
+                          '''.replace('\n', ''),
+
+    '边界_down':            '''
+                          (
+                            Close < 0
+                          )
                           '''.replace('\n', ''),
 
     # '影线_down':          '''
@@ -3123,7 +3147,7 @@ def add_support_resistance(df, target_col=default_support_resistant_col, perspec
       else:
         print(f'error: {idx} not defined')
 
-      col_to_drop.append(tmp_col)
+      # col_to_drop.append(tmp_col)
 
   # drop unnecessary columns
   for col in col_to_drop:
@@ -5677,7 +5701,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='red', alpha=tmp_data[tmp_col_a].fillna(0))
 
   # poteltials
-  if signal_x in ["一般", "前瞻", "完美", "反弹"]:
+  if signal_x in ["一般", "前瞻", "完美", "反弹", "边界"]:
 
     tmp_col_up = f'{signal_x}_up'
     tmp_col_down = f'{signal_x}_down'
