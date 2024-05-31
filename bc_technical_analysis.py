@@ -1209,7 +1209,7 @@ def calculate_ta_signal(df):
                               (ichimoku_distance_change < 0 and kijun > kama_slow)
                             ) and
                             (
-                              (candle_lower_shadow_pct > 0.5 and kama_slow_support == 1) or 
+                              (candle_lower_shadow_pct > candle_upper_shadow_pct and kama_slow_support == 1) or 
                               (kama_slow_break_up == 1) or 
                               (Open < kama_slow < Close)
                             )
