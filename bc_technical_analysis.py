@@ -1183,6 +1183,14 @@ def calculate_ta_signal(df):
                           (adx_direction_day == 1)
                           '''.replace('\n', ''),
 
+    '前瞻_up':            '''
+                          (trigger_score <= 0 and break_down_score == 0) and
+                          (position_score < 0) and
+                          (adx_day == 1 or (adx_day == 0 and prev_adx_day < 0)) and
+                          (overall_change > 0 or (overall_change_diff > 0)) and
+                          (adx_direction_day == 1)
+                          '''.replace('\n', ''),
+
     '反弹_up':            '''
                           (ichimoku_distance < 0 and kijun_rate == 0) and
                           ((kama_distance > 0 and kijun > kama_fast) or (kama_distance < 0)) and
@@ -1214,6 +1222,14 @@ def calculate_ta_signal(df):
                           (trigger_score < 0) and
                           (adx_day == -1 or (adx_day == 0 and prev_adx_day > 0)) and
                           (overall_change < 0 or (overall_change_diff < 0 and overall_change < 0.1)) and
+                          (adx_direction_day == -1)
+                          '''.replace('\n', ''),
+
+    '前瞻_down':            '''
+                          (trigger_score >= 0 and break_up_score == 0) and
+                          (position_score > 0) and
+                          (adx_day == -1 or (adx_day == 0 and prev_adx_day > 0)) and
+                          (overall_change < 0 or (overall_change_diff < 0)) and
                           (adx_direction_day == -1)
                           '''.replace('\n', ''),
 
@@ -1419,11 +1435,13 @@ def calculate_ta_signal(df):
   # tier
   df['tier'] = 10
   conditions = {
+    '3':        '前瞻_up == 1',
     '2':        '一般_up == 1',
     '1':        '反弹_up == 1', 
     '0':        '完美_up == 1', 
   } 
   values = {
+    '3':        3,
     '2':        2,
     '1':        1,
     '0':        0, 
@@ -5371,60 +5389,13 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
   trend_col = signal_x.replace('signal', 'trend')
   day_col = signal_x.replace('signal', 'day')
   if trend_col in df.columns:
-    if signal_x not in ['inday_signal', 'short_signal', 'middle_signal', 'long_signal', 'signal']:
+    if signal_x not in ['signal']:
       for i in ['pos', 'neg', 'wave']:
         tmp_trend_value = trend_val[f'{i}_trend']
         tmp_data = df.query(f'{trend_col} == "{tmp_trend_value}"')
         ax.scatter(tmp_data.index, tmp_data[signal_y], marker=style[f'{i}_trend_marker'], color=style[f'{i}_color'], alpha=style['trend_alpha'])
-    
-    elif signal_x in ['inday_signal', 'short_signal', 'middle_signal', 'long_signal', 'signal']:
-      score_col = signal_x.replace('signal', 'trend_score')
-      # alpha_factor = 0.8 if signal_x == 'signal' else 0.6
-
-      tmp_alpha = df[score_col].abs() # * alpha_factor
-      
-      tmp_up = df.query(f'{score_col} > 0')
-      tmp_down = df.query(f'{score_col} < 0')
-
-      pos_marker = 's' if signal_x == 'signal' else '.'
-      neg_marker = 's' if signal_x == 'signal' else '_'
-
-      if len(tmp_up) > 0:
-        facecolor = 'green'
-        alpha = tmp_alpha.loc[tmp_up.index] 
-        ax.scatter(tmp_up.index, tmp_up[signal_y], marker=pos_marker, color=facecolor, alpha=alpha)
-      
-      if len(tmp_down) > 0:
-        facecolor ='red'
-        alpha = tmp_alpha.loc[tmp_down.index] 
-        ax.scatter(tmp_down.index, tmp_down[signal_y], marker=neg_marker, color=facecolor, alpha=alpha)
-
-  # annotate number of days since signal triggered
-  annotate_signal_day = True
-  max_idx = df.index.max()
-  ys = {'long_signal': 0, 'middle_signal': 2.75, 'short_signal': 5.5}
-  if signal_x in ys.keys() and day_col in df.columns and annotate_signal_day:
-
-    x_signal = max_idx + datetime.timedelta(days=2)
-    y_signal = ys[signal_x]
-    text_day = int(df.loc[max_idx, day_col])
-    text_color = 'red' if text_day < 0 else 'green'
-    plt.annotate(f'{signal_x.replace("_signal", "")}:{text_day} ', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
-
-  # overbuy and oversell
-  if signal_x == 'direction':
-
-    # trend direction up
-    tmp_data = df.query(f'(trend_score > 0)')
-    if len(tmp_data) > 0:
-      tmp_alpha = normalize(tmp_data['trend_score'].abs())
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='green', alpha=tmp_alpha)
-
-    # trend direction down
-    tmp_data = df.query(f'(trend_score < 0)')
-    if len(tmp_data) > 0:
-      tmp_alpha = normalize(tmp_data['trend_score'].abs())
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='x', color='red', alpha=tmp_alpha)
+    else:
+      pass
 
   # buy and sell
   if signal_x == ' ':
@@ -5461,17 +5432,17 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
   # relative position
   if signal_x == 'position':
     
-    df['position_a'] = normalize(df['position_score'].abs())
+    df['position_alpha'] = normalize(df['position_score'].abs())
 
     tmp_data = df.query(f'(position_score > 0)')
     if len(tmp_data) > 0:
       tmp_alpha = 0.5
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='green', alpha=tmp_data['position_a'])
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='green', alpha=tmp_data['position_alpha'])
 
     tmp_data = df.query(f'(position_score < 0)')
     if len(tmp_data) > 0:
       # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='red', alpha=tmp_data['position_a'])
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='red', alpha=tmp_data['position_alpha'])
     
   # adx_change, ichimoku_change, kama_change, overall_change
   if signal_x in ['adx', 'ichimoku', "kama"]:
@@ -5494,21 +5465,22 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='red', alpha=tmp_data[tmp_col_a])
 
   # ichimoku/kama fast/slow lines
-  if signal_x in ["adx_value", "adx_power", "tankan", "kijun", "kama_fast", "kama_slow"]:
+  if signal_x in ["adx_value", "adx_strength", "tankan", "kijun", "kama_fast", "kama_slow"]:
 
-    # if signal_x == 'adx_power':
-      # # when adx_power goes down but actually adx trend goes up
-      # df['adx_power_change'] = df['adx_strength_change'].copy()
-      # reverse_query = f'''
-      #                 (adx_value_change > 0 and adx_strength_change < 0 and adx_value < 10 and adx_direction_start < 0) or
-      #                 (adx_value_change > 0 and adx_strength_change > 0 and adx_value < 0) or
-      #                 (adx_value_change < 0 and adx_strength_change < 0 and adx_value < 0) or
-      #                 (adx_value_change < 0 and adx_strength_change > 0 and adx_value < 0)
-      #                 '''.replace('\n', '')
-      # reverse_idx = df.query(reverse_query).index
-      # df.loc[reverse_idx, 'adx_power_change'] = df.loc[reverse_idx, 'adx_power_change'] * -1
-      # col_symbol = (df['adx_power_change'] > 0).replace({True: 1, False: -1})
-      # df['adx_power_change'] = normalize(df['adx_power_change'].abs()) * col_symbol
+    if signal_x == 'adx_strength':
+
+      # when adx_power goes down but actually adx trend goes up
+      df['adx_power_change'] = df['adx_strength_change'].copy()
+      reverse_query = f'''
+                      (adx_value_change > 0 and adx_strength_change < 0 and adx_value < 10 and adx_direction_start < 0) or
+                      (adx_value_change > 0 and adx_strength_change > 0 and adx_value < 0) or
+                      (adx_value_change < 0 and adx_strength_change < 0 and adx_value < 0) or
+                      (adx_value_change < 0 and adx_strength_change > 0 and adx_value < 0)
+                      '''.replace('\n', '')
+      reverse_idx = df.query(reverse_query).index
+      df.loc[reverse_idx, 'adx_power_change'] = df.loc[reverse_idx, 'adx_power_change'] * -1
+      col_symbol = (df['adx_power_change'] > 0).replace({True: 1, False: -1})
+      df['adx_power_change'] = normalize(df['adx_power_change'].abs()) * col_symbol
 
     tmp_col_v = f'{signal_x}_rate' if 'adx' not in signal_x else f'{signal_x}_change'
     tmp_col_a = f'{signal_x}_alpha'
@@ -5569,7 +5541,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', alpha=tmp_alpha)
 
   # support/resistant break_up/break_down
-  if signal_x in ["support_score", "resistant_score", "break_up_score", "break_down_score", "pattern_score", 'overall_change']:
+  if signal_x in ["support_score", "resistant_score", "break_up_score", "break_down_score", "pattern_score"]:
 
     pos_marker = '.' if signal_x in ['break_up_score', 'break_down_score', 'pattern_score', 'overall_change'] else '^'
     neg_marker = '.' if signal_x in ['break_up_score', 'break_down_score', 'pattern_score', 'overall_change'] else 'v'
@@ -5705,7 +5677,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='red', alpha=tmp_data[tmp_col_a].fillna(0))
 
   # poteltials
-  if signal_x in ["一般", "完美", "反弹"]:
+  if signal_x in ["一般", "前瞻", "完美", "反弹"]:
 
     tmp_col_up = f'{signal_x}_up'
     tmp_col_down = f'{signal_x}_down'

@@ -44,7 +44,7 @@
   "visualization": {
     "plot_args": {
       "plot_ratio": {
-        "signals": 4, "adx": 2,
+        "signals": 3, "adx": 2,
         "main_indicators": 10, "volume":1
       },
       
@@ -69,20 +69,17 @@
         "signal_list": [  
           "反弹",
           "一般",
+          "前瞻",
           "完美",
-          "-----",
-
-          "kama",
-          "ichimoku",
-          "adx",
           "-----",
 
           "support_score",
           "break_up_score",
           "break_down_score",                  
           "resistant_score",
+
           "-----",
-          
+          "position",
           "overall",
           "adx_syn",
           "trigger",
@@ -161,21 +158,19 @@
       "trigger_score": "触发分数",
       "trigger_day": "触发天数",
 
-      "position_score_change": "位置变化分数",
+      "support_score": "支撑分数",
+      "resistant_score": "阻挡分数",
       
       "potential": "潜力标签", 
       "potential_score": "潜力分数",
       "potential_description": "潜力描述",
 
-      "support_score": "支撑分数",
-      "resistant_score": "阻挡分数",
-      
       "signal": "交易信号",
       "signal_day": "信号天数",
       "tier": "信号分级"
     },
     "drop_columns": [],
-    "send_columns": ["名称", "涨跌", "潜力分数", "信号分级", "支撑", "阻挡"],
+    "send_columns": ["名称", "涨跌", "信号分级", "支撑", "阻挡", "潜力描述"],
     "save_result": true,
     "save_data": true,
     "save_pdf": true
