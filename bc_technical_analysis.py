@@ -1461,7 +1461,7 @@ def calculate_ta_signal(df):
   conditions = {
     '3':        '前瞻_up == 1',
     '2':        '一般_up == 1',
-    '1':        '反弹_up == 1', 
+    '1':        '反弹_up == 1 or 边界_up == 1', 
     '0':        '完美_up == 1', 
   } 
   values = {
