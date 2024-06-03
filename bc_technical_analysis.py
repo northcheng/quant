@@ -1223,6 +1223,10 @@ def calculate_ta_signal(df):
                           (adx_value_change > 0)
                           '''.replace('\n', ''),
 
+    '波动_up':            '''
+                          (Close < 0)
+                          '''.replace('\n', ''),
+
     # '影线_up':            '''
     #                       (
     #                         (support_score > 0 or break_up_score > 0) and 
@@ -1271,6 +1275,22 @@ def calculate_ta_signal(df):
                           )
                           '''.replace('\n', ''),
 
+    '波动_down':   
+                           '''
+                            (
+                              (
+                                ( 
+                                  (adx_strong_day < 0 and adx_wave_day > 0) and 
+                                  (candle_color == -1) and
+                                  (resistant_score < 0 or position_score <= -6)
+                                ) or 
+                                (
+                                  (adx_strong_day < -5 and adx_wave_day > 5)
+                                )
+                              )
+                            )
+                            '''.replace('\n', ''),
+
     # '影线_down':          '''
     #                       (
     #                         (
@@ -1300,7 +1320,7 @@ def calculate_ta_signal(df):
       df.loc[tmp_idx, c] = -1
     else:
       pass
- 
+
   # unmark false potential
   none_potential_conditions = {
 
@@ -1419,22 +1439,6 @@ def calculate_ta_signal(df):
                       (
                         (kir_distance == "rrr") and (相对renko位置 in ["down"]) and 
                         (candle_entity_bottom < kama_fast and candle_entity_bottom < tankan and candle_entity_bottom < renko_l)
-                      )
-                      '''.replace('\n', ''),
-
-    # B|S: 去除过于微弱的信号  
-    '变化微弱':       '''
-                      (
-                        (
-                          ( 
-                            (adx_strong_day < 0 and adx_wave_day > 0) and 
-                            (candle_color == -1) and
-                            (resistant_score < 0 or position_score <= -6)
-                          ) or 
-                          (
-                            (adx_strong_day < -5 and adx_wave_day > 5)
-                          )
-                        )
                       )
                       '''.replace('\n', ''),
 
