@@ -1425,15 +1425,15 @@ def calculate_ta_signal(df):
     # B|S: 去除过于微弱的信号  
     '变化微弱':       '''
                       (
-                        (signal == "b" or signal == "s") and
-                        (-0.01 <= overall_change <= 0.01)
-                      ) or
-                      (
-                        (signal == "b") and
-                        (adx_strong_day < 0 and adx_wave_day > 0) and 
                         (
-                          (candle_color == -1) and
-                          (resistant_score < 0 or position_score <= -6)
+                          ( 
+                            (adx_strong_day < 0 and adx_wave_day > 0) and 
+                            (candle_color == -1) and
+                            (resistant_score < 0 or position_score <= -6)
+                          ) or 
+                          (
+                            (adx_strong_day < -5 and adx_wave_day > 5)
+                          )
                         )
                       )
                       '''.replace('\n', ''),
@@ -1449,6 +1449,7 @@ def calculate_ta_signal(df):
   for c in none_signal_conditions.keys():
     tmp_condition = none_signal_conditions[c]
     tmp_idx = df.query(tmp_condition).index
+    df.loc[tmp_idx, 'potential_score'] -= 0.5
     df.loc[tmp_idx, 'signal_description'] += f'{c}, '
     none_signal_idx += tmp_idx.tolist()    
   none_signal_idx = list(set(none_signal_idx))
@@ -6626,14 +6627,17 @@ def plot_review(prefix, date, sheet_name='signal', width=20, unit_size=0.3, wspa
   plt.subplots_adjust(wspace=wspace, hspace=hspace)
   axes = {}
 
+  sort_factors = ['信号分级', "潜力分数", 'adx趋势变化', '趋势方向天数']
+  sort_orders = [False, True, False, False]
+  primary_factor = sort_factors[0]
+  secondary_factor = sort_factors[1]
+
   # plot rate and score
   for i in range(n_row):
 
-    num_total = num_symbols
-
     # get target data
-    tmp_data = df.sort_values(by=['信号分级', '潜力分数'], ascending=[True, True]).copy()
-    tmp_data = tmp_data[['代码', '名称', '收盘', '验证', '触发分数', '趋势变化分数', '潜力分数', '信号分级']].set_index('名称')
+    tmp_data = df.sort_values(by=sort_factors, ascending=sort_orders).copy()
+    tmp_data = tmp_data[['代码', '名称', '收盘', '验证', "趋势起始", '触发分数', '潜力分数', '信号分级']].set_index('名称')
     tmp_data['name'] = tmp_data.index.values
     tmp_data['验证'] = tmp_data['验证'] * 100
 
@@ -6649,16 +6653,15 @@ def plot_review(prefix, date, sheet_name='signal', width=20, unit_size=0.3, wspa
     
     # plot signal rank
     tmp_data['score_color'] = 'yellow'
-    rate_ax.barh(tmp_data.index, tmp_data['信号分级'], color=tmp_data['score_color'], label='信号分级', alpha=0.5, edgecolor='k') #, edgecolor='k'  
-    # score_ax.set_title(f'{t.replace("_day", "")} Trend Score', fontsize=25, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1))
+    rate_ax.barh(tmp_data.index, tmp_data[primary_factor], color=tmp_data['score_color'], label=primary_factor, alpha=0.5, edgecolor='k')
     
     # plot rate
     tmp_data['potential_color'] = 'green'
-    down_idx = tmp_data.query('潜力分数 <= 0').index    
+    down_idx = tmp_data.query(f'{secondary_factor} <= 0').index    
     tmp_data.loc[down_idx, 'potential_color'] = 'red'
     title_color = 'black' 
-    rate_ax.barh(tmp_data.index, tmp_data['潜力分数'], color=tmp_data['potential_color'], label='潜力分数', alpha=0.5) #, edgecolor='k'
-    rate_ax.set_xlabel(f'信号分级 - 潜力分数 ({date})', labelpad = 10, fontsize = 20) 
+    rate_ax.barh(tmp_data.index, tmp_data[secondary_factor], color=tmp_data['potential_color'], label=secondary_factor, alpha=0.5) #, edgecolor='k'
+    rate_ax.set_xlabel(f'{primary_factor} - {secondary_factor} ({date})', labelpad = 10, fontsize = 20) 
     rate_ax.legend(loc='upper right', ncol=plot_args['ncol']) 
 
     # plot trigger score

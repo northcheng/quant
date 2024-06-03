@@ -161,6 +161,8 @@
 
       "support_score": "支撑分数",
       "resistant_score": "阻挡分数",
+
+      "position_score": "位置分数",
       
       "potential": "潜力标签", 
       "potential_score": "潜力分数",
