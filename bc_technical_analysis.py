@@ -6500,7 +6500,7 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
 
     # get target data
     t = pools[i]
-    tmp_data = data['result'][t].sort_values(by=['tier', 'signal_day'], ascending=[True, True]).copy()
+    tmp_data = data['result'][t].sort_values(by=['tier', 'signal_day'], ascending=[False, True]).copy()
     tmp_data = tmp_data[['symbol', 'rate', 'trigger_score', 'overall_change', 'tier']].set_index('symbol')
     tmp_data['name'] = tmp_data.index.values
 
