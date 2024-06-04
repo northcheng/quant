@@ -1464,12 +1464,20 @@ def calculate_ta_signal(df):
   # tier
   df['tier'] = 10
   conditions = {
-    '3':        '前瞻_up == 1',
-    '2':        '一般_up == 1',
-    '1':        '反弹_up == 1 or 边界_up == 1', 
-    '0':        '完美_up == 1', 
+    '7':        '前瞻_up == 1',
+    '6':        '一般_up == 1',
+    '5':        '反弹_up == 1 or 边界_up == 1', 
+    '4':        '完美_up == 1', 
+    '3':        '完美_up == 1 and adx_direction_start > 0', 
+    '2':        '完美_up == 1 and adx_direction_start < 0', 
+    '1':        '完美_up == 1 and adx_direction_start < 0 and (adx_value < 0 or ichimoku_distance < 0)', 
+    '0':        '完美_up == 1 and adx_direction_start < 0 and (adx_value < 0 or ichimoku_distance < 0) and (adx_strong_day > 0 and adx_wave_day == 0)', 
   } 
   values = {
+    '7':        7,
+    '6':        6,
+    '5':        5,
+    '4':        4, 
     '3':        3,
     '2':        2,
     '1':        1,
