@@ -38,7 +38,7 @@
   'kama_cross_day',
   '相对kama位置', 
 
-  'position',
+  
 
   ## adx
   'adx_value_change', 'adx_direction', 'adx_direction_day', 
@@ -56,8 +56,9 @@
   '相对renko位置', 
 
   # add_candle_patterns()
+  'position', 'position_score', 'position_score_change', 
+
   'shadow_trend', 'entity_trend', 
-  '窗口_trend', '窗口_day', 
   '十字星', '锤子', 
   '十字星_trend', '十字星_day', 
   '腰带_trend', '腰带_day', 
@@ -102,14 +103,8 @@
 
   # calculate_ta_score()
   'trigger_score', 'trigger_day', 
-  'position_score', 'position_score_description',
   'up_score', 'up_score_description', 
-  'down_score', 'down_score_description',
-
-  'ichimoku_position_score', 
-  'kama_position_score',
-  'renko_position_score', 
-  'position_score_change', 
+  'down_score', 'down_score_description',  
   'kir_distance', 
  
   # calculate_ta_signal()
@@ -119,8 +114,8 @@
   'overall_change', 'overall_status', 'overall_change_diff',
 
   'potential', 'potential_score', 'potential_description', 
-  '完美_up', '反弹_up', '一般_up', '前瞻_up', '边界_up',
-  '完美_down', '反弹_down', '一般_down', '前瞻_down', '边界_down',
+  '完美_up', '反弹_up', '一般_up', '前瞻_up', '边界_up', '波动_up', 
+  '完美_down', '反弹_down', '一般_down', '前瞻_down', '边界_down', '波动_down',
   
   'signal', 'signal_description', 'signal_day',
   'tier'

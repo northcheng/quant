@@ -35,7 +35,7 @@ default_signal_val = {'pos_signal':'b', 'neg_signal':'s', 'none_signal':'', 'wav
 
 # default indicators and dynamic trend for calculation
 default_indicators = {'trend': ['ichimoku', 'kama', 'adx'], 'volume': [], 'volatility': [], 'other': []}
-default_perspectives = ['candle','support_resistant', 'renko']
+default_perspectives = ['candle', 'support_resistant', 'renko']
 default_support_resistant_col = ['kama_fast', 'kama_slow', 'tankan', 'kijun', 'renko_h', 'renko_l', 'candle_gap_top', 'candle_gap_bottom']
 
 # default arguments for visualization
@@ -393,23 +393,23 @@ def calculate_ta_static(df, indicators=default_indicators):
           '中下': 'mid_down', '下方': 'down'}
         df = assign_condition_value(df=df, column=f'相对{target_indicator}位置', condition_dict=conditions, value_dict=values, default_value='')
 
-    # ichimoku cloud top and bottom, ichimoku-kama position
-    if 'ichimoku' in indicators['trend'] and 'kama' in indicators['trend']:
+    # # ichimoku cloud top and bottom, ichimoku-kama position
+    # if 'ichimoku' in indicators['trend'] and 'kama' in indicators['trend']:
       
-      # ichimoku-kama position
-      position_conditions = {
-        'down':         f'ichimoku_distance <= 0 and kama_distance < 0',
-        'mid_down':     f'ichimoku_distance > 0 and kama_distance < 0', 
-        'up':           f'ichimoku_distance >= 0 and kama_distance > 0',
-        'mid_up':       f'ichimoku_distance < 0 and kama_distance > 0', 
-      } 
-      position_values = {
-        'down':         'down', 
-        'mid_down':     'mid_down',
-        'up':           'up',
-        'mid_up':       'mid_up',
-      }
-      df = assign_condition_value(df=df, column='position', condition_dict=position_conditions, value_dict=position_values, default_value='')
+    #   # ichimoku-kama position
+    #   position_conditions = {
+    #     'down':         f'ichimoku_distance <= 0 and kama_distance < 0',
+    #     'mid_down':     f'ichimoku_distance > 0 and kama_distance < 0', 
+    #     'up':           f'ichimoku_distance >= 0 and kama_distance > 0',
+    #     'mid_up':       f'ichimoku_distance < 0 and kama_distance > 0', 
+    #   } 
+    #   position_values = {
+    #     'down':         'down', 
+    #     'mid_down':     'mid_down',
+    #     'up':           'up',
+    #     'mid_up':       'mid_up',
+    #   }
+    #   df = assign_condition_value(df=df, column='position', condition_dict=position_conditions, value_dict=position_values, default_value='')
 
     # ================================ aroon trend ============================
     target_indicator = 'aroon'
@@ -873,8 +873,7 @@ def calculate_ta_score(df):
   # df['trend_status'] = 0
   
   df['trigger_score'] = 0
-  df['position_score'] = 0
-  df['position_score_description'] = ''
+  
 
   # # ================================ calculate s/m/l trend/score/day ========
   # # calculate short/middle/long trend score/day
@@ -1014,60 +1013,6 @@ def calculate_ta_score(df):
   }
   df = assign_condition_value(df=df, column='trigger_day', condition_dict=trigger_conditions, value_dict=trigger_values, default_value=0)
   df['trigger_day'] = sda(series=df['trigger_day'], zero_as=1)
-
-  # position score
-  rp_cols = {"renko":"相对renko位置", "kama":"相对kama位置", "ichimoku":"相对ichimoku位置"}
-  for col in ['ichimoku', 'kama', 'renko']:
-    
-    col_p = rp_cols[col]
-    col_d = f'{col}_distance'
-    col_v = f'{col}_position_score'
-
-    position_conditions = {
-
-      'down_from_low':        f'{col_p} in ["down"] and {col_d} < 0',
-      'down_from_high':       f'{col_p} in ["down"] and {col_d} > 0',
-      'mid_down_from_low':    f'{col_p} in ["mid_down"] and {col_d} < 0',
-      'mid_down_from_high':   f'{col_p} in ["mid_down"] and {col_d} > 0',
-      'mid_from_low':         f'{col_p} in ["mid"] and {col_d} < 0',
-      'mid_from_high':        f'{col_p} in ["mid"] and {col_d} > 0',
-      'mid_up_from_low':      f'{col_p} in ["mid_up"] and {col_d} < 0',
-      'mid_up_from_high':     f'{col_p} in ["mid_up"] and {col_d} > 0',
-      'up_from_low':          f'{col_p} in ["up"] and {col_d} < 0',
-      'up_from_high':         f'{col_p} in ["up"] and {col_d} > 0',
-      'out_from_low_red':     f'{col_p} in ["out"] and {col_d} < 0 and candle_color == -1',
-      'out_from_high_red':    f'{col_p} in ["out"] and {col_d} > 0 and candle_color == -1',
-      'out_from_low_green':   f'{col_p} in ["out"] and {col_d} < 0 and candle_color == 1',
-      'out_from_high_green':  f'{col_p} in ["out"] and {col_d} > 0 and candle_color == 1',
-
-    } 
-    position_values = {
-      
-      'up_from_high':         2,
-      'up_from_low':          2,
-
-      'down_from_low':        -2,
-      'down_from_high':       -2,
-
-      'mid_down_from_low':    -1,
-      'mid_down_from_high':   -1,
-
-      'mid_from_low':         0,
-      'mid_from_high':        0,
-
-      'mid_up_from_low':      1,
-      'mid_up_from_high':     1,
-      
-      'out_from_low_red':     -3,
-      'out_from_high_red':    -3,
-
-      'out_from_low_green':   3,
-      'out_from_high_green':  3,
-    }
-    df = assign_condition_value(df=df, column=col_v, condition_dict=position_conditions, value_dict=position_values, default_value=0) 
-    df['position_score'] += df[col_v]
-
-  df = cal_change(df=df, target_col='position_score', periods=1, add_accumulation=False, add_prefix=True)
 
   # ================================ calculate overall distance =============
   term_trend_conditions = {
@@ -1489,7 +1434,6 @@ def calculate_ta_signal(df):
   # col_to_drop = [
     # 'up_pattern_score', 'down_pattern_score', 'up_pattern_description', 'down_pattern_description',
     # # 'up_score', 'down_score', 'up_score_description', 'down_score_description',
-    # 'candle_position_score',
     # 'rank_up_score', 'rank_down_score', 'rank_up_score_description', 'rank_down_score_description'
   # ]
   # target_cols = default_support_resistant_col
@@ -2145,6 +2089,103 @@ def cal_moving_average(df, target_col, ma_windows=[50, 105], start=None, end=Non
   
   return df
 
+# add position features
+def calculate_position_score(df):
+  """
+  Add candlestick dimentions for dataframe
+
+  :param df: original OHLCV dataframe
+  :param ohlcv_col: column name of Open/High/Low/Close/Volume
+  :returns: dataframe with candlestick columns
+  :raises: none
+  """
+  df = df.copy()
+  col_to_drop = [] 
+
+  df['position_score'] = 0
+
+  # position score
+  rp_cols = {"renko":"相对renko位置", "kama":"相对kama位置", "ichimoku":"相对ichimoku位置"}
+  for col in ['ichimoku', 'kama', 'renko']:
+    
+    col_p = rp_cols[col]
+    col_d = f'{col}_distance'
+    col_v = f'{col}_position_score'
+    col_to_drop.append(col_v)
+
+    if col_p not in df.columns or col_d not in df.columns:
+      df[col_v] = 0
+      continue
+    else:
+      position_conditions = {
+
+        'down_from_low':        f'{col_p} in ["down"] and {col_d} < 0',
+        'down_from_high':       f'{col_p} in ["down"] and {col_d} > 0',
+        'mid_down_from_low':    f'{col_p} in ["mid_down"] and {col_d} < 0',
+        'mid_down_from_high':   f'{col_p} in ["mid_down"] and {col_d} > 0',
+        'mid_from_low':         f'{col_p} in ["mid"] and {col_d} < 0',
+        'mid_from_high':        f'{col_p} in ["mid"] and {col_d} > 0',
+        'mid_up_from_low':      f'{col_p} in ["mid_up"] and {col_d} < 0',
+        'mid_up_from_high':     f'{col_p} in ["mid_up"] and {col_d} > 0',
+        'up_from_low':          f'{col_p} in ["up"] and {col_d} < 0',
+        'up_from_high':         f'{col_p} in ["up"] and {col_d} > 0',
+        'out_from_low_red':     f'{col_p} in ["out"] and {col_d} < 0 and candle_color == -1',
+        'out_from_high_red':    f'{col_p} in ["out"] and {col_d} > 0 and candle_color == -1',
+        'out_from_low_green':   f'{col_p} in ["out"] and {col_d} < 0 and candle_color == 1',
+        'out_from_high_green':  f'{col_p} in ["out"] and {col_d} > 0 and candle_color == 1',
+
+      } 
+      position_values = {
+        
+        'up_from_high':         2,
+        'up_from_low':          2,
+
+        'down_from_low':        -2,
+        'down_from_high':       -2,
+
+        'mid_down_from_low':    -1,
+        'mid_down_from_high':   -1,
+
+        'mid_from_low':         0,
+        'mid_from_high':        0,
+
+        'mid_up_from_low':      1,
+        'mid_up_from_high':     1,
+        
+        'out_from_low_red':     -3,
+        'out_from_high_red':    -3,
+
+        'out_from_low_green':   3,
+        'out_from_high_green':  3,
+      }
+      df = assign_condition_value(df=df, column=col_v, condition_dict=position_conditions, value_dict=position_values, default_value=0) 
+    
+    df['position_score'] += df[col_v]
+  df = cal_change(df=df, target_col='position_score', periods=1, add_accumulation=False, add_prefix=True)
+    
+  # ichimoku-kama position
+  threshold = 2
+  position_conditions = {
+    'down':         f'position_score < {-threshold}',
+    'mid_down':     f'0 > position_score > {-threshold}', 
+    'up':           f'position_score > {threshold}',
+    'mid_up':       f'0 < position_score < {threshold}', 
+  } 
+  position_values = {
+    'down':         'down', 
+    'mid_down':     'mid_down',
+    'up':           'up',
+    'mid_up':       'mid_up',
+  }
+  df = assign_condition_value(df=df, column='position', condition_dict=position_conditions, value_dict=position_values, default_value='')
+
+  # drop unnecessary columns
+  for col in col_to_drop:
+    if col in df.columns:
+      df.drop(col, axis=1, inplace=True)
+
+  return df
+
 # add candle stick features 
 def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
   """
@@ -2255,6 +2296,9 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
  
   # global position
   if 'position' > '':
+    
+    # add position features
+    df = calculate_position_score(df)
 
     df['moving_max'] = sm(series=df['High'], periods=10).max()
     df['moving_min'] = sm(series=df['Low'], periods=10).min()
@@ -2292,14 +2336,6 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
     values = {'长实体': 'u', '短实体': 'd'}
     df = assign_condition_value(df=df, column='entity_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
-    # long/short upper/lower shadow
-    for col in ['upper', 'lower']:
-      conditions = {
-        '长影线': f'(candle_{col}_shadow_pct > 0.3)', 
-        '短影线': f'(candle_{col}_shadow_pct < 0.1)'}
-      values = {'长影线': 'u', '短影线': 'd'}
-      df = assign_condition_value(df=df, column=f'{col}_shadow_trend', condition_dict=conditions, value_dict=values, default_value='n')
-
   # gaps between candles
   if 'windows' > '':
 
@@ -2310,13 +2346,6 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
       up_gap_idxs = []
     if len(down_gap_idxs) > 10:
       down_gap_idxs = []
-
-    # window(gap)
-    conditions = {
-      '向上跳空': 'candle_gap > 1', 
-      '向下跳空': 'candle_gap < -1'}
-    values = {'向上跳空': 'u', '向下跳空': 'd'}
-    df = assign_condition_value(df=df, column='窗口_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
     # window position status (beyond/below/among window)
     conditions = {
@@ -2339,25 +2368,16 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
       # # -0.5 <= 影线σ <= 0.5, 实体占比 < 1%
       # '波动': '(-0.5 <= shadow_diff <= 0.5) and (candle_entity_pct < 0.15)',
       # # 影线σ < -0.5, 非长影线, 短实体, 长上影线, 长下影线, 实体占比 < 10%
-      # '十字星': '(shadow_diff < -0.5) and (entity_trend == "d" and (upper_shadow_trend == "u" or lower_shadow_trend == "u")) and (shadow_trend != "u" and candle_entity_pct <= 0.1)',
+      # '十字星': '(shadow_diff < -0.5) and (entity_trend == "d" and (candle_upper_shadow_pct > 0.3 or candle_lower_shadow_pct > 0.3)) and (shadow_trend != "u" and candle_entity_pct <= 0.1)',
       # # 影线σ > 0.5, 长影线, 短实体, 长上影线, 长下影线, 实体占比 < 20%
-      # '高浪线': '(shadow_diff >= 0.5) and (entity_trend == "d" and upper_shadow_trend == "u" and lower_shadow_trend == "u") and (shadow_trend == "u" and candle_entity_pct <= 0.2)'
+      # '高浪线': '(shadow_diff >= 0.5) and (entity_trend == "d" and candle_upper_shadow_pct > 0.3 and candle_lower_shadow_pct > 0.3) and (shadow_trend == "u" and candle_entity_pct <= 0.2)'
 
       '十字星_1': '(candle_entity_pct < 0.15) and (shadow_diff < -1.5)',
-      '高浪线': '(candle_entity_pct < 0.15) and (shadow_diff > -1.5)',
+      '高浪线': '(candle_entity_pct < 0.15) and (shadow_diff > 1.5)',
       '十字星_2': '(candle_entity_pct < 0.05)',
       }
     values = {'十字星_1': 'd', '高浪线': 'u', '十字星_2': 'd', } # '波动': 'd', 
     df = assign_condition_value(df=df, column='十字星', condition_dict=conditions, value_dict=values, default_value='n')
-
-    # hammer/meteor
-    conditions = {
-      # 影线σ > 1, 长下影线, 非长实体, 上影线占比 < 5%, 实体占比 <= 30%, 下影线占比 >= 60%
-      '锤子': '(shadow_diff > 1) and (upper_shadow_trend == "d" and entity_trend != "u") and (candle_upper_shadow_pct < 0.05 and 0.05 <= candle_entity_pct <= 0.3 and candle_lower_shadow_pct >= 0.6)',
-      # 影线σ > 1, 长上影线, 非长实体, 上影线占比 >= 60%, 实体占比 <= 30%, 下影线占比 < 5%
-      '流星': '(shadow_diff > 1) and (lower_shadow_trend == "d" and entity_trend != "u") and (candle_upper_shadow_pct >= 0.6 and 0.05 <= candle_entity_pct <= 0.3 and candle_lower_shadow_pct < 0.05)'}
-    values = {'锤子': 'u', '流星': 'd'}
-    df = assign_condition_value(df=df, column='锤子', condition_dict=conditions, value_dict=values, default_value='n')
 
     # cross/highwave
     conditions = {
@@ -2368,14 +2388,14 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
     values = {'十字星': 'd', '高浪线': 'u'}
     df = assign_condition_value(df=df, column='十字星_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
-    # belt
+    # hammer/meteor
     conditions = {
-      # 非短实体, 低位, 价格上涨, 实体占比 > 50%, 下影线占比 <= 5%, 上影线占比 >= 15%
-      '看多腰带': '(entity_trend != "d" and candle_entity_pct > 0.5) and (position == "down" and candle_lower_shadow_pct <= 0.05 and candle_upper_shadow_pct >= 0.15 and candle_color == 1)',
-      # 非短实体, 高位, 价格下跌, 实体占比 > 50%, 上影线占比 <= 5%, 下影线占比 >= 15%
-      '看空腰带': '(entity_trend != "d" and candle_entity_pct > 0.5) and (position == "up" and candle_upper_shadow_pct <= 0.05 and candle_lower_shadow_pct >= 0.15 and candle_color == -1)'}
-    values = {'看多腰带': 'u', '看空腰带': 'd'}
-    df = assign_condition_value(df=df, column='腰带_trend', condition_dict=conditions, value_dict=values, default_value='n')
+      # 影线σ > 1, 长下影线, 非长实体, 上影线占比 < 5%, 实体占比 <= 30%, 下影线占比 >= 60%
+      '锤子': '(shadow_diff > 1) and (candle_upper_shadow_pct < 0.1 and entity_trend != "u") and (candle_upper_shadow_pct < 0.05 and 0.05 <= candle_entity_pct <= 0.3 and candle_lower_shadow_pct >= 0.6)',
+      # 影线σ > 1, 长上影线, 非长实体, 上影线占比 >= 60%, 实体占比 <= 30%, 下影线占比 < 5%
+      '流星': '(shadow_diff > 1) and (candle_lower_shadow_pct < 0.1 and entity_trend != "u") and (candle_upper_shadow_pct >= 0.6 and 0.05 <= candle_entity_pct <= 0.3 and candle_lower_shadow_pct < 0.05)'}
+    values = {'锤子': 'u', '流星': 'd'}
+    df = assign_condition_value(df=df, column='锤子', condition_dict=conditions, value_dict=values, default_value='n')
 
     # meteor
     conditions = {
@@ -2395,6 +2415,15 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
     values = {
       '吊颈线': 'd', '锤子线': 'u'}
     df = assign_condition_value(df=df, column='锤子_trend', condition_dict=conditions, value_dict=values, default_value='n')
+
+    # belt
+    conditions = {
+      # 非短实体, 低位, 价格上涨, 实体占比 > 50%, 下影线占比 <= 5%, 上影线占比 >= 15%
+      '看多腰带': '(entity_trend != "d" and candle_entity_pct > 0.5) and (position == "down" and candle_lower_shadow_pct <= 0.05 and candle_upper_shadow_pct >= 0.15 and candle_color == 1)',
+      # 非短实体, 高位, 价格下跌, 实体占比 > 50%, 上影线占比 <= 5%, 下影线占比 >= 15%
+      '看空腰带': '(entity_trend != "d" and candle_entity_pct > 0.5) and (position == "up" and candle_upper_shadow_pct <= 0.05 and candle_lower_shadow_pct >= 0.15 and candle_color == -1)'}
+    values = {'看多腰带': 'u', '看空腰带': 'd'}
+    df = assign_condition_value(df=df, column='腰带_trend', condition_dict=conditions, value_dict=values, default_value='n')
     
   # patterns that consist multiple candlesticks
   if 'multi_candle' > '':
@@ -2485,7 +2514,7 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
         pass
       else:
         # =================================== 吞噬形态 ==================================== #
-        if (previous_row['candle_entity_top'] < row['candle_entity_top']) and (previous_row['candle_entity_bottom'] > row['candle_entity_bottom']):
+        if (row['相对candle位置'] == 'out'):
         
           # 空头吞噬: 位于顶部, 1-绿, 2-红
           if (row['极限_trend'] == "u"):
@@ -2502,7 +2531,7 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
         pass
       else:
         # =================================== 包孕形态 ==================================== #
-        if (previous_row['candle_entity_top'] > row['candle_entity_top']) and (previous_row['candle_entity_bottom'] < row['candle_entity_bottom']) and (previous_row['High'] > row['High']) and (previous_row['Low'] < row['Low']):
+        if (row['相对candle位置'] == 'mid') and (previous_row['High'] > row['High']) and (previous_row['Low'] < row['Low']):
           
           # 空头包孕: 位于顶部, 1-绿, 2-红
           if row['极限_trend'] == 'u':
@@ -2523,58 +2552,59 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
           pass
         else:
           # 顶部>前顶部, 底部>前底部, 底部穿过前中点
-          if (previous_row['candle_entity_top'] < row['candle_entity_top']) and (previous_row['candle_entity_middle'] > row['candle_entity_bottom']): # and (previous_row['candle_entity_middle'] > row['candle_entity_bottom'])
+          if (row['相对candle位置'] == 'mid_up') and (previous_row['candle_entity_middle'] > row['candle_entity_bottom']):
             df.loc[idx, '穿刺_trend'] = 'd'
 
         # =================================== 黄昏星  ===================================== #
         if previous_previous_row is None:
           pass
         else:
-          # 1-绿色, 2-高位, 3-红色
-          if (previous_row['position'] == "up") and (previous_previous_row['candle_color'] == 1) and (row['candle_color'] == -1):
-            # 3-长实体 或 3-middle > 1-middle 
-            if row['entity_trend'] == 'u' or (row['candle_entity_middle'] < previous_previous_row['candle_entity_middle']):
-              # 2-小实体, 2-底部 > 1/3-顶部
-              if (previous_row['entity_trend'] == 'd') and (previous_row['candle_entity_bottom'] > previous_previous_row['candle_entity_top']) and (previous_row['candle_entity_bottom'] > row['candle_entity_top']): #(previous_row['High'] > previous_previous_row['High']) and (previous_row['High'] > row['High']):
-                df.loc[idx, '启明黄昏_trend'] = 'd'
-              # 2-非小实体, 2-底部 > 1/3-顶部
-              elif (previous_row['entity_trend'] == 'n') and (previous_row['candle_entity_bottom'] > previous_previous_row['candle_entity_top']) and (previous_row['candle_entity_bottom'] > row['candle_entity_top']):
+          # 2-1 up, 3-2 down, 2处于高位
+          if (previous_row['相对candle位置'] == 'up' and row['相对candle位置'] == 'down') and (previous_row['position'] == "up"):
+            # 1-绿色, 3-红色
+            if (previous_previous_row['candle_color'] == 1) and (row['candle_color'] == -1):
+              # 3-长实体 或 3-middle > 1-middle 
+              if row['entity_trend'] == 'u' or (row['candle_entity_middle'] < previous_previous_row['candle_entity_middle']):
+                # 2-非长实体, 2-底部 > 1/3-顶部
+                if (previous_row['entity_trend'] == ['n', 'd']):
                   df.loc[idx, '启明黄昏_trend'] = 'd'
 
       # 底部:穿刺形态, 启明星
       elif (previous_row['position'] == "down"):
 
         # =================================== 穿刺形态  =================================== #
-        # 1-必须为红色, 2-必须为绿色长实体
-        if (row['position'] != 'down' or row['entity_trend'] != 'u' or row['candle_color'] == -1 or previous_row['candle_color'] == 1):
+        # 2-必须为绿色长实体
+        if (row['position'] != 'down' or row['entity_trend'] != 'u' or row['candle_color'] == -1):
           pass
         else:
           # 顶部<=前顶部, 底部<前底部, 顶部穿过前中点
-          if (previous_row['candle_entity_top'] >= row['candle_entity_top']) and (previous_row['candle_entity_bottom'] > row['candle_entity_bottom']) and (previous_row['candle_entity_middle'] < row['candle_entity_top']):
+          if (row['相对candle位置'] == 'mid_down') and (previous_row['candle_entity_middle'] < row['candle_entity_top']):
             df.loc[idx, '穿刺_trend'] = 'u'
         
         # =================================== 启明星  ===================================== #
         if previous_previous_row is None:
           pass
         else:
-          # 1-红色非小实体, 2-高位, 3-绿色非小实体
-          if (previous_row['极限_trend'] == "d") and (previous_previous_row['entity_trend'] != 'd') and (row['candle_color'] == 1 and row['entity_trend'] != 'd'):
-            # 3-长实体 或 3-middle > 1-top 
-            if row['entity_trend'] == 'u' or (row['candle_entity_middle'] > previous_previous_row['candle_entity_top']):
-              # 2-小实体, 2-顶部 < 1/3-底部
-              if (previous_row['entity_trend'] == 'd') and (previous_row['candle_entity_top'] < previous_previous_row['candle_entity_bottom']) and (previous_row['candle_entity_top'] < row['candle_entity_bottom']): #(previous_row['Low'] < previous_previous_row['Low']) and (previous_row['Low'] < row['Low']):
-                df.loc[idx, '启明黄昏_trend'] = 'u'
-              # 2-非小实体, 2-顶部 < 1/3-底部
-              elif (previous_row['entity_trend'] == 'n') and (previous_row['candle_entity_top'] < previous_previous_row['candle_entity_bottom']) and (previous_row['candle_entity_top'] < row['candle_entity_bottom']):
-                  df.loc[idx, '启明黄昏_trend'] = 'u'
+          # 2-1 down, 3-2up, 2处于低位
+          if (previous_row['相对candle位置'] == 'down' and row['相对candle位置'] == 'up') and (previous_row['position'] == "down"):
+            # 1-红色非小实体, 
+            if (row['candle_color'] == 1 and row['entity_trend'] != 'd'):
+              # 3-长实体 或 3-middle > 1-top 
+              if row['entity_trend'] == 'u' or (row['candle_entity_middle'] > previous_previous_row['candle_entity_top']):
+                # 2-非长实体, 2-顶部 < 1/3-底部
+                if (previous_row['entity_trend'] in ['n', 'd']) and (previous_row['candle_entity_top'] < previous_previous_row['candle_entity_bottom']) and (previous_row['candle_entity_top'] < row['candle_entity_bottom']): #(previous_row['Low'] < previous_previous_row['Low']) and (previous_row['Low'] < row['Low']):
+                  df.loc[idx, '启明黄昏_trend'] = 'u'                
 
   # days since signal triggered
   df['up_pattern_score'] = 0
   df['down_pattern_score'] = 0
   df['up_pattern_description'] = ''
   df['down_pattern_description'] = ''
-  all_candle_patterns = ['窗口', '十字星', '流星', '锤子', '腰带', '平头', '穿刺', '包孕', '吞噬', '启明黄昏'] # '突破', '反弹', 
-  pattern_weights = {'窗口': 1, '十字星': 0.33, '流星': 0.33, '锤子': 0.33, '腰带': 0.33, '平头': 1, '穿刺': 0.33, '包孕': 0.33, '吞噬': 0.33, '启明黄昏': 1}
+  
+  pattern_weights = {
+    '十字星': 0.33, '流星': 0.33, '锤子': 0.33, '腰带': 0.33, '平头': 1, '穿刺': 0.33, '包孕': 0.33, '吞噬': 0.33, '启明黄昏': 1
+  }
+  all_candle_patterns = list(pattern_weights.keys())
   for col in all_candle_patterns:
     day_col = f'{col}_day'
     trend_col = f'{col}_trend'
@@ -2603,9 +2633,8 @@ def add_candlestick_patterns(df, ohlcv_col=default_ohlcv_col):
     'pre_candle_top', 'pre_candle_bottom',
     'recent_high', 'recent_low',  '极限_trend',
     'prev_相对窗口位置', 'high_diff', 'low_diff', 'candle_upper_shadow_pct_diff', 'candle_lower_shadow_pct_diff', 
-    'entity_ma', 'entity_std', 'shadow_ma', 'shadow_std',
-    'entity_diff', # 'entity_trend', 'shadow_trend',
-    'shadow_diff', 'upper_shadow_trend', 'lower_shadow_trend', 
+    'entity_ma', 'entity_std', 'shadow_ma', 'shadow_std', 'shadow_diff', 'entity_diff', 
+    # 'entity_trend', 'shadow_trend',
     'moving_max', 'moving_min', #'up_pattern_description', 'down_pattern_description'
     ]:
     if col in df.columns:
@@ -2908,22 +2937,22 @@ def add_support_resistance(df, target_col=default_support_resistant_col, perspec
     df[f'{col}_break_up'] = 0
     df[f'{col}_break_down'] = 0
 
-    up_query = f'({col}_day == 1) and (十字星 == "n" or (十字星 != "n" and candle_entity_bottom > {col}))'
+    up_query = f'(({col}_day == 1) and (十字星 == "n" or (十字星 != "n" and candle_entity_bottom > {col})))'
     if 'renko_h' in col:
       up_query += ' or (renko_real == "green")'
     elif 'candle_gap' in col:
-      up_query += ' and (窗口_day != 1)'
+      up_query += ' and (candle_gap != 2)'
     else:
       pass
     break_up_idx = df.query(up_query).index # entity_diff > -0.5 and 
     df.loc[break_up_idx, 'break_up_description'] += f'{col}, '
     df.loc[break_up_idx, f'{col}_break_up'] += 1
 
-    down_query = f'({col}_day == -1) and (十字星 == "n" or (十字星 != "n" and candle_entity_top < {col}))'
+    down_query = f'(({col}_day == -1) and (十字星 == "n" or (十字星 != "n" and candle_entity_top < {col})))'
     if 'renko' in col:
       down_query += ' or (renko_real == "red")'
     elif 'candle_gap' in col:
-      down_query += ' and (窗口_day != -1)'
+      down_query += ' and (candle_gap != -2)'
     else:
       pass
     break_down_idx = df.query(down_query).index # entity_diff > -0.5 and 
@@ -6057,7 +6086,6 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
         
     # settings for annotate candle patterns
     pattern_info = {
-      # '窗口_trend': {'u': '窗口', 'd': '窗口'},
       
       # '十字星_trend': {'u': '高浪线', 'd': '十字星'},
       '腰带_trend': {'u': '腰带', 'd': '腰带'},
@@ -6083,7 +6111,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
     down_pattern_annotations = {}
     for p in pattern_info.keys():
       
-      style = 'normal' if p not in ['窗口_trend'] else 'emphasis'
+      style = 'normal'
 
       if p in df.columns:
 
