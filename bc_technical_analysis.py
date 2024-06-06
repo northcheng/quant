@@ -1127,6 +1127,13 @@ def calculate_ta_signal(df):
                           )
                           '''.replace('\n', ''),
 
+    '一般_up':            '''
+                          (trigger_score >= 0 and break_down_score == 0) and
+                          (adx_day > 0) and
+                          (overall_change > 0 or (overall_change_diff > 0)) and
+                          (adx_value_change > 0)
+                          '''.replace('\n', ''),
+
     '边界_up':            '''
                           (
                             (kama_distance > 0) and 
@@ -1141,13 +1148,6 @@ def calculate_ta_signal(df):
                               (Open < kama_slow < Close)
                             )
                           )
-                          '''.replace('\n', ''),
-
-    '一般_up':            '''
-                          (trigger_score >= 0 and break_down_score == 0) and
-                          (adx_day > 0) and
-                          (overall_change > 0 or (overall_change_diff > 0)) and
-                          (adx_value_change > 0)
                           '''.replace('\n', ''),
 
     '波动_up':            '''
@@ -1360,7 +1360,7 @@ def calculate_ta_signal(df):
                       )
                       '''.replace('\n', ''),
 
-    # B|S: 去除低位买入的信号  
+    # B: 去除低位买入的信号  
     '低位买入':       '''
                       (signal == "b") and
                       (
@@ -1369,7 +1369,7 @@ def calculate_ta_signal(df):
                       )
                       '''.replace('\n', ''),
 
-    # B: 其他情况  
+    # B: 受到阻挡  
     '受到阻挡':       '''
                       (
                         (signal == "b") and
@@ -2307,19 +2307,19 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
   df['candle_gap_color'] = df['candle_gap_color'].fillna(method='ffill').fillna(0)
   df['candle_gap_distance'] = ((df['candle_gap_top'] - df['candle_gap_bottom']).fillna(method='ffill')) * df['candle_gap_color']
 
-  # window position status (beyond/below/among window)
-  conditions = {
-    '上方': '(candle_entity_bottom >= candle_gap_top)',
-    '中上': '((candle_entity_top > candle_gap_top) and (candle_gap_top > candle_entity_bottom >= candle_gap_bottom))',
-    '中间': '((candle_entity_top <= candle_gap_top) and (candle_entity_bottom >= candle_gap_bottom))',
-    '穿刺': '((candle_entity_top > candle_gap_top) and (candle_entity_bottom < candle_gap_bottom))',
-    '中下': '((candle_entity_bottom < candle_gap_bottom) and (candle_gap_top >= candle_entity_top > candle_gap_bottom))',
-    '下方': '(candle_entity_top <= candle_gap_bottom)'}
-  values = {
-    '上方': 'up', '中上': 'mid_up',
-    '中间': 'mid', '穿刺': 'out',
-    '中下': 'mid_down', '下方': 'down'}
-  df = assign_condition_value(df=df, column='相对gap位置', condition_dict=conditions, value_dict=values, default_value='')
+  # # window position status (beyond/below/among window)
+  # conditions = {
+  #   '上方': '(candle_entity_bottom >= candle_gap_top)',
+  #   '中上': '((candle_entity_top > candle_gap_top) and (candle_gap_top > candle_entity_bottom >= candle_gap_bottom))',
+  #   '中间': '((candle_entity_top <= candle_gap_top) and (candle_entity_bottom >= candle_gap_bottom))',
+  #   '穿刺': '((candle_entity_top > candle_gap_top) and (candle_entity_bottom < candle_gap_bottom))',
+  #   '中下': '((candle_entity_bottom < candle_gap_bottom) and (candle_gap_top >= candle_entity_top > candle_gap_bottom))',
+  #   '下方': '(candle_entity_top <= candle_gap_bottom)'}
+  # values = {
+  #   '上方': 'up', '中上': 'mid_up',
+  #   '中间': 'mid', '穿刺': 'out',
+  #   '中下': 'mid_down', '下方': 'down'}
+  # df = assign_condition_value(df=df, column='相对gap位置', condition_dict=conditions, value_dict=values, default_value='')
   
   # drop intermidiate columns
   for c in ['low_prev_high', 'prev_low_high']:
@@ -2380,29 +2380,16 @@ def add_candlestick_patterns(df):
   
   # patterns that consist only 1 candlestick
   if '1_candle' > '':
-    # cross
-    conditions = {
-      # # -0.5 <= 影线σ <= 0.5, 实体占比 < 1%
-      # '波动': '(-0.5 <= shadow_diff <= 0.5) and (candle_entity_pct < 0.15)',
-      # # 影线σ < -0.5, 非长影线, 短实体, 长上影线, 长下影线, 实体占比 < 10%
-      # '十字星': '(shadow_diff < -0.5) and (entity_trend == "d" and (candle_upper_shadow_pct > 0.3 or candle_lower_shadow_pct > 0.3)) and (shadow_trend != "u" and candle_entity_pct <= 0.1)',
-      # # 影线σ > 0.5, 长影线, 短实体, 长上影线, 长下影线, 实体占比 < 20%
-      # '高浪线': '(shadow_diff >= 0.5) and (entity_trend == "d" and candle_upper_shadow_pct > 0.3 and candle_lower_shadow_pct > 0.3) and (shadow_trend == "u" and candle_entity_pct <= 0.2)'
-
-      '十字星_1': '(candle_entity_pct < 0.15) and (shadow_diff < -1.5)',
-      '高浪线': '(candle_entity_pct < 0.15) and (shadow_diff > 1.5)',
-      '十字星_2': '(candle_entity_pct < 0.05)',
-      }
-    values = {'十字星_1': 'd', '高浪线': 'u', '十字星_2': 'd', } # '波动': 'd', 
-    df = assign_condition_value(df=df, column='十字星', condition_dict=conditions, value_dict=values, default_value='n')
-
     # cross/highwave
     conditions = {
-      # 形态 == '十字星'
-      '十字星': '(十字星 == "d")', 
-      # 形态 == '高浪线'
-      '高浪线': '(十字星 == "u")'} 
-    values = {'十字星': 'd', '高浪线': 'u'}
+      # 十字星1: 实体占比<15%, 影线σ<-1.5
+      '十字星_1': '(candle_entity_pct < 0.15) and (shadow_diff < -1.5)',
+      # 高浪线: 实体占比<15%, 影线σ>-1.5
+      '高浪线': '(candle_entity_pct < 0.15) and (shadow_diff > 1.5)',
+      # 十字星2: 实体占比<5%
+      '十字星_2': '(candle_entity_pct < 0.05)',
+      }
+    values = {'十字星_1': 'd', '高浪线': 'u', '十字星_2': 'd', } 
     df = assign_condition_value(df=df, column='十字星_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
     # hammer/meteor
@@ -2410,25 +2397,26 @@ def add_candlestick_patterns(df):
       # 影线σ > 1, 长下影线, 非长实体, 上影线占比 < 5%, 实体占比 <= 30%, 下影线占比 >= 60%
       '锤子': '(shadow_diff > 1) and (candle_upper_shadow_pct < 0.1 and entity_trend != "u") and (candle_upper_shadow_pct < 0.05 and 0.05 <= candle_entity_pct <= 0.3 and candle_lower_shadow_pct >= 0.6)',
       # 影线σ > 1, 长上影线, 非长实体, 上影线占比 >= 60%, 实体占比 <= 30%, 下影线占比 < 5%
-      '流星': '(shadow_diff > 1) and (candle_lower_shadow_pct < 0.1 and entity_trend != "u") and (candle_upper_shadow_pct >= 0.6 and 0.05 <= candle_entity_pct <= 0.3 and candle_lower_shadow_pct < 0.05)'}
+      '流星': '(shadow_diff > 1) and (candle_lower_shadow_pct < 0.1 and entity_trend != "u") and (candle_lower_shadow_pct < 0.05 and 0.05 <= candle_entity_pct <= 0.3 and candle_upper_shadow_pct >= 0.6)'}
     values = {'锤子': 'u', '流星': 'd'}
     df = assign_condition_value(df=df, column='锤子', condition_dict=conditions, value_dict=values, default_value='n')
+    col_to_drop.append('锤子')
 
     # meteor
     conditions = {
       # 高位, 近10日最高, 形态 == '流星'
-      '流星线': '(极限_trend == "u") and (锤子 == "d")',
+      '流星线': '(position == "up" and 极限_trend == "u") and (锤子 == "d")',
       # 低位, 近10日最低, 形态 == '流星'
-      '倒锤线': '(极限_trend == "d") and (锤子 == "d")'}
+      '倒锤线': '(position == "down" and 极限_trend == "d") and (锤子 == "d")'}
     values = {'流星线': 'd', '倒锤线': 'u'}
     df = assign_condition_value(df=df, column='流星_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
     # hammer
     conditions = {
       # 高位, 近10日最高, 形态 == '锤子'
-      '吊颈线': '(极限_trend == "u") and (锤子 == "u")',
+      '吊颈线': '(position == "up" and 极限_trend == "u") and (锤子 == "u")',
       # 低位, 近10日最低, 形态 == '锤子'
-      '锤子线': '(极限_trend == "d") and (锤子 == "u")'}
+      '锤子线': '(position == "down" and 极限_trend == "d") and (锤子 == "u")'}
     values = {
       '吊颈线': 'd', '锤子线': 'u'}
     df = assign_condition_value(df=df, column='锤子_trend', condition_dict=conditions, value_dict=values, default_value='n')
@@ -2441,7 +2429,7 @@ def add_candlestick_patterns(df):
       '看空腰带': '(entity_trend != "d" and candle_entity_pct > 0.5) and (position == "up" and candle_upper_shadow_pct <= 0.05 and candle_lower_shadow_pct >= 0.15 and candle_color == -1)'}
     values = {'看多腰带': 'u', '看空腰带': 'd'}
     df = assign_condition_value(df=df, column='腰带_trend', condition_dict=conditions, value_dict=values, default_value='n')
-    
+  
   # patterns that consist multiple candlesticks
   if 'multi_candle' > '':
 
@@ -2453,50 +2441,50 @@ def add_candlestick_patterns(df):
     df['candle_lower_shadow_pct_diff'] = df['candle_lower_shadow_pct'] - df['candle_lower_shadow_pct'].shift(1)
     col_to_drop += ['high_diff', 'low_diff', 'candle_entity_middle', 'candle_upper_shadow_pct_diff', 'candle_lower_shadow_pct_diff']
 
-    # previous_columns
+    # previous_columns(row-1)
     for col in ['candle_color', 'candle_entity_top', 'candle_entity_bottom', 'candle_entity_middle', 'candle_entity_pct', 'High', 'Low', 'position', 'entity_trend', '相对candle位置']:
       prev_col = f'prev_{col}'
       df[prev_col] = df[col].shift(1)
       col_to_drop.append(prev_col)
 
-    # previous-previous columns
-    for col in ['candle_color', 'candle_entity_top', 'candle_entity_bottom', 'candle_entity_middle']:
-      prev_col = f'prev_prev_{col}'
-      df[prev_col] = df[col].shift(2)
-      col_to_drop.append(prev_col)
+      # previous_previous_column(row-2)
+      if col in ['candle_color', 'candle_entity_top', 'candle_entity_bottom', 'candle_entity_middle']:
+        prev_prev_col = f'prev_prev_{col}'
+        df[prev_prev_col] = df[col].shift(2)
+        col_to_drop.append(prev_prev_col)
 
     # 平头顶/平头底
     conditions = {
       # 非十字星/高浪线, adx趋势向上(或高位), 高位, [1.近10日最高, 顶部差距<0.2%, 2.顶部差距<0.1%, 3.顶部差距<0.4%, 价格下跌, 上影线差距在5%内]
-      '平头顶': '(十字星 == "n") and (极限_trend == "u") and (adx_day > 0 or adx_value > 15) and ((high_diff <= 0.002) or (position == "up" and ((high_diff <= 0.001) or (high_diff <= 0.004 and rate <= 0 and -0.05 <= candle_upper_shadow_pct_diff <= 0.05))))',
+      '平头顶': '(十字星_trend == "n") and (position == "up") and ((high_diff <= 0.002) or (position == "up" and ((high_diff <= 0.001) or (high_diff <= 0.004 and rate <= 0 and -0.05 <= candle_upper_shadow_pct_diff <= 0.05))))',
       # 非十字星/高浪线, adx趋势向下(或低位), 低位, 近10日最低, 底部差距<0.2%
-      '平头底': '(十字星 == "n") and (极限_trend == "d") and (adx_day < 0 or adx_value < -15) and (low_diff <= 0.002)'}
+      '平头底': '(十字星_trend == "n") and (position == "down") and (low_diff <= 0.002)'}
     values = {'平头顶': 'd', '平头底': 'u'}
     df = assign_condition_value(df=df, column='平头_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
     # 吞噬形态
     conditions = {
-      # 当前蜡烛非短实体, 实体占比 > 75%, 位于底部, 1-红, 2-绿
-      '多头吞噬': '(相对candle位置 == "out") and (极限_trend == "d") and (entity_trend != "d" and candle_entity_pct > 0.75) and (prev_candle_color == -1 and candle_color == 1)',
-      # 当前蜡烛非短实体, 实体占比 > 75%, 位于顶部, 1-绿, 2-红
-      '空头吞噬': '(相对candle位置 == "out") and (极限_trend == "u") and (entity_trend != "d" and candle_entity_pct > 0.75) and (prev_candle_color == 1 and candle_color == -1)'}
+      # 相对candle位置 == "out", 当前蜡烛非短实体, 实体占比 > 75%, 位于底部, 1-红, 2-绿
+      '多头吞噬': '(相对candle位置 == "out") and (position == "down") and (entity_trend != "d" and candle_entity_pct > 0.75) and (prev_candle_color == -1 and candle_color == 1)',
+      # 相对candle位置 == "out", 当前蜡烛非短实体, 实体占比 > 75%, 位于顶部, 1-绿, 2-红
+      '空头吞噬': '(相对candle位置 == "out") and (position == "up") and (entity_trend != "d" and candle_entity_pct > 0.75) and (prev_candle_color == 1 and candle_color == -1)'}
     values = {'多头吞噬': 'u', '空头吞噬': 'd'}
     df = assign_condition_value(df=df, column='吞噬_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
     # 包孕形态
     conditions = {
-      # 前一蜡烛非短实体, 实体占比 > 75% 1-红, 2-绿
-      '多头包孕': '(相对candle位置 == "mid") and (极限_trend == "d") and (prev_entity_trend != "d" and prev_candle_entity_pct > 0.75) and (prev_High > High and prev_Low < Low) and (prev_candle_color == -1 and candle_color == 1)',
-      # 前一蜡烛非短实体, 实体占比 > 75%, 位于顶部, 1-绿, 2-红
-      '空头包孕': '(相对candle位置 == "mid") and (极限_trend == "u") and (prev_entity_trend != "d" and prev_candle_entity_pct > 0.75) and (prev_High > High and prev_Low < Low) and (prev_candle_color == 1 and candle_color == -1)'}
+      # 相对candle位置 == "mid", 前一蜡烛非短实体, 实体占比 > 80%, 当前蜡烛实体占比> 50%, 位于底部, 1-红, 2-绿
+      '多头包孕': '(相对candle位置 == "mid") and (position == "down") and (prev_entity_trend != "d" and prev_candle_entity_pct > 0.8 and candle_entity_pct > 0.5) and (prev_candle_color == -1 and candle_color == 1)', # and (prev_High > High and prev_Low < Low) 
+      # 相对candle位置 == "mid", 前一蜡烛非短实体, 实体占比 > 80%, 当前蜡烛实体占比> 50%, 位于顶部, 1-绿, 2-红
+      '空头包孕': '(相对candle位置 == "mid") and (position == "up") and (prev_entity_trend != "d" and prev_candle_entity_pct > 0.8 and candle_entity_pct > 0.5) and (prev_candle_color == 1 and candle_color == -1)'} # (prev_High > High and prev_Low < Low) and 
     values = {'多头包孕': 'u', '空头包孕': 'd'}
     df = assign_condition_value(df=df, column='包孕_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
     # 穿刺形态
     conditions = {
-      # 前一蜡烛位于底部, 1-必须为红色, 2-必须为绿色长实体, 顶部<=前顶部, 底部<前底部, 顶部穿过前中点
+      # 相对candle位置 == "mid_down", 前一蜡烛位于底部, 1-必须为红色, 2-必须为绿色长实体, 顶部<=前顶部, 底部<前底部, 顶部穿过前中点
       '多头穿刺': '(相对candle位置 == "mid_down") and (prev_position == "down" and prev_candle_color == -1 and candle_color == 1 and entity_trend == "u" and prev_entity_trend != "d") and (prev_candle_entity_middle < candle_entity_top)',
-      # 前一蜡烛位于顶部, 1-必须为绿色, 2-必须为红色长实体, 顶部>前顶部, 底部>前底部, 底部穿过前中点
+      # 相对candle位置 == "mid_up", 前一蜡烛位于顶部, 1-必须为绿色, 2-必须为红色长实体, 顶部>前顶部, 底部>前底部, 底部穿过前中点
       '空头穿刺': '(相对candle位置 == "mid_up") and (prev_position == "up" and prev_candle_color == 1 and candle_color == -1 and entity_trend == "u" and prev_entity_trend != "d") and (prev_candle_entity_middle > candle_entity_bottom)'}
     values = {'多头穿刺': 'u', '空头穿刺': 'd'}
     df = assign_condition_value(df=df, column='穿刺_trend', condition_dict=conditions, value_dict=values, default_value='n')
@@ -2845,7 +2833,7 @@ def add_support_resistance(df, target_col=default_support_resistant_col, perspec
     df[f'{col}_break_up'] = 0
     df[f'{col}_break_down'] = 0
 
-    up_query = f'(({col}_day == 1) and (十字星 == "n" or (十字星 != "n" and candle_entity_bottom > {col})))'
+    up_query = f'(({col}_day == 1) and (十字星_trend == "n" or (十字星_trend != "n" and candle_entity_bottom > {col})))'
     if 'renko_h' in col:
       up_query += ' or (renko_real == "green")'
     elif 'candle_gap' in col:
@@ -2856,7 +2844,7 @@ def add_support_resistance(df, target_col=default_support_resistant_col, perspec
     df.loc[break_up_idx, 'break_up_description'] += f'{col}, '
     df.loc[break_up_idx, f'{col}_break_up'] += 1
 
-    down_query = f'(({col}_day == -1) and (十字星 == "n" or (十字星 != "n" and candle_entity_top < {col})))'
+    down_query = f'(({col}_day == -1) and (十字星_trend == "n" or (十字星_trend != "n" and candle_entity_top < {col})))'
     if 'renko' in col:
       down_query += ' or (renko_real == "red")'
     elif 'candle_gap' in col:
@@ -2894,8 +2882,8 @@ def add_support_resistance(df, target_col=default_support_resistant_col, perspec
           (candle_lower_shadow_pct > candle_upper_shadow_pct)
         ) and 
         (
-          (十字星 == "n") or 
-          (十字星 != "n" and Low > {tmp_col}) 
+          (十字星_trend == "n") or 
+          (十字星_trend != "n" and Low > {tmp_col}) 
         ) and
         (
           ({col} < {distance_threshold})
@@ -2935,7 +2923,7 @@ def add_support_resistance(df, target_col=default_support_resistant_col, perspec
         )
       ) or 
       (
-        (十字星 != "n") and 
+        (十字星_trend != "n") and 
         (High > {tmp_col} > Low)
       ) or
       (
@@ -2993,87 +2981,7 @@ def add_support_resistance(df, target_col=default_support_resistant_col, perspec
     df.loc[max_idx, 'supporter'] = supporter
     df.loc[max_idx, 'support'] = df.loc[max_idx, supporter]
 
-  # ================================ dynamic support and resistant =====================
-  # if 'support_resistant' in perspective:
-
-  #   # focus on the last row only
-  #   max_idx = df.index.max()
-    
-  #   # linear fit support/resistant
-  #   linear_fit_support = df.loc[max_idx, 'linear_fit_support'] if 'linear' in perspective else np.nan
-  #   linear_fit_resistant = df.loc[max_idx, 'linear_fit_resistant'] if 'linear' in perspective else np.nan
-
-  #   # renko support/resistant
-  #   renko_support = df.loc[max_idx, 'renko_support'] if 'renko' in perspective else np.nan
-  #   renko_resistant = df.loc[max_idx, 'renko_resistant'] if 'renko' in perspective else np.nan
-    
-  #   # calculate support and resistant from renko, linear_fit and candle_gap
-  #   support_candidates = {'linear': linear_fit_support, 'renko': renko_support}
-  #   static_support = df.loc[max_idx, 'support_description'].split(', ')
-  #   static_support = [x for x in static_support if x != '']
-  #   for ss in static_support:
-  #     support_candidates[ss] = df.loc[max_idx, ss]
-
-  #   resistant_candidates = {'linear':linear_fit_resistant, 'renko': renko_resistant}
-  #   static_resistant = df.loc[max_idx, 'resistant_description'].split(', ')
-  #   static_resistant = [x for x in static_resistant if x != '']
-  #   for sr in static_resistant:
-  #     resistant_candidates[sr] = df.loc[max_idx, sr]
-
-  #   # support
-  #   supporter = ''
-  #   support = np.nan  
-
-  #   to_pop = []
-  #   for k in support_candidates.keys():
-  #     if np.isnan(support_candidates[k]):
-  #       to_pop += [k]
-  #   for k in to_pop:
-  #     support_candidates.pop(k)
-
-  #   if len(support_candidates) > 0:
-  #     supporter = max(support_candidates, key=support_candidates.get)
-  #     support = support_candidates[supporter]
-
-  #   if supporter == 'linear':
-  #     valid_idxs = df.query('linear_slope == linear_slope').index
-  #   elif supporter == 'renko':
-  #     valid_idxs = df[df.loc[max_idx, 'renko_start']:].index
-  #   elif supporter != '':
-  #     valid_idxs = df.index[-10:]
-  #   else:
-  #     valid_idxs = []
-  #   df.loc[valid_idxs, 'support'] = support
-  #   df.loc[valid_idxs, 'supporter'] = supporter
-
-  #   # resistant
-  #   resistanter = ''
-  #   resistant = np.nan
-
-  #   to_pop = []
-  #   for k in resistant_candidates.keys():
-  #     if np.isnan(resistant_candidates[k]):
-  #       to_pop += [k]
-  #   for k in to_pop:
-  #     resistant_candidates.pop(k)
-
-  #   if len(resistant_candidates) > 0:
-  #     resistanter = min(resistant_candidates, key=resistant_candidates.get)
-  #     resistant = resistant_candidates[resistanter]
-
-  #   valid_idxs = []
-  #   if resistanter == 'linear':
-  #     valid_idxs = df.query('linear_slope == linear_slope').index
-  #   elif resistanter == 'renko':
-  #     valid_idxs = df[df.loc[max_idx, 'renko_start']:].index
-  #   elif resistanter != '':
-  #     valid_idxs = df.index[-10:]
-  #   else:
-  #     pass
-
-  #   df.loc[valid_idxs, 'resistant'] = resistant
-  #   df.loc[valid_idxs, 'resistanter'] = resistanter
-
+  # ================================ bondary and break score ===========================
   df['boundary_score'] = 0
   df['break_score'] = 0
 
@@ -3097,7 +3005,8 @@ def add_support_resistance(df, target_col=default_support_resistant_col, perspec
       else:
         print(f'error: {idx} not defined')
 
-      # col_to_drop.append(tmp_col)
+      if tmp_col not in ['kama_slow_support', 'kama_slow_break_up']:
+        col_to_drop.append(tmp_col)
 
   # drop unnecessary columns
   for col in col_to_drop:
