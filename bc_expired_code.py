@@ -1,4 +1,4 @@
-#20240531 updated
+#20240606 updated
 [
   # sec_data
   'Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume', 'Dividend', 'Split', 
@@ -13,8 +13,8 @@
   'candle_color', 
   'candle_shadow', 
   'candle_entity', 'candle_entity_top', 'candle_entity_bottom',
-  'candle_upper_shadow_pct', 'candle_lower_shadow_pct', 'candle_entity_pct', 'candle_entity_middle', 'candle_gap',
-  'candle_gap_color', 'candle_gap_top', 'candle_gap_bottom', 
+  'candle_upper_shadow_pct', 'candle_lower_shadow_pct', 'candle_entity_pct', 
+  'candle_gap', 'candle_gap_color', 'candle_gap_top', 'candle_gap_bottom', 'candle_gap_distance',
 
   # calculate_ta_basic()
   ## add_ichimoku_features
