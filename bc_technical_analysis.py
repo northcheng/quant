@@ -996,30 +996,6 @@ def calculate_ta_score(df):
   df = assign_condition_value(df=df, column='trigger_day', condition_dict=trigger_conditions, value_dict=trigger_values, default_value=0)
   df['trigger_day'] = sda(series=df['trigger_day'], zero_as=1)
 
-  # ================================ calculate overall distance =============
-  term_trend_conditions = {
-    'rrr':    f'kama_distance <= 0 and ichimoku_distance <= 0 and renko_distance <= 0', 
-    'rrg':    f'kama_distance <= 0 and ichimoku_distance <= 0 and renko_distance >  0',
-    'rgr':    f'kama_distance <= 0 and ichimoku_distance >  0 and renko_distance <= 0', 
-    'rgg':    f'kama_distance <= 0 and ichimoku_distance >  0 and renko_distance >  0',
-    'grr':    f'kama_distance >  0 and ichimoku_distance <= 0 and renko_distance <= 0', 
-    'grg':    f'kama_distance >  0 and ichimoku_distance <= 0 and renko_distance >  0',
-    'ggr':    f'kama_distance >  0 and ichimoku_distance >  0 and renko_distance <= 0', 
-    'ggg':    f'kama_distance >  0 and ichimoku_distance >  0 and renko_distance >  0',
-  } 
-  term_trend_values = {
-    'rrr':    f'rrr', 
-    'rrg':    f'rrg',
-    'rgr':    f'rgr', 
-    'rgg':    f'rgg',
-    'grr':    f'grr', 
-    'grg':    f'grg',
-    'ggr':    f'ggr', 
-    'ggg':    f'ggg',
-  }
-  df = assign_condition_value(df=df, column='kir_distance', condition_dict=term_trend_conditions, value_dict=term_trend_values, default_value='n')
-
-
   return df
 
 # calculate all features (ta_basic + ta_static + ta_dynamic + ta_score) all at once
@@ -2146,7 +2122,7 @@ def calculate_position_score(df):
   df = cal_change(df=df, target_col='position_score', periods=1, add_accumulation=False, add_prefix=True)
     
   # ichimoku-kama position
-  threshold = 2
+  threshold = 3
   position_conditions = {
     'down':         f'position_score < {-threshold}',
     'mid_down':     f'0 > position_score > {-threshold}', 
@@ -2160,6 +2136,29 @@ def calculate_position_score(df):
     'mid_up':       'mid_up',
   }
   df = assign_condition_value(df=df, column='position', condition_dict=position_conditions, value_dict=position_values, default_value='')
+
+  # ================================ calculate overall distance =============
+  term_trend_conditions = {
+    'rrr':    f'kama_distance <= 0 and ichimoku_distance <= 0 and renko_distance <= 0', 
+    'rrg':    f'kama_distance <= 0 and ichimoku_distance <= 0 and renko_distance >  0',
+    'rgr':    f'kama_distance <= 0 and ichimoku_distance >  0 and renko_distance <= 0', 
+    'rgg':    f'kama_distance <= 0 and ichimoku_distance >  0 and renko_distance >  0',
+    'grr':    f'kama_distance >  0 and ichimoku_distance <= 0 and renko_distance <= 0', 
+    'grg':    f'kama_distance >  0 and ichimoku_distance <= 0 and renko_distance >  0',
+    'ggr':    f'kama_distance >  0 and ichimoku_distance >  0 and renko_distance <= 0', 
+    'ggg':    f'kama_distance >  0 and ichimoku_distance >  0 and renko_distance >  0',
+  } 
+  term_trend_values = {
+    'rrr':    f'rrr', 
+    'rrg':    f'rrg',
+    'rgr':    f'rgr', 
+    'rgg':    f'rgg',
+    'grr':    f'grr', 
+    'grg':    f'grg',
+    'ggr':    f'ggr', 
+    'ggg':    f'ggg',
+  }
+  df = assign_condition_value(df=df, column='kir_distance', condition_dict=term_trend_conditions, value_dict=term_trend_values, default_value='n')
 
   # drop unnecessary columns
   for col in col_to_drop:
@@ -2442,7 +2441,7 @@ def add_candlestick_patterns(df):
     col_to_drop += ['high_diff', 'low_diff', 'candle_entity_middle', 'candle_upper_shadow_pct_diff', 'candle_lower_shadow_pct_diff']
 
     # previous_columns(row-1)
-    for col in ['candle_color', 'candle_entity_top', 'candle_entity_bottom', 'candle_entity_middle', 'candle_entity_pct', 'High', 'Low', 'position', 'entity_trend', '相对candle位置']:
+    for col in ['candle_color', 'candle_entity_top', 'candle_entity_bottom', 'candle_entity_middle', 'candle_entity_pct', 'High', 'Low', 'position', 'entity_trend', '相对candle位置', '极限_trend']:
       prev_col = f'prev_{col}'
       df[prev_col] = df[col].shift(1)
       col_to_drop.append(prev_col)
@@ -2464,19 +2463,19 @@ def add_candlestick_patterns(df):
 
     # 吞噬形态
     conditions = {
-      # 相对candle位置 == "out", 当前蜡烛非短实体, 实体占比 > 75%, 位于底部, 1-红, 2-绿
-      '多头吞噬': '(相对candle位置 == "out") and (position == "down") and (entity_trend != "d" and candle_entity_pct > 0.75) and (prev_candle_color == -1 and candle_color == 1)',
-      # 相对candle位置 == "out", 当前蜡烛非短实体, 实体占比 > 75%, 位于顶部, 1-绿, 2-红
-      '空头吞噬': '(相对candle位置 == "out") and (position == "up") and (entity_trend != "d" and candle_entity_pct > 0.75) and (prev_candle_color == 1 and candle_color == -1)'}
+      # 相对candle位置 == "out", 蜡烛非短实体, 实体占比 > 75%, 位于底部, 1-红, 2-绿
+      '多头吞噬': '(相对candle位置 == "out") and (position == "down") and (prev_entity_trend != "d" and entity_trend != "d" and candle_entity_pct > 0.75) and (prev_candle_color == -1 and candle_color == 1)',
+      # 相对candle位置 == "out", 蜡烛非短实体, 实体占比 > 75%, 位于顶部, 1-绿, 2-红
+      '空头吞噬': '(相对candle位置 == "out") and (position == "up") and (prev_entity_trend != "d" and entity_trend != "d" and candle_entity_pct > 0.75) and (prev_candle_color == 1 and candle_color == -1)'}
     values = {'多头吞噬': 'u', '空头吞噬': 'd'}
     df = assign_condition_value(df=df, column='吞噬_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
     # 包孕形态
     conditions = {
       # 相对candle位置 == "mid", 前一蜡烛非短实体, 实体占比 > 80%, 当前蜡烛实体占比> 50%, 位于底部, 1-红, 2-绿
-      '多头包孕': '(相对candle位置 == "mid") and (position == "down") and (prev_entity_trend != "d" and prev_candle_entity_pct > 0.8 and candle_entity_pct > 0.5) and (prev_candle_color == -1 and candle_color == 1)', # and (prev_High > High and prev_Low < Low) 
+      '多头包孕': '(相对candle位置 == "mid") and (position == "down") and (prev_entity_trend != "d" and entity_trend != "d" and prev_candle_entity_pct > 0.8 and candle_entity_pct > 0.5) and (prev_candle_color == -1 and candle_color == 1)', # and (prev_High > High and prev_Low < Low) 
       # 相对candle位置 == "mid", 前一蜡烛非短实体, 实体占比 > 80%, 当前蜡烛实体占比> 50%, 位于顶部, 1-绿, 2-红
-      '空头包孕': '(相对candle位置 == "mid") and (position == "up") and (prev_entity_trend != "d" and prev_candle_entity_pct > 0.8 and candle_entity_pct > 0.5) and (prev_candle_color == 1 and candle_color == -1)'} # (prev_High > High and prev_Low < Low) and 
+      '空头包孕': '(相对candle位置 == "mid") and (position == "up") and (prev_entity_trend != "d" and entity_trend != "d" and prev_candle_entity_pct > 0.8 and candle_entity_pct > 0.5) and (prev_candle_color == 1 and candle_color == -1)'} # (prev_High > High and prev_Low < Low) and 
     values = {'多头包孕': 'u', '空头包孕': 'd'}
     df = assign_condition_value(df=df, column='包孕_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
@@ -2492,9 +2491,9 @@ def add_candlestick_patterns(df):
     # 启明星/黄昏星
     conditions = {
       # 2-1 down, 3-2up, 2处于低位, 1-红色非小实体, 3-长实体 或 3-middle > 1-top, 2-非长实体, 2-顶部 < 1/3-底部
-      '启明星': '(prev_相对candle位置 == "down" and 相对candle位置 == "up") and (prev_position == "down") and (candle_color == 1 and entity_trend != "d") and (entity_trend == "u" or candle_entity_middle > prev_prev_candle_entity_top) and (prev_entity_trend != "u") and (prev_candle_entity_top < prev_prev_candle_entity_bottom) and (prev_candle_entity_top < candle_entity_bottom)',
+      '启明星': '(prev_相对candle位置 == "down" and 相对candle位置 == "up" and position == "down") and (kir_distance == "rrr" or prev_极限_trend == "d") and (prev_position == "down") and (candle_color == 1 and entity_trend != "d") and (entity_trend == "u" or candle_entity_middle > prev_prev_candle_entity_top) and (prev_entity_trend != "u") and (prev_candle_entity_top < prev_prev_candle_entity_bottom) and (prev_candle_entity_top < candle_entity_bottom)',
       # 2-1 up, 3-2 down, 2处于高位, 1-绿色, 3-红色, 3-长实体 或 3-middle > 1-middle, 2-非长实体, 2-底部 > 1/3-顶部
-      '黄昏星': '(prev_相对candle位置 == "up" and 相对candle位置 == "down") and (prev_position == "up") and (prev_prev_candle_color == 1 and candle_color == -1) and (entity_trend == "u" or candle_entity_middle < prev_prev_candle_entity_middle) and (prev_entity_trend != "u")'}
+      '黄昏星': '(prev_相对candle位置 == "up" and 相对candle位置 == "down" and position == "up") and (kir_distance == "ggg" or prev_极限_trend == "u") and (prev_position == "up") and (prev_prev_candle_color == 1 and candle_color == -1) and (entity_trend == "u" or candle_entity_middle < prev_prev_candle_entity_middle) and (prev_entity_trend != "u")'}
     values = {'启明星': 'u', '黄昏星': 'd'}
     df = assign_condition_value(df=df, column='启明黄昏_trend', condition_dict=conditions, value_dict=values, default_value='n')
     
@@ -5559,6 +5558,49 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
       # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='red', alpha=tmp_data[tmp_col_a].fillna(0))
 
+    # annotate adx (adx_strength_change)
+    ylim = ax.get_ylim()
+    y_min = ylim[0]
+    y_max = ylim[1]
+    y_range = (y_max - y_min)
+    y_middle = (y_max + y_min)/2
+
+    max_idx = df.index.max()
+    x_signal = max_idx + datetime.timedelta(days=2)
+    v = round(df.loc[max_idx, 'adx_day'], 1)
+    v_change = round(df.loc[max_idx, 'adx_change'],1)
+    y_signal = y_max # round(y_middle + y_range/4)
+    text_color = 'green' if v_change > 0 else 'red'
+    text_color = 'green' if df.loc[max_idx, 'adx_strength_change'] > 0 else 'red'
+    plt.annotate(f'{v}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+
+    # annotate adx_value(adx_value_change)
+    x_signal = max_idx + datetime.timedelta(days=2)
+    v = round(df.loc[max_idx, 'overall_change'],1)
+    v_change = round(df.loc[max_idx, 'overall_change_diff'],1)
+    y_signal = y_max -2 # round(y_middle)
+    text_color = 'green' if v_change > 0 else 'red'
+    plt.annotate(f'{v}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+
+    # annotate adx_value_prediction(adx_value_prediction - adx_value)
+    x_signal = max_idx + datetime.timedelta(days=2)
+    v = round(df.loc[max_idx, 'position_score'],1)
+    v_change = round(df.loc[max_idx, 'position_score_change'],1)
+    y_signal = y_max -4 # round(y_middle - y_range/4)
+    text_color = 'green' if v_change > 0 else 'red'
+    plt.annotate(f'{v}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+
+    # title and legend
+    ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
+    ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
+    ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
+
+    # legend and title
+    ax.legend(loc='upper left') 
+    ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
+    ax.grid(True, axis='x', linestyle='-', linewidth=0.5, alpha=0.1)
+    ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
+
   # poteltials
   if signal_x in ["一般", "前瞻", "完美", "反弹", "边界"]:
 
@@ -5583,12 +5625,6 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     tmp_data = df.query(f'({tmp_col_up} == 0) or ({tmp_col_down} == 0)')
     if len(tmp_data) > 0:
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='grey', alpha=0.25)
-
-  # legend and title
-  ax.legend(loc='upper left') 
-  ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
-  ax.grid(True, axis='x', linestyle='-', linewidth=0.5, alpha=0.1)
-  ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
 
   # return ax
   if use_ax is not None:
