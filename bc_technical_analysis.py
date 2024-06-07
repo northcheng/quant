@@ -542,6 +542,7 @@ def calculate_ta_static(df, indicators=default_indicators):
       df['adx_change'] = df['adx_value'] - df['adx_value_prediction']
       df['adx_status'] = (df['adx_change'] > 0).replace({True: 1, False: -1})
       df['adx_change'] = normalize(df['adx_change'].abs()) * df['adx_status']
+      df['adx_change_day'] = sda(series=df['adx_status'], zero_as=None)
 
       # the true adx trend
       conditions = {
@@ -1064,6 +1065,7 @@ def calculate_ta_signal(df):
   df['overall_status'] = df['adx_status'] + df['ichimoku_status'] + df['kama_status']
   df['overall_change_diff'] = df['overall_change'] - df['overall_change'].shift(1)
   col_symbol = (df['overall_status'] > 0).replace({True: 1, False: -1})
+  df['overall_change_day'] = sda(series=col_symbol, zero_as=1) 
   none_zero_idx = df.query('overall_status != 0').index
   df.loc[none_zero_idx, 'overall_change'] = df.loc[none_zero_idx, 'overall_change'].abs() * col_symbol.loc[none_zero_idx]
 
@@ -1080,7 +1082,7 @@ def calculate_ta_signal(df):
   potential_conditions = {
 
     '完美_up':            '''
-                          (trigger_score > 0) and
+                          (trigger_score > 0 or candle_position_score > 0) and
                           (adx_day == 1 or (adx_day == 0 and prev_adx_day < 0)) and
                           (overall_change > 0 or (overall_change_diff > 0 and overall_change > -0.1)) and
                           (adx_direction_day == 1)
@@ -1104,9 +1106,12 @@ def calculate_ta_signal(df):
                           '''.replace('\n', ''),
 
     '一般_up':            '''
-                          (trigger_score >= 0 and break_down_score == 0) and
+                          (
+                            (trigger_score >= 0 and break_down_score == 0) or 
+                            (candle_position_score > 0)
+                          ) and
                           (adx_day > 0) and
-                          (overall_change > 0 or (overall_change_diff > 0)) and
+                          (overall_change > 0 or overall_change_diff > 0) and
                           (adx_value_change > 0)
                           '''.replace('\n', ''),
 
@@ -1144,13 +1149,13 @@ def calculate_ta_signal(df):
 
     
     '完美_down':          '''
-                          (trigger_score < 0) and
+                          (trigger_score < 0 or candle_position_score < 0) and
                           (adx_day == -1 or (adx_day == 0 and prev_adx_day > 0)) and
                           (overall_change < 0 or (overall_change_diff < 0 and overall_change < 0.1)) and
                           (adx_direction_day == -1)
                           '''.replace('\n', ''),
 
-    '前瞻_down':            '''
+    '前瞻_down':          '''
                           (break_up_score == 0) and
                           (position_score > 0) and
                           (adx_day == -1 or (adx_day == 0 and prev_adx_day > 0)) and
@@ -1165,8 +1170,11 @@ def calculate_ta_signal(df):
                           (break_down_score < 0 or resistant_score < 0 or pattern_score < 0)
                           '''.replace('\n', ''),
 
-    '一般_down':            '''
-                          (trigger_score <=0 and break_up_score == 0) and
+    '一般_down':          '''
+                          (
+                            (trigger_score <=0 and break_up_score == 0) or
+                            (candle_position_score < 0)
+                          ) and
                           (adx_day < 0) and
                           (overall_change < 0 or (overall_change_diff < 0)) and
                           (adx_value_change < 0)
@@ -1226,6 +1234,13 @@ def calculate_ta_signal(df):
 
   # unmark false potential
   none_potential_conditions = {
+
+    '一般_up':            '''
+                          (一般_up == 1) and
+                          (adx_strong_day < 0 and adx_wave_day > 0) and
+                          (10 <= adx_direction_start <= 10) and 
+                          (10 <= adx_value <= 10 or adx_direction_day == 1)
+                          '''.replace('\n', ''),
 
     '反弹_up':            '''
                           (反弹_up == 1) and
@@ -1308,7 +1323,7 @@ def calculate_ta_signal(df):
                         ) or
                         (
                           (adx_power_day < 0 and adx_power_start_adx_value > 10 and adx_value > -10) and
-                          (adx_strong_day < 0 or adx_change < 0 or (adx_direction_day == 1 and -10 < adx_value < 10))
+                          (adx_strong_day < 0 or adx_change < 0 or (adx_direction_day == 1 and -15 < adx_value < 15))
                         )
                       )
                       '''.replace('\n', ''),
@@ -1364,20 +1379,36 @@ def calculate_ta_signal(df):
   df['signal_description'] = df['signal_description'].apply(lambda x: x[:-2])
   df['signal_day'] = sda(df['signal'].replace({'b': 1, 's': -1, '': 0, 'nb': 1, 'ns': -1}), zero_as=1)
 
+  # ranking
+  rank_condition = {
+    '+adx_day_0':           [1, '', '(0 <= adx_day <= 1)'],
+    '+adx_day':             [0.5, '', '(0 <= adx_day)'],
+    '+adx_change_0':        [1, '', '(0 <= adx_change_day <= 1)'],
+    '+adx_change':          [0.5, '', '(0 <= adx_change_day)'],
+    '+overall_0':           [1, '', '(overall_change_day == 1)'],
+    '+overall':             [0.5, '', '(overall_change_diff > 0)'],
+    '+trigger':             [1, '', '(0 < trigger_score)'],
+    '+adx_direction_0':     [1, '', '(adx_direction_day == 1)'],
+    '+adx_direction':       [0.5, '', '(0 < adx_direction_day)'],
+    '+adx_start_0':         [1, '', '(adx_direction_start < -10)'],
+    '+adx_start':           [0.5, '', '(0 > adx_direction_start)'],
+    '-trend_strength':      [-1, '', '(adx_strong_day < 0)'],
+  }
+  score_col = 'rank_score'
+  df = cal_score(df=df, condition_dict=rank_condition, up_score_col=score_col, down_score_col=score_col)
+
   # tier
   df['tier'] = 10
   conditions = {
-    '7':        'signal in ["b", "nb"]',
-    '6':        'signal_day == 1',
-    '5':        '(完美_up == 1 or 反弹_up == 1 or 边界_up == 1 or 一般_up == 1 or 前瞻_up == 1) and ichimoku_distance > 0', 
-    '4':        '(完美_up == 1 or 反弹_up == 1 or 边界_up == 1 or 一般_up == 1 or 前瞻_up == 1) and ichimoku_distance < 0', 
-    '3':        '完美_up == 1 and adx_direction_start > 0', 
-    '2':        '完美_up == 1 and adx_direction_start < 0', 
-    '1':        '完美_up == 1 and adx_direction_start < 0 and (adx_value < 0 or ichimoku_distance < 0)', 
-    '0':        '完美_up == 1 and adx_direction_start < 0 and (adx_value < 0 or ichimoku_distance < 0) and (adx_strong_day > 0 and adx_wave_day == 0)', 
+    '6':        'signal_day > 0',
+    '5':        '(5>= signal_day > 3)', 
+    '4':        '(3>= signal_day > 1)', 
+    '3':        '(signal_day == 1)', 
+    '2':        '(signal_day == 1) and ((adx_strong_day > 0) or (adx_direction_start < -10))', 
+    '1':        '(signal_day == 1) and (adx_strong_day > 0) and (adx_direction_start < -10)', 
+    '0':        '(完美_up == 1) and (signal_day == 1) and (adx_strong_day > 0) and (adx_direction_start < -10)', 
   } 
   values = {
-    '7':        7,
     '6':        6,
     '5':        5,
     '4':        4, 
@@ -1387,18 +1418,6 @@ def calculate_ta_signal(df):
     '0':        0, 
   }
   df = assign_condition_value(df=df, column='tier', condition_dict=conditions, value_dict=values, default_value=10)
-
-  # drop redundant columns
-  # col_to_drop = [
-    # 'up_pattern_score', 'down_pattern_score', 'up_pattern_description', 'down_pattern_description',
-    # # 'up_score', 'down_score', 'up_score_description', 'down_score_description',
-    # 'rank_up_score', 'rank_down_score', 'rank_up_score_description', 'rank_down_score_description'
-  # ]
-  # target_cols = default_support_resistant_col
-  # for col in target_cols:
-  #   for idx in ['support', 'resistant', 'break_up', 'break_down']:
-  #     tmp_col = f'{col}_{idx}'
-  #     col_to_drop.append(tmp_col)
 
   # drop redundant columns
   for col in col_to_drop:
