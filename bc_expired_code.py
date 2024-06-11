@@ -115,7 +115,7 @@
   '完美_down', '反弹_down', '一般_down', '前瞻_down', '边界_down', '波动_down',
   
   'signal', 'signal_description', 'signal_day',
-  'tier', 'rank_score', 'rank_score_description'
+  'tier'
 ]
 
 # # expired
