@@ -44,7 +44,7 @@
   "visualization": {
     "plot_args": {
       "plot_ratio": {
-        "signals": 3.3, "adx": 2,
+        "signals": 3.2, "adx": 2,
         "main_indicators": 10, "volume":1
       },
       
@@ -67,21 +67,23 @@
       },
       "signals": {
         "signal_list": [  
+          
+          "-----",
           "边界",
           "反弹",
           "一般",
           "前瞻",
           "完美",
-          "-----",
 
+          "-----",
           "support_score",
           "break_up_score",
           "break_down_score",                  
           "resistant_score",
-
+          
           "-----",
           "overall",
-          "adx_syn",
+          "adx_trend",
           "trigger",
           " "
         ]

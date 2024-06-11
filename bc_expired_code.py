@@ -105,17 +105,17 @@
   'kir_distance', 
  
   # calculate_ta_signal()
-  'adx_change', 'adx_status', 
+  'adx_change', 'adx_status', 'adx_change_day',
   'ichimoku_status', 'ichimoku_change', 
   'kama_status', 'kama_change', 
-  'overall_change', 'overall_status', 'overall_change_diff',
+  'overall_change', 'overall_status', 'overall_change_day', 'overall_change_diff',
 
   'potential', 'potential_score', 'potential_description', 
   '完美_up', '反弹_up', '一般_up', '前瞻_up', '边界_up', '波动_up', 
   '完美_down', '反弹_down', '一般_down', '前瞻_down', '边界_down', '波动_down',
   
   'signal', 'signal_description', 'signal_day',
-  'tier'
+  'tier', 'rank_score', 'rank_score_description'
 ]
 
 # # expired
