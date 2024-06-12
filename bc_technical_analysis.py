@@ -553,10 +553,10 @@ def calculate_ta_static(df, indicators=default_indicators):
 
       # the true adx trend
       conditions = {
-        'neg_u':      f'(adx_value < 0 and adx_value_change > 0 and adx_power_day < 0)', 
+        'neg_u':      f'(adx_value < 0 and adx_value_change > 0 and adx_strength_change < 0)', 
         'neg_d':      f'(adx_value < 0 and adx_value_change < 0)',
-        'pos_u':      f'(adx_value >=0 and adx_value_change > 0 and ((adx_value <= 10 and adx_power_day < 0 and adx_direction_start < -5) or (adx_value > 10 and adx_power_day > 0)))', 
-        'pos_d':      f'(adx_value >=0 and adx_value_change < 0 and ((adx_value <= 10) or (adx_value > 10 and adx_power_day < 0)))',
+        'pos_u':      f'(adx_value >=0 and adx_value_change > 0 and ((adx_value <= 10 and adx_strength_change < 0 and adx_direction_start < -5) or (adx_value > 10 and adx_strength_change > 0)))', 
+        'pos_d':      f'(adx_value >=0 and adx_value_change < 0 and ((adx_value <= 10) or (adx_value > 10 and adx_strength_change < 0)))',
       } 
       values = {
         'neg_u':      1, 
@@ -1079,6 +1079,10 @@ def calculate_ta_signal(df):
   df['adx_change_diff'] = df['adx_change'] - df['adx_change'].shift(1)
   # col_to_drop.append('adx_change_diff')
 
+  df['adx_distance'] = df['adx_strength'] - df['adx_value']
+  df['adx_distance_change'] = df['adx_distance'].shift(1) - df['adx_distance']
+  df['adx_distance_change'] = normalize(df['adx_distance_change'].abs()) * (df['adx_distance_change'] > 0).replace({True: 1, False: -1})
+
   # ================================ calculate potential ====================
   df['potential_score'] = 0
   df['potential_description'] = ''
@@ -1100,9 +1104,10 @@ def calculate_ta_signal(df):
 
     '前瞻_up':            
                           '''
-                          (position_score == -6) and
+                          (adx_value_change < 0) and
+                          ((break_up_score > 0 or support_score > 0) and (break_down_score == 0 and resistant_score == 0)) and
                           (candle_position_score > 0 or trigger_score > 0) and
-                          (adx_change < 0 and adx_change_diff > 0) and
+                          ((adx_change < 0 and adx_change_diff > 0) or (candle_lower_shadow_pct > 0.5 and support_score > 0)) and
                           (overall_change < 0 and overall_change_diff > 0)
                           '''.replace('\n', ''),
 
@@ -1159,9 +1164,11 @@ def calculate_ta_signal(df):
                           (adx_direction_day == -1 and adx_value > 10)
                           '''.replace('\n', ''),
 
-    '前瞻_down':          '''                          
-                          (candle_position_score < 0 or trigger_score < 0) and
-                          (adx_change > 0 and adx_change_diff < 0) and
+    '前瞻_down':          '''
+                          (adx_value_change > 0) and
+                          (break_down_score < 0 or resistant_score < 0 or pattern_score < 0) and                          
+                          (candle_position_score < 0 or trigger_score < 0 or (candle_position_score > 0 and candle_color == -1)) and
+                          ((adx_change > 0 and adx_change_diff < 0) or (candle_upper_shadow_pct > 0.5 or resistant_score < 0)) and
                           (overall_change > 0 and overall_change_diff < 0)
                           '''.replace('\n', ''),
 
@@ -1314,7 +1321,7 @@ def calculate_ta_signal(df):
                             ) or
                             (
                               (adx_power_day < 0 and adx_power_start_adx_value > 10 and adx_value > -10) and
-                              (adx_strong_day < 0 or adx_change < 0 or (adx_direction_day == 1 and -15 < adx_value < 15))
+                              (adx_strong_day < 0 or adx_wave_day > 0 or adx_change < 0 or (adx_direction_day == 1 and -15 < adx_value < 15))
                             )
                           )
                           '''.replace('\n', ''),
@@ -1362,6 +1369,14 @@ def calculate_ta_signal(df):
                           (
                             (kir_distance == "rrr") and (相对renko位置 in ["down"]) and 
                             (candle_entity_bottom < kama_fast and candle_entity_bottom < tankan and candle_entity_bottom < renko_l)
+                          )
+                          '''.replace('\n', ''),
+
+    # B: 去除趋势微弱的信号  
+    '趋势微弱':           '''
+                          (signal == "b") and
+                          (
+                            (adx_value_change < 2) and (adx_direction < 2.5) and (-0.05 < adx_strength_change < 0.05)
                           )
                           '''.replace('\n', ''),
 
@@ -2367,7 +2382,7 @@ def add_candlestick_patterns(df):
       df[f'{col}_ma'] = sm(series=df[f'candle_{col}'], periods=ma_period).mean()
       df[f'{col}_std'] = sm(series=df[f'candle_{col}'], periods=ma_period).std()
       df[f'{col}_diff'] = (df[f'candle_{col}'] - df[f'{col}_ma'])/df[f'{col}_std']
-      col_to_drop += [f'{col}_ma', f'{col}_std', f'{col}_diff']
+      col_to_drop += [f'{col}_ma', f'{col}_std', f'{col}_diff'] # 
 
     # long/short shadow
     conditions = {
@@ -2479,9 +2494,9 @@ def add_candlestick_patterns(df):
     # 包孕形态
     conditions = {
       # 相对candle位置 == "mid", 前一蜡烛非短实体, 实体占比 > 80%, 当前蜡烛实体占比> 50%, 位于底部, 1-红, 2-绿
-      '多头包孕': '(相对candle位置 == "mid") and (position == "down") and (prev_entity_trend != "d" and entity_trend != "d" and prev_candle_entity_pct > 0.8 and candle_entity_pct > 0.5) and (prev_candle_color == -1 and candle_color == 1)', # and (prev_High > High and prev_Low < Low) 
+      '多头包孕': '(相对candle位置 == "mid") and (position == "down") and (prev_entity_trend != "d" and entity_trend != "d" and prev_candle_entity_pct > 0.5 and candle_entity_pct > 0.75) and (prev_candle_color == -1 and candle_color == 1)', # and (prev_High > High and prev_Low < Low) 
       # 相对candle位置 == "mid", 前一蜡烛非短实体, 实体占比 > 80%, 当前蜡烛实体占比> 50%, 位于顶部, 1-绿, 2-红
-      '空头包孕': '(相对candle位置 == "mid") and (position == "up") and (prev_entity_trend != "d" and entity_trend != "d" and prev_candle_entity_pct > 0.8 and candle_entity_pct > 0.5) and (prev_candle_color == 1 and candle_color == -1)'} # (prev_High > High and prev_Low < Low) and 
+      '空头包孕': '(相对candle位置 == "mid") and (position == "up") and (prev_entity_trend != "d" and entity_trend != "d" and prev_candle_entity_pct > 0.5 and candle_entity_pct > 0.75) and (prev_candle_color == 1 and candle_color == -1)'} # (prev_High > High and prev_Low < Low) and 
     values = {'多头包孕': 'u', '空头包孕': 'd'}
     df = assign_condition_value(df=df, column='包孕_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
@@ -2838,24 +2853,24 @@ def add_support_resistance(df, target_col=default_support_resistant_col, perspec
     df[f'{col}_break_up'] = 0
     df[f'{col}_break_down'] = 0
 
-    up_query = f'(({col}_day == 1) and (十字星_trend == "n" or (十字星_trend != "n" and candle_entity_bottom > {col})))'
-    if 'renko_h' in col:
-      up_query += ' or (renko_real == "green")'
+    up_query = f'(({col}_day == 1 or (candle_color == 1 and candle_entity_top > {col} and candle_entity_bottom < {col})) and (十字星_trend == "n" or (十字星_trend != "n" and candle_entity_bottom > {col}))'
+    if 'renko' in col:
+      up_query += ' and renko_real != "red") or (renko_real == "green")'
     elif 'candle_gap' in col:
-      up_query += ' and (candle_gap != 2)'
+      up_query += ') and (candle_gap != 2)'
     else:
-      pass
+      up_query += ')'
     break_up_idx = df.query(up_query).index # entity_diff > -0.5 and 
     df.loc[break_up_idx, 'break_up_description'] += f'{col}, '
     df.loc[break_up_idx, f'{col}_break_up'] += 1
 
-    down_query = f'(({col}_day == -1) and (十字星_trend == "n" or (十字星_trend != "n" and candle_entity_top < {col})))'
+    down_query = f'(({col}_day == -1 or (candle_color == -1 and candle_entity_top > {col} and candle_entity_bottom < {col})) and (十字星_trend == "n" or (十字星_trend != "n" and candle_entity_top < {col}))'
     if 'renko' in col:
-      down_query += ' or (renko_real == "red")'
+      down_query += ' and renko_real != "green") or (renko_real == "red")'
     elif 'candle_gap' in col:
-      down_query += ' and (candle_gap != -2)'
+      down_query += ') and (candle_gap != -2)'
     else:
-      pass
+      down_query += ')'
     break_down_idx = df.query(down_query).index # entity_diff > -0.5 and 
     df.loc[break_down_idx, 'break_down_description'] += f'{col}, '
     df.loc[break_down_idx, f'{col}_break_down'] -= 1
@@ -5429,7 +5444,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', alpha=tmp_alpha)
 
   # support/resistant break_up/break_down
-  if signal_x in ["support_score", "resistant_score", "break_up_score", "break_down_score", "pattern_score"]:
+  if signal_x in ["support_score", "resistant_score", "break_up_score", "break_down_score", "pattern_score", "adx_distance_change"]:
 
     pos_marker = '.' 
     neg_marker = '.'
@@ -5437,9 +5452,9 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     if signal_x in ["support_score", "resistant_score", ]:
       pos_marker = '^' 
       neg_marker = 'v'
-    elif signal_x in ['pattern_score']:
-      pos_marker = 'o'
-      neg_marker = 'x'
+    elif signal_x in ['adx_distance_change']:
+      pos_marker = 's' 
+      neg_marker = 's'
     else:
       pass
     
@@ -6369,7 +6384,7 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
 
     # get target data
     t = pools[i]
-    tmp_data = data['result'][t].sort_values(by=['tier', 'signal_day'], ascending=[False, True]).copy()
+    tmp_data = data['result'][t].sort_values(by=['tier', 'potential_score', 'adx_direction_day', 'adx_direction_start'], ascending=[False, True, False, False]).copy() # ['信号分级', '潜力分数', 'adx趋势变化', '趋势方向天数']
     tmp_data = tmp_data[['symbol', 'rate', 'trigger_score', 'overall_change', 'tier']].set_index('symbol')
     tmp_data['name'] = tmp_data.index.values
 
