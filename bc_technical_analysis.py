@@ -1079,9 +1079,10 @@ def calculate_ta_signal(df):
   df['adx_change_diff'] = df['adx_change'] - df['adx_change'].shift(1)
   # col_to_drop.append('adx_change_diff')
 
-  df['adx_distance'] = df['adx_strength'] - df['adx_value']
-  df['adx_distance_change'] = df['adx_distance'].shift(1) - df['adx_distance']
-  df['adx_distance_change'] = normalize(df['adx_distance_change'].abs()) * (df['adx_distance_change'] > 0).replace({True: 1, False: -1})
+  up_idx = df.query('adx_value_change > 0').index
+  down_idx = df.query('adx_value_change <= 0').index
+  df.loc[up_idx, 'adx_distance'] = df.loc[up_idx, 'adx_value_change'] + df.loc[up_idx, 'adx_strength_change'].abs()
+  df.loc[down_idx, 'adx_distance'] = df.loc[down_idx, 'adx_value_change'] - df.loc[down_idx, 'adx_strength_change'].abs()
 
   # ================================ calculate potential ====================
   df['potential_score'] = 0
@@ -5412,9 +5413,13 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
         ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', alpha=tmp_alpha)
 
   # ichimoku/kama distance
-  if signal_x in [ "kama_distance", "ichimoku_distance"]:
+  if signal_x in [ "kama_distance", "ichimoku_distance", "adx_distance", "overall_distance"]:
 
-    tmp_col_v = f'{signal_x}_change'
+    pos_marker = 's' 
+    neg_marker = 's'
+    none_marker = '_'
+
+    tmp_col_v = signal_x # f'{signal_x}_change' if signal_x in ['adx_distance'] else 
     tmp_col_a = f'{signal_x}_alpha'
     threhold = 0.000
 
@@ -5427,24 +5432,24 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
     tmp_data = df.query(f'({tmp_col_v} > {threhold})')
     if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='green', alpha=tmp_data[tmp_col_a].fillna(0))
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=pos_marker, color='green', alpha=tmp_data[tmp_col_a].fillna(0))
     
     tmp_data = df.query(f'({tmp_col_v} < {-threhold})')
     if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='red', alpha=tmp_data[tmp_col_a].fillna(0))
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='red', alpha=tmp_data[tmp_col_a].fillna(0))
 
     tmp_data = df.query(f'({-threhold} <= {tmp_col_v} <= {threhold} and none_zero > 0)')
     if len(tmp_data) > 0:
       tmp_alpha = 0.1
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='green', alpha=tmp_alpha)
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=none_marker, color='green', alpha=tmp_alpha)
 
     tmp_data = df.query(f'({-threhold} <= {tmp_col_v} <= {threhold} and none_zero < 0)')
     if len(tmp_data) > 0:
       tmp_alpha = 0.1
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', alpha=tmp_alpha)
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=none_marker, color='red', alpha=tmp_alpha)
 
   # support/resistant break_up/break_down
-  if signal_x in ["support_score", "resistant_score", "break_up_score", "break_down_score", "pattern_score", "adx_distance_change"]:
+  if signal_x in ["support_score", "resistant_score", "break_up_score", "break_down_score", "pattern_score"]:
 
     pos_marker = '.' 
     neg_marker = '.'
@@ -5452,9 +5457,6 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     if signal_x in ["support_score", "resistant_score", ]:
       pos_marker = '^' 
       neg_marker = 'v'
-    elif signal_x in ['adx_distance_change']:
-      pos_marker = 's' 
-      neg_marker = 's'
     else:
       pass
     
