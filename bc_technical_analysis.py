@@ -308,9 +308,8 @@ def calculate_ta_static(df, indicators=default_indicators):
         
         # distance and distance change(normalized by slow_line)
         df[distance] = df[fl] - df[sl]
-        df[distance_change] = df[distance] - df[distance].shift(1)
         df[distance] = df[distance] / df[sl]
-        df[distance_change] = df[distance_change] / df[sl]
+        df[distance_change] = df[distance] - df[distance].shift(1)
 
         # fl/sl change rate and fl & Close, sl & Close crossover
         rate_threshold = 0.001
@@ -1079,10 +1078,13 @@ def calculate_ta_signal(df):
   df['adx_change_diff'] = df['adx_change'] - df['adx_change'].shift(1)
   # col_to_drop.append('adx_change_diff')
 
-  up_idx = df.query('adx_value_change > 0').index
-  down_idx = df.query('adx_value_change <= 0').index
-  df.loc[up_idx, 'adx_distance'] = df.loc[up_idx, 'adx_value_change'] + df.loc[up_idx, 'adx_strength_change'].abs()
-  df.loc[down_idx, 'adx_distance'] = df.loc[down_idx, 'adx_value_change'] - df.loc[down_idx, 'adx_strength_change'].abs()
+  # up_idx = df.query('adx_value_change > 0').index
+  # down_idx = df.query('adx_value_change < 0').index  
+  # df.loc[up_idx, 'adx_distance'] = df.loc[up_idx, 'adx_value_change'] + df.loc[up_idx, 'adx_strength_change'].abs()
+  # df.loc[down_idx, 'adx_distance'] = df.loc[down_idx, 'adx_value_change'] - df.loc[down_idx, 'adx_strength_change'].abs()
+  # df['adx_distance'] = df['adx_distance'].fillna(method='ffill')
+  df['adx_distance'] = df['adx_change'].copy()
+  df['adx_distance_change'] = df['adx_distance'] - df['adx_distance'].shift(1)
 
   # ================================ calculate potential ====================
   df['potential_score'] = 0
@@ -5413,40 +5415,54 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
         ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', alpha=tmp_alpha)
 
   # ichimoku/kama distance
-  if signal_x in [ "kama_distance", "ichimoku_distance", "adx_distance", "overall_distance"]:
+  if signal_x in [ "kama_distance", "ichimoku_distance", "adx_distance"]:
 
-    pos_marker = 's' 
-    neg_marker = 's'
-    none_marker = '_'
-
-    tmp_col_v = signal_x # f'{signal_x}_change' if signal_x in ['adx_distance'] else 
+    tmp_col_v = signal_x
+    tmp_col_c = f'{signal_x}_change'
     tmp_col_a = f'{signal_x}_alpha'
+    df[tmp_col_a] = normalize(df[tmp_col_v].abs())
     threhold = 0.000
 
-    df[tmp_col_a] = normalize(df[tmp_col_v].abs())#.apply(lambda x: x if x > 0.1 else 0.1)
-
-    df['none_zero'] = np.NaN
-    none_zero_idx = df.query(f'{tmp_col_v} > {threhold} or {tmp_col_v} < {threhold}').index
-    df.loc[none_zero_idx, 'none_zero'] = df.loc[none_zero_idx, tmp_col_v]
-    df['none_zero'] = df['none_zero'].fillna(method='ffill')
-
-    tmp_data = df.query(f'({tmp_col_v} > {threhold})')
-    if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=pos_marker, color='green', alpha=tmp_data[tmp_col_a].fillna(0))
+    df['adx_value_pred_change'] = df['adx_value_prediction'] - df['adx_value_prediction'].shift(1) 
     
-    tmp_data = df.query(f'({tmp_col_v} < {-threhold})')
-    if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='red', alpha=tmp_data[tmp_col_a].fillna(0))
+    flr = {'kama_distance': 'kama_fast_rate', 'ichimoku_distance': 'tankan_rate', 'adx_distance': 'adx_value_change'}[signal_x]
+    slr = {'kama_distance': 'kama_slow_rate', 'ichimoku_distance': 'kijun_rate', 'adx_distance': 'adx_value_pred_change'}[signal_x]
 
-    tmp_data = df.query(f'({-threhold} <= {tmp_col_v} <= {threhold} and none_zero > 0)')
-    if len(tmp_data) > 0:
-      tmp_alpha = 0.1
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=none_marker, color='green', alpha=tmp_alpha)
+    distance_conditions = {
+      'pos': f'{tmp_col_v} > {threhold}', 
+      'neg': f'{tmp_col_v} < {-threhold}', 
+      'none':f'{-threhold} <= {tmp_col_v} <= {threhold}'
+    }
+    
+    distance_change_conditions = {
+      'up': f'(({flr} > {threhold} and {slr} >= {threhold}) or ({flr} > {threhold} and {tmp_col_c} > {threhold}))', # ({tmp_col_c} > {threhold}) or 
+      'down': f'(({flr} < {-threhold} and {slr} < {-threhold}) or ({flr} < {-threhold} and {tmp_col_c} < {-threhold}))', # ({tmp_col_c} < {-threhold}) or 
+      'none':f'(({-threhold} <= {flr} <= {threhold}) and ({-threhold} <= {slr} <= {threhold}))' # ({-threhold} <= {tmp_col_c} <= {threhold}) or 
+    }
 
-    tmp_data = df.query(f'({-threhold} <= {tmp_col_v} <= {threhold} and none_zero < 0)')
-    if len(tmp_data) > 0:
-      tmp_alpha = 0.1
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=none_marker, color='red', alpha=tmp_alpha)
+    markers = {
+      'posup': f'<', 'posdown': f'>', 'posnone': '_', 
+      'negup': f'>', 'negdown': f'<', 'negnone': '_', 
+      'noneup': '.', 'nonedown': '.', 'nonenone': '.'
+    }
+    
+    colors = {
+      'pos': f'green', 
+      'neg': f'red', 
+      'none': 'orange'
+    }
+    
+    for d in distance_conditions.keys():
+      for dc in distance_change_conditions.keys():
+        tmp_condition = distance_conditions[d] + ' and ' + distance_change_conditions[dc]
+        
+        tmp_data = df.query(tmp_condition)
+        # print(d, dc, tmp_condition, '2024-02-19' in tmp_data.index)
+
+        if len(tmp_data) > 0:
+          
+          # alpha = 0.6 if dc in ['none'] else tmp_data[tmp_col_a].fillna(0)
+          ax.scatter(tmp_data.index, tmp_data[signal_y], marker=markers[f'{d}{dc}'], color=colors[d], alpha=tmp_data[tmp_col_a].fillna(0))
 
   # support/resistant break_up/break_down
   if signal_x in ["support_score", "resistant_score", "break_up_score", "break_down_score", "pattern_score"]:

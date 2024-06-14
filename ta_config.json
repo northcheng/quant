@@ -67,11 +67,7 @@
       },
       "signals": {
         "signal_list": [  
-          "kama_distance",
-          "ichimoku_distance",
-          "adx_distance",
-
-          "-----",
+          
           "pattern_score",
           "边界",
           "反弹",
@@ -84,6 +80,11 @@
           "break_up_score",
           "break_down_score",                  
           "resistant_score",
+
+          "-----",
+          "kama_distance",
+          "ichimoku_distance",
+          "adx_distance",
           
           "-----",
           "overall",
