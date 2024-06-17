@@ -1397,6 +1397,9 @@ def calculate_ta_signal(df):
                             ) or 
                             (
                               (adx_strong_day < -5 and adx_wave_day > 5)
+                            ) or
+                            (
+                              (adx_strong_day < -20 and -10 < adx_value < 10)
                             )
                           )
                           '''.replace('\n', ''),
@@ -1458,6 +1461,7 @@ def calculate_ta_signal(df):
     '2':                  '(signal_day == 1) and ((adx_strong_day > 0) or (adx_direction_start < -10))', 
     '1':                  '(signal_day == 1) and (adx_strong_day > 0) and (adx_direction_start < -10) and (ichimoku_distance < 0 and 相对ichimoku位置 in ["mid_down", "mid"])', 
     '0':                  '(signal_day == 1) and (adx_strong_day > 0) and (adx_direction_start < -10) and (ichimoku_distance < 0 and 相对ichimoku位置 in ["down"])', 
+    '11':                 '长期波动 < 0'
   } 
   values = {
     '6':                  6,
@@ -1467,6 +1471,7 @@ def calculate_ta_signal(df):
     '2':                  2,
     '1':                  1,
     '0':                  0, 
+    '11':                 7
   }
   df = assign_condition_value(df=df, column='tier', condition_dict=conditions, value_dict=values, default_value=10)
 
