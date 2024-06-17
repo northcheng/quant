@@ -68,7 +68,6 @@
       "signals": {
         "signal_list": [  
           
-          "pattern_score",
           "边界",
           "反弹",
           "一般",
