@@ -1098,9 +1098,27 @@ def calculate_ta_signal(df):
     
     # distance_change 决定 marker
     distance_change_conditions = {
-      'up': f'(({flr} > {threhold} and {slr} >= {threhold}) or ({flr} >= {threhold} and {slr} > {threhold}) or ({flr} > {threhold} and {distance_change_col} > {threhold}))', # ({tmp_col_c} > {threhold}) or 
-      'down': f'(({flr} < {-threhold} and {slr} < {-threhold}) or ({flr} < {-threhold} and {distance_change_col} < {-threhold}))', # ({tmp_col_c} < {-threhold}) or 
-      'none':f'(({-threhold} <= {flr} <= {threhold}) and ({-threhold} <= {slr} <= {threhold}))' # ({-threhold} <= {tmp_col_c} <= {threhold}) or 
+      'up': f'''
+            (
+              ({flr} > {threhold} and {slr} >= {threhold}) or 
+              ({flr} >= {threhold} and {slr} > {threhold}) or 
+              ({flr} >= {threhold} and {distance_change_col} > {threhold})
+            )
+            '''.replace('\n', ''), 
+
+      'down': f'''
+            (
+              ({flr} < {-threhold} and {slr} < {-threhold}) or 
+              ({flr} < {-threhold} and {distance_change_col} < {-threhold}) or 
+              ({slr} < {-threhold} and {distance_change_col} < {-threhold})
+            )
+            '''.replace('\n', ''), 
+
+      'none':f'''
+            (
+              ({-threhold} <= {flr} <= {threhold}) and ({-threhold} <= {slr} <= {threhold})
+            )
+            '''.replace('\n', ''),  
     }
     
     for d in distance_conditions.keys():
@@ -1197,7 +1215,7 @@ def calculate_ta_signal(df):
                           (adx_value_change > 0) and
                           (break_down_score < 0 or resistant_score < 0 or pattern_score < 0) and                          
                           (candle_position_score < 0 or trigger_score < 0 or (candle_position_score > 0 and candle_color == -1)) and
-                          ((adx_distance > 0 and adx_distance_change < 0) or (candle_upper_shadow_pct > 0.5 or resistant_score < 0)) and
+                          ((adx_distance > 0 and adx_distance_change < 0) or ((candle_upper_shadow_pct > 0.5 or candle_upper_shadow_pct > candle_lower_shadow_pct) and resistant_score < 0)) and
                           (overall_change > 0 and overall_change_diff < 0)
                           '''.replace('\n', ''),
 
@@ -1418,8 +1436,10 @@ def calculate_ta_signal(df):
                           '''.replace('\n', ''),
   } 
   for c in none_signal_conditions.keys():
+    df[c] = 0
     tmp_condition = none_signal_conditions[c]
     tmp_idx = df.query(tmp_condition).index
+    df.loc[tmp_idx, c] = -1
     df.loc[tmp_idx, 'potential_score'] -= 0.5
     df.loc[tmp_idx, 'signal_description'] += f'{c}, '
     none_signal_idx += tmp_idx.tolist()    
@@ -5446,7 +5466,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     tmp_col_v = signal_x
     tmp_col_a = f'{signal_x}_alpha'
     tmp_col_s = f'{signal_x}_status'
-    df[tmp_col_a] = normalize(df[tmp_col_v].abs()) #.apply(lambda x: x if x > 0.1 else 0.1)
+    df[tmp_col_a] = normalize(df[tmp_col_v].abs()).apply(lambda x: x if x > 0.05 else 0.05)
     
     # marker
     markers = {
