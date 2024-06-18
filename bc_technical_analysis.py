@@ -1151,11 +1151,17 @@ def calculate_ta_signal(df):
 
     '前瞻_up':            
                           '''
-                          (adx_value_change < 0) and
-                          ((break_up_score > 0 or support_score > 0) and (break_down_score == 0 and resistant_score == 0)) and
-                          (candle_position_score > 0 or trigger_score > 0) and
-                          ((adx_distance < 0 and adx_distance_change > 0) or (candle_lower_shadow_pct > 0.5 and support_score > 0)) and
-                          (overall_change < 0 and overall_change_diff > 0)
+                          (
+                            (adx_value_change < 0) and
+                            ((break_up_score > 0 or support_score > 0) and (break_down_score == 0 and resistant_score == 0)) and
+                            (candle_position_score > 0 or trigger_score > 0) and
+                            ((adx_distance < 0 and adx_distance_change > 0) or (candle_lower_shadow_pct > 0.5 and support_score > 0)) and
+                            (overall_change < 0 and overall_change_diff > 0)
+                          ) or 
+                          (
+                            (adx_distance_status in ['posup', 'negup']) and
+                            (ichimoku_distance_status in ['negnone', 'negup'])
+                          )
                           '''.replace('\n', ''),
 
     '反弹_up':            '''
@@ -1212,11 +1218,17 @@ def calculate_ta_signal(df):
                           '''.replace('\n', ''),
 
     '前瞻_down':          '''
-                          (adx_value_change > 0) and
-                          (break_down_score < 0 or resistant_score < 0 or pattern_score < 0) and                          
-                          (candle_position_score < 0 or trigger_score < 0 or (candle_position_score > 0 and candle_color == -1)) and
-                          ((adx_distance > 0 and adx_distance_change < 0) or ((candle_upper_shadow_pct > 0.5 or candle_upper_shadow_pct > candle_lower_shadow_pct) and resistant_score < 0)) and
-                          (overall_change > 0 and overall_change_diff < 0)
+                          (
+                            (adx_value_change > 0) and
+                            (break_down_score < 0 or resistant_score < 0 or pattern_score < 0) and                          
+                            (candle_position_score < 0 or trigger_score < 0 or (candle_position_score > 0 and candle_color == -1)) and
+                            ((adx_distance > 0 and adx_distance_change < 0) or ((candle_upper_shadow_pct > 0.5 or candle_upper_shadow_pct > candle_lower_shadow_pct) and resistant_score < 0)) and
+                            (overall_change > 0 and overall_change_diff < 0)
+                          ) or
+                          (
+                            (adx_distance_status in ['posup']) and
+                            (ichimoku_distance_status in ['posnone'])
+                          )
                           '''.replace('\n', ''),
 
     '反弹_down':          '''
@@ -1296,6 +1308,16 @@ def calculate_ta_signal(df):
                             candle_color == -1 and entity_trend != "d" and candle_entity_pct > 0.7
                           )
                           '''.replace('\n', ''),
+
+    '前瞻_down':            '''
+                          (前瞻_down == -1) and
+                          (
+                            adx_distance_status in ['posup'] and
+                            ichimoku_distance_status in ['posup'] and
+                            kama_distance_status in ['posup']
+                          )
+                          '''.replace('\n', ''),
+
   } 
   for c in none_potential_conditions.keys():
     tmp_condition = none_potential_conditions[c]
@@ -1426,7 +1448,12 @@ def calculate_ta_signal(df):
     '趋势微弱':           '''
                           (signal == "b") and
                           (
-                            (adx_value_change < 2) and (adx_direction < 2.5) and (-0.05 < adx_strength_change < 0.05)
+                            (
+                              (adx_value_change < 2) and (adx_direction < 2.5) and (-0.05 < adx_strength_change < 0.05)
+                            ) or
+                            (
+                              (adx_value > 20) and (adx_distance_status in ['negup'])
+                            )
                           )
                           '''.replace('\n', ''),
 
@@ -2323,9 +2350,9 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
   } 
   candle_values = {
     'green_down':       -0.33, 
-    'green_mid':        0, 
-    'green_up':         0.33, 
-    'green_out':        0.66, 
+    'green_mid':        0.33, 
+    'green_up':         0.66, 
+    'green_out':        0.99, 
 
     'red_down':         -0.66, 
     'red_mid':          -0.33, 
@@ -5472,11 +5499,14 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     tmp_col_a = f'{signal_x}_alpha'
     tmp_col_s = f'{signal_x}_status'
     df[tmp_col_a] = normalize(df[tmp_col_v].abs()).apply(lambda x: x if x > 0.05 else 0.05)
+
+    none_idx = df.query(f'{tmp_col_s} in ["noneup", "nonedown", "nonenone"]').index
+    df.loc[none_idx, tmp_col_a] = 1
     
     # marker
     markers = {
-      'posup': f'<', 'posdown': f'>', 'posnone': '_', 
-      'negup': f'>', 'negdown': f'<', 'negnone': '_', 
+      'posup': f'3', 'posdown': f'4', 'posnone': '_', 
+      'negup': f'4', 'negdown': f'3', 'negnone': '_', 
       'noneup': '.', 'nonedown': '.', 'nonenone': '.'
     }
     
@@ -5484,7 +5514,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     colors = {
       'posup': f'green', 'posdown': f'green', 'posnone': f'green', 
       'negup': f'red', 'negdown': f'red', 'negnone': f'red', 
-      'noneup': 'orange', 'nonedown': 'orange', 'nonenone': 'orange', 
+      'noneup': 'green', 'nonedown': 'red', 'nonenone': 'orange', 
     }
     
     for ds in markers.keys():
@@ -5522,7 +5552,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     if len(tmp_data) > 0:
       # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='red', alpha=tmp_data[tmp_col_a].fillna(0))
-
+    
     tmp_data = df.query(f'({-threhold} <= {tmp_col_v} <= {threhold})')
     if len(tmp_data) > 0:
       tmp_alpha = 0.2
@@ -5649,17 +5679,20 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     tmp_col_a = f'{signal_x}_alpha'
     threhold = 0.000
 
+    neg_marker = '.'
+    pos_marker = '.'
+
     df[tmp_col_a] = 0.5
 
     # up
     tmp_data = df.query(f'({tmp_col_up} == 1)')
     if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='green', alpha=tmp_data[tmp_col_a])
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=pos_marker, color='green', alpha=tmp_data[tmp_col_a])
 
     # down
     tmp_data = df.query(f'({tmp_col_down} == -1)')
     if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='red', alpha=tmp_data[tmp_col_a])
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='red', alpha=tmp_data[tmp_col_a])
 
     # none
     tmp_data = df.query(f'({tmp_col_up} == 0) or ({tmp_col_down} == 0)')
