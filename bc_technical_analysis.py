@@ -5353,6 +5353,8 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
   # buy and sell
   if signal_x == ' ':
+
+    # b/nb, s/ns signals
     buy_data = df.query('signal == "b"')
     ax.scatter(buy_data.index, buy_data[signal_y], marker='^', color='green', alpha=0.5)
 
@@ -5403,13 +5405,12 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     ax.grid(True, axis='x', linestyle='-', linewidth=0.5, alpha=0.1)
     ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
 
-  # trigger
+  # trigger_score
   if signal_x in ['trigger']:
 
     # trigger_score
     tmp_col_v = f'{signal_x}_score'
     tmp_col_a = f'{signal_x}_score_alpha'
-
     df[tmp_col_a] = normalize(df[tmp_col_v].abs())
 
     threhold = 0
@@ -5433,7 +5434,6 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
     tmp_data = df.query(f'(position_score < 0)')
     if len(tmp_data) > 0:
-      # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='red', alpha=tmp_data['position_alpha'])
     
   # adx_distance, ichimoku_change, kama_change, overall_change
@@ -5445,7 +5445,6 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
     tmp_col_v = f'{signal_x}_change'
     tmp_col_a = f'{signal_x}_alpha'
-
     df[tmp_col_a] = normalize(df[tmp_col_v].abs())
     
     tmp_data = df.query(f'({tmp_col_v} > 0)')
@@ -5526,7 +5525,6 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     }
     
     for ds in markers.keys():
-
       tmp_data = df.query(f'{tmp_col_s} == "{ds}"')
       tmp_color = colors[ds]
       tmp_marker = markers[ds]
@@ -5542,12 +5540,9 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     if signal_x in ["support_score", "resistant_score", ]:
       pos_marker = '^' 
       neg_marker = 'v'
-    else:
-      pass
     
     tmp_col_v = f'{signal_x}'
     tmp_col_a = f'{signal_x}_alpha'
-
     df[tmp_col_a] = normalize(df[tmp_col_v].abs())
 
     threhold = 0
@@ -5568,6 +5563,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
   # adx_syn(whether adx_value and adx_strength goes the same direction)
   if signal_x in ['adx_trend']:
+    
     pos_marker = 'o'
     neg_marker = 'o'
     none_marker = '_'
@@ -5598,12 +5594,10 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     tmp_data = df.query(f'({tmp_col_v} > {threhold})')
 
     if len(tmp_data) > 0:
-      # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker=pos_marker, color='green', alpha=tmp_data[tmp_col_a].fillna(0))
   
     tmp_data = df.query(f'({tmp_col_v} < {-threhold})')
     if len(tmp_data) > 0:
-      # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='red', alpha=tmp_data[tmp_col_a].fillna(0))
 
   # overall change and its trend
@@ -5614,7 +5608,6 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
     tmp_col_v = f'overall_change'
     tmp_col_a = f'overall_change_alpha'
-
     tmp_alpha = 0.7
 
     threhold = 0
@@ -5639,12 +5632,10 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     tmp_data = df.query(f'({tmp_col_v} > {threhold})')
 
     if len(tmp_data) > 0:
-      # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker=pos_marker, color='green', alpha=tmp_data[tmp_col_a].fillna(0))
   
     tmp_data = df.query(f'({tmp_col_v} < {-threhold})')
     if len(tmp_data) > 0:
-      # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='red', alpha=tmp_data[tmp_col_a].fillna(0))
 
   # poteltials
@@ -5657,6 +5648,9 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
     neg_marker = '.'
     pos_marker = '.'
+    if signal_x in ["完美"]:
+      pos_marker = '*' 
+      neg_marker = '*'
 
     df[tmp_col_a] = 0.5
 
