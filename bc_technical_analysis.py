@@ -456,6 +456,7 @@ def calculate_ta_static(df, indicators=default_indicators):
       # adx_value_prediction
       df['adx_value_prediction'] = df['adx_value'] + em(series=df['adx_value_change'], periods=3).mean()
       df['adx_value_prediction'] = em(series=df['adx_value_prediction'], periods=5).mean()
+      df['adx_value_pred_change'] = df['adx_value_prediction'] - df['adx_value_prediction'].shift(1) 
 
       # direction(of value) and power(of strength)
       for col in ['adx_direction', 'adx_power']:
@@ -1004,6 +1005,66 @@ def calculate_ta_score(df):
   df = assign_condition_value(df=df, column='trigger_day', condition_dict=trigger_conditions, value_dict=trigger_values, default_value=0)
   df['trigger_day'] = sda(series=df['trigger_day'], zero_as=1)
 
+  # ================================ calculate overall change and status ====
+  # overall change and status 
+  df['overall_change'] = df['adx_distance'] + df['ichimoku_change'] + df['kama_change']
+  df['overall_status'] = df['adx_status'] + df['ichimoku_status'] + df['kama_status']
+  df['overall_change_diff'] = df['overall_change'] - df['overall_change'].shift(1)
+  df['overall_change_day'] = sda(series=(df['overall_change'] > 0).replace({True: 1, False: -1}), zero_as=1) 
+  none_zero_idx = df.query('overall_status != 0').index
+  df.loc[none_zero_idx, 'overall_change'] = df.loc[none_zero_idx, 'overall_change'].abs() * (df['overall_status'] > 0).replace({True: 1, False: -1}).loc[none_zero_idx]
+
+  # adx/ichimoku/kama distance
+  threhold = 0.00
+  for col in ['adx', 'ichimoku', 'kama']:
+
+    distance_col = f'{col}_distance'
+    distance_change_col = f'{col}_distance_change'
+    result_col = f'{col}_distance_status'
+    df[result_col] = ''
+
+    flr = {'kama_distance': 'kama_fast_rate', 'ichimoku_distance': 'tankan_rate', 'adx_distance': 'adx_value_change'}[distance_col]
+    slr = {'kama_distance': 'kama_slow_rate', 'ichimoku_distance': 'kijun_rate', 'adx_distance': 'adx_value_pred_change'}[distance_col]
+
+    # distance 决定 color 与 alpha
+    distance_conditions = {
+      'pos': f'{distance_col} > {threhold}', 
+      'neg': f'{distance_col} < {-threhold}', 
+      'none':f'{-threhold} <= {distance_col} <= {threhold}'
+    }
+    
+    # distance_change 决定 marker
+    distance_change_conditions = {
+      'up': f'''
+            (
+              ({flr} > {threhold} and {slr} >= {threhold}) or 
+              ({flr} >= {threhold} and {slr} > {threhold}) or 
+              ({flr} >= {threhold} and {distance_change_col} > {threhold})
+            )
+            '''.replace('\n', ''), 
+
+      'down': f'''
+            (
+              ({flr} < {-threhold} and {slr} < {-threhold}) or 
+              ({flr} < {-threhold} and {distance_change_col} < {-threhold}) or 
+              ({slr} < {-threhold} and {distance_change_col} < {-threhold})
+            )
+            '''.replace('\n', ''), 
+
+      'none':f'''
+            (
+              ({-threhold} <= {flr} <= {threhold}) and ({-threhold} <= {slr} <= {threhold})
+            )
+            '''.replace('\n', ''),  
+    }
+    
+    for d in distance_conditions.keys():
+      for dc in distance_change_conditions.keys():
+        
+        tmp_condition = distance_conditions[d] + ' and ' + distance_change_conditions[dc]
+        tmp_match = df.query(tmp_condition).index
+        df.loc[tmp_match, result_col] = f'{d}{dc}'
+
   return df
 
 # calculate all features (ta_basic + ta_static + ta_dynamic + ta_score) all at once
@@ -1067,79 +1128,15 @@ def calculate_ta_signal(df):
   # columns to drop
   col_to_drop = []
 
-  # overall change and status 
-  df['overall_change'] = df['adx_distance'] + df['ichimoku_change'] + df['kama_change']
-  df['overall_status'] = df['adx_status'] + df['ichimoku_status'] + df['kama_status']
-  df['overall_change_diff'] = df['overall_change'] - df['overall_change'].shift(1)
-  col_symbol = (df['overall_status'] > 0).replace({True: 1, False: -1})
-  df['overall_change_day'] = sda(series=(df['overall_change'] > 0).replace({True: 1, False: -1}), zero_as=1) 
-  none_zero_idx = df.query('overall_status != 0').index
-  df.loc[none_zero_idx, 'overall_change'] = df.loc[none_zero_idx, 'overall_change'].abs() * col_symbol.loc[none_zero_idx]
-
-  # adx/ichimoku/kama distance
-  threhold = 0.00
-  for col in ['adx', 'ichimoku', 'kama']:
-
-    distance_col = f'{col}_distance'
-    distance_change_col = f'{col}_distance_change'
-    result_col = f'{col}_distance_status'
-    df[result_col] = ''
-
-    df['adx_value_pred_change'] = df['adx_value_prediction'] - df['adx_value_prediction'].shift(1) 
-    flr = {'kama_distance': 'kama_fast_rate', 'ichimoku_distance': 'tankan_rate', 'adx_distance': 'adx_value_change'}[distance_col]
-    slr = {'kama_distance': 'kama_slow_rate', 'ichimoku_distance': 'kijun_rate', 'adx_distance': 'adx_value_pred_change'}[distance_col]
-
-    # distance 决定 color 与 alpha
-    distance_conditions = {
-      'pos': f'{distance_col} > {threhold}', 
-      'neg': f'{distance_col} < {-threhold}', 
-      'none':f'{-threhold} <= {distance_col} <= {threhold}'
-    }
-    
-    # distance_change 决定 marker
-    distance_change_conditions = {
-      'up': f'''
-            (
-              ({flr} > {threhold} and {slr} >= {threhold}) or 
-              ({flr} >= {threhold} and {slr} > {threhold}) or 
-              ({flr} >= {threhold} and {distance_change_col} > {threhold})
-            )
-            '''.replace('\n', ''), 
-
-      'down': f'''
-            (
-              ({flr} < {-threhold} and {slr} < {-threhold}) or 
-              ({flr} < {-threhold} and {distance_change_col} < {-threhold}) or 
-              ({slr} < {-threhold} and {distance_change_col} < {-threhold})
-            )
-            '''.replace('\n', ''), 
-
-      'none':f'''
-            (
-              ({-threhold} <= {flr} <= {threhold}) and ({-threhold} <= {slr} <= {threhold})
-            )
-            '''.replace('\n', ''),  
-    }
-    
-    for d in distance_conditions.keys():
-      for dc in distance_change_conditions.keys():
-        
-        tmp_condition = distance_conditions[d] + ' and ' + distance_change_conditions[dc]
-        tmp_match = df.query(tmp_condition).index
-
-        df.loc[tmp_match, result_col] = f'{d}{dc}'
-
-
   # ================================ calculate potential ====================
   df['potential_score'] = 0
   df['potential_description'] = ''
   df['potential_up'] = ''
   df['potential_down'] = ''
-  col_to_drop += ['potential_up', 'potential_down']
+  df['prev_adx_day'] = sda(df['adx_trend'].shift(1), zero_as=0)
+  col_to_drop += ['potential_up', 'potential_down', 'prev_adx_day']
 
   # mark potential
-  df['prev_adx_day'] = sda(df['adx_trend'].shift(1), zero_as=0)
-  # col_to_drop.append('prev_adx_day')
   potential_conditions = {
 
     '完美_up':            '''
@@ -1171,6 +1168,7 @@ def calculate_ta_signal(df):
                             (adx_day > 0) and
                             (break_up_score > 0 or support_score > 0 or pattern_score > 0)
                           )
+                          
                           '''.replace('\n', ''),
 
     '一般_up':            '''
@@ -1255,6 +1253,7 @@ def calculate_ta_signal(df):
                           '''.replace('\n', ''),    
     
   } 
+
   for c in potential_conditions.keys():
     
     # get index which matches the condition
@@ -1273,18 +1272,11 @@ def calculate_ta_signal(df):
   # unmark false potential
   none_potential_conditions = {
 
-    # '一般_up':            '''
-    #                       (一般_up == 1) and
-    #                       (adx_strong_day < 0 and adx_wave_day > 0) and
-    #                       (10 <= adx_direction_start <= 10) and 
-    #                       (10 <= adx_value <= 10 or adx_direction_day == 1)
-    #                       '''.replace('\n', ''),
-
     '反弹_up':            '''
                           (反弹_up == 1) and
                           (
                             candle_color == -1 or
-                            resistant_score <= 2 or
+                            resistant_score <= -2 or
                             candle_upper_shadow_pct > 0.7 or
                             trigger_score < 0
                           )
@@ -1330,17 +1322,6 @@ def calculate_ta_signal(df):
   df['potential_up'] = df['potential_up'].apply(lambda x: '+[' + x[:-2] + ']' if len(x) > 0 else '')
   df['potential_down'] = df['potential_down'].apply(lambda x: '-[' + x[:-2] + ']' if len(x) > 0 else '')
   df['potential_description'] = df['potential_up'] + ' | ' + df['potential_down']
-  
-  # final potential label and description
-  conditions = {
-    'potential_up':     'potential_score > 0',
-    'potential_down':   'potential_score < 0'
-  } 
-  values = {
-    'potential_up':     'potential',
-    'potential_down':   'none_potential',
-  }
-  df = assign_condition_value(df=df, column='potential', condition_dict=conditions, value_dict=values, default_value='')
   
   # ================================ calculate signal =======================
   # signal
