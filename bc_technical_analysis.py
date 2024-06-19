@@ -5526,6 +5526,31 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
       if len(tmp_data) > 0:
         ax.scatter(tmp_data.index, tmp_data[signal_y], marker=tmp_marker, color=tmp_color, alpha=tmp_data[tmp_col_a].fillna(0))
 
+    if signal_x in ['adx_distance']:
+      # annotate adx (adx_strength_change)
+      ylim = ax.get_ylim()
+      y_max = ylim[1]
+
+      max_idx = df.index.max()
+      x_signal = max_idx + datetime.timedelta(days=2)
+      v = f'{df.loc[max_idx, "adx_distance_status"]}\n{df.loc[max_idx, "ichimoku_distance_status"]}\n{df.loc[max_idx, "kama_distance_status"]}'
+      y_signal = y_max-6 # round(y_middle + y_range/4)
+      text_color = 'black' # 'green' if v_change > 0 else 'red'
+      plt.annotate(f'{v}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+
+    # # annotate adx_value(adx_value_change)
+    # x_signal = max_idx + datetime.timedelta(days=2)
+    # v = round(df.loc[max_idx, 'overall_change'],1)
+    # v_change = round(df.loc[max_idx, 'overall_change_diff'],1)
+    # y_signal = y_max -3 # round(y_middle)
+    # text_color = 'green' if v_change > 0 else 'red'
+    # plt.annotate(f'{v}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+
+    # # title and legend
+    # ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
+    # ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
+    # ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
+
   # support/resistant break_up/break_down
   if signal_x in ["support_score", "resistant_score", "break_up_score", "break_down_score", "pattern_score"]:
 
@@ -5642,7 +5667,6 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
     # annotate adx (adx_strength_change)
     ylim = ax.get_ylim()
-    y_min = ylim[0]
     y_max = ylim[1]
 
     max_idx = df.index.max()
