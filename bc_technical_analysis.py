@@ -5391,9 +5391,9 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     v = f'{df.loc[max_idx, "adx_distance_status"]}\n{df.loc[max_idx, "ichimoku_distance_status"]}\n{df.loc[max_idx, "kama_distance_status"]}'
     y_signal = y_max - 8.5 # round(y_middle + y_range/4)
     text_color = 'black'
-    if df.loc[max_idx, "距离_up"] > 0:
+    if (df.loc[max_idx, "距离_up"] > 0) or (df.loc[max_idx, "adx_distance_status"] in ['posup', 'negup'] and df.loc[max_idx, "ichimoku_distance_status"] in ['negnone']):
       text_color = 'green'
-    elif df.loc[max_idx, "距离_down"] < 0: 
+    elif (df.loc[max_idx, "距离_down"] < 0) or (df.loc[max_idx, "adx_distance_status"] in ['posdown', 'negdown'] and df.loc[max_idx, "ichimoku_distance_status"] in ['posnone']): 
       text_color = 'red'
     else:
       pass
