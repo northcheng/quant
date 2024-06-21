@@ -132,13 +132,18 @@ def convert_timezone(time_object, from_tz, to_tz, keep_tzinfo=False):
 
 
 #----------------------- File manipulation -----------------------#
-def synchronize_file(local_folder, remote_folder, newer_only=False, syn_file=True, syn_folder=True, file_type=None, folder_name=None):
+def synchronize_file(local_folder, remote_folder, newer_only=False, syn_file=True, syn_folder=True, file_type=None, folder_name=None, is_print=True):
   """
   Synchronize files from remote folder to local folder
 
   :param local_folder: local folder path
   :param remote_folder: remote folder path
   :param newer_only: whether to synchronize the newer files only
+  :param syn_file: whether to synchronize files
+  :param syn_folder: whether to synchronize folders
+  :param file_type: specify type of file to synchronize
+  :param folder_name: specify name of folder to synchronize
+  :param is_print: whether to print information
   :returns: none
   :raises: none
   """
@@ -175,8 +180,8 @@ def synchronize_file(local_folder, remote_folder, newer_only=False, syn_file=Tru
               continue
 
           # skip if newer_only and local file is newer
-          if newer_only:
-            if os.path.getctime(rf_abs_path) < os.path.getctime(lf_abs_path):
+          if newer_only and os.path.exists(lf_abs_path):
+            if os.path.getmtime(rf_abs_path) < os.path.getmtime(lf_abs_path):
               print(f'skip {lf_abs_path} (newer)')
               continue
           
@@ -190,7 +195,7 @@ def synchronize_file(local_folder, remote_folder, newer_only=False, syn_file=Tru
 
             # copy remote file
             shutil.copyfile(rf_abs_path, lf_abs_path)
-            print(f'copy {remote_pf}')
+            print(f'copy {rf_abs_path}')
 
         except Exception as e:
           print(e, rf_abs_path, lf_abs_path)
@@ -216,7 +221,7 @@ def synchronize_file(local_folder, remote_folder, newer_only=False, syn_file=Tru
 
           # skip if newer_only and local folder is newer
           if newer_only:
-            if os.path.getctime(rfd_abs_path) < os.path.getctime(lfd_abs_path):
+            if os.path.getmtime(rfd_abs_path) < os.path.getmtime(lfd_abs_path):
               print(f'skip {lfd_abs_path} (newer)')
               continue
 
@@ -236,6 +241,44 @@ def synchronize_file(local_folder, remote_folder, newer_only=False, syn_file=Tru
           print(e, rfd_abs_path, lfd_abs_path)
           continue
       
+  else:
+    print('please check existence of path')
+
+
+def print_folder_tree(path, parent_is_last=1, depth_limit=-1, tab_width=1):
+  """
+  Print folder and files in a tree structure
+  :param path: target path
+  :param tab_width: width of a tab
+  :param depth_limit: number of depth to go through, -1 means go through all files
+  :param parent_is_last: used for control output
+  :return: list of all files in 'path'
+  """
+  files = []
+  if len(str(parent_is_last)) - 1 == depth_limit:
+    return files
+  items = os.listdir(path)
+  for index, i in enumerate(items):
+    is_last = index == len(items) - 1
+    i_path = path + "/" + i
+    for k in str(parent_is_last)[1:]:
+      if k == "0":
+        print("│" + "\t" * tab_width, end="")
+      if k == "1":
+        print("\t" * tab_width, end="")
+    if is_last:
+      print("└── ", end="")
+    else:
+      print("├── ", end="")
+    if os.path.isdir(i_path):
+      print(i)
+      files.extend(print_folder_tree(
+        path=i_path, depth_limit=depth_limit, parent_is_last=(parent_is_last * 10 + 1) if is_last else (parent_is_last * 10)))
+    else:
+      print(i_path.split("/")[-1])
+      files.append(i_path)
+  return files
+
 
 #----------------------- Dataframe manipulation ------------------#
 def df_2_timeseries(df, time_col='date'):
