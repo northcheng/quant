@@ -1255,19 +1255,8 @@ def calculate_ta_signal(df):
     else:
       pass
 
-  # unmark false potential
-  df['muted'] = 0
+  # exceptions
   none_potential_conditions = {
-
-    # '反弹_up':            '''
-    #                       (反弹_up == 1) and
-    #                       (
-    #                         candle_color == -1 or
-    #                         resistant_score <= -2 or
-    #                         candle_upper_shadow_pct > 0.7 or
-    #                         trigger_score < 0
-    #                       )
-    #                       '''.replace('\n', ''),
 
     '边界_up':            '''
                           (边界_up == 1) and
@@ -1283,53 +1272,13 @@ def calculate_ta_signal(df):
                             ichimoku_distance_status in ['posup'] and
                             kama_distance_status in ['posup']
                           )
-                          '''.replace('\n', ''),
-
-    # '通用_up':            '''
-    #                       (
-    #                         (adx_direction_day == 1 and adx_value_change < 1) and
-    #                         (
-    #                           ((-10 < adx_direction_start < 10) or (-0.1 < adx_strength_change < 0.1)) and
-    #                           (adx_wave_day > 0 or adx_strong_day < 0)
-    #                         ) or
-    #                         (
-    #                           (adx_power_day < 0 and adx_power_start_adx_value > 10 and adx_value > -10)
-    #                         )
-    #                       ) or
-    #                       (
-    #                         (entity_trend != "d" and candle_color == -1) and
-    #                         (position_score == -6) and
-    #                         (trigger_score <= 0 and break_up_score == 0 and support_score == 0)
-    #                       )
-    #                       '''.replace('\n', ''),     
-
-    # '通用_down':            '''
-    #                       (
-    #                         (adx_direction_day == -1 and adx_value_change > -1) and
-    #                         (
-    #                           (kir_distance == "ggg" and position_score >= 4) and
-    #                           (adx_wave_day == 0 or adx_strong_day > 0) and
-    #                           (adx_value > 20 and adx_strength_change > 0.1)
-    #                         ) or
-    #                         (
-    #                           (adx_power_day > 0 and adx_power_start_adx_value < -10 and adx_value > 10)
-    #                         )
-    #                       ) 
-    #                       '''.replace('\n', ''),                      
+                          '''.replace('\n', ''),             
 
   } 
   for c in none_potential_conditions.keys():
     tmp_condition = none_potential_conditions[c]
     tmp_idx = df.query(tmp_condition).index
-
-    if c in ['通用_up']:
-      df.loc[tmp_idx, potential_up] = 0
-      df.loc[tmp_idx, 'muted'] = 1
-    elif c in ['通用_down']:
-      df.loc[tmp_idx, potential_down] = 0
-      df.loc[tmp_idx, 'muted'] = -1
-    else:
-      df.loc[tmp_idx, c] = 0
+    df.loc[tmp_idx, c] = 0
 
   # calculate potential score and description
   for c in potential_conditions.keys():
@@ -1394,7 +1343,7 @@ def calculate_ta_signal(df):
     # B: 长期波动  
     '长期波动':           '''
                           (signal == "b") and
-                          (adx_value_change < 2.5) and
+
                           (
                             (
                               (renko_day > 50 or renko_day < -50) and
@@ -1443,16 +1392,49 @@ def calculate_ta_signal(df):
 
     # B: 去除趋势微弱的信号  
     '趋势微弱':           '''
-                          (signal == "b") and
                           (
+                            (signal == "b") and
                             (
-                              (adx_value_change < 2) and (adx_direction < 2.5) and (-0.05 < adx_strength_change < 0.05)
-                            ) or
-                            (
-                              (adx_value > 20) and (adx_distance_status in ['negup'])
+                              (
+                                (
+                                  (adx_value_change < 2) and (adx_direction < 2.5) and (-0.05 < adx_strength_change < 0.05)
+                                ) or
+                                (
+                                  (adx_value > 20) and (adx_distance_status in ['negup'])
+                                )
+                              ) or
+                              (
+                                (entity_trend != "d" and candle_color == -1) and
+                                (position_score == -6) and
+                                (trigger_score <= 0 and break_up_score == 0 and support_score == 0)
+                              ) or
+                              (
+                                (adx_direction_day == 1 and adx_value_change < 1) and
+                                (
+                                  ((-10 < adx_direction_start < 10) or (-0.1 < adx_strength_change < 0.1)) and
+                                  (adx_wave_day > 0 or adx_strong_day < 0)
+                                ) or
+                                (
+                                  (adx_power_day < 0 and adx_power_start_adx_value > 10 and adx_value > -10)
+                                )
+                              )
                             )
+                          ) or
+                          (
+                            (signal == "s") and
+                            (
+                              (adx_direction_day == -1 and adx_value_change > -1) and
+                              (
+                                (kir_distance == "ggg" and position_score >= 4) and
+                                (adx_wave_day == 0 or adx_strong_day > 0) and
+                                (adx_value > 20 and adx_strength_change > 0.1)
+                              ) or
+                              (
+                                (adx_power_day > 0 and adx_power_start_adx_value < -10 and adx_value > 10)
+                              )
+                            ) 
                           )
-                          '''.replace('\n', ''),
+                          '''.replace('\n', ''),   
 
     # B: 受到阻挡  
     '受到阻挡':           '''
@@ -5385,35 +5367,17 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
   if signal_x == ' ':
 
     # b/nb, s/ns signals
-    buy_data = df.query('signal == "b" and signal_day == 1')
+    buy_data = df.query('signal == "b"')
     ax.scatter(buy_data.index, buy_data[signal_y], marker='^', color='green', alpha=0.5)
 
-    buy_data = df.query('signal == "b" and signal_day > 1')
-    ax.scatter(buy_data.index, buy_data[signal_y], marker='_', color='green', alpha=0.5)
-
-    buy_data = df.query('signal == "nb" and signal_day == 1')
+    buy_data = df.query('signal == "nb"')
     ax.scatter(buy_data.index, buy_data[signal_y], marker='^', color='orange', alpha=0.5)
 
-    buy_data = df.query('signal == "nb" and signal_day > 1')
-    ax.scatter(buy_data.index, buy_data[signal_y], marker='_', color='orange', alpha=0.5)
-
-    sell_data = df.query('signal == "s" and signal_day == -1')
+    sell_data = df.query('signal == "s"')
     ax.scatter(sell_data.index, sell_data[signal_y], marker='v', color='red', alpha=0.5)
 
-    sell_data = df.query('signal == "s" and signal_day < -1')
-    ax.scatter(sell_data.index, sell_data[signal_y], marker='_', color='red', alpha=0.5)
-
-    sell_data = df.query('signal == "ns" and signal_day == -1')
+    sell_data = df.query('signal == "ns"')
     ax.scatter(sell_data.index, sell_data[signal_y], marker='v', color='orange', alpha=0.5)
-
-    sell_data = df.query('signal == "ns" and signal_day < -1')
-    ax.scatter(sell_data.index, sell_data[signal_y], marker='_', color='orange', alpha=0.5)
-
-    muted_up = df.query('muted == 1 and signal == ""')
-    ax.scatter(muted_up.index, muted_up[signal_y], marker='.', color='green', alpha=0.5)
-
-    muted_down = df.query('muted == -1 and signal == ""')
-    ax.scatter(muted_down.index, muted_down[signal_y], marker='.', color='red', alpha=0.5)
 
     # annotate info
     ylim = ax.get_ylim()
@@ -5687,7 +5651,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='red', alpha=tmp_data[tmp_col_a].fillna(0))
 
   # poteltials
-  if signal_x in ["前瞻", "完美", "距离", "一般", "反弹", "边界"]:
+  if signal_x in ["前瞻", "距离", "一般", "反弹", "边界"]:
 
     tmp_col_up = f'{signal_x}_up'
     tmp_col_down = f'{signal_x}_down'
@@ -5696,10 +5660,6 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
     neg_marker = '.'
     pos_marker = '.'
-    if signal_x in ["完美"]:
-      pos_marker = '*' 
-      neg_marker = '*'
-
     df[tmp_col_a] = 0.5
 
     # up
@@ -5716,6 +5676,22 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     tmp_data = df.query(f'({tmp_col_up} == 0) or ({tmp_col_down} == 0)')
     if len(tmp_data) > 0:
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='grey', alpha=0.25)
+
+    if signal_x in ['一般']:
+      pos_marker = '*' 
+      neg_marker = '*'
+
+      # up
+      if '完美_up' in df.columns:
+        tmp_data = df.query(f'(完美_up == 1)')
+        if len(tmp_data) > 0:
+          ax.scatter(tmp_data.index, tmp_data[signal_y], marker=pos_marker, color='green', alpha=tmp_data[tmp_col_a])
+
+      # down
+      if '完美_down' in df.columns:
+        tmp_data = df.query(f'(完美_down == -1)')
+        if len(tmp_data) > 0:
+          ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='red', alpha=tmp_data[tmp_col_a])
 
   # return ax
   if use_ax is not None:
