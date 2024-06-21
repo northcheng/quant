@@ -7,6 +7,7 @@ Generally Utilities
 import os
 import time
 import pytz
+import shutil
 import datetime
 import subprocess
 import numpy as np
@@ -129,6 +130,112 @@ def convert_timezone(time_object, from_tz, to_tz, keep_tzinfo=False):
 
   return result
 
+
+#----------------------- File manipulation -----------------------#
+def synchronize_file(local_folder, remote_folder, newer_only=False, syn_file=True, syn_folder=True, file_type=None, folder_name=None):
+  """
+  Synchronize files from remote folder to local folder
+
+  :param local_folder: local folder path
+  :param remote_folder: remote folder path
+  :param newer_only: whether to synchronize the newer files only
+  :returns: none
+  :raises: none
+  """
+
+  # check accessibility of local and remote folders
+  if os.path.exists(remote_folder) and os.path.exists(local_folder):
+    
+    # get local files and folders
+    local_files = os.listdir(local_folder)
+    local_folders = [x for x in local_files if os.path.isdir(local_folder + x)]
+    local_files = [x for x in local_files if not os.path.isdir(local_folder + x)]
+    
+    # get remote files and folders
+    remote_files = os.listdir(remote_folder)
+    remote_folders = [x for x in remote_files if os.path.isdir(remote_folder + x)]
+    remote_files = [x for x in remote_files if not os.path.isdir(remote_folder + x)]
+
+    # for files
+    if syn_file:
+
+      # remove local files(if exists), copy remote files
+      for rf in remote_files:
+
+        try:
+        
+          # get absolute path
+          rf_abs_path = remote_folder + '/' + rf
+          lf_abs_path = local_folder + '/' + rf
+
+          # skip if file_type is not None
+          if file_type is not None and type(file_type) == list:
+            if rf.split('.')[-1] not in file_type:
+              print(f'skip {remote_folder} (not in {file_type})')
+              continue
+
+          # skip if newer_only and local file is newer
+          if newer_only:
+            if os.path.getctime(rf_abs_path) < os.path.getctime(lf_abs_path):
+              print(f'skip {lf_abs_path} (newer)')
+              continue
+          
+          # check file existence
+          if os.path.exists(rf_abs_path):
+
+            # remove local file if exists
+            if os.path.exists(lf_abs_path):
+              os.remove(lf_abs_path)
+              print(f'remove {lf_abs_path}')
+
+            # copy remote file
+            shutil.copyfile(rf_abs_path, lf_abs_path)
+            print(f'copy {remote_pf}')
+
+        except Exception as e:
+          print(e, rf_abs_path, lf_abs_path)
+          continue
+      
+    # for folders
+    if syn_folder:
+      
+      # remove local folders(if exists), copy remote folders
+      for fd in remote_folders:
+
+        try:
+        
+          # get absolute path
+          rfd_abs_path = remote_folder + '/' + fd
+          lfd_abs_path = local_folder + '/' + fd
+          
+          # skip if folder_name is not None
+          if folder_name is not None and type(folder_name) == list:
+            if fd not in folder_name:
+              print(f'skip {rfd_abs_path} (not in {folder_name})')
+              continue
+
+          # skip if newer_only and local folder is newer
+          if newer_only:
+            if os.path.getctime(rfd_abs_path) < os.path.getctime(lfd_abs_path):
+              print(f'skip {lfd_abs_path} (newer)')
+              continue
+
+          # check folder existence
+          if os.path.exists(rfd_abs_path) and os.path.isdir(rfd_abs_path):
+
+            # remove local folder if exists
+            if os.path.exists(lfd_abs_path) and os.path.isdir(lfd_abs_path):
+              shutil.rmtree(lfd_abs_path)
+              print(f'remove {lfd_abs_path}')
+
+            # copy remote folder
+            shutil.copytree(rfd_abs_path, lfd_abs_path)
+            print(f'copy {rfd_abs_path}')
+      
+        except Exception as e:
+          print(e, rfd_abs_path, lfd_abs_path)
+          continue
+      
 
 #----------------------- Dataframe manipulation ------------------#
 def df_2_timeseries(df, time_col='date'):
