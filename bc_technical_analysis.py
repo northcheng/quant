@@ -5386,8 +5386,8 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     x_signal = max_idx + datetime.timedelta(days=2)
 
     # annotate adx (adx_strength_change)
-    v = round(df.loc[max_idx, 'adx_day'], 1)
-    v_change = round(df.loc[max_idx, 'adx_distance'],1)
+    v = round(df.loc[max_idx, 'adx_distance'], 1)
+    v_change = round(df.loc[max_idx, 'adx_distance_change'],1)
     y_signal = y_max - 1.5
     text_color = 'green' if v_change > 0 else 'red'
     plt.annotate(f'{v}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
@@ -6547,7 +6547,7 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
   return score_ax
 
 # plot review of signal's price
-def plot_review(prefix, date, sheet_name='signal', width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_args=default_plot_args, config=None, save_path=None):
+def plot_review(prefix, df, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_args=default_plot_args, config=None, save_path=None):
   """
   Plot rate and signal indicators for signal
   :param df: signal dataframe
@@ -6557,25 +6557,9 @@ def plot_review(prefix, date, sheet_name='signal', width=20, unit_size=0.3, wspa
   :raises: none
   """
 
-  file_name = f'{prefix}_{date}.xlsx' if prefix != '' else f'{date}.xlsx'
-  file_name = config['result_path'] + file_name
-  if os.path.exists(file_name):
-    df = pd.read_excel(file_name, sheet_name=sheet_name)
-  else:
-    print(f'File not exists: {file_name}')
+  if df is None or len(df) == 0:
+    print(f'data not exists:')
     return None
-
-  symbol_list = df['代码'].tolist()
-  if prefix in ['a', 'hs300', 'a_company']:
-    new_data = io_util.get_real_time_data_from_easyquotation(symbols=symbol_list)
-    new_data_date = f'{new_data.index.max()}'[:10]
-  else:
-    new_data = io_util.get_real_time_data_from_eod(symbol_list, api_key=config['api_key']['eod'], is_print=True)
-    new_data_date = f'{new_data["latest_time"].values[0]}'[:10]
-  new_data.rename(columns={'symbol':'代码'}, inplace=True)
-
-  df = pd.merge(df, new_data, how='left', on='代码')
-  df['验证'] = (df['Close'] - df['收盘']) / df['收盘']
 
   # get pools and number of symbols in pools
   n_row = 1
@@ -6588,7 +6572,7 @@ def plot_review(prefix, date, sheet_name='signal', width=20, unit_size=0.3, wspa
   plt.subplots_adjust(wspace=wspace, hspace=hspace)
   axes = {}
 
-  sort_factors = ['信号分级', "潜力分数", 'adx趋势变化', '趋势方向天数']
+  sort_factors = ['信号分级', "潜力分数", '趋势方向天数', '趋势起始', ]
   sort_orders = [False, True, False, False]
   primary_factor = sort_factors[0]
   secondary_factor = sort_factors[1]
@@ -6622,7 +6606,7 @@ def plot_review(prefix, date, sheet_name='signal', width=20, unit_size=0.3, wspa
     tmp_data.loc[down_idx, 'potential_color'] = 'red'
     title_color = 'black' 
     rate_ax.barh(tmp_data.index, tmp_data[secondary_factor], color=tmp_data['potential_color'], label=secondary_factor, alpha=0.5) #, edgecolor='k'
-    rate_ax.set_xlabel(f'{primary_factor} - {secondary_factor} ({date})', labelpad = 10, fontsize = 20) 
+    rate_ax.set_xlabel(f'{primary_factor} - {secondary_factor}', labelpad = 10, fontsize = 20) 
     rate_ax.legend(loc='upper right', ncol=plot_args['ncol']) 
 
     # plot trigger score
@@ -6639,7 +6623,7 @@ def plot_review(prefix, date, sheet_name='signal', width=20, unit_size=0.3, wspa
     down_idx = tmp_data.query('验证 <= 0').index    
     tmp_data.loc[down_idx, 'score_color'] = 'red'
     score_ax.barh(tmp_data.index, tmp_data['验证'], color=tmp_data['score_color'], left=0,label='验证', alpha=0.5) #, edgecolor='k'  
-    score_ax.set_title(f'验证结果({new_data_date})', fontsize=20)
+    score_ax.set_title(f'验证结果', fontsize=20)
     score_ax.legend(loc='upper left', ncol=plot_args['ncol']) 
 
     # borders
