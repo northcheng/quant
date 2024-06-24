@@ -6349,7 +6349,7 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
       down_price += '\n'
 
   plt.text(
-    x=annotation_idx, y=close_price, 
+    x=annotation_idx, y=y_mid, 
     s=f'{up_price}\n-------------\n{down_price}',
     fontsize=12, color='black', va='center', ha='left', bbox=dict(boxstyle="round", facecolor='white', edgecolor='black', alpha=0.25)
   )
