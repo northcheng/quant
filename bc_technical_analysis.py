@@ -1148,8 +1148,7 @@ def calculate_ta_signal(df):
                           (adx_direction_day == 1 and adx_value < 10)
                           '''.replace('\n', ''),
 
-    '前瞻_up':            
-                          '''
+    '前瞻_up':            '''
                           (
                             (adx_value_change < 0) and
                             ((break_up_score > 0 or support_score > 0) and (break_down_score == 0 and resistant_score == 0)) and
@@ -1223,7 +1222,7 @@ def calculate_ta_signal(df):
                           (adx_value_change < 0)
                           '''.replace('\n', ''),
 
-    '边界_down':            '''
+    '边界_down':          '''
                           (
                             Close < 0
                           )
@@ -6306,53 +6305,65 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
     extended_data = df[ext_columns].tail(extended).copy()
     ax.plot(extended_data, linestyle=':', color='white', zorder=default_zorders['extended'])
   
-  annotation_idx = max_idx  + datetime.timedelta(days=18)
-  ylim = ax.get_ylim()
-  y_min = ylim[0]
-  y_max = ylim[1]
-  y_mid = (y_max + y_min) / 2
+  # plot key line prices
+  if 'add_line_value' > '':
+    
+    annotation_idx = max_idx  + datetime.timedelta(days=18)
+    ylim = ax.get_ylim()
+    y_min = ylim[0]
+    y_max = ylim[1]
+    y_mid = (y_max + y_min) / 2
 
-  up_key_col = {}
-  down_key_col = {}
-  close_price = df.loc[max_idx, 'Close']
-  col_names = {'tankan':'tankan', 'kijun':'kijun ', 'kama_fast':'k_fast', 'kama_slow':'k_slow', 'renko_h':'rnko_h', 'renko_l':'rnko_l', 'candle_gap_top':'gap_tp', 'candle_gap_bottom':'gap_bt'}
-  for col in ['tankan', 'kijun', 'kama_fast', 'kama_slow', 'renko_h', 'renko_l', 'candle_gap_top', 'candle_gap_bottom']:
-    if col in df.columns:
-      tmp_col_value = df.loc[max_idx, col]
-      if np.isnan(tmp_col_value):
-        continue
-      else:
-        tmp_col_value = round(tmp_col_value, 2)
+    # lines beyond/below close
+    up_key_col = {}
+    down_key_col = {}
+    close_price = df.loc[max_idx, 'Close']
+    col_names = {'tankan':'tankan', 'kijun':'kijun ', 'kama_fast':'km_fst', 'kama_slow':'km_slw', 'renko_h':'renk_h', 'renko_l':'renk_l', 'candle_gap_top':'gp_top', 'candle_gap_bottom':'gp_btm'}
+    for col in ['tankan', 'kijun', 'kama_fast', 'kama_slow', 'renko_h', 'renko_l', 'candle_gap_top', 'candle_gap_bottom']:
+      if col in df.columns:
+        tmp_col_value = df.loc[max_idx, col]
+        if np.isnan(tmp_col_value):
+          continue
+        else:
+          tmp_col_value = round(tmp_col_value, 2)
 
-      if tmp_col_value > close_price:
-        up_key_col[col] = tmp_col_value
-      else:
-        down_key_col[col] = tmp_col_value
-  
-  sorted_up_key_col = dict(sorted(up_key_col.items(), key=lambda item: item[1], reverse=True))
-  sorted_down_key_col = dict(sorted(down_key_col.items(), key=lambda item: item[1], reverse=True))
-  
-  up_price = ''
-  counter = 0
-  for k in sorted_up_key_col:
-    counter += 1
-    up_price += f'{col_names[k]}: {sorted_up_key_col[k]}'
-    if counter < len(sorted_up_key_col):
-      up_price += '\n'
+        if tmp_col_value > close_price:
+          up_key_col[col] = tmp_col_value
+        else:
+          down_key_col[col] = tmp_col_value
+    
+    # sort lines by their values from high to low
+    sorted_up_key_col = dict(sorted(up_key_col.items(), key=lambda item: item[1], reverse=True))
+    sorted_down_key_col = dict(sorted(down_key_col.items(), key=lambda item: item[1], reverse=True))
+    
+    # construct information string
+    up_price = ''
+    counter = 0
+    for k in sorted_up_key_col:
+      counter += 1
+      up_price += f'{col_names[k]}: {sorted_up_key_col[k]:05.2f}'
+      if counter < len(sorted_up_key_col):
+        up_price += '\n'
 
-  down_price = ''
-  counter = 0
-  for k in sorted_down_key_col:
-    counter += 1
-    down_price += f'{col_names[k]}: {sorted_down_key_col[k]}'
-    if counter < len(sorted_down_key_col):
-      down_price += '\n'
+    down_price = ''
+    counter = 0
+    for k in sorted_down_key_col:
+      counter += 1
+      down_price += f'{col_names[k]}: {sorted_down_key_col[k]:05.2f}'
+      if counter < len(sorted_down_key_col):
+        down_price += '\n'
 
-  plt.text(
-    x=annotation_idx, y=y_mid, 
-    s=f'{up_price}\n-------------\n{down_price}',
-    fontsize=12, color='black', va='center', ha='left', bbox=dict(boxstyle="round", facecolor='white', edgecolor='black', alpha=0.25)
-  )
+    # add candle_upper_shadow_pct and candle_lower_shadow_pct
+    upper_shadow = round(df.loc[max_idx, "candle_upper_shadow_pct"], 4) * 100
+    lower_shadow = round(df.loc[max_idx, "candle_lower_shadow_pct"], 4) * 100
+    price_info = f'{up_price}\n\n' + f'----{upper_shadow:05.2f}%---' + '\n-------------\n' + f'----{lower_shadow:05.2f}%---' + f'\n\n{down_price}'
+    
+    # add the string to the chart
+    plt.text(
+      x=annotation_idx, y=y_mid, 
+      s=price_info,
+      fontsize=12, color='black', va='center', ha='left', bbox=dict(boxstyle="round", facecolor='white', edgecolor='black', alpha=0.25)
+    )
 
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
