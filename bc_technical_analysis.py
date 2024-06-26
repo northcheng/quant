@@ -319,13 +319,13 @@ def calculate_ta_static(df, indicators=default_indicators):
           df[f'{col}_day'] = cal_crossover_signal(df=df, fast_line='Close', slow_line=col, pos_signal=1, neg_signal=-1, none_signal=0)
           df[f'{col}_day'] = sda(series=df[f'{col}_day'], zero_as=1)
 
-          # # fl/sl with none zero rate          
-          # rate_col = f'{col}_rate'
-          # none_zero_col = f'{rate_col}_none_zero'
-          # df[none_zero_col] = np.NaN
-          # none_zero_idx = df.query(f'{rate_col} > {threshold} or {rate_col} < {threshold}').index
-          # df.loc[none_zero_idx, none_zero_col] = df.loc[none_zero_idx, rate_col]
-          # df[none_zero_col] = df[none_zero_col].fillna(method='ffill')
+          # fl/sl with none zero rate          
+          rate_col = f'{col}_rate'
+          none_zero_col = f'{rate_col}_none_zero'
+          df[none_zero_col] = np.NaN
+          none_zero_idx = df.query(f'{rate_col} > {threshold} or {rate_col} < {threshold}').index
+          df.loc[none_zero_idx, none_zero_col] = df.loc[none_zero_idx, rate_col]
+          df[none_zero_col] = df[none_zero_col].fillna(method='ffill')
 
         # fl & sl crossover  
         fs_day = f'{target_indicator}_cross_day'
@@ -1128,6 +1128,36 @@ def calculate_ta_signal(df):
   # columns to drop
   col_to_drop = []
 
+  # ================================ calculate status =======================
+  status_conditions = {
+
+    'top':               '''
+                          (kir_distance in ['ggg', 'ggr']) and
+                          相对ichimoku位置 in ['up'] and 相对kama位置 in ['up']
+                          '''.replace('\n', ''),  
+
+    'top_down':          '''
+                          kir_distance in ['grg', 'grr']
+                          '''.replace('\n', ''),    
+
+    'bottom':            '''
+                          kir_distance in ['rrr', 'rrg'] and
+                          相对ichimoku位置 in ['down'] and 相对kama位置 in ['down']
+                          '''.replace('\n', ''),    
+
+    'bottom_up':         '''
+                          kir_distance in ['rgg', 'rgr'] 
+                          '''.replace('\n', ''),                                   
+    
+  }        
+  values = {
+    'top':                'top',
+    'bottom':             'bottom',
+    'top_down':           'top_down', 
+    'bottom_up':          'bottom_up'
+  }
+  df = assign_condition_value(df=df, column='status', condition_dict=status_conditions, value_dict=values, default_value='')                
+
   # ================================ calculate potential ====================
   df['potential_score'] = 0
   df['potential_description'] = ''
@@ -1384,8 +1414,27 @@ def calculate_ta_signal(df):
     '低位买入':           '''
                           (signal == "b") and
                           (
-                            (kir_distance == "rrr") and (相对renko位置 in ["down"]) and 
-                            (candle_entity_bottom < kama_fast and candle_entity_bottom < tankan and candle_entity_bottom < renko_l)
+                            (
+                              (kir_distance == "rrr") and (相对renko位置 in ["down"]) and 
+                              (candle_entity_bottom < kama_fast and candle_entity_bottom < tankan and candle_entity_bottom < renko_l)
+                            ) or
+                            (
+                              status in ['top'] and
+                              (
+                                (candle_color == -1 and break_down_score < 0) or
+                                (十字星_trend != "n")
+                              )
+                            )
+                          )
+                          '''.replace('\n', ''),
+
+    # B: 去除高位买入的信号  
+    '高位买入':           '''
+                          (signal == "b") and
+                          (
+                            status in ['bottom_up'] and
+                            相对ichimoku位置 in ['up'] and 相对kama位置 in ['up'] and
+                            (candle_color == -1 or 十字星_trend != "n")
                           )
                           '''.replace('\n', ''),
 
@@ -2465,11 +2514,11 @@ def add_candlestick_patterns(df):
     # cross/highwave
     conditions = {
       # 十字星1: 实体占比<15%, 影线σ<-1.5
-      '十字星_1': '(candle_entity_pct < 0.15) and (shadow_diff < -1.5)',
+      '十字星_1': '(candle_entity_pct < 0.15) and (shadow_diff < -0.5)',
       # 高浪线: 实体占比<15%, 影线σ>-1.5
       '高浪线': '(candle_entity_pct < 0.15) and (shadow_diff > 1.5)',
       # 十字星2: 实体占比<5%
-      '十字星_2': '(candle_entity_pct < 0.05)',
+      '十字星_2': '(candle_entity_pct < 0.05 or (shadow_diff < -1 and entity_diff < -1))',
       }
     values = {'十字星_1': 'd', '高浪线': 'u', '十字星_2': 'd', } 
     df = assign_condition_value(df=df, column='十字星_trend', condition_dict=conditions, value_dict=values, default_value='n')
@@ -5467,24 +5516,9 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='red', alpha=tmp_data[tmp_col_a])
 
   # ichimoku/kama fast/slow lines
-  if signal_x in ["adx_value", "adx_strength", "tankan", "kijun", "kama_fast", "kama_slow"]:
-
-    if signal_x == 'adx_strength':
-
-      # when adx_power goes down but actually adx trend goes up
-      df['adx_power_change'] = df['adx_strength_change'].copy()
-      reverse_query = f'''
-                      (adx_value_change > 0 and adx_strength_change < 0 and adx_value < 10 and adx_direction_start < 0) or
-                      (adx_value_change > 0 and adx_strength_change > 0 and adx_value < 0) or
-                      (adx_value_change < 0 and adx_strength_change < 0 and adx_value < 0) or
-                      (adx_value_change < 0 and adx_strength_change > 0 and adx_value < 0)
-                      '''.replace('\n', '')
-      reverse_idx = df.query(reverse_query).index
-      df.loc[reverse_idx, 'adx_power_change'] = df.loc[reverse_idx, 'adx_power_change'] * -1
-      col_symbol = (df['adx_power_change'] > 0).replace({True: 1, False: -1})
-      df['adx_power_change'] = normalize(df['adx_power_change'].abs()) * col_symbol
-
-    tmp_col_v = f'{signal_x}_rate' if 'adx' not in signal_x else f'{signal_x}_change'
+  if signal_x in ["tankan", "kijun", "kama_fast", "kama_slow"]:
+    
+    tmp_col_v = f'{signal_x}_rate'
     tmp_col_a = f'{signal_x}_alpha'
     threhold = 0.000
 
@@ -5499,16 +5533,15 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
       # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='1', color='red', alpha=tmp_data[tmp_col_a].fillna(0))
 
-    if 'adx' not in signal_x:
-      tmp_data = df.query(f'({-threhold} <= {tmp_col_v} <= {threhold} and {tmp_col_v}_none_zero > 0)')
-      if len(tmp_data) > 0:
-        tmp_alpha = 0.2
-        ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='green', alpha=tmp_alpha)
+    tmp_data = df.query(f'({-threhold} <= {tmp_col_v} <= {threhold} and {tmp_col_v}_none_zero > 0)')
+    if len(tmp_data) > 0:
+      tmp_alpha = 0.2
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='green', alpha=tmp_alpha)
 
-      tmp_data = df.query(f'({-threhold} <= {tmp_col_v} <= {threhold} and {tmp_col_v}_none_zero < 0)')
-      if len(tmp_data) > 0:
-        tmp_alpha = 0.2
-        ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', alpha=tmp_alpha)
+    tmp_data = df.query(f'({-threhold} <= {tmp_col_v} <= {threhold} and {tmp_col_v}_none_zero < 0)')
+    if len(tmp_data) > 0:
+      tmp_alpha = 0.2
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', alpha=tmp_alpha)
 
   # ichimoku/kama distance
   if signal_x in [ "kama_distance", "ichimoku_distance", "adx_distance"]:
