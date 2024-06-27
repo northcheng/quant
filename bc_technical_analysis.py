@@ -1007,12 +1007,14 @@ def calculate_ta_score(df):
 
   # ================================ calculate overall change and status ====
   # overall change and status 
-  df['overall_change'] = df['adx_distance'] + df['ichimoku_change'] + df['kama_change']
+  df['overall_change'] = (df['adx_distance'] + df['ichimoku_change'] + df['kama_change'])
   df['overall_status'] = df['adx_status'] + df['ichimoku_status'] + df['kama_status']
+  df['overall_change_day'] = (df['overall_change'] > 0).replace({True: 1, False: -1})
+  df['overall_change'] = normalize(df['overall_change'].abs()) * df['overall_change_day']
   df['overall_change_diff'] = df['overall_change'] - df['overall_change'].shift(1)
-  df['overall_change_day'] = sda(series=(df['overall_change'] > 0).replace({True: 1, False: -1}), zero_as=1) 
-  none_zero_idx = df.query('overall_status != 0').index
-  df.loc[none_zero_idx, 'overall_change'] = df.loc[none_zero_idx, 'overall_change'].abs() * (df['overall_status'] > 0).replace({True: 1, False: -1}).loc[none_zero_idx]
+  df['overall_change_day'] = sda(series=df['overall_change_day'], zero_as=1) 
+  # none_zero_idx = df.query('overall_status != 0').index
+  # df.loc[none_zero_idx, 'overall_change'] = df.loc[none_zero_idx, 'overall_change'].abs() * (df['overall_status'] > 0).replace({True: 1, False: -1}).loc[none_zero_idx]
 
   # adx/ichimoku/kama distance
   threhold = 0.00
@@ -1132,8 +1134,7 @@ def calculate_ta_signal(df):
   status_conditions = {
 
     'top':               '''
-                          (kir_distance in ['ggg', 'ggr']) and
-                          相对ichimoku位置 in ['up'] and 相对kama位置 in ['up']
+                          kir_distance in ['ggg', 'ggr']
                           '''.replace('\n', ''),  
 
     'top_down':          '''
@@ -1141,8 +1142,7 @@ def calculate_ta_signal(df):
                           '''.replace('\n', ''),    
 
     'bottom':            '''
-                          kir_distance in ['rrr', 'rrg'] and
-                          相对ichimoku位置 in ['down'] and 相对kama位置 in ['down']
+                          kir_distance in ['rrr', 'rrg']
                           '''.replace('\n', ''),    
 
     'bottom_up':         '''
@@ -1349,7 +1349,9 @@ def calculate_ta_signal(df):
   none_signal_conditions = {
     
     # B|S:  无adx强度数据  
-    '信号不全':           '(signal == "b" or signal == "s") and (adx_power_day == 0)',
+    '信号不全':           '''
+                          (signal == "b" or signal == "s") and (adx_power_day == 0)
+                          '''.replace('\n', ''),
 
     # B: 去下降趋势中的买入信号  
     '下降趋势':           '''
@@ -1365,6 +1367,10 @@ def calculate_ta_signal(df):
                             (
                               (adx_power_day < 0 and adx_power_start_adx_value > 10 and adx_value > -10) and
                               (adx_strong_day < 0 or adx_wave_day > 0 or adx_distance < 0 or (adx_direction_day == 1 and -15 < adx_value < 15))
+                            ) or
+                            (
+                              status in ['top_down'] and
+                              (candle_color == -1 or 十字星_trend != 'n' )
                             )
                           )
                           '''.replace('\n', ''),
@@ -1419,10 +1425,10 @@ def calculate_ta_signal(df):
                               (candle_entity_bottom < kama_fast and candle_entity_bottom < tankan and candle_entity_bottom < renko_l)
                             ) or
                             (
-                              status in ['top'] and
+                              status in ['bottom'] and
+                              相对ichimoku位置 in ['down'] and 相对kama位置 in ['down'] and
                               (
-                                (candle_color == -1 and break_down_score < 0) or
-                                (十字星_trend != "n")
+                                (candle_color == -1) or (十字星_trend != "n")
                               )
                             )
                           )
@@ -1432,9 +1438,20 @@ def calculate_ta_signal(df):
     '高位买入':           '''
                           (signal == "b") and
                           (
-                            status in ['bottom_up'] and
-                            相对ichimoku位置 in ['up'] and 相对kama位置 in ['up'] and
-                            (candle_color == -1 or 十字星_trend != "n")
+                            (
+                              status in ['top'] and
+                              (
+                                (candle_color == -1 and break_down_score < 0) or
+                                (十字星_trend != "n")
+                              )
+                            ) or 
+                            (
+                              status in ['bottom_up'] and
+                              (
+                                相对ichimoku位置 in ['up'] and 相对kama位置 in ['up'] and
+                                (candle_color == -1 or 十字星_trend != "n")
+                              )
+                            )                            
                           )
                           '''.replace('\n', ''),
 
@@ -1492,6 +1509,7 @@ def calculate_ta_signal(df):
                             (entity_trend != 'd' and candle_upper_shadow_pct > 0.7)
                           )
                           '''.replace('\n', ''),
+  
   } 
   for c in none_signal_conditions.keys():
     df[c] = 0
@@ -2493,7 +2511,7 @@ def add_candlestick_patterns(df):
       df[f'{col}_ma'] = sm(series=df[f'candle_{col}'], periods=ma_period).mean()
       df[f'{col}_std'] = sm(series=df[f'candle_{col}'], periods=ma_period).std()
       df[f'{col}_diff'] = (df[f'candle_{col}'] - df[f'{col}_ma'])/df[f'{col}_std']
-      col_to_drop += [f'{col}_ma', f'{col}_std', f'{col}_diff'] # 
+      # col_to_drop += [f'{col}_ma', f'{col}_std', f'{col}_diff'] # 
 
     # long/short shadow
     conditions = {
@@ -2514,7 +2532,7 @@ def add_candlestick_patterns(df):
     # cross/highwave
     conditions = {
       # 十字星1: 实体占比<15%, 影线σ<-1.5
-      '十字星_1': '(candle_entity_pct < 0.15) and (shadow_diff < -0.5)',
+      '十字星_1': '(candle_entity_pct < 0.15) and (shadow_diff < -0.5 or entity_diff < -0.5)',
       # 高浪线: 实体占比<15%, 影线σ>-1.5
       '高浪线': '(candle_entity_pct < 0.15) and (shadow_diff > 1.5)',
       # 十字星2: 实体占比<5%
