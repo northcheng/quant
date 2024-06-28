@@ -66,10 +66,10 @@
       },
       "signals": {
         "signal_list": [  
-          
+
           "边界",
-          "一般",
           "距离",
+          "完美",
           "前瞻",
 
           "-----",
@@ -80,6 +80,8 @@
 
           "-----",
           "kama_distance",
+          "kijun",
+          "tankan",
           "ichimoku_distance",
           "adx_distance",
           

@@ -1144,89 +1144,13 @@ def calculate_ta_signal(df):
   potential_down = []
   potential_conditions = {
 
-    '完美_up':            '''
-                          (trigger_score > 0 or candle_position_score > 0) and
-                          (adx_day == 1 and adx_distance_change > 0) and
-                          (overall_change_day == 1 or (overall_change_day < 0 and overall_change_diff > 0.1)) and 
-                          (adx_direction_day == 1 and adx_value < 10)
-                          '''.replace('\n', ''),
-
-    '前瞻_up':            '''
-                          (
-                            (adx_value_change < 0) and
-                            ((break_up_score > 0 or support_score > 0) and (break_down_score == 0 and resistant_score == 0)) and
-                            (candle_position_score > 0 or trigger_score > 0) and
-                            ((adx_distance < 0 and adx_distance_change > 0) or (candle_lower_shadow_pct > 0.5 and support_score > 0)) and
-                            (overall_change < 0 and overall_change_diff > 0)
-                          ) or 
-                          (
-                            (adx_distance_status in ['posup', 'negup']) and
-                            (ichimoku_distance_status in ['negnone', 'negup'])
-                          )
-                          '''.replace('\n', ''),
-
-    '一般_up':            '''
-                          (trigger_score > 0 or candle_position_score > 0) and
-                          (adx_day > 0 or (adx_day == 0 and prev_adx_day < 0 and adx_distance_change > 0)) and
-                          (overall_change > 0 or overall_change_diff > 0) and
-                          (adx_value_change > 0)
-                          '''.replace('\n', ''),
-
-    '边界_up':            '''
-                          (
-                            (kama_distance > 0) and 
-                            (
-                              (ichimoku_distance < 0 and tankan > kama_slow) or
-                              (ichimoku_distance_change < 0 and kijun > kama_slow)
-                            ) and
-                            (
-                              (candle_lower_shadow_pct > candle_upper_shadow_pct and kama_slow_support == 1) or 
-                              (kama_slow_break_up == 1) or 
-                              (Open < kama_slow < Close)
-                            )
-                          )
-                          '''.replace('\n', ''),
-
     '距离_up':            '''
                           (
                             (adx_distance_status in ["posup"]) and 
                             (ichimoku_distance_status in ["posup"]) and 
-                            (kama_distance_status in ["posup"]) 
-                          )
-                          '''.replace('\n', ''),
-
-    
-    '完美_down':          '''
-                          (trigger_score < 0 or candle_position_score < 0) and
-                          (adx_day == -1 and adx_distance_change < 0) and
-                          (overall_change_day == -1 or (overall_change_day > 0 and overall_change_diff < -0.1)) and 
-                          (adx_direction_day == -1 and adx_value > 10)
-                          '''.replace('\n', ''),
-
-    '前瞻_down':          '''
-                          (
-                            (adx_value_change > 0) and
-                            (break_down_score < 0 or resistant_score < 0 or pattern_score < 0) and                          
-                            (candle_position_score < 0 or trigger_score < 0 or (candle_position_score > 0 and candle_color == -1)) and
-                            ((adx_distance > 0 and adx_distance_change < 0) or ((candle_upper_shadow_pct > 0.5 or candle_upper_shadow_pct > candle_lower_shadow_pct) and resistant_score < 0)) and
-                            (overall_change > 0 and overall_change_diff < 0)
-                          ) or
-                          (
-                            (adx_distance_status in ['posup']) and
-                            (ichimoku_distance_status in ['posnone'])
-                          )
-                          '''.replace('\n', ''),
-
-    '一般_down':          '''
-                          (trigger_score < 0 or candle_position_score < 0) and
-                          (adx_day < 0 or (adx_day == 0 and prev_adx_day > 0 and adx_distance_change < 0)) and
-                          (overall_change < 0 or overall_change_diff < 0) and
-                          (adx_value_change < 0)
-                          '''.replace('\n', ''),
-
-    '边界_down':          '''
-                          (
-                            Close < 0
+                            (kama_distance_status in ["posup"]) and
+                            (adx_distance_change > 0) and
+                            (overall_change_diff) > 0
                           )
                           '''.replace('\n', ''),
 
@@ -1234,9 +1158,70 @@ def calculate_ta_signal(df):
                           (
                             (adx_distance_status in ["negdown"]) and 
                             (ichimoku_distance_status in ["negdown"]) and 
-                            (kama_distance_status in ["negdown"])
+                            (kama_distance_status in ["negdown"]) and
+                            (adx_distance_change < 0) and
+                            (overall_change_diff) < 0
                           )
                           '''.replace('\n', ''),    
+    
+    '完美_up':            '''
+                          (adx_value < 0 and adx_direction_day > 0 and adx_value_change > 0) and 
+                          (adx_day > 0 and adx_distance_change > 0) and
+                          (overall_change_day > 0 and overall_change_diff > 0) and
+                          (trigger_score > 0)
+                          '''.replace('\n', ''),
+
+    '完美_down':          '''
+                          (adx_value > 0 and adx_direction_day < 0 and adx_value_change < 0) and 
+                          (adx_day < 0 and adx_distance_change < 0) and
+                          (overall_change_day < 0 and overall_change_diff < 0) and
+                          (trigger_score < 0)
+                          '''.replace('\n', ''),
+
+    '前瞻_up':            '''
+                          (
+                            (adx_value < -10) and
+                            (adx_value_change < 0 or adx_direction_day == 1) and
+                            (overall_change < 0 and overall_change_diff > 0) and 
+                            (
+                              ((trigger_score > 0) and (candle_position_score > 0 or candle_lower_shadow_pct > 0.5)) or
+                              (ki_distance in ['rr', 'gr'] and position_score == -4 and candle_position_score > 0)
+                            )
+                          )
+                          '''.replace('\n', ''),
+
+    '前瞻_down':          '''
+                          (
+                            (adx_value > 10) and
+                            (adx_value_change > 0  or adx_direction_day == -1) and
+                            (overall_change > 0 and overall_change_diff < 0) and 
+                            (
+                              ((trigger_score < 0) and (candle_position_score < 0 or candle_upper_shadow_pct > 0.5)) or
+                              (ki_distance in ['gg', 'rg'] and position_score == 4 and (candle_position_score < 0 or 十字星_trend != 'n'))
+                            )
+                          )
+                          '''.replace('\n', ''),
+
+    '边界_up':            '''
+                          ( 
+                            (kama_distance > 0) and 
+                            (
+                              (ichimoku_distance < 0 and tankan > kama_slow) or
+                              (ichimoku_distance_change < 0 and kijun > kama_slow)
+                            ) and
+                            (
+                              (kama_slow_support == 1) or 
+                              (kama_slow_break_up == 1) or 
+                              (Open < kama_slow < Close)
+                            )
+                          )
+                          '''.replace('\n', ''),
+
+    '边界_down':          '''
+                          (
+                            Close < 0
+                          )
+                          '''.replace('\n', ''),
     
   } 
   for c in potential_conditions.keys():
@@ -1258,23 +1243,23 @@ def calculate_ta_signal(df):
 
   # exceptions
   none_potential_conditions = {
-
-    '边界_up':            '''
-                          (边界_up == 1) and
+    
+    '完美_up':             '''
+                          (完美_up == 1) and
                           (
-                            candle_color == -1 and entity_trend != "d" and candle_entity_pct > 0.7
+                            (ki_distance in ['rr']) and
+                            (ichimoku_distance < -0.1 or kama_distance < -0.15)
                           )
                           '''.replace('\n', ''),
 
-    '前瞻_down':          '''
+    '前瞻_down':           '''
                           (前瞻_down == -1) and
                           (
-                            adx_distance_status in ['posup'] and
-                            ichimoku_distance_status in ['posup'] and
-                            kama_distance_status in ['posup']
+                            (ki_distance in ['gg'] and position_score == 4) and
+                            (candle_position_score > 0)
                           )
-                          '''.replace('\n', ''),             
-
+                          '''.replace('\n', ''),  
+  
   } 
   for c in none_potential_conditions.keys():
     tmp_condition = none_potential_conditions[c]
@@ -1334,7 +1319,7 @@ def calculate_ta_signal(df):
                               (adx_power_day < 0 or adx_direction_day < 0)
                             ) or
                             (
-                              (adx_direction < 0)
+                              (adx_direction < 0 and 前瞻_up == 0)
                             ) or
                             (
                               (adx_power_day < 0 and adx_power_start_adx_value > 10 and adx_value > -10) and
@@ -1350,7 +1335,7 @@ def calculate_ta_signal(df):
     # B: 长期波动  
     '长期波动':           '''
                           (signal == "b") and
-
+                          (-5 < adx_direction < 5) and
                           (
                             (
                               ( 
@@ -1372,8 +1357,8 @@ def calculate_ta_signal(df):
     '距离过大':           '''
                           (signal == "b") and
                           (
-                            (ichimoku_distance < -0.1 and kama_distance < 0) or
-                            (kama_distance < -0.15 and ichimoku_distance < 0)
+                            (ki_distance in ['rr']) and
+                            (ichimoku_distance < -0.1 or kama_distance < -0.15)
                           )
                           '''.replace('\n', ''),
 
@@ -1419,7 +1404,7 @@ def calculate_ta_signal(df):
                             (
                               (
                                 (
-                                  (adx_value_change < 2) and (adx_direction < 2.5) and (-0.05 < adx_strength_change < 0.05)
+                                  (-2< adx_value_change < 2) and (-2.5 < adx_direction < 2.5) and (-0.05 < adx_strength_change < 0.05)
                                 ) or
                                 (
                                   (adx_value > 20) and (adx_distance_status in ['negup'])
@@ -1492,7 +1477,7 @@ def calculate_ta_signal(df):
     '1':                  '(signal_day == 1) and (adx_strong_day > 0) and (adx_direction_start < -10) and (ichimoku_distance < 0 and 相对ichimoku位置 in ["mid_down", "mid"]) and (ichimoku_distance_status in ["posup"])', 
     '0':                  '(signal_day == 1) and (adx_strong_day > 0) and (adx_direction_start < -10) and (ichimoku_distance < 0 and 相对ichimoku位置 in ["down"]) and (ichimoku_distance_status in ["posup"] and ichimoku_distance_status in ["negnone", "posnone"])', 
     '11':                 '(长期波动 < 0) or (趋势微弱 < 0) or (受到阻挡 < 0)',
-    '12':                 '距离_down < 0'
+    # '12':                 '距离_down < 0'
   } 
   values = {
     '6':                  6,
@@ -1503,7 +1488,7 @@ def calculate_ta_signal(df):
     '1':                  1,
     '0':                  0, 
     '11':                 11,
-    '12':                 12
+    # '12':                 12
   }
   df = assign_condition_value(df=df, column='tier', condition_dict=conditions, value_dict=values, default_value=10)
 
@@ -2318,6 +2303,7 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
   # calculate relative candle
   df['pre_candle_top'] = df['candle_entity_top'].shift(1)
   df['pre_candle_bottom'] = df['candle_entity_bottom'].shift(1) 
+  df['pre_candle_color'] = df['candle_color'].shift(1)
   
   # window position status (beyond/below/among window)
   conditions = {
@@ -2335,30 +2321,54 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
 
   # candle_position_score
   candle_conditions = {
-    'green_down':       f'candle_color == 1 and 相对candle位置 == "down"', 
-    'green_mid':        f'candle_color == 1 and 相对candle位置 in ["mid_down", "mid", "mid_up"]', 
-    'green_up':         f'candle_color == 1 and 相对candle位置 == "up"', 
-    'green_out':        f'candle_color == 1 and 相对candle位置 == "out"', 
+    'green_down':           f'candle_color == 1 and 相对candle位置 == "down"', 
+    'green_up':             f'candle_color == 1 and 相对candle位置 == "up"', 
+    'green_out':            f'candle_color == 1 and 相对candle位置 == "out"', 
 
-    'red_down':         f'candle_color == -1 and 相对candle位置 == "down"', 
-    'red_mid':          f'candle_color == -1 and 相对candle位置 in ["mid_down", "mid", "mid_up"]', 
-    'red_up':           f'candle_color == -1 and 相对candle位置 == "up"', 
-    'red_out':          f'candle_color == -1 and 相对candle位置 == "out"', 
+    'green_green_mid_down': f'prev_candle_color == 1 and candle_color == 1 and 相对candle位置 in ["mid_down"]',
+    'green_green_mid':      f'prev_candle_color == 1 and candle_color == 1 and 相对candle位置 in ["mid"]',
+    'green_green_mid_up':   f'prev_candle_color == 1 and candle_color == 1 and 相对candle位置 in ["mid_up"]', 
+    'red_green_mid_down':   f'prev_candle_color ==-1 and candle_color == 1 and 相对candle位置 in ["mid_down"]',
+    'red_green_mid':        f'prev_candle_color ==-1 and candle_color == 1 and 相对candle位置 in ["mid"]',
+    'red_green_mid_up':     f'prev_candle_color ==-1 and candle_color == 1 and 相对candle位置 in ["mid_up"]', 
+    
+    'red_down':             f'candle_color == -1 and 相对candle位置 == "down"', 
+    'red_up':               f'candle_color == -1 and 相对candle位置 == "up"', 
+    'red_out':              f'candle_color == -1 and 相对candle位置 == "out"', 
+
+    'green_red_mid_down':   f'prev_candle_color == 1 and candle_color ==-1 and 相对candle位置 in ["mid_down"]',
+    'green_red_mid':        f'prev_candle_color == 1 and candle_color ==-1 and 相对candle位置 in ["mid"]',
+    'green_red_mid_up':     f'prev_candle_color == 1 and candle_color ==-1 and 相对candle位置 in ["mid_up"]', 
+    'red_red_mid_down':     f'prev_candle_color ==-1 and candle_color ==-1 and 相对candle位置 in ["mid_down"]',
+    'red_red_mid':          f'prev_candle_color ==-1 and candle_color ==-1 and 相对candle位置 in ["mid"]',
+    'red_red_mid_up':       f'prev_candle_color ==-1 and candle_color ==-1 and 相对candle位置 in ["mid_up"]', 
   } 
   candle_values = {
-    'green_down':       -0.33, 
-    'green_mid':        0.33, 
-    'green_up':         0.66, 
-    'green_out':        0.99, 
+    'green_up':             0.99, 
+    'green_down':           0.33, 
+    'green_out':            0.66, 
 
-    'red_down':         -0.66, 
-    'red_mid':          -0.33, 
-    'red_up':           0.33, 
-    'red_out':          -0.99, 
+    'green_green_mid_down': -0.33,
+    'green_green_mid':      -0.33,
+    'green_green_mid_up':   0.33, 
+    'red_green_mid_down':   0.33,
+    'red_green_mid':        0.33,
+    'red_green_mid_up':     0.66, 
+
+    'red_down':             -0.99, 
+    'red_up':               -0.33, 
+    'red_out':              -0.66, 
+
+    'red_red_mid_up':       0.33, 
+    'red_red_mid':          0.33,
+    'red_red_mid_down':     -0.33,
+    'green_red_mid_up':     -0.33, 
+    'green_red_mid':        -0.33,
+    'green_red_mid_down':   -0.66,    
   }
   df = assign_condition_value(df=df, column='candle_position_score', condition_dict=candle_conditions, value_dict=candle_values, default_value=0)
 
-  col_to_drop += ['candle_upper_shadow', 'candle_lower_shadow', 'pre_candle_top', 'pre_candle_bottom']
+  col_to_drop += ['candle_upper_shadow', 'candle_lower_shadow', 'pre_candle_top', 'pre_candle_bottom', 'pre_candle_color']
 
   # ======================================= gap ====================================================== #
   # gap_up / gap_down  
@@ -5650,47 +5660,49 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='red', alpha=tmp_data[tmp_col_a].fillna(0))
 
   # poteltials
-  if signal_x in ["前瞻", "距离", "一般", "反弹", "边界"]:
+  if signal_x in ["前瞻", "完美", "距离", "一般", "反弹", "边界"]:
 
     tmp_col_up = f'{signal_x}_up'
     tmp_col_down = f'{signal_x}_down'
     tmp_col_a = f'{signal_x}_alpha'
     threhold = 0.000
 
-    neg_marker = '.'
-    pos_marker = '.'
-    df[tmp_col_a] = 0.5
+    if tmp_col_up in df.columns and tmp_col_down in df.columns:
 
-    # up
-    tmp_data = df.query(f'({tmp_col_up} == 1)')
-    if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=pos_marker, color='green', alpha=tmp_data[tmp_col_a])
-
-    # down
-    tmp_data = df.query(f'({tmp_col_down} == -1)')
-    if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='red', alpha=tmp_data[tmp_col_a])
-
-    # none
-    tmp_data = df.query(f'({tmp_col_up} == 0) or ({tmp_col_down} == 0)')
-    if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='grey', alpha=0.25)
-
-    if signal_x in ['一般']:
-      pos_marker = '*' 
-      neg_marker = '*'
+      neg_marker = '.'
+      pos_marker = '.'
+      df[tmp_col_a] = 0.5
 
       # up
-      if '完美_up' in df.columns:
-        tmp_data = df.query(f'(完美_up == 1)')
-        if len(tmp_data) > 0:
-          ax.scatter(tmp_data.index, tmp_data[signal_y], marker=pos_marker, color='green', alpha=tmp_data[tmp_col_a])
+      tmp_data = df.query(f'({tmp_col_up} == 1)')
+      if len(tmp_data) > 0:
+        ax.scatter(tmp_data.index, tmp_data[signal_y], marker=pos_marker, color='green', alpha=tmp_data[tmp_col_a])
 
       # down
-      if '完美_down' in df.columns:
-        tmp_data = df.query(f'(完美_down == -1)')
-        if len(tmp_data) > 0:
-          ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='red', alpha=tmp_data[tmp_col_a])
+      tmp_data = df.query(f'({tmp_col_down} == -1)')
+      if len(tmp_data) > 0:
+        ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='red', alpha=tmp_data[tmp_col_a])
+
+      # none
+      tmp_data = df.query(f'({tmp_col_up} == 0) or ({tmp_col_down} == 0)')
+      if len(tmp_data) > 0:
+        ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='grey', alpha=0.25)
+
+      if signal_x in ['一般']:
+        pos_marker = '*' 
+        neg_marker = '*'
+
+        # up
+        if '完美_up' in df.columns:
+          tmp_data = df.query(f'(完美_up == 1)')
+          if len(tmp_data) > 0:
+            ax.scatter(tmp_data.index, tmp_data[signal_y], marker=pos_marker, color='green', alpha=tmp_data[tmp_col_a])
+
+        # down
+        if '完美_down' in df.columns:
+          tmp_data = df.query(f'(完美_down == -1)')
+          if len(tmp_data) > 0:
+            ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='red', alpha=tmp_data[tmp_col_a])
 
   # return ax
   if use_ax is not None:
