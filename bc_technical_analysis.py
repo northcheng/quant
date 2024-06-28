@@ -35,7 +35,7 @@ default_signal_val = {'pos_signal':'b', 'neg_signal':'s', 'none_signal':'', 'wav
 
 # default indicators and dynamic trend for calculation
 default_indicators = {'trend': ['ichimoku', 'kama', 'adx'], 'volume': [], 'volatility': [], 'other': []}
-default_perspectives = ['candle', 'support_resistant', 'renko']
+default_perspectives = ['candle', 'support_resistant']
 default_support_resistant_col = ['kama_fast', 'kama_slow', 'tankan', 'kijun', 'renko_h', 'renko_l', 'candle_gap_top', 'candle_gap_bottom']
 
 # default arguments for visualization
@@ -781,6 +781,7 @@ def calculate_ta_dynamic(df, perspective=default_perspectives):
     phase = 'renko analysis'
     if 'renko' in perspective:
       
+      ## 在解决[不同数据开始日期导致renko动态变化]问题之前, 不建议使用renko, 容易造成混乱
       # add renko features
       df = add_renko_features(df=df)
       
@@ -1128,35 +1129,7 @@ def calculate_ta_signal(df):
     return None
 
   # columns to drop
-  col_to_drop = []
-
-  # ================================ calculate status =======================
-  status_conditions = {
-
-    'top':               '''
-                          kir_distance in ['ggg', 'ggr']
-                          '''.replace('\n', ''),  
-
-    'top_down':          '''
-                          kir_distance in ['grg', 'grr']
-                          '''.replace('\n', ''),    
-
-    'bottom':            '''
-                          kir_distance in ['rrr', 'rrg']
-                          '''.replace('\n', ''),    
-
-    'bottom_up':         '''
-                          kir_distance in ['rgg', 'rgr'] 
-                          '''.replace('\n', ''),                                   
-    
-  }        
-  values = {
-    'top':                'top',
-    'bottom':             'bottom',
-    'top_down':           'top_down', 
-    'bottom_up':          'bottom_up'
-  }
-  df = assign_condition_value(df=df, column='status', condition_dict=status_conditions, value_dict=values, default_value='')                
+  col_to_drop = []               
 
   # ================================ calculate potential ====================
   df['potential_score'] = 0
@@ -1202,7 +1175,6 @@ def calculate_ta_signal(df):
     '边界_up':            '''
                           (
                             (kama_distance > 0) and 
-                            (相对renko位置 in ["down", "mid_down", "mid"]) and
                             (
                               (ichimoku_distance < 0 and tankan > kama_slow) or
                               (ichimoku_distance_change < 0 and kijun > kama_slow)
@@ -1369,7 +1341,7 @@ def calculate_ta_signal(df):
                               (adx_strong_day < 0 or adx_wave_day > 0 or adx_distance < 0 or (adx_direction_day == 1 and -15 < adx_value < 15))
                             ) or
                             (
-                              status in ['top_down'] and
+                              ki_distance in ['gr'] and
                               (candle_color == -1 or 十字星_trend != 'n' )
                             )
                           )
@@ -1381,21 +1353,10 @@ def calculate_ta_signal(df):
 
                           (
                             (
-                              (renko_day > 50 or renko_day < -50) and
-                              (
-                                (
-                                  (renko_color == "red" or 相对renko位置 in ["down", "mid_down", "mid", "mid_up"])
-                                ) or
-                                (
-                                  (adx_strong_day < -5) and (adx_wave_day > 5)
-                                )
-                              )
-                            ) or
-                            (
                               ( 
                                 (adx_strong_day < 0 and adx_wave_day > 0) and 
                                 (candle_color == -1) and
-                                (resistant_score < 0 or position_score <= -6)
+                                (resistant_score < 0 or position_score <= -4)
                               )
                             ) or 
                             (
@@ -1421,11 +1382,7 @@ def calculate_ta_signal(df):
                           (signal == "b") and
                           (
                             (
-                              (kir_distance == "rrr") and (相对renko位置 in ["down"]) and 
-                              (candle_entity_bottom < kama_fast and candle_entity_bottom < tankan and candle_entity_bottom < renko_l)
-                            ) or
-                            (
-                              status in ['bottom'] and
+                              ki_distance in ['rr'] and
                               相对ichimoku位置 in ['down'] and 相对kama位置 in ['down'] and
                               (
                                 (candle_color == -1) or (十字星_trend != "n")
@@ -1439,14 +1396,14 @@ def calculate_ta_signal(df):
                           (signal == "b") and
                           (
                             (
-                              status in ['top'] and
+                              ki_distance in ['gg'] and
                               (
                                 (candle_color == -1 and break_down_score < 0) or
                                 (十字星_trend != "n")
                               )
                             ) or 
                             (
-                              status in ['bottom_up'] and
+                              ki_distance in ['rg'] and
                               (
                                 相对ichimoku位置 in ['up'] and 相对kama位置 in ['up'] and
                                 (candle_color == -1 or 十字星_trend != "n")
@@ -1470,7 +1427,7 @@ def calculate_ta_signal(df):
                               ) or
                               (
                                 (entity_trend != "d" and candle_color == -1) and
-                                (position_score == -6) and
+                                (position_score == -4) and
                                 (trigger_score <= 0 and break_up_score == 0 and support_score == 0)
                               ) or
                               (
@@ -1490,7 +1447,7 @@ def calculate_ta_signal(df):
                             (
                               (adx_direction_day == -1 and adx_value_change > -1) and
                               (
-                                (kir_distance == "ggg" and position_score >= 4) and
+                                (ki_distance == "gg" and position_score >= 2) and
                                 (adx_wave_day == 0 or adx_strong_day > 0) and
                                 (adx_value > 20 and adx_strength_change > 0.1)
                               ) or
@@ -2213,8 +2170,8 @@ def calculate_position_score(df):
   df['position_score'] = 0
 
   # position score
-  rp_cols = {"renko":"相对renko位置", "kama":"相对kama位置", "ichimoku":"相对ichimoku位置"}
-  for col in ['ichimoku', 'kama', 'renko']:
+  rp_cols = {"kama":"相对kama位置", "ichimoku":"相对ichimoku位置"}
+  for col in ['ichimoku', 'kama']:
     
     col_p = rp_cols[col]
     col_d = f'{col}_distance'
@@ -2270,9 +2227,9 @@ def calculate_position_score(df):
     
     df['position_score'] += df[col_v]
   df = cal_change(df=df, target_col='position_score', periods=1, add_accumulation=False, add_prefix=True)
-    
+
   # ichimoku-kama position
-  threshold = 3
+  threshold = 2
   position_conditions = {
     'down':         f'position_score < {-threshold}',
     'mid_down':     f'0 > position_score > {-threshold}', 
@@ -2289,26 +2246,18 @@ def calculate_position_score(df):
 
   # ================================ calculate overall distance =============
   term_trend_conditions = {
-    'rrr':    f'kama_distance <= 0 and ichimoku_distance <= 0 and renko_distance <= 0', 
-    'rrg':    f'kama_distance <= 0 and ichimoku_distance <= 0 and renko_distance >  0',
-    'rgr':    f'kama_distance <= 0 and ichimoku_distance >  0 and renko_distance <= 0', 
-    'rgg':    f'kama_distance <= 0 and ichimoku_distance >  0 and renko_distance >  0',
-    'grr':    f'kama_distance >  0 and ichimoku_distance <= 0 and renko_distance <= 0', 
-    'grg':    f'kama_distance >  0 and ichimoku_distance <= 0 and renko_distance >  0',
-    'ggr':    f'kama_distance >  0 and ichimoku_distance >  0 and renko_distance <= 0', 
-    'ggg':    f'kama_distance >  0 and ichimoku_distance >  0 and renko_distance >  0',
+    'rr':    f'kama_distance <= 0 and ichimoku_distance <= 0', 
+    'rg':    f'kama_distance <= 0 and ichimoku_distance >  0', 
+    'gr':    f'kama_distance >  0 and ichimoku_distance <= 0', 
+    'gg':    f'kama_distance >  0 and ichimoku_distance >  0', 
   } 
   term_trend_values = {
-    'rrr':    f'rrr', 
-    'rrg':    f'rrg',
-    'rgr':    f'rgr', 
-    'rgg':    f'rgg',
-    'grr':    f'grr', 
-    'grg':    f'grg',
-    'ggr':    f'ggr', 
-    'ggg':    f'ggg',
+    'rr':    f'rr', 
+    'rg':    f'rg', 
+    'gr':    f'gr', 
+    'gg':    f'gg',
   }
-  df = assign_condition_value(df=df, column='kir_distance', condition_dict=term_trend_conditions, value_dict=term_trend_values, default_value='n')
+  df = assign_condition_value(df=df, column='ki_distance', condition_dict=term_trend_conditions, value_dict=term_trend_values, default_value='n')
 
   # drop unnecessary columns
   for col in col_to_drop:
@@ -2511,7 +2460,7 @@ def add_candlestick_patterns(df):
       df[f'{col}_ma'] = sm(series=df[f'candle_{col}'], periods=ma_period).mean()
       df[f'{col}_std'] = sm(series=df[f'candle_{col}'], periods=ma_period).std()
       df[f'{col}_diff'] = (df[f'candle_{col}'] - df[f'{col}_ma'])/df[f'{col}_std']
-      # col_to_drop += [f'{col}_ma', f'{col}_std', f'{col}_diff'] # 
+      col_to_drop += [f'{col}_ma', f'{col}_std', f'{col}_diff'] # 
 
     # long/short shadow
     conditions = {
@@ -2526,7 +2475,7 @@ def add_candlestick_patterns(df):
       '短实体': f'(entity_diff <= {-std_factor})'} 
     values = {'长实体': 'u', '短实体': 'd'}
     df = assign_condition_value(df=df, column='entity_trend', condition_dict=conditions, value_dict=values, default_value='n')
-  
+
   # patterns that consist only 1 candlestick
   if '1_candle' > '':
     # cross/highwave
@@ -2578,7 +2527,7 @@ def add_candlestick_patterns(df):
       '看空腰带': '(entity_trend != "d" and candle_entity_pct > 0.5) and (position == "up" and candle_upper_shadow_pct <= 0.05 and candle_lower_shadow_pct >= 0.15 and candle_color == -1)'}
     values = {'看多腰带': 'u', '看空腰带': 'd'}
     df = assign_condition_value(df=df, column='腰带_trend', condition_dict=conditions, value_dict=values, default_value='n')
-  
+
   # patterns that consist multiple candlesticks
   if 'multi_candle' > '':
 
@@ -2641,12 +2590,12 @@ def add_candlestick_patterns(df):
     # 启明星/黄昏星
     conditions = {
       # 2-1 down, 3-2up, 2处于低位, 1-红色非小实体, 3-长实体 或 3-middle > 1-top, 2-非长实体, 2-顶部 < 1/3-底部
-      '启明星': '(prev_相对candle位置 == "down" and 相对candle位置 == "up" and position == "down") and (kir_distance == "rrr" or prev_极限_trend == "d") and (prev_position == "down") and (candle_color == 1 and entity_trend != "d") and (entity_trend == "u" or candle_entity_middle > prev_prev_candle_entity_top) and (prev_entity_trend != "u") and (prev_candle_entity_top < prev_prev_candle_entity_bottom) and (prev_candle_entity_top < candle_entity_bottom)',
+      '启明星': '(prev_相对candle位置 == "down" and 相对candle位置 == "up" and position == "down") and (ki_distance == "rr" or prev_极限_trend == "d") and (prev_position == "down") and (candle_color == 1 and entity_trend != "d") and (entity_trend == "u" or candle_entity_middle > prev_prev_candle_entity_top) and (prev_entity_trend != "u") and (prev_candle_entity_top < prev_prev_candle_entity_bottom) and (prev_candle_entity_top < candle_entity_bottom)',
       # 2-1 up, 3-2 down, 2处于高位, 1-绿色, 3-红色, 3-长实体 或 3-middle > 1-middle, 2-非长实体, 2-底部 > 1/3-顶部
-      '黄昏星': '(prev_相对candle位置 == "up" and 相对candle位置 == "down" and position == "up") and (kir_distance == "ggg" or prev_极限_trend == "u") and (prev_position == "up") and (prev_prev_candle_color == 1 and candle_color == -1) and (entity_trend == "u" or candle_entity_middle < prev_prev_candle_entity_middle) and (prev_entity_trend != "u")'}
+      '黄昏星': '(prev_相对candle位置 == "up" and 相对candle位置 == "down" and position == "up") and (ki_distance == "gg" or prev_极限_trend == "u") and (prev_position == "up") and (prev_prev_candle_color == 1 and candle_color == -1) and (entity_trend == "u" or candle_entity_middle < prev_prev_candle_entity_middle) and (prev_entity_trend != "u")'}
     values = {'启明星': 'u', '黄昏星': 'd'}
     df = assign_condition_value(df=df, column='启明黄昏_trend', condition_dict=conditions, value_dict=values, default_value='n')
-    
+
   # days since signal triggered
   df['up_pattern_score'] = 0
   df['down_pattern_score'] = 0
@@ -6265,7 +6214,7 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   if ax is None:
     fig = mpf.figure(figsize=plot_args['figsize'])
     ax = fig.add_subplot(1,1,1, style='yahoo')
-
+  
   # as we usually ploting data within a year, therefore log_y is not necessary
   # ax.set_yscale("log")
 
@@ -6355,7 +6304,7 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   if extended is not None:
     extended_data = df[ext_columns].tail(extended).copy()
     ax.plot(extended_data, linestyle=':', color='white', zorder=default_zorders['extended'])
-  
+
   # plot key line prices
   if 'add_line_value' > '':
     
@@ -6421,7 +6370,7 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
   ax.grid(True, axis='x', linestyle=':', linewidth=0.5)
   ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
-  
+
   # return ax
   if use_ax is not None:
     return ax

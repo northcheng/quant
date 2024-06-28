@@ -191,7 +191,7 @@ def synchronize_file(local_folder, remote_folder, newer_only=False, syn_file=Tru
             # remove local file if exists
             if os.path.exists(lf_abs_path):
               os.remove(lf_abs_path)
-              print(f'remove {lf_abs_path}')
+              print(f'remove {lf_abs_path}', end=', ')
 
             # copy remote file
             shutil.copyfile(rf_abs_path, lf_abs_path)
@@ -231,7 +231,7 @@ def synchronize_file(local_folder, remote_folder, newer_only=False, syn_file=Tru
             # remove local folder if exists
             if os.path.exists(lfd_abs_path) and os.path.isdir(lfd_abs_path):
               shutil.rmtree(lfd_abs_path)
-              print(f'remove {lfd_abs_path}')
+              print(f'remove {lfd_abs_path}', end=', ')
 
             # copy remote folder
             shutil.copytree(rfd_abs_path, lfd_abs_path)
