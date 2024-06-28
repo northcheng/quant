@@ -44,7 +44,7 @@
   "visualization": {
     "plot_args": {
       "plot_ratio": {
-        "signals": 4.2, "adx": 2,
+        "signals": 4.5, "adx": 2,
         "main_indicators": 10, "volume":1
       },
       
@@ -69,8 +69,8 @@
 
           "边界",
           "距离",
-          "完美",
           "前瞻",
+          "一般",
 
           "-----",
           "support_score",
