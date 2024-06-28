@@ -2325,23 +2325,23 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
     'green_up':             f'candle_color == 1 and 相对candle位置 == "up"', 
     'green_out':            f'candle_color == 1 and 相对candle位置 == "out"', 
 
-    'green_green_mid_down': f'prev_candle_color == 1 and candle_color == 1 and 相对candle位置 in ["mid_down"]',
-    'green_green_mid':      f'prev_candle_color == 1 and candle_color == 1 and 相对candle位置 in ["mid"]',
-    'green_green_mid_up':   f'prev_candle_color == 1 and candle_color == 1 and 相对candle位置 in ["mid_up"]', 
-    'red_green_mid_down':   f'prev_candle_color ==-1 and candle_color == 1 and 相对candle位置 in ["mid_down"]',
-    'red_green_mid':        f'prev_candle_color ==-1 and candle_color == 1 and 相对candle位置 in ["mid"]',
-    'red_green_mid_up':     f'prev_candle_color ==-1 and candle_color == 1 and 相对candle位置 in ["mid_up"]', 
+    'green_green_mid_down': f'pre_candle_color == 1 and candle_color == 1 and 相对candle位置 in ["mid_down"]',
+    'green_green_mid':      f'pre_candle_color == 1 and candle_color == 1 and 相对candle位置 in ["mid"]',
+    'green_green_mid_up':   f'pre_candle_color == 1 and candle_color == 1 and 相对candle位置 in ["mid_up"]', 
+    'red_green_mid_down':   f'pre_candle_color ==-1 and candle_color == 1 and 相对candle位置 in ["mid_down"]',
+    'red_green_mid':        f'pre_candle_color ==-1 and candle_color == 1 and 相对candle位置 in ["mid"]',
+    'red_green_mid_up':     f'pre_candle_color ==-1 and candle_color == 1 and 相对candle位置 in ["mid_up"]', 
     
     'red_down':             f'candle_color == -1 and 相对candle位置 == "down"', 
     'red_up':               f'candle_color == -1 and 相对candle位置 == "up"', 
     'red_out':              f'candle_color == -1 and 相对candle位置 == "out"', 
 
-    'green_red_mid_down':   f'prev_candle_color == 1 and candle_color ==-1 and 相对candle位置 in ["mid_down"]',
-    'green_red_mid':        f'prev_candle_color == 1 and candle_color ==-1 and 相对candle位置 in ["mid"]',
-    'green_red_mid_up':     f'prev_candle_color == 1 and candle_color ==-1 and 相对candle位置 in ["mid_up"]', 
-    'red_red_mid_down':     f'prev_candle_color ==-1 and candle_color ==-1 and 相对candle位置 in ["mid_down"]',
-    'red_red_mid':          f'prev_candle_color ==-1 and candle_color ==-1 and 相对candle位置 in ["mid"]',
-    'red_red_mid_up':       f'prev_candle_color ==-1 and candle_color ==-1 and 相对candle位置 in ["mid_up"]', 
+    'green_red_mid_down':   f'pre_candle_color == 1 and candle_color ==-1 and 相对candle位置 in ["mid_down"]',
+    'green_red_mid':        f'pre_candle_color == 1 and candle_color ==-1 and 相对candle位置 in ["mid"]',
+    'green_red_mid_up':     f'pre_candle_color == 1 and candle_color ==-1 and 相对candle位置 in ["mid_up"]', 
+    'red_red_mid_down':     f'pre_candle_color ==-1 and candle_color ==-1 and 相对candle位置 in ["mid_down"]',
+    'red_red_mid':          f'pre_candle_color ==-1 and candle_color ==-1 and 相对candle位置 in ["mid"]',
+    'red_red_mid_up':       f'pre_candle_color ==-1 and candle_color ==-1 and 相对candle位置 in ["mid_up"]', 
   } 
   candle_values = {
     'green_up':             0.99, 
@@ -5703,7 +5703,26 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
           tmp_data = df.query(f'(完美_down == -1)')
           if len(tmp_data) > 0:
             ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='red', alpha=tmp_data[tmp_col_a])
+  
+  # poteltials
+  if signal_x in ["candle_position"]:
 
+    tmp_col_v = f'{signal_x}_score'
+    tmp_col_a = f'{signal_x}_alpha'
+    threhold = 0.000
+
+    df[tmp_col_a] = df[tmp_col_v].abs()
+
+    tmp_data = df.query(f'({tmp_col_v} > {threhold})')
+    if len(tmp_data) > 0:
+      # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='green', alpha=tmp_data[tmp_col_a].fillna(0))
+  
+    tmp_data = df.query(f'({tmp_col_v} < {-threhold})')
+    if len(tmp_data) > 0:
+      # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='red', alpha=tmp_data[tmp_col_a].fillna(0))
+    
   # return ax
   if use_ax is not None:
     return ax
