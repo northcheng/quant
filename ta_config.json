@@ -44,7 +44,7 @@
   "visualization": {
     "plot_args": {
       "plot_ratio": {
-        "signals": 4.5, "adx": 2,
+        "signals": 5, "adx": 2,
         "main_indicators": 10, "volume":1
       },
       
@@ -66,6 +66,8 @@
       },
       "signals": {
         "signal_list": [  
+
+          "位置",
           "边界",
           "距离",
           "前瞻",
@@ -74,6 +76,7 @@
           "-----",
           "support_score",
           "break_up_score",
+          "crossover_score",
           "break_down_score",                  
           "resistant_score",
 
