@@ -1336,7 +1336,7 @@ def calculate_ta_signal(df):
                                 (cross_down_score < 0) or
                                 (resistant_score < -1) or
                                 (kama_distance_status in ['posdown']) or 
-                                (ichimoku_distance_status in ['negdown', 'negnone'] and (ichimoku_distance_middle <= 0 or ichimoku_rate <= 0))
+                                (ichimoku_distance_status in ['negdown', 'negnone'] and (ichimoku_distance_middle < 0 or ichimoku_rate < 0))
                               )
                             )
                           )
@@ -1384,19 +1384,19 @@ def calculate_ta_signal(df):
     #                       )
     #                       '''.replace('\n', ''),
 
-    # B: 去除高位买入的信号  
-    '高位波动':           '''
-                          (signal == "b") and
-                          (
-                            (
-                              ki_distance in ['gg'] and
-                              (
-                                (candle_color == -1 and break_down_score < 0) or
-                                (十字星_trend != "n")
-                              )
-                            )                     
-                          )
-                          '''.replace('\n', ''),
+    # # B: 去除高位买入的信号  
+    # '高位波动':           '''
+    #                       (signal == "b") and
+    #                       (
+    #                         (
+    #                           ki_distance in ['gg'] and
+    #                           (
+    #                             (candle_color == -1 and break_down_score < 0) or
+    #                             (十字星_trend != "n")
+    #                           )
+    #                         )                     
+    #                       )
+    #                       '''.replace('\n', ''),
 
     # # B: 去除趋势微弱的信号  
     # '趋势微弱':           '''
