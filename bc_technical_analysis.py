@@ -1480,8 +1480,8 @@ def calculate_ta_signal(df):
     '4':                  '(3>= signal_day > 1)', 
     '3':                  '(signal_day == 1)', 
     '2':                  '(signal_day == 1) and ((adx_strong_day > 0) or (adx_direction_start < -10))', 
-    '1':                  '(signal_day == 1) and (adx_strong_day > 0) and (adx_direction_start < -10) and (ichimoku_distance < 0 and 相对ichimoku位置 in ["mid_down", "mid"])', 
-    '0':                  '(signal_day == 1) and (adx_strong_day > 0) and (adx_direction_start < -10) and (ichimoku_distance < 0 and 相对ichimoku位置 in ["down"])', 
+    '1':                  '(signal_day == 1) and (adx_strong_day > 0) and (adx_direction_start < -10) and (ichimoku_distance < 0) and (相对ichimoku位置 in ["mid_down", "mid"])', 
+    '0':                  '(signal_day == 1) and (adx_strong_day > 0) and (adx_direction_start < -10) and (ichimoku_distance < 0) and (相对ichimoku位置 in ["down"])', 
     # '11':                 '(长期波动 < 0) or (趋势微弱 < 0) or (受到阻挡 < 0)',
     # '12':                 '距离_down < 0'
   } 
