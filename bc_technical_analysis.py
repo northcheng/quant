@@ -1090,9 +1090,9 @@ def calculate_ta_signal(df):
 
     '距离_up':            '''
                           (
-                            (adx_distance_status in ["posup", 'negup', 'noneup']) and 
+                            (adx_distance_status in ['posup', 'negup', 'noneup']) and 
                             (
-                              (ichimoku_distance_status in ["posup", 'negup', 'noneup']) or
+                              (ichimoku_distance_status in ['posup', 'negup', 'noneup']) or
                               (ichimoku_distance_status in ['posnone', 'negnone', 'nonenone'] and 
                               (ichimoku_rate >= 0) and (tankan_rate_none_zero > 0 or kijun_rate_none_zero > 0)) 
                             ) and 
@@ -1102,9 +1102,9 @@ def calculate_ta_signal(df):
 
     '距离_down':          '''
                           (
-                            (adx_distance_status in ['posdown', "negdown"] or (adx_distance_status in ['posup', "negup"] and adx_distance_change < 0 and candle_position_score < 0)) and 
+                            (adx_distance_status in ['posdown', 'negdown'] or (adx_distance_status in ['posup', 'negup'] and adx_distance_change < 0 and candle_position_score < 0)) and 
                             (
-                              ichimoku_distance_status in ['posdown', "negdown", 'nonedown'] or
+                              ichimoku_distance_status in ['posdown', 'negdown', 'nonedown'] or
                               (ichimoku_distance_status in ['posnone', 'negnone', 'nonenone'] and 
                               (ichimoku_rate <= 0) and (tankan_rate_none_zero < 0 or kijun_rate_none_zero < 0))
                             ) and 
@@ -1285,8 +1285,8 @@ def calculate_ta_signal(df):
                     (trigger_score < 0 or 位置_down < 0)
                   ) or
                   (
-                    ki_distance in ['gg', 'gr'] and 
                     potential_score == 0 and 
+                    ki_distance in ['gg', 'gr'] and 
                     (potential_down_score < 0 and trigger_score < 0)
                   )
                   '''.replace('\n', ''),
@@ -1322,9 +1322,9 @@ def calculate_ta_signal(df):
                           (signal == "b") and 
                           (
                             (
+                              (candle_position_score < 0.66) and
                               (adx_value > 10 and adx_direction_start > 10) and
-                              (adx_power_day < 0 or adx_direction_day < 0) and
-                              (candle_position_score < 0.66)
+                              (adx_power_day < 0 or adx_direction_day < 0)
                             ) or
                             (
                               (adx_power_day < 0 and adx_power_start_adx_value > 10 and adx_value > -10) and
@@ -1455,8 +1455,8 @@ def calculate_ta_signal(df):
 
     # B|S: 去除无触发的信号
     '未有触发':           '''
-                          (signal == "b" and 位置_up == 0 and trigger_score <= 0 and 位置_up == 0) or 
-                          (signal == "s" and 位置_down == 0 and trigger_score >= 0 and 位置_down == 0)
+                          (signal == "b" and 位置_up == 0 and trigger_score <= 0) or 
+                          (signal == "s" and 位置_down == 0 and trigger_score >= 0)
                           '''.replace('\n', ''),
   } 
   for c in none_signal_conditions.keys():
@@ -1480,8 +1480,8 @@ def calculate_ta_signal(df):
     '4':                  '(3>= signal_day > 1)', 
     '3':                  '(signal_day == 1)', 
     '2':                  '(signal_day == 1) and ((adx_strong_day > 0) or (adx_direction_start < -10))', 
-    '1':                  '(signal_day == 1) and (adx_strong_day > 0) and (adx_direction_start < -10) and (ichimoku_distance < 0 and 相对ichimoku位置 in ["mid_down", "mid"]) and (ichimoku_distance_status in ["posup"])', 
-    '0':                  '(signal_day == 1) and (adx_strong_day > 0) and (adx_direction_start < -10) and (ichimoku_distance < 0 and 相对ichimoku位置 in ["down"]) and (ichimoku_distance_status in ["posup"] and ichimoku_distance_status in ["negnone", "posnone"])', 
+    '1':                  '(signal_day == 1) and (adx_strong_day > 0) and (adx_direction_start < -10) and (ichimoku_distance < 0 and 相对ichimoku位置 in ["mid_down", "mid"])', 
+    '0':                  '(signal_day == 1) and (adx_strong_day > 0) and (adx_direction_start < -10) and (ichimoku_distance < 0 and 相对ichimoku位置 in ["down"])', 
     # '11':                 '(长期波动 < 0) or (趋势微弱 < 0) or (受到阻挡 < 0)',
     # '12':                 '距离_down < 0'
   } 
