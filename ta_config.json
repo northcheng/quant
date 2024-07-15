@@ -195,12 +195,7 @@
       "futu": {
         "real": 2000,
         "simu": 10000
-      },
-      "simulation_account": 10000,
-      "global_account": 2000,
-      "standard_account": 2000,
-      "SIMULATE": 10000,
-      "REAL": 2000
+      }
     },
     "pool": {
       "tiger": {
@@ -210,12 +205,7 @@
       "futu": {
         "real": "futu_pool",
         "simu": "etf_3x_all"
-      },
-      "simulation_account": "universe",
-      "global_account": "tiger_pool",
-      "standard_account": "tiger_pool",
-      "SIMULATE": "universe",
-      "REAL": "futu_pool"
+      }
     },
     "stop_profit": {
       "tiger": {
