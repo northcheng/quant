@@ -5723,7 +5723,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     return ax
 
 # plot adx chart
-def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=default_plot_args):
+def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=default_plot_args, interval='day'):
   """
   Plot adx chart
 
@@ -5746,6 +5746,16 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
     fig = mpf.figure(figsize=plot_args['figsize'])
     ax = fig.add_subplot(1,1,1, style='yahoo')
 
+  if interval == 'day':
+    bar_width = datetime.timedelta(days=1)
+  elif interval == 'week':
+    bar_width = datetime.timedelta(days=7)
+  elif interval == 'month':
+    bar_width = datetime.timedelta(days=30)
+  elif interval == 'year':
+    bar_width = datetime.timedelta(days=365)
+  else:
+    pass
   # idxs = df.index.tolist()
   # min_idx = df.index.min()
   # max_idx = df.index.max()
@@ -5823,7 +5833,7 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   # ax.bar(red_df.index, height=red_df[target_col], color='red', edge_color=(0,0,0,1), width=datetime.timedelta(days=1), alpha=0.4, label=f'-{target_col}')
 
   # df['adx_value'] = df['adx_value'] * (df['adx_strength'] / 25)
-  plot_bar(df=df, target_col=target_col, alpha=0.4, width=datetime.timedelta(days=1), color_mode='up_down', edge_color=(0.5,0.5,0.5,0), benchmark=0, title='', use_ax=ax, plot_args=default_plot_args)
+  plot_bar(df=df, target_col=target_col, alpha=0.4, width=bar_width, color_mode='up_down', edge_color=(0.5,0.5,0.5,0), benchmark=0, title='', use_ax=ax, plot_args=default_plot_args)
 
   # annotate adx (adx_strength_change)
   ylim = ax.get_ylim()
@@ -6258,12 +6268,13 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
     ax.fill_between(df.index, df.tankan, df.kijun, where=df.tankan > df.kijun, facecolor='green', interpolate=True, alpha=alpha, zorder=default_zorders['ichimoku'])
     ax.fill_between(df.index, df.tankan, df.kijun, where=df.tankan <= df.kijun, facecolor='red', interpolate=True, alpha=alpha, zorder=default_zorders['ichimoku'])
 
-    alpha = 0.6
-    extended_idx = df.index[-extended:]
-    tmp_df = df.loc[extended_idx].copy()
-    tmp_hatch = None
-    ax.fill_between(tmp_df.index, tmp_df.tankan, tmp_df.kijun, where=tmp_df.tankan > tmp_df.kijun, hatch=tmp_hatch, facecolor='white', edgecolor='grey', interpolate=True, alpha=alpha, zorder=default_zorders['ichimoku'])
-    ax.fill_between(tmp_df.index, tmp_df.tankan, tmp_df.kijun, where=tmp_df.tankan <= tmp_df.kijun, hatch=tmp_hatch, facecolor='white', edgecolor='grey', interpolate=True, alpha=alpha, zorder=default_zorders['ichimoku'])
+    if extended is not None:
+      alpha = 0.6
+      extended_idx = df.index[-extended:]
+      tmp_df = df.loc[extended_idx].copy()
+      tmp_hatch = None
+      ax.fill_between(tmp_df.index, tmp_df.tankan, tmp_df.kijun, where=tmp_df.tankan > tmp_df.kijun, hatch=tmp_hatch, facecolor='white', edgecolor='grey', interpolate=True, alpha=alpha, zorder=default_zorders['ichimoku'])
+      ax.fill_between(tmp_df.index, tmp_df.tankan, tmp_df.kijun, where=tmp_df.tankan <= tmp_df.kijun, hatch=tmp_hatch, facecolor='white', edgecolor='grey', interpolate=True, alpha=alpha, zorder=default_zorders['ichimoku'])
   
   # plot kama_fast/slow lines 
   if 'kama' in target_indicator:
@@ -6978,7 +6989,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
 
     # plot adx
     elif tmp_indicator == 'adx':
-      plot_adx(df=plot_data, use_ax=axes[tmp_indicator], title=tmp_indicator, plot_args=subplot_args)
+      plot_adx(df=plot_data, use_ax=axes[tmp_indicator], title=tmp_indicator, plot_args=subplot_args, interval=interval)
 
     # plot volume  
     elif tmp_indicator == 'volume':
