@@ -6344,8 +6344,8 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
 
   # plot key line prices
   if 'add_line_value' > '':
-    
-    annotation_idx = max_idx  + datetime.timedelta(days=18)
+    interval_factor = {'day':1, 'week': 6, 'month': 25}
+    annotation_idx = max_idx  + datetime.timedelta(days=18*interval_factor[interval])
     ylim = ax.get_ylim()
     y_min = ylim[0]
     y_max = ylim[1]
