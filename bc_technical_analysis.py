@@ -5386,14 +5386,14 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
     # annotate adx (adx_strength_change)
     v = round(df.loc[max_idx, 'adx_distance'], 1)
-    v_change = round(df.loc[max_idx, 'adx_distance_change'],1)
+    v_change = round(df.loc[max_idx, 'adx_distance_change'],2)
     y_signal = y_max - 1.5
     text_color = 'green' if v_change > 0 else 'red'
     plt.annotate(f'{v}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
     # annotate adx_value(adx_value_change)
     v = round(df.loc[max_idx, 'overall_change'],1)
-    v_change = round(df.loc[max_idx, 'overall_change_diff'],1)
+    v_change = round(df.loc[max_idx, 'overall_change_diff'],2)
     y_signal = y_max - 4 # round(y_middle)
     text_color = 'green' if v_change > 0 else 'red'
     plt.annotate(f'{v}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
@@ -5653,7 +5653,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     if len(tmp_data) > 0:
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='red', alpha=tmp_data[tmp_col_a].fillna(0))
 
-  # poteltials
+  # potentials
   if signal_x in ["前瞻", "完美", "距离", "一般", "反弹", "边界", "蜡烛", "位置"]:
 
     tmp_col_up = f'{signal_x}_up'
@@ -5698,8 +5698,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
           if len(tmp_data) > 0:
             ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='red', alpha=tmp_data[tmp_col_a])
 
-  
-  # poteltials
+  # candle position
   if signal_x in ["candle_position"]:
 
     tmp_col_v = f'{signal_x}_score'
