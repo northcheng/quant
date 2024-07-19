@@ -321,14 +321,11 @@ class Trader(object):
     if is_print:
       self.logger.info(f'[{self.account_type[:4]}]: net value {old_net_value} --> {net_value}')
 
-
   # auto trade according to signals
   def signal_trade(self, signal, money_per_sec, order_type='market', trading_fee=5, pool=None, according_to_record=True, minimum_position=None):    
     
     # set symbol to index
     if len(signal) > 0:
-      # signal = signal.rename(columns={'代码':'symbol', '交易信号':'action'})
-      # signal = signal.set_index('symbol')
 
       # filter sec with pool
       if pool is not None:

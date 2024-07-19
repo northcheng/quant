@@ -1499,6 +1499,13 @@ def create_week_data(df):
     if row['week_day'] < row['previous_week_day']:
       week_count += 1
     df.loc[index, 'week_count'] = week_count
+    
+  # use adjusted_close as close, and calculate related open/high/low
+  for col in ['Open', 'High', 'Low']:
+    df[f'{col}_to_Close'] = (df[col] / df['Close'])
+  df['Close'] = df['Adj Close']
+  for col in ['Open', 'High', 'Low']:
+    df[col] = df[f'{col}_to_Close'] * df['Close']
 
   # create an empty dict for storing result
   week_data = {'Date': [], 'Open': [], 'High': [], 'Low': [], 'Close': [], 'Volume': [], 'Dividend':[], 'Split':[]}
@@ -1552,6 +1559,14 @@ def create_month_data(df):
   start_month = util.time_2_string(min_index)[:7]
   end_month = util.time_2_string(max_index)[:7]
   
+  # use adjusted_close as close, and calculate related open/high/low
+  for col in ['Open', 'High', 'Low']:
+    df[f'{col}_to_Close'] = (df[col] / df['Close'])
+  df['Close'] = df['Adj Close']
+  for col in ['Open', 'High', 'Low']:
+    df[col] = df[f'{col}_to_Close'] * df['Close']
+  
+
   # create an empty dict for storing result
   month_data = {'Date': [], 'Open': [], 'High': [], 'Low': [], 'Close': [], 'Volume': [], 'Dividend':[], 'Split':[]}
   
@@ -1562,7 +1577,7 @@ def create_month_data(df):
       # get current month
       tmp_period = f'{year}-{month:02}'
       if (tmp_period >= start_month ) and (tmp_period <= end_month):
-        tmp_data = df[tmp_period]
+        tmp_data = df.loc[tmp_period].copy()
         
         # skip current period if no data
         if len(tmp_data) == 0:
