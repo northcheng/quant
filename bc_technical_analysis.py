@@ -1082,7 +1082,7 @@ def calculate_ta_signal(df):
                           '''.replace('\n', ''),    
     
     '完美_up':            '''
-                          (adx_direction_day == 1 and adx_value < -10) and 
+                          (0 < adx_direction_day <= 5 and adx_value < -10) and 
                           (adx_day == 1 and adx_distance_change > 0) and
                           (overall_change_day == 1 and overall_change_diff > 0)
                           '''.replace('\n', ''),
@@ -1260,7 +1260,7 @@ def calculate_ta_signal(df):
     'buy':        '''
                   (
                     potential_score > 0 and 
-                    (trigger_score > 0 or 位置_up > 0)
+                    (trigger_score > 0 or 位置_up > 0 or 完美_up > 0)
                   ) or
                   (
                     ki_distance in ['rr', 'rg'] and 
@@ -1422,8 +1422,15 @@ def calculate_ta_signal(df):
 
     # B|S: 去除无触发的信号
     '未有触发':           '''
-                          (signal == "b" and 位置_up == 0 and trigger_score <= 0) or 
-                          (signal == "s" and 位置_down == 0 and trigger_score >= 0)
+                          (signal == "b" and (位置_up == 0 and 完美_up == 0) and trigger_score <= 0) or 
+                          (signal == "s" and (位置_down == 0 and 完美_down == 0)and trigger_score >= 0)
+                          '''.replace('\n', ''),
+
+    # B: 去除长上影线的买入信号
+    '长上影线':           '''
+                          (signal == "b") and 
+                          (resistant_score < 0) and 
+                          (candle_upper_shadow_pct >= 0.666)
                           '''.replace('\n', ''),
   } 
   for c in none_signal_conditions.keys():
@@ -1447,8 +1454,8 @@ def calculate_ta_signal(df):
     '4':                  '(3>= signal_day > 1)', 
     '3':                  '(signal_day == 1)', 
     '2':                  '(signal_day == 1) and ((adx_strong_day > 0) or (adx_direction_start < -10))', 
-    '1':                  '(signal_day == 1) and (adx_strong_day > 0) and (adx_direction_start < -10) and (ichimoku_distance < 0) and (相对ichimoku位置 in ["mid_down", "mid"])', 
-    '0':                  '(signal_day == 1) and (adx_strong_day > 0) and (adx_direction_start < -10) and (ichimoku_distance < 0) and (相对ichimoku位置 in ["down"])', 
+    '1':                  '(signal_day == 1) and (adx_strong_day > 0) and (adx_direction_start < -10) and (ichimoku_distance < 0) and (相对ichimoku位置 in ["down", "mid_down", "mid"])', 
+    '0':                  '(完美_up > 0)', 
     # '11':                 '(长期波动 < 0) or (趋势微弱 < 0) or (受到阻挡 < 0)',
     # '12':                 '距离_down < 0'
   } 
