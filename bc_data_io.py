@@ -336,7 +336,7 @@ def get_data_from_ak(symbol, start_date=None, end_date=None, interval='d', adjus
     market = 'us'
   elif symbol_end.isdigit():
     market = 'cn'
-  
+
   # get data
   if market == 'us':
     result = ak.stock_us_hist(symbol=symbol, period=period, start_date=start_date, end_date=end_date, adjust=adjust)
@@ -345,7 +345,7 @@ def get_data_from_ak(symbol, start_date=None, end_date=None, interval='d', adjus
     result = ak.stock_zh_a_hist(symbol=symbol, period=period, start_date=start_date, end_date=end_date, adjust=adjust)
   else:
     pass
-  
+
   # postprocess: rename columns, add extra columns
   result = post_process_download_data(result, 'ak')
 
@@ -1383,12 +1383,12 @@ def update_stock_data_from_marketstack(symbols, stock_data_path, api_key, file_f
 
 
 def update_stock_data_from_ak(symbols, stock_data_path, file_format='.csv', update_mode='eod', required_date=None, window_size=3, is_print=False, is_return=False, is_save=True, cn_stock=False):
-  
+
   # verify update_mode
   if update_mode not in ['eod', 'refresh', 'both', 'realtime']:
     print(f'unknown update mode: {update_mode}')
     return None
-  
+
   # get the benchmark of eod data
   today = util.time_2_string(datetime.datetime.today().date())
   start_date = util.string_plus_day(today, -7)
@@ -1413,7 +1413,7 @@ def update_stock_data_from_ak(symbols, stock_data_path, file_format='.csv', upda
   #   symbols = [x.split('.')[0] for x in symbols]
 
   for symbol in symbols:
-    
+
     # init symbol data and its most recent date
     data[symbol] = pd.DataFrame()
     tmp_data_date = None
@@ -1444,6 +1444,7 @@ def update_stock_data_from_ak(symbols, stock_data_path, file_format='.csv', upda
         print(f'from ', end='0000-00-00 ' if tmp_data_date is None else f'{tmp_data_date} ')
       
       # download latest data for current symbol
+      print(file_name)
       new_data = get_data_from_ak(file_name, start_date=tmp_data_date, end_date=required_date, interval='d', is_print=is_print)
 
       # append new data to the origin
