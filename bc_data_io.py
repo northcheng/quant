@@ -2025,7 +2025,7 @@ def update_portfolio_support_resistant(config, data, portfolio_file_name='portfo
 
 
 #----------------------------- Email sending ------------------------------------#
-def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subject=None, platform=['tiger'], signal_file_date=None, log_file_date=None, test=False, cn_stock=False, pool=None):
+def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subject=None, platform=['tiger'], signal_file_date=None, log_file_date=None, test=False, pool=None):
   """
   send automatic_trader's trading result and technical_analyst's calculation result by email
 
@@ -2064,21 +2064,19 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
     portfolio_record = read_config(file_path=config['config_path'], file_name='portfolio.json')
 
     # for us_stock
-    if not cn_stock:
-      if 'tiger' in platform:
-        pr = portfolio_record.get('tiger')
-        assets['glob'] = pr.get('global_account')
-        # assets['simu'] = pr.get('simulation_account') 
+    if 'tiger' in platform:
+      pr = portfolio_record.get('tiger')
+      assets['glob'] = pr.get('global_account')
+      # assets['simu'] = pr.get('simulation_account') 
 
-      if 'futu' in platform:
-        pr = portfolio_record.get('futu')
-        assets['REAL'] = pr.get('REAL')
-        # assets['SIMU'] = pr.get('SIMULATE')
+    if 'futu' in platform:
+      pr = portfolio_record.get('futu')
+      assets['REAL'] = pr.get('REAL')
+      # assets['SIMU'] = pr.get('SIMULATE')
     
     # for cn_stock
-    else:
-      pr = portfolio_record.get('pingan')
-      assets['snowball'] = pr.get('snowball')
+    pr = portfolio_record.get('pingan')
+    assets['snowball'] = pr.get('snowball')
 
   # construct asset summary
   asset_info = '<h3>Portfolio</h3><ul>'

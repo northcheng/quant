@@ -33,7 +33,6 @@
     "save_ta_data": true,
     
     "update_mode": "eod",
-    "cn_stock": false,
 
     "look_back_window": {
       "day": 300,
