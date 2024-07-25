@@ -39,14 +39,12 @@ from quant import bc_util as util
 est_tz = pytz.timezone('US/Eastern')
 utc_tz = pytz.timezone('UTC')
 default_eod_key = 'OeAFFmMliFG5orCUuwAKQ8l4WWFQ67YX'
-headers = {
-    'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.164 Safari/537.36',
-  }
+headers = {'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.164 Safari/537.36'}
 
 # standards
-STANDARD_US_SYMBOL = 'AAPL'
-STANDARD_CN_SYMBOL = '000001' # 00700
-STANDARD_INTERVAL = 'd' # /w/m
+# STANDARD_US_SYMBOL = 'AAPL'
+# STANDARD_CN_SYMBOL = '000001' # 00700
+# STANDARD_INTERVAL = 'd' # /w/m
 
 # EOD is mainly used for US stock eod and realtime(15min-delayed) price:  AAPL
 # EOD is able to access CN stock eod price, but the price is un-adjusted: 000001.SHE
@@ -60,6 +58,15 @@ STANDARD_INTERVAL = 'd' # /w/m
 # CN_REALTIME_CANDIDATES: easyquotation
 # HK_EOD_CANDIDATES: eod, ak, easyquotation
 # HK_REALTIME_CANDIDATES: easyquotation
+
+default_data_sources = {
+  'us_eod': 'eod', 
+  'us_realtime': 'eod', 
+  'cn_eod': 'ak', 
+  'cn_realtime': 'easyquotation', 
+  'hk_eod': 'ak', 
+  'hk_realtime': 'easyquotation'
+}
 
 
 #----------------------------- Stock Data -------------------------------------#
@@ -79,7 +86,7 @@ def add_postfix_for_cn_symbol(symbol):
       postfix = '.SHE' if int(symbol) < 600000 else '.SHG'
 
     # hongkong market
-    elif len(symbol) == 5:
+    elif len(symbol) < 6:
       postfix = '.HK'
 
     else:
@@ -104,53 +111,50 @@ def preprocess_symbol(symbols, style):
   :raises: none
   """
 
+  result = {}
+
   # classify symbols
-  us_symbols = [x for x in symbols if x.isalpha()]
+  us_symbols = [x.upper() for x in symbols if x.isalpha()]
   cn_symbols = [x for x in symbols if x.isdigit()]
   other_symbols = [x for x in symbols if x not in us_symbols and x not in cn_symbols]
   if len(other_symbols) > 0:
     print(f'other symbols found: {other_symbols}')
-  
-  # capatalize us symbols
-  us_symbols = [x.upper() for x in us_symbols]
 
-  # 'AAPL', '000001.SHE'/'600001.SHG/'0700.HK'
+  # e.g. 'AAPL', '000001.SHE'/'600001.SHG/'0700.HK'
   if style == 'eod':
     # us symbols remains tha same
+    for s in us_symbols:
+      result[s] = s
     
     # cn mainland symbols add postfix 
-    mainland_symbols = [x for x in cn_symbols if len(x) == 6]
-    mainland_symbols = [add_postfix_for_cn_symbol(x) for x in mainland_symbols]
+    for s in cn_symbols:
+      result[s] = add_postfix_for_cn_symbol(s[1:] if len(s) == 5 else s)
     
-    # cn hk symbols remove the first 0, add postfix
-    hk_symbols = [x for x in cn_symbols if len(x) == 5]
-    hk_symbols = [add_postfix_for_cn_symbol(x) for x in hk_symbols]
-
-    # cn symbols reunion
-    cn_symbols = mainland_symbols + hk_symbols
-    
-  # '105.AAPL', '000001'/'600001'
+  # e.g. '105.AAPL', '000001'/'600001'
   elif style == 'ak':
     # us symbols add prefix
     us_symbol_list = ak.stock_us_spot_em()
     us_symbol_list['symbol'] = us_symbol_list['代码'].apply(lambda x: x.split('.')[1])
-    us_symbol_list = us_symbol_list.set_index('symbol')
-    us_symbols = us_symbol_list.loc[us_symbols, '代码'].to_list()
-    
-    # cn_symbols remains the same
+    us_symbol_list = us_symbol_list.set_index('symbol')    
+    for s in us_symbols:
+      result[s] = us_symbol_list.loc[s, '代码']
 
-  # '000001'/'600001'
+    # cn_symbols remains the same
+    for s in cn_symbols:
+      result[s] = s
+
+  # e.g. '000001'/'600001'/'00700'
   elif style == 'easyquotation':
+    # remove us symbols
+    
     # cn symbols remains the same
-    pass
+    for s in cn_symbols:
+      result[s] = s
 
   else:
     print(f'Unknown symbol style {style}')
   
-  # reunion
-  symbols = us_symbols + cn_symbols + other_symbols
-
-  return symbols
+  return result
 
 # get symbols from Nasdaq
 def get_symbols(remove_invalid=True, save_path=None, save_name='symbol_list.csv', local_file=None):
@@ -429,48 +433,49 @@ def post_process_download_data(df, source):
 
   return df
 
-# # get data by spedicying datasource
-# def get_data(symbol, start_date=None, end_date=None, interval='d', is_print=False, source='eod', api_key=default_eod_key, add_dividend=True, add_split=True, adjust='qfq'):
-#   """
-#   Download stock data from web sources
+# get data from specific datasource
+def get_data(symbol, start_date=None, end_date=None, interval='d', is_print=False, source='eod', api_key=default_eod_key, add_dividend=True, add_split=True, adjust='qfq'):
+  """
+  Download stock data from web sources
 
-#   :param symbol: target symbol
-#   :param start_date: start date of the data
-#   :param end_date: end date of the data
-#   :param source: datasrouce: 'eod'/'ak'/'easyquotation'
-#   :param interval: period, e.g. d/w/m for eod, daily/weekly/monthly for ak
-#   :param is_print: whether to print download information
-#   :param api_key: [eod] api token to access eod or iex data
-#   :param add_dividend: [eod] whether to add dividend data
-#   :param add_split: [eod] whether to add split data
-#   :param adjust: [ak] adjustment method for price
-#   :returns: dataframe 
-#   :raises: exception when downloading failed
-#   """
-#   data = None
+  :param symbol: target symbol
+  :param start_date: start date of the data
+  :param end_date: end date of the data
+  :param source: datasrouce: 'eod'/'ak'/'easyquotation'
+  :param interval: period, e.g. d/w/m for eod, daily/weekly/monthly for ak
+  :param is_print: whether to print download information
+  :param api_key: [eod] api token to access eod or iex data
+  :param add_dividend: [eod] whether to add dividend data
+  :param add_split: [eod] whether to add split data
+  :param adjust: [ak] adjustment method for price
+  :returns: dataframe 
+  :raises: exception when downloading failed
+  """
+  data = None
 
-#   try:
+  try:
     
-#     # eod
-#     if source == 'eod':
-#       data = get_data_from_eod(symbol=symbol, interval=interval, start_date=start_date, end_date=end_date, is_print=is_print, api_key=api_key, add_dividend=add_dividend, add_split=add_split)
+    # eod(US/CN/HK)
+    if source == 'eod':
+      data = get_data_from_eod(symbol=symbol, interval=interval, start_date=start_date, end_date=end_date, is_print=is_print, api_key=api_key, add_dividend=add_dividend, add_split=add_split)
     
-#     # ak
-#     elif source == 'ak':
-#       data = get_data_from_ak(symbol=symbol, start_date=start_date, end_date=end_date, interval=interval, is_print=is_print, adjust=adjust)
+    # ak(US/CN/HK)
+    elif source == 'ak':
+      interval = {'d':'daily', 'w':'weekly', 'm':'monthly'}[interval]
+      data = get_data_from_ak(symbol=symbol, start_date=start_date, end_date=end_date, interval=interval, is_print=is_print, adjust=adjust)
 
-#     # easyquotation
-#     elif source == 'easyquotation':
-#       data = get_data_from_easyquotation(symbol=symbol, start_date=start_date, end_date=end_date, is_print=is_print)
+    # easyquotation(HK)
+    elif source == 'easyquotation':
+      data = get_data_from_easyquotation(symbol=symbol, is_print=is_print)
 
-#     # otherwise
-#     else:
-#       print(f'data source {source} not found')
+    # otherwise
+    else:
+      print(f'data source {source} not found')
 
-#   except Exception as e:
-#     print(symbol, e)
+  except Exception as e:
+    print(symbol, e)
 
-#   return data
+  return data
 
 # get 15min-delayed US market realtime data from eod
 def get_real_time_data_from_eod(symbols, api_key=default_eod_key, is_print=False, batch_size=15):
@@ -621,6 +626,32 @@ def get_real_time_data_from_easyquotation(symbols, source='sina'):
 
   return df
 
+# get realtime data from specific datasource
+def get_real_time_data(symbols, source='eod', sub_source='sina', api_key=default_eod_key, is_print=False, batch_size=15):
+
+  data = None
+
+  try:
+    
+    symbols_for_source = list(preprocess_symbol(symbols=symbols, style=source).values())
+
+    # eod(US)
+    if source == 'eod':
+      data = get_real_time_data_from_eod(symbols=symbols_for_source, is_print=is_print, api_key=api_key, batch_size=batch_size)
+    
+    # easyquotation (CN/HK)
+    elif source == 'easyquotation':
+      data = get_real_time_data_from_easyquotation(symbols=symbols_for_source, source=sub_source)
+
+    # otherwise
+    else:
+      print(f'data source {source} not found')
+
+  except Exception as e:
+    print(symbols, e)
+
+  return data
+
 # get realtime data for a list of stocks from eod
 def get_stock_briefs_from_eod(symbols, api_key=default_eod_key, batch_size=15):
   """
@@ -666,6 +697,161 @@ def get_stock_briefs(symbols, source='eod', api_key=default_eod_key, batch_size=
     print(f'Unknown source {source}')
 
   return briefs
+
+# update stock data (eod and/or realtime)
+def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_mode='eod', required_date=None, window_size=3, is_print=False, is_return=False, is_save=True, sources=default_data_sources, api_key=default_eod_key, add_dividend=True, add_split=True, batch_size=15, adjust='qfq'):
+  """
+  update local stock data from eod
+
+  :param symbols: list of target symbols
+  :param stock_data_path: where the local stock data files(.csv) stored
+  :param file_format: default is .csv
+  :param update_mode: how to update data - realtime/eod/both(eod+realtime)/refresh(delete and redownload eod)
+  :param required_date: if the local data have already meet the required date, it won't be updated
+  :param is_print: whether to print info when downloading
+  :param is_return: whether to return the updated data
+  :param is_save: whether to save the updated data to local files
+  :param sources: data sources for different markets
+  :param api_key: api token to access eod data
+  :param add_dividend: whether to add dividend data
+  :param add_split: whether to add split data
+  :param batch_size: batch size of symbols of getting real-time data  
+  :returns: dataframe of latest stock data, per row each symbol
+  :raises: none
+  """
+
+  # verify update_mode
+  if update_mode not in ['realtime', 'eod', 'both', 'refresh']:
+    print(f'unknown update mode: {update_mode}')
+    return None
+
+  # classify symbols
+  us_symbols = [x for x in symbols if x.isalpha()]
+  cn_symbols = [x for x in symbols if x.isdigit() and len(x) == 6]
+  hk_symbols = [x for x in symbols if x.isdigit() and len(x) == 5]
+  other_symbols = [x for x in symbols if (x not in us_symbols and x not in cn_symbols and x not in hk_symbols)]
+  symbol_class = {'us': us_symbols, 'cn': cn_symbols, 'hk': hk_symbols, 'other': other_symbols}
+  symbol_count = {'us': len(us_symbols), 'cn': len(cn_symbols), 'hk': len(hk_symbols), 'other': len(other_symbols)}
+  print(f'US({symbol_count["us"]}), CN({symbol_count["cn"]}), HK({symbol_count["hk"]}), Other({symbol_count["other"]})')
+  if symbol_count['other'] > 0:
+    print(f'Unexpected symbols found: {other_symbols}')
+
+  # default dates
+  today = util.time_2_string(datetime.datetime.today().date())
+  start_date = util.string_plus_day(today, -7)
+
+  # set benchmarks for different markets
+  benchmark_symbols = {'us': 'AAPL', 'cn': '000001', 'hk': '00700'}
+  benchmark_dates = {}
+  for mkt in benchmark_symbols.keys():
+    if symbol_count[mkt] > 0:
+      tmp_symbol = benchmark_symbols[mkt]
+      tmp_source = sources[f'{mkt}_eod']
+      tmp_data = get_data(tmp_symbol, start_date=start_date, end_date=today, interval='d', is_print=False, source=tmp_source, api_key=default_eod_key, add_dividend=True, add_split=True, adjust='qfq')
+      tmp_date = util.time_2_string(tmp_data.index.max())
+      benchmark_dates[mkt] = util.string_plus_day(tmp_date, -window_size)
+
+  # for different markets
+  data = {}
+  for mkt in benchmark_symbols.keys():
+
+    if len(symbol_class[mkt]) == 0:
+      continue
+
+    print(f'\n************************* [{mkt.upper()}] ****************************')
+    tmp_source = sources[f'{mkt}_eod']
+    tmp_source_symbols = preprocess_symbol(symbols=symbol_class[mkt], style=tmp_source)
+    up_to_date_symbols = []
+
+    # retry 5 times
+    retry_count = 0
+    while retry_count < 5:
+      try:
+
+        retry_count += 1
+
+        # get the existed data and its latest date for each symbols
+        for symbol in symbol_class[mkt]:
+          
+          # init symbol data and its most recent date
+          data[symbol] = pd.DataFrame()
+          tmp_data_date = None
+
+          # if local data exists, load existed data, update its most current date
+          symbol_file_name = f'{stock_data_path}{symbol}{file_format}'
+          if os.path.exists(symbol_file_name):
+            
+            # delete local data if update_mode == refresh
+            if update_mode == 'refresh':
+              os.remove(symbol_file_name)
+            
+            # otherwise load local data and update its most recent date
+            else:
+              existed_data = load_stock_data(file_path=stock_data_path, file_name=symbol)
+              if existed_data is not None and len(existed_data) > 0:
+                max_idx = existed_data.index.max()
+                if max_idx > util.string_2_time('2020-01-01'):
+                  data[symbol] = existed_data
+                  tmp_data_date = util.time_2_string(max_idx)
+                else:
+                  print(f'max index of {symbol} is invalid({max_idx}), refreshing data')
+                  os.remove(symbol_file_name)
+
+          # update eod data, print updating info
+          if (update_mode in ['eod', 'both', 'refresh']) and (tmp_data_date is None or tmp_data_date < benchmark_dates[mkt]):
+            
+            if is_print:
+              print(f'from ', end='0000-00-00 ' if tmp_data_date is None else f'{tmp_data_date} ')
+            
+            # download latest data for current symbol
+            new_data = get_data(symbol=tmp_source_symbols[symbol], start_date=tmp_data_date, end_date=required_date, interval='d', is_print=is_print, source=tmp_source, api_key=api_key, add_dividend=add_dividend, add_split=add_split, adjust=adjust)
+            # new_data = get_data_from_eod(symbol, start_date=tmp_data_date, end_date=required_date, interval='d', is_print=is_print, api_key=api_key, add_dividend=add_dividend, add_split=add_split)
+          
+            # append new data to the origin
+            data[symbol] = pd.concat([data[symbol], new_data])
+            data[symbol] = util.remove_duplicated_index(df=data[symbol], keep='last').dropna()
+
+            # save data to local csv files
+            if is_save:
+              save_stock_data(df=data[symbol], file_path=stock_data_path, file_name=symbol, file_format=file_format, reset_index=True, index=False)
+          
+          else:
+            up_to_date_symbols.append(symbol)
+            
+        num_symbol_up_to_date = len(up_to_date_symbols)
+        if num_symbol_up_to_date > 0:
+          if is_print:
+            print(f'from {tmp_data_date} ***** - [skip]: <already up-to-date {num_symbol_up_to_date}/{len(symbol_class[mkt])} >')
+
+        # add real-time data when requiring data return and data will NOT be saved
+        if update_mode in ['realtime', 'both']:
+          print('***************** querying real-time data *****************')
+          tmp_source = sources[f'{mkt}_realtime']
+          tmp_sub_source = 'hkquote' if mkt == 'hk' else 'sina'
+          real_time_data = get_real_time_data(symbols=symbol_class[mkt], source=tmp_source, sub_source=tmp_sub_source, api_key=api_key, is_print=is_print, batch_size=batch_size)
+          if tmp_source == 'eod':
+            real_time_data = util.df_2_timeseries(df=real_time_data, time_col='Date')
+
+          # append it corresponding eod data according to symbols
+          for symbol in symbol_class[mkt]:
+            tmp_data = real_time_data.query(f'symbol == "{symbol}"')[data[symbol].columns].copy()
+            if len(tmp_data) == 0:
+              print(f'real-time data not found for {symbol}')
+              continue
+            else:
+              tmp_idx = tmp_data.index.max()
+              for col in data[symbol].columns:
+                data[symbol].loc[tmp_idx, col] = tmp_data.loc[tmp_idx, col]
+              data[symbol] = util.remove_duplicated_index(df=data[symbol], keep='last').dropna()
+
+        break
+      except Exception as e:
+        print(f'[erro]: updating data failed for [{mkt} market], try({retry_count}/5), {type(e)} - {e}')
+        continue
+
+  # return
+  if is_return:
+    return data
 
 
 def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', update_mode='eod', required_date=None, window_size=3, is_print=False, is_return=False, is_save=True, cn_stock=False, api_key=default_eod_key, add_dividend=True, add_split=True, batch_size=15):
