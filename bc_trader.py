@@ -137,7 +137,7 @@ class Trader(object):
     available_cash = self.get_available_cash() if (cash is None) else cash
 
     # get latest price of stock
-    stock_brief = io_util.get_stock_briefs(symbols=[symbol], source='eod', period='1d', interval='1m', api_key=self.eod_api_key).set_index('symbol')
+    stock_brief = io_util.get_stock_briefs(symbols=[symbol], source='eod', api_key=self.eod_api_key).set_index('symbol')
     latest_price = stock_brief.loc[symbol, 'latest_price']
 
     # check if it is affordable
@@ -335,7 +335,7 @@ class Trader(object):
     # if signal list is not empty
     if len(signal) > 0:
       # # get latest price for signals
-      # signal_brief = io_util.get_stock_briefs(symbols=signal.index.tolist(), source='eod', period='1d', interval='1m', api_key=self.eod_api_key).set_index('symbol')
+      # signal_brief = io_util.get_stock_briefs(symbols=signal.index.tolist(), source='eod', api_key=self.eod_api_key).set_index('symbol')
       # signal = pd.merge(signal, signal_brief[['latest_price']], how='left', left_index=True, right_index=True)
 
       # get in-position quantity and latest price for signals
@@ -527,7 +527,7 @@ class Futu(Trader):
         
         # get realtime data for stock in position
         if get_briefs:
-          status = io_util.get_stock_briefs(symbols=position.symbol.tolist(), source='eod', period='1d', interval='1m', api_key=self.eod_api_key)
+          status = io_util.get_stock_briefs(symbols=position.symbol.tolist(), source='eod', api_key=self.eod_api_key)
           if len(status) > 0:
 
             # merge dataframes
@@ -697,7 +697,7 @@ class Tiger(Trader):
 
         # get realtime data for stock in position
         if get_briefs:
-          status = io_util.get_stock_briefs(symbols=result['symbol'].tolist(), source='eod', period='1d', interval='1m', api_key=self.eod_api_key)
+          status = io_util.get_stock_briefs(symbols=result['symbol'].tolist(), source='eod', api_key=self.eod_api_key)
           if len(status) > 0:
             # merge dataframes
             key_col = 'symbol'
