@@ -2142,7 +2142,7 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
     
     if os.path.exists(signal_file):
 
-      signal_file_content =pd.read_excel(signal_file, sheet_name=None)
+      signal_file_content =pd.read_excel(signal_file, sheet_name=None, dtype={'代码': str})
       for s in signal_file_content.keys():
         if s == 'signal':
           signals = signal_file_content.get('signal') # pd.read_excel(signal_file, sheet_name='signal')
@@ -2150,7 +2150,8 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
             # if len(signals) > 0:
             for s in ['b', 's', 'n']:
               font_color = signal_color[s]
-              tmp_signals = signals.query(f'交易信号 == "{s}"')['代码'].tolist()
+              tmp_signals = signals.query(f'交易信号 == "{s}"')['代码'].astype(str).tolist()
+              print(tmp_signals)
               signal_info += f'<li>[ <b>{s}</b> ]: <font color="{font_color}">{", ".join(tmp_signals)}</font></li>'
         
         elif s == 'potential':
