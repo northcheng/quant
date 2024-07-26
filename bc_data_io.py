@@ -749,12 +749,18 @@ def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_m
   benchmark_dates = {}
   start_dates = {}
   for mkt in benchmark_symbols.keys():
+    benchmark_source = sources[f'{mkt}_eod']
+    mkt_symbol_count = symbol_count[mkt]
+    mkt_benchmark_symbol = benchmark_symbols[mkt]
+    print(f'[-{mkt.upper()}-]: symbols({mkt_symbol_count}), benchmark ({mkt_benchmark_symbol})', end='') # 
     if symbol_count[mkt] > 0:
-      tmp_symbol = benchmark_symbols[mkt]
-      tmp_source = sources[f'{mkt}_eod']
-      tmp_data = get_data(tmp_symbol, start_date=start_date, end_date=today, interval='d', is_print=False, source=tmp_source, api_key=api_key, add_dividend=True, add_split=True, adjust='qfq')
+      tmp_data = get_data(mkt_benchmark_symbol, start_date=start_date, end_date=today, interval='d', is_print=False, source=benchmark_source, api_key=api_key, add_dividend=False, add_split=False, adjust='qfq')
       benchmark_dates[mkt] = util.time_2_string(tmp_data.index.max())
       start_dates[mkt] = util.string_plus_day(benchmark_dates[mkt], -window_size)
+      print(f'[-{mkt.upper()}-]: date ({benchmark_dates[mkt]})') # 
+    else:
+      print(f'') # 
+     
 
   # for different markets
   data = {}
@@ -763,7 +769,6 @@ def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_m
     if len(symbol_class[mkt]) == 0:
       continue
 
-    print(f'\n************************* [{mkt.upper()}] ****************************')
     tmp_source = sources[f'{mkt}_eod']
     tmp_source_symbols = preprocess_symbol(symbols=symbol_class[mkt], style=tmp_source)
     up_to_date_symbols = []
@@ -774,6 +779,7 @@ def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_m
       try:
 
         retry_count += 1
+        print(f'[data]: updating data for [{mkt.upper()}] from {tmp_source} (try #{retry_count})')
 
         # get the existed data and its latest date for each symbols
         for symbol in symbol_class[mkt]:
