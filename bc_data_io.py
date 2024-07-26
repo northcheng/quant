@@ -748,7 +748,7 @@ def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_m
     if symbol_count[mkt] > 0:
       tmp_symbol = benchmark_symbols[mkt]
       tmp_source = sources[f'{mkt}_eod']
-      tmp_data = get_data(tmp_symbol, start_date=start_date, end_date=today, interval='d', is_print=False, source=tmp_source, api_key=default_eod_key, add_dividend=True, add_split=True, adjust='qfq')
+      tmp_data = get_data(tmp_symbol, start_date=start_date, end_date=today, interval='d', is_print=False, source=tmp_source, api_key=api_key, add_dividend=True, add_split=True, adjust='qfq')
       benchmark_dates[mkt] = util.time_2_string(tmp_data.index.max())
       start_dates[mkt] = util.string_plus_day(benchmark_dates[mkt], -window_size)
 
