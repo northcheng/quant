@@ -752,12 +752,12 @@ def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_m
     benchmark_source = sources[f'{mkt}_eod']
     mkt_symbol_count = symbol_count[mkt]
     mkt_benchmark_symbol = benchmark_symbols[mkt]
-    print(f'[-{mkt.upper()}-]: symbols({mkt_symbol_count}), benchmark ({mkt_benchmark_symbol})', end='') # 
+    print(f'[-{mkt.upper()}-]: symbols({mkt_symbol_count}), benchmark({mkt_benchmark_symbol})', end='') # 
     if symbol_count[mkt] > 0:
       tmp_data = get_data(mkt_benchmark_symbol, start_date=start_date, end_date=today, interval='d', is_print=False, source=benchmark_source, api_key=api_key, add_dividend=False, add_split=False, adjust='qfq')
       benchmark_dates[mkt] = util.time_2_string(tmp_data.index.max())
       start_dates[mkt] = util.string_plus_day(benchmark_dates[mkt], -window_size)
-      print(f', date ({benchmark_dates[mkt]})') # 
+      print(f', date({benchmark_dates[mkt]})') # 
     else:
       print(f'') # 
      
