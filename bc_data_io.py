@@ -16,12 +16,16 @@ import pickle
 import json
 import os
 
+# mute warnings
+import warnings
+warnings.filterwarnings('ignore')
+
 # data source
 import yfinance as yf
 import pandas_datareader.data as web 
 import easyquotation as eq
 import akshare as ak
-from pandas_datareader.nasdaq_trader import get_nasdaq_symbols
+# from pandas_datareader.nasdaq_trader import get_nasdaq_symbols
 
 # mail process
 import smtplib
@@ -156,44 +160,44 @@ def preprocess_symbol(symbols, style):
   
   return result
 
-# get symbols from Nasdaq
-def get_symbols(remove_invalid=True, save_path=None, save_name='symbol_list.csv', local_file=None):
-  """
-  Get Nasdaq stock list
+# # get symbols from Nasdaq
+# def get_symbols(remove_invalid=True, save_path=None, save_name='symbol_list.csv', local_file=None):
+#   """
+#   Get Nasdaq stock list
 
-  :param remove_invalid: whether to remove invalid stock symbols from external stock list (.csv)
-  :param save_path: where to save the symbol list, generally it will be saved at ~/quant/stock/data/
-  :param save_name: the name of the saved symbol list file, defaultly it will be symbol_list.csv
-  :returns: dataframe of stock symbols
-  :raises: exception when error reading not-fetched symbols list
-  """
-  # get the symbols from pandas_datareader
-  if local_file is not None and os.path.exists(local_file):
-    symbols = pd.read_csv(local_file).set_index('Symbol')
+#   :param remove_invalid: whether to remove invalid stock symbols from external stock list (.csv)
+#   :param save_path: where to save the symbol list, generally it will be saved at ~/quant/stock/data/
+#   :param save_name: the name of the saved symbol list file, defaultly it will be symbol_list.csv
+#   :returns: dataframe of stock symbols
+#   :raises: exception when error reading not-fetched symbols list
+#   """
+#   # get the symbols from pandas_datareader
+#   if local_file is not None and os.path.exists(local_file):
+#     symbols = pd.read_csv(local_file).set_index('Symbol')
 
-  else:
-    try:
-      symbols = get_nasdaq_symbols()
-      symbols = symbols.loc[symbols['Test Issue'] == False,]
+#   else:
+#     try:
+#       symbols = get_nasdaq_symbols()
+#       symbols = symbols.loc[symbols['Test Issue'] == False,]
     
-    # get symbols from Nasdaq website directly when the pandas datareader is not available
-    except Exception as e:
-      symbols = pd.read_table('ftp://ftp.nasdaqtrader.com/symboldirectory/nasdaqtraded.txt', sep='|', index_col='Symbol').drop(np.NaN)
-      symbols = symbols.loc[symbols['Test Issue'] == 'N',]
-      print(e)
+#     # get symbols from Nasdaq website directly when the pandas datareader is not available
+#     except Exception as e:
+#       symbols = pd.read_table('ftp://ftp.nasdaqtrader.com/symboldirectory/nasdaqtraded.txt', sep='|', index_col='Symbol').drop(np.NaN)
+#       symbols = symbols.loc[symbols['Test Issue'] == 'N',]
+#       print(e)
     
-    # get list of all symbols and remove invalid symbols
-    sec_list = symbols.index.tolist()
-    if remove_invalid:
-      sec_list = [x for x in sec_list if '$' not in x]
-      sec_list = [x for x in sec_list if '.' not in x]
+#     # get list of all symbols and remove invalid symbols
+#     sec_list = symbols.index.tolist()
+#     if remove_invalid:
+#       sec_list = [x for x in sec_list if '$' not in x]
+#       sec_list = [x for x in sec_list if '.' not in x]
 
-    symbols = symbols.loc[sec_list, ].copy()
+#     symbols = symbols.loc[sec_list, ].copy()
 
-    if save_path is not None:
-      symbols.reset_index().to_csv(f'{save_path}{save_name}', index=False)
+#     if save_path is not None:
+#       symbols.reset_index().to_csv(f'{save_path}{save_name}', index=False)
   
-  return symbols
+#   return symbols
 
 # get ohlcv data from eod(US/CN/HK)
 def get_data_from_eod(symbol, start_date=None, end_date=None, interval='d', is_print=False, api_key=default_eod_key, add_dividend=True, add_split=True):
