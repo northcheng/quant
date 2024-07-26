@@ -2161,7 +2161,6 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
             for s in ['b', 's', 'n']:
               font_color = signal_color[s]
               tmp_signals = signals.query(f'交易信号 == "{s}"')['代码'].astype(str).tolist()
-              print(tmp_signals)
               signal_info += f'<li>[ <b>{s}</b> ]: <font color="{font_color}">{", ".join(tmp_signals)}</font></li>'
         
         elif s == 'potential':
