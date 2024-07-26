@@ -120,7 +120,7 @@
         
         "EWH": "MSCI香港ETF", "EWT": "MSCI台湾ETF", "EWJ": "MSCI日本ETF", "EWY": "MSCI韩国ETF", "EWS": "MSCI新加坡ETF", "THD": "MSCI泰国ETF", "VNM": "MSCI越南ETF", "EIDO": "MSCI印尼ETF", "EPHE": "MSCI菲律宾ETF", "EWM": "MSCI马来西亚ETF", "INDA": "MSCI印度ETF", "ERUS": "MSCI俄罗斯ETF", "EWU": "MSCI英国ETF", "EZU": "MSCI欧盟ETF", "EWA": "MSCI澳大利亚ETF", "EWC": "MSCI加拿大ETF", "EWZ": "MSCI巴西ETF", "ENZL": "MSCI新西兰ETF",
         
-        "UPRO": "3x标普500指数做多ETF", "SPXU": "3x标普500指数做空ETF", "UDOW": "3x道指做多ETF", "SDOW": "3x道指做空ETF", "TQQQ": "3x纳指做多ETF", "SQQQ": "3x纳指做空ETF", "TECL": "3x科技做多ETF", "TECS": "3x科技做空ETF", "SOXL": "3x半导体做多ETF", "SOXS": "3x半导体做空ETF", "LABU": "3x生物技术做多ETF", "LABD": "3x生物技术做空ETF", "FAS": "3x金融做多ETF", "FAZ": "3x金融做空ETF", "GDXD": "3x黄金做空ETN", "GDXU": "3x黄金做多ETN", "DRN": "3x房地产做多ETF", "DRV": "3x房地产做空ETF", "BNKD": "3x美国大银行做空ETF", "BNKU": "3x美国大银行做多ETF", "EDC": "3x新兴市场做多ETF", "EDZ": "3x新兴市场做空ETF", 
+        "UPRO": "3x标普500指数做多ETF", "SPXU": "3x标普500指数做空ETF", "UDOW": "3x道指做多ETF", "SDOW": "3x道指做空ETF", "TQQQ": "3x纳指做多ETF", "SQQQ": "3x纳指做空ETF", "TECL": "3x科技做多ETF", "TECS": "3x科技做空ETF", "SOXL": "3x半导体做多ETF", "SOXS": "3x半导体做空ETF", "LABU": "3x生物技术做多ETF", "LABD": "3x生物技术做空ETF", "FAS": "3x金融做多ETF", "FAZ": "3x金融做空ETF", "GDXD": "3x黄金做空ETN", "GDXU": "3x黄金做多ETN", "DRN": "3x房地产做多ETF", "DRV": "3x房地产做空ETF", "BNKD": "3x美国大银行做空ETF", "EDC": "3x新兴市场做多ETF", "EDZ": "3x新兴市场做空ETF", 
         
         "TNA": "3x罗素2000指数做多ETF", "NAIL": "3x房地产建筑商做多ETF", "DUSL": "3x工业做多ETF", "UTSL": "3x基础设施做多ETF", "RETL": "3x零售做多ETF", 
         
