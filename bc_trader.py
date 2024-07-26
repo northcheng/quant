@@ -516,7 +516,7 @@ class Futu(Trader):
     try:
       # get positions
       _, position = self.trade_client.position_list_query(trd_env=self.account_type)
-      if len(position) > 0:
+      if type(position) == pd.DataFrame and len(position) > 0:
 
         # rename columns, add extra columns
         position.rename(columns={'code':'symbol', 'qty':'quantity', 'cost_price': 'average_cost', 'nominal_price':'latest_price', 'pl_ratio':'rate', 'market_val': 'market_value'}, inplace=True)
@@ -541,7 +541,9 @@ class Futu(Trader):
 
         # select columns
         result = position[['symbol', 'quantity', 'average_cost', 'latest_price', 'rate', 'rate_inday', 'market_value', 'latest_time']].copy()
-
+      
+      else:
+        self.logger.exception(f'[erro]: position is not a dataframe: {position}')
     except Exception as e:
       self.logger.exception(f'[erro]: can not get position summary: {e}')
 
@@ -563,7 +565,7 @@ class Futu(Trader):
       
     except Exception as e:
       self.asset = None
-      self.logger.exception(f'[erro]: can not gett asset summary: {e}')
+      self.logger.exception(f'[erro]: can not get asset summary: {e}')
 
   # get orders
   def get_orders(self, start_time=None, end_time=None):
@@ -860,7 +862,7 @@ class Tiger(Trader):
           open_time = open_time - datetime.timedelta(days=3)
         else:
           open_time = open_time - datetime.timedelta(days=1)
-      elif status.status in ['Closed']:
+      elif status.status in ['Pre-Market Trading', 'Closed']:
         pass
       else:
         self.logger.error(f'No method for status [{status.status}]')
