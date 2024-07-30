@@ -64,7 +64,7 @@ headers = {'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/5
 # HK_REALTIME_CANDIDATES: easyquotation
 
 default_data_sources = {
-  'us_eod': 'eod', 
+  'us_eod': 'ak', 
   'us_realtime': 'eod', 
   'cn_eod': 'ak', 
   'cn_realtime': 'easyquotation', 
@@ -141,7 +141,8 @@ def preprocess_symbol(symbols, style):
     us_symbol_list['symbol'] = us_symbol_list['代码'].apply(lambda x: x.split('.')[1])
     us_symbol_list = us_symbol_list.set_index('symbol')    
     for s in us_symbols:
-      result[s] = us_symbol_list.loc[s, '代码']
+      if s in us_symbol_list.index:
+        result[s] = us_symbol_list.loc[s, '代码']
 
     # cn_symbols remains the same
     for s in cn_symbols:
@@ -728,8 +729,6 @@ def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_m
   if update_mode not in ['realtime', 'eod', 'both', 'refresh']:
     print(f'unknown update mode: {update_mode}')
     return None
-  
-  original_is_save = is_save
 
   # classify symbols
   us_symbols = [x for x in symbols if x.isalpha()]
@@ -772,7 +771,7 @@ def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_m
 
     if len(symbol_class[mkt]) == 0:
       continue
-
+    
     tmp_source = sources[f'{mkt}_eod']
     tmp_source_symbols = preprocess_symbol(symbols=symbol_class[mkt], style=tmp_source)
     up_to_date_symbols = []
@@ -820,17 +819,26 @@ def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_m
             
             # download latest data for current symbol
             start_date = util.string_plus_day(tmp_data_date, -3) if tmp_data_date is not None else tmp_data_date
-            new_data = get_data(symbol=tmp_source_symbols[symbol], start_date=start_date, end_date=required_date, interval='d', is_print=is_print, source=tmp_source, api_key=api_key, add_dividend=add_dividend, add_split=add_split, adjust=adjust)
-            # new_data = get_data_from_eod(symbol, start_date=tmp_data_date, end_date=required_date, interval='d', is_print=is_print, api_key=api_key, add_dividend=add_dividend, add_split=add_split)
-          
-            # append new data to the origin
-            data[symbol] = pd.concat([data[symbol], new_data])
-            data[symbol] = util.remove_duplicated_index(df=data[symbol], keep='last').dropna()
+            tmp_symbol = tmp_source_symbols.get(symbol)
+            
+            if tmp_symbol is not None:
 
-            # save data to local csv files
-            if is_save:
-              save_stock_data(df=data[symbol], file_path=stock_data_path, file_name=symbol, file_format=file_format, reset_index=True, index=False)
+              # get new data
+              new_data = get_data(symbol=tmp_symbol, start_date=start_date, end_date=required_date, interval='d', is_print=is_print, source=tmp_source, api_key=api_key, add_dividend=add_dividend, add_split=add_split, adjust=adjust)
           
+              # append new data to the origin
+              data[symbol] = pd.concat([data[symbol], new_data])
+              data[symbol] = util.remove_duplicated_index(df=data[symbol], keep='last').dropna()
+
+              # save data to local csv files
+              if is_save:
+                save_stock_data(df=data[symbol], file_path=stock_data_path, file_name=symbol, file_format=file_format, reset_index=True, index=False)
+            
+            else:
+              new_data = None
+              print(f'{symbol:5}: symbol not found from source {tmp_source}')
+
+            
           else:
             up_to_date_symbols.append(symbol)
             
