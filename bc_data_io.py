@@ -823,7 +823,8 @@ def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_m
               print(f'from ', end='0000-00-00 ' if tmp_data_date is None else f'{tmp_data_date} ')
             
             # download latest data for current symbol
-            new_data = get_data(symbol=tmp_source_symbols[symbol], start_date=tmp_start_date, end_date=required_date, interval='d', is_print=is_print, source=tmp_source, api_key=api_key, add_dividend=add_dividend, add_split=add_split, adjust=adjust)
+            start_date = util.string_plus_day(tmp_data_date, -3) if tmp_data_date is not None else tmp_data_date
+            new_data = get_data(symbol=tmp_source_symbols[symbol], start_date=start_date, end_date=required_date, interval='d', is_print=is_print, source=tmp_source, api_key=api_key, add_dividend=add_dividend, add_split=add_split, adjust=adjust)
             # new_data = get_data_from_eod(symbol, start_date=tmp_data_date, end_date=required_date, interval='d', is_print=is_print, api_key=api_key, add_dividend=add_dividend, add_split=add_split)
           
             # append new data to the origin
