@@ -728,6 +728,8 @@ def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_m
   if update_mode not in ['realtime', 'eod', 'both', 'refresh']:
     print(f'unknown update mode: {update_mode}')
     return None
+  
+  original_is_save = is_save
 
   # classify symbols
   us_symbols = [x for x in symbols if x.isalpha()]
@@ -741,7 +743,8 @@ def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_m
     print(f'Unexpected symbols found: {other_symbols}')
 
   # default dates
-  today = util.time_2_string(datetime.datetime.today().date())
+  today = datetime.datetime.today().date()
+  today = util.time_2_string(today)
   start_date = util.string_plus_day(today, -7)
 
   # set benchmarks for different markets
@@ -752,15 +755,19 @@ def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_m
     benchmark_source = sources[f'{mkt}_eod']
     mkt_symbol_count = symbol_count[mkt]
     mkt_benchmark_symbol = benchmark_symbols[mkt]
+    mkt_benchmark_symbol = '105.AAPL' if (mkt == 'us' and benchmark_source == 'ak') else mkt_benchmark_symbol
     
     if symbol_count[mkt] > 0:
       print(f'[-{mkt.upper()}-]: symbols({mkt_symbol_count}), benchmark({mkt_benchmark_symbol})', end='') # 
       tmp_data = get_data(mkt_benchmark_symbol, start_date=start_date, end_date=today, interval='d', is_print=False, source=benchmark_source, api_key=api_key, add_dividend=False, add_split=False, adjust='qfq')
       benchmark_dates[mkt] = util.time_2_string(tmp_data.index.max())
       start_dates[mkt] = util.string_plus_day(benchmark_dates[mkt], -window_size)
+
       print(f', date({benchmark_dates[mkt]})') # 
     else:
       pass
+  
+  print()
 
   # for different markets
   data = {}
@@ -771,6 +778,7 @@ def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_m
 
     tmp_source = sources[f'{mkt}_eod']
     tmp_source_symbols = preprocess_symbol(symbols=symbol_class[mkt], style=tmp_source)
+    tmp_start_date = start_dates[mkt]
     up_to_date_symbols = []
 
     # retry 5 times
@@ -809,13 +817,13 @@ def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_m
                   os.remove(symbol_file_name)
 
           # update eod data, print updating info
-          if (update_mode in ['eod', 'both', 'refresh']) and (tmp_data_date is None or tmp_data_date < benchmark_dates[mkt]):
+          if (update_mode in ['eod', 'both', 'refresh']) and (tmp_data_date is None or tmp_data_date < benchmark_dates[mkt] or (tmp_data_date <= benchmark_dates[mkt] and tmp_source == 'ak')):
             
             if is_print:
               print(f'from ', end='0000-00-00 ' if tmp_data_date is None else f'{tmp_data_date} ')
             
             # download latest data for current symbol
-            new_data = get_data(symbol=tmp_source_symbols[symbol], start_date=tmp_data_date, end_date=required_date, interval='d', is_print=is_print, source=tmp_source, api_key=api_key, add_dividend=add_dividend, add_split=add_split, adjust=adjust)
+            new_data = get_data(symbol=tmp_source_symbols[symbol], start_date=tmp_start_date, end_date=required_date, interval='d', is_print=is_print, source=tmp_source, api_key=api_key, add_dividend=add_dividend, add_split=add_split, adjust=adjust)
             # new_data = get_data_from_eod(symbol, start_date=tmp_data_date, end_date=required_date, interval='d', is_print=is_print, api_key=api_key, add_dividend=add_dividend, add_split=add_split)
           
             # append new data to the origin
@@ -839,27 +847,34 @@ def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_m
           print('***************** querying real-time data *****************')
           tmp_source = sources[f'{mkt}_realtime']
           tmp_sub_source = 'hkquote' if mkt == 'hk' else 'sina'
-          real_time_data = get_real_time_data(symbols=symbol_class[mkt], source=tmp_source, sub_source=tmp_sub_source, api_key=api_key, is_print=is_print, batch_size=batch_size)
-          if tmp_source == 'eod':
-            real_time_data = util.df_2_timeseries(df=real_time_data, time_col='Date')
 
-          # append it corresponding eod data according to symbols
-          for symbol in symbol_class[mkt]:
-            tmp_data = real_time_data.query(f'symbol == "{symbol}"')[data[symbol].columns].copy()
-            if len(tmp_data) == 0:
-              print(f'real-time data not found for {symbol}')
-              continue
-            else:
-              tmp_idx = tmp_data.index.max()
-              for col in data[symbol].columns:
-                data[symbol].loc[tmp_idx, col] = tmp_data.loc[tmp_idx, col]
-              data[symbol] = util.remove_duplicated_index(df=data[symbol], keep='last').dropna()
+          if sources[f'{mkt}_eod'] in ['ak'] and update_mode in 'both':
+            print(f'--------real-time data comes with eod data from ak--------')
+
+          else:
+            real_time_data = get_real_time_data(symbols=symbol_class[mkt], source=tmp_source, sub_source=tmp_sub_source, api_key=api_key, is_print=is_print, batch_size=batch_size)
+            if tmp_source == 'eod':
+              real_time_data = util.df_2_timeseries(df=real_time_data, time_col='Date')
+
+            # append it corresponding eod data according to symbols
+            for symbol in symbol_class[mkt]:
+              tmp_data = real_time_data.query(f'symbol == "{symbol}"')[data[symbol].columns].copy()
+              if len(tmp_data) == 0:
+                print(f'real-time data not found for {symbol}')
+                continue
+              else:
+                tmp_idx = tmp_data.index.max()
+                for col in data[symbol].columns:
+                  data[symbol].loc[tmp_idx, col] = tmp_data.loc[tmp_idx, col]
+                data[symbol] = util.remove_duplicated_index(df=data[symbol], keep='last').dropna()
 
         break
       except Exception as e:
         print(f'[erro]: updating data failed for [{mkt} market], try({retry_count}/5), {type(e)} - {e}')
         continue
-
+    
+    print()
+  
   # return
   if is_return:
     return data
