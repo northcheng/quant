@@ -756,26 +756,31 @@ def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_m
     mkt_benchmark_symbol = benchmark_symbols[mkt]
     mkt_benchmark_symbol = '105.AAPL' if (mkt == 'us' and benchmark_source == 'ak') else mkt_benchmark_symbol
     
+    # when there's symbol for this market
     if symbol_count[mkt] > 0:
       
+      # try 5 times if there's something wrong querying the data
       retry_count = 0
       while retry_count < 5:
         try:
-
           retry_count += 1
           print(f'[data]: querying benchmark date for [{mkt.upper()}] from {benchmark_source} (try #{retry_count})')        
 
+          # get data for benchmark symbol of current market
           tmp_data = get_data(mkt_benchmark_symbol, start_date=start_date, end_date=today, interval='d', is_print=False, source=benchmark_source, api_key=api_key, add_dividend=False, add_split=False, adjust='qfq')
           benchmark_dates[mkt] = util.time_2_string(tmp_data.index.max())        
           
+          # break when finish
           break
 
         except Exception as e:
           
+          # if failed, sleep 5 seconds and try again
           print(f'[erro]: querying failed for [{mkt} market], try({retry_count}/5), {type(e)} - {e}')        
           time.sleep(5)
           continue
-
+      
+      # check whether got behchmart data successfully
       tmp_benchmark_date = benchmark_dates.get(mkt)
       if tmp_benchmark_date is None:
         benchmark_dates[mkt] = today
