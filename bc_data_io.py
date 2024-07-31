@@ -364,7 +364,7 @@ def get_data_from_ak(symbol, start_date=None, end_date=None, interval='daily', i
   result = post_process_download_data(result, 'ak')
 
   if is_print:
-    print(f'{symbol:5}: {result.index.min()} - {result.index.max()}, 下载记录 {len(result)} from ax')
+    print(f'{symbol:8}: {result.index.min()} - {result.index.max()}, 下载记录 {len(result)} from ax')
   
   return result
 
