@@ -63,6 +63,7 @@ headers = {'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/5
 # HK_EOD_CANDIDATES: eod, ak, easyquotation
 # HK_REALTIME_CANDIDATES: easyquotation
 
+# 跑数据用eod/easyquotation, 更新A股数据用ak
 default_data_sources = {
   'us_eod': 'ak', 
   'us_realtime': 'eod', 
@@ -756,10 +757,31 @@ def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_m
     mkt_benchmark_symbol = '105.AAPL' if (mkt == 'us' and benchmark_source == 'ak') else mkt_benchmark_symbol
     
     if symbol_count[mkt] > 0:
-      print(f'[-{mkt.upper()}-]: symbols({mkt_symbol_count}), benchmark({mkt_benchmark_symbol})', end='') # 
-      tmp_data = get_data(mkt_benchmark_symbol, start_date=start_date, end_date=today, interval='d', is_print=False, source=benchmark_source, api_key=api_key, add_dividend=False, add_split=False, adjust='qfq')
-      benchmark_dates[mkt] = util.time_2_string(tmp_data.index.max())
-      print(f', date({benchmark_dates[mkt]})') # 
+      
+      retry_count = 0
+      while retry_count < 5:
+        try:
+
+          retry_count += 1
+          print(f'[data]: querying benchmark date for [{mkt.upper()}] from {benchmark_source} (try #{retry_count})')        
+
+          tmp_data = get_data(mkt_benchmark_symbol, start_date=start_date, end_date=today, interval='d', is_print=False, source=benchmark_source, api_key=api_key, add_dividend=False, add_split=False, adjust='qfq')
+          benchmark_dates[mkt] = util.time_2_string(tmp_data.index.max())        
+          
+          break
+
+        except Exception as e:
+          
+          print(f'[erro]: querying failed for [{mkt} market], try({retry_count}/5), {type(e)} - {e}')        
+          time.sleep(5)
+          continue
+
+      tmp_benchmark_date = benchmark_dates.get(mkt)
+      if tmp_benchmark_date is None:
+        benchmark_dates[mkt] = today
+        print(f'[-{mkt.upper()}-]: symbols({mkt_symbol_count}), benchmark({mkt_benchmark_symbol}), date(failed to get benchmark data, use today - {today})') # 
+      else:
+        print(f'[-{mkt.upper()}-]: symbols({mkt_symbol_count}), benchmark({mkt_benchmark_symbol}), date({benchmark_dates[mkt]})')
     else:
       pass
   
