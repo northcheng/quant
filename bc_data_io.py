@@ -10,6 +10,7 @@ import pandas as pd
 import numpy as np
 import requests
 import datetime
+import time
 import pytz
 import zipfile
 import pickle
@@ -753,8 +754,8 @@ def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_m
   for mkt in benchmark_symbols.keys():
     benchmark_source = sources[f'{mkt}_eod']
     mkt_symbol_count = symbol_count[mkt]
-    mkt_benchmark_symbol = benchmark_symbols[mkt]
-    mkt_benchmark_symbol = '105.AAPL' if (mkt == 'us' and benchmark_source == 'ak') else mkt_benchmark_symbol
+    mkt_benchmark_symbol = preprocess_symbol([benchmark_symbols[mkt]], benchmark_source)[benchmark_symbols[mkt]]
+    # mkt_benchmark_symbol = '105.AAPL' if (mkt == 'us' and benchmark_source == 'ak') else mkt_benchmark_symbol
     
     # when there's symbol for this market
     if symbol_count[mkt] > 0:
