@@ -1447,19 +1447,26 @@ def calculate_ta_signal(df):
   df['signal_day'] = sda(df['signal'].replace({'b': 1, 's': -1, '': 0, 'nb': 1, 'ns': -1}), zero_as=1)
 
   # tier
+  tier_conditions = [
+    'adx_value_change > 0',
+
+  ]
+
   df['tier'] = 10
   conditions = {
-    '6':                  'signal_day > 0',
-    '5':                  '(5>= signal_day > 3)', 
-    '4':                  '(3>= signal_day > 1)', 
-    '3':                  '(signal_day == 1)', 
-    '2':                  '(signal_day == 1) and ((adx_strong_day > 0) or (adx_direction_start < -10))', 
-    '1':                  '(signal_day == 1) and (adx_strong_day > 0) and (adx_direction_start < -10) and (ichimoku_distance < 0) and (相对ichimoku位置 in ["down", "mid_down", "mid"])', 
-    '0':                  '(完美_up > 0)', 
+    '7':                  '(adx_value_change > 0)',
+    '6':                  '(adx_value_change > 0) and (adx_day > 0)',
+    '5':                  '(adx_value_change > 0) and (adx_day > 0) and (adx_strong_day > 0)', 
+    '4':                  '(adx_value_change > 0) and (adx_day > 0) and (adx_strong_day > 0) and (adx_wave_day == 0)', 
+    '3':                  '(adx_value_change > 0) and (adx_day > 0) and (adx_strong_day > 0) and (adx_wave_day == 0) and (adx_value < -10)', 
+    '2':                  '(adx_value_change > 0) and (adx_day > 0) and (adx_strong_day > 0) and (adx_wave_day == 0) and (adx_value < -10) and (adx_direction_start < -10)', 
+    '1':                  '(adx_value_change > 0) and (adx_day > 0) and (adx_strong_day > 0) and (adx_wave_day == 0) and (adx_value < -10) and (adx_direction_start < -10) and (ichimoku_distance < 0) and (相对ichimoku位置 in ["down", "mid_down", "mid"])', 
+    '0':                  '(adx_value_change > 0) and (adx_day > 0) and (adx_strong_day > 0) and (adx_wave_day == 0) and (adx_value < -10) and (adx_direction_start < -10) and (ichimoku_distance < 0) and (相对ichimoku位置 in ["down", "mid_down", "mid"]) and (完美_up > 0)', 
     # '11':                 '(长期波动 < 0) or (趋势微弱 < 0) or (受到阻挡 < 0)',
     # '12':                 '距离_down < 0'
   } 
   values = {
+    '7':                  7,
     '6':                  6,
     '5':                  5,
     '4':                  4, 
@@ -5536,8 +5543,8 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
   # support/resistant break_up/break_down
   if signal_x in ["support_score", "resistant_score", "break_up_score", "break_down_score", "pattern_score", "crossover_score"]:
 
-    pos_marker = '.' 
-    neg_marker = '.'
+    pos_marker = '|' 
+    neg_marker = '|'
     none_marker = '_'
     if signal_x in ["support_score", "resistant_score", ]:
       pos_marker = '^' 
@@ -5545,6 +5552,9 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     elif signal_x in ['crossover_score']:
       pos_marker = '*' 
       neg_marker = '*'
+    elif signal_x in ['pattern_score']:
+      pos_marker = '.' 
+      neg_marker = '.'
     else:
       pass
     
@@ -5570,18 +5580,18 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     
     if signal_x in ['pattern_score']:
 
-        pos_marker = 'o' 
-        neg_marker = 'o'
+        pos_marker = 'x' 
+        neg_marker = 'x'
 
         # up
         tmp_data = df.query(f'(cross_up_score > 0)')
         if len(tmp_data) > 0:
-          ax.scatter(tmp_data.index, tmp_data[signal_y], marker=pos_marker, color='none', edgecolor='green', alpha=0.5)
+          ax.scatter(tmp_data.index, tmp_data[signal_y], marker=pos_marker, color='green', alpha=0.5) #'none', edgecolor=
 
         # down
         tmp_data = df.query(f'(cross_down_score < 0)')
         if len(tmp_data) > 0:
-          ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='none', edgecolor='red', alpha=0.5)
+          ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='red', alpha=0.5)
 
   # adx_syn(whether adx_value and adx_strength goes the same direction)
   if signal_x in ['adx_trend']:
