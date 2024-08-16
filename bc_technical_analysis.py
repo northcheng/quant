@@ -1454,7 +1454,9 @@ def calculate_ta_signal(df):
 
   df['tier'] = 10
   conditions = {
-    '7':                  '(adx_value_change > 0)',
+    '9':                  '(adx_value_change > 0)',
+    '8':                  '(adx_value_change > 0) and (adx_day == 0)',
+    '7':                  '(adx_value_change > 0) and (adx_day == 0) and (adx_value < 0)',
     '6':                  '(adx_value_change > 0) and (adx_day > 0)',
     '5':                  '(adx_value_change > 0) and (adx_day > 0) and (adx_strong_day > 0)', 
     '4':                  '(adx_value_change > 0) and (adx_day > 0) and (adx_strong_day > 0) and (adx_wave_day == 0)', 
@@ -1462,10 +1464,14 @@ def calculate_ta_signal(df):
     '2':                  '(adx_value_change > 0) and (adx_day > 0) and (adx_strong_day > 0) and (adx_wave_day == 0) and (adx_value < -10) and (adx_direction_start < -10)', 
     '1':                  '(adx_value_change > 0) and (adx_day > 0) and (adx_strong_day > 0) and (adx_wave_day == 0) and (adx_value < -10) and (adx_direction_start < -10) and (ichimoku_distance < 0) and (相对ichimoku位置 in ["down", "mid_down", "mid"])', 
     '0':                  '(adx_value_change > 0) and (adx_day > 0) and (adx_strong_day > 0) and (adx_wave_day == 0) and (adx_value < -10) and (adx_direction_start < -10) and (ichimoku_distance < 0) and (相对ichimoku位置 in ["down", "mid_down", "mid"]) and (完美_up > 0)', 
-    # '11':                 '(长期波动 < 0) or (趋势微弱 < 0) or (受到阻挡 < 0)',
-    # '12':                 '距离_down < 0'
+    
+    '11':                 '(rate < 0 and Close < Open) or ((rate < 0 or Close < Open) and (shadow_trend != "d") and (candle_upper_shadow_pct > candle_lower_shadow_pct and candle_upper_shadow_pct > 0.33)) or ((shadow_trend == "u" and candle_upper_shadow_pct > 0.8))',
+    '12':                 '(adx_strong_day < -5 or adx_wave_day > 0)',
+    '13':                 '((-5 <= ichimoku_cross_day < 0) or (-5 <= kama_cross_day < 0)) and (trigger_score <= 0)'
   } 
   values = {
+    '9':                  9,
+    '8':                  8,
     '7':                  7,
     '6':                  6,
     '5':                  5,
@@ -1474,8 +1480,9 @@ def calculate_ta_signal(df):
     '2':                  2,
     '1':                  1,
     '0':                  0, 
-    # '11':                 11,
-    # '12':                 12
+    '11':                 11,
+    '12':                 12,
+    '13':                 13,
   }
   df = assign_condition_value(df=df, column='tier', condition_dict=conditions, value_dict=values, default_value=10)
 
