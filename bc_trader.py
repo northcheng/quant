@@ -542,8 +542,6 @@ class Futu(Trader):
         # select columns
         result = position[['symbol', 'quantity', 'average_cost', 'latest_price', 'rate', 'rate_inday', 'market_value', 'latest_time']].copy()
       
-      else:
-        self.logger.exception(f'[erro]: position is not a dataframe: {position}')
     except Exception as e:
       self.logger.exception(f'[erro]: can not get position summary: {e}')
 
@@ -862,7 +860,7 @@ class Tiger(Trader):
           open_time = open_time - datetime.timedelta(days=3)
         else:
           open_time = open_time - datetime.timedelta(days=1)
-      elif status.status in ['Pre-Market Trading', 'Closed']:
+      elif status.status in ['Pre-Market Trading', 'Closed', 'Not Yet Opened']:
         pass
       else:
         self.logger.error(f'No method for status [{status.status}]')
