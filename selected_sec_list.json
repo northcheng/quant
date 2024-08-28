@@ -4,13 +4,12 @@
     "test": [
         "TQQQ", "UVXY"
     ],
-    "etf_idx": [
+    "etf_1x": [
         "EWT",
         "EWJ",
         "EWY",
         "EWS",
         "INDA",
-
         "SHV", 
         "SHY", 
         "IEI", 
