@@ -1295,7 +1295,8 @@ def calculate_ta_signal(df):
                             ) or
                             (
                               (adx_power_day < 0 and adx_power_start_adx_value > 10 and adx_value > -10) and
-                              (adx_strong_day < 0 or adx_wave_day > 0 or adx_distance < 0 or (adx_direction_day == 1 and -15 < adx_value < 15))
+                              (adx_strong_day < 0 or adx_wave_day > 0 or adx_distance < 0 or (adx_direction_day == 1 and -15 < adx_value < 15)) and
+                              (trigger_score <= 0 or 十字星_trend != "n" or candle_color == -1 or entity_trend == "d" or candle_upper_shadow_pct > 0.33)
                             ) or
                             (
                               (ki_distance in ['gr']) and
@@ -1466,7 +1467,7 @@ def calculate_ta_signal(df):
     '0':                  '(adx_value_change > 0) and (adx_day > 0) and (adx_strong_day > 0) and (adx_wave_day == 0) and (adx_value < -10) and (adx_direction_start < -10) and (ichimoku_distance < 0) and (相对ichimoku位置 in ["down", "mid_down", "mid"]) and (完美_up > 0)', 
     
     '11':                 '(rate < 0 and Close < Open) or ((rate < 0 or Close < Open) and (shadow_trend != "d") and (candle_upper_shadow_pct > candle_lower_shadow_pct and candle_upper_shadow_pct > 0.33)) or ((shadow_trend == "u" and candle_upper_shadow_pct > 0.8))',
-    '12':                 '(adx_strong_day < -5 or adx_wave_day > 0)',
+    '12':                 '(adx_strong_day < -5 or adx_wave_day > 0 or 十字星_trend == "d") and (trigger_score <= 0)',
     '13':                 '((-5 <= ichimoku_cross_day < 0) or (-5 <= kama_cross_day < 0)) and (trigger_score <= 0)'
   } 
   values = {
@@ -5405,14 +5406,14 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     max_idx = df.index.max()
     x_signal = max_idx + datetime.timedelta(days=2)
 
-    # annotate adx (adx_strength_change)
+    # annotate adx_distance (adx_distance_change)
     v = round(df.loc[max_idx, 'adx_distance'], 1)
     v_change = round(df.loc[max_idx, 'adx_distance_change'],2)
     y_signal = y_max - 1.5
     text_color = 'green' if v_change > 0 else 'red'
     plt.annotate(f'{v}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
-    # annotate adx_value(adx_value_change)
+    # annotate overall_change (overall_change_diff)
     v = round(df.loc[max_idx, 'overall_change'],1)
     v_change = round(df.loc[max_idx, 'overall_change_diff'],2)
     y_signal = y_max - 4 # round(y_middle)
