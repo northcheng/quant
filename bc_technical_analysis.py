@@ -1466,9 +1466,10 @@ def calculate_ta_signal(df):
     '1':                  '(adx_value_change > 0) and (adx_day > 0) and (adx_strong_day > 0) and (adx_wave_day == 0) and (adx_value < -10) and (adx_direction_start < -10) and (ichimoku_distance < 0) and (相对ichimoku位置 in ["down", "mid_down", "mid"])', 
     '0':                  '(adx_value_change > 0) and (adx_day > 0) and (adx_strong_day > 0) and (adx_wave_day == 0) and (adx_value < -10) and (adx_direction_start < -10) and (ichimoku_distance < 0) and (相对ichimoku位置 in ["down", "mid_down", "mid"]) and (完美_up > 0)', 
     
-    '11':                 '(rate < 0 and Close < Open) or ((rate < 0 or Close < Open) and (shadow_trend != "d") and (candle_upper_shadow_pct > candle_lower_shadow_pct and candle_upper_shadow_pct > 0.33)) or ((shadow_trend == "u" and candle_upper_shadow_pct > 0.8))',
-    '12':                 '(adx_strong_day < -5 or adx_wave_day > 0 or 十字星_trend == "d") and (trigger_score <= 0)',
-    '13':                 '((-5 <= ichimoku_cross_day < 0) or (-5 <= kama_cross_day < 0)) and (trigger_score <= 0)'
+    '11':                 '(adx_strong_day < -5 or adx_wave_day > 0 or 十字星_trend == "d") and (trigger_score <= 0)',
+    '12':                 '(rate < 0 and Close < Open) or ((rate < 0 or Close < Open) and (shadow_trend != "d") and (candle_upper_shadow_pct > candle_lower_shadow_pct and candle_upper_shadow_pct > 0.33)) or ((shadow_trend == "u" and candle_upper_shadow_pct > 0.8))',
+    '13':                 '((-5 <= ichimoku_cross_day < 0) or (-5 <= kama_cross_day < 0)) and (trigger_score <= 0)',
+    '14':                 '(break_up_score == 0 and break_down_score < 0) or (support_score == 0 and resistant_score < 0) or (trigger_score <0 and boundary_score <=0 and break_score <= 0)'
   } 
   values = {
     '9':                  9,
@@ -1484,6 +1485,7 @@ def calculate_ta_signal(df):
     '11':                 11,
     '12':                 12,
     '13':                 13,
+    '14':                 14
   }
   df = assign_condition_value(df=df, column='tier', condition_dict=conditions, value_dict=values, default_value=10)
 
