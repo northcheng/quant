@@ -1489,6 +1489,11 @@ def calculate_ta_signal(df):
   }
   df = assign_condition_value(df=df, column='tier', condition_dict=conditions, value_dict=values, default_value=10)
 
+  # mute buy signals which tier > 10
+  to_mute = df.query('signal == "b" and tier >= 10').index
+  df.loc[to_mute, 'signal'] = 'nb'
+  df.loc[to_mute, 'signal_description'] = df.loc[to_mute, 'tier'].apply(lambda x: f'Tier {x}')
+
   # drop redundant columns
   for col in col_to_drop:
     if col in df.columns:
