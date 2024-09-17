@@ -8,7 +8,7 @@ import pandas as pd
 from quant import bc_data_io as io_util
 
 from futu import (OrderType, OrderStatus, TrdSide, RET_OK, RET_ERROR)
-from futu import (OpenQuoteContext, OpenUSTradeContext, OpenHKTradeContext)
+from futu import (OpenQuoteContext, OpenSecTradeContext, TrdMarket, SecurityFirm, Currency)
 from tigeropen.quote.quote_client import QuoteClient
 from tigeropen.trade.trade_client import TradeClient
 from tigeropen.tiger_open_config import TigerOpenClientConfig
@@ -487,12 +487,16 @@ class Futu(Trader):
       is_encrypt = self.user_info['is_encrypt']
 
       if market == 'US':
-        self.trade_client = OpenUSTradeContext(host=host, port=port, is_encrypt=is_encrypt)
+        # self.trade_client = OpenUSTradeContext(host=host, port=port, is_encrypt=is_encrypt)
+        self.trade_client = OpenSecTradeContext(filter_trdmarket=TrdMarket.US, host=host, port=port, is_encrypt=is_encrypt, security_firm=SecurityFirm.FUTUSECURITIES)
       elif market == 'HK':    
-        self.trade_client = OpenHKTradeContext(host=host, port=port, is_encrypt=is_encrypt)
+        # self.trade_client = OpenHKTradeContext(host=host, port=port, is_encrypt=is_encrypt)
+        self.trade_client = OpenSecTradeContext(filter_trdmarket=TrdMarket.HK, host=host, port=port, is_encrypt=is_encrypt, security_firm=SecurityFirm.FUTUSECURITIES)
       else:
         print(f'Unknown market {market}')
         self.trade_client = None
+      # 综合账户不再区分市场
+      
     except Exception as e:
       self.trade_client = None
       self.logger.exception(f'[erro]: can not create trade context:{e}')
@@ -557,7 +561,7 @@ class Futu(Trader):
       else:
         acc_id = self.account_type
       
-      ret_assets, asset = self.trade_client.accinfo_query(trd_env=self.account_type)
+      ret_assets, asset = self.trade_client.accinfo_query(trd_env=self.account_type, currency=Currency.USD)
       asset['account'] = acc_id
       self.asset = asset[['account', 'total_assets', 'market_val',  'cash', 'avl_withdrawal_cash', 'realized_pl', 'unrealized_pl']].rename(columns={'total_assets':'net_value', 'market_val': 'holding_value', 'avl_withdrawal_cash':'available_cash', 'realized_pl':'pnl', 'unrealized_pl':'holding_pnl'})
       
