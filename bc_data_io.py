@@ -749,7 +749,7 @@ def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_m
   start_date = util.string_plus_day(today, -7)
 
   # set benchmarks for different markets
-  benchmark_symbols = {'us': 'AAPL', 'cn': '000001', 'hk': '00700'}
+  benchmark_symbols = {'us': 'SPY', 'cn': '000001', 'hk': '00700'}
   benchmark_dates = {}
   for mkt in benchmark_symbols.keys():
     benchmark_source = sources[f'{mkt}_eod']
@@ -808,7 +808,7 @@ def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_m
     retry_count = 0
     while retry_count < 5:
       try:
-
+        time.sleep(1)
         retry_count += 1
         print(f'[data]: updating data for [{mkt.upper()}] from {tmp_source} (try #{retry_count})')
 
@@ -904,6 +904,7 @@ def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_m
         break
       except Exception as e:
         print(f'[erro]: updating data failed for [{mkt} market], try({retry_count}/5), {type(e)} - {e}')
+        time.sleep(5)
         continue
     
     print()
