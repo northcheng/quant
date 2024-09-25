@@ -706,7 +706,7 @@ def get_stock_briefs(symbols, source='eod', api_key=default_eod_key, batch_size=
   return briefs
 
 # update stock data (eod and/or realtime)
-def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_mode='eod', required_date=None, window_size=3, is_print=False, is_return=False, is_save=True, sources=default_data_sources, api_key=default_eod_key, add_dividend=True, add_split=True, batch_size=15, adjust='qfq'):
+def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_mode='eod', required_date=None, window_size=3, is_print=False, is_return=False, is_save=True, sources=default_data_sources, api_keys={}, add_dividend=True, add_split=True, batch_size=15, adjust='qfq'):
   """
   update local stock data from eod
 
@@ -751,8 +751,10 @@ def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_m
   # set benchmarks for different markets
   benchmark_symbols = {'us': 'SPY', 'cn': '000001', 'hk': '00700'}
   benchmark_dates = {}
+  benchmark_api_keys = {}
   for mkt in benchmark_symbols.keys():
     benchmark_source = sources[f'{mkt}_eod']
+    benchmark_api_keys[mkt] = api_keys.get(benchmark_source)
     mkt_symbol_count = symbol_count[mkt]
     mkt_benchmark_symbol = preprocess_symbol([benchmark_symbols[mkt]], benchmark_source)[benchmark_symbols[mkt]]
     # mkt_benchmark_symbol = '105.AAPL' if (mkt == 'us' and benchmark_source == 'ak') else mkt_benchmark_symbol
@@ -768,7 +770,7 @@ def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_m
           print(f'[data]: querying benchmark date for [{mkt.upper()}] from {benchmark_source} (try #{retry_count})')        
 
           # get data for benchmark symbol of current market
-          tmp_data = get_data(mkt_benchmark_symbol, start_date=start_date, end_date=today, interval='d', is_print=False, source=benchmark_source, api_key=api_key, add_dividend=False, add_split=False, adjust='qfq')
+          tmp_data = get_data(mkt_benchmark_symbol, start_date=start_date, end_date=today, interval='d', is_print=False, source=benchmark_source, api_key=benchmark_api_keys[mkt], add_dividend=False, add_split=False, adjust='qfq')
           benchmark_dates[mkt] = util.time_2_string(tmp_data.index.max())        
           
           # break when finish
@@ -852,7 +854,7 @@ def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_m
             if tmp_symbol is not None:
 
               # get new data
-              new_data = get_data(symbol=tmp_symbol, start_date=start_date, end_date=required_date, interval='d', is_print=is_print, source=tmp_source, api_key=api_key, add_dividend=add_dividend, add_split=add_split, adjust=adjust)
+              new_data = get_data(symbol=tmp_symbol, start_date=start_date, end_date=required_date, interval='d', is_print=is_print, source=tmp_source, api_key=benchmark_api_keys[mkt], add_dividend=add_dividend, add_split=add_split, adjust=adjust)
           
               # append new data to the origin
               data[symbol] = pd.concat([data[symbol], new_data])
@@ -885,7 +887,7 @@ def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_m
             print(f'--------real-time data comes with eod data from ak--------')
 
           else:
-            real_time_data = get_real_time_data(symbols=symbol_class[mkt], source=tmp_source, sub_source=tmp_sub_source, api_key=api_key, is_print=is_print, batch_size=batch_size)
+            real_time_data = get_real_time_data(symbols=symbol_class[mkt], source=tmp_source, sub_source=tmp_sub_source, api_key=benchmark_api_keys[mkt], is_print=is_print, batch_size=batch_size)
             if tmp_source == 'eod':
               real_time_data = util.df_2_timeseries(df=real_time_data, time_col='Date')
 

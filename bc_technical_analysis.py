@@ -1431,8 +1431,12 @@ def calculate_ta_signal(df):
     # B: 去除长上影线的买入信号
     '长上影线':           '''
                           (signal == "b") and 
-                          (resistant_score < 0) and 
-                          (candle_upper_shadow_pct >= 0.666)
+                          (candle_upper_shadow_pct >= 0.666) and
+                          (
+                            (resistant_score < 0) or
+                            (entity_trend == "d") or
+                            (相对candle位置 in ["mid", "mid_down", "mid_up"])
+                          )
                           '''.replace('\n', ''),
   } 
   for c in none_signal_conditions.keys():
