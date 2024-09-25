@@ -1335,7 +1335,8 @@ def calculate_ta_signal(df):
                           (signal == "b") and
                           (
                             (ki_distance in ['rr']) and
-                            (ichimoku_distance < -0.1 or kama_distance < -0.15)
+                            (ichimoku_distance < -0.1 or kama_distance < -0.15) and
+                            (resistant_score < 0 or break_down_score < 0 or entity_trend == "d" or candle_upper_shadow_pct > 0.5 or candle_color == -1)
                           )
                           '''.replace('\n', ''),
 
