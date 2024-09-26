@@ -6680,7 +6680,7 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
   return score_ax
 
 # plot review of signal's price
-def plot_review(prefix, df, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_args=default_plot_args, config=None, save_path=None):
+def plot_review(prefix, df, sort_factors=['信号分级', "潜力分数", '趋势方向天数', '趋势起始', ], sort_orders = [False, True, False, False], width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_args=default_plot_args, config=None, save_path=None):
   """
   Plot rate and signal indicators for signal
   :param df: signal dataframe
@@ -6705,17 +6705,16 @@ def plot_review(prefix, df, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plo
   plt.subplots_adjust(wspace=wspace, hspace=hspace)
   axes = {}
 
-  sort_factors = ['信号分级', "潜力分数", '趋势方向天数', '趋势起始', ]
-  sort_orders = [False, True, False, False]
   primary_factor = sort_factors[0]
   secondary_factor = sort_factors[1]
+  validation_statistic = f'{len(df.query("验证 > 0"))}/{len(df)}'
 
   # plot rate and score
   for i in range(n_row):
 
     # get target data
     tmp_data = df.sort_values(by=sort_factors, ascending=sort_orders).copy()
-    tmp_data = tmp_data[['代码', '名称', '收盘', '验证', "趋势起始", '触发分数', '潜力分数', '信号分级']].set_index('名称')
+    tmp_data = tmp_data.set_index('名称') # [['代码', '名称', '收盘', '验证', "趋势起始", '触发分数', '潜力分数', '信号分级']]
     tmp_data['name'] = tmp_data.index.values
     tmp_data['验证'] = tmp_data['验证'] * 100
 
@@ -6756,7 +6755,7 @@ def plot_review(prefix, df, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plo
     down_idx = tmp_data.query('验证 <= 0').index    
     tmp_data.loc[down_idx, 'score_color'] = 'red'
     score_ax.barh(tmp_data.index, tmp_data['验证'], color=tmp_data['score_color'], left=0,label='验证', alpha=0.5) #, edgecolor='k'  
-    score_ax.set_title(f'验证结果', fontsize=20)
+    score_ax.set_title(f'验证结果 - {validation_statistic}', fontsize=20)
     score_ax.legend(loc='upper left', ncol=plot_args['ncol']) 
 
     # borders
