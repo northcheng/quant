@@ -1498,6 +1498,7 @@ def calculate_ta_signal(df):
   df = assign_condition_value(df=df, column='tier', condition_dict=conditions, value_dict=values, default_value=10)
 
   tier_descriptions = {
+    '10':                 'adx向下',
     '9':                  'adx向上',
     '8':                  'adx向上-待触发',
     '7':                  'adx向上-待触发-低位',
