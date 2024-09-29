@@ -831,8 +831,10 @@ def calculate_ta_score(df):
     down_idx = df.query(f'-5 <= {target}_cross_day < 0 and {target}_distance < 0 and {target}_distance_change <= 0').index
     df.loc[up_idx, 'cross_up_score'] += 1 
     df.loc[down_idx, 'cross_down_score'] -= 1 
-    df.loc[up_idx, 'up_score_description'] += f'+交叉:[{target}], ' 
-    df.loc[down_idx, 'down_score_description'] += f'-交叉:[{target}], ' 
+    df.loc[up_idx, 'up_score_description'] += f'{target}, ' 
+    df.loc[down_idx, 'down_score_description'] += f'{target}, ' 
+  df['up_score_description'] = df['up_score_description'].apply(lambda x: f'+交叉['+x[:-2]+'], ' if len(x) > 0 else '')
+  df['down_score_description'] = df['down_score_description'].apply(lambda x: f'-交叉['+x[:-2]+'], ' if len(x) > 0 else '')
 
   # # pattern_score = pattern_score + cross_score + candle_gap
   # df['pattern_score'] = df['cross_up_score'] + df['cross_down_score'] + df['candle_gap']
@@ -1495,10 +1497,29 @@ def calculate_ta_signal(df):
   }
   df = assign_condition_value(df=df, column='tier', condition_dict=conditions, value_dict=values, default_value=10)
 
+  tier_descriptions = {
+    '9':                  'adx向上',
+    '8':                  'adx向上-待触发',
+    '7':                  'adx向上-待触发-低位',
+    '6':                  'adx向上-触发',
+    '5':                  'adx向上-触发-非弱势', 
+    '4':                  'adx向上-触发-非弱势-非波动', 
+    '3':                  'adx低位-向上-触发-非弱势-非波动', 
+    '2':                  'adx低位启动-低位-向上-触发-非弱势-非波动', 
+    '1':                  'adx低位启动-低位-向上-触发-非弱势-非波动-ichi低位', 
+    '0':                  'adx低位启动-低位-向上-触发-非弱势-非波动-ichi低位-完美触发', 
+    
+    '11':                 '趋弱势|趋势不定',
+    '12':                 '价格下降|冲高回落',
+    '13':                 'ichi|kama死叉',
+    '14':                 '向下跌落|受到阻挡'
+  } 
+  df['tier_description'] = df['tier'].apply(lambda x: tier_descriptions.get(f'{x}'))
+
   # mute buy signals which tier > 10
   to_mute = df.query('signal == "b" and tier >= 10').index
   df.loc[to_mute, 'signal'] = 'nb'
-  df.loc[to_mute, 'signal_description'] = df.loc[to_mute, 'tier'].apply(lambda x: f'Tier {x}')
+  # df.loc[to_mute, 'signal_description'] = df.loc[to_mute, 'tier'].apply(lambda x: f'Tier {x}')
 
   # drop redundant columns
   for col in col_to_drop:
@@ -7106,20 +7127,22 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
 
   # get name of the symbol, and linear/candle/adx descriptions
   new_title = args['sec_name'].get(title.split('(')[0]) 
-  signal_desc = f'[{df.loc[max_idx, "potential_score"]}] : {df.loc[max_idx, "potential_description"]} | {df.loc[max_idx, "signal_description"]}' #  | [S({df.loc[max_idx, "support_score"]}), U({df.loc[max_idx, "break_up_score"]}), D({df.loc[max_idx, "break_down_score"]}), R({df.loc[max_idx, "support_score"]})]
+  signal_desc = f'<Potential {df.loc[max_idx, "potential_score"]}> : {df.loc[max_idx, "potential_description"]} | {df.loc[max_idx, "signal_description"]}' #  | [S({df.loc[max_idx, "support_score"]}), U({df.loc[max_idx, "break_up_score"]}), D({df.loc[max_idx, "break_down_score"]}), R({df.loc[max_idx, "support_score"]})]
   signal_desc = signal_desc.replace(', ]', ']')
   signal_desc = signal_desc[:-2] if signal_desc[-2:] == '| ' else signal_desc
-  trigger_desc = f'[{df.loc[max_idx, "trigger_score"]}] : {df.loc[max_idx, "up_score_description"]} | {df.loc[max_idx, "down_score_description"]}'
-  tier = df.loc[max_idx, 'tier']
+  trigger_desc = f'<Trigger {df.loc[max_idx, "trigger_score"]}> : {df.loc[max_idx, "up_score_description"]} | {df.loc[max_idx, "down_score_description"]}'
+  tier_desc = f'<Tier {df.loc[max_idx, "tier"]}> : {df.loc[max_idx, "tier_description"]}'
 
   # construct super title
   if new_title is None:
     new_title == ''
-  super_title = f'[T{tier}] {title}({new_title})  {close_rate}% {title_symbol}'
-  super_title = f'{super_title}\n{signal_desc}'
+  super_title = f'{title}({new_title})  {close_rate}% {title_symbol}'
+  super_title = f'{super_title}\n{tier_desc}'
   super_title = f'{super_title}\n{trigger_desc}'
+  super_title = f'{super_title}\n{signal_desc}'
   
-  fig.suptitle(f'{super_title}', x=0.5, y=1.05, fontsize=22, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1), linespacing = 1.8)
+  
+  fig.suptitle(f'{super_title}', x=0.5, y=1.06, fontsize=22, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1), linespacing = 1.8)
 
   # save image
   if save_image and (save_path is not None):
