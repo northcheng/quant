@@ -1477,7 +1477,7 @@ def calculate_ta_signal(df):
     '11':                 '(adx_strong_day < -5 or adx_wave_day > 0 or 十字星_trend == "d") and (trigger_score <= 0)',
     '12':                 '(rate < 0 and Close < Open) or ((rate < 0 or Close < Open) and (shadow_trend != "d") and (candle_upper_shadow_pct > candle_lower_shadow_pct and candle_upper_shadow_pct > 0.33)) or ((shadow_trend == "u" and candle_upper_shadow_pct > 0.8))',
     '13':                 '((-5 <= ichimoku_cross_day < 0) or (-5 <= kama_cross_day < 0)) and (trigger_score <= 0)',
-    '14':                 '(break_up_score == 0 and break_down_score < 0) or (support_score == 0 and resistant_score < 0) or (trigger_score <0 and boundary_score <=0 and break_score <= 0)'
+    '14':                 '(trigger_score <= 0 or up_score == 0) and ((break_up_score == 0 and break_down_score < 0) or (support_score == 0 and resistant_score < 0) or (trigger_score <0 and boundary_score <=0 and break_score <= 0))'
   } 
   values = {
     '9':                  9,
