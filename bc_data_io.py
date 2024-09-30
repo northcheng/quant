@@ -353,7 +353,10 @@ def get_data_from_ak(symbol, start_date=None, end_date=None, interval='daily', i
     result = ak.stock_us_hist(symbol=symbol, period=interval, start_date=start_date, end_date=end_date, adjust=adjust)
 
   elif market == 'cn':
-    result = ak.stock_zh_a_hist(symbol=symbol, period=interval, start_date=start_date, end_date=end_date, adjust=adjust)
+    if symbol.startswith('0') or symbol.startswith('3') or symbol.startswith('6'):
+      result = ak.stock_zh_a_hist(symbol=symbol, period=interval, start_date=start_date, end_date=end_date, adjust=adjust)
+    if symbol.startswith('15') or symbol.startswith('51') or symbol.startswith('56') or symbol.startswith('58'):
+      result = ak.fund_etf_hist_em(symbol=symbol, period=interval, start_date=start_date, end_date=end_date, adjust=adjust)
   
   elif market == 'hk':
     result = ak.stock_hk_hist(symbol=symbol, period=interval, start_date=start_date, end_date=end_date, adjust=adjust)
