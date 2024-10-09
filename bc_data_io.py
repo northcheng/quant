@@ -2270,7 +2270,7 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
 
     # initialize header, attach pdfs
     image_info += f'<li>[Requested]: {signal_file_date}</li>'
-    pdf_names = ['portfolio', 'signal', 'index'] if pool in ['us', ''] else [f'{pool}_portfolio', f'{pool}_signal']
+    pdf_names = ['portfolio', 'signal', 'index'] if pool in ['us', ''] else [f'{pool}_portfolio', f'{pool}_signal', f'{pool}_index']
     for p in pdf_names:
 
       # consstruct pdf file path
