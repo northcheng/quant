@@ -752,7 +752,7 @@ def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_m
   start_date = util.string_plus_day(today, -7)
 
   # set benchmarks for different markets
-  benchmark_symbols = {'us': 'SPY', 'cn': '000001', 'hk': '00700'}
+  benchmark_symbols = {'us': 'SPY', 'cn': '601318', 'hk': '00700'}
   benchmark_dates = {}
   benchmark_api_keys = {}
   for mkt in benchmark_symbols.keys():
