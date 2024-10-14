@@ -50,6 +50,7 @@ headers = {'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/5
 # STANDARD_US_SYMBOL = 'AAPL'
 # STANDARD_CN_SYMBOL = '000001' # 00700
 # STANDARD_INTERVAL = 'd' # /w/m
+BENCHMARK_SYMBOL = {'us': 'SPY', 'cn': '601318', 'hk': '00700'}
 
 # EOD is mainly used for US stock eod and realtime(15min-delayed) price:  AAPL
 # EOD is able to access CN stock eod price, but the price is un-adjusted: 000001.SHE
@@ -368,7 +369,7 @@ def get_data_from_ak(symbol, start_date=None, end_date=None, interval='daily', i
   result = post_process_download_data(result, 'ak')
 
   if is_print:
-    print(f'{symbol:8}: {result.index.min()} - {result.index.max()}, 下载记录 {len(result)} from ax')
+    print(f'{symbol:8}: {result.index.min()} - {result.index.max()}, 下载记录 {len(result)} from ak')
   
   return result
 
@@ -730,6 +731,8 @@ def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_m
   :raises: none
   """
 
+  global BENCHMARK_SYMBOL
+
   # verify update_mode
   if update_mode not in ['realtime', 'eod', 'both', 'refresh']:
     print(f'unknown update mode: {update_mode}')
@@ -752,7 +755,7 @@ def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_m
   start_date = util.string_plus_day(today, -7)
 
   # set benchmarks for different markets
-  benchmark_symbols = {'us': 'SPY', 'cn': '601318', 'hk': '00700'}
+  benchmark_symbols = BENCHMARK_SYMBOL
   benchmark_dates = {}
   benchmark_api_keys = {}
   for mkt in benchmark_symbols.keys():
@@ -918,7 +921,7 @@ def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_m
   if is_return:
     return data
 
-
+# update stock data from eod 
 def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', update_mode='eod', required_date=None, window_size=3, is_print=False, is_return=False, is_save=True, cn_stock=False, api_key=default_eod_key, add_dividend=True, add_split=True, batch_size=15):
   """
   update local stock data from eod
@@ -1038,7 +1041,7 @@ def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', upd
   if is_return:
     return data
 
-
+# update stock data from ak
 def update_stock_data_from_ak(symbols, stock_data_path, file_format='.csv', update_mode='eod', required_date=None, window_size=3, is_print=False, is_return=False, is_save=True, cn_stock=False):
 
   # verify update_mode
@@ -1142,7 +1145,7 @@ def update_stock_data_from_ak(symbols, stock_data_path, file_format='.csv', upda
   if is_return:
     return data
 
-
+# update stock data (old, aborted)
 def update_stock_data(symbols, stock_data_path, file_format='.csv', update_mode='eod', cn_stock=False, required_date=None, is_print=False, is_return=False, is_save=True, source='eod', api_key=default_eod_key, add_dividend=True, add_split=True, batch_size=15):
   """
   update local stock data
@@ -1174,7 +1177,7 @@ def update_stock_data(symbols, stock_data_path, file_format='.csv', update_mode=
   if is_return:
     return result
 
-
+# save downloaded stock data
 def save_stock_data(df, file_path, file_name, file_format='.csv', reset_index=True, index=False):
   """
   save stock data (dataframe) to .csv file
@@ -1208,7 +1211,7 @@ def save_stock_data(df, file_path, file_name, file_format='.csv', reset_index=Tr
   else:
     print('Empty dataframe to save, skipped')
   
-
+# load data from stock data file (csv file)
 def load_stock_data(file_path, file_name, file_format='.csv', time_col='Date', standard_columns=False, sort_index=True):
   """
   load stock data (dataframe) from .csv file
@@ -1259,7 +1262,7 @@ def load_stock_data(file_path, file_name, file_format='.csv', time_col='Date', s
 
   return df
 
-
+# remove stock data file (csv file)
 def remove_stock_data(symbol, file_path, file_format='.csv'):
   '''
   Remove stock data file from drive
@@ -1283,7 +1286,7 @@ def remove_stock_data(symbol, file_path, file_format='.csv'):
   except Exception as e:
     print(symbol, e) 
 
-
+# create weekly data from daily data
 def create_week_data(df):
   '''
   convert day-interval data into week-interval 
@@ -1344,7 +1347,7 @@ def create_week_data(df):
   
   return week_data
 
-
+# create monthly data from daily data
 def create_month_data(df):
   '''
   convert day-interval data into month-interval 
@@ -1416,7 +1419,7 @@ def create_month_data(df):
 
   return month_data
     
-
+# switch data interval (daily, weekly, monthly)
 def switch_data_interval(df, interval):
   '''
   convert day-interval data into week-interval or month-interval data

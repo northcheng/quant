@@ -1,22 +1,9 @@
 {
   "data_source": {
-    "time_col": {
-      "yahoo": "Date",
-      "yfinance": "Date"
-    },
-    "interval_val": {
-      "day": {
-        "yahoo": "d",
-        "yfinance": "1d"
-      },
-      "week": {
-        "yahoo": "w",
-        "yfinance": "1wk"
-      },
-      "month": {
-        "yahoo": "m",
-        "yfinance": "1mo"
-      }
+    "benchmark": {
+        "us": "SPY",
+        "cn": "601318",
+        "hk": "00700"
     }
   },
   "calculation": {
