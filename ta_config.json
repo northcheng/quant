@@ -217,6 +217,26 @@
         "real": -0.1,
         "simu": -0.5
       }
+    },
+    "stop_profit_inday": {
+      "tiger": {
+        "real": 10,
+        "simu": 10
+      },
+      "futu": {
+        "real": 10,
+        "simu": 10
+      }
+    },
+    "stop_loss_inday": {
+      "tiger": {
+        "real": -0.15,
+        "simu": -0.15
+      },
+      "futu": {
+        "real": -0.15,
+        "simu": -0.15
+      }
     }
   }
 }

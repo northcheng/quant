@@ -266,11 +266,11 @@ class Trader(object):
         # io_util.create_config_file(config_dict=self.position_record, file_path=config['config_path'], file_name='_position_record.json')
 
   # update portfolio for an account
-  def update_portfolio_record(self, config, position=None, is_print=True):
+  def update_portfolio_record(self, config, position=None, get_briefs=True, is_print=True):
 
     # get position summary
     if position is None:
-      self.update_position()
+      self.update_position(get_briefs=get_briefs)
       position = self.position
     position.set_index('symbol', inplace=True)
     position = position.round(2)
@@ -423,16 +423,17 @@ class Trader(object):
       self.logger.info(f'[SKIP]: no signal')
     
   # stop loss or stop profit or clear all position
-  def cash_out(self, stop_loss_rate=None, stop_profit_rate=None, stop_loss_rate_inday=None, stop_profit_rate_inday=None, clear_all=False, print_summary=True):
+  def cash_out(self, stop_loss_rate=None, stop_profit_rate=None, stop_loss_rate_inday=None, stop_profit_rate_inday=None, clear_all=False, get_briefs=True, print_summary=True):
     
     # get current position with summary
-    self.update_position(get_briefs=True)
+    self.update_position(get_briefs=get_briefs)
     position = self.position.copy()
     
     if len(position) > 0:
 
       # set symbol as index
       position = position.set_index('symbol')
+      cash_out_list = []
 
       # if clear all position
       if clear_all:
