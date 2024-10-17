@@ -1456,27 +1456,39 @@ def calculate_ta_signal(df):
   df['signal_day'] = sda(df['signal'].replace({'b': 1, 's': -1, '': 0, 'nb': 1, 'ns': -1}), zero_as=1)
 
   # tier
-  tier_conditions = [
-    'adx_value_change > 0',
-
-  ]
-
   df['tier'] = 10
   conditions = {
+    # adx向上
     '9':                  '(adx_value_change > 0)',
+    # adx向上 & adx_trend处于转换区间
     '8':                  '(adx_value_change > 0) and (adx_day == 0)',
+    # adx向上 & adx_trend处于转换区间 & adx_value处于低位 (< 0)
     '7':                  '(adx_value_change > 0) and (adx_day == 0) and (adx_value < 0)',
+    # adx向上 & adx_trend由负转正
     '6':                  '(adx_value_change > 0) and (adx_day > 0)',
+    # adx向上 & adx_trend由负转正 & adx非弱趋势(adx_strength < 25)
     '5':                  '(adx_value_change > 0) and (adx_day > 0) and (adx_strong_day > 0)', 
-    '4':                  '(adx_value_change > 0) and (adx_day > 0) and (adx_strong_day > 0) and (adx_wave_day == 0)', 
+    # adx向上 & adx_trend由负转正 & ((adx非弱趋势 & adx_value不处于波动区间[-10, 10]) | (adx_trend转正首日))
+    '4':                  '(adx_value_change > 0) and (adx_day > 0) and (((adx_strong_day > 0) and (adx_wave_day == 0)) or (adx_day == 1))', 
+    # adx向上 & adx_trend由负转正 & adx非弱趋势 & adx_value不处于波动区间[-10, 10] & adx_value处于低位(< -10)
     '3':                  '(adx_value_change > 0) and (adx_day > 0) and (adx_strong_day > 0) and (adx_wave_day == 0) and (adx_value < -10)', 
+    # adx向上 & adx_trend由负转正 & adx非弱趋势 & adx_value不处于波动区间[-10, 10] & adx_value处于低位(< -10) & adx低位启动(adx_direction_start < -10)
     '2':                  '(adx_value_change > 0) and (adx_day > 0) and (adx_strong_day > 0) and (adx_wave_day == 0) and (adx_value < -10) and (adx_direction_start < -10)', 
+    # adx向上 & adx_trend由负转正 & adx非弱趋势 & adx_value不处于波动区间[-10, 10] & adx_value处于低位(< -10) & adx低位启动(adx_direction_start < -10)
+    # ichimoku红云, 处于中低位(["down", "mid_down", "mid"])
     '1':                  '(adx_value_change > 0) and (adx_day > 0) and (adx_strong_day > 0) and (adx_wave_day == 0) and (adx_value < -10) and (adx_direction_start < -10) and (ichimoku_distance < 0) and (相对ichimoku位置 in ["down", "mid_down", "mid"])', 
+    # adx向上 & adx_trend由负转正 & adx非弱趋势 & adx_value不处于波动区间[-10, 10] & adx_value处于低位(< -10) & adx低位启动(adx_direction_start < -10)
+    # ichimoku红云, 处于中低位(["down", "mid_down", "mid"])
+    # 完美触发
     '0':                  '(adx_value_change > 0) and (adx_day > 0) and (adx_strong_day > 0) and (adx_wave_day == 0) and (adx_value < -10) and (adx_direction_start < -10) and (ichimoku_distance < 0) and (相对ichimoku位置 in ["down", "mid_down", "mid"]) and (完美_up > 0)', 
     
+    # adx弱势或波动, 触发分数 <= 0
     '11':                 '(adx_strong_day < -5 or adx_wave_day > 0 or 十字星_trend == "d") and (trigger_score <= 0)',
+    # 价格下降, 长上影线
     '12':                 '(rate < 0 and Close < Open) or ((rate < 0 or Close < Open) and (shadow_trend != "d") and (candle_upper_shadow_pct > candle_lower_shadow_pct and candle_upper_shadow_pct > 0.33)) or ((shadow_trend == "u" and candle_upper_shadow_pct > 0.8))',
+    # ichimoku/kama [负]交叉信号触发 & 触发分数 <= 0
     '13':                 '((-5 <= ichimoku_cross_day < 0) or (-5 <= kama_cross_day < 0)) and (trigger_score <= 0)',
+    # 仅有负面信号
     '14':                 '(trigger_score <= 0 or up_score == 0) and ((break_up_score == 0 and break_down_score < 0) or (support_score == 0 and resistant_score < 0) or (trigger_score <0 and boundary_score <=0 and break_score <= 0))'
   } 
   values = {
@@ -1498,17 +1510,17 @@ def calculate_ta_signal(df):
   df = assign_condition_value(df=df, column='tier', condition_dict=conditions, value_dict=values, default_value=10)
 
   tier_descriptions = {
-    '10':                 'adx向下',
-    '9':                  'adx向上',
-    '8':                  'adx向上-待触发',
-    '7':                  'adx向上-待触发-低位',
-    '6':                  'adx向上-触发',
-    '5':                  'adx向上-触发-非弱势', 
-    '4':                  'adx向上-触发-非弱势-非波动', 
-    '3':                  'adx低位-向上-触发-非弱势-非波动', 
-    '2':                  'adx低位启动-低位-向上-触发-非弱势-非波动', 
-    '1':                  'adx低位启动-低位-向上-触发-非弱势-非波动-ichi低位', 
-    '0':                  'adx低位启动-低位-向上-触发-非弱势-非波动-ichi低位-完美触发', 
+    '10':                 '趋势向下',
+    '9':                  '趋势向上',
+    '8':                  '趋势向上-待触发',
+    '7':                  '趋势低位-向上-待触发',
+    '6':                  '趋势向上-触发',
+    '5':                  '趋势向上-触发-非弱势', 
+    '4':                  '趋势向上-触发-非弱势-非波动', 
+    '3':                  '趋势低位-向上-触发-非弱势-非波动', 
+    '2':                  '趋势低位启动-低位-向上-触发-非弱势-非波动', 
+    '1':                  '趋势低位启动-低位-向上-触发-非弱势-非波动-ichi低位', 
+    '0':                  '趋势低位启动-低位-向上-触发-非弱势-非波动-ichi低位-完美触发', 
     
     '11':                 '趋弱势|趋势不定',
     '12':                 '价格下降|冲高回落',
@@ -1516,6 +1528,7 @@ def calculate_ta_signal(df):
     '14':                 '向下跌落|受到阻挡'
   } 
   df['tier_description'] = df['tier'].apply(lambda x: tier_descriptions.get(f'{x}'))
+
 
   # mute buy signals which tier > 10
   to_mute = df.query('signal == "b" and tier >= 10').index
