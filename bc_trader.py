@@ -517,37 +517,47 @@ class Futu(Trader):
   def update_position(self, get_briefs=False):
     result = pd.DataFrame({'symbol':[], 'quantity':[], 'average_cost':[], 'latest_price':[], 'rate':[], 'rate_inday':[], 'market_value':[], 'latest_time':[]})
     
-    try:
-      # get positions
-      _, position = self.trade_client.position_list_query(trd_env=self.account_type)
-      if type(position) == pd.DataFrame and len(position) > 0:
-
-        # rename columns, add extra columns
-        position.rename(columns={'code':'symbol', 'qty':'quantity', 'cost_price': 'average_cost', 'nominal_price':'latest_price', 'pl_ratio':'rate', 'market_val': 'market_value'}, inplace=True)
-        position['symbol'] = position['symbol'].apply(lambda x: x.split('.')[1])
-        position['rate'] = round(position['rate'] / 100, 2)
-        position['rate_inday'] = 0
-        position['latest_time'] = None
-        
-        # get realtime data for stock in position
-        if get_briefs:
-          status = io_util.get_stock_briefs(symbols=position.symbol.tolist(), source='eod', api_key=self.eod_api_key)
-          if len(status) > 0:
-
-            # merge dataframes
-            key_col = 'symbol'
-            duplicated_col = [x for x in position.columns if (x in status.columns and x not in [key_col])]
-            position.drop(duplicated_col, axis=1, inplace=True)
-            position = pd.merge(position, status, how='left', left_on=key_col, right_on=key_col)
-            position['rate'] = round((position['latest_price'] - position['average_cost']) / position['average_cost'], 2)
-            position['rate_inday'] = round((position['Open'] - position['Close']) / position['Open'], 2)
-            position['market_value'] = round(position['latest_price'] * position['quantity'], 2)
-
-        # select columns
-        result = position[['symbol', 'quantity', 'average_cost', 'latest_price', 'rate', 'rate_inday', 'market_value', 'latest_time']].copy()
+    # 失败重试
+    retry_count = 0
+    while retry_count < 5:
       
-    except Exception as e:
-      self.logger.exception(f'[erro]: can not get position summary: {e}')
+      retry_count += 1
+      try:
+        # get positions
+        _, position = self.trade_client.position_list_query(trd_env=self.account_type)
+        if type(position) == pd.DataFrame and len(position) > 0:
+
+          # rename columns, add extra columns
+          position.rename(columns={'code':'symbol', 'qty':'quantity', 'cost_price': 'average_cost', 'nominal_price':'latest_price', 'pl_ratio':'rate', 'market_val': 'market_value'}, inplace=True)
+          position['symbol'] = position['symbol'].apply(lambda x: x.split('.')[1])
+          position['rate'] = round(position['rate'] / 100, 2)
+          position['rate_inday'] = 0
+          position['latest_time'] = None
+          
+          # get realtime data for stock in position
+          if get_briefs:
+            status = io_util.get_stock_briefs(symbols=position.symbol.tolist(), source='eod', api_key=self.eod_api_key)
+            if len(status) > 0:
+
+              # merge dataframes
+              key_col = 'symbol'
+              duplicated_col = [x for x in position.columns if (x in status.columns and x not in [key_col])]
+              position.drop(duplicated_col, axis=1, inplace=True)
+              position = pd.merge(position, status, how='left', left_on=key_col, right_on=key_col)
+              position['rate'] = round((position['latest_price'] - position['average_cost']) / position['average_cost'], 2)
+              position['rate_inday'] = round((position['Open'] - position['Close']) / position['Open'], 2)
+              position['market_value'] = round(position['latest_price'] * position['quantity'], 2)
+
+          # select columns
+          result = position[['symbol', 'quantity', 'average_cost', 'latest_price', 'rate', 'rate_inday', 'market_value', 'latest_time']].copy()
+          
+          # break when finish
+          break
+
+      except Exception as e:
+        self.logger.exception(f'[erro]: can not get position summary: {e}')
+        time.sleep(5)
+        continue
 
     self.position = result
     
@@ -681,42 +691,52 @@ class Tiger(Trader):
     
     result = pd.DataFrame({'symbol':[], 'quantity':[], 'average_cost':[], 'latest_price':[], 'rate':[], 'rate_inday':[], 'market_value':[], 'latest_time':[]})
 
-    try:
-      # get positions and convert to dataframe
-      position = self.trade_client.get_positions(account=self.client_config.account)
-      if len(position) > 0:
-        result = {'symbol': [], 'quantity': [], 'average_cost': [], 'latest_price': []}
-        for pos in position:
-          result['symbol'].append(pos.contract.symbol)
-          result['quantity'].append(pos.quantity)
-          result['average_cost'].append(pos.average_cost)
-          result['latest_price'].append(pos.market_price)
-        result = pd.DataFrame(result)
-        
-        # add extra columns
-        result['rate'] = round((result['latest_price'] - result['average_cost']) / result['average_cost'], 2)
-        result['rate_inday'] = 0
-        result['market_value'] = round(result['latest_price'] * result['quantity'], 2)
-        result['latest_time'] = None
+    # 失败重试
+    retry_count = 0
+    while retry_count < 5:
+      
+      retry_count += 1
+      try:
+        # get positions and convert to dataframe
+        position = self.trade_client.get_positions(account=self.client_config.account)
+        if len(position) > 0:
+          result = {'symbol': [], 'quantity': [], 'average_cost': [], 'latest_price': []}
+          for pos in position:
+            result['symbol'].append(pos.contract.symbol)
+            result['quantity'].append(pos.quantity)
+            result['average_cost'].append(pos.average_cost)
+            result['latest_price'].append(pos.market_price)
+          result = pd.DataFrame(result)
+          
+          # add extra columns
+          result['rate'] = round((result['latest_price'] - result['average_cost']) / result['average_cost'], 2)
+          result['rate_inday'] = 0
+          result['market_value'] = round(result['latest_price'] * result['quantity'], 2)
+          result['latest_time'] = None
 
-        # get realtime data for stock in position
-        if get_briefs:
-          status = io_util.get_stock_briefs(symbols=result['symbol'].tolist(), source='eod', api_key=self.eod_api_key)
-          if len(status) > 0:
-            # merge dataframes
-            key_col = 'symbol'
-            duplicated_col = [x for x in result.columns if (x in status.columns and x not in [key_col])]
-            result.drop(duplicated_col, axis=1, inplace=True)
-            result = pd.merge(result, status, how='left', left_on=key_col, right_on=key_col)
-            result['rate'] = round((result['latest_price'] - result['average_cost']) / result['average_cost'], 2)
-            result['rate_inday'] = round((result['Open'] - result['Close']) / result['Open'], 2)
-            result['market_value'] = round(result['latest_price'] * result['quantity'], 2)       
-        
-        # select columns
-        result = result[['symbol', 'quantity', 'average_cost', 'latest_price', 'rate', 'rate_inday', 'market_value', 'latest_time']]
+          # get realtime data for stock in position
+          if get_briefs:
+            status = io_util.get_stock_briefs(symbols=result['symbol'].tolist(), source='eod', api_key=self.eod_api_key)
+            if len(status) > 0:
+              # merge dataframes
+              key_col = 'symbol'
+              duplicated_col = [x for x in result.columns if (x in status.columns and x not in [key_col])]
+              result.drop(duplicated_col, axis=1, inplace=True)
+              result = pd.merge(result, status, how='left', left_on=key_col, right_on=key_col)
+              result['rate'] = round((result['latest_price'] - result['average_cost']) / result['average_cost'], 2)
+              result['rate_inday'] = round((result['Open'] - result['Close']) / result['Open'], 2)
+              result['market_value'] = round(result['latest_price'] * result['quantity'], 2)       
+          
+          # select columns
+          result = result[['symbol', 'quantity', 'average_cost', 'latest_price', 'rate', 'rate_inday', 'market_value', 'latest_time']]
 
-    except Exception as e:
-      self.logger.exception(f'[erro]: can not get position summary: {e}')
+          # break when finish
+          break
+
+      except Exception as e:
+        self.logger.exception(f'[erro]: can not get position summary: {e}')
+        time.sleep(5)
+        continue
 
     self.position = result
   

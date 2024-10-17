@@ -1302,6 +1302,7 @@ def calculate_ta_signal(df):
                             ) or
                             (
                               (ki_distance in ['gr']) and
+                              (boundary_score < 0 or break_score < 0 or (boundary_score == 0 and break_score == 0)) and
                               (resistant_score < 0 or break_down_score < 0 or adx_value_change < 0) and
                               (
                                 (cross_down_score < 0) or
