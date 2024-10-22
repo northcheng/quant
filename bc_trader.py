@@ -573,9 +573,11 @@ class Futu(Trader):
         acc_id = self.account_type
       
       ret_assets, asset = self.trade_client.accinfo_query(trd_env=self.account_type, currency=Currency.USD)
-      asset['account'] = acc_id
-      self.asset = asset[['account', 'total_assets', 'market_val',  'cash', 'avl_withdrawal_cash', 'realized_pl', 'unrealized_pl']].rename(columns={'total_assets':'net_value', 'market_val': 'holding_value', 'avl_withdrawal_cash':'available_cash', 'realized_pl':'pnl', 'unrealized_pl':'holding_pnl'})
-      
+      if type(asset) != str:
+        asset['account'] = acc_id
+        self.asset = asset[['account', 'total_assets', 'market_val',  'cash', 'avl_withdrawal_cash', 'realized_pl', 'unrealized_pl']].rename(columns={'total_assets':'net_value', 'market_val': 'holding_value', 'avl_withdrawal_cash':'available_cash', 'realized_pl':'pnl', 'unrealized_pl':'holding_pnl'})
+      else:
+        self.logger.error(f'[erro]: get asset - {asset}')      
     except Exception as e:
       self.asset = None
       self.logger.exception(f'[erro]: can not get asset summary: {e}')

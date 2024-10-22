@@ -800,6 +800,7 @@ def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_m
       pass
   
   print()
+  time.sleep(2)
 
   # for different markets
   data = {}
