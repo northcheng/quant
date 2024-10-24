@@ -422,6 +422,58 @@ class Trader(object):
     else:
       self.logger.info(f'[SKIP]: no signal')
     
+  # # auto trader according to conditions
+  # def place_condition_order(condition_file, trading_date, config, traders):
+
+  #   # initialize return
+  #   trade_summary = []
+    
+  #   # read signal from json file
+  #   signal = pd.read_json(condition_file).T
+
+  #   # get pool
+
+  #   # query valid signal
+  #   if len(signal) > 0 and trading_date is not None:
+      
+  #     # 获取最新价格
+  #     #valid_signal += price, etc.
+
+  #     # trade
+  #     if len(valid_signal) > 0:
+  #       for symbol, row in valid_signal.iterrows():
+          
+  #         # get trader
+  #         plfm = row['plfm']
+  #         acnt = row['acnt']
+  #         tmp_trader = traders.get(f'{plfm}_{acnt}')
+
+  #         # 获取tmp_trader对应的pool
+  #         pool = 'etf_3xx'
+  #         valid_signal = signal.query(f'index in {config["selected_sec_list"][pool]} and date == "{trading_date}"').copy()
+
+  #         # trader exists
+  #         if True: # tmp_trader is not None:
+
+  #           # check condition 
+  #           condition = row['condition'].replace('\'', '\"')
+  #           condition = f'index == "{symbol}" and {condition}'
+  #           check_result = valid_signal.query(condition)
+            
+  #           # condition matched
+  #           if len(check_result) == 1:
+              
+  #             # # place order
+  #             # action = row['action']
+  #             # quantity = row['quantity']
+  #             # order_type = row['order_type']
+  #             # price = row['price'] if order_type in ['limit'] else None # 若为市价单, 则价格设为None
+  #             # tmp_trade_summary = tmp_trader.trade(symbol=symbol, action=action, quantity=quantity, price=price, print_summary=False)
+  #             # trade_summary.append(tmp_trade_summary)
+  #             print(1)
+      
+  #   return trade_summary
+  
   # stop loss or stop profit or clear all position
   def cash_out(self, stop_loss_rate=None, stop_profit_rate=None, stop_loss_rate_inday=None, stop_profit_rate_inday=None, clear_all=False, get_briefs=True, print_summary=True):
     
