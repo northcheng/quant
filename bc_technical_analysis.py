@@ -5465,17 +5465,21 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     v_change = round(df.loc[max_idx, 'adx_distance_change'],2)
     y_signal = y_max - 1.5
     text_color = 'green' if v_change > 0 else 'red'
-    plt.annotate(f'{v}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+    plt.annotate(f'[A]{v:0<4}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
     # annotate overall_change (overall_change_diff)
     v = round(df.loc[max_idx, 'overall_change'],1)
     v_change = round(df.loc[max_idx, 'overall_change_diff'],2)
     y_signal = y_max - 4 # round(y_middle)
     text_color = 'green' if v_change > 0 else 'red'
-    plt.annotate(f'{v}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+    plt.annotate(f'[O]{v:0<4}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
     # annotate adx/ichimoku/kama distance_status
-    v = f'{df.loc[max_idx, "adx_distance_status"]}\n{df.loc[max_idx, "ichimoku_distance_status"]}\n{df.loc[max_idx, "kama_distance_status"]}'
+    adx_distance_status = df.loc[max_idx, "adx_distance_status"].replace('pos', '+').replace('neg', '-').replace('none', '=').replace('up', '↑').replace('down', '↓')
+    ichimoku_distance_status = df.loc[max_idx, "ichimoku_distance_status"].replace('pos', '+').replace('neg', '-').replace('none', '=').replace('up', '↑').replace('down', '↓')
+    kama_distance_status = df.loc[max_idx, "kama_distance_status"].replace('pos', '+').replace('neg', '-').replace('none', '=').replace('up', '↑').replace('down', '↓')
+    v = f'[A]{adx_distance_status}\n[I]{ichimoku_distance_status}\n[K]{kama_distance_status}'
+    v = f'  A   I   K  \n {adx_distance_status} {ichimoku_distance_status} {kama_distance_status} '
     y_signal = y_max - 8.5 # round(y_middle + y_range/4)
     text_color = 'black'
     if (df.loc[max_idx, "距离_up"] > 0) or (df.loc[max_idx, "adx_distance_status"] in ['posup', 'negup'] and df.loc[max_idx, "ichimoku_distance_status"] in ['negnone']):
@@ -5491,6 +5495,25 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
     ax.grid(True, axis='x', linestyle='-', linewidth=0.5, alpha=0.1)
     ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
+
+  # trigger_score
+  if signal_x in ['tier']:
+
+    df['tier_value'] = 10 - df['tier']
+
+    # trigger_score
+    tmp_col_v = f'tier_value'
+    tmp_col_a = f'tier_value_alpha'
+    df[tmp_col_a] = normalize(df[tmp_col_v].abs())
+
+    threhold = 0
+    tmp_data = df.query(f'({tmp_col_v} > {threhold})')
+    if len(tmp_data) > 0:
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='green', alpha=tmp_data[tmp_col_a].fillna(0))
+  
+    tmp_data = df.query(f'({tmp_col_v} < {-threhold})')
+    if len(tmp_data) > 0:
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='red', alpha=0.2)
 
   # trigger_score
   if signal_x in ['trigger']:
@@ -5928,7 +5951,7 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   y_signal = round(y_middle + y_range/4)
   text_color = 'green' if v_change > 0 else 'red'
   text_color = 'green' if df.loc[max_idx, 'adx_strength_change'] > 0 else 'red'
-  plt.annotate(f'{v}[{v_change}]', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+  plt.annotate(f'[S]{v:0<5}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
   # annotate adx_value(adx_value_change)
   x_signal = max_idx + datetime.timedelta(days=2)
@@ -5936,7 +5959,7 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   v_change = round(df.loc[max_idx, 'adx_value_change'],1)
   y_signal = round(y_middle)
   text_color = 'green' if v_change > 0 else 'red'
-  plt.annotate(f'{v}[{v_change}]', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+  plt.annotate(f'[V]{v:0<5}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
   # annotate adx_value_prediction(adx_value_prediction - adx_value)
   x_signal = max_idx + datetime.timedelta(days=2)
@@ -5944,7 +5967,7 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   v_change = round(v - (df.loc[before_max_idx, 'adx_value']-df.loc[before_max_idx, 'adx_value_prediction']),1)
   y_signal = round(y_middle - y_range/4)
   text_color = 'green' if v_change > 0 else 'red'
-  plt.annotate(f'{v}[{v_change}]', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+  plt.annotate(f'[P]{v:0<5}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
@@ -6423,7 +6446,7 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   # plot key line prices
   if 'add_line_value' > '':
     interval_factor = {'day':1, 'week': 6, 'month': 25}
-    annotation_idx = max_idx  + datetime.timedelta(days=18*interval_factor[interval])
+    annotation_idx = max_idx  + datetime.timedelta(days=24*interval_factor[interval])
     ylim = ax.get_ylim()
     y_min = ylim[0]
     y_max = ylim[1]
@@ -7026,6 +7049,16 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
     else:
       axes[tmp_indicator].xaxis.set_ticks_position("top")
       axes[tmp_indicator].patch.set_alpha(0.5)
+
+      # set base
+      tmp_data = plot_data[['Close']].copy()
+      tmp_data['test'] = 0
+      max_idx = tmp_data.index.max()
+      extra_days = 7
+      for i in range(extra_days):
+        tmp_idx = max_idx + datetime.timedelta(days=i+1)
+        tmp_data.loc[tmp_idx, 'test'] = 0
+      axes[tmp_indicator].plot(tmp_data.index, tmp_data['test'], alpha=0)
 
     # set border color
     spine_alpha = 0.3

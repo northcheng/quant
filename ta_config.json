@@ -68,8 +68,6 @@
 
           "-----",
           "kama_distance",
-          "kijun",
-          "tankan",
           "ichimoku_distance",
           "adx_distance",
           
@@ -77,6 +75,7 @@
           "overall",
           "adx_trend",
           "trigger",
+          "tier",
           " "
         ]
       },
