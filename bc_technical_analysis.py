@@ -840,11 +840,11 @@ def calculate_ta_score(df):
   # df['pattern_score'] = df['cross_up_score'] + df['cross_down_score'] + df['candle_gap']
 
   # support/resistant, break_up/bread_down, candle_pattern description
-  df['up_score'] += df['cross_up_score'] + df['break_up_score'] + df['support_score'] * 0.66 + df['up_pattern_score']
-  df['down_score'] += df['cross_down_score'] + df['break_down_score'] + df['resistant_score'] * 0.66 + df['down_pattern_score']
+  df['up_score'] += df['cross_up_score'] + df['break_up_score'] + df['support_score'] # * 0.66 + df['up_pattern_score']
+  df['down_score'] += df['cross_down_score'] + df['break_down_score'] + df['resistant_score'] # * 0.66 + df['down_pattern_score']
 
   # descriptions
-  names = {'support':'+支撑', 'resistant': '-阻挡', 'break_up': '+突破', 'break_down': '-跌落', 'up_pattern': '+蜡烛', 'down_pattern': '-蜡烛'} # 
+  names = {'support':'+支撑', 'resistant': '-阻挡', 'break_up': '+突破', 'break_down': '-跌落'} # , 'up_pattern': '+蜡烛', 'down_pattern': '-蜡烛'
   for col in names.keys():
 
     desc = df[f'{col}_description'].apply(lambda x: '' if x == '' else f'{names[col]}:[{x}], ')
@@ -1032,7 +1032,7 @@ def calculate_ta_signal(df):
     '一般_up':            '''
                           (
                             (adx_value_change > 0) and
-                            ((adx_day > 0) or (adx_day == 0 and prev_adx_day < 0))
+                            (adx_distance_change > 0)
                           ) and
                           (
                             (
@@ -1046,7 +1046,7 @@ def calculate_ta_signal(df):
     '一般_down':            '''
                           (
                             (adx_value_change < 0) and
-                            ((adx_day < 0) or (adx_day == 0 and prev_adx_day > 0))
+                            (adx_distance_change < 0)
                           ) and
                           (
                             (
@@ -1059,7 +1059,7 @@ def calculate_ta_signal(df):
 
     '距离_up':            '''
                           (
-                            (adx_distance_status in ['posup', 'negup', 'noneup']) and 
+                            (adx_distance_status in ['posup']) and 
                             (
                               (ichimoku_distance_status in ['posup', 'negup', 'noneup']) or
                               (ichimoku_distance_status in ['posnone', 'negnone', 'nonenone'] and 
@@ -1097,15 +1097,15 @@ def calculate_ta_signal(df):
 
     '前瞻_up':            '''
                           (
-                            (adx_value_change < 0 or adx_direction_day == 1) and
-                            (overall_change < 0 and overall_change_diff > 0.1)
+                            (adx_value_change  > 0 and (adx_day <= 1)) and
+                            (adx_distance_change > 0 and overall_change < 0 and overall_change_diff > 0.1)
                           )
                           '''.replace('\n', ''),
 
     '前瞻_down':          '''
                           (
-                            (adx_value_change > 0 or adx_direction_day == -1) and
-                            (overall_change > 0 and overall_change_diff < -0.1)
+                            (adx_value_change < 0 and (adx_day >= -1)) and
+                            (adx_distance_change < 0 and overall_change > 0 and overall_change_diff < -0.1)
                           )
                           '''.replace('\n', ''),
 
@@ -1490,9 +1490,9 @@ def calculate_ta_signal(df):
     # 价格下降, 长上影线
     '13':                 '(rate < 0 and Close < Open) or ((rate < 0 or Close < Open) and (shadow_trend != "d") and (candle_upper_shadow_pct > candle_lower_shadow_pct and candle_upper_shadow_pct > 0.33)) or ((shadow_trend == "u" and candle_upper_shadow_pct > 0.8))',
     # ichimoku/kama [负]交叉信号触发 & 触发分数 <= 0
-    '14':                 '((-5 <= ichimoku_cross_day < 0) or (-5 <= kama_cross_day < 0)) and (trigger_score <= 0)',
+    '14':                 '((-3 <= ichimoku_cross_day < 0) or (-3 <= kama_cross_day < 0)) and (trigger_score <= 0)',
     # 仅有负面信号
-    '15':                 '(trigger_score <= 0 or up_score == 0) and ((break_up_score == 0 and break_down_score < 0) or (support_score == 0 and resistant_score < 0) or (trigger_score <0 and boundary_score <=0 and break_score <= 0))'
+    '15':                 '(trigger_score <= 0 and up_score == 0) and ((break_up_score == 0 and break_down_score < 0) or (support_score == 0 and resistant_score < 0) or (trigger_score <0 and boundary_score <=0 and break_score <= 0))'
   } 
   values = {
     '10':                 10,
