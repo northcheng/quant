@@ -41,28 +41,26 @@ class Trader(object):
       for hdlr in self.logger.handlers:
         self.logger.removeHandler(hdlr)
       self.logger.addHandler(console)
-     
+    
     # read user info, position record from local files
     self.user_info = io_util.read_config(file_path=config['trader_path'], file_name='user_info.json').get(platform)
     self.position_record = io_util.read_config(file_path=config['config_path'], file_name=f'position.json')[platform]
     self.record = self.position_record[account_type].copy()
     self.eod_api_key = config['api_key']['eod']
-    
+
     # set account, account type
     self.platform = platform
     self.account = self.user_info[account_type]
     self.account_type = account_type
-    
+
     # get quote and trade context, position, asset
     self.set_client_config(config=config)
     self.open_quote_client()
     self.open_trade_client()
     self.update_position()
     self.update_asset()
-    
     # update position record
     self.synchronize_position_record(config=config)
-    
     self.logger.info(f'[{platform}]: instance created - {logger_name}')
   
   # get client config
@@ -497,6 +495,7 @@ class Futu(Trader):
     
   # get quote client
   def open_quote_client(self):
+
     try:
       host = self.user_info['host']
       port = self.user_info['port']
@@ -505,7 +504,7 @@ class Futu(Trader):
     except Exception as e:
       self.quote_client = None
       self.logger.exception(f'[erro]: can not create quote context:{e}')
-  
+
   # exit current quote client
   def close_quote_client(self):
     if self.quote_client is not None:
@@ -514,6 +513,7 @@ class Futu(Trader):
       
   # get trade context
   def open_trade_client(self, market='US'):
+
     try:
       self.market = market
       host = self.user_info['host']
@@ -534,7 +534,7 @@ class Futu(Trader):
     except Exception as e:
       self.trade_client = None
       self.logger.exception(f'[erro]: can not create trade context:{e}')
-  
+
   # exit current trade client
   def close_trade_client(self):
     if self.trade_client is not None:
@@ -553,7 +553,7 @@ class Futu(Trader):
     
     # 失败重试
     retry_count = 0
-    while retry_count < 5:
+    while retry_count < 1:
       
       retry_count += 1
       try:
@@ -729,7 +729,7 @@ class Tiger(Trader):
 
     # 失败重试
     retry_count = 0
-    while retry_count < 5:
+    while retry_count < 1:
       
       retry_count += 1
       try:
