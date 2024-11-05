@@ -553,7 +553,7 @@ def calculate_ta_static(df, indicators=default_indicators):
         'neg_u':      f'(adx_value < 0 and adx_value_change > 0 and adx_strength_change < 0)', 
         'neg_d':      f'(adx_value < 0 and adx_value_change < 0)',
         'pos_u':      f'(adx_value >=0 and adx_value_change > 0 and ((adx_value <= 10 and adx_strength_change < 0 and adx_direction_start < -5) or (adx_value > 10 and adx_strength_change > 0)))', 
-        'pos_d':      f'(adx_value >=0 and adx_value_change < 0 and ((adx_value <= 10 and adx_value_change > 0.5) or (adx_value > 10 and adx_strength_change < 0)))',
+        'pos_d':      f'(adx_value >=0 and adx_value_change < 0 and ((adx_value <= 10 and adx_value_change < -0.5) or (adx_value > 10 and adx_strength_change < 0)))',
       } 
       values = {
         'neg_u':      1, 
@@ -827,8 +827,8 @@ def calculate_ta_score(df):
   df['cross_up_score'] = 0
   df['cross_down_score'] = 0
   for target in ['ichimoku', 'kama']:
-    up_idx = df.query(f'5 >= {target}_cross_day > 0 and {target}_distance > 0 and {target}_distance_change >= 0').index
-    down_idx = df.query(f'-5 <= {target}_cross_day < 0 and {target}_distance < 0 and {target}_distance_change <= 0').index
+    up_idx = df.query(f'3 >= {target}_cross_day > 0 and {target}_distance > 0 and {target}_distance_change >= 0').index
+    down_idx = df.query(f'-3 <= {target}_cross_day < 0 and {target}_distance < 0 and {target}_distance_change <= 0').index
     df.loc[up_idx, 'cross_up_score'] += 1 
     df.loc[down_idx, 'cross_down_score'] -= 1 
     df.loc[up_idx, 'up_score_description'] += f'{target}, ' 
@@ -1059,11 +1059,10 @@ def calculate_ta_signal(df):
 
     '距离_up':            '''
                           (
-                            (adx_distance_status in ['posup']) and 
+                            (adx_distance_status in ['posup', 'negup']) and 
                             (
                               (ichimoku_distance_status in ['posup', 'negup', 'noneup']) or
-                              (ichimoku_distance_status in ['posnone', 'negnone', 'nonenone'] and 
-                              (ichimoku_rate >= 0) and (tankan_rate_none_zero > 0 or kijun_rate_none_zero > 0)) 
+                              (ichimoku_distance_status in ['posnone', 'negnone', 'nonenone'] and (ichimoku_rate >= 0) and (tankan_rate_none_zero > 0 or kijun_rate_none_zero > 0)) 
                             ) and 
                             (kama_distance_status in ["posup", 'negup'])
                           )
@@ -1071,11 +1070,10 @@ def calculate_ta_signal(df):
 
     '距离_down':          '''
                           (
-                            (adx_distance_status in ['posdown', 'negdown'] or (adx_distance_status in ['posup', 'negup'] and adx_distance_change < 0 and candle_position_score < 0)) and 
+                            (adx_distance_status in ['posdown', 'negdown']) and 
                             (
                               ichimoku_distance_status in ['posdown', 'negdown', 'nonedown'] or
-                              (ichimoku_distance_status in ['posnone', 'negnone', 'nonenone'] and 
-                              (ichimoku_rate <= 0) and (tankan_rate_none_zero < 0 or kijun_rate_none_zero < 0))
+                              (ichimoku_distance_status in ['posnone', 'negnone', 'nonenone'] and (ichimoku_rate <= 0) and (tankan_rate_none_zero < 0 or kijun_rate_none_zero < 0))
                             ) and 
                             (
                               (kama_distance_status in ['posdown', "negdown"])
@@ -1467,7 +1465,7 @@ def calculate_ta_signal(df):
     '8':                  '(adx_value_change > 0) and (adx_day == 0) and (adx_value < 0)',
     # adx向上 & adx_trend由负转正
     '7':                  '(adx_value_change > 0) and (adx_day > 0)',
-    # adx向上 & adx_trend由负转正 & adx非弱趋势(adx_strength < 25)
+    # adx向上 & adx_trend由负转正 & adx非弱趋势(adx_strength > 25)
     '6':                  '(adx_value_change > 0) and (adx_day > 0) and (adx_strong_day > 0)', 
     # adx向上 & adx_trend由负转正 & ((adx非弱趋势 & adx_value不处于波动区间[-10, 10]) | (adx_trend转正首日))
     '5':                  '(adx_value_change > 0) and (adx_day > 0) and (adx_strong_day > 0) and (adx_wave_day == 0)', 
