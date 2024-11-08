@@ -827,8 +827,8 @@ def calculate_ta_score(df):
   df['cross_up_score'] = 0
   df['cross_down_score'] = 0
   for target in ['ichimoku', 'kama']:
-    up_idx = df.query(f'3 >= {target}_cross_day > 0 and {target}_distance > 0 and {target}_distance_change >= 0').index
-    down_idx = df.query(f'-3 <= {target}_cross_day < 0 and {target}_distance < 0 and {target}_distance_change <= 0').index
+    up_idx = df.query(f'3 >= {target}_cross_day > 0').index #  and {target}_distance > 0 and {target}_distance_change >= 0
+    down_idx = df.query(f'-3 <= {target}_cross_day < 0').index #  and {target}_distance < 0 and {target}_distance_change <= 0
     df.loc[up_idx, 'cross_up_score'] += 1 
     df.loc[down_idx, 'cross_down_score'] -= 1 
     df.loc[up_idx, 'up_score_description'] += f'{target}, ' 
@@ -840,8 +840,8 @@ def calculate_ta_score(df):
   # df['pattern_score'] = df['cross_up_score'] + df['cross_down_score'] + df['candle_gap']
 
   # support/resistant, break_up/bread_down, candle_pattern description
-  df['up_score'] += df['cross_up_score'] + df['break_up_score'] + df['support_score'] # * 0.66 + df['up_pattern_score']
-  df['down_score'] += df['cross_down_score'] + df['break_down_score'] + df['resistant_score'] # * 0.66 + df['down_pattern_score']
+  df['up_score'] += df['break_up_score']# + df['cross_up_score'] + df['support_score'] # * 0.66 + df['up_pattern_score']
+  df['down_score'] += df['break_down_score']# + df['cross_down_score'] + df['resistant_score'] # * 0.66 + df['down_pattern_score']
 
   # descriptions
   names = {'support':'+支撑', 'resistant': '-阻挡', 'break_up': '+突破', 'break_down': '-跌落'} # , 'up_pattern': '+蜡烛', 'down_pattern': '-蜡烛'
@@ -1483,14 +1483,14 @@ def calculate_ta_signal(df):
     # 完美触发
     '0':                  '(adx_value_change > 0) and (adx_day > 0) and (adx_strong_day > 0) and (adx_wave_day == 0) and (adx_value < -10) and (adx_direction_start < -10) and (ichimoku_distance < 0) and (相对ichimoku位置 in ["down", "mid_down", "mid"]) and (完美_up > 0)', 
     
-    # adx弱势或波动, 触发分数 <= 0
-    '12':                 '(adx_strong_day < -5 or adx_wave_day > 0 or 十字星_trend == "d") and (trigger_score <= 0)',
-    # 价格下降, 长上影线
-    '13':                 '(rate < 0 and Close < Open) or ((rate < 0 or Close < Open) and (shadow_trend != "d") and (candle_upper_shadow_pct > candle_lower_shadow_pct and candle_upper_shadow_pct > 0.33)) or ((shadow_trend == "u" and candle_upper_shadow_pct > 0.8))',
-    # ichimoku/kama [负]交叉信号触发 & 触发分数 <= 0
-    '14':                 '((-3 <= ichimoku_cross_day < 0) or (-3 <= kama_cross_day < 0)) and (trigger_score <= 0)',
-    # 仅有负面信号
-    '15':                 '(trigger_score <= 0 and up_score == 0) and ((break_up_score == 0 and break_down_score < 0) or (support_score == 0 and resistant_score < 0) or (trigger_score <0 and boundary_score <=0 and break_score <= 0))'
+    # # adx弱势或波动, 触发分数 <= 0
+    # '12':                 '(adx_strong_day < -5 or adx_wave_day > 0 or 十字星_trend == "d") and (trigger_score <= 0)',
+    # # 价格下降, 长上影线
+    # '13':                 '(rate < 0 and Close < Open) or ((rate < 0 or Close < Open) and (shadow_trend != "d") and (candle_upper_shadow_pct > candle_lower_shadow_pct and candle_upper_shadow_pct > 0.33)) or ((shadow_trend == "u" and candle_upper_shadow_pct > 0.8))',
+    # # ichimoku/kama [负]交叉信号触发 & 触发分数 <= 0
+    # '14':                 '((-3 <= ichimoku_cross_day < 0) or (-3 <= kama_cross_day < 0)) and (trigger_score <= 0)',
+    # # 仅有负面信号
+    # '15':                 '(trigger_score <= 0 and up_score == 0) and ((break_up_score == 0 and break_down_score < 0) or (support_score == 0 and resistant_score < 0) or (trigger_score <0 and boundary_score <=0 and break_score <= 0))'
   } 
   values = {
     '10':                 10,
@@ -1505,12 +1505,12 @@ def calculate_ta_signal(df):
     '1':                  1,
     '0':                  0, 
 
-    '12':                 12,
-    '13':                 13,
-    '14':                 14,
-    '15':                 15
+    # '12':                 12,
+    # '13':                 13,
+    # '14':                 14,
+    # '15':                 15
   }
-  df = assign_condition_value(df=df, column='tier', condition_dict=conditions, value_dict=values, default_value=10)
+  df = assign_condition_value(df=df, column='tier', condition_dict=conditions, value_dict=values, default_value=11)
 
   tier_descriptions = {
     '11':                 '趋势向下',
@@ -2984,6 +2984,13 @@ def add_support_resistance(df, target_col=default_support_resistant_col):
   df['break_down_description'] = ''
 
   # ================================ breakthorough =====================================
+  break_weight = {}
+  for col in target_col:
+    if col in key_cols:
+      break_weight[col] = 1
+    else:
+      break_weight[col] = 0
+
   for col in target_col:
 
     df[f'{col}_break_up'] = 0
@@ -2998,7 +3005,7 @@ def add_support_resistance(df, target_col=default_support_resistant_col):
       up_query += ')'
     break_up_idx = df.query(up_query).index # entity_diff > -0.5 and 
     df.loc[break_up_idx, 'break_up_description'] += f'{col}, '
-    df.loc[break_up_idx, f'{col}_break_up'] += 1
+    df.loc[break_up_idx, f'{col}_break_up'] += break_weight[col]
 
     down_query = f'(({col}_day == -1 or (candle_color == -1 and candle_entity_top > {col} and candle_entity_bottom < {col})) and (十字星_trend == "n" or (十字星_trend != "n" and candle_entity_top < {col}))'
     if 'renko' in col:
@@ -3009,7 +3016,7 @@ def add_support_resistance(df, target_col=default_support_resistant_col):
       down_query += ')'
     break_down_idx = df.query(down_query).index # entity_diff > -0.5 and 
     df.loc[break_down_idx, 'break_down_description'] += f'{col}, '
-    df.loc[break_down_idx, f'{col}_break_down'] -= 1
+    df.loc[break_down_idx, f'{col}_break_down'] -= break_weight[col]
 
   df['break_up_description'] = df['break_up_description'].apply(lambda x: ', '.join(list(set(x[:-2].split(', ')))))
   df['break_down_description'] = df['break_down_description'].apply(lambda x: ', '.join(list(set(x[:-2].split(', ')))))
