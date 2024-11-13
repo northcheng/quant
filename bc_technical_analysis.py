@@ -1458,31 +1458,48 @@ def calculate_ta_signal(df):
   df['tier'] = 11
   conditions = {
     # adx向上
-    '10':                  '(adx_value_change > 0)',
-    # adx向上 & adx_trend处于转换区间
-    '9':                  '(adx_value_change > 0) and (adx_day == 0)',
-    # adx向上 & adx_trend处于转换区间 & adx_value处于低位 (< 0)
-    '8':                  '(adx_value_change > 0) and (adx_day == 0) and (adx_value < 0)',
-    # adx向上 & adx_trend由负转正
-    '7':                  '(adx_value_change > 0) and (adx_day > 0)',
-    # adx向上 & adx_trend由负转正 & adx非弱趋势(adx_strength > 25)
-    '6':                  '(adx_value_change > 0) and (adx_day > 0) and (adx_strong_day > 0)', 
-    # adx向上 & adx_trend由负转正 & ((adx非弱趋势 & adx_value不处于波动区间[-10, 10]) | (adx_trend转正首日))
-    '5':                  '(adx_value_change > 0) and (adx_day > 0) and (adx_strong_day > 0) and (adx_wave_day == 0)', 
-    # adx向上 & adx_trend由负转正 & 信号前期
-    '4':                  '(adx_value_change > 0) and ((adx_day == 0 and prev_adx_duration < 0) or (0 < adx_day <= 2)) and (0 < signal_day <= 2) and (candle_color == 1)', 
-    # adx向上 & adx_trend由负转正 & adx非弱趋势 & adx_value不处于波动区间[-10, 10] & adx_value处于低位(< -10)
-    '3':                  '(adx_value_change > 0) and (adx_day > 0) and (adx_strong_day > 0) and (adx_wave_day == 0) and (adx_value < -10)', 
-    # adx向上 & adx_trend由负转正 & adx非弱趋势 & adx_value不处于波动区间[-10, 10] & adx_value处于低位(< -10) & adx低位启动(adx_direction_start < -10)
-    '2':                  '(adx_value_change > 0) and (adx_day > 0) and (adx_strong_day > 0) and (adx_wave_day == 0) and (adx_value < -10) and (adx_direction_start < -10)', 
-    # adx向上 & adx_trend由负转正 & adx非弱趋势 & adx_value不处于波动区间[-10, 10] & adx_value处于低位(< -10) & adx低位启动(adx_direction_start < -10)
-    # ichimoku红云, 处于中低位(["down", "mid_down", "mid"])
-    '1':                  '(adx_value_change > 0) and (adx_day > 0) and (adx_strong_day > 0) and (adx_wave_day == 0) and (adx_value < -10) and (adx_direction_start < -10) and (ichimoku_distance < 0) and (相对ichimoku位置 in ["down", "mid_down", "mid"])', 
-    # adx向上 & adx_trend由负转正 & adx非弱趋势 & adx_value不处于波动区间[-10, 10] & adx_value处于低位(< -10) & adx低位启动(adx_direction_start < -10)
-    # ichimoku红云, 处于中低位(["down", "mid_down", "mid"])
-    # 完美触发
-    '0':                  '(adx_value_change > 0) and (adx_day > 0) and (adx_strong_day > 0) and (adx_wave_day == 0) and (adx_value < -10) and (adx_direction_start < -10) and (ichimoku_distance < 0) and (相对ichimoku位置 in ["down", "mid_down", "mid"]) and (完美_up > 0)', 
+    '10':                 '(adx_value_change >= 0)',
+    # adx向上 & (adx_trend处于转换区间 | 协同向上)
+    '9':                  '(adx_value_change > 0) and (adx_day >= 0)',
+    # adx向上 & (adx_trend处于转换区间 | 协同向上) & (adx非弱势)
+    '8':                  '(adx_value_change > 0) and (adx_day >= 0) and (adx_strong_day > 0)',
+    # adx向上 & (adx_trend处于转换区间 | 协同向上) & (adx非弱势) & (adx不在波动区间)
+    '7':                  '(adx_value_change > 0) and (adx_day >= 0) and (adx_strong_day > 0) and (adx_wave_day == 0)',
+    # adx向上 & (adx_trend处于转换区间 | 协同向上) & (adx非弱势) & (adx不在波动区间) & (触发)
+    '6':                  '(adx_value_change > 0) and (adx_day >= 0) and (adx_strong_day > 0) and (adx_wave_day == 0) and (trigger_score > 0)',
+    # adx向上 & (adx_trend处于转换区间 | 协同向上) & (adx非弱势) & (adx不在波动区间) & (触发) & (kama/ichimoku均绿-高位)
+    '5':                  '(adx_value_change > 0) and (adx_day >= 0) and (adx_strong_day > 0) and (adx_wave_day == 0) and (ki_distance == "gg")',
+    # adx向上 & (adx_trend处于转换区间 | 协同向上) & (adx非弱势) & (adx不在波动区间) & (触发) & (kama绿/ichimoku红-下跌反弹)
+    '4':                  '(adx_value_change > 0) and (adx_day >= 0) and (adx_strong_day > 0) and (adx_wave_day == 0) and (ki_distance == "gr")',
+    # adx向上 & (adx_trend处于转换区间 | 协同向上) & (adx非弱势) & (adx不在波动区间) & (触发) & (kama红/ichimoku绿-低位上行)
+    '3':                  '(adx_value_change > 0) and (adx_day >= 0) and (adx_strong_day > 0) and (adx_wave_day == 0) and (ki_distance == "rg")',
+    # adx向上 & (adx_trend处于转换区间 | 协同向上) & (adx非弱势) & (adx不在波动区间) & (触发) & (kama/ichimoku均红-低位)
+    '2':                  '(adx_value_change > 0) and (adx_day >= 0) and (adx_strong_day > 0) and (adx_wave_day == 0) and (ki_distance == "rr")',
+    # adx向上 & (adx_trend处于转换区间 | 协同向上) & (adx非弱势) & (adx不在波动区间) & (触发) & (kama/ichimoku均红-低位) & (完美触发)
+    '1':                  '(adx_value_change > 0) and (adx_day >= 0) and (adx_strong_day > 0) and (adx_wave_day == 0) and (ki_distance == "rr") and (完美_up > 0)', 
+   
+    # adx向下
+    '11':                 '(adx_value_change < 0)',
+    # adx向下 & (adx_trend处于转换区间 | 协同向下)
+    '12':                 '(adx_value_change < 0) and (adx_day <= 0)',
+    # adx向下 & (adx_trend处于转换区间 | 协同向下) & (adx弱势)
+    '13':                 '(adx_value_change < 0) and (adx_day <= 0) and (adx_strong_day < 0)',
+    # adx向下 & (adx_trend处于转换区间 | 协同向下) & (adx弱势) & (adx在波动区间)
+    '14':                 '(adx_value_change < 0) and (adx_day <= 0) and (adx_strong_day < 0) and (adx_wave_day > 0)',
+    # adx向下 & (adx_trend处于转换区间 | 协同向下) & (adx弱势) & (adx在波动区间) & (触发)
+    '15':                 '(adx_value_change < 0) and (adx_day <= 0) and (adx_strong_day < 0) and (adx_wave_day > 0) and (trigger_score < 0)',
+    # adx向下 & (adx_trend处于转换区间 | 协同向下) & (adx弱势) & (adx在波动区间) & (触发) & (kama/ichimoku均红-低位)
+    '16':                 '(adx_value_change < 0) and (adx_day <= 0) and (adx_strong_day < 0) and (adx_wave_day > 0) and (trigger_score < 0) and (ki_distance == "rr")',
+    # adx向下 & (adx_trend处于转换区间 | 协同向下) & (adx弱势) & (adx在波动区间) & (触发) & (kama红/ichimoku绿-低位上行)
+    '17':                 '(adx_value_change < 0) and (adx_day <= 0) and (adx_strong_day < 0) and (adx_wave_day > 0) and (trigger_score < 0) and (ki_distance == "rg")',
+    # adx向下 & (adx_trend处于转换区间 | 协同向下) & (adx弱势) & (adx在波动区间) & (触发) & (kama绿/ichimoku红-下跌反弹) 
+    '18':                 '(adx_value_change < 0) and (adx_day <= 0) and (adx_strong_day < 0) and (adx_wave_day > 0) and (trigger_score < 0) and (ki_distance == "gr")',
+    # adx向下 & (adx_trend处于转换区间 | 协同向下) & (adx弱势) & (adx在波动区间) & (触发) & (kama/ichimoku均绿-高位)
+    '19':                 '(adx_value_change < 0) and (adx_day <= 0) and (adx_strong_day < 0) and (adx_wave_day > 0) and (trigger_score < 0) and (ki_distance == "gg")',
+    # adx向下 & (adx_trend处于转换区间 | 协同向下) & (adx弱势) & (adx在波动区间) & (触发) & (kama/ichimoku均红-低位) & (完美触发)
+    '20':                 '(adx_value_change < 0) and (adx_day <= 0) and (adx_strong_day < 0) and (adx_wave_day > 0) and (trigger_score < 0) and (完美_down < 0)',
     
+
     # # adx弱势或波动, 触发分数 <= 0
     # '12':                 '(adx_strong_day < -5 or adx_wave_day > 0 or 十字星_trend == "d") and (trigger_score <= 0)',
     # # 价格下降, 长上影线
@@ -1503,12 +1520,16 @@ def calculate_ta_signal(df):
     '3':                  3,
     '2':                  2,
     '1':                  1,
-    '0':                  0, 
 
-    # '12':                 12,
-    # '13':                 13,
-    # '14':                 14,
-    # '15':                 15
+    '12':                 12,
+    '13':                 13,
+    '14':                 14,
+    '15':                 15,
+    '16':                 16,
+    '17':                 17,
+    '18':                 18,
+    '19':                 19,
+    '20':                 20,
   }
   df = assign_condition_value(df=df, column='tier', condition_dict=conditions, value_dict=values, default_value=11)
 
