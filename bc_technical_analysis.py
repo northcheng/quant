@@ -6690,7 +6690,7 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
 
     # get target data
     t = pools[i]
-    tmp_data = data['result'][t].sort_values(by=['tier', 'potential_score', 'adx_direction_day', 'adx_direction_start'], ascending=[False, True, False, False]).copy() # ['信号分级', '潜力分数', 'adx趋势变化', '趋势方向天数']
+    tmp_data = data['result'][t].sort_values(by=['tier', 'potential_score', 'adx_direction_day', 'adx_direction_start'], ascending=[True, True, False, False]).copy() # ['信号分级', '潜力分数', 'adx趋势变化', '趋势方向天数']
     tmp_data = tmp_data[['symbol', 'rate', 'trigger_score', 'overall_change', 'tier']].set_index('symbol')
     tmp_data['name'] = tmp_data.index.values
 
