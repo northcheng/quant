@@ -166,7 +166,7 @@
 
       "signal": "交易信号",
       "signal_day": "信号天数",
-      "tier": "信号分级"
+      "signal_score": "信号分级"
     },
     "drop_columns": [],
     "send_columns": ["名称", "涨跌", "信号分级", "支撑", "阻挡", "潜力描述"],

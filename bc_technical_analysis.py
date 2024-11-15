@@ -1344,28 +1344,6 @@ def calculate_ta_signal(df):
                     potential_score > 0
                   )
                   '''.replace('\n', ''),
-    # 'sell':       '''
-    #               (
-    #                 potential_score < 0 and 
-    #                 (trigger_score < 0 or 位置_down < 0)
-    #               ) or
-    #               (
-    #                 potential_score == 0 and 
-    #                 ki_distance in ['gg', 'gr'] and 
-    #                 (potential_down_score < 0 and trigger_score < 0)
-    #               )
-    #               '''.replace('\n', ''),
-    # 'buy':        '''
-    #               (
-    #                 potential_score > 0 and 
-    #                 (trigger_score > 0 or 位置_up > 0 or 完美_up > 0)
-    #               ) or
-    #               (
-    #                 ki_distance in ['rr', 'rg'] and 
-    #                 potential_score == 0 and 
-    #                 (potential_up_score > 0 and trigger_score > 0)
-    #               )
-    #               '''.replace('\n', ''),
   } 
   values = {
     'sell':     's',
@@ -6693,12 +6671,12 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
 
     # get target data
     t = pools[i]
-    tmp_data = data['result'][t].sort_values(by=['tier', 'potential_score', 'adx_direction_day', 'adx_direction_start'], ascending=[True, True, False, False]).copy() # ['信号分级', '潜力分数', 'adx趋势变化', '趋势方向天数']
-    tmp_data = tmp_data[['symbol', 'rate', 'trigger_score', 'overall_change', 'tier']].set_index('symbol')
+    tmp_data = data['result'][t].sort_values(by=['signal_score', 'potential_score', 'adx_direction_day', 'adx_direction_start'], ascending=[True, True, False, False]).copy() # ['信号分级', '潜力分数', 'adx趋势变化', '趋势方向天数']
+    tmp_data = tmp_data[['symbol', 'rate', 'trigger_score', 'potential_score', 'position_score', 'tier', 'signal_score']].set_index('symbol')
     tmp_data['name'] = tmp_data.index.values
 
     # get data
-    if ('a_company' in t) or ('hs300' in t):
+    if ('a_company' in t) or ('hs300' in t) or('a_etf' in t):
       if config is not None:
         names = config['visualization']['plot_args']['sec_name']
         for idx, row in tmp_data.iterrows():
@@ -6719,10 +6697,9 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
       rate_ax = plt.subplot(gs[i*2], sharex=axes['rate'], zorder=1) 
       score_ax = plt.subplot(gs[i*2+1], sharex=axes['score'], zorder=0)
     
-    # plot signal rank
+    # plot signal score
     tmp_data['score_color'] = 'yellow'
-    rate_ax.barh(tmp_data.index, tmp_data['tier'], color=tmp_data['score_color'], label='tier', alpha=0.5, edgecolor='k') #, edgecolor='k'  
-    # score_ax.set_title(f'{t.replace("_day", "")} Trend Score', fontsize=25, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1))
+    rate_ax.barh(tmp_data.index, tmp_data['signal_score'], color=tmp_data['score_color'], label='signal_score', alpha=0.5, edgecolor='k') #, edgecolor='k'  
     
     # plot rate
     tmp_data['rate_color'] = 'green'
@@ -6734,21 +6711,24 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
     rate_ax.set_xlabel(f'[{t.replace("_day", "")}] Rate ({num_total-num_down}/{num_total})', labelpad = 10, fontsize = 20) 
     rate_ax.legend(loc='upper right', ncol=plot_args['ncol']) 
 
-    # plot trigger score
-    score_ax.barh(tmp_data.index, tmp_data.trigger_score, color='yellow', label='trigger_score', alpha=0.5, edgecolor='k')
-    tmp_data['score_bottom'] = tmp_data['trigger_score']
-    for index, row in tmp_data.iterrows():
-      if False: #(#row['trigger_score'] > 0 and row['overall_change'] > 0) or (row['trigger_score'] < 0 and row['overall_change'] < 0):
-        continue
-      else:
-        tmp_data.loc[index, 'score_bottom'] = 0
+    # plot trigger/position/potential/tier score
+    tmp_data['max'] = 0
+    tmp_data['min'] = 0
+    colors = {'trigger_score': 'red', 'position_score': 'blue', 'potential_score': 'yellow', 'tier': 'green'}
+    for col in ['position_score', 'tier', 'potential_score', 'trigger_score']:
 
-    # plot score
-    tmp_data['score_color'] = 'green'
-    down_idx = tmp_data.query('overall_change <= 0').index    
-    tmp_data.loc[down_idx, 'score_color'] = 'red'
-    score_ax.barh(tmp_data.index, tmp_data['overall_change'], color=tmp_data['score_color'], left=tmp_data['score_bottom'],label='overall_change', alpha=0.5) #, edgecolor='k'  
-    # score_ax.set_title(f'{t.replace("_day", "")} Trend Score', fontsize=25, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1))
+      tmp_data['tmp_value_pos'] = -tmp_data[col] if col == 'position_score' else tmp_data[col]
+      tmp_data['tmp_value_neg'] = -tmp_data[col] if col == 'position_score' else tmp_data[col]
+      
+      tmp_data['tmp_value_pos'] = tmp_data['tmp_value_pos'].apply(lambda x: max(0, x))
+      tmp_data['tmp_value_neg'] = tmp_data['tmp_value_neg'].apply(lambda x: min(0, x))
+
+      score_ax.barh(tmp_data.index, tmp_data['tmp_value_pos'], color=colors[col], left=tmp_data['max'], alpha=0.5, edgecolor='k')
+      score_ax.barh(tmp_data.index, tmp_data['tmp_value_neg'], color=colors[col], left=tmp_data['min'], label=col, alpha=0.5, edgecolor='k')
+
+      tmp_data['max'] += tmp_data['tmp_value_pos']
+      tmp_data['min'] += tmp_data['tmp_value_neg']
+
     score_ax.legend(loc='upper left', ncol=plot_args['ncol']) 
 
     # borders
