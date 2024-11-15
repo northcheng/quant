@@ -7210,9 +7210,9 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   # adjust plot layout
   max_idx = df.index.max()
   up_down_symbol = {True: '↑', False: '↓'}
-
   close_rate = (df.loc[max_idx, "rate"]*100).round(2)
-  title_color = 'green' if close_rate > 0 else 'red'
+  tier_type = df.loc[max_idx, "tier_type"]
+  title_color = 'green' if tier_type in ['up'] else 'red'
   title_symbol = up_down_symbol[close_rate > 0]
   plt.rcParams['font.sans-serif'] = ['SimHei'] 
   plt.rcParams['axes.unicode_minus'] = False
