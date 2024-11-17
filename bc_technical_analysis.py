@@ -856,7 +856,7 @@ def calculate_ta_score(df):
       df['down_score_description'] = (desc + df['down_score_description'])
 
   # trigger_score sum up
-  df['trigger_score'] = (df['up_score'] + df['down_score'] + df['candle_gap']).round(2)
+  df['trigger_score'] = (df['up_score'] + df['down_score'] + df['candle_gap']*0.5).round(2) # 
   df['up_score_description'] = df['up_score_description'].apply(lambda x: x[:-2] if (len(x) >=2 and x[-2] == ',') else x)
   df['down_score_description'] = df['down_score_description'].apply(lambda x: x[:-2] if (len(x) >=2 and x[-2] == ',') else x)
 
@@ -1138,23 +1138,23 @@ def calculate_ta_signal(df):
                           )
                           '''.replace('\n', ''),
     
-    '位置_up':            '''
-                          (candle_position_score >= 0.66) and
-                          (candle_upper_shadow_pct < 0.5) and
-                          ( 
-                            (ki_distance in ['rr'] and position_score <= -4) or
-                            (ki_distance in ['gg'] and position_score >= 4)
-                          )
-                          '''.replace('\n', ''),
+    # '位置_up':            '''
+    #                       (candle_position_score >= 0.66) and
+    #                       (candle_upper_shadow_pct < 0.5) and
+    #                       ( 
+    #                         (ki_distance in ['rr'] and position_score <= -1.5) or
+    #                         (ki_distance in ['gg'] and position_score >= 1.5)
+    #                       )
+    #                       '''.replace('\n', ''),
 
-    '位置_down':          '''
-                          (candle_position_score <= -0.66) and
-                          (candle_lower_shadow_pct < 0.5) and
-                          (
-                            (ki_distance in ['rr'] and position_score <= -4) or
-                            (ki_distance in ['gg'] and position_score >= 4)
-                          )
-                          '''.replace('\n', ''),
+    # '位置_down':          '''
+    #                       (candle_position_score <= -0.66) and
+    #                       (candle_lower_shadow_pct < 0.5) and
+    #                       (
+    #                         (ki_distance in ['rr'] and position_score <= -1.5) or
+    #                         (ki_distance in ['gg'] and position_score >= 1.5)
+    #                       )
+    #                       '''.replace('\n', ''),
     
   } 
   for c in potential_conditions.keys():
@@ -1250,10 +1250,8 @@ def calculate_ta_signal(df):
   # up: 基础方向向上
   up_data = df.query('adx_value_change > 0')
   df.loc[up_data.index, 'tier_type'] = 'up'
-
-  # up: 细分方向
   up_condition = {
-    '低位':    ['adx_direction_start < -20', 'ichimoku_distance < 0', 'kama_distance < 0'],
+    '低位':    ['adx_direction_start < -20', 'ichimoku_distance < 0', 'kama_distance < 0', 'position_score < 0'],
     '反转':    ['adx_day == 0 and prev_adx_day < 0', 'adx_distance_status == "negup"', 'ichimoku_distance_status == "negup"', 'kama_distance_status == "negup"'],
     '上行':    ['adx_day > 0', 'adx_distance_status == "posup"'],
   }
@@ -1270,7 +1268,9 @@ def calculate_ta_signal(df):
     # 遍历细分方向条件
     for q in up_condition[uc]:
       tmp_idx = up_data.query(q).index
-      df.loc[tmp_idx, tmp_score_col] += 1
+
+      condition_value = (df.loc[tmp_idx, 'position_score'] * -0.5) if q == 'position_score < 0' else 1
+      df.loc[tmp_idx, tmp_score_col] += condition_value
 
       if tmp_idx_merge is None:
         tmp_idx_merge = tmp_idx
@@ -1284,10 +1284,8 @@ def calculate_ta_signal(df):
   # down: 基础方向向下
   down_data = df.query('adx_value_change < 0')
   df.loc[down_data.index, 'tier_type'] = 'down'
-    
-  # down: 细分方向
   down_condition = {
-    '高位':    ['adx_direction_start > 20', 'ichimoku_distance > 0', 'kama_distance > 0'],
+    '高位':    ['adx_direction_start > 20', 'ichimoku_distance > 0', 'kama_distance > 0', 'position_score > 0'],
     '反转':    ['adx_day == 0 and prev_adx_day > 0', 'adx_distance_status == "posdown"', 'ichimoku_distance_status == "posdown"', 'kama_distance_status == "posdown"'],
     '下行':    ['adx_day < 0', 'adx_distance_status == "negdown"'],
   }
@@ -1304,48 +1302,52 @@ def calculate_ta_signal(df):
     # 遍历细分方向条件
     for q in down_condition[dc]:
       tmp_idx = down_data.query(q).index
-      df.loc[tmp_idx, tmp_score_col] -= 1
+
+      condition_value = (df.loc[tmp_idx, 'position_score'] * -0.5) if q == 'position_score > 0' else -1
+      df.loc[tmp_idx, tmp_score_col] += condition_value
 
       if tmp_idx_merge is None:
         tmp_idx_merge = tmp_idx
       else:
         tmp_idx_merge = tmp_idx_merge|tmp_idx
-    
+
     df['tier'] += df[tmp_score_col]
-    # if dc in ['高位']:
-    #   df.loc[tmp_idx_merge, 'tier_description'] += df.loc[tmp_idx_merge, tmp_score_col].apply(lambda x: {1: ''})f' {dc}(' + df.loc[tmp_idx_merge, tmp_score_col].astype(str) + ')'
-    # else:
     df.loc[tmp_idx_merge, 'tier_description'] += f' {dc}(' + df.loc[tmp_idx_merge, tmp_score_col].astype(str) + ')'
 
   # signal
   df['signal'] = ''
   df['signal_description'] = ''
   df['signal_day'] = 0
-  df['signal_score'] = df['tier'] + df['trigger_score'] + df['potential_score'] - df['position_score']
+  df['signal_score'] = df['tier'] + df['trigger_score'] + df['potential_score'] 
 
-  conditions = {    
-    'sell':       '''
+  conditions = {
+    'up':       '''
                   (
-                    tier < 0
-                  ) and
-                  (
-                    trigger_score < 0 or
-                    tier < -2 or
-                    potential_score < 0
+                    trigger_score == 0 and tier_type == "up"
                   )
                   '''.replace('\n', ''),
+
+    'down':       '''
+                  (
+                    trigger_score == 0 and tier_type == "down"
+                  )
+                  '''.replace('\n', ''),
+
+    'sell':       '''
+                  (
+                    (trigger_score < 0 or candle_position_score <= -0.33) and tier_type == "down"
+                  )
+                  '''.replace('\n', ''),
+
     'buy':       '''
                   (
-                    tier > 0
-                  ) and
-                  (
-                    trigger_score > 0 or
-                    tier > 2 or
-                    potential_score > 0
+                    (trigger_score > 0 or candle_position_score >= 0.33) and tier_type == "up"
                   )
                   '''.replace('\n', ''),
   } 
   values = {
+    'up':       'tb',
+    'down':     'ts',
     'sell':     's',
     'buy':      'b',
   }
@@ -1359,6 +1361,30 @@ def calculate_ta_signal(df):
     '信号不全':           '''
                           (signal == "b" or signal == "s") and (adx_power_day == 0)
                           '''.replace('\n', ''),
+
+    # # B|S:  无adx强度数据  
+    # '价格反向':           '''
+    #                       (
+    #                         (signal == "b") and 
+    #                         (candle_position_score < 0)
+    #                       ) or
+    #                       (
+    #                         (signal == "s") and
+    #                         (candle_position_score > 0)
+    #                       )
+    #                       '''.replace('\n', ''),
+
+    # # B|S:  无adx强度数据  
+    # '弱势波动':           '''
+    #                       (
+    #                         (signal == "b") and 
+    #                         (0 < adx_direction < 5 and 0 < adx_distance_change < 0.05)
+    #                       ) or
+    #                       (
+    #                         (signal == "s") and
+    #                         (0 > adx_direction > -5 and 0 > adx_distance_change > -0.05)
+    #                       )
+    #                       '''.replace('\n', ''),
 
     # # B: 去下降趋势中的买入信号  
     # '下降趋势':           '''
@@ -1437,7 +1463,7 @@ def calculate_ta_signal(df):
     #                       (signal == "b") and
     #                       (
     #                         (
-    #                           ki_distance in ['gg'] and
+    #                           (ki_distance in ['gg'] and position in ["up"]) and
     #                           (
     #                             (candle_color == -1 and break_down_score < 0) or
     #                             (十字星_trend != "n")
@@ -1527,9 +1553,9 @@ def calculate_ta_signal(df):
     df.loc[tmp_idx, 'signal_description'] += f'{c}, '
     none_signal_idx += tmp_idx.tolist()    
   none_signal_idx = list(set(none_signal_idx))
-  df.loc[none_signal_idx, 'signal'] = '' #+ df.loc[none_signal_idx, 'signal']
+  df.loc[none_signal_idx, 'signal'] = 'n' + df.loc[none_signal_idx, 'signal']
   df['signal_description'] = df['signal_description'].apply(lambda x: x[:-2])
-  df['signal_day'] = sda(df['signal'].replace({'b': 1, 's': -1, '': 0, 'nb': 1, 'ns': -1}), zero_as=1)  
+  df['signal_day'] = sda(df['signal'].replace({'b': 1, 's': -1, '': 0, 'nb': 1, 'ns': -1, 'tb': 1, 'ts': -1}), zero_as=1)  
 
   # drop redundant columns
   for col in col_to_drop:
@@ -5453,17 +5479,12 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     df['signal_alpha'] = df['signal_score'].abs() / 15
 
     # b/nb, s/ns signals
-    buy_data = df.query('signal == "b"')
-    ax.scatter(buy_data.index, buy_data[signal_y], marker='^', color='green', alpha=buy_data['signal_alpha'])
-
-    # buy_data = df.query('signal == "nb"')
-    # ax.scatter(buy_data.index, buy_data[signal_y], marker='^', color='green', alpha=0.15)
-
-    sell_data = df.query('signal == "s"')
-    ax.scatter(sell_data.index, sell_data[signal_y], marker='v', color='red', alpha=sell_data['signal_alpha'])
-
-    # sell_data = df.query('signal == "ns"')
-    # ax.scatter(sell_data.index, sell_data[signal_y], marker='v', color='red', alpha=0.15)
+    markers = {'b': '^', 's': 'v', 'nb': '_', 'ns': '_', 'tb': '.', 'ts': '.'}
+    colors = {'b': 'green', 's': 'red', 'nb': 'green', 'ns': 'red', 'tb': 'green', 'ts': 'red'}
+    for s in markers.keys():
+      tmp_data = df.query(f'signal == "{s}"')
+      if len(tmp_data) > 0:
+        ax.scatter(tmp_data.index, tmp_data[signal_y], marker=markers[s], color=colors[s], alpha=tmp_data['signal_alpha'])
 
     # annotate info
     ylim = ax.get_ylim()
@@ -5471,17 +5492,24 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     max_idx = df.index.max()
     x_signal = max_idx + datetime.timedelta(days=2)
 
+    # annotate overall_change (overall_change_diff)
+    v = round(df.loc[max_idx, 'signal_score'],1)
+    v_change = str(df['signal_score'].values[-3:].tolist()).replace(' ', '')
+    y_signal = y_max - 1.5 # round(y_middle)
+    text_color = 'green' if v > 0 else 'red'
+    plt.annotate(f'{v_change}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+
     # annotate adx_distance (adx_distance_change)
     v = round(df.loc[max_idx, 'adx_distance'], 1)
     v_change = round(df.loc[max_idx, 'adx_distance_change'],2)
-    y_signal = y_max - 1.5
+    y_signal = y_max - 4
     text_color = 'green' if v_change > 0 else 'red'
     plt.annotate(f'[A]{v:0<4}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
     # annotate overall_change (overall_change_diff)
     v = round(df.loc[max_idx, 'overall_change'],1)
     v_change = round(df.loc[max_idx, 'overall_change_diff'],2)
-    y_signal = y_max - 4 # round(y_middle)
+    y_signal = y_max - 6.5 # round(y_middle)
     text_color = 'green' if v_change > 0 else 'red'
     plt.annotate(f'[O]{v:0<4}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
@@ -5491,7 +5519,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     kama_distance_status = df.loc[max_idx, "kama_distance_status"].replace('pos', '+').replace('neg', '-').replace('none', '=').replace('up', '↑').replace('down', '↓')
     v = f'[A]{adx_distance_status}\n[I]{ichimoku_distance_status}\n[K]{kama_distance_status}'
     v = f'  A   I   K  \n {adx_distance_status} {ichimoku_distance_status} {kama_distance_status} '
-    y_signal = y_max - 8.5 # round(y_middle + y_range/4)
+    y_signal = y_max - 10 # round(y_middle + y_range/4)
     text_color = 'black'
     if (df.loc[max_idx, "距离_up"] > 0) or (df.loc[max_idx, "adx_distance_status"] in ['posup', 'negup'] and df.loc[max_idx, "ichimoku_distance_status"] in ['negnone']):
       text_color = 'green'
@@ -5506,31 +5534,6 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
     ax.grid(True, axis='x', linestyle='-', linewidth=0.5, alpha=0.1)
     ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
-
-  # trigger_score
-  if signal_x in ['score']:
-
-    # trigger_score
-    tmp_col_v = f'signal_score'
-    tmp_col_a = f'signal_score_alpha'
-    df[tmp_col_a] = df[tmp_col_v].abs() / 15 #normalize(df[tmp_col_v].abs())
-
-    threhold = 0
-    tmp_data = df.query(f'({tmp_col_v} > {threhold}) and (tier_type == "up")')
-    if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='green', alpha=tmp_data[tmp_col_a].fillna(0))
-
-    tmp_data = df.query(f'({tmp_col_v} > {threhold}) and (tier_type == "turn_up")')
-    if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='green', alpha=tmp_data[tmp_col_a].fillna(0))
-  
-    tmp_data = df.query(f'({tmp_col_v} < {-threhold}) and (tier_type == "down")')
-    if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='red', alpha=tmp_data[tmp_col_a].fillna(0))
-
-    tmp_data = df.query(f'({tmp_col_v} < {-threhold}) and (tier_type == "turn_down")')
-    if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', alpha=tmp_data[tmp_col_a].fillna(0))
 
   # trigger_score
   if signal_x in ['trigger']:
@@ -6709,13 +6712,13 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
     title_color = 'green' if num_total/2 > num_down else 'red'  
     rate_ax.barh(tmp_data.index, tmp_data['rate'], color=tmp_data['rate_color'], label='rate', alpha=0.5) #, edgecolor='k'
     rate_ax.set_xlabel(f'[{t.replace("_day", "")}] Rate ({num_total-num_down}/{num_total})', labelpad = 10, fontsize = 20) 
-    rate_ax.legend(loc='upper right', ncol=plot_args['ncol']) 
+    rate_ax.legend(loc='upper left', ncol=plot_args['ncol']) 
 
     # plot trigger/position/potential/tier score
     tmp_data['max'] = 0
     tmp_data['min'] = 0
-    colors = {'trigger_score': 'red', 'position_score': 'blue', 'potential_score': 'yellow', 'tier': 'green'}
-    for col in ['position_score', 'tier', 'potential_score', 'trigger_score']:
+    colors = {'trigger_score': 'blue', 'potential_score': 'yellow', 'tier': 'green'}
+    for col in ['tier', 'potential_score', 'trigger_score']:
 
       tmp_data['tmp_value_pos'] = -tmp_data[col] if col == 'position_score' else tmp_data[col]
       tmp_data['tmp_value_neg'] = -tmp_data[col] if col == 'position_score' else tmp_data[col]
@@ -7191,29 +7194,27 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   max_idx = df.index.max()
   up_down_symbol = {True: '↑', False: '↓'}
   close_rate = (df.loc[max_idx, "rate"]*100).round(2)
-  tier_type = df.loc[max_idx, "tier_type"]
-  title_color = 'green' if tier_type in ['up'] else 'red'
+  title_color = 'green' if close_rate > 0 else 'red'
   title_symbol = up_down_symbol[close_rate > 0]
   plt.rcParams['font.sans-serif'] = ['SimHei'] 
   plt.rcParams['axes.unicode_minus'] = False
 
   # get name of the symbol, and linear/candle/adx descriptions
   new_title = args['sec_name'].get(title.split('(')[0]) 
-  signal_desc = f'<Potential {df.loc[max_idx, "potential_score"]}> : {df.loc[max_idx, "potential_description"]} | {df.loc[max_idx, "signal_description"]}' #  | [S({df.loc[max_idx, "support_score"]}), U({df.loc[max_idx, "break_up_score"]}), D({df.loc[max_idx, "break_down_score"]}), R({df.loc[max_idx, "support_score"]})]
-  signal_desc = signal_desc.replace(', ]', ']')
-  signal_desc = signal_desc[:-2] if signal_desc[-2:] == '| ' else signal_desc
-  trigger_desc = f'<Trigger {df.loc[max_idx, "trigger_score"]}> : {df.loc[max_idx, "up_score_description"]} | {df.loc[max_idx, "down_score_description"]}'
-  tier_desc = f'<Tier {df.loc[max_idx, "tier"]}> : {df.loc[max_idx, "tier_description"]}'
+  pattern_desc = f'<模式 {df.loc[max_idx, "potential_score"]}> : {df.loc[max_idx, "potential_description"]} | {df.loc[max_idx, "signal_description"]}'.replace(':  |', ':') #  | [S({df.loc[max_idx, "support_score"]}), U({df.loc[max_idx, "break_up_score"]}), D({df.loc[max_idx, "break_down_score"]}), R({df.loc[max_idx, "support_score"]})]
+  trigger_desc = f'<触发 {df.loc[max_idx, "trigger_score"]}> : {df.loc[max_idx, "up_score_description"]} | {df.loc[max_idx, "down_score_description"]}'.replace(':  | -', ': -').replace(':  |', '')
+  trigger_desc = trigger_desc[:-2] if trigger_desc[-2] == "|" else trigger_desc
+  position = {'up': '高', 'mid_up': '中高', 'mid': '中', 'mid_down': '中低', 'down': '低'}.get(df.loc[max_idx, "position"])
+  tier_desc = f'<趋势 {df.loc[max_idx, "tier"]}> :{df.loc[max_idx, "tier_description"]}'
 
   # construct super title
   if new_title is None:
     new_title == ''
-  super_title = f'{title}({new_title})  {close_rate}% {title_symbol}'
+  super_title = f'[{df.loc[max_idx, "signal_score"]}] {title}({new_title})  {close_rate}% {title_symbol}'
   super_title = f'{super_title}\n{tier_desc}'
   super_title = f'{super_title}\n{trigger_desc}'
-  super_title = f'{super_title}\n{signal_desc}'
-  
-  
+  super_title = f'{super_title}\n{pattern_desc}'
+
   fig.suptitle(f'{super_title}', x=0.5, y=1.06, fontsize=22, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1), linespacing = 1.8)
 
   # save image
