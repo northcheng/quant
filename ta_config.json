@@ -61,7 +61,7 @@
           "-----",
           "support_score",
           "break_up_score",
-          "pattern_score",
+          "candle_pattern_score",
           "break_down_score",                  
           "resistant_score",
 
