@@ -1304,9 +1304,10 @@ def calculate_ta_signal(df):
     '波动趋势':            '''
                           (tier_type == "up") and 
                           ( 
-                            (adx_direction_day == 1 and adx_distance_change < 0.1 and adx_direction_start > 0 and adx_power_start > 0 and adx_power_day < 1) or 
-                            (adx_direction < 3 and adx_distance_change < 0.1) or
+                            (adx_direction_day == 1 and adx_distance_change < 0.1 and adx_direction_start > 0 and adx_power_start > 0 and adx_power_day < 1) or                             
                             (adx_direction_day == 1 and -10 < adx_direction_start < 10 and adx_strong_day < 0 and adx_wave_day > 0) or
+                            (adx_direction < 3 and adx_distance_change < 0.1) or
+                            (position == "up" and entity_trend == "u" and candle_color == -1 and candle_position_score < 0) or
                             (candle_position_score <= -0.66)
                           )
                           '''.replace('\n', ''),
