@@ -823,29 +823,12 @@ def calculate_ta_score(df):
   df['up_score_description'] = ''
   df['down_score_description'] = ''
 
-  # crossover signal
-  df['cross_up_score'] = 0
-  df['cross_down_score'] = 0
-  cross_threshold = 1
-  for target in ['ichimoku', 'kama']:
-    up_idx = df.query(f'{cross_threshold} >= {target}_cross_day > 0').index #  and {target}_distance > 0 and {target}_distance_change >= 0
-    down_idx = df.query(f'{-cross_threshold} <= {target}_cross_day < 0').index #  and {target}_distance < 0 and {target}_distance_change <= 0
-    df.loc[up_idx, 'cross_up_score'] += 1 
-    df.loc[down_idx, 'cross_down_score'] -= 1 
-    # df.loc[up_idx, 'up_score_description'] += f'{target}, ' 
-    # df.loc[down_idx, 'down_score_description'] += f'{target}, ' 
-  # df['up_score_description'] = df['up_score_description'].apply(lambda x: f'+交叉['+x[:-2]+'], ' if len(x) > 0 else '')
-  # df['down_score_description'] = df['down_score_description'].apply(lambda x: f'-交叉['+x[:-2]+'], ' if len(x) > 0 else '')
-
-  # # pattern_score = pattern_score + cross_score + candle_gap
-  # df['pattern_score'] = df['cross_up_score'] + df['cross_down_score'] + df['candle_gap']
-
   # support/resistant, break_up/bread_down, candle_pattern description
-  df['up_score'] += df['break_up_score']# + df['cross_up_score'] + df['support_score'] # * 0.66 + df['up_pattern_score']
-  df['down_score'] += df['break_down_score']# + df['cross_down_score'] + df['resistant_score'] # * 0.66 + df['down_pattern_score']
+  df['up_score'] += df['break_up_score'] + df['up_pattern_score'] # + df['cross_up_score'] + df['support_score'] # * 0.66 
+  df['down_score'] += df['break_down_score'] + df['down_pattern_score'] # + df['cross_down_score'] + df['resistant_score'] # * 0.66 
 
   # descriptions
-  names = {'support':'+支撑', 'resistant': '-阻挡', 'break_up': '+突破', 'break_down': '-跌落'} # , 'up_pattern': '+蜡烛', 'down_pattern': '-蜡烛'
+  names = {'up_pattern': '+蜡烛', 'down_pattern': '-蜡烛', 'support':'+支撑', 'resistant': '-阻挡', 'break_up': '+突破', 'break_down': '-跌落'} 
   for col in names.keys():
 
     desc = df[f'{col}_description'].apply(lambda x: '' if x == '' else f'{names[col]}:[{x}], ')
@@ -856,7 +839,7 @@ def calculate_ta_score(df):
       df['down_score_description'] = (desc + df['down_score_description'])
 
   # trigger_score sum up
-  df['trigger_score'] = (df['up_score'] + df['down_score'] + df['candle_gap']*0.5).round(2) # 
+  df['trigger_score'] = (df['up_score'] + df['down_score']).round(2) # 
   df['up_score_description'] = df['up_score_description'].apply(lambda x: x[:-2] if (len(x) >=2 and x[-2] == ',') else x)
   df['down_score_description'] = df['down_score_description'].apply(lambda x: x[:-2] if (len(x) >=2 and x[-2] == ',') else x)
 
@@ -1015,20 +998,22 @@ def calculate_ta_signal(df):
   # columns to drop
   col_to_drop = []               
 
-  # ================================ calculate potential ====================
-  df['potential_up_score'] = 0
-  df['potential_down_score'] = 0
-  df['potential_score'] = 0
-  df['potential_description'] = ''
-  df['potential_up'] = ''
-  df['potential_down'] = ''
   df['prev_adx_day'] = sda(df['adx_trend'].shift(1), zero_as=0)
-  col_to_drop += ['potential_up', 'potential_down'] # , 'prev_adx_day'
 
-  # mark potential
-  potential_up = []
-  potential_down = []
-  potential_conditions = {
+  # ================================ calculate pattern ======================
+  df['pattern_up_score'] = 0
+  df['pattern_down_score'] = 0
+  df['pattern_score'] = 0
+  df['pattern_description'] = ''
+  df['pattern_up'] = ''
+  df['pattern_down'] = ''
+  
+  col_to_drop += ['pattern_up', 'pattern_down', 'prev_adx_day']
+
+  # mark pattern
+  pattern_up = []
+  pattern_down = []
+  pattern_conditions = {
 
     '一般_up':            '''
                           (
@@ -1157,25 +1142,25 @@ def calculate_ta_signal(df):
     #                       '''.replace('\n', ''),
     
   } 
-  for c in potential_conditions.keys():
+  for c in pattern_conditions.keys():
     
     # get index which matches the condition
     df[c] = 0
-    tmp_condition = potential_conditions[c]
+    tmp_condition = pattern_conditions[c]
     tmp_idx = df.query(tmp_condition).index
 
-    # mark up/down potential
+    # mark up/down pattern
     if 'up' in c:
       df.loc[tmp_idx, c] += 1
-      potential_up.append(c)
+      pattern_up.append(c)
     elif 'down' in c:
       df.loc[tmp_idx, c] = -1
-      potential_down.append(c)
+      pattern_down.append(c)
     else:
       pass
 
   # exceptions
-  none_potential_conditions = {
+  none_pattern_conditions = {
 
     # '一般_up':            '''
     #                       (一般_up == 1) and
@@ -1214,33 +1199,33 @@ def calculate_ta_signal(df):
     #                       '''.replace('\n', ''),  
   
   } 
-  for c in none_potential_conditions.keys():
-    tmp_condition = none_potential_conditions[c]
+  for c in none_pattern_conditions.keys():
+    tmp_condition = none_pattern_conditions[c]
     tmp_idx = df.query(tmp_condition).index
     df.loc[tmp_idx, c] = 0
 
-  # calculate potential score and description
-  for c in potential_conditions.keys():
+  # calculate pattern score and description
+  for c in pattern_conditions.keys():
     if 'up' in c:
       tmp_idx = df.query(f'{c} == 1').index
-      df.loc[tmp_idx, 'potential_score'] += 1
-      df.loc[tmp_idx, 'potential_up_score'] += 1
-      df.loc[tmp_idx, 'potential_up'] += f'{c.replace("_up", "")}, '
+      df.loc[tmp_idx, 'pattern_score'] += 1
+      df.loc[tmp_idx, 'pattern_up_score'] += 1
+      df.loc[tmp_idx, 'pattern_up'] += f'{c.replace("_up", "")}, '
     elif 'down' in c:
       tmp_idx = df.query(f'{c} == -1').index
-      df.loc[tmp_idx, 'potential_score'] -= 1
-      df.loc[tmp_idx, 'potential_down_score'] -= 1
-      df.loc[tmp_idx, 'potential_down'] += f'{c.replace("_down", "")}, '
+      df.loc[tmp_idx, 'pattern_score'] -= 1
+      df.loc[tmp_idx, 'pattern_down_score'] -= 1
+      df.loc[tmp_idx, 'pattern_down'] += f'{c.replace("_down", "")}, '
     else:
       pass
  
   # final post-processing
-  df['potential_score'] = df['potential_score'].round(2)
-  df['potential_up'] = df['potential_up'].apply(lambda x: '+[' + x[:-2] + ']' if len(x) > 0 else '')
-  df['potential_down'] = df['potential_down'].apply(lambda x: '-[' + x[:-2] + ']' if len(x) > 0 else '')
-  df['potential_description'] = df['potential_up'] + ' | ' + df['potential_down']
+  df['pattern_score'] = df['pattern_score'].round(2)
+  df['pattern_up'] = df['pattern_up'].apply(lambda x: '+[' + x[:-2] + ']' if len(x) > 0 else '')
+  df['pattern_down'] = df['pattern_down'].apply(lambda x: '-[' + x[:-2] + ']' if len(x) > 0 else '')
+  df['pattern_description'] = df['pattern_up'] + ' | ' + df['pattern_down']
   
-  # ================================ calculate signal =======================
+  # ================================ calculate tier =========================
   
   # tier
   df['tier'] = 0
@@ -1280,7 +1265,6 @@ def calculate_ta_signal(df):
     df['tier'] += df[tmp_score_col]
     df.loc[tmp_idx_merge, 'tier_description'] += f' {uc}(' + df.loc[tmp_idx_merge, tmp_score_col].astype(str) + ')'
 
-  
   # down: 基础方向向下
   down_data = df.query('adx_value_change < 0')
   df.loc[down_data.index, 'tier_type'] = 'down'
@@ -1314,36 +1298,63 @@ def calculate_ta_signal(df):
     df['tier'] += df[tmp_score_col]
     df.loc[tmp_idx_merge, 'tier_description'] += f' {dc}(' + df.loc[tmp_idx_merge, tmp_score_col].astype(str) + ')'
 
+  # exceptions
+  none_tier_conditions = {
+
+    '波动趋势':            '''
+                          (tier_type == "up") and 
+                          ( 
+                            (adx_direction_day == 1 and adx_distance_change < 0.1 and adx_direction_start > 0 and adx_power_start > 0 and adx_power_day < 1) or 
+                            (adx_direction < 3 and adx_distance_change < 0.1) or
+                            (adx_direction_day == 1 and -10 < adx_direction_start < 10 and adx_strong_day < 0 and adx_wave_day > 0) or
+                            (candle_position_score <= -0.66)
+                          )
+                          '''.replace('\n', ''),
+
+  
+  } 
+  for c in none_tier_conditions.keys():
+    tmp_condition = none_tier_conditions[c]
+    tmp_idx = df.query(tmp_condition).index
+    df.loc[tmp_idx, 'tier_type'] = ''
+  # ================================ calculate signal =======================
+
   # signal
   df['signal'] = ''
   df['signal_description'] = ''
   df['signal_day'] = 0
-  df['signal_score'] = df['tier'] + df['trigger_score'] + df['potential_score'] 
+  df['signal_score'] = df['tier'] + df['trigger_score'] + df['pattern_score'] 
+  
+  # signal conditions
 
   conditions = {
     'up':       '''
                   (
-                    trigger_score == 0 and tier_type == "up"
+                    tier_type == "up" and
+                    trigger_score == 0 
                   )
                   '''.replace('\n', ''),
 
     'down':       '''
                   (
-                    trigger_score == 0 and tier_type == "down"
+                    tier_type == "down" and 
+                    trigger_score == 0
+                  )
+                  '''.replace('\n', ''),
+    
+    'buy':       '''
+                  (
+                    tier_type == "up" and 
+                    trigger_score > 0
                   )
                   '''.replace('\n', ''),
 
     'sell':       '''
                   (
-                    (trigger_score < 0 or candle_position_score <= -0.33) and tier_type == "down"
+                    tier_type == "down" and
+                    trigger_score < 0 
                   )
-                  '''.replace('\n', ''),
-
-    'buy':       '''
-                  (
-                    (trigger_score > 0 or candle_position_score >= 0.33) and tier_type == "up"
-                  )
-                  '''.replace('\n', ''),
+                  '''.replace('\n', ''),    
   } 
   values = {
     'up':       'tb',
@@ -1549,7 +1560,6 @@ def calculate_ta_signal(df):
     tmp_condition = none_signal_conditions[c]
     tmp_idx = df.query(tmp_condition).index
     df.loc[tmp_idx, c] = -1
-    df.loc[tmp_idx, 'potential_score'] -= 0.5
     df.loc[tmp_idx, 'signal_description'] += f'{c}, '
     none_signal_idx += tmp_idx.tolist()    
   none_signal_idx = list(set(none_signal_idx))
@@ -2524,7 +2534,6 @@ def add_candlestick_patterns(df):
     
     # add position features
     df = calculate_position_score(df)
-
     df['moving_max'] = sm(series=df['High'], periods=10).max()
     df['moving_min'] = sm(series=df['Low'], periods=10).min()
     
@@ -2536,6 +2545,15 @@ def add_candlestick_patterns(df):
     values = {'顶部': 'u', '底部': 'd'}
     df = assign_condition_value(df=df, column='极限_trend', condition_dict=conditions, value_dict=values, default_value='n')
     col_to_drop += ['moving_max', 'moving_min', '极限_trend']
+
+    # add gap features
+    conditions = {
+      # 位置_trend == "u", 近10日最高价
+      'gap_up':   '(candle_gap > 1)', 
+      # 位置_trend == "d", 近10日最低价
+      'gap_down': '(candle_gap < -1)'}
+    values = {'gap_up': 'u', 'gap_down': 'd'}
+    df = assign_condition_value(df=df, column='窗口_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
   # shadow and entity
   if 'shadow_entity' > '':
@@ -2690,7 +2708,7 @@ def add_candlestick_patterns(df):
   df['down_pattern_description'] = ''
   
   pattern_weights = {
-    '平头': 1, '启明黄昏': 1,
+    '平头': 1, '启明黄昏': 1, '窗口': 1
     # '十字星': 0.33, '流星': 0.33, '锤子': 0.33, '腰带': 0.33, '穿刺': 0.33, '包孕': 0.33, '吞噬': 0.33, 
   }
   all_candle_patterns = list(pattern_weights.keys())
@@ -5683,20 +5701,20 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
       tmp_alpha = 0.2
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker=none_marker, color='grey', alpha=tmp_alpha)
     
-    if signal_x in ['pattern_score']:
+    # if signal_x in ['pattern_score']:
 
-        pos_marker = 'x' 
-        neg_marker = 'x'
+    #     pos_marker = 'x' 
+    #     neg_marker = 'x'
 
-        # up
-        tmp_data = df.query(f'(cross_up_score > 0)')
-        if len(tmp_data) > 0:
-          ax.scatter(tmp_data.index, tmp_data[signal_y], marker=pos_marker, color='green', alpha=0.5) #'none', edgecolor=
+    #     # up
+    #     tmp_data = df.query(f'(cross_up_score > 0)')
+    #     if len(tmp_data) > 0:
+    #       ax.scatter(tmp_data.index, tmp_data[signal_y], marker=pos_marker, color='green', alpha=0.5) #'none', edgecolor=
 
-        # down
-        tmp_data = df.query(f'(cross_down_score < 0)')
-        if len(tmp_data) > 0:
-          ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='red', alpha=0.5)
+    #     # down
+    #     tmp_data = df.query(f'(cross_down_score < 0)')
+    #     if len(tmp_data) > 0:
+    #       ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='red', alpha=0.5)
 
   # adx_syn(whether adx_value and adx_strength goes the same direction)
   if signal_x in ['adx_trend']:
@@ -5775,7 +5793,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     if len(tmp_data) > 0:
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='red', alpha=tmp_data[tmp_col_a].fillna(0))
 
-  # potentials
+  # patterns
   if signal_x in ["前瞻", "完美", "距离", "一般", "反弹", "边界", "蜡烛", "位置"]:
 
     tmp_col_up = f'{signal_x}_up'
@@ -6105,7 +6123,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
     y_text_close = None
     
     y_close_padding = padding*5
-    y_close = df.loc[max_idx, 'Close'].round(2)
+    y_close = df.loc[max_idx, 'Close'].round(3)
     y_text_close = y_close
     plt.annotate(f'{y_close}', xy=(annotation_idx, y_text_close), xytext=(annotation_idx, y_text_close), fontsize=13, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", alpha=0))
 
@@ -6674,8 +6692,8 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
 
     # get target data
     t = pools[i]
-    tmp_data = data['result'][t].sort_values(by=['signal_score', 'potential_score', 'adx_direction_day', 'adx_direction_start'], ascending=[True, True, False, False]).copy() # ['信号分级', '潜力分数', 'adx趋势变化', '趋势方向天数']
-    tmp_data = tmp_data[['symbol', 'rate', 'trigger_score', 'potential_score', 'position_score', 'tier', 'signal_score']].set_index('symbol')
+    tmp_data = data['result'][t].sort_values(by=['signal_score', 'pattern_score', 'adx_direction_day', 'adx_direction_start'], ascending=[True, True, False, False]).copy() # ['信号分级', '潜力分数', 'adx趋势变化', '趋势方向天数']
+    tmp_data = tmp_data[['symbol', 'rate', 'trigger_score', 'pattern_score', 'position_score', 'tier', 'signal_score']].set_index('symbol')
     tmp_data['name'] = tmp_data.index.values
 
     # get data
@@ -6714,11 +6732,11 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
     rate_ax.set_xlabel(f'[{t.replace("_day", "")}] Rate ({num_total-num_down}/{num_total})', labelpad = 10, fontsize = 20) 
     rate_ax.legend(loc='upper left', ncol=plot_args['ncol']) 
 
-    # plot trigger/position/potential/tier score
+    # plot trigger/position/pattern/tier score
     tmp_data['max'] = 0
     tmp_data['min'] = 0
-    colors = {'trigger_score': 'blue', 'potential_score': 'yellow', 'tier': 'green'}
-    for col in ['tier', 'potential_score', 'trigger_score']:
+    colors = {'trigger_score': 'blue', 'pattern_score': 'yellow', 'tier': 'green'}
+    for col in ['tier', 'pattern_score', 'trigger_score']:
 
       tmp_data['tmp_value_pos'] = -tmp_data[col] if col == 'position_score' else tmp_data[col]
       tmp_data['tmp_value_neg'] = -tmp_data[col] if col == 'position_score' else tmp_data[col]
@@ -6819,11 +6837,11 @@ def plot_review(prefix, df, sort_factors=['信号分级', "潜力分数", '趋�
     rate_ax.barh(tmp_data.index, tmp_data[primary_factor], color=tmp_data['score_color'], label=primary_factor, alpha=0.5, edgecolor='k')
     
     # plot rate
-    tmp_data['potential_color'] = 'green'
+    tmp_data['pattern_color'] = 'green'
     down_idx = tmp_data.query(f'{secondary_factor} <= 0').index    
-    tmp_data.loc[down_idx, 'potential_color'] = 'red'
+    tmp_data.loc[down_idx, 'pattern_color'] = 'red'
     title_color = 'black' 
-    rate_ax.barh(tmp_data.index, tmp_data[secondary_factor], color=tmp_data['potential_color'], label=secondary_factor, alpha=0.5) #, edgecolor='k'
+    rate_ax.barh(tmp_data.index, tmp_data[secondary_factor], color=tmp_data['pattern_color'], label=secondary_factor, alpha=0.5) #, edgecolor='k'
     rate_ax.set_xlabel(f'{primary_factor} - {secondary_factor}', labelpad = 10, fontsize = 20) 
     rate_ax.legend(loc='upper right', ncol=plot_args['ncol']) 
 
@@ -6897,7 +6915,6 @@ def plot_selected(data, config, make_pdf=False, dst_path=None, file_name=None):
   # calculate rank and sort by rank    
   # selected_data['rank'] = selected_data['signal_rank'] + selected_data['inday_trend_score']
   selected_data = selected_data.query('adx_direction > 0').sort_values(['tier', 'signal_day', 'adx_direction_start'], ascending=[True, True, True])
-  # selected_data = selected_data[['symbol', 'potential', 'potential_score', 'potential_description', 'signal', 'signal_rank', 'inday_trend_score', 'resistant_score', 'rank', 'rate', 'img_path']]
 
   # make pdf from images
   if make_pdf:
@@ -7201,12 +7218,12 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
 
   # get name of the symbol, and linear/candle/adx descriptions
   new_title = args['sec_name'].get(title.split('(')[0]) 
-  pattern_desc = f'<模式 {df.loc[max_idx, "potential_score"]}> : {df.loc[max_idx, "potential_description"]} | {df.loc[max_idx, "signal_description"]}'.replace(':  |', ':') #  | [S({df.loc[max_idx, "support_score"]}), U({df.loc[max_idx, "break_up_score"]}), D({df.loc[max_idx, "break_down_score"]}), R({df.loc[max_idx, "support_score"]})]
-  trigger_desc = f'<触发 {df.loc[max_idx, "trigger_score"]}> : {df.loc[max_idx, "up_score_description"]} | {df.loc[max_idx, "down_score_description"]}'.replace(':  | -', ': -').replace(':  |', '')
-  trigger_desc = trigger_desc[:-2] if trigger_desc[-2] == "|" else trigger_desc
-  position = {'up': '高', 'mid_up': '中高', 'mid': '中', 'mid_down': '中低', 'down': '低'}.get(df.loc[max_idx, "position"])
   tier_desc = f'<趋势 {df.loc[max_idx, "tier"]}> :{df.loc[max_idx, "tier_description"]}'
-
+  trigger_desc = f'<触发 {df.loc[max_idx, "trigger_score"]}> : {df.loc[max_idx, "up_score_description"]} | {df.loc[max_idx, "down_score_description"]}'.replace(':  |', ':')
+  trigger_desc = trigger_desc[:-2] if trigger_desc[-2] == "|" else trigger_desc
+  pattern_desc = f'<模式 {df.loc[max_idx, "pattern_score"]}> : {df.loc[max_idx, "pattern_description"]} | {df.loc[max_idx, "signal_description"]}'.replace(':  |', ':')
+  pattern_desc = pattern_desc[:-2] if pattern_desc[-2] == "|" else pattern_desc
+  
   # construct super title
   if new_title is None:
     new_title == ''
