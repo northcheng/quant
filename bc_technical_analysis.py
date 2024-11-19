@@ -7119,7 +7119,8 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   max_idx = df.index.max()
   up_down_symbol = {True: '↑', False: '↓'}
   close_rate = (df.loc[max_idx, "rate"]*100).round(2)
-  title_color = 'green' if close_rate > 0 else 'red'
+  signal_score = df.loc[max_idx, "signal_score"]
+  title_color = 'green' if signal_score > 0 else 'red'
   title_symbol = up_down_symbol[close_rate > 0]
   plt.rcParams['font.sans-serif'] = ['SimHei'] 
   plt.rcParams['axes.unicode_minus'] = False
@@ -7133,23 +7134,6 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   pattern_desc = pattern_desc[:-2] if pattern_desc[-2] == "|" else pattern_desc
   pattern_desc += '' if df.loc[max_idx, "signal_description"] == "" else f'| {df.loc[max_idx, "signal_description"]}'
 
-  # distance_desc = ''
-  # descriptions = {
-  #   'posup': '向上', 'posdown': '反转向下', 'posnone': '上行波动',
-  #   'negup': '反转向上', 'negdown': '向下', 'negnone': '下行波动',
-  #   'noneup': '波动向上', 'nonwdown': '波动向下', 'nonenone': '不明', '': '未知'
-  # }
-  # terms = {
-  #   'adx': '短期', 'ichimoku': '中期', 'kama': '长期'
-  # }
-  # for i in ['adx', 'ichimoku', 'kama']:
-  #   i_col = f'{i}_distance_status'
-  #   i_status = df.loc[max_idx, i_col]
-  #   i_desc = descriptions[i_status]
-  #   i_term = terms[i]
-  #   distance_desc += f'{i_term}({i_desc}), '
-  # distance_desc = distance_desc[:-2]
-
   # construct super title
   if new_title is None:
     new_title == ''
@@ -7157,8 +7141,6 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   super_title = f'{super_title}\n{trend_desc}'
   super_title = f'{super_title}\n{trigger_desc}'
   super_title = f'{super_title}\n{pattern_desc}'
-  
-
   fig.suptitle(f'{super_title}', x=0.5, y=1.06, fontsize=22, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1), linespacing = 1.8)
 
   # save image
