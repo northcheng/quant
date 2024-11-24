@@ -1241,18 +1241,29 @@ def calculate_ta_signal(df):
                     '''.replace('\n', ''),
       
       'buy':       '''
+                    (trend == "up") and
                     (
-                      trend == "up" and 
-                      ((trigger_score > 0) or (trigger_score >= 0 and pattern_score > 0))
+                      ((position in ["down"]) and (trigger_score > 0)) or 
+                      ((position not in ["down"]) and ((trigger_score > 0) or (trigger_score >= 0 and pattern_score > 0)))
                     )
                     '''.replace('\n', ''),
 
       'sell':       '''
+                    (trend == "down") and
                     (
-                      trend == "down" and
-                      ((trigger_score < 0) or (trigger_score <= 0 and pattern_score < 0))
+                      (position in ["down"]) or 
+                      ((position in ["mid_down"]) and ((trigger_score < 0) or (trigger_score <= 0 and pattern_score < 0) or (candle_position_score < 0))) or 
+                      ((position not in ["mid_down", "down"]) and ((trigger_score < 0) or (trigger_score <= 0 and pattern_score < 0)))
                     )
                     '''.replace('\n', ''),    
+
+      'sell1':       '''
+                    (trend == "up") and
+                    (
+                      ((position in ["down", "mid_down"]) and ((trigger_score < 0) or (trigger_score <= 0 and pattern_score < 0) or (candle_position_score < 0))) or 
+                      ((position not in ["mid_down", "down"]) and ((trigger_score < 0) or (trigger_score <= 0 and pattern_score < 0)))
+                    )
+                    '''.replace('\n', ''), 
     } 
     values = {
       'up':       'tb',
