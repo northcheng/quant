@@ -1075,7 +1075,7 @@ def calculate_ta_signal(df):
       df['trend_score'] += df[tmp_score_col]
       df.loc[tmp_idx_merge, 'trend_description'] += f' {dc}(' + df.loc[tmp_idx_merge, tmp_score_col].astype(str) + ')'
 
-    # exceptions
+    # exceptions: 例外情况
     none_trend_conditions = {
     } 
     for c in none_trend_conditions.keys():
@@ -1138,54 +1138,54 @@ def calculate_ta_signal(df):
                             (overall_change_day == -1 and overall_change_diff < 0)
                             '''.replace('\n', ''),
 
-      '边界_up':            '''
-                            ( 
-                              (candle_lower_shadow_pct > candle_upper_shadow_pct) and 
-                              (candle_lower_shadow_pct > 0.5) and
-                              (trend == "up" or candle_color == 1) and
-                              (
-                                (ichimoku_distance < 0 and tankan > kama_slow) or
-                                (ichimoku_distance_change < 0 and kijun > kama_slow)
-                              ) and
-                              (
-                                (kama_slow_support == 1) or 
-                                (kama_slow_break_up == 1) or 
-                                (Open < kama_slow < Close)
-                              )
-                            )
-                            '''.replace('\n', ''),
+      # '边界_up':            '''
+      #                       ( 
+      #                         (candle_lower_shadow_pct > candle_upper_shadow_pct) and 
+      #                         (candle_lower_shadow_pct > 0.5) and
+      #                         (trend == "up" or candle_color == 1) and
+      #                         (
+      #                           (ichimoku_distance < 0 and tankan > kama_slow) or
+      #                           (ichimoku_distance_change < 0 and kijun > kama_slow)
+      #                         ) and
+      #                         (
+      #                           (kama_slow_support == 1) or 
+      #                           (kama_slow_break_up == 1) or 
+      #                           (Open < kama_slow < Close)
+      #                         )
+      #                       )
+      #                       '''.replace('\n', ''),
 
-      '边界_down':          '''
-                            ( 
-                              (candle_upper_shadow_pct > candle_lower_shadow_pct) and 
-                              (candle_upper_shadow_pct > 0.5) and
-                              (trend == "down" or candle_color == -1) and
-                              (
-                                (ichimoku_distance > 0 and tankan < kama_slow) or
-                                (ichimoku_distance_change > 0 and kijun < kama_slow)
-                              ) and 
-                              (
-                                (kama_slow_support == -1) or 
-                                (kama_slow_break_up == -1) or 
-                                (Open > kama_slow > Close)
-                              )
-                            )
-                            '''.replace('\n', ''),
+      # '边界_down':          '''
+      #                       ( 
+      #                         (candle_upper_shadow_pct > candle_lower_shadow_pct) and 
+      #                         (candle_upper_shadow_pct > 0.5) and
+      #                         (trend == "down" or candle_color == -1) and
+      #                         (
+      #                           (ichimoku_distance > 0 and tankan < kama_slow) or
+      #                           (ichimoku_distance_change > 0 and kijun < kama_slow)
+      #                         ) and 
+      #                         (
+      #                           (kama_slow_support == -1) or 
+      #                           (kama_slow_break_up == -1) or 
+      #                           (Open > kama_slow > Close)
+      #                         )
+      #                       )
+      #                       '''.replace('\n', ''),
             
-      '蜡烛_up':            '''
-                            ( 
-                              Close < 0
-                            )
-                            '''.replace('\n', ''),
+      # '蜡烛_up':            '''
+      #                       ( 
+      #                         Close < 0
+      #                       )
+      #                       '''.replace('\n', ''),
 
-      # 1. 高位长实体/长影线
-      # 2. 长上影线
-      '蜡烛_down':            '''
-                            ( 
-                              (position in ["up"] and (shadow_diff > 2 or entity_diff > 2)) or
-                              (shadow_diff > 0 and candle_upper_shadow_pct > 0.5)
-                            )
-                            '''.replace('\n', ''),
+      # # 1. 高位长实体/长影线 (position in ["up"] and (shadow_diff > 2 or entity_diff > 2)) or
+      # # 2. 长上影线 (shadow_diff > 0 and candle_upper_shadow_pct > 0.5)
+      # '蜡烛_down':            '''
+      #                       ( 
+      #                         (十字星_trend != "n")
+                              
+      #                       )
+      #                       '''.replace('\n', ''),
     } 
     for c in pattern_conditions.keys():
       
@@ -1299,6 +1299,15 @@ def calculate_ta_signal(df):
       # B|S:  无adx强度数据  
       '信号不全':           '''
                             (signal == "b" or signal == "s") and (adx_power_day == 0)
+                            '''.replace('\n', ''),
+
+      '高位波动':            '''
+                            (signal == "b") and 
+                            ( 
+                              (ki_distance in ["gr", "gg"]) and 
+                              (adx_value > 0 and adx_value_change > 0) and
+                              (adx_strength_change < 0) and (adx_power_day < -1 or adx_value < 10)
+                            )
                             '''.replace('\n', ''),
 
       '波动趋势':            '''
@@ -2647,8 +2656,8 @@ def add_candlestick_patterns(df):
   df['down_pattern_description'] = ''
   
   pattern_weights = {
-    '平头': 1, '启明黄昏': 1, '窗口': 1
-    # '十字星': 0.33, '流星': 0.33, '锤子': 0.33, '腰带': 0.33, '穿刺': 0.33, '包孕': 0.33, '吞噬': 0.33, 
+    '平头': 1, '启明黄昏': 1, '窗口': 1, # '十字星': 0.5
+    # '流星': 0.33, '锤子': 0.33, '腰带': 0.33, '穿刺': 0.33, '包孕': 0.33, '吞噬': 0.33, 
   }
   all_candle_patterns = list(pattern_weights.keys())
   for col in all_candle_patterns:
@@ -6003,6 +6012,12 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
 
   # annotate candle patterns
   if 'pattern' in add_on:
+
+    # plot cross star
+    df['high_top'] = df['High'] * 1.02
+    t_idx = df.query(f'十字星_trend != "n"').index
+    t_color = 'purple' 
+    ax.scatter(t_idx, df.loc[t_idx, 'high_top'], color=t_color, alpha=1, s=20, marker='x', zorder=default_zorders['price'])
     
     # plot flat-top/bottom
     len_unit = datetime.timedelta(days=1)
