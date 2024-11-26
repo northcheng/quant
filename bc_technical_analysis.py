@@ -856,9 +856,8 @@ def calculate_ta_score(df):
   df = assign_condition_value(df=df, column='trigger_day', condition_dict=trigger_conditions, value_dict=trigger_values, default_value=0)
   df['trigger_day'] = sda(series=df['trigger_day'], zero_as=1)
 
-  
-  # ================================ calculate distance status ==============
   # ================================ calculate overall change & status ======
+  df['distance_change'] = 0
   df['overall_change'] = 0
   df['overall_status'] = 0
 
@@ -868,7 +867,6 @@ def calculate_ta_score(df):
   for col in ['adx', 'ichimoku', 'kama']:
 
     distance_col = f'{col}_distance'
-    distance_change_col = f'{col}_distance_change'
     distance_middle_col = f'{col}_distance_middle'
     result_col = f'{col}_distance_status'
     status_col = f'{col}_status'
@@ -917,10 +915,6 @@ def calculate_ta_score(df):
         tmp_match = df.query(tmp_condition).index
         df.loc[tmp_match, result_col] = f'{d}{dc}'
 
-    # if col == 'adx':
-    #   df[rate_col] = df['adx_distance']
-    # else:
-    #   df[status_col] = (df[rate_col] > 0).replace({True: 1, False: -1})
     df[status_col] = (df[rate_col] > 0).replace({True: 1, False: -1})
     df['overall_change'] += normalize(df[rate_col].abs()) * df[status_col]
     df['overall_status'] += df[status_col]
@@ -1006,11 +1000,11 @@ def calculate_ta_signal(df):
   
     # trend
     df['trend'] = ''
-    df['trend_score'] = 0
+    df['trend_score'] = df['overall_change'].round(1)
     df['trend_description'] = ''
 
     # up: 基础方向向上
-    up_data = df.query('adx_value_change > 0')
+    up_data = df.query('adx_day > 0 or (adx_day == 0 and adx_value_change > 1)')
     df.loc[up_data.index, 'trend'] = 'up'
     up_condition = {
       '低位':    ['adx_direction_start < -20', 'ichimoku_distance < 0', 'kama_distance < 0', 'position_score < 0'],
@@ -1043,7 +1037,7 @@ def calculate_ta_signal(df):
       df.loc[tmp_idx_merge, 'trend_description'] += f' {uc}(' + df.loc[tmp_idx_merge, tmp_score_col].astype(str) + ')'
 
     # down: 基础方向向下
-    down_data = df.query('adx_value_change < 0')
+    down_data = df.query('adx_day < 0 or (adx_day == 0 and adx_value_change < -1)')
     df.loc[down_data.index, 'trend'] = 'down'
     down_condition = {
       '高位':    ['adx_direction_start > 20', 'ichimoku_distance > 0', 'kama_distance > 0', 'position_score > 0'],
@@ -1091,8 +1085,7 @@ def calculate_ta_signal(df):
     df['pattern_score'] = 0
     df['pattern_description'] = ''
     df['pattern_up'] = ''
-    df['pattern_down'] = ''
-    
+    df['pattern_down'] = ''    
     col_to_drop += ['pattern_up', 'pattern_down', 'prev_adx_day']
 
     # mark pattern
@@ -1172,20 +1165,17 @@ def calculate_ta_signal(df):
       #                       )
       #                       '''.replace('\n', ''),
             
-      # '蜡烛_up':            '''
-      #                       ( 
-      #                         Close < 0
-      #                       )
-      #                       '''.replace('\n', ''),
+      '蜡烛_up':            '''
+                            ( 
+                              Close < 0
+                            )
+                            '''.replace('\n', ''),
 
-      # # 1. 高位长实体/长影线 (position in ["up"] and (shadow_diff > 2 or entity_diff > 2)) or
-      # # 2. 长上影线 (shadow_diff > 0 and candle_upper_shadow_pct > 0.5)
-      # '蜡烛_down':            '''
-      #                       ( 
-      #                         (十字星_trend != "n")
-                              
-      #                       )
-      #                       '''.replace('\n', ''),
+      '蜡烛_down':            '''
+                            ( 
+                              Close < 0                              
+                            )
+                            '''.replace('\n', ''),
     } 
     for c in pattern_conditions.keys():
       
@@ -1203,6 +1193,19 @@ def calculate_ta_signal(df):
         pattern_down.append(c)
       else:
         pass
+    
+    # candle_pattern: 长上影线
+    neg_candle_patterns = {
+      '长上影_down':   '((candle_upper_shadow_pct > 0.5) and ((candle_color == -1) or (candle_position_score < 0)))',
+      '长实体_down':   '((position in ["up"]) and (shadow_diff > 2 or entity_diff > 2))',
+    }
+    for c in neg_candle_patterns.keys():
+      tmp_query = neg_candle_patterns[c]
+      idx = df.query(tmp_query).index
+      df.loc[idx, '蜡烛_down'] -= 1
+      # if '蜡烛_down' not in  pattern_down:
+      #   pattern_down.append('蜡烛_down')
+      pattern_down.append(c)
 
     # exceptions
     none_pattern_conditions = {
@@ -1242,6 +1245,7 @@ def calculate_ta_signal(df):
     df['signal_description'] = ''
     df['signal_day'] = 0
     df['signal_score'] = df['trend_score'] + df['trigger_score'] + df['pattern_score'] 
+    df['signal_score'].round(1)
     
     # signal conditions
     conditions = {
@@ -5501,6 +5505,23 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     ax.grid(True, axis='x', linestyle='-', linewidth=0.5, alpha=0.1)
     ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
 
+  # trend
+  if signal_x in ['trend']:
+
+    # trigger_score
+    tmp_col_v = f'{signal_x}_score'
+    tmp_col_a = f'{signal_x}_score_alpha'
+    df[tmp_col_a] = normalize(df[tmp_col_v].abs())
+
+    threhold = 0
+    tmp_data = df.query(f'(trend == "up")')
+    if len(tmp_data) > 0:
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='green', alpha=tmp_data[tmp_col_a].fillna(0))
+  
+    tmp_data = df.query(f'(trend == "down")')
+    if len(tmp_data) > 0:
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', alpha=tmp_data[tmp_col_a].fillna(0))
+
   # trigger_score
   if signal_x in ['trigger']:
 
@@ -5558,7 +5579,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='red', alpha=tmp_data[tmp_col_a].fillna(0))
 
   # overall change and its trend
-  if signal_x in ['overall']:
+  if signal_x in ['overall', 'distance']:
     pos_marker = 'o'
     neg_marker = 'o'
     none_marker = '_'
@@ -5580,8 +5601,8 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     neg_marker = '.'
     none_marker = '_'
 
-    tmp_col_v = f'overall_change_diff'
-    tmp_col_a = f'overall_change_diff_alpha'
+    tmp_col_v = f'{signal_x}_change_diff'
+    tmp_col_a = f'{signal_x}_diff_alpha'
 
     df[tmp_col_a] = normalize(df[tmp_col_v].abs())
 
