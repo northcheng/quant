@@ -1000,16 +1000,43 @@ def calculate_ta_signal(df):
   
     # trend
     df['trend'] = ''
-    df['trend_score'] = df['overall_change'].round(1)
+    df['trend_score'] = 0 
     df['trend_description'] = ''
 
     # up: 基础方向向上
     up_data = df.query('adx_day > 0 or (adx_day == 0 and adx_value_change > 1)')
     df.loc[up_data.index, 'trend'] = 'up'
     up_condition = {
-      '低位':    ['adx_direction_start < -20', 'ichimoku_distance < 0', 'kama_distance < 0', 'position_score < 0'],
-      '反转':    ['adx_day == 0 and prev_adx_day < 0', 'adx_distance_status == "negup"', 'ichimoku_distance_status == "negup"', 'kama_distance_status == "negup"'],
-      '上行':    ['adx_day > 0', 'adx_distance_status == "posup"'],
+      '低位':   [
+        # 起始位置低
+        'adx_direction_start < -20', 
+        # ichimoku红云
+        'ichimoku_distance < 0', 
+        # kama红云
+        'kama_distance < 0', 
+        # 处于低(中低)位
+        'position_score < 0'
+      ],
+
+      '反转':   [
+        # adx_trend由负转正
+        'adx_day == 0 and prev_adx_day < 0 and adx_value_change > 1', 
+        # adx_distance红云收窄
+        'adx_distance_status == "negup"', 
+        # ichimoku_distance红云收窄
+        'ichimoku_distance_status == "negup"', 
+        # kama_distance红云收窄
+        'kama_distance_status == "negup"'
+      ],
+
+      '上行':   [
+        # adx_trend正向
+        'adx_day > 0', 
+        # adx_distance绿云扩大
+        'adx_distance_status == "posup"', 
+        # 整体趋势向上
+        'overall_change > 0 and overall_change_diff > 0'
+      ]
     }
     for uc in up_condition.keys():
       
@@ -1040,9 +1067,36 @@ def calculate_ta_signal(df):
     down_data = df.query('adx_day < 0 or (adx_day == 0 and adx_value_change < -1)')
     df.loc[down_data.index, 'trend'] = 'down'
     down_condition = {
-      '高位':    ['adx_direction_start > 20', 'ichimoku_distance > 0', 'kama_distance > 0', 'position_score > 0'],
-      '反转':    ['adx_day == 0 and prev_adx_day > 0', 'adx_distance_status == "posdown"', 'ichimoku_distance_status == "posdown"', 'kama_distance_status == "posdown"'],
-      '下行':    ['adx_day < 0', 'adx_distance_status == "negdown"'],
+      '高位':   [
+        # 起始位置高
+        'adx_direction_start > 20', 
+        # ichimoku绿云
+        'ichimoku_distance > 0', 
+        # kama绿云
+        'kama_distance > 0', 
+        # 处于高(中高)位
+        'position_score > 0'
+      ],
+
+      '反转':   [
+        # adx_trend由正转负
+        'adx_day == 0 and prev_adx_day > 0 and adx_value_change < -1', 
+        # adx_distance绿云收窄
+        'adx_distance_status == "posdown"', 
+        # ichimoku_distance绿云收窄
+        'ichimoku_distance_status == "posdown"', 
+        # kama_distance绿云收窄
+        'kama_distance_status == "posdown"'
+      ],
+
+      '下行':   [
+        # adx趋势向下
+        'adx_day < 0', 
+        # adx_distance红云扩大
+        'adx_distance_status == "negdown"', 
+        # 整体趋势向下
+        'overall_change < 0 and overall_change_diff < 0'
+      ],
     }
     for dc in down_condition.keys():  
       
@@ -1068,6 +1122,42 @@ def calculate_ta_signal(df):
 
       df['trend_score'] += df[tmp_score_col]
       df.loc[tmp_idx_merge, 'trend_description'] += f' {dc}(' + df.loc[tmp_idx_merge, tmp_score_col].astype(str) + ')'
+
+    # 通用: 波动趋势
+    wave_condition = {
+      '波动':   [
+        # adx_power下降过程中(adx_power_day < -1), adx_value从正向区间(adx_direction_start > 0), 向上首日(adx_direction_day == 1), 趋势弱(adx_distance_change < 0.1)
+        'adx_power_day < -1 and adx_direction_start > 0 and adx_direction_day == 1 and adx_distance_change < 0.1',
+        # adx_value从波动区间(-10 < adx_direction_start < 10), 向上首日(adx_direction_day == 1), 弱势波动(adx_strong_day < 0 and adx_wave_day > 0)
+        '-10 < adx_direction_start < 10 and adx_direction_day == 1 and adx_strong_day < 0 and adx_wave_day > 0',
+        # adx微小变化(adx_direction < 3 and adx_distance_change < 0.1)
+        'adx_direction < 3 and adx_distance_change < 0.1 and (adx_strong_day < 0 or adx_wave_day > 0 or -10 < adx_value < 10)'
+      ]
+    }
+    for wc in wave_condition.keys():
+      
+      # 当前方向分数列名
+      tmp_score_col = f'trend_{wc}'    
+      col_to_drop.append(tmp_score_col)
+
+      # 初始化
+      df[tmp_score_col] = 0
+      tmp_idx_merge = None
+
+      # 遍历细分方向条件
+      for q in wave_condition[wc]:
+        tmp_idx = df.query(q).index
+
+        condition_value = -1
+        df.loc[tmp_idx, tmp_score_col] += condition_value
+
+        if tmp_idx_merge is None:
+          tmp_idx_merge = tmp_idx
+        else:
+          tmp_idx_merge = tmp_idx_merge|tmp_idx
+      
+      df['trend_score'] += df[tmp_score_col]
+      df.loc[tmp_idx_merge, 'trend_description'] += f' {wc}(' + df.loc[tmp_idx_merge, tmp_score_col].astype(str) + ')'
 
     # exceptions: 例外情况
     none_trend_conditions = {
@@ -1240,13 +1330,16 @@ def calculate_ta_signal(df):
   # ================================ calculate signal =======================
   if 'signal'  > '':
   
+    # # accumulated trigger
+    # df['trigger_score'] = em(df['trigger_score'], 3).mean().round(2)
+
     # signal
     df['signal'] = ''
     df['signal_description'] = ''
     df['signal_day'] = 0
     df['signal_score'] = df['trend_score'] + df['trigger_score'] + df['pattern_score'] 
-    df['signal_score'].round(1)
-    
+    df['signal_score'] = df['signal_score'].round(1)
+
     # signal conditions
     conditions = {
       'up':       '''
@@ -1305,23 +1398,10 @@ def calculate_ta_signal(df):
                             (signal == "b" or signal == "s") and (adx_power_day == 0)
                             '''.replace('\n', ''),
 
-      '高位波动':            '''
-                            (signal == "b") and 
-                            ( 
-                              (ki_distance in ["gr", "gg"]) and 
-                              (adx_value > 0 and adx_value_change > 0) and
-                              (adx_strength_change < 0) and (adx_power_day < -1 or adx_value < 10)
-                            )
-                            '''.replace('\n', ''),
-
       '波动趋势':            '''
                             (signal == "b") and 
                             ( 
-                              (adx_direction_day == 1 and adx_distance_change < 0.1 and adx_direction_start > 0 and adx_power_start > 0 and adx_power_day < 1) or                             
-                              (adx_direction_day == 1 and -10 < adx_direction_start < 10 and adx_strong_day < 0 and adx_wave_day > 0) or
-                              (adx_direction < 3 and adx_distance_change < 0.1) or
-                              (position == "up" and entity_trend == "u" and candle_color == -1 and candle_position_score < 0) or
-                              (candle_position_score <= -0.66)
+                              trend_波动 < 0
                             )
                             '''.replace('\n', ''),
       # # B|S:  无adx强度数据  
@@ -5449,7 +5529,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     df['signal_alpha'] = df['signal_score'].abs() / 15
 
     # b/nb, s/ns signals
-    markers = {'b': '^', 's': 'v', 'nb': '_', 'ns': '_', 'tb': '.', 'ts': '.'}
+    markers = {'b': '^', 's': 'v', 'nb': '_', 'ns': '_', } # 'tb': '.', 'ts': '.'
     colors = {'b': 'green', 's': 'red', 'nb': 'green', 'ns': 'red', 'tb': 'green', 'ts': 'red'}
     for s in markers.keys():
       tmp_data = df.query(f'signal == "{s}"')
