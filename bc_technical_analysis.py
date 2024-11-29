@@ -1286,7 +1286,7 @@ def calculate_ta_signal(df):
     
     # candle_pattern: 长上影线
     neg_candle_patterns = {
-      '长上影_down':   '((candle_upper_shadow_pct > 0.5) and ((candle_color == -1) or (candle_position_score < 0)))',
+      '长上影_down':   '((candle_upper_shadow_pct > 0.5) and ((candle_color == -1) or (candle_position_score < 0) or (candle_upper_shadow_pct > 0.75)))',
       '长实体_down':   '((position in ["up"]) and (shadow_diff > 2 or entity_diff > 2))',
     }
     for c in neg_candle_patterns.keys():
@@ -2733,6 +2733,26 @@ def add_candlestick_patterns(df):
     values = {'启明星': 'u', '黄昏星': 'd'}
     df = assign_condition_value(df=df, column='启明黄昏_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
+  # other customized paterns
+  if 'customized' > '':
+
+    # 蜡烛位置
+    conditions = {
+      # 
+      '上行': '(position == "down") and (entity_trend != "d") and (candle_position_score > 0.66)',
+      # 
+      '下行': '(position == "up") and (entity_trend != "d") and (candle_position_score < -0.66)'}
+    values = {'上行': 'u', '下行': 'd'}
+    df = assign_condition_value(df=df, column='蜡烛位置_trend', condition_dict=conditions, value_dict=values, default_value='n')
+    
+    # 上下影线
+
+    # candle_pattern: 长上影线
+    neg_candle_patterns = {
+      '长上影_down':   '((candle_upper_shadow_pct > 0.5) and ((candle_color == -1) or (candle_position_score < 0) or (candle_upper_shadow_pct > 0.75)))',
+      '长实体_down':   '((position in ["up"]) and (shadow_diff > 2 or entity_diff > 2))',
+    }
+
   # days since signal triggered
   df['up_pattern_score'] = 0
   df['down_pattern_score'] = 0
@@ -2740,7 +2760,7 @@ def add_candlestick_patterns(df):
   df['down_pattern_description'] = ''
   
   pattern_weights = {
-    '平头': 1, '启明黄昏': 1, '窗口': 1, # '十字星': 0.5
+    '平头': 1, '启明黄昏': 1, '窗口': 1, '蜡烛位置': 1, # '十字星': 0.5
     # '流星': 0.33, '锤子': 0.33, '腰带': 0.33, '穿刺': 0.33, '包孕': 0.33, '吞噬': 0.33, 
   }
   all_candle_patterns = list(pattern_weights.keys())
@@ -5544,7 +5564,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
     # annotate overall_change (overall_change_diff)
     v = round(df.loc[max_idx, 'signal_score'],1)
-    v_change = str(df['signal_score'].values[-3:].tolist()).replace(' ', '')
+    v_change = str(df['signal_score'].round(1).values[-3:].tolist()).replace(' ', '')
     y_signal = y_max - 1.5 # round(y_middle)
     text_color = 'green' if v > 0 else 'red'
     plt.annotate(f'{v_change}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
