@@ -861,9 +861,19 @@ def calculate_ta_score(df):
   df['overall_change'] = 0
   df['overall_status'] = 0
 
+  # df['normalized_distance'] = 0
+  # weights = {'adx': 1, 'ichimoku': 0.66, 'kama': 0.33}
+  # for col in ['adx', 'ichimoku', 'kama']:
+  #   tmp_col_v = f'{col}_distance'
+  #   tmp_col_a = f'{col}_distance_alpha'
+  #   tmp_col_s = df[tmp_col_v].apply(lambda x: 1 if x > 0 else -1)
+  #   df[tmp_col_a] = normalize(df[tmp_col_v].abs()) * tmp_col_s 
+  #   df['normalized_distance_change'] += df[tmp_col_a] * weights[col]
+  
+
+
   # adx/ichimoku/kama distance
   threhold = 0.00
-  
   for col in ['adx', 'ichimoku', 'kama']:
 
     distance_col = f'{col}_distance'
@@ -5717,12 +5727,12 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='red', alpha=tmp_data[tmp_col_a].fillna(0))
 
   # ichimoku/kama distance
-  if signal_x in [ "kama_distance", "ichimoku_distance", "adx_distance"]:
+  if signal_x in [ "kama_distance", "ichimoku_distance", "adx_distance", 'normalized_distance']:
 
     tmp_col_v = signal_x
     tmp_col_a = f'{signal_x}_alpha'
     tmp_col_s = f'{signal_x}_status'
-    df[tmp_col_a] = normalize(df[tmp_col_v].abs()).apply(lambda x: x if x > 0.2 else 0.2)
+    df[tmp_col_a] = normalize(df[tmp_col_v].abs()).apply(lambda x: x if x > 0.1 else 0.1)
 
     none_idx = df.query(f'{tmp_col_s} in ["noneup", "nonedown", "nonenone"]').index
     df.loc[none_idx, tmp_col_a] = 1
