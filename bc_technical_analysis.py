@@ -861,16 +861,29 @@ def calculate_ta_score(df):
   df['overall_change'] = 0
   df['overall_status'] = 0
 
-  # df['normalized_distance'] = 0
-  # weights = {'adx': 1, 'ichimoku': 0.66, 'kama': 0.33}
-  # for col in ['adx', 'ichimoku', 'kama']:
-  #   tmp_col_v = f'{col}_distance'
-  #   tmp_col_a = f'{col}_distance_alpha'
-  #   tmp_col_s = df[tmp_col_v].apply(lambda x: 1 if x > 0 else -1)
-  #   df[tmp_col_a] = normalize(df[tmp_col_v].abs()) * tmp_col_s 
-  #   df['normalized_distance_change'] += df[tmp_col_a] * weights[col]
+  # normalized distance
+  df['normalized_distance'] = 0
+  weights = {'adx': 1, 'ichimoku': 0.66, 'kama': 0.33}  
+  for col in ['adx', 'ichimoku', 'kama']:
+    tmp_col_v = f'{col}_distance_change'
+    tmp_col_a = f'{col}_distance_alpha'
+    tmp_col_s = df[tmp_col_v].apply(lambda x: 1 if x > 0 else -1)
+    df[tmp_col_a] = normalize(df[tmp_col_v].abs()) * tmp_col_s 
+    df['normalized_distance'] += df[tmp_col_a] * weights[col]
   
+  df['normalized_distance_status'] = 'none'
+  pos_idx = df.query('normalized_distance > 0').index
+  neg_idx = df.query('normalized_distance < 0').index
+  df.loc[pos_idx, 'normalized_distance_status'] = 'pos'
+  df.loc[neg_idx, 'normalized_distance_status'] = 'neg'
 
+  df['normalized_distance_change'] = (df['normalized_distance'] - df['normalized_distance'].shift(1)).fillna(0)
+  up_idx = df.query('normalized_distance_change > 0').index
+  down_idx = df.query('normalized_distance_change < 0').index
+  none_idx = df.query('normalized_distance_change == 0').index
+  df.loc[up_idx, 'normalized_distance_status'] += 'up'
+  df.loc[down_idx, 'normalized_distance_status'] += 'down'
+  df.loc[none_idx, 'normalized_distance_status'] += 'none'
 
   # adx/ichimoku/kama distance
   threhold = 0.00
