@@ -863,12 +863,12 @@ def calculate_ta_score(df):
 
   # normalized distance
   df['normalized_distance'] = 0
-  weights = {'adx': 1, 'ichimoku': 0.66, 'kama': 0.33}  
+  weights = {'adx': 1, 'ichimoku': 0.5, 'kama': 0.5}  
   for col in ['adx', 'ichimoku', 'kama']:
     tmp_col_v = f'{col}_distance_change'
     tmp_col_a = f'{col}_distance_alpha'
     tmp_col_s = df[tmp_col_v].apply(lambda x: 1 if x > 0 else -1)
-    df[tmp_col_a] = normalize(df[tmp_col_v].abs()) * tmp_col_s 
+    df[tmp_col_a] = df[tmp_col_v] # normalize(df[tmp_col_v].abs()) * tmp_col_s 
     df['normalized_distance'] += df[tmp_col_a] * weights[col]
   
   df['normalized_distance_status'] = 'none'
@@ -877,7 +877,7 @@ def calculate_ta_score(df):
   df.loc[pos_idx, 'normalized_distance_status'] = 'pos'
   df.loc[neg_idx, 'normalized_distance_status'] = 'neg'
 
-  df['normalized_distance_change'] = (df['normalized_distance'] - df['normalized_distance'].shift(1)).fillna(0)
+  df['normalized_distance_change'] = df['normalized_distance']# (df['normalized_distance'] - df['normalized_distance'].shift(1)).fillna(0)
   up_idx = df.query('normalized_distance_change > 0').index
   down_idx = df.query('normalized_distance_change < 0').index
   none_idx = df.query('normalized_distance_change == 0').index
@@ -1017,6 +1017,8 @@ def calculate_ta_signal(df):
   col_to_drop = []               
 
   df['prev_adx_day'] = sda(df['adx_trend'].shift(1), zero_as=0)
+  df['prev_distance_status'] = df['normalized_distance_status'].shift(1)
+  col_to_drop += ['prev_adx_day', 'prev_distance_status']
 
   # ================================ calculate trend ========================
   if 'trend'  > '':
@@ -1199,7 +1201,7 @@ def calculate_ta_signal(df):
     df['pattern_description'] = ''
     df['pattern_up'] = ''
     df['pattern_down'] = ''    
-    col_to_drop += ['pattern_up', 'pattern_down', 'prev_adx_day']
+    col_to_drop += ['pattern_up', 'pattern_down']
 
     # mark pattern
     pattern_up = []
@@ -1244,39 +1246,19 @@ def calculate_ta_signal(df):
                             (overall_change_day == -1 and overall_change_diff < 0)
                             '''.replace('\n', ''),
 
-      # '边界_up':            '''
-      #                       ( 
-      #                         (candle_lower_shadow_pct > candle_upper_shadow_pct) and 
-      #                         (candle_lower_shadow_pct > 0.5) and
-      #                         (trend == "up" or candle_color == 1) and
-      #                         (
-      #                           (ichimoku_distance < 0 and tankan > kama_slow) or
-      #                           (ichimoku_distance_change < 0 and kijun > kama_slow)
-      #                         ) and
-      #                         (
-      #                           (kama_slow_support == 1) or 
-      #                           (kama_slow_break_up == 1) or 
-      #                           (Open < kama_slow < Close)
-      #                         )
-      #                       )
-      #                       '''.replace('\n', ''),
+      '距离_up':            '''
+                            ( 
+                              ((adx_day == 1) and (prev_distance_status in ["posup", "negup"])) or
+                              ((adx_day == 0 and prev_adx_day < 0) and (prev_distance_status in ["posup", "negup"]))
+                            )
+                            '''.replace('\n', ''),
 
-      # '边界_down':          '''
-      #                       ( 
-      #                         (candle_upper_shadow_pct > candle_lower_shadow_pct) and 
-      #                         (candle_upper_shadow_pct > 0.5) and
-      #                         (trend == "down" or candle_color == -1) and
-      #                         (
-      #                           (ichimoku_distance > 0 and tankan < kama_slow) or
-      #                           (ichimoku_distance_change > 0 and kijun < kama_slow)
-      #                         ) and 
-      #                         (
-      #                           (kama_slow_support == -1) or 
-      #                           (kama_slow_break_up == -1) or 
-      #                           (Open > kama_slow > Close)
-      #                         )
-      #                       )
-      #                       '''.replace('\n', ''),
+      '距离_down':          '''
+                            ( 
+                              ((adx_day == -1) and (normalized_distance_status in ["negdown", "posdown"])) or
+                              ((adx_day == 0 and prev_adx_day > 0) and (normalized_distance_status in ["negdown", "posdown"]))
+                            )
+                            '''.replace('\n', ''),
             
       '蜡烛_up':            '''
                             ( 
@@ -5556,7 +5538,6 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
   # plot trend
   trend_col = signal_x.replace('signal', 'trend')
-  day_col = signal_x.replace('signal', 'day')
   if trend_col in df.columns:
     if signal_x not in ['signal']:
       for i in ['pos', 'neg', 'wave']:
@@ -5745,7 +5726,8 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     tmp_col_v = signal_x
     tmp_col_a = f'{signal_x}_alpha'
     tmp_col_s = f'{signal_x}_status'
-    df[tmp_col_a] = normalize(df[tmp_col_v].abs()).apply(lambda x: x if x > 0.1 else 0.1)
+    defalut_alpha = 0.2 if signal_x == 'normalized_distance' else 0.1
+    df[tmp_col_a] = normalize(df[tmp_col_v].abs()).apply(lambda x: x if x > defalut_alpha else defalut_alpha)
 
     none_idx = df.query(f'{tmp_col_s} in ["noneup", "nonedown", "nonenone"]').index
     df.loc[none_idx, tmp_col_a] = 1
@@ -5825,7 +5807,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     #       ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='red', alpha=0.5)
 
   # patterns
-  if signal_x in ["短中", "完美", "边界", "蜡烛"]: # , "距离", "一般", "反弹", "蜡烛", "位置", "前瞻"
+  if signal_x in ["短中", "完美", "距离", "蜡烛"]: # , "一般", "反弹", "蜡烛", "位置", "前瞻"
 
     tmp_col_up = f'{signal_x}_up'
     tmp_col_down = f'{signal_x}_down'
