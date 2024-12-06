@@ -53,16 +53,19 @@
       "signals": {
         "signal_list": [  
 
-          "蜡烛", "短中", "距离", "完美", 
+          "完美", 
 
           "-----",
           "support_score", "break_up_score", "break_down_score", "resistant_score",
 
           "-----",
-          "kama_distance", "ichimoku_distance", "adx_distance", "normalized_distance", 
+          "kama_distance", "ichimoku_distance", "adx_distance",  "normalized_distance", 
           
           "-----",
-          "overall", "adx_trend", "trigger", "trend", " "
+          "overall", "adx_trend", 
+          
+          "-----",
+          "trend", "trigger", " "
           
         ]
       },

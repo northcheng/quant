@@ -1018,7 +1018,8 @@ def calculate_ta_signal(df):
 
   df['prev_adx_day'] = sda(df['adx_trend'].shift(1), zero_as=0)
   df['prev_distance_status'] = df['normalized_distance_status'].shift(1)
-  col_to_drop += ['prev_adx_day', 'prev_distance_status']
+  df['adx_wave'] = df['adx_value_change'].abs() + df['adx_strength_change'].abs()
+  col_to_drop += ['prev_adx_day', 'prev_distance_status', 'adx_wave']
 
   # ================================ calculate trend ========================
   if 'trend'  > '':
@@ -1151,19 +1152,15 @@ def calculate_ta_signal(df):
     # 通用: 波动趋势
     wave_condition = {
       '波动':   [
-        # adx_power下降过程中(adx_power_day < -1), adx_value从正向区间(adx_direction_start > 0), 向上首日(adx_direction_day == 1), 趋势弱(adx_distance_change < 0.1)
-        'adx_power_day < -1 and adx_direction_start > 0 and adx_direction_day == 1 and adx_distance_change < 0.1',
-        # adx_value从波动区间(-10 < adx_direction_start < 10), 向上首日(adx_direction_day == 1), 弱势波动(adx_strong_day < 0 and adx_wave_day > 0)
-        '-10 < adx_direction_start < 10 and adx_direction_day == 1 and adx_strong_day < 0 and adx_wave_day > 0',
-        # adx微小变化(adx_direction < 3 and adx_distance_change < 0.1)
-        'adx_direction < 3 and adx_distance_change < 0.1 and (adx_strong_day < 0 or adx_wave_day > 0 or -10 < adx_value < 10)'
+        # # 在波动区间(-10 < adx_direction_start < 10), adx强度弱(adx_strength < 20)
+        '(-10 < adx_value < 10) and (adx_strong_day < 0)',
       ]
     }
     for wc in wave_condition.keys():
       
       # 当前方向分数列名
       tmp_score_col = f'trend_{wc}'    
-      col_to_drop.append(tmp_score_col)
+      # col_to_drop.append(tmp_score_col)
 
       # 初始化
       df[tmp_score_col] = 0
@@ -1191,6 +1188,8 @@ def calculate_ta_signal(df):
       tmp_condition = none_trend_conditions[c]
       tmp_idx = df.query(tmp_condition).index
       df.loc[tmp_idx, 'trend'] = ''
+    
+    df['trend_day'] = sda(df['trend'].replace({'':0, 'up':1, 'down': -1}))
 
 
   # ================================ calculate pattern ======================
@@ -1208,31 +1207,31 @@ def calculate_ta_signal(df):
     pattern_down = []
     pattern_conditions = {
 
-      '短中_up':            '''
-                            ( 
-                              (trend == "up") and
-                              (position == "down") and
-                              (
-                                (adx_distance_status in ['posup']) or
-                                (candle_position_score == 0.99)
-                              ) and 
-                              (ichimoku_distance_status in ['negup', 'negnone']) and
-                              (adx_distance_change > 0)
-                            )
-                            '''.replace('\n', ''),
+      # '短中_up':            '''
+      #                       ( 
+      #                         (trend == "up") and
+      #                         (position == "down") and
+      #                         (
+      #                           (adx_distance_status in ['posup']) or
+      #                           (candle_position_score == 0.99)
+      #                         ) and 
+      #                         (ichimoku_distance_status in ['negup', 'negnone']) and
+      #                         (adx_distance_change > 0)
+      #                       )
+      #                       '''.replace('\n', ''),
 
-      '短中_down':          '''
-                            (
-                              (trend == "down") and
-                              (position == "up") and
-                              ( 
-                                (adx_distance_status in ['posdown', 'negup']) or
-                                (candle_position_score == -0.99)
-                              ) and
-                              (ichimoku_distance_status in ['posdown'] or ichimoku_distance_change < 0) and
-                              (adx_distance_change < 0)
-                            )
-                            '''.replace('\n', ''),  
+      # '短中_down':          '''
+      #                       (
+      #                         (trend == "down") and
+      #                         (position == "up") and
+      #                         ( 
+      #                           (adx_distance_status in ['posdown', 'negup']) or
+      #                           (candle_position_score == -0.99)
+      #                         ) and
+      #                         (ichimoku_distance_status in ['posdown'] or ichimoku_distance_change < 0) and
+      #                         (adx_distance_change < 0)
+      #                       )
+      #                       '''.replace('\n', ''),  
       
       '完美_up':            '''
                             (0 < adx_direction_day <= 5 and adx_direction_start < -10) and 
@@ -1246,31 +1245,43 @@ def calculate_ta_signal(df):
                             (overall_change_day == -1 and overall_change_diff < 0)
                             '''.replace('\n', ''),
 
-      '距离_up':            '''
-                            ( 
-                              ((adx_day == 1) and (prev_distance_status in ["posup", "negup"])) or
-                              ((adx_day == 0 and prev_adx_day < 0) and (prev_distance_status in ["posup", "negup"]))
-                            )
-                            '''.replace('\n', ''),
+      # '距离_up':            '''
+      #                       ( 
+      #                         ((adx_day == 1) and (prev_distance_status in ["posup", "negup"])) or
+      #                         ((adx_day == 0 and prev_adx_day < 0) and (prev_distance_status in ["posup", "negup"]))
+      #                       )
+      #                       '''.replace('\n', ''),
 
-      '距离_down':          '''
-                            ( 
-                              ((adx_day == -1) and (normalized_distance_status in ["negdown", "posdown"])) or
-                              ((adx_day == 0 and prev_adx_day > 0) and (normalized_distance_status in ["negdown", "posdown"]))
-                            )
-                            '''.replace('\n', ''),
+      # '距离_down':          '''
+      #                       ( 
+      #                         ((adx_day == -1) and (normalized_distance_status in ["negdown", "posdown"])) or
+      #                         ((adx_day == 0 and prev_adx_day > 0) and (normalized_distance_status in ["negdown", "posdown"]))
+      #                       )
+      #                       '''.replace('\n', ''),
             
-      '蜡烛_up':            '''
-                            ( 
-                              Close < 0
-                            )
-                            '''.replace('\n', ''),
+      # '蜡烛_up':            '''
+      #                       ( 
+      #                         Close < 0
+      #                       )
+      #                       '''.replace('\n', ''),
 
-      '蜡烛_down':            '''
-                            ( 
-                              Close < 0                              
-                            )
-                            '''.replace('\n', ''),
+      # '蜡烛_down':            '''
+      #                       ( 
+      #                         Close < 0                              
+      #                       )
+      #                       '''.replace('\n', ''),
+
+      # '波动_up':            '''
+      #                       ( 
+      #                         0 <= trend_day <= 1 and normalized_distance_status in ["posup", "negup"]
+      #                       )
+      #                       '''.replace('\n', ''),
+
+      # '波动_down':            '''
+      #                       ( 
+      #                         adx_wave < 2                              
+      #                       )
+      #                       '''.replace('\n', ''),                            
     } 
     for c in pattern_conditions.keys():
       
@@ -1289,18 +1300,18 @@ def calculate_ta_signal(df):
       else:
         pass
     
-    # candle_pattern: 长上影线
-    neg_candle_patterns = {
-      '长上影_down':   '((candle_upper_shadow_pct > 0.5) and ((candle_color == -1) or (candle_position_score < 0) or (candle_upper_shadow_pct > 0.75)))',
-      '长实体_down':   '((position in ["up"]) and (shadow_diff > 2 or entity_diff > 2))',
-    }
-    for c in neg_candle_patterns.keys():
-      tmp_query = neg_candle_patterns[c]
-      idx = df.query(tmp_query).index
-      df.loc[idx, '蜡烛_down'] -= 1
-      # if '蜡烛_down' not in  pattern_down:
-      #   pattern_down.append('蜡烛_down')
-      pattern_down.append(c)
+    # # candle_pattern: 长上影线
+    # neg_candle_patterns = {
+    #   '长上影_down':   '((candle_upper_shadow_pct > 0.5) and ((candle_color == -1) or (candle_position_score < 0) or (candle_upper_shadow_pct > 0.75)))',
+    #   '长实体_down':   '((position in ["up"]) and (shadow_diff > 2 or entity_diff > 2))',
+    # }
+    # for c in neg_candle_patterns.keys():
+    #   tmp_query = neg_candle_patterns[c]
+    #   idx = df.query(tmp_query).index
+    #   df.loc[idx, '蜡烛_down'] -= 1
+    #   # if '蜡烛_down' not in  pattern_down:
+    #   #   pattern_down.append('蜡烛_down')
+    #   pattern_down.append(c)
 
     # exceptions
     none_pattern_conditions = {
@@ -5618,11 +5629,19 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     df[tmp_col_a] = normalize(df[tmp_col_v].abs())
 
     threhold = 0
-    tmp_data = df.query(f'(trend == "up")')
+    tmp_data = df.query(f'(trend == "up" and trend_波动 == 0)')
+    if len(tmp_data) > 0:
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='green', alpha=tmp_data[tmp_col_a].fillna(0))
+
+    tmp_data = df.query(f'(trend == "up" and trend_波动 < 0)')
     if len(tmp_data) > 0:
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='green', alpha=tmp_data[tmp_col_a].fillna(0))
   
-    tmp_data = df.query(f'(trend == "down")')
+    tmp_data = df.query(f'(trend == "down" and trend_波动 == 0)')
+    if len(tmp_data) > 0:
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='red', alpha=tmp_data[tmp_col_a].fillna(0))
+
+    tmp_data = df.query(f'(trend == "down" and trend_波动 < 0)')
     if len(tmp_data) > 0:
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', alpha=tmp_data[tmp_col_a].fillna(0))
 
@@ -5807,7 +5826,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     #       ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='red', alpha=0.5)
 
   # patterns
-  if signal_x in ["短中", "完美", "距离", "蜡烛"]: # , "一般", "反弹", "蜡烛", "位置", "前瞻"
+  if signal_x in ["短中", "完美", "距离", "蜡烛", "波动"]: # , "一般", "反弹", "蜡烛", "位置", "前瞻"
 
     tmp_col_up = f'{signal_x}_up'
     tmp_col_down = f'{signal_x}_down'
