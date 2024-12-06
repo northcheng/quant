@@ -861,30 +861,6 @@ def calculate_ta_score(df):
   df['overall_change'] = 0
   df['overall_status'] = 0
 
-  # normalized distance
-  df['normalized_distance'] = 0
-  weights = {'adx': 1, 'ichimoku': 0.5, 'kama': 0.5}  
-  for col in ['adx', 'ichimoku', 'kama']:
-    tmp_col_v = f'{col}_distance_change'
-    tmp_col_a = f'{col}_distance_alpha'
-    tmp_col_s = df[tmp_col_v].apply(lambda x: 1 if x > 0 else -1)
-    df[tmp_col_a] = df[tmp_col_v] # normalize(df[tmp_col_v].abs()) * tmp_col_s 
-    df['normalized_distance'] += df[tmp_col_a] * weights[col]
-  
-  df['normalized_distance_status'] = 'none'
-  pos_idx = df.query('normalized_distance > 0').index
-  neg_idx = df.query('normalized_distance < 0').index
-  df.loc[pos_idx, 'normalized_distance_status'] = 'pos'
-  df.loc[neg_idx, 'normalized_distance_status'] = 'neg'
-
-  df['normalized_distance_change'] = df['normalized_distance']# (df['normalized_distance'] - df['normalized_distance'].shift(1)).fillna(0)
-  up_idx = df.query('normalized_distance_change > 0').index
-  down_idx = df.query('normalized_distance_change < 0').index
-  none_idx = df.query('normalized_distance_change == 0').index
-  df.loc[up_idx, 'normalized_distance_status'] += 'up'
-  df.loc[down_idx, 'normalized_distance_status'] += 'down'
-  df.loc[none_idx, 'normalized_distance_status'] += 'none'
-
   # adx/ichimoku/kama distance
   threhold = 0.00
   for col in ['adx', 'ichimoku', 'kama']:
@@ -1017,9 +993,8 @@ def calculate_ta_signal(df):
   col_to_drop = []               
 
   df['prev_adx_day'] = sda(df['adx_trend'].shift(1), zero_as=0)
-  df['prev_distance_status'] = df['normalized_distance_status'].shift(1)
   df['adx_wave'] = df['adx_value_change'].abs() + df['adx_strength_change'].abs()
-  col_to_drop += ['prev_adx_day', 'prev_distance_status', 'adx_wave']
+  col_to_drop += ['prev_adx_day', 'adx_wave'] 
 
   # ================================ calculate trend ========================
   if 'trend'  > '':
@@ -1183,6 +1158,8 @@ def calculate_ta_signal(df):
 
     # exceptions: 例外情况
     none_trend_conditions = {
+      'false_up':   'adx_value_change > 0 and adx_day == 0 and (candle_position_score < 0)',
+      'false_down': 'adx_value_change < 0 and adx_day == 0 and (candle_position_score > 0)'
     } 
     for c in none_trend_conditions.keys():
       tmp_condition = none_trend_conditions[c]
@@ -1235,30 +1212,16 @@ def calculate_ta_signal(df):
       
       '完美_up':            '''
                             (0 < adx_direction_day <= 5 and adx_direction_start < -10) and 
-                            (adx_day == 1 and adx_distance_change > 0) and
+                            (adx_day == 1 and adx_distance_status in ["posup"]) and
                             (overall_change_day == 1 and overall_change_diff > 0)
                             '''.replace('\n', ''),
 
       '完美_down':          '''
                             (adx_direction_day == -1 and adx_direction_start > 10) and 
-                            (adx_day == -1 and adx_distance_change < 0) and
+                            (adx_day == -1 and adx_distance_status in ["negdown"]) and
                             (overall_change_day == -1 and overall_change_diff < 0)
                             '''.replace('\n', ''),
 
-      # '距离_up':            '''
-      #                       ( 
-      #                         ((adx_day == 1) and (prev_distance_status in ["posup", "negup"])) or
-      #                         ((adx_day == 0 and prev_adx_day < 0) and (prev_distance_status in ["posup", "negup"]))
-      #                       )
-      #                       '''.replace('\n', ''),
-
-      # '距离_down':          '''
-      #                       ( 
-      #                         ((adx_day == -1) and (normalized_distance_status in ["negdown", "posdown"])) or
-      #                         ((adx_day == 0 and prev_adx_day > 0) and (normalized_distance_status in ["negdown", "posdown"]))
-      #                       )
-      #                       '''.replace('\n', ''),
-            
       # '蜡烛_up':            '''
       #                       ( 
       #                         Close < 0
@@ -1270,18 +1233,7 @@ def calculate_ta_signal(df):
       #                         Close < 0                              
       #                       )
       #                       '''.replace('\n', ''),
-
-      # '波动_up':            '''
-      #                       ( 
-      #                         0 <= trend_day <= 1 and normalized_distance_status in ["posup", "negup"]
-      #                       )
-      #                       '''.replace('\n', ''),
-
-      # '波动_down':            '''
-      #                       ( 
-      #                         adx_wave < 2                              
-      #                       )
-      #                       '''.replace('\n', ''),                            
+                       
     } 
     for c in pattern_conditions.keys():
       
@@ -1414,12 +1366,12 @@ def calculate_ta_signal(df):
                             (signal == "b" or signal == "s") and (adx_power_day == 0)
                             '''.replace('\n', ''),
 
-      '波动趋势':            '''
-                            (signal == "b") and 
-                            ( 
-                              trend_波动 < 0
-                            )
-                            '''.replace('\n', ''),
+      # '波动趋势':            '''
+      #                       (signal == "b") and 
+      #                       ( 
+      #                         trend_波动 < 0
+      #                       )
+      #                       '''.replace('\n', ''),
       # # B|S:  无adx强度数据  
       # '价格反向':           '''
       #                       (
