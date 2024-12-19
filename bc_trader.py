@@ -543,8 +543,10 @@ class Futu(Trader):
       if self.account_type == 'real':
         ret, msg = self.trade_client.unlock_trade(is_unlock=False)
         if ret != RET_OK:
-          self.logger.exception(f'[erro]: can not unlock trade:{ret} - {msg}')
-  
+          self.logger.exception(f'[erro]: can not lock trade:{ret} - {msg}')
+        else:
+          self.logger.info(f'[futu]: lock trade')
+
       self.trade_client.close()
       self.trade_client = None
 
@@ -563,6 +565,8 @@ class Futu(Trader):
       ret, msg = self.trade_client.unlock_trade(password_md5=self.user_info['unlock_pwd'], is_unlock=True)
       if ret != RET_OK:
         self.logger.exception(f'[erro]: can not unlock trade:{ret} - {msg}')
+      else:
+        self.logger.info(f'[futu]: unlock trade')
 
     # 失败重试
     retry_count = 0
@@ -617,6 +621,8 @@ class Futu(Trader):
       ret, msg = self.trade_client.unlock_trade(password_md5=self.user_info['unlock_pwd'], is_unlock=True)
       if ret != RET_OK:
         self.logger.exception(f'[erro]: can not unlock trade:{ret} - {msg}')
+      else:
+        self.logger.info(f'[futu]: unlock trade')
       
     try:
       ret_acc_list, acc_list = self.trade_client.get_acc_list()
@@ -644,6 +650,8 @@ class Futu(Trader):
       ret, msg = self.trade_client.unlock_trade(password_md5=self.user_info['unlock_pwd'], is_unlock=True)
       if ret != RET_OK:
         self.logger.exception(f'[erro]: can not unlock trade:{ret} - {msg}')
+      else:
+        self.logger.info(f'[futu]: unlock trade')
     
     start_time = datetime.datetime.now().strftime(format="%Y-%m-%d") if (start_time is None) else start_time
     end_time = start_time if (end_time is None) else end_time
@@ -661,6 +669,8 @@ class Futu(Trader):
       ret, msg = self.trade_client.unlock_trade(password_md5=self.user_info['unlock_pwd'], is_unlock=True)
       if ret != RET_OK:
         self.logger.exception(f'[erro]: can not unlock trade:{ret} - {msg}')
+      else:
+        self.logger.info(f'[futu]: unlock trade')
         
     trade_summary = ''
     try:
