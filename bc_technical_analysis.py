@@ -1184,43 +1184,45 @@ def calculate_ta_signal(df):
     pattern_down = []
     pattern_conditions = {
 
-      # '短中_up':            '''
-      #                       ( 
-      #                         (trend == "up") and
-      #                         (position == "down") and
-      #                         (
-      #                           (adx_distance_status in ['posup']) or
-      #                           (candle_position_score == 0.99)
-      #                         ) and 
-      #                         (ichimoku_distance_status in ['negup', 'negnone']) and
-      #                         (adx_distance_change > 0)
-      #                       )
-      #                       '''.replace('\n', ''),
+      '长短_up':            '''
+                            ( 
+                              (position == "down" or ki_distance == 'rr') and
+                              (adx_distance_status in ['posup']) and 
+                              (ichimoku_distance_status in ['negup', 'negnone'] or kama_distance_status in ['negup'])
+                            )
+                            '''.replace('\n', ''),
 
-      # '短中_down':          '''
-      #                       (
-      #                         (trend == "down") and
-      #                         (position == "up") and
-      #                         ( 
-      #                           (adx_distance_status in ['posdown', 'negup']) or
-      #                           (candle_position_score == -0.99)
-      #                         ) and
-      #                         (ichimoku_distance_status in ['posdown'] or ichimoku_distance_change < 0) and
-      #                         (adx_distance_change < 0)
-      #                       )
-      #                       '''.replace('\n', ''),  
+      '长短_down':          '''
+                            (
+                              (position == "up" or ki_distance == 'gg') and
+                              (adx_distance_status in ['negup']) and
+                              (ichimoku_distance_status in ['posdown', 'posnone'] or kama_distance_status in ['posdown'])
+                            )
+                            '''.replace('\n', ''),  
       
       '完美_up':            '''
                             (0 < adx_direction_day <= 5 and adx_direction_start < -10) and 
-                            (adx_day == 1 and adx_distance_status in ["posup"]) and
+                            (adx_day == 1 and adx_distance_change > 0 and adx_distance_status in ["posup"]) and
                             (overall_change_day == 1 and overall_change_diff > 0)
                             '''.replace('\n', ''),
 
       '完美_down':          '''
                             (adx_direction_day == -1 and adx_direction_start > 10) and 
-                            (adx_day == -1 and adx_distance_status in ["negdown"]) and
+                            (adx_day == -1 and adx_distance_change < 0 and adx_distance_status in ["negdown"]) and
                             (overall_change_day == -1 and overall_change_diff < 0)
                             '''.replace('\n', ''),
+
+      # '波动_up':            '''
+      #                       ( 
+      #                         Close < 0
+      #                       )
+      #                       '''.replace('\n', ''),
+
+      # '波动_down':            '''
+      #                       ( 
+      #                         Close < 0                              
+      #                       )
+      #                       '''.replace('\n', ''),
 
       # '蜡烛_up':            '''
       #                       ( 
@@ -1366,6 +1368,27 @@ def calculate_ta_signal(df):
                             (signal == "b" or signal == "s") and (adx_power_day == 0)
                             '''.replace('\n', ''),
 
+      # B: 去下降趋势中的买入信号  
+      '距离过大':           '''
+                            (signal == "b") and
+                            (
+                              (ki_distance in ['rr']) and
+                              (ichimoku_distance < -0.15 and kama_distance < -0.15)
+                            )
+                            '''.replace('\n', ''),
+
+      # B: 受到阻挡  
+      '受到阻挡':           '''
+                            (signal == "b") and
+                            (resistant_score < 0) and
+                            (candle_color == -1) and 
+                            (
+                              (candle_position_score < 0) or 
+                              (candle_upper_shadow_pct > 0.4 > candle_lower_shadow_pct) or
+                              (entity_trend != "d" and candle_entity_pct > 0.6)
+                            )
+                            '''.replace('\n', ''),
+
       # '波动趋势':            '''
       #                       (signal == "b") and 
       #                       ( 
@@ -1444,15 +1467,7 @@ def calculate_ta_signal(df):
       #                       ) 
       #                       '''.replace('\n', ''),
 
-      # # B: 去下降趋势中的买入信号  
-      # '距离过大':           '''
-      #                       (signal == "b") and
-      #                       (
-      #                         (ki_distance in ['rr']) and
-      #                         (ichimoku_distance < -0.1 or kama_distance < -0.15) and
-      #                         (resistant_score < 0 or break_down_score < 0 or entity_trend == "d" or candle_upper_shadow_pct > 0.5 or candle_color == -1)
-      #                       )
-      #                       '''.replace('\n', ''),
+      
 
       # # B: 去除低位买入的信号  
       # '低位买入':           '''
@@ -1528,14 +1543,7 @@ def calculate_ta_signal(df):
       #                       )
       #                       '''.replace('\n', ''),   
 
-      # # B: 受到阻挡  
-      # '受到阻挡':           '''
-      #                       (signal == "b") and
-      #                       (
-      #                         (resistant_score < -2 and (相对candle位置 not in ["up"] or candle_upper_shadow_pct > candle_lower_shadow_pct)) or
-      #                         (entity_trend != 'd' and candle_upper_shadow_pct > 0.7)
-      #                       )
-      #                       '''.replace('\n', ''),
+      
 
       # # B|S: 去除无触发的信号
       # '未有触发':           '''
@@ -1574,7 +1582,7 @@ def calculate_ta_signal(df):
   return df
 
 # visualize features and signals
-def visualization(df, start=None, end=None, interval='day', title=None, save_path=None, visualization_args={}):
+def visualization(df, start=None, end=None, interval='day', title=None, save_path=None, visualization_args={}, trade_info=None):
   """
   Visualize features and signals.
 
@@ -1600,7 +1608,7 @@ def visualization(df, start=None, end=None, interval='day', title=None, save_pat
     
     plot_multiple_indicators(
       df=df, title=title, args=plot_args,  start=start, end=end, interval=interval,
-      show_image=is_show, save_image=is_save, save_path=save_path)
+      show_image=is_show, save_image=is_save, save_path=save_path, trade_info=trade_info)
   except Exception as e:
     print(phase, e)
 
@@ -5516,7 +5524,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     df['signal_alpha'] = df['signal_score'].abs() / 15
 
     # b/nb, s/ns signals
-    markers = {'b': '^', 's': 'v', 'nb': '_', 'ns': '_', } # 'tb': '.', 'ts': '.'
+    markers = {'b': '^', 's': 'v', 'nb': '_', 'ns': '_', 'tb': '.', 'ts': '.'} # 
     colors = {'b': 'green', 's': 'red', 'nb': 'green', 'ns': 'red', 'tb': 'green', 'ts': 'red'}
     for s in markers.keys():
       tmp_data = df.query(f'signal == "{s}"')
@@ -5778,7 +5786,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     #       ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='red', alpha=0.5)
 
   # patterns
-  if signal_x in ["短中", "完美", "距离", "蜡烛", "波动"]: # , "一般", "反弹", "蜡烛", "位置", "前瞻"
+  if signal_x in ["长短", "完美", "距离", "蜡烛", "波动"]: # , "一般", "反弹", "蜡烛", "位置", "前瞻"
 
     tmp_col_up = f'{signal_x}_up'
     tmp_col_down = f'{signal_x}_down'
@@ -6983,7 +6991,7 @@ def plot_indicator(df, target_col, start=None, end=None, signal_x='signal', sign
     return ax
 
 # plot multiple indicators on a same chart
-def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', save_path=None, save_image=False, show_image=False, title=None, width=35, unit_size=3, wspace=0, hspace=0.015, subplot_args=default_plot_args):
+def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', trade_info=None, save_path=None, save_image=False, show_image=False, title=None, width=35, unit_size=3, wspace=0, hspace=0.015, subplot_args=default_plot_args):
   """
   Plot Ichimoku and mean reversion in a same plot
   :param df: dataframe with ichimoku and mean reversion columns
@@ -7171,6 +7179,26 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   title_symbol = up_down_symbol[close_rate > 0]
   plt.rcParams['font.sans-serif'] = ['SimHei'] 
   plt.rcParams['axes.unicode_minus'] = False
+
+  # plot trade info
+  if trade_info is not None:
+
+    trade_info['date'] = trade_info['updated_time'].apply(lambda x: x[:10])
+    trade_info = trade_info.query(f'code == "{title}" and date >= "{start}" and date <= "{end}"')
+    # trade_info['date'] = trade_info['date'].apply( lambda x: util.string_plus_day(x, 1))
+    trade_info = util.df_2_timeseries(trade_info, time_col='date')
+    trade_info = pd.merge(trade_info, df[['High', 'Low']], how='left', left_index=True, right_index=True)
+    trade_info
+
+    if len(trade_info) > 0:
+      buy_data = trade_info.query('trd_side == "BUY"')
+      sell_data = trade_info.query('trd_side == "SELL"')
+
+      if len(buy_data) > 0:
+        axes['main_indicators'].scatter(buy_data.index, buy_data['High']*1.05, marker='^', color='black', alpha=1, zorder=10)
+
+      if len(sell_data) > 0:
+        axes['main_indicators'].scatter(sell_data.index, sell_data['Low']*0.95, marker='v', color='black', alpha=1, zorder=10)
 
   # get name of the symbol, and linear/candle/adx descriptions
   new_title = args['sec_name'].get(title.split('(')[0]) 
