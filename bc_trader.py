@@ -6,6 +6,7 @@ import datetime
 import pandas as pd
 
 from quant import bc_data_io as io_util
+from quant import bc_util as util
 
 from futu import (OrderType, OrderStatus, TrdSide, RET_OK, RET_ERROR)
 from futu import (OpenQuoteContext, OpenSecTradeContext, TrdMarket, SecurityFirm, Currency)
@@ -841,8 +842,9 @@ class Tiger(Trader):
     
     start_time = self.trade_time['pre_open_time'].strftime(format="%Y-%m-%d %H:%M:%S") if (start_time is None) else start_time
     end_time = self.trade_time['post_close_time'].strftime(format="%Y-%m-%d %H:%M:%S") if (end_time is None) else end_time
-    
-    orders = self.trade_client.get_filled_orders(start_time=start_time, end_time=start_time)
+
+    # result initialization
+    orders = []
     result = {
       'code': [], 
       'trd_side': [], 
@@ -856,6 +858,20 @@ class Tiger(Trader):
       'create_time': [], 
       'updated_time': []
     }
+
+    # skip the 90 days limitation
+    if util.num_days_between(start_time, end_time) > 90:
+      
+      tmp_start = start_time
+      while tmp_start < end_time:
+        tmp_end = util.string_plus_day(tmp_start, 90) 
+        self.logger.info(f'[tiger]: getting orders from {tmp_start} to {tmp_end}')
+        orders = orders + self.trade_client.get_filled_orders(start_time=tmp_start, end_time=tmp_end)
+        tmp_start = tmp_end
+        time.sleep(6)
+    else:
+      orders = self.trade_client.get_filled_orders(start_time=start_time, end_time=end_time)
+    
     for ord in orders:
       result['code'].append(ord.contract.symbol)
       result['trd_side'].append(ord.action)
@@ -870,6 +886,8 @@ class Tiger(Trader):
       result['updated_time'].append(ord.trade_time)
     
     result_df = pd.DataFrame(result)
+    for col in ['create_time', 'updated_time']:
+      result_df[col] = result_df[col].apply(lambda x: time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(x/1000)))
     return result_df
     
   # buy or sell stocks
