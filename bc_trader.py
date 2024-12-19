@@ -538,6 +538,13 @@ class Futu(Trader):
   # exit current trade client
   def close_trade_client(self):
     if self.trade_client is not None:
+      
+      # 锁定实盘交易
+      if self.account_type == 'real':
+        ret, msg = self.trade_client.unlock_trade(is_unlock=False)
+        if ret != RET_OK:
+          self.logger.exception(f'[erro]: can not unlock trade:{ret} - {msg}')
+  
       self.trade_client.close()
       self.trade_client = None
 
@@ -551,12 +558,19 @@ class Futu(Trader):
   def update_position(self, get_briefs=False):
     result = pd.DataFrame({'symbol':[], 'quantity':[], 'average_cost':[], 'latest_price':[], 'rate':[], 'rate_inday':[], 'market_value':[], 'latest_time':[]})
     
+    # 若为实盘先解锁交易
+    if self.account_type == 'real':
+      ret, msg = self.trade_client.unlock_trade(password_md5=self.user_info['unlock_pwd'], is_unlock=True)
+      if ret != RET_OK:
+        self.logger.exception(f'[erro]: can not unlock trade:{ret} - {msg}')
+
     # 失败重试
     retry_count = 0
     while retry_count < 1:
       
       retry_count += 1
       try:
+        
         # get positions
         _, position = self.trade_client.position_list_query(trd_env=self.account_type)
         if type(position) == pd.DataFrame and len(position) > 0:
@@ -597,6 +611,13 @@ class Futu(Trader):
     
   # get summary of asset
   def update_asset(self):
+
+    # 若为实盘先解锁交易
+    if self.account_type == 'real':
+      ret, msg = self.trade_client.unlock_trade(password_md5=self.user_info['unlock_pwd'], is_unlock=True)
+      if ret != RET_OK:
+        self.logger.exception(f'[erro]: can not unlock trade:{ret} - {msg}')
+      
     try:
       ret_acc_list, acc_list = self.trade_client.get_acc_list()
       acc_idx = acc_list.query(f'trd_env == "{self.account_type}"').index
@@ -617,6 +638,12 @@ class Futu(Trader):
 
   # get orders
   def get_orders(self, start_time=None, end_time=None):
+
+    # 若为实盘先解锁交易
+    if self.account_type == 'real':
+      ret, msg = self.trade_client.unlock_trade(password_md5=self.user_info['unlock_pwd'], is_unlock=True)
+      if ret != RET_OK:
+        self.logger.exception(f'[erro]: can not unlock trade:{ret} - {msg}')
     
     start_time = datetime.datetime.now().strftime(format="%Y-%m-%d") if (start_time is None) else start_time
     end_time = start_time if (end_time is None) else end_time
@@ -629,6 +656,12 @@ class Futu(Trader):
   # buy or sell stocks
   def trade(self, symbol, action, quantity, price=None, print_summary=True):
 
+    # 若为实盘先解锁交易
+    if self.account_type == 'real':
+      ret, msg = self.trade_client.unlock_trade(password_md5=self.user_info['unlock_pwd'], is_unlock=True)
+      if ret != RET_OK:
+        self.logger.exception(f'[erro]: can not unlock trade:{ret} - {msg}')
+        
     trade_summary = ''
     try:
 
