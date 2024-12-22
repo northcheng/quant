@@ -1129,6 +1129,7 @@ def calculate_ta_signal(df):
       '波动':   [
         # # 在波动区间(-10 < adx_direction_start < 10), adx强度弱(adx_strength < 20)
         '(-10 < adx_value < 10) and (adx_strong_day < 0)',
+        '(-10 < adx_direction_start < 10) and (adx_strong_day < 0)',
       ]
     }
     for wc in wave_condition.keys():
@@ -1212,17 +1213,17 @@ def calculate_ta_signal(df):
                             (overall_change_day == -1 and overall_change_diff < 0)
                             '''.replace('\n', ''),
 
-      # '波动_up':            '''
-      #                       ( 
-      #                         Close < 0
-      #                       )
-      #                       '''.replace('\n', ''),
+      '波动_up':            '''
+                            ( 
+                              Close < 0
+                            )
+                            '''.replace('\n', ''),
 
-      # '波动_down':            '''
-      #                       ( 
-      #                         Close < 0                              
-      #                       )
-      #                       '''.replace('\n', ''),
+      '波动_down':            '''
+                            ( 
+                              trend_波动 < 0                              
+                            )
+                            '''.replace('\n', ''),
 
       # '蜡烛_up':            '''
       #                       ( 
@@ -5797,17 +5798,20 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
       neg_marker = '.'
       pos_marker = '.'
+      neg_color = 'red' if signal_x not in ['波动'] else 'orange'
+      pos_color = 'green'  if signal_x not in ['波动'] else 'orange'
+      
       df[tmp_col_a] = 0.5
 
       # up
       tmp_data = df.query(f'({tmp_col_up} == 1)')
       if len(tmp_data) > 0:
-        ax.scatter(tmp_data.index, tmp_data[signal_y], marker=pos_marker, color='green', alpha=tmp_data[tmp_col_a])
+        ax.scatter(tmp_data.index, tmp_data[signal_y], marker=pos_marker, color=pos_color, alpha=tmp_data[tmp_col_a])
 
       # down
       tmp_data = df.query(f'({tmp_col_down} == -1)')
       if len(tmp_data) > 0:
-        ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='red', alpha=tmp_data[tmp_col_a])
+        ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color=neg_color, alpha=tmp_data[tmp_col_a])
 
       # none
       tmp_data = df.query(f'({tmp_col_up} == 0) or ({tmp_col_down} == 0)')
@@ -7183,12 +7187,12 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   # plot trade info
   if trade_info is not None:
 
-    trade_info['date'] = trade_info['updated_time'].apply(lambda x: x[:10])
+    trade_info['date'] = trade_info['updated_time'].apply(lambda x: util.string_plus_day(x, diff_days=-0.54, date_format="%Y-%m-%d %H:%M:%S"))
+    trade_info['date'] = trade_info['date'].apply(lambda x: x[:10])
     trade_info = trade_info.query(f'code == "{title}" and date >= "{start}" and date <= "{end}"')
-    # trade_info['date'] = trade_info['date'].apply( lambda x: util.string_plus_day(x, 1))
+
     trade_info = util.df_2_timeseries(trade_info, time_col='date')
     trade_info = pd.merge(trade_info, df[['High', 'Low']], how='left', left_index=True, right_index=True)
-    trade_info
 
     if len(trade_info) > 0:
       buy_data = trade_info.query('trd_side == "BUY"')
@@ -7286,10 +7290,6 @@ def plot_historical_evolution(df, symbol, interval, config, his_start_date=None,
     phase = 'cal_ta_basic_features' 
     df = calculate_ta_basic(df=df, indicators=indicators)
     
-    # calculate TA trend
-    phase = 'cal_ta_static_features'
-    df = calculate_ta_static(df=df, indicators=indicators)
-    
     # calculate TA derivatives for historical data for period [his_start_date ~ his_end_date]
     phase = 'cal_ta_dynamic_features_and_signals'
     historical_ta_data = pd.DataFrame()
@@ -7321,7 +7321,10 @@ def plot_historical_evolution(df, symbol, interval, config, his_start_date=None,
           print(f'{ed} - ({sd} ~ {util.time_2_string(tmp_max_idx)})')
         
         # calculate the dynamic part: linear features
+        # calculate TA trend
+        df = calculate_ta_static(df=df, indicators=indicators)
         ta_data = calculate_ta_dynamic(df=df[sd:ed])
+        ta_data = calculate_ta_score(df=ta_data)
         ta_data = calculate_ta_signal(df=ta_data)
         historical_ta_data = pd.concat([historical_ta_data, ta_data.tail(1)])
 
