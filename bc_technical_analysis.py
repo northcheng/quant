@@ -994,7 +994,8 @@ def calculate_ta_signal(df):
 
   df['prev_adx_day'] = sda(df['adx_trend'].shift(1), zero_as=0)
   df['adx_wave'] = df['adx_value_change'].abs() + df['adx_strength_change'].abs()
-  col_to_drop += ['prev_adx_day', 'adx_wave'] 
+  df['candle_color_sda'] = sda(df['candle_color'], zero_as=0)
+  col_to_drop += ['prev_adx_day', 'adx_wave', 'candle_color_sda'] 
 
   # ================================ calculate trend ========================
   if 'trend'  > '':
@@ -1224,18 +1225,6 @@ def calculate_ta_signal(df):
                               trend_波动 < 0                              
                             )
                             '''.replace('\n', ''),
-
-      # '蜡烛_up':            '''
-      #                       ( 
-      #                         Close < 0
-      #                       )
-      #                       '''.replace('\n', ''),
-
-      # '蜡烛_down':            '''
-      #                       ( 
-      #                         Close < 0                              
-      #                       )
-      #                       '''.replace('\n', ''),
                        
     } 
     for c in pattern_conditions.keys():
@@ -1574,6 +1563,69 @@ def calculate_ta_signal(df):
     df.loc[none_signal_idx, 'signal'] = 'n' + df.loc[none_signal_idx, 'signal']
     df['signal_description'] = df['signal_description'].apply(lambda x: x[:-2])
     df['signal_day'] = sda(df['signal'].replace({'b': 1, 's': -1, '': 0, 'nb': 1, 'ns': -1, 'tb': 1, 'ts': -1}), zero_as=1)  
+
+  # 低/中/高
+  if 'position' > '':
+
+    position_conditions = {
+      '低':        f'ki_distance in ["rr"]',
+      '中':        f'ki_distance in ["gr", "rg"]',
+      '高':        f'ki_distance in ["gg"]',
+
+    } 
+    position_values = {
+      '低':        f'l',
+      '中':        f'm',
+      '高':        f'h',
+    }
+    df = assign_condition_value(df=df, column='位置', condition_dict=position_conditions, value_dict=position_values, default_value='') 
+    
+    # 低位信号
+    df['低位'] = 0
+    basic_condition = '位置 in ["l", "m"]'
+    tmp_data = df.query(basic_condition)
+    positive_condition = [
+      'candle_color_sda > 1',
+      'trend_day > 0 and adx_day == 1', 
+      'trend_day > 0 and tankan_day == 1', 
+      'trend_day > 0 and tankan_day > 0 and kama_fast_day == 1'
+    ]
+    for pc in positive_condition:
+      tmp_idx = tmp_data.query(pc).index
+      df.loc[tmp_idx, '低位'] += 1
+
+    negative_condition = [
+      '十字星_trend != "n"',
+      'resistant_score < 0',
+      'candle_color < 0'
+    ]
+    for nc in negative_condition:
+      tmp_idx = tmp_data.query(nc).index
+      df.loc[tmp_idx, '低位'] -= 1
+
+    # 高位信号
+    df['高位'] = 0
+    basic_condition = '位置 in ["h", "m"]'
+    tmp_data = df.query(basic_condition)
+    # positive_condition = [
+    #   'candle_color_sda > 1',
+    #   'trend_day > 0 and adx_day == 1', 
+    #   'trend_day > 0 and tankan_day == 1', 
+    #   'trend_day > 0 and tankan_day > 0 and kama_fast_day == 1'
+    # ]
+    # for pc in positive_condition:
+    #   tmp_idx = tmp_data.query(pc).index
+    #   df.loc[tmp_idx, '低位'] += 1
+
+    # negative_condition = [
+    #   '十字星_trend != "n"',
+    #   'resistant_score < 0',
+    #   'candle_color < 0'
+    # ]
+    # for nc in negative_condition:
+    #   tmp_idx = tmp_data.query(nc).index
+    #   df.loc[tmp_idx, '低位'] -= 1
+    
 
   # drop redundant columns
   for col in col_to_drop:
@@ -5518,6 +5570,55 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
         ax.scatter(tmp_data.index, tmp_data[signal_y], marker=style[f'{i}_trend_marker'], color=style[f'{i}_color'], alpha=style['trend_alpha'])
     else:
       pass
+
+  # position
+  if signal_x in ['位置']:
+
+    # position
+    tmp_col_v = f'{signal_x}'
+    tmp_alpha = 0.5
+    
+    values = {'低': 'l', '中': 'm', '高': 'h'}
+    markers = {'低': '_', '中': 's', '高': 's'}
+    colors = {'低': 'green', '中': 'none', '高': 'green'}
+    edgecolors = {'低': 'green', '中': 'green', '高': 'green'}
+
+    for p in markers.keys():
+      tmp_data = df.query(f'({tmp_col_v} == "{values[p]}")')
+      if len(tmp_data) > 0:
+        ax.scatter(tmp_data.index, tmp_data[signal_y], marker=markers[p], color=colors[p], edgecolor=edgecolors[p], alpha=tmp_alpha)
+      
+  # 低/中/高位
+  if signal_x in ['低位', '高位']:
+
+    basic_condition = {'低位': '位置 in ["l", "m"]', '高位': '位置 in ["h", "m"]'}
+
+    tmp_col_v = f'{signal_x}'
+    tmp_col_a = f'{signal_x}_alpha'
+    df[tmp_col_a] = normalize(df[tmp_col_v].abs())
+
+    tmp_alpha = 0.5
+    
+    tmp_data = df.query(f'({tmp_col_v} == 1)')
+    if len(tmp_data) > 0:
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='green', alpha=tmp_alpha)
+      
+    tmp_data = df.query(f'({tmp_col_v} == 2)')
+    if len(tmp_data) > 0:
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='green', alpha=tmp_alpha)
+    
+    tmp_data = df.query(f'({tmp_col_v} == 3)')
+    if len(tmp_data) > 0:
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='o', color='none', edgecolor='green', alpha=tmp_alpha)
+
+    tmp_data = df.query(f'({tmp_col_v} == 4)')
+    if len(tmp_data) > 0:
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='o', color='green', alpha=tmp_alpha)
+
+    # none
+    tmp_data = df.query(basic_condition[signal_x])
+    if len(tmp_data) > 0:
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='grey', alpha=0.25)
 
   # buy and sell
   if signal_x == ' ':
