@@ -981,7 +981,7 @@ class Tiger(Trader):
           open_time = open_time - datetime.timedelta(days=3)
         else:
           open_time = open_time - datetime.timedelta(days=1)
-      elif status.status in ['Pre-Market Trading', 'Closed', 'Not Yet Opened']:
+      elif status.status in ['Pre-Market Trading', 'Closed', 'Not Yet Opened', 'Early Closed']:
         pass
       else:
         self.logger.error(f'No method for status [{status.status}]')
