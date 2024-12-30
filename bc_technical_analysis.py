@@ -34,7 +34,7 @@ default_trend_val = {'pos_trend':'u', 'neg_trend':'d', 'none_trend':'', 'wave_tr
 default_signal_val = {'pos_signal':'b', 'neg_signal':'s', 'none_signal':'', 'wave_signal': 'n'}
 
 # default indicators and dynamic trend for calculation
-default_indicators = {'trend': ['ichimoku', 'kama', 'adx'], 'volume': [], 'volatility': [], 'other': []}
+default_indicators = {'trend': ['ichimoku', 'kama', 'adx'], 'volume': [], 'momentum':['rsi'], 'volatility': [], 'other': []}
 default_perspectives = ['candle', 'support_resistant']
 default_support_resistant_col = ['kama_fast', 'kama_slow', 'tankan', 'kijun', 'renko_h', 'renko_l', 'candle_gap_top', 'candle_gap_bottom']
 
@@ -645,6 +645,20 @@ def calculate_ta_static(df, indicators=default_indicators):
 
     # =========================================================================
     
+    phase = 'calculate trend for momentum_indicators'
+
+    # ================================ eom trend ==============================
+    target_indicator = 'rsi'
+    # if target_indicator in indicators['momentum']:
+    #   conditions = {
+    #     'up': 'eom_diff > 0', 
+    #     'down': 'eom_diff <= 0'} 
+    #   values = {
+    #     'up': 'u', 
+    #     'down': 'd'}
+    #   df = assign_condition_value(df=df, column='eom_trend', condition_dict=conditions, value_dict=values) 
+
+
     phase = 'calculate trend for volatility_indicators'
 
     # ================================ bb trend ===============================
@@ -5620,6 +5634,14 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     if len(tmp_data) > 0:
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='grey', alpha=0.25)
 
+    if signal_x == '低位':
+      tmp_os_idx = df.query('rsi < 30').index
+      ax.scatter(tmp_os_idx, df.loc[tmp_os_idx, signal_y], marker='^', color='grey', alpha=0.25)
+
+    if signal_x == '高位':
+      tmp_os_idx = df.query('rsi > 70').index
+      ax.scatter(tmp_os_idx, df.loc[tmp_os_idx, signal_y], marker='v', color='grey', alpha=0.25)
+
   # buy and sell
   if signal_x == ' ':
 
@@ -6729,6 +6751,91 @@ def plot_renko(df, start=None, end=None, use_ax=None, title=None, close_alpha=0.
     if show_image:
       plt.show()
 
+# plot rsi chart
+def plot_rsi(df, start=None, end=None, use_ax=None, title=None, plot_args=default_plot_args):
+  """
+  Plot aroon chart
+
+  :param df: dataframe with ichimoku indicator columns
+  :param start: start row to plot
+  :param end: end row to plot
+  :param date_col: column name of Date
+  :param ohlcv_col: columns names of Open/High/Low/Close/Volume
+  :param use_ax: the already-created ax to draw on
+  :param title: plot title
+  :param plot_args: other plot arguments
+  :returns: ichimoku plot
+  :raises: none
+  """
+  # copy dataframe within a specific period
+  df = df[start:end].copy()
+
+  # create figure
+  ax = use_ax
+  if ax is None:
+    fig = mpf.figure(figsize=plot_args['figsize'])
+    ax = fig.add_subplot(1,1,1, style='yahoo')
+
+  df['0'] = 0
+  df['30'] = 30
+  df['50'] = 50
+  df['70'] = 70
+  df['100'] = 100
+  df['prev_rsi'] = df['rsi'].shift(1)
+  df['rsi_marker'] = 'v'
+  up_idx = df.query('rsi > prev_rsi').index
+  df.loc[up_idx, 'rsi_marker'] = '^'
+
+  ax.fill_between(df.index, df['0'], df['30'], facecolor='green', interpolate=True, alpha=0.2)
+  ax.fill_between(df.index, df['70'], df['100'], facecolor='red', interpolate=True, alpha=0.2)
+
+  # plot rsi and standard lines 
+  for col in [70, 50, 30]:
+    tmp_col_name = f'{col}'
+    ax.plot(df.index, df[tmp_col_name], label=None, color='grey', alpha=0.5)
+
+  for m in ['^', 'v']:
+    tmp_df = df.query(f'rsi_marker == "{m}"')
+
+    # overbuy
+    ob_idx = tmp_df.query('rsi > 70').index
+    ax.plot(ob_idx, tmp_df.loc[ob_idx, 'rsi'], label='RSI', color='black', marker=m, alpha=0.2)
+
+    # oversell
+    os_idx = tmp_df.query('rsi < 30').index
+    ax.plot(os_idx, tmp_df.loc[os_idx, 'rsi'], label='RSI', color='black', marker=m, alpha=0.2)
+
+    # up
+    up_idx = tmp_df.query('50 < rsi < 70').index
+    ax.plot(up_idx, tmp_df.loc[up_idx, 'rsi'], label='RSI', color='green', marker=m, alpha=0.5)
+
+    # down
+    down_idx = tmp_df.query('50 > rsi > 30').index
+    ax.plot(down_idx, tmp_df.loc[down_idx, 'rsi'], label='RSI', color='red', marker=m, alpha=0.5)
+
+  # # fill between aroon_up/aroon_down
+  # ax.fill_between(df.index, df.aroon_up, df.aroon_down, where=df.aroon_up > df.aroon_down, facecolor='green', interpolate=True, alpha=0.2)
+  # ax.fill_between(df.index, df.aroon_up, df.aroon_down, where=df.aroon_up <= df.aroon_down, facecolor='red', interpolate=True, alpha=0.2)
+
+  # # plot waving areas
+  # wave_idx = (df.aroon_gap_change==0)&(df.aroon_up_change==df.aroon_down_change)#&(df.aroon_up<96)&(df.aroon_down<96)
+  # for i in range(len(wave_idx)):
+  #   try:
+  #     if wave_idx[i]:
+  #         wave_idx[i-1] = True
+  #   except Exception as e:
+  #     print(e)
+  # ax.fill_between(df.index, df.aroon_up, df.aroon_down, facecolor='grey', where=wave_idx, interpolate=False, alpha=0.3)
+
+  # title and legend
+  ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
+  ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
+  ax.grid(False, axis='both', linestyle='--', linewidth=0.5)
+
+  # return ax
+  if use_ax is not None:
+    return ax
+
 # plot rate and trigger_score/trend_score for each target list
 def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_args=default_plot_args, config=None, save_path=None):
   """
@@ -7210,7 +7317,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
 
     # plot volume  
     elif tmp_indicator == 'volume':
-      
+
       alpha = tmp_args.get('alpha') if tmp_args.get('alpha') is not None else 1
       
       # set bar_width according to data interval
