@@ -30,8 +30,8 @@
   "visualization": {
     "plot_args": {
       "plot_ratio": {
-        "signals": 5, "adx": 2,
-        "main_indicators": 10, "volume":1
+        "signals": 3, "adx": 2,
+        "main_indicators": 9.5, "volume":1
       },
       
       "main_indicators": {
@@ -56,13 +56,10 @@
           "模式", "位置", 
 
           "-----",
-          "support_score", "break_up_score", "break_down_score", "resistant_score",
-
-          "-----",
           "kama_distance", "ichimoku_distance", "adx_distance", 
           
           "-----",
-          "overall", "adx_trend", 
+          "overall", "adx", 
           
           "-----",
           "trend", "trigger", " "
