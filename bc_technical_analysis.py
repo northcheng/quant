@@ -7170,7 +7170,9 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
 
   # candle pattern desc
   up_desc = df.loc[max_idx, "up_pattern_description"]
+  up_desc = f'+[{up_desc}]' if len(up_desc) > 0 else up_desc
   down_desc = df.loc[max_idx, "down_pattern_description"]
+  down_desc = f'-[{down_desc}]' if len(down_desc) > 0 else down_desc
   if len(up_desc) > 0 and len(down_desc) > 0:
     desc = f'{up_desc} | {down_desc}'
   else:
@@ -7183,7 +7185,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   super_title = f'{title}({new_title})  {close_rate}% {title_symbol}'
 
   fig.suptitle(f'{super_title}', ha='center', va='top', x=0.5, y=1.01, fontsize=24, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1), linespacing = 1.8)
-  plt.figtext(0.9, 1.02, f'{trend_desc}\n{trigger_desc}\n{pattern_desc}\n{signal_desc}\n{candle_pattern_desc}', fontsize=16, color='black', ha='right', va='top', bbox=dict(boxstyle="round", fc=desc_color, ec="1.0", alpha=0.1))
+  plt.figtext(0.9, 1.02, f'{candle_pattern_desc}\n{trend_desc}\n{trigger_desc}\n{pattern_desc}\n{signal_desc}', fontsize=16, color='black', ha='right', va='top', bbox=dict(boxstyle="round", fc=desc_color, ec="1.0", alpha=0.1))
 
   # save image
   if save_image and (save_path is not None):
