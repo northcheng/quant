@@ -303,13 +303,15 @@ def calculate_ta_static(df, indicators=default_indicators):
  
         # distance related column names
         distance = f'{target_indicator}_distance'
-        distance_change = f'{target_indicator}_distance_change'
         distance_middle = f'{target_indicator}_distance_middle'
         
-        # distance and distance change(normalized by slow_line)
+        # distance
         df[distance] = df[fl] - df[sl]
         df[distance] = df[distance] / df[sl]
-        df[distance_change] = df[distance] - df[distance].shift(1)
+
+        # distance change(normalized by slow_line)
+        # distance_change = f'{target_indicator}_distance_change'
+        # df[distance_change] = df[distance] - df[distance].shift(1)
 
         # fl/sl change rate and fl & Close, sl & Close crossover
         threshold = 0.00
@@ -318,19 +320,19 @@ def calculate_ta_static(df, indicators=default_indicators):
           df[f'{col}_day'] = cal_crossover_signal(df=df, fast_line='Close', slow_line=col, pos_signal=1, neg_signal=-1, none_signal=0)
           df[f'{col}_day'] = sda(series=df[f'{col}_day'], zero_as=1)
 
-          # fl/sl with none zero rate          
-          rate_col = f'{col}_rate'
-          none_zero_col = f'{rate_col}_none_zero'
-          df[none_zero_col] = np.NaN
-          none_zero_idx = df.query(f'{rate_col} > {threshold} or {rate_col} < {threshold}').index
-          df.loc[none_zero_idx, none_zero_col] = df.loc[none_zero_idx, rate_col]
-          df[none_zero_col] = df[none_zero_col].fillna(method='ffill')
+          # # fl/sl with none zero rate          
+          # rate_col = f'{col}_rate'
+          # none_zero_col = f'{rate_col}_none_zero'
+          # df[none_zero_col] = np.NaN
+          # none_zero_idx = df.query(f'{rate_col} > {threshold} or {rate_col} < {threshold}').index
+          # df.loc[none_zero_idx, none_zero_col] = df.loc[none_zero_idx, rate_col]
+          # df[none_zero_col] = df[none_zero_col].fillna(method='ffill')
 
-        # fl & sl crossover  
-        fs_day = f'{target_indicator}_cross_day'
-        df[fs_day] = cal_crossover_signal(df, fast_line=fl, slow_line=sl, result_col=fs_day, pos_signal='u', neg_signal='d', none_signal='n')
-        df[fs_day] = df[fs_day].replace({'u':1, 'd':-1, 'n':0})
-        df[fs_day] = sda(series=df[fs_day], zero_as=1)
+        # # fl & sl crossover  
+        # fs_day = f'{target_indicator}_cross_day'
+        # df[fs_day] = cal_crossover_signal(df, fast_line=fl, slow_line=sl, result_col=fs_day, pos_signal='u', neg_signal='d', none_signal='n')
+        # df[fs_day] = df[fs_day].replace({'u':1, 'd':-1, 'n':0})
+        # df[fs_day] = sda(series=df[fs_day], zero_as=1)
         
         # # change
         # result_col = f'{target_indicator}_change'
@@ -359,8 +361,8 @@ def calculate_ta_static(df, indicators=default_indicators):
         col_to_drop.append(cloud_top_col)
         col_to_drop.append(cloud_bottom_col)
 
-        green_idx = df.query(f'{fs_day} > 0').index
-        red_idx = df.query(f'{fs_day} < 0').index
+        green_idx = df.query(f'{distance} > 0').index
+        red_idx = df.query(f'{distance} <= 0').index
         df.loc[green_idx, cloud_top_col] = df.loc[green_idx, fl]
         df.loc[green_idx, cloud_bottom_col] = df.loc[green_idx, sl]
         df.loc[red_idx, cloud_top_col] = df.loc[red_idx, sl]
@@ -838,11 +840,11 @@ def calculate_ta_score(df):
   df['down_score_description'] = ''
 
   # support/resistant, break_up/bread_down, candle_pattern description
-  df['up_score'] += df['break_up_score'] # + df['up_pattern_score'] + df['cross_up_score'] + df['support_score'] # * 0.66 
-  df['down_score'] += df['break_down_score'] # + df['down_pattern_score'] + df['cross_down_score'] + df['resistant_score'] # * 0.66 
+  df['up_score'] += df['break_up_score'] + df['support_score'] * 0.5 # + df['up_pattern_score'] + df['cross_up_score']  
+  df['down_score'] += df['break_down_score'] + df['resistant_score'] * 0.5 # + df['down_pattern_score'] + df['cross_down_score'] 
 
   # descriptions
-  names = {'break_up': '+突破', 'break_down': '-跌落'}  # 'up_pattern': '+蜡烛', 'down_pattern': '-蜡烛', 'support':'+支撑', 'resistant': '-阻挡', 
+  names = {'break_up': '+突破', 'break_down': '-跌落', 'support':'+支撑', 'resistant': '-阻挡', }  # 'up_pattern': '+蜡烛', 'down_pattern': '-蜡烛', 
   for col in names.keys():
 
     desc = df[f'{col}_score'].apply(lambda x: '' if x == 0 else f'{names[col]}({x}), ')
@@ -871,7 +873,6 @@ def calculate_ta_score(df):
   df['trigger_day'] = sda(series=df['trigger_day'], zero_as=1)
 
   # ================================ calculate overall change & status ======
-  df['distance_change'] = 0
   df['overall_change'] = 0
   df['overall_status'] = 0
 
@@ -885,6 +886,8 @@ def calculate_ta_score(df):
     status_col = f'{col}_status'
     rate_col = f'{col}_rate'
     df[result_col] = ''
+
+    col_to_drop += [distance_middle_col, status_col, rate_col]
 
     flr = {'kama_distance': 'kama_fast_rate', 'ichimoku_distance': 'tankan_rate', 'adx_distance': 'adx_value_change'}[distance_col]
     slr = {'kama_distance': 'kama_slow_rate', 'ichimoku_distance': 'kijun_rate', 'adx_distance': 'adx_value_pred_change'}[distance_col]
@@ -1330,14 +1333,16 @@ def calculate_ta_signal(df):
       '转换_buy':   '''
                     (trend == "up") and 
                     (
-                      (0 < trend_day <= 1)
+                      (0 < trend_day <= 1) and
+                      (trigger_score >= 0)
                     )
                     '''.replace('\n', ''),
 
       '转换_sell':  '''
                     (trend == "down") and 
                     (
-                      (-1 <= trend_day < 0)
+                      (-1 <= trend_day < 0) and 
+                      (trigger_score <= 0)
                     )
                     '''.replace('\n', ''),   
 
@@ -1431,7 +1436,6 @@ def calculate_ta_signal(df):
     df.loc[none_signal_idx, 'signal'] = 'n' + df.loc[none_signal_idx, 'signal']
     df['signal_description'] = df['signal_description'].apply(lambda x: x[:-2])
     df['signal_day'] = sda(df['signal'].replace({'b': 1, 's': -1, '': 0, 'nb': 1, 'ns': -1}), zero_as=1)  
-
 
   # drop redundant columns
   for col in col_to_drop:
@@ -2152,7 +2156,7 @@ def calculate_position_score(df):
       df = assign_condition_value(df=df, column=col_v, condition_dict=position_conditions, value_dict=position_values, default_value=0) 
     
     df['position_score'] += df[col_v]
-  df = cal_change(df=df, target_col='position_score', periods=1, add_accumulation=False, add_prefix=True)
+  # df = cal_change(df=df, target_col='position_score', periods=1, add_accumulation=False, add_prefix=True)
 
   # ichimoku-kama position
   threshold = 1
@@ -2432,7 +2436,7 @@ def add_candlestick_patterns(df):
       df[f'{col}_ma'] = sm(series=df[f'candle_{col}'], periods=ma_period).mean()
       # df[f'{col}_std'] = sm(series=df[f'candle_{col}'], periods=ma_period).std()
       df[f'{col}_diff'] = (df[f'candle_{col}'] - df[f'{col}_ma'])/df[f'{col}_ma'] # df[f'{col}_std']
-      # col_to_drop += [f'{col}_ma', f'{col}_std'] # , f'{col}_diff'
+      col_to_drop += [f'{col}_ma' , f'{col}_diff'] # , f'{col}_std'
 
     # long/short shadow
     conditions = {
@@ -2450,6 +2454,7 @@ def add_candlestick_patterns(df):
 
   # patterns that consist only 1 candlestick
   if '1_candle' > '':
+    
     # cross/highwave
     conditions = {
       # 十字星1: 实体占比<15%, 影线σ<-1.5
@@ -2571,22 +2576,25 @@ def add_candlestick_patterns(df):
   # other customized paterns
   if 'customized' > '':
 
-    # 蜡烛位置
-    conditions = {
-      # 
-      '上行': '(position == "down") and (entity_trend != "d") and (candle_position_score > 0.66)',
-      # 
-      '下行': '(position == "up") and (entity_trend != "d") and (candle_position_score < -0.66)'}
-    values = {'上行': 'u', '下行': 'd'}
-    df = assign_condition_value(df=df, column='蜡烛位置_trend', condition_dict=conditions, value_dict=values, default_value='n')
+    # # 蜡烛位置
+    # conditions = {
+    #   # 
+    #   '上行': '(position == "down") and (entity_trend != "d") and (candle_position_score > 0.66)',
+    #   # 
+    #   '下行': '(position == "up") and (entity_trend != "d") and (candle_position_score < -0.66)'}
+    # values = {'上行': 'u', '下行': 'd'}
+    # df = assign_condition_value(df=df, column='蜡烛位置_trend', condition_dict=conditions, value_dict=values, default_value='n')
     
     # 上下影线
-
-    # candle_pattern: 长上影线
-    neg_candle_patterns = {
-      '长上影_down':   '((candle_upper_shadow_pct > 0.5) and ((candle_color == -1) or (candle_position_score < 0) or (candle_upper_shadow_pct > 0.75)))',
-      '长实体_down':   '((position in ["up"]) and (shadow_diff > 2 or entity_diff > 2))',
-    }
+    # long up/down shadow
+    conditions = {
+      # 长上影线: 
+      '长上影': '(shadow_diff > -0.5) and (candle_upper_shadow_pct > 0.5)',
+      # 长下影线: 
+      '长下影': '(shadow_diff > -0.5) and (candle_lower_shadow_pct > 0.5)',
+      }
+    values = {'长上影': 'd', '长下影': 'u'} 
+    df = assign_condition_value(df=df, column='长影线_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
   # days since signal triggered
   df['up_pattern_score'] = 0
@@ -2595,8 +2603,17 @@ def add_candlestick_patterns(df):
   df['down_pattern_description'] = ''
   
   pattern_weights = {
-    '平头': 1, '启明黄昏': 2, '窗口': 2, '蜡烛位置': 2, '十字星': 1, 
-    '流星': 1, '锤子': 1, '腰带': 1, '穿刺': 1, '包孕': 1, '吞噬': 1, 
+    '十字星': 1, '长影线': 1, '流星': 1, '锤子': 1, '腰带': 1, '平头': 1, 
+    '穿刺': 1, '包孕': 1, '吞噬': 1, 
+    '启明黄昏': 2, '窗口': 2, 
+  }
+  up_pattern_names = {
+    '十字星': '十字星', '长影线': '长下影', '流星': '倒锤', '锤子': '锤子', '腰带': '多腰带', '平头': '平头底', 
+    '穿刺': '多穿刺', '包孕': '多包孕', '吞噬': '多吞噬', '启明黄昏': '启明星', '窗口': '向上跳空', 
+  }
+  down_pattern_names = {
+    '十字星': '十字星', '长影线': '长上影', '流星': '流星', '锤子': '墓碑', '腰带': '空腰带', '平头': '平头顶', 
+    '穿刺': '空穿刺', '包孕': '空包孕', '吞噬': '空吞噬', '启明黄昏': '黄昏星', '窗口': '向下跳空',
   }
   all_candle_patterns = list(pattern_weights.keys())
   for col in all_candle_patterns:
@@ -2613,10 +2630,10 @@ def add_candlestick_patterns(df):
       down_idx = df.query(f'{day_col} == -1 or {day_col} == 1').index
 
     df.loc[up_idx, 'up_pattern_score'] += pattern_weights[col]
-    df.loc[up_idx, 'up_pattern_description'] += f'{col}, '
+    df.loc[up_idx, 'up_pattern_description'] += f'{up_pattern_names[col]}, '
 
     df.loc[down_idx, 'down_pattern_score'] -= pattern_weights[col]
-    df.loc[down_idx, 'down_pattern_description'] += f'{col}, '
+    df.loc[down_idx, 'down_pattern_description'] += f'{down_pattern_names[col]}, '
 
   df['candle_pattern_score'] = df['up_pattern_score'] + df['down_pattern_score']
   df['up_pattern_description'] = df['up_pattern_description'].apply(lambda x: x[:-2] if (len(x) >=2 and x[-2] == ',') else x)
@@ -3103,7 +3120,7 @@ def add_support_resistance(df, target_col=default_support_resistant_col):
       else:
         print(f'error: {idx} not defined')
 
-      if 'kama_slow' not in tmp_col and 'kijun' not in tmp_col:
+      if 'kama_slow' not in tmp_col:
         col_to_drop.append(tmp_col)
 
   # drop unnecessary columns
@@ -5377,7 +5394,6 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     else:
       pass
 
-  
   # buy and sell
   if signal_x == ' ':
 
@@ -5425,7 +5441,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     ichimoku_distance_status = df.loc[max_idx, "ichimoku_distance_status"].replace('pos', '+').replace('neg', '-').replace('none', '=').replace('up', '↑').replace('down', '↓')
     kama_distance_status = df.loc[max_idx, "kama_distance_status"].replace('pos', '+').replace('neg', '-').replace('none', '=').replace('up', '↑').replace('down', '↓')
     v = f'[A]{adx_distance_status}\n[I]{ichimoku_distance_status}\n[K]{kama_distance_status}'
-    v = f'  短  中  长  \n {adx_distance_status} {ichimoku_distance_status} {kama_distance_status} '
+    v = f'  短  中  长  \n {adx_distance_status}  {ichimoku_distance_status}  {kama_distance_status} '
     y_signal = y_max - 10 # round(y_middle + y_range/4)
     text_color = 'black'
     if (df.loc[max_idx, "adx_distance_status"] in ['posup', 'negup'] and df.loc[max_idx, "ichimoku_distance_status"] in ['posup', 'negup', 'posnone', 'negnone']):
@@ -5435,6 +5451,11 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     else:
       pass
     plt.annotate(f'{v}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+
+    # # fill colors for different position
+    # p_alpha = {'l': 0, 'ml': 0.1, 'mh': 0.2, 'h': 0.3}
+    # for p in ['l', 'ml', 'mh', 'h']:
+    #   ax.fill_between(df.index, 0, y_max, where=df['位置'] == p, hatch=None, linewidth=1, facecolor='orange', edgecolor='none', interpolate=False, alpha=p_alpha[p], zorder=0)
 
     # title and legend
     ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
@@ -5484,29 +5505,29 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     if len(tmp_data) > 0:
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='red', alpha=tmp_data[tmp_col_a].fillna(0))
 
-    # 趋势转换
-    tmp_col_v = f'adx_day'
-    tmp_col_a = f'adx_day_alpha'
+    # # 趋势转换
+    # tmp_col_v = f'adx_day'
+    # tmp_col_a = f'adx_day_alpha'
 
-    threhold = 1
-    tmp_data = df.query(f'(0 < {tmp_col_v} <= {threhold})')
-    if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='o', color='none', edgecolor='green', alpha=0.75)
+    # threhold = 1
+    # tmp_data = df.query(f'(0 < {tmp_col_v} <= {threhold})')
+    # if len(tmp_data) > 0:
+    #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='green', alpha=0.75)
 
-    tmp_data = df.query(f'({tmp_col_v} == 0)')
-    if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='o', color='none', edgecolor='darkorange', alpha=0.75)
+    # tmp_data = df.query(f'({tmp_col_v} == 0)')
+    # if len(tmp_data) > 0:
+    #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='o', color='none', edgecolor='darkorange', alpha=0.75)
   
-    tmp_data = df.query(f'(0 > {tmp_col_v} >= {-threhold})')
-    if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='o', color='none', edgecolor='red', alpha=0.75)
+    # tmp_data = df.query(f'(0 > {tmp_col_v} >= {-threhold})')
+    # if len(tmp_data) > 0:
+    #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='red', alpha=0.75)
 
   # adx_syn(whether adx_value and adx_strength goes the same direction)
   if signal_x in ['adx', 'overall']:
     
     # columns
     outer_cols = {'adx': 'adx_day', 'overall': 'overall_change'}
-    inner_cols = {'adx': 'adx_distance', 'overall': 'overall_change_diff'}
+    inner_cols = {'adx': 'adx_distance_change', 'overall': 'overall_change_diff'}
     outer_tmp_col_v = outer_cols[signal_x]
     inner_tmp_col_v = inner_cols[signal_x]
 
@@ -5515,7 +5536,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     outer_neg_marker = 'o'
     outer_alpha = 0.7
     inner_pos_marker = '.'
-    inner_neg_marker = '.'
+    inner_neg_marker = 'x'
     df['inner_alpha'] = normalize(df[inner_tmp_col_v].abs())
     none_marker = '_'
     
@@ -5539,12 +5560,14 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker=inner_neg_marker, color='red', alpha=tmp_data['inner_alpha'].fillna(0))
 
   # ichimoku/kama distance
-  if signal_x in [ "kama_distance", "ichimoku_distance", "adx_distance", 'normalized_distance']:
+  if signal_x in ["短期", "中期", "长期"]:
 
-    tmp_col_v = signal_x
-    tmp_col_a = f'{signal_x}_alpha'
-    tmp_col_s = f'{signal_x}_status'
-    defalut_alpha = 0.2 if signal_x == 'normalized_distance' else 0.1
+    term_indicator = {"短期":'adx', "中期":'ichimoku', "长期":'kama'}
+
+    tmp_col_v = f'{term_indicator[signal_x]}_distance'
+    tmp_col_s = f'{term_indicator[signal_x]}_distance_status'
+    tmp_col_a = f'{term_indicator[signal_x]}_distance_alpha'
+    defalut_alpha = 0.2
     df[tmp_col_a] = normalize(df[tmp_col_v].abs()).apply(lambda x: x if x > defalut_alpha else defalut_alpha)
 
     none_idx = df.query(f'{tmp_col_s} in ["noneup", "nonedown", "nonenone"]').index
@@ -5669,16 +5692,17 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
           ax.scatter(tmp_data.index, tmp_data[signal_y], marker=marker, color=color, edgecolor=edgecolor, alpha=alpha)
 
   # 位置(及波动标识)
-  if signal_x in ['位置']:
+  if signal_x in ['position']:
 
     # position
     tmp_col_v = f'位置'
     tmp_alpha = 0.5
+    tmp_color = 'grey'
     
     values = {'低': 'l', '中低': 'ml', '中高': 'mh', '高': 'h'}
     markers = {'低': '_', '中低': 's', '中高': 's', '高': 's'}
-    colors = {'低': 'green', '中低': 'none', '中高': 'none', '高': 'green'}
-    edgecolors = {'低': 'green', '中低': 'green', '中高': 'green', '高': 'green'}
+    colors = {'低': tmp_color, '中低': 'none', '中高': 'none', '高': tmp_color}
+    edgecolors = {'低': tmp_color, '中低': tmp_color, '中高': tmp_color, '高': tmp_color}
 
     for p in markers.keys():
       tmp_data = df.query(f'({tmp_col_v} == "{values[p]}")')
@@ -5686,44 +5710,35 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
         ax.scatter(tmp_data.index, tmp_data[signal_y], marker=markers[p], color=colors[p], edgecolor=edgecolors[p], alpha=tmp_alpha)
 
         if p in ['中高']:
-          ax.scatter(tmp_data.index, tmp_data[signal_y], marker='x', color='green', alpha=tmp_alpha)
+          ax.scatter(tmp_data.index, tmp_data[signal_y], marker='x', color=tmp_color, alpha=tmp_alpha)
 
-  # patterns
-  if signal_x in ["模式"]: 
+    # 模式
+    alpha = 0.75
 
-    alpha = 0.5
-
-    # 超买超卖
-    # up
+    # 超买
     tmp_data = df.query(f'(超买超卖_up == 1)')
-    if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='o', color='none', edgecolor='green', alpha=alpha)
-
-    # down
-    tmp_data = df.query(f'(超买超卖_down == -1)')
-    if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='o', color='none', edgecolor='red', alpha=alpha)
-
-    # 反弹/触顶
-    # up
-    tmp_data = df.query(f'(支撑阻挡_up == 1)')
     if len(tmp_data) > 0:
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='green', alpha=alpha)
 
-    # down
-    tmp_data = df.query(f'(支撑阻挡_down == -1)')
+    # 超卖
+    tmp_data = df.query(f'(超买超卖_down == -1)')
     if len(tmp_data) > 0:
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='red', alpha=alpha)
 
-    # 波动
-    tmp_data = df.query(f'(trend_波动 < 0)')
+    # 反弹
+    tmp_data = df.query(f'(支撑阻挡_up == 1)')
     if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='darkorange', alpha=alpha)
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='green', alpha=alpha/2)
 
-    # none
-    tmp_data = df.query(f'(超买超卖_up == 0 and 超买超卖_down == 0 and 支撑阻挡_up == 0 and 支撑阻挡_down == 0 and trend_波动 == 0)')
+    # 触顶
+    tmp_data = df.query(f'(支撑阻挡_down == -1)')
     if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='grey', alpha=0.1)
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='red', alpha=alpha/2)
+    
+    # # none
+    # tmp_data = df.query(f'(超买超卖_up == 0 and 超买超卖_down == 0 and 支撑阻挡_up == 0 and 支撑阻挡_down == 0 and trend_波动 == 0)')
+    # if len(tmp_data) > 0:
+    #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='grey', alpha=0.1)
 
   # return ax
   if use_ax is not None:
@@ -6174,7 +6189,7 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   max_idx = df.index.max()
   
   # add extention data
-  extended = 2
+  extended = 1
   ext_columns = ['tankan', 'kijun', 'kama_fast', 'kama_slow']
   renko_cols = ['renko_color', 'renko_o', 'renko_h', 'renko_l', 'renko_c',  'renko_start', 'renko_distance', 'renko_brick_number']
   candle_gap_cols = ['candle_gap', 'candle_gap_top', 'candle_gap_bottom']
@@ -6351,9 +6366,10 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
         down_price += '\n'
 
     # add candle_upper_shadow_pct and candle_lower_shadow_pct
-    upper_shadow = round(df.loc[max_idx, "candle_upper_shadow_pct"], 4) * 100
-    lower_shadow = round(df.loc[max_idx, "candle_lower_shadow_pct"], 4) * 100
-    price_info = f'{up_price}\n\n' + f'----{upper_shadow:05.2f}%---' + '\n-------------\n' + f'----{lower_shadow:05.2f}%---' + f'\n\n{down_price}'
+    upper_shadow = round(df.loc[max_idx, "candle_upper_shadow_pct"], 3) * 100
+    entity = round(df.loc[max_idx, "candle_entity_pct"], 3) * 100
+    lower_shadow = round(df.loc[max_idx, "candle_lower_shadow_pct"], 3) * 100
+    price_info = f'{up_price}\n\n' + f'----{upper_shadow:5.1f}%----' + f'\n----{entity:5.1f}%----\n' + f'----{lower_shadow:5.1f}%----' + f'\n\n{down_price}'
     
     # add the string to the chart
     plt.text(
@@ -7149,7 +7165,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   
   # signal desc
   desc = df.loc[max_idx, "signal_description"]
-  signal_desc = (f' {desc}' if len(desc) > 0 else '') + f' > 信号 {df.loc[max_idx, "signal_score"]:<5}'
+  signal_desc = f' 信号 {df.loc[max_idx, "signal_score"]:<5}' + (f' > {desc}' if len(desc) > 0 else '')
 
   # trend desc
   desc = df.loc[max_idx, "trend_description"]
@@ -7177,15 +7193,15 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
     desc = f'{up_desc} | {down_desc}'
   else:
     desc = up_desc + down_desc
-  candle_pattern_desc = (f' {desc}' if len(desc) > 0 else '') + f' > 蜡烛 {df.loc[max_idx, "candle_pattern_score"]:<5}'
+  candle_pattern_desc = (f' {desc}' if len(desc) > 0 else '') + f' = 蜡烛 {df.loc[max_idx, "candle_pattern_score"]:<5}'
 
   # construct super title
   if new_title is None:
     new_title == ''
-  super_title = f'{title}({new_title})  {close_rate}% {title_symbol}'
+  super_title = f' {title}({new_title})  {close_rate}% {title_symbol}\n{signal_desc}'
 
   fig.suptitle(f'{super_title}', ha='center', va='top', x=0.5, y=1.01, fontsize=24, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1), linespacing = 1.8)
-  plt.figtext(0.9, 1.02, f'{candle_pattern_desc}\n{trend_desc}\n{trigger_desc}\n{pattern_desc}\n{signal_desc}', fontsize=16, color='black', ha='right', va='top', bbox=dict(boxstyle="round", fc=desc_color, ec="1.0", alpha=0.1))
+  plt.figtext(0.9, 1.02, f'{trend_desc}\n{trigger_desc}\n{pattern_desc}\n{candle_pattern_desc}', fontsize=16, color='black', ha='right', va='top', bbox=dict(boxstyle="round", fc=desc_color, ec="1.0", alpha=0.1))
 
   # save image
   if save_image and (save_path is not None):
