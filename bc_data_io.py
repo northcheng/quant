@@ -847,6 +847,9 @@ def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_m
                 else:
                   print(f'max index of {symbol} is invalid({max_idx}), refreshing data')
                   os.remove(symbol_file_name)
+              else:
+                print(f'data of {symbol} is empty, refreshing data')
+                os.remove(symbol_file_name)
 
           # update eod data, print updating info
           if (update_mode in ['eod', 'both', 'refresh']) and (tmp_data_date is None or tmp_data_date < benchmark_dates[mkt] or (tmp_data_date <= benchmark_dates[mkt] and tmp_source == 'ak')):
