@@ -848,7 +848,7 @@ def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_m
                   print(f'max index of {symbol} is invalid({max_idx}), refreshing data')
                   os.remove(symbol_file_name)
               else:
-                print(f'data of {symbol} is empty, refreshing data')
+                print(f'data {symbol} is empty, refreshing data')
                 os.remove(symbol_file_name)
 
           # update eod data, print updating info
@@ -1262,7 +1262,10 @@ def load_stock_data(file_path, file_name, file_format='.csv', time_col='Date', s
         df.sort_index(inplace=True)
 
   except Exception as e:
+    if os.path.exists(file_name):
+      os.remove(file_name)
     print(file_name, e)
+    print(f'remove file: {file_name}')
 
   return df
 
