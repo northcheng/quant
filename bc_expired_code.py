@@ -924,3 +924,102 @@
   # df['score_ma'] = em(series=df['score'], periods=5).mean()
   # df['score_ma_change'] = df['score_ma'] - df['score_ma'].shift(1)
   # df['score_direction'] = sda(series=df['score_ma_change'], zero_as=0)
+
+# # plot general ta indicators
+# def plot_indicator(df, target_col, start=None, end=None, signal_x='signal', signal_y='Close', benchmark=None, boundary=None, color_mode=None, use_ax=None, title=None, plot_price_in_twin_ax=False, trend_val=default_trend_val, signal_val=default_signal_val, plot_args=default_plot_args):
+#   """
+#   Plot indicators around a benchmark
+
+#   :param df: dataframe which contains target columns
+#   :param target_col: columnname of the target indicator
+#   :param start: start date of the data
+#   :param end: end of the data
+#   :param signal_x: columnname of the signal x values (default 'signal')
+#   :param signal_y: columnname of the signal y values (default 'Close')
+#   :param benchmark: benchmark, a fixed value
+#   :param boundary: upper/lower boundaries, a list of fixed values
+#   :param color_mode: which color mode to use: benckmark/up_down
+#   :param use_ax: the already-created ax to draw on
+#   :param title: title of the plot
+#   :param plot_price_in_twin_ax: whether plot price and signal in a same ax or in a twin ax
+#   :param trend_val: value of different kind of trends (e.g. 'u'/'d'/'n')
+#   :param signal_val: values of different kind of signals
+#   :param plot_args: other plot arguments
+#   :returns: figure with indicators and close price plotted
+#   :raises: none
+#   """
+#   # select data
+#   df = df[start:end].copy() 
+  
+#   # create figure
+#   ax = use_ax
+#   if ax is None:
+#     fig = mpf.figure(figsize=plot_args['figsize'])
+#     ax = fig.add_subplot(1,1,1, style='yahoo')
+
+#   # plot benchmark
+#   if benchmark is not None:
+#     df['benchmark'] = benchmark
+#     ax.plot(df.index, df['benchmark'], color='black', linestyle='-', label='%s'%benchmark, alpha=0.3)
+
+#   # plot boundary
+#   if boundary is not None:
+#     if len(boundary) > 0:
+#       df['upper_boundary'] = max(boundary)
+#       df['lower_boundary'] = min(boundary)
+#       ax.plot(df.index, df['upper_boundary'], color='green', linestyle='--', label='%s'% max(boundary), alpha=0.5)
+#       ax.plot(df.index, df['lower_boundary'], color='red', linestyle='--', label='%s'% min(boundary), alpha=0.5)
+
+#   # plot indicator(s)
+#   unexpected_col = [x for x in target_col if x not in df.columns]
+#   if len(unexpected_col) > 0:
+#     print('column not found: ', unexpected_col)
+#   target_col = [x for x in target_col if x in df.columns]
+#   # for col in target_col:
+#   #   ax.plot(df.index, df[col], label=col, alpha=0.5)
+
+#   # plot color bars if there is only one indicator to plot
+#   if len(target_col) == 1:
+#     tar = target_col[0]
+
+#     # plot in up_down mode
+#     if color_mode == 'up_down':  
+#       df['color'] = 'red'
+#       previous_target_col = 'previous_' + tar
+#       df[previous_target_col] = df[tar].shift(1)
+#       df.loc[df[tar] > df[previous_target_col], 'color'] = 'green'
+#       df.loc[df[tar] == df[previous_target_col], 'color'] = 'orange'
+
+#       target_max = df[target_col].values.max()
+#       target_min = df[target_col].values.min()
+
+#       df.loc[df[tar] >= target_max, 'color'] = 'green'
+#       df.loc[df[tar] <= target_min, 'color'] = 'red'
+
+#     # plot in benchmark mode
+#     elif color_mode == 'benchmark' and benchmark is not None:
+#       df['color'] = 'red'
+#       df.loc[df[tar] > benchmark, 'color'] = 'green'
+
+#     # plot indicator
+#     if 'color' in df.columns:
+#       ax.bar(df.index, height=df[tar], color=df.color, alpha=0.3)
+
+#   # plot close price
+#   if signal_y in df.columns:
+#     if plot_price_in_twin_ax:
+#       ax2=ax.twinx()
+#       plot_signal(df, signal_x=signal_x, signal_y=signal_y, use_ax=ax2)
+#       ax2.legend(loc='lower left')
+#     else:
+#       plot_signal(df, signal_x=signal_x, signal_y=signal_y, use_ax=ax)
+
+#   # plot title and legend
+#   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
+#   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
+
+#   ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
+
+#   # return ax
+#   if use_ax is not None:
+#     return ax

@@ -39,7 +39,8 @@ default_perspectives = ['candle', 'support_resistant']
 default_support_resistant_col = ['kama_fast', 'kama_slow', 'tankan', 'kijun', 'renko_h', 'renko_l', 'candle_gap_top', 'candle_gap_bottom']
 
 # default arguments for visualization
-default_candlestick_color = {'color_up':'green', 'color_down':'red', 'shadow_color':'black', 'entity_edge_color':'black', 'alpha':0.8}
+default_candlestick_color = {'color_up':'green', 'color_down':'red', 'shadow_color':'black', 'entity_edge_color':'black', 'alpha':1}
+default_main_indicator = {'candlestick'}
 default_plot_args = {'figsize':(30, 3), 'title_rotation':'vertical', 'xaxis_position': 'bottom', 'yaxis_position': 'right', 'title_x':-0.01, 'title_y':0.2, 'bbox_to_anchor':(1.02, 0.), 'loc':3, 'ncol':1, 'borderaxespad':0.0}
 
 # zorders
@@ -6850,107 +6851,8 @@ def plot_selected(data, config, make_pdf=False, dst_path=None, file_name=None):
 
   return selected_data
 
-# plot general ta indicators
-def plot_indicator(df, target_col, start=None, end=None, signal_x='signal', signal_y='Close', benchmark=None, boundary=None, color_mode=None, use_ax=None, title=None, plot_price_in_twin_ax=False, trend_val=default_trend_val, signal_val=default_signal_val, plot_args=default_plot_args):
-  """
-  Plot indicators around a benchmark
-
-  :param df: dataframe which contains target columns
-  :param target_col: columnname of the target indicator
-  :param start: start date of the data
-  :param end: end of the data
-  :param signal_x: columnname of the signal x values (default 'signal')
-  :param signal_y: columnname of the signal y values (default 'Close')
-  :param benchmark: benchmark, a fixed value
-  :param boundary: upper/lower boundaries, a list of fixed values
-  :param color_mode: which color mode to use: benckmark/up_down
-  :param use_ax: the already-created ax to draw on
-  :param title: title of the plot
-  :param plot_price_in_twin_ax: whether plot price and signal in a same ax or in a twin ax
-  :param trend_val: value of different kind of trends (e.g. 'u'/'d'/'n')
-  :param signal_val: values of different kind of signals
-  :param plot_args: other plot arguments
-  :returns: figure with indicators and close price plotted
-  :raises: none
-  """
-  # select data
-  df = df[start:end].copy() 
-  
-  # create figure
-  ax = use_ax
-  if ax is None:
-    fig = mpf.figure(figsize=plot_args['figsize'])
-    ax = fig.add_subplot(1,1,1, style='yahoo')
-
-  # plot benchmark
-  if benchmark is not None:
-    df['benchmark'] = benchmark
-    ax.plot(df.index, df['benchmark'], color='black', linestyle='-', label='%s'%benchmark, alpha=0.3)
-
-  # plot boundary
-  if boundary is not None:
-    if len(boundary) > 0:
-      df['upper_boundary'] = max(boundary)
-      df['lower_boundary'] = min(boundary)
-      ax.plot(df.index, df['upper_boundary'], color='green', linestyle='--', label='%s'% max(boundary), alpha=0.5)
-      ax.plot(df.index, df['lower_boundary'], color='red', linestyle='--', label='%s'% min(boundary), alpha=0.5)
-
-  # plot indicator(s)
-  unexpected_col = [x for x in target_col if x not in df.columns]
-  if len(unexpected_col) > 0:
-    print('column not found: ', unexpected_col)
-  target_col = [x for x in target_col if x in df.columns]
-  # for col in target_col:
-  #   ax.plot(df.index, df[col], label=col, alpha=0.5)
-
-  # plot color bars if there is only one indicator to plot
-  if len(target_col) == 1:
-    tar = target_col[0]
-
-    # plot in up_down mode
-    if color_mode == 'up_down':  
-      df['color'] = 'red'
-      previous_target_col = 'previous_' + tar
-      df[previous_target_col] = df[tar].shift(1)
-      df.loc[df[tar] > df[previous_target_col], 'color'] = 'green'
-      df.loc[df[tar] == df[previous_target_col], 'color'] = 'orange'
-
-      target_max = df[target_col].values.max()
-      target_min = df[target_col].values.min()
-
-      df.loc[df[tar] >= target_max, 'color'] = 'green'
-      df.loc[df[tar] <= target_min, 'color'] = 'red'
-
-    # plot in benchmark mode
-    elif color_mode == 'benchmark' and benchmark is not None:
-      df['color'] = 'red'
-      df.loc[df[tar] > benchmark, 'color'] = 'green'
-
-    # plot indicator
-    if 'color' in df.columns:
-      ax.bar(df.index, height=df[tar], color=df.color, alpha=0.3)
-
-  # plot close price
-  if signal_y in df.columns:
-    if plot_price_in_twin_ax:
-      ax2=ax.twinx()
-      plot_signal(df, signal_x=signal_x, signal_y=signal_y, trend_val=trend_val, signal_val=signal_val, use_ax=ax2)
-      ax2.legend(loc='lower left')
-    else:
-      plot_signal(df, signal_x=signal_x, signal_y=signal_y, trend_val=trend_val, signal_val=signal_val, use_ax=ax)
-
-  # plot title and legend
-  ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
-  ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
-
-  ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
-
-  # return ax
-  if use_ax is not None:
-    return ax
-
 # plot multiple indicators on a same chart
-def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', trade_info=None, save_path=None, save_image=False, show_image=False, title=None, width=35, unit_size=2.75, wspace=0, hspace=0.015, subplot_args=default_plot_args):
+def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', trade_info=None, save_path=None, save_image=False, show_image=False, title=None, subplot_args=default_plot_args):
   """
   Plot Ichimoku and mean reversion in a same plot
   :param df: dataframe with ichimoku and mean reversion columns
@@ -6970,13 +6872,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   
   # select plot data
   plot_data = df[start:end].copy()
-
-  interval_factor = {'day': 1, 'week': 7, 'month': 30}
-  start = util.time_2_string(plot_data.index.min())
-  end = util.time_2_string(plot_data.index.max())
-  width = util.num_days_between(start, end) / interval_factor[interval] * 0.125
-  width = 10 if width < 10 else width
-
+  
   # get indicator names and plot ratio
   plot_ratio = args.get('plot_ratio')
   if plot_ratio is None :
@@ -6985,15 +6881,29 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   indicators = list(plot_ratio.keys())
   ratios = list(plot_ratio.values())
   num_indicators = len(indicators)
+
+  # get figure parameters from ta_config
+  size_args = args.get('size')
+  unit_size = size_args.get('unit_size')
+  wspace = size_args.get('wspace')
+  hspace = size_args.get('hspace')
+  width_factor = size_args.get('width_factor')
+  interval_factor = size_args.get('interval_factor')
   
+  # dynamically calculate figure size
+  start = util.time_2_string(plot_data.index.min())
+  end = util.time_2_string(plot_data.index.max())
+  width = util.num_days_between(start, end) / interval_factor[interval] * width_factor
+  width = 10 if width < 10 else width
+
   # create axes for each indicator
   fig = plt.figure(figsize=(width, num_indicators*unit_size))  
   gs = gridspec.GridSpec(num_indicators, 1, height_ratios=ratios)
   gs.update(wspace=wspace, hspace=hspace)
   axes = {}
   for i in range(num_indicators):
+
     tmp_indicator = indicators[i]
-    # print(tmp_indicator)
     tmp_args = args.get(tmp_indicator)
     
     # put the main_indicators at the bottom, share_x
@@ -7029,27 +6939,11 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
       else:
         axes[tmp_indicator].spines[position].set_alpha(spine_alpha)
 
-    # get extra arguments
-    target_col = tmp_args.get('target_col')
-    signal_y = tmp_args.get('signal_y')
-    signal_x = tmp_args.get('signal_x')
-    trend_val = tmp_args.get('trend_val')
-    signal_val = tmp_args.get('signal_val')
-    benchmark = tmp_args.get('benchmark')
-    boundary = tmp_args.get('boundary')
-    color_mode = tmp_args.get('color_mode')
-    plot_price_in_twin_ax = tmp_args.get('plot_price_in_twin_ax')
-    trend_val = trend_val if trend_val is not None else default_trend_val
-    signal_val = signal_val if signal_val is not None else default_signal_val
-    plot_price_in_twin_ax = plot_price_in_twin_ax if plot_price_in_twin_ax is not None else False
-
     # plot ichimoku with candlesticks
     if tmp_indicator == 'main_indicators':
-      # get candlestick width and color
+      # get candlestick color and target indicator from ta_config
+      target_indicator = tmp_args.get('target_indicator') if tmp_args.get('target_indicator') is not None else default_main_indicator
       candlestick_color = tmp_args.get('candlestick_color') if tmp_args.get('candlestick_color') is not None else default_candlestick_color
-      width = tmp_args.get('candlestick_width') if tmp_args.get('candlestick_width') is not None else 1
-      target_indicator = tmp_args.get('target_indicator') if tmp_args.get('target_indicator') is not None else ['price']
-
       plot_main_indicators(
         df=plot_data, target_indicator=target_indicator, interval=interval, candlestick_color=candlestick_color,
         use_ax=axes[tmp_indicator], title=tmp_indicator, plot_args=subplot_args)
@@ -7065,10 +6959,8 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
     # plot volume  
     elif tmp_indicator == 'volume':
 
-      alpha = tmp_args.get('alpha') if tmp_args.get('alpha') is not None else 1
-      
       # set bar_width according to data interval
-      bar_width = 0.8
+      bar_width = datetime.timedelta(days=1)
       if interval == 'day':
         bar_width = datetime.timedelta(days=1)
       elif interval == 'week':
@@ -7080,7 +6972,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
       else:
         pass
 
-      plot_bar(df=plot_data, target_col=target_col, width=bar_width, alpha=alpha, color_mode=color_mode, benchmark=None, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
+      plot_bar(df=plot_data, target_col='Volume', width=bar_width, alpha=0.5, color_mode="up_down", benchmark=None, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
 
     # plot renko
     elif tmp_indicator == 'renko':
@@ -7088,7 +6980,11 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
 
     # plot ta signals or candle patterns
     elif tmp_indicator == 'signals':
+      
+      # get signal_list from ta_config
       signals = tmp_args.get('signal_list')
+
+      # plot one by one
       signal_bases = []
       signal_names = []
       if signals is not None:
@@ -7105,29 +7001,16 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
           signal_bases.append(i)
           plot_signal(
             df=plot_data, signal_x=signal_name, signal_y=f'signal_base_{signal_name}', 
-            title=tmp_indicator, use_ax=axes[tmp_indicator], trend_val=trend_val, signal_val=signal_val, plot_args=subplot_args)
+            title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=subplot_args)
 
       # legend and title
       plt.ylim(ymin=min(signal_bases)-1 , ymax=max(signal_bases)+1)
       plt.yticks(signal_bases, signal_names)
       axes[tmp_indicator].legend().set_visible(False)
 
-    # plot trend idx
-    elif tmp_indicator == 'trend_idx':
-      plot_up_down(df=plot_data, col='trend_idx', use_ax=axes[tmp_indicator], title=tmp_indicator)
-      
-    # plot score and trigger score
-    elif tmp_indicator == 'score':
-      plot_score(df=plot_data, use_ax=axes[tmp_indicator], title=tmp_indicator, plot_args=subplot_args)
-
     # plot other indicators
     else:
-      plot_indicator(
-        df=plot_data, target_col=target_col, 
-        signal_x=signal_x, signal_y=signal_y, signal_val=signal_val, 
-        plot_price_in_twin_ax=plot_price_in_twin_ax, 
-        benchmark=benchmark, boundary=boundary, color_mode=color_mode,
-        title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=subplot_args)
+      print(f'method for indicator ({tmp_indicator}) not defined')
 
   # adjust plot layout
   max_idx = df.index.max()

@@ -6,53 +6,33 @@
         "hk": "00700"
     }
   },
+
   "calculation": {
     "file_name": {
       "ta_data": "ta_data.pkl",
       "result": "result.pkl",
       "final_result": "final_result.pkl"
     },
+
     "update_sec_data": true,
     "save_sec_data": true,
     "update_ta_data": true,
     "update_ta_feature": true,
     "update_ta_signal": true,
     "save_ta_data": true,
-    
     "update_mode": "eod",
-
-    "look_back_window": {
-      "day": 300,
-      "week": 1260,
-      "month": 5000
-    }
+    "look_back_window": {"day": 300, "week": 1260, "month": 5000}
   },
+
   "visualization": {
     "plot_args": {
+
       "plot_ratio": {
-        "signals": 4, "adx": 2,
-        "main_indicators": 9, "volume":1
+        "signals": 4, "adx": 2, "main_indicators": 9, "volume":1
       },
-      
-      "main_indicators": {
-        "target_indicator": [
-          "candlestick",
-          "ichimoku",
-          "kama"
-        ],
-        "intervla": "day",
-        "candlestick_width": 0.62,
-        "candlestick_color": {
-          "color_up": "limegreen",
-          "color_down": "orangered",
-          "shadow_color": "black",
-          "entity_edge_color": "black",
-          "alpha": 1
-        }
-      },
+
       "signals": {
         "signal_list": [  
-
 
           "support_score", "break_up_score", "position", "break_down_score", "resistant_score", 
 
@@ -66,28 +46,31 @@
           "trigger", " "
           
         ]
-      },
-      "candle": {
-        "signal_list": [
-          "position_signal",
-          "embrace_signal",
-          "flat_signal",
-          "cross_signal",
-          "belt_signal"
+      },   
+
+      "main_indicators": {
+        "target_indicator": [
+          "candlestick",
+          "ichimoku",
+          "kama"
         ],
-        "plot_signal_on_price": true
+        "candlestick_color": {
+          "color_up": "limegreen",
+          "color_down": "orangered",
+          "shadow_color": "black",
+          "entity_edge_color": "black",
+          "alpha": 1
+        }
+      }, 
+
+      "size": {
+        "unit_size": 2.75,
+        "wspace": 0,
+        "hspace": 0.015,
+        "width_factor": 0.125,
+        "interval_factor" : {"day": 1, "week": 7, "month": 30}
       },
-      "volume": {
-        "target_col": "Volume",
-        "color_mode": "up_down",
-        "alpha": 0.5,
-        "bar_width": 0.8,
-        "interval": "day",
-        "marker": "s"
-      },
-      "adx": {
-        "alpha": 0.8
-      },
+
       "sec_name": {
 
         "SPY": "1x标普500指数做多ETF", "DIA": "1x道琼斯指数做多ETF", "UVXY": "1x波动性指数做多ETF", "GLD": "1x黄金做多ETF", "UUP": "1x美元做多ETF", "XLB": "SPDR基础材料", "XLE": "SPDR能源", "XLI": "SPDR工业", "XLP": "SPDR主要消费品", "XLY": "SPDR可选消费品", "XLF": "SPDR金融", "XLK": "SPDR高科技", "XLU": "SPDR公共事业", "XLV": "SPDR健康照护", "XITK": "SPDR科技创新", "XAR": "SPDR航天与国防", "XBI": "SPDR生物科技", "XES": "SPDR油气设备与服务", "XHB": "SPDR房屋建筑R", "XHE": "SPDR医疗设备", "XHS": "SPDR医疗服务", "XME": "SPDR金属采矿", "XOP": "SPDR油气开采", "XPH": "SPDR制药", "XRT": "SPDR零售", "XSD": "SPDR半导体", "XSW": "SPDR软件服务", "XTL": "SPDR电信", "XTN": "SPDR交通运输", "XWEB": "SPDR互联网",
@@ -114,6 +97,7 @@
         "510300": "沪深300ETF", "588000": "科创50ETF", "159949": "创业板50ETF", "513330": "恒生互联网ETF", "513130": "恒生科技ETF", "513060": "恒生医疗ETF", "159892": "恒生医药ETF", "513050": "中概互联网ETF", "518880": "黄金ETF", "512800": "银行ETF", "512880": "证券ETF", "512200": "房地产ETF", "512480": "半导体ETF", "159995": "芯片ETF", "515790": "光伏ETF", "159755": "电池ETF", "159611": "电力ETF", "159819": "人工智能ETF", "159928": "消费ETF", "512690": "酒ETF", "159865": "养殖ETF", "512660": "军工ETF", "512980": "传媒ETF"
       }
     },
+
     "plot_window": {
       "day": 200,
       "week": 1260,
@@ -128,6 +112,7 @@
     "show_image": false,
     "save_image": true
   },
+
   "postprocess": {
     "keep_columns": {
       "symbol": "代码",
@@ -164,6 +149,7 @@
     "save_pdf": true
     
   },
+  
   "trade": {
     "init_cash": {
       "tiger": {
