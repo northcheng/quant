@@ -6615,7 +6615,7 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
 
     # get target data
     t = pools[i]
-    tmp_data = data['result'][t].sort_values(by=['signal_score', 'pattern_score', 'adx_direction_day', 'adx_direction_start'], ascending=[True, True, False, False]).copy() # ['信号分级', '潜力分数', 'adx趋势变化', '趋势方向天数']
+    tmp_data = data['result'][t].sort_values(by=['signal_score', 'pattern_score', 'adx_direction_day', 'adx_direction_start'], ascending=[True, True, False, False]).copy() 
     tmp_data = tmp_data[['symbol', 'rate', 'trigger_score', 'pattern_score', 'position_score', 'trend_score', 'signal_score']].set_index('symbol')
     tmp_data['name'] = tmp_data.index.values
 
@@ -6707,7 +6707,7 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
   return score_ax
 
 # plot review of signal's price
-def plot_review(prefix, df, sort_factors=['信号分级', "潜力分数", '趋势方向天数', '趋势起始', ], sort_orders = [False, True, False, False], width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_args=default_plot_args, config=None, save_path=None):
+def plot_review(prefix, df, sort_factors=['信号分数', "模式分数", 'ADX天数', 'ADX起始', ], sort_orders = [False, True, False, False], width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_args=default_plot_args, config=None, save_path=None):
   """
   Plot rate and signal indicators for signal
   :param df: signal dataframe
@@ -6741,7 +6741,7 @@ def plot_review(prefix, df, sort_factors=['信号分级', "潜力分数", '趋�
 
     # get target data
     tmp_data = df.sort_values(by=sort_factors, ascending=sort_orders).copy()
-    tmp_data = tmp_data.set_index('名称') # [['代码', '名称', '收盘', '验证', "趋势起始", '触发分数', '潜力分数', '信号分级']]
+    tmp_data = tmp_data.set_index('名称') 
     tmp_data['name'] = tmp_data.index.values
     tmp_data['验证'] = tmp_data['验证'] * 100
 

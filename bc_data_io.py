@@ -2227,15 +2227,6 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
               tmp_signals = signals.query(f'交易信号 == "{s}"')['代码'].astype(str).tolist()
               signal_info += f'<li>[ <b>{s}</b> ]: <font color="{font_color}">{", ".join(tmp_signals)}</font></li>'
         
-        elif s == 'potential':
-          potentials = signal_file_content.get('potential') # pd.read_excel(signal_file, sheet_name='potential')
-          if potentials is not None:
-            if len(potentials) > 0:
-              # symbol name (for cn stocks only)
-              potentials['名称'] = potentials['代码']
-              potentials['名称'] = potentials['名称'].apply(lambda x: config['visualization']['plot_args']['sec_name'][x])
-              potentials = potentials.set_index('代码')[config['postprocess']['send_columns']].sort_values('信号排名', ascending=False).to_html()
-              signal_info += f'</b></p>{potentials}'
         else:
           tmp_sheet = signal_file_content.get(s)
           if tmp_sheet is not None:
@@ -2273,7 +2264,7 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
     log_part = None
   log_info += '</ul>'
   
-  # attachment 2: images in pdf files(signal/portfolio/index/potential)
+  # attachment 2: images in pdf files(signal/portfolio/index)
   image_info = f'<h3> Images</h3><ul>'
   pdfs = []
   if signal_file_date is not None:

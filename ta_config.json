@@ -1,23 +1,13 @@
 {
   "data_source": {
-    "benchmark": {
-        "us": "SPY",
-        "cn": "601318",
-        "hk": "00700"
-    }
+
   },
 
   "calculation": {
-    "file_name": {
-      "ta_data": "ta_data.pkl",
-      "result": "result.pkl",
-      "final_result": "final_result.pkl"
-    },
 
     "update_sec_data": true,
     "save_sec_data": true,
     "update_ta_data": true,
-    "update_ta_feature": true,
     "update_ta_signal": true,
     "save_ta_data": true,
     "update_mode": "eod",
@@ -97,53 +87,30 @@
         "510300": "沪深300ETF", "588000": "科创50ETF", "159949": "创业板50ETF", "513330": "恒生互联网ETF", "513130": "恒生科技ETF", "513060": "恒生医疗ETF", "159892": "恒生医药ETF", "513050": "中概互联网ETF", "518880": "黄金ETF", "512800": "银行ETF", "512880": "证券ETF", "512200": "房地产ETF", "512480": "半导体ETF", "159995": "芯片ETF", "515790": "光伏ETF", "159755": "电池ETF", "159611": "电力ETF", "159819": "人工智能ETF", "159928": "消费ETF", "512690": "酒ETF", "159865": "养殖ETF", "512660": "军工ETF", "512980": "传媒ETF"
       }
     },
-
     "plot_window": {
       "day": 200,
       "week": 1260,
       "month": 5400
     },
-    "bar_width": {
-      "day": 0.65,
-      "week": 3.72,
-      "month": 15.5
-    },
+
     "create_image": true,
     "show_image": false,
     "save_image": true
   },
 
   "postprocess": {
+
     "keep_columns": {
-      "symbol": "代码",
-      "name": "名称",
-      "Close": "收盘",
-      "rate": "涨跌",
-      "support": "支撑",
-      "resistant": "阻挡",
-      
-      "adx_direction_start": "趋势起始",
-      "adx_direction_day": "趋势方向天数",
-      "adx_strong_day": "强趋势天数",
-      "adx_trend": "adx趋势变化",
-
-      "trigger_score": "触发分数",
-      "trigger_day": "触发天数",
-
-      "support_score": "支撑分数",
-      "resistant_score": "阻挡分数",
-
+      "symbol": "代码", "name": "名称", "Close": "收盘", "rate": "涨跌", "support": "支撑", "resistant": "阻挡",       
+      "adx_direction_start": "ADX起始", "adx_direction_day": "ADX天数",      
+      "support_score": "支撑分数", "resistant_score": "阻挡分数",      
       "position_score": "位置分数",
-
-      "pattern_score": "潜力分数",
-      "pattern_description": "潜力描述",
-
-      "signal": "交易信号",
-      "signal_day": "信号天数",
-      "signal_score": "信号分级"
+      "trend": "趋势方向", "trend_score": "趋势分数", "trend_day": "趋势天数",       
+      "trigger_score": "触发分数", "trigger_day": "触发天数",
+      "pattern_score": "模式分数", "pattern_description": "模式描述",
+      "signal": "交易信号", "signal_day": "信号天数", "signal_score": "信号分数"
     },
     "drop_columns": [],
-    "send_columns": ["名称", "涨跌", "信号分级", "支撑", "阻挡", "潜力描述"],
     "save_result": true,
     "save_data": true,
     "save_pdf": true
