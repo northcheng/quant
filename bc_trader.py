@@ -1067,6 +1067,7 @@ class Tiger(Trader):
         
     except Exception as e:
       self.logger.error(e)
+      time.sleep(12)
 
   # idle for specified time and check position in certain frequency
   def idle(self, target_time, check_frequency=600):
