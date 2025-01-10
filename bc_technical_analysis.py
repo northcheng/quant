@@ -3203,7 +3203,7 @@ def add_adx_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, adx_th
 
   return df
 
-# Aroon
+# Aroon # 25
 def add_aroon_features(df, n=25, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True, boundary=[50, 50]):
   """
   Calculate Aroon
@@ -4401,8 +4401,8 @@ def cal_kama(df, n1=10, n2=2, n3=30, ohlcv_col=default_ohlcv_col, fillna=False):
 
   return df
 
-# Kaufman's Adaptive Moving Average (KAMA)
-def add_kama_features(df, n_param={'kama_fast': [10, 2, 30], 'kama_slow': [10, 5, 30]}, ohlcv_col=default_ohlcv_col, fillna=False):
+# Kaufman's Adaptive Moving Average (KAMA: short [10, 2, 30], long: [10, 5, 30])
+def add_kama_features(df, n_param={'kama_fast': [10, 2, 30], 'kama_slow': [15, 5, 42]}, ohlcv_col=default_ohlcv_col, fillna=False):
   """
   Calculate Kaufman's Adaptive Moving Average Signal
 
@@ -6237,12 +6237,24 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   
   # plot senkou lines, clouds, tankan and kijun
   if 'ichimoku' in target_indicator:
+    
+    # tankan/kijun
     alpha = 0.8
     ax.plot(df.index, df.tankan, label='tankan', color='green', linestyle='-', alpha=alpha, zorder=default_zorders['ichimoku']) # magenta
     ax.plot(df.index, df.kijun, label='kijun', color='red', linestyle='-', alpha=alpha, zorder=default_zorders['ichimoku']) # blue
     alpha = 0.25
     ax.fill_between(df.index, df.tankan, df.kijun, where=df.tankan > df.kijun, facecolor='green', interpolate=True, alpha=alpha, zorder=default_zorders['ichimoku'])
     ax.fill_between(df.index, df.tankan, df.kijun, where=df.tankan <= df.kijun, facecolor='red', interpolate=True, alpha=alpha, zorder=default_zorders['ichimoku'])
+
+    # # senkou_a/b, chikan
+    # alpha = 0.8
+    # ax.plot(df.index, df.senkou_a, label='senkou_a', color='darkgreen', linestyle='-', alpha=alpha, zorder=default_zorders['ichimoku']) # magenta
+    # ax.plot(df.index, df.senkou_b, label='senkou_b', color='darkred', linestyle='-', alpha=alpha, zorder=default_zorders['ichimoku']) # blue
+    # ax.plot(df.index, df.chikan, label='chikan', color='purple', linestyle='-', alpha=alpha, zorder=default_zorders['ichimoku']) # blue
+    # alpha = 0.25
+    # ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a > df.senkou_b, facecolor='green', interpolate=True, alpha=alpha, zorder=default_zorders['ichimoku'])
+    # ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a <= df.senkou_b, facecolor='red', interpolate=True, alpha=alpha, zorder=default_zorders['ichimoku'])
+
 
     if extended is not None:
       alpha = 0.6
@@ -6436,6 +6448,7 @@ def plot_aroon(df, start=None, end=None, use_ax=None, title=None, plot_args=defa
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
   ax.grid(True, axis='both', linestyle='--', linewidth=0.5)
+  ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
 
   # return ax
   if use_ax is not None:
