@@ -1,17 +1,17 @@
 #20250106 updated
 [
-  # 基础
+# 基础 (不需要重新计算)
 'Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume', 
 'Dividend', 'Split', 'symbol', 'rate', 
 
-# candle: 基本元素
+# candle: 基本元素 (需要重新计算-1)
 'candle_color', 'candle_shadow', 'candle_entity', 'candle_entity_top', 'candle_entity_bottom',
 'candle_upper_shadow_pct', 'candle_lower_shadow_pct', 'candle_entity_pct', 
 
-# candle: 相对位置
+# candle: 相对位置 (需要重新计算-2)
 '相对candle位置', 'candle_position_score',
 
-# candle: 窗口
+# candle: 窗口 (需要重新计算-2)
 'candle_gap', 'candle_gap_color', 'candle_gap_top', 'candle_gap_bottom', 'candle_gap_distance', 
 
 # ichimoku
