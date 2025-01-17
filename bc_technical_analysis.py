@@ -857,7 +857,7 @@ def calculate_ta_score(df):
       df['down_score_description'] = (desc + df['down_score_description'])
 
   # trigger_score sum up
-  df['trigger_score'] = (df['up_score'] + df['down_score']).round(2) # 
+  df['trigger_score'] = (df['up_score'] + df['down_score'] + df['candle_position_score']).round(2) # 
   df['up_score_description'] = df['up_score_description'].apply(lambda x: x[:-2] if (len(x) >=2 and x[-2] == ',') else x)
   df['down_score_description'] = df['down_score_description'].apply(lambda x: x[:-2] if (len(x) >=2 and x[-2] == ',') else x)
 
