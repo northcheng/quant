@@ -1756,6 +1756,14 @@ def moving_slope(series, periods):
 
 # normilization
 def normalize(series, fillna=None):
+  """
+  Normalize a series.
+
+  :param series: The input series to be normalized.
+  :param fillna: Optional value to fill NaN values in the series. If not provided, NaN values will not be filled.
+  :returns: The normalized series.
+  :raises: None
+  """  
   normalaized = series
   if fillna is not None:  
     normalaized = series.fillna(method=fillna)
@@ -1765,7 +1773,17 @@ def normalize(series, fillna=None):
 
 # min-max normalization
 def min_max_normalize(series, fillna=None):
+  """
+  Normalize a series using min-max normalization.
+
+  :param series: The input series to be normalized.
+  :param fillna: Optional value to fill NaN values in the series. If not provided, NaN values will not be filled.
+  :returns: The normalized series.
+  :raises: None
+  """
+  # Call the normalize function to normalize the series
   normalized = normalize(series, fillna)
+  # Scale the normalized series to the range [-1, 1]
   normalized = normalized * 2 - 1
 
   return normalized
@@ -5108,7 +5126,25 @@ def add_ui_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_sig
 # ================================================ Indicator visualization  ========================================= #
 # plot bar
 def plot_bar(df, target_col, start=None, end=None, width=0.8, alpha=1, color_mode='up_down', edge_color=(0,0,0,0.1), benchmark=None, add_line=False, title=None, use_ax=None, ytick_roration=0, plot_args=default_plot_args):
-
+  """
+  Plot a series in bar
+  :param df: time-series dataframe which contains target columns
+  :param target_col: column name of the target column
+  :param start: start date to plot
+  :param end: end date to plot
+  :param width: width of the bar
+  :param alpha: alpha value
+  :param color_mode: 'up_down' or 'benchmark'
+  :param edge_color: color of the bar edge
+  :param benchmark: benchmark value
+  :param add_line: whether to add a line along bars
+  :param title: plot title
+  :param use_ax: the already-created ax to draw on
+  :param ytick_roration: rotation degree of ytick
+  :param plot_args: plot arguments
+  :returns: figure with bar plotted
+  :raises: none
+  """
   # copy dataframe within a specific period
   df = df[start:end].copy()
 
@@ -5152,6 +5188,23 @@ def plot_bar(df, target_col, start=None, end=None, width=0.8, alpha=1, color_mod
 
 # plot volume
 def plot_scatter(df, target_col, start=None, end=None, marker='.', alpha=1, color_mode='up_down', benchmark=None, add_line=False, title=None, use_ax=None, plot_args=default_plot_args):
+  """
+  Plot a series in scatters
+  :param df: time-series dataframe which contains target columns
+  :param target_col: column name of the target column
+  :param start: start date to plot
+  :param end: end date to plot
+  :param marker: marker type
+  :param alpha: alpha value
+  :param color_mode: 'up_down' or 'benchmark'
+  :param benchmark: benchmark value
+  :param add_line: whether to add a line along scatters
+  :param title: plot title
+  :param use_ax: the already-created ax to draw on
+  :param plot_args: plot arguments
+  :returns: figure with scatter plotted
+  :raises: none
+  """
 
   # copy dataframe within a specific period
   df = df[start:end].copy()
@@ -6456,7 +6509,22 @@ def plot_aroon(df, start=None, end=None, use_ax=None, title=None, plot_args=defa
 
 # plot renko chart
 def plot_renko(df, start=None, end=None, use_ax=None, title=None, close_alpha=0.5, save_path=None, save_image=False, show_image=False, plot_args=default_plot_args):
-  
+  """
+  Plot renko chart
+
+  :param df: dataframe with renko indicator columns
+  :param start: start row to plot
+  :param end: end row to plot
+  :param use_ax: the already-created ax to draw on
+  :param title: plot title
+  :param close_alpha: alpha of close price
+  :param save_path: path to save image
+  :param save_image: whether to save image
+  :param show_image: whether to show image
+  :param plot_args: other plot arguments
+  :returns: renko ploted ax
+  """
+
   # copy data frame
   df = df[start:end].copy()
   min_idx = df.index.min()
@@ -6831,6 +6899,16 @@ def plot_review(prefix, df, sort_factors=['信号分数', "模式分数", 'ADX�
 
 # plot selected 
 def plot_selected(data, config, make_pdf=False, dst_path=None, file_name=None):
+  """
+  Plot  signals
+  :param data: dict of dataframes including'result'
+  :param config: global parameter config
+  :param make_pdf: whether to make pdf from images
+  :param dst_path: destination path of pdf
+  :param file_name: file name of pdf
+  :returns: selected_data
+  :raises: none
+  """
 
   # initialization
   selected_data = pd.DataFrame()
