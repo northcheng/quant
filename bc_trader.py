@@ -457,6 +457,14 @@ class Trader(object):
   # stop loss or stop profit or clear all position
   def cash_out(self, stop_loss_rate=None, stop_profit_rate=None, stop_loss_rate_inday=None, stop_profit_rate_inday=None, clear_all=False, get_briefs=True, print_summary=True):
     
+    # 若为实盘先解锁交易
+    if self.platform == 'futu' and self.account_type == 'real':
+      ret, msg = self.trade_client.unlock_trade(password_md5=self.user_info['unlock_pwd'], is_unlock=True)
+      if ret != RET_OK:
+        self.logger.exception(f'[erro]: can not unlock trade:{ret} - {msg}')
+      else:
+        self.logger.info(f'[futu]: unlock trade')
+
     # get current position with summary
     self.update_position(get_briefs=get_briefs)
     position = self.position.copy()

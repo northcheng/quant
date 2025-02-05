@@ -150,12 +150,12 @@
     },
     "stop_loss": {
       "tiger": {
-        "real": -0.1,
-        "simu": -0.5
+        "real": -0.3,
+        "simu": -0.3
       },
       "futu": {
-        "real": -0.1,
-        "simu": -0.5
+        "real": -0.3,
+        "simu": -0.3
       }
     },
     "stop_profit_inday": {
@@ -170,12 +170,12 @@
     },
     "stop_loss_inday": {
       "tiger": {
-        "real": -0.2,
-        "simu": -0.2
+        "real": -0.3,
+        "simu": -0.3
       },
       "futu": {
-        "real": -0.2,
-        "simu": -0.2
+        "real": -0.3,
+        "simu": -0.3
       }
     }
   }
