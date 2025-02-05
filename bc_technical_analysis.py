@@ -857,7 +857,7 @@ def calculate_ta_score(df):
       df['down_score_description'] = (desc + df['down_score_description'])
 
   # trigger_score sum up
-  df['trigger_score'] = (df['up_score'] + df['down_score'] + df['candle_position_score']).round(2) # 
+  df['trigger_score'] = (df['up_score'] + df['down_score']).round(2) # 
   df['up_score_description'] = df['up_score_description'].apply(lambda x: x[:-2] if (len(x) >=2 and x[-2] == ',') else x)
   df['down_score_description'] = df['down_score_description'].apply(lambda x: x[:-2] if (len(x) >=2 and x[-2] == ',') else x)
 
@@ -1195,6 +1195,10 @@ def calculate_ta_signal(df):
       
       df['trend_score'] += df[tmp_score_col]
       df.loc[tmp_idx_merge, 'trend_description'] += f' {wc}(' + df.loc[tmp_idx_merge, tmp_score_col].astype(str) + ')'
+    
+    # 蜡烛: 相对蜡烛位置
+    df['trend_score'] += df['candle_position_score']
+    df['trend_description'] += f' 蜡烛(' + df['candle_position_score'].astype(str) + ')'
 
     # exceptions: 例外情况
     none_trend_conditions = {
@@ -1324,8 +1328,7 @@ def calculate_ta_signal(df):
     # signal
     df['signal'] = ''
     df['signal_day'] = 0
-    df['signal_score'] = df['trend_score'] + df['trigger_score'] + df['pattern_score'] 
-    df['signal_score'] = df['signal_score'].round(1)
+    df['signal_score'] = (df['trend_score'] + df['trigger_score'] + df['pattern_score']).round(2)
     df['signal_description'] = ''
 
     # signal conditions
@@ -2960,7 +2963,7 @@ def add_support_resistance(df, target_col=default_support_resistant_col):
     if col in key_cols:
       break_weight[col] = 1
     else:
-      break_weight[col] = 0
+      break_weight[col] = 0.5
 
   for col in target_col:
 
@@ -7145,14 +7148,31 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   desc = df.loc[max_idx, "trend_description"]
   trend_desc = (f' {desc}' if len(desc) > 0 else '') + f' > 趋势 {df.loc[max_idx, "trend_score"]:<5}'
 
-  # trigger desc
-  up_desc = df.loc[max_idx, "up_score_description"]
-  down_desc = df.loc[max_idx, "down_score_description"]
+  # trigger desc (break_through)
+  up_desc = df.loc[max_idx, "break_up_description"] # up_score_description
+  down_desc = df.loc[max_idx, "break_down_description"]
+  if len(up_desc) > 0:
+    up_desc = f'突破({up_desc})'
+  if len(down_desc) > 0:
+    down_desc = f'跌落({down_desc})'
   if len(up_desc) > 0 and len(down_desc) > 0:
     desc = f'{up_desc} | {down_desc}'
   else:
     desc = up_desc + down_desc
-  trigger_desc = (f' {desc}' if len(desc) > 0 else '') + f' > 触发 {df.loc[max_idx, "trigger_score"]:<5}'
+  break_desc = (f' {desc}' if len(desc) > 0 else '') + f' > 突破 {df.loc[max_idx, "break_score"]:<5}'
+
+  # trigger desc (boundary)
+  up_desc = f'{df.loc[max_idx, "support_description"]}'
+  down_desc = f'{df.loc[max_idx, "resistant_description"]}'
+  if len(up_desc) > 0:
+    up_desc = f'支撑({up_desc})'
+  if len(down_desc) > 0:
+    down_desc = f'阻挡({down_desc})'
+  if len(up_desc) > 0 and len(down_desc) > 0:
+    desc = f'{up_desc} | {down_desc}'
+  else:
+    desc = up_desc + down_desc
+  boundary_desc = (f' {desc}' if len(desc) > 0 else '') + f' > 边界 {df.loc[max_idx, "boundary_score"]*0.5:<5}'
 
   # pattern desc
   desc = df.loc[max_idx, "pattern_description"]
@@ -7167,15 +7187,15 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
     desc = f'{up_desc} | {down_desc}'
   else:
     desc = up_desc + down_desc
-  candle_pattern_desc = (f' {desc}' if len(desc) > 0 else '') + f' = 蜡烛 {df.loc[max_idx, "candle_pattern_score"]:<5}'
+  candle_pattern_desc = (f' {desc}' if len(desc) > 0 else '') + f' > 蜡烛 {df.loc[max_idx, "candle_pattern_score"]}'
 
   # construct super title
   if new_title is None:
     new_title == ''
-  super_title = f' {title}({new_title})  {close_rate}% {title_symbol}\n{signal_desc}'
+  super_title = f' {title}({new_title})  {close_rate}% {title_symbol}\n{candle_pattern_desc}'
 
   fig.suptitle(f'{super_title}', ha='center', va='top', x=0.5, y=1.01, fontsize=24, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1), linespacing = 1.8)
-  plt.figtext(0.9, 1.02, f'{trend_desc}\n{trigger_desc}\n{pattern_desc}\n{candle_pattern_desc}', fontsize=16, color='black', ha='right', va='top', bbox=dict(boxstyle="round", fc=desc_color, ec="1.0", alpha=0.1))
+  plt.figtext(0.9, 1.02, f'{trend_desc}\n{break_desc}\n{boundary_desc}\n{pattern_desc}\n{signal_desc}', fontsize=16, color='black', ha='right', va='top', bbox=dict(boxstyle="round", fc=desc_color, ec="1.0", alpha=0.1))
 
   # save image
   if save_image and (save_path is not None):
