@@ -314,6 +314,19 @@ def calculate_ta_static(df, indicators=default_indicators):
         # distance_change = f'{target_indicator}_distance_change'
         # df[distance_change] = df[distance] - df[distance].shift(1)
 
+        # distance_day (fl & sl crossover)
+        distance_day = f'{target_indicator}_distance_day'
+        df[distance_day] = df[distance] > 0
+        df[distance_day] = df[distance_day].replace({True: 1, False: -1})
+        df[distance_day] = sda(series=df[distance_day], zero_as=None)
+
+        pos_none_idx = df.query(f'0 < {distance_day} and {distance} == 0').index
+        neg_none_idx = df.query(f'0 > {distance_day} and {distance} == 0').index
+        df.loc[pos_none_idx, distance_day] = 1
+        df.loc[neg_none_idx, distance_day] = -1       
+        
+        
+
         # fl/sl change rate and fl & Close, sl & Close crossover
         threshold = 0.00
         for col in [fl, sl]:
@@ -1166,9 +1179,12 @@ def calculate_ta_signal(df):
     # 通用: 波动趋势
     wave_condition = {
       '波动':   [
-        # # 在波动区间(-10 < adx_direction_start < 10), adx强度弱(adx_strength < 20)
-        '(-10 < adx_value < 10) and (adx_strong_day < 0)',
-        '(-10 < adx_direction_start < 10) and (adx_strong_day < 0)',
+        # adx强度弱(adx_strong_day < 0), 当前值在波动区间(-10 < adx_value < 10)
+        '(adx_strong_day < 0) and (-10 < adx_value < 10)',
+        # adx强度弱(adx_strong_day < 0), 起始于波动区间(-10 < adx_direction_start < 10)
+        '(adx_strong_day < 0) and (-10 < adx_direction_start < 10)',
+        # adx强度弱(adx_strong_day < 0), 长时间弱势(adx_strong_day <= -20)
+        '(adx_strong_day < 0) and (adx_strong_day <= -20)',
       ]
     }
     for wc in wave_condition.keys():
@@ -1198,6 +1214,7 @@ def calculate_ta_signal(df):
     
     # 蜡烛: 相对蜡烛位置
     df['trend_score'] += df['candle_position_score']
+    df['trend_score'] = df['trend_score'].round(2)
     df['trend_description'] += f' 蜡烛(' + df['candle_position_score'].astype(str) + ')'
 
     # exceptions: 例外情况
@@ -1262,6 +1279,58 @@ def calculate_ta_signal(df):
                             )
                             '''.replace('\n', ''),
 
+      # 关键突破(ichimoku, kama)
+      '关键突破_up':            '''
+                            (位置 in ['l', 'ml']) and
+                            (
+                              (
+                                (tankan_day == 1) or
+                                (kijun_day == 1) or
+                                (kama_fast_day == 1) or
+                                (kama_slow_day == 1)                                 
+                              )
+                            )
+                            '''.replace('\n', ''),
+      # 关键突破(ichimoku, kama)
+      '关键突破_down':          '''
+                            (位置 in ['h', 'mh']) and
+                            (
+                              ( 
+                                (tankan_day == -1) or
+                                (kijun_day == -1) or
+                                (kama_fast_day == -1) or
+                                (kama_slow_day == -1)   
+                              )
+                            )
+                            '''.replace('\n', ''),
+
+      # 关键交叉(ichimoku, kama)
+      '关键交叉i_up':            '''
+                            (
+                              (ichimoku_distance_day == 1)
+                            )
+                            '''.replace('\n', ''),
+      # 关键交叉(ichimoku, kama)
+      '关键交叉i_down':          '''
+                            (
+                              (ichimoku_distance_day == -1)
+                            )
+                            '''.replace('\n', ''),
+
+      # 关键交叉(ichimoku, kama)
+      '关键交叉k_up':            '''
+                            (
+                              (kama_distance_day == 1)
+                            )
+                            '''.replace('\n', ''),
+      # 关键交叉(ichimoku, kama)
+      '关键交叉k_down':          '''
+                            (
+                              (kama_distance_day == -1)
+                            )
+                            '''.replace('\n', ''),
+
+
     } 
     for c in pattern_conditions.keys():
       
@@ -1291,11 +1360,17 @@ def calculate_ta_signal(df):
     # calculate pattern score and description
     p_up_desc = {
       '超买超卖': '超卖',
-      '支撑阻挡': '支撑'
+      '支撑阻挡': '支撑',
+      '关键突破': '突破',
+      '关键交叉i': '金叉(Ichi)',
+      '关键交叉k': '金叉(Kama)'
     }
     p_down_desc = {
       '超买超卖': '超买',
-      '支撑阻挡': '阻挡'
+      '支撑阻挡': '阻挡',
+      '关键突破': '跌落',
+      '关键交叉i': '死叉(Ichi)',
+      '关键交叉k': '死叉(Kama)'
     }
     for c in pattern_conditions.keys():
       p_name = c.split('_')[0]
@@ -1321,7 +1396,8 @@ def calculate_ta_signal(df):
     df['pattern_description'] = df['pattern_description'].apply(lambda x: '' if x == ' | ' else x)
     df['pattern_description'] = df['pattern_description'].apply(lambda x: x[:-2] if (len(x) > 2 and x[-2] == '|') else x)
     df['pattern_description'] = df['pattern_description'].apply(lambda x: x[2:] if (len(x) > 2 and x[1] == '|') else x)
-  
+    df['pattern_description'] = df['pattern_description'].apply(lambda x: x[:-1] if (len(x) > 2 and x[-2] == ']') else x)
+
   # ================================ calculate signal =======================
   if 'signal'  > '':
   
@@ -7142,7 +7218,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   
   # signal desc
   desc = df.loc[max_idx, "signal_description"]
-  signal_desc = f' 信号 {df.loc[max_idx, "signal_score"]:<5}' + (f' > {desc}' if len(desc) > 0 else '')
+  signal_desc = (f'{desc}' if len(desc) > 0 else '') + f' = 信号 {df.loc[max_idx, "signal_score"]:<5}'
 
   # trend desc
   desc = df.loc[max_idx, "trend_description"]
@@ -7187,15 +7263,15 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
     desc = f'{up_desc} | {down_desc}'
   else:
     desc = up_desc + down_desc
-  candle_pattern_desc = (f' {desc}' if len(desc) > 0 else '') + f' > 蜡烛 {df.loc[max_idx, "candle_pattern_score"]}'
+  candle_pattern_desc = (f' {desc}' if len(desc) > 0 else '') + f' * 蜡烛 {df.loc[max_idx, "candle_pattern_score"]:<5}'
 
   # construct super title
   if new_title is None:
     new_title == ''
-  super_title = f' {title}({new_title})  {close_rate}% {title_symbol}\n{candle_pattern_desc}'
+  super_title = f' {title}({new_title})  {close_rate}% {title_symbol}'
 
-  fig.suptitle(f'{super_title}', ha='center', va='top', x=0.5, y=1.01, fontsize=24, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1), linespacing = 1.8)
-  plt.figtext(0.9, 1.02, f'{trend_desc}\n{break_desc}\n{boundary_desc}\n{pattern_desc}\n{signal_desc}', fontsize=16, color='black', ha='right', va='top', bbox=dict(boxstyle="round", fc=desc_color, ec="1.0", alpha=0.1))
+  fig.suptitle(f'{super_title}', ha='center', va='top', x=0.5, y=1.04, fontsize=24, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1), linespacing = 1.8)
+  plt.figtext(0.9, 1.04, f'{trend_desc}\n{break_desc}\n{boundary_desc}\n{pattern_desc}\n{signal_desc}\n{candle_pattern_desc}', fontsize=16, color='black', ha='right', va='top', bbox=dict(boxstyle="round", fc=desc_color, ec="1.0", alpha=0.1))
 
   # save image
   if save_image and (save_path is not None):
