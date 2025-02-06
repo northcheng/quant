@@ -1362,15 +1362,15 @@ def calculate_ta_signal(df):
       '超买超卖': '超卖',
       '支撑阻挡': '支撑',
       '关键突破': '突破',
-      '关键交叉i': '金叉(Ichi)',
-      '关键交叉k': '金叉(Kama)'
+      '关键交叉i': '金叉(ichi)',
+      '关键交叉k': '金叉(kama)'
     }
     p_down_desc = {
       '超买超卖': '超买',
       '支撑阻挡': '阻挡',
       '关键突破': '跌落',
-      '关键交叉i': '死叉(Ichi)',
-      '关键交叉k': '死叉(Kama)'
+      '关键交叉i': '死叉(ichi)',
+      '关键交叉k': '死叉(kama)'
     }
     for c in pattern_conditions.keys():
       p_name = c.split('_')[0]
