@@ -318,7 +318,7 @@ def calculate_ta_static(df, indicators=default_indicators):
         distance_day = f'{target_indicator}_distance_day'
         df[distance_day] = df[distance] > 0
         df[distance_day] = df[distance_day].replace({True: 1, False: -1})
-        df[distance_day] = sda(series=df[distance_day], zero_as=None)
+        df[distance_day] = sda(series=df[distance_day], zero_as=None).astype(int)
 
         pos_none_idx = df.query(f'0 < {distance_day} and {distance} == 0').index
         neg_none_idx = df.query(f'0 > {distance_day} and {distance} == 0').index
