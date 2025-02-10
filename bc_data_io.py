@@ -822,8 +822,10 @@ def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_m
         print(f'[data]: updating data for [{mkt.upper()}] from {tmp_source} (try #{retry_count})')
 
         # get the existed data and its latest date for each symbols
+        process_counter = 0
         for symbol in symbol_class[mkt]:
-          
+          process_counter += 1
+
           # init symbol data and its most recent date
           data[symbol] = pd.DataFrame()
           tmp_data_date = None
@@ -855,7 +857,7 @@ def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_m
           if (update_mode in ['eod', 'both', 'refresh']) and (tmp_data_date is None or tmp_data_date < benchmark_dates[mkt] or (tmp_data_date <= benchmark_dates[mkt] and tmp_source == 'ak')):
             
             if is_print:
-              print(f'from ', end='0000-00-00 ' if tmp_data_date is None else f'{tmp_data_date} ')
+              print(f'[{process_counter:04}]from ', end='0000-00-00 ' if tmp_data_date is None else f'{tmp_data_date} ')
             
             # download latest data for current symbol
             start_date = util.string_plus_day(tmp_data_date, -3) if tmp_data_date is not None else tmp_data_date
@@ -885,7 +887,7 @@ def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_m
         num_symbol_up_to_date = len(up_to_date_symbols)
         if num_symbol_up_to_date > 0:
           if is_print:
-            print(f'from {tmp_data_date} ***** - [skip]: <already up-to-date {num_symbol_up_to_date}/{len(symbol_class[mkt])} >')
+            print(f'[{num_symbol_up_to_date:04}]from {tmp_data_date} ***** - [skip]: <already up-to-date {num_symbol_up_to_date}/{len(symbol_class[mkt])} >')
 
         # add real-time data when requiring data return and data will NOT be saved
         if update_mode in ['realtime', 'both']:

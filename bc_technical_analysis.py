@@ -5531,6 +5531,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
   if signal_x == ' ':
 
     df['signal_alpha'] = df['signal_score'].abs() / 15
+    df['signal_alpha'] = df['signal_alpha'].clip(0, 1)
 
     # b/nb, s/ns signals
     markers = {'b': '^', 's': 'v', 'nb': '_', 'ns': '_'} # 
@@ -7270,8 +7271,8 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
     new_title == ''
   super_title = f' {title}({new_title})  {close_rate}% {title_symbol}'
 
-  fig.suptitle(f'{super_title}', ha='center', va='top', x=0.5, y=1.04, fontsize=24, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1), linespacing = 1.8)
-  plt.figtext(0.9, 1.04, f'{trend_desc}\n{break_desc}\n{boundary_desc}\n{pattern_desc}\n{signal_desc}\n{candle_pattern_desc}', fontsize=16, color='black', ha='right', va='top', bbox=dict(boxstyle="round", fc=desc_color, ec="1.0", alpha=0.1))
+  fig.suptitle(f'{super_title}', ha='center', va='top', x=0.5, y=1.05, fontsize=24, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1), linespacing = 1.8)
+  plt.figtext(0.973, 1.05, f'{trend_desc}\n{break_desc}\n{boundary_desc}\n{pattern_desc}\n{signal_desc}\n{candle_pattern_desc}', fontsize=16, color='black', ha='right', va='top', bbox=dict(boxstyle="round", fc=desc_color, ec="1.0", alpha=0.1))
 
   # save image
   if save_image and (save_path is not None):
