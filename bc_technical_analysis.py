@@ -7218,6 +7218,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   new_title = args['sec_name'].get(title.split('(')[0]) 
   
   # signal desc
+  signal_score = df.loc[max_idx, "signal_score"]
   desc = df.loc[max_idx, "signal_description"]
   signal_desc = (f'{desc}' if len(desc) > 0 else '') + f' = 信号 {df.loc[max_idx, "signal_score"]:<5}'
   signal_desc_title = (f'{desc}' if len(desc) > 0 else '')
@@ -7277,8 +7278,8 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   score_title = f'信号 {df.loc[max_idx, "signal_score"]}' + (f'| {signal_desc_title}' if signal_desc_title != '' else '')
   candle_title = f'蜡烛 {df.loc[max_idx, "candle_pattern_score"]}' + (f' | {candle_desc_title}' if candle_desc_title != '' else '')
 
-  fig.suptitle(f'{super_title}\n{score_title}\n{candle_title}', ha='center', va='top', x=0.5, y=1.05, fontsize=24, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.1), linespacing = 1.8)
-  plt.figtext(0.973, 1.05, f'{trend_desc}\n{break_desc}\n{boundary_desc}\n{pattern_desc}\n{signal_desc}\n{candle_pattern_desc}', fontsize=16, color='black', ha='right', va='top', bbox=dict(boxstyle="round", fc=desc_color, ec="1.0", alpha=0.1))
+  fig.suptitle(f'{super_title}\n{score_title}\n{candle_title}', ha='center', va='top', x=0.5, y=1.05, fontsize=24, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.05), linespacing = 1.8)
+  plt.figtext(0.973, 1.05, f'{trend_desc}\n{break_desc}\n{boundary_desc}\n{pattern_desc}\n{signal_desc}\n{candle_pattern_desc}', fontsize=16, color='black', ha='right', va='top', bbox=dict(boxstyle="round", fc=desc_color, ec="1.0", alpha=abs(signal_score*0.025)))
 
   # save image
   if save_image and (save_path is not None):
