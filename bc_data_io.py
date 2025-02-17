@@ -762,11 +762,11 @@ def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_m
     benchmark_source = sources[f'{mkt}_eod']
     benchmark_api_keys[mkt] = api_keys.get(benchmark_source)
     mkt_symbol_count = symbol_count[mkt]
-    mkt_benchmark_symbol = preprocess_symbol([benchmark_symbols[mkt]], benchmark_source)[benchmark_symbols[mkt]]
+    mkt_benchmark_symbol = preprocess_symbol([benchmark_symbols[mkt]], benchmark_source).get(benchmark_symbols[mkt])
     # mkt_benchmark_symbol = '105.AAPL' if (mkt == 'us' and benchmark_source == 'ak') else mkt_benchmark_symbol
     
     # when there's symbol for this market
-    if symbol_count[mkt] > 0:
+    if symbol_count[mkt] > 0 and mkt_benchmark_symbol is not None:
       
       # try 5 times if there's something wrong querying the data
       retry_count = 0
