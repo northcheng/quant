@@ -6758,12 +6758,21 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
 
   # get pools and number of symbols in pools
   pools = list(data['result'].keys())
-  n_row = len(pools)
-  num_symbols = [len(data['result'][x]) for x in data['result'].keys()]
+  num_symbols_in_pool = {}
+  for p in pools:
+    tmp_len = len(data['result'][p])
+    if tmp_len <= 0:
+      continue
+    num_symbols_in_pool[p] = tmp_len
 
+  # remove empty pool
+  pools = list(num_symbols_in_pool.keys())
+  
   # create axes for each pool
-  fig = plt.figure(figsize=(width, sum(num_symbols)*unit_size))  
-  gs = gridspec.GridSpec(n_row, 2, height_ratios=num_symbols, width_ratios=[1,1])
+  n_row = len(num_symbols_in_pool.keys())  
+  n_symbols = list(num_symbols_in_pool.values())
+  fig = plt.figure(figsize=(width, sum(n_symbols)*unit_size))  
+  gs = gridspec.GridSpec(n_row, 2, height_ratios=n_symbols, width_ratios=[1,1])
   # gs.update(wspace=wspace, hspace=hspace)
   plt.subplots_adjust(wspace=wspace, hspace=hspace)
   axes = {}
@@ -6771,7 +6780,7 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
   # plot rate and score
   for i in range(n_row):
 
-    num_total = num_symbols[i]
+    num_total = n_symbols[i]
     num_down = 0
 
     # get target data

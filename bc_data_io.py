@@ -1977,7 +1977,8 @@ def update_portfolio_support_resistant(config, data, portfolio_file_name='portfo
   # get ta result data
   ta_result = pd.DataFrame()
   for ti in data['result'].keys():
-    ta_result = pd.concat([ta_result, data['result'][ti]])
+    if len(data['result'][ti]) > 0:
+      ta_result = pd.concat([ta_result, data['result'][ti]])
   ta_result = ta_result.set_index('symbol')
   ta_result = util.remove_duplicated_index(df=ta_result)
   
@@ -2231,7 +2232,7 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
         
         else:
           tmp_sheet = signal_file_content.get(s)
-          if tmp_sheet is not None:
+          if tmp_sheet is not None and len(tmp_sheet) > 0:
             num_up = len(tmp_sheet.query('涨跌 > 0'))
             num_total = len(tmp_sheet)
             font_color = 'green' if num_up > num_total/2 else 'red'
