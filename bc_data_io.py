@@ -22,11 +22,8 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # data source
-import yfinance as yf
-import pandas_datareader.data as web 
 import easyquotation as eq
 import akshare as ak
-# from pandas_datareader.nasdaq_trader import get_nasdaq_symbols
 
 # mail process
 import smtplib
@@ -1161,7 +1158,7 @@ def update_stock_data(symbols, stock_data_path, file_format='.csv', update_mode=
 
   :param symbols: symbol list
   :param stock_data_path: in where the local stock data files(.csv) are stored
-  :param source: data source to download latest stock data, yfinance only for now
+  :param source: data source to download latest stock data
   :param file_format: default is .csv
   :param required_date: if the local data have already meet the required date, it won't be updated
   :param by: 'stock'-update one by one; 'date'-update for batch of stocks which have same latest dates

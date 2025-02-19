@@ -1109,9 +1109,10 @@ def calculate_ta_signal(df):
         df.loc[tmp_idx, tmp_score_col] += condition_value
 
         if tmp_idx_merge is None:
-          tmp_idx_merge = tmp_idx
+          tmp_idx_merge = pd.Index(tmp_idx)
         else:
-          tmp_idx_merge = tmp_idx_merge|tmp_idx
+          index2 = pd.Index(tmp_idx)
+          tmp_idx_merge = tmp_idx_merge.union(index2)
       
       df['trend_score'] += df[tmp_score_col]
       df.loc[tmp_idx_merge, 'trend_description'] += f' {uc}(' + df.loc[tmp_idx_merge, tmp_score_col].astype(str) + ')'
@@ -1169,9 +1170,10 @@ def calculate_ta_signal(df):
         df.loc[tmp_idx, tmp_score_col] += condition_value
 
         if tmp_idx_merge is None:
-          tmp_idx_merge = tmp_idx
+          tmp_idx_merge = pd.Index(tmp_idx)
         else:
-          tmp_idx_merge = tmp_idx_merge|tmp_idx
+          index2 = pd.Index(tmp_idx)
+          tmp_idx_merge = tmp_idx_merge.union(index2)
 
       df['trend_score'] += df[tmp_score_col]
       df.loc[tmp_idx_merge, 'trend_description'] += f' {dc}(' + df.loc[tmp_idx_merge, tmp_score_col].astype(str) + ')'
@@ -1205,9 +1207,10 @@ def calculate_ta_signal(df):
         df.loc[tmp_idx, tmp_score_col] += condition_value
 
         if tmp_idx_merge is None:
-          tmp_idx_merge = tmp_idx
+          tmp_idx_merge = pd.Index(tmp_idx)
         else:
-          tmp_idx_merge = tmp_idx_merge|tmp_idx
+          index2 = pd.Index(tmp_idx)
+          tmp_idx_merge = tmp_idx_merge.union(index2)
       
       df['trend_score'] += df[tmp_score_col]
       df.loc[tmp_idx_merge, 'trend_description'] += f' {wc}(' + df.loc[tmp_idx_merge, tmp_score_col].astype(str) + ')'
