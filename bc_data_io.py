@@ -849,7 +849,6 @@ def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_m
           # update eod data, print updating info
           if (update_mode in ['eod', 'both', 'refresh']) and (tmp_data_date is None or tmp_data_date < benchmark_dates[mkt] or (tmp_data_date <= benchmark_dates[mkt] and tmp_source == 'ak')):
             
-            print(1)
             if is_print:
               print(f'[{process_counter:04}]from ', end='0000-00-00 ' if tmp_data_date is None else f'{tmp_data_date} ')
             
@@ -873,7 +872,6 @@ def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_m
             else:
               new_data = None
               print(f'{symbol:5}: symbol not found from source {tmp_source}')
-
             
           else:
             up_to_date_symbols.append(symbol)
