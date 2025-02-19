@@ -794,7 +794,7 @@ def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_m
     tmp_benchmark_date = benchmark_dates.get(mkt)
     if tmp_benchmark_date is None:
       benchmark_dates[mkt] = today
-      print(f'[-{mkt.upper()}-]: symbols({mkt_symbol_count}), benchmark({mkt_benchmark_symbol}), date(failed to get benchmark data, use today - {today})') # 
+      print(f'[-{mkt.upper()}-]: symbols({mkt_symbol_count}), benchmark({mkt_benchmark_symbol}), date(skip benchmark query, use today - {today})') # 
     else:
       print(f'[-{mkt.upper()}-]: symbols({mkt_symbol_count}), benchmark({mkt_benchmark_symbol}), date({benchmark_dates[mkt]})')
 
