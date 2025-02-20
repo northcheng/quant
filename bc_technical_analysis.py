@@ -980,30 +980,46 @@ def calculate_ta_feature(df, symbol, start_date=None, end_date=None, indicators=
     print(f'{symbol}: No data for calculate_ta_feature')
     return None   
   
-  try:
+  time_counter = {}
+  time_counter['start'] = datetime.datetime.now()
+  try:    
     # # preprocess sec_data
     phase = 'preprocess'
+    time_counter[phase] = datetime.datetime.now()
     df = preprocess(df=df, symbol=symbol)[start_date:end_date].copy()
     
     # calculate TA indicators
     phase = 'cal_ta_basic_features' 
+    time_counter[phase] = datetime.datetime.now()
     df = calculate_ta_basic(df=df, indicators=indicators)
 
     # calculate TA static trend
     phase = 'cal_ta_static_features'
+    time_counter[phase] = datetime.datetime.now()
     df = calculate_ta_static(df=df, indicators=indicators)
 
     # calculate TA dynamic trend
     phase = 'cal_ta_dynamic_features'
+    time_counter[phase] = datetime.datetime.now()
     df = calculate_ta_dynamic(df)
 
     # calculate TA scores
     phase = 'cal_ta_score'
+    time_counter[phase] = datetime.datetime.now()
     df = calculate_ta_score(df)
+
+    time_counter['end'] = datetime.datetime.now()
 
   except Exception as e:
     print(symbol, phase, e)
 
+  for i in range(1, len(time_counter)):
+    ls = list(time_counter.keys())[i-1]
+    le = list(time_counter.keys())[i]
+    ts = time_counter[ls]
+    te = time_counter[le]
+    print(f'{ls}: {te-ts}')
+    
   return df
 
 # calculate signal according to features
