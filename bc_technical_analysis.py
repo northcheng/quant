@@ -1817,46 +1817,30 @@ def sda(series, zero_as=None, one_restart=False):
     current_num_sign = np.sign(current_num)
     previous_num = lst[i - 1]
     previous_num_sign = np.sign(previous_num)
+    cumsum_sign = np.sign(result[i-1])
     
-    # same direction accumulation
     # 当前值为0的情况
     if current_num_sign == 0:
       if zero_as is None or (result[i-1]) == 0:
         result.append(current_num)
       else:
-        result.append(result[i-1] + zero_as*(1 if np.sign(result[i-1]) == 1 else -1))
+        result.append(result[i-1] + zero_as*(1 if cumsum_sign == 1 else -1))
+
     # 当前值非0的情况
     else:
+
       # 特殊情况: 如果当前值为1且one_restart
       if (one_restart and current_num in [1, -1]):
         result.append(current_num)
+
       # 一般情况
       else:
-        cumsum_sign = np.sign(result[i-1])
-
+        
         # 如果当前值与累计值的符号不同
         if (current_num_sign != cumsum_sign):
-          result.append(current_num)
-        # else:
+          result.append(current_num) 
 
-        #   # 前值为0的情况
-        #   if previous_num_sign == 0:
-        #     # 判断累计值的符号
-        #     # 相同则继续累加
-        #     if current_num_sign == np.sign(result[i-1]):
-        #       result.append(result[i-1] + zero_as*(1 if np.sign(result[i-1]) == 1 else -1))
-        #     # zero_as is not None
-        #     if zero_as is not None:
-        #       result.append(result[i-1] + zero_as*(1 if np.sign(result[i-1]) == 1 else -1))
-        #     # zero_as is None
-        #     else:
-        #       result.append(current_num)
-        
-        #   # 前值非0的情况
-        #   else:            
-        #     result.append(current_num)
-        
-        # 当前值/前值均非0, 且符号相同
+        # 如果当前值与累计值的符号相同       
         else:
           result.append(result[i-1] + current_num)
         
