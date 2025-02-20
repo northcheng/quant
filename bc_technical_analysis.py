@@ -160,21 +160,50 @@ def preprocess(df, symbol, print_error=True):
   df = util.remove_duplicated_index(df=df, keep='first')
 
   # adjust close price manually (if split not updated)
-  adj_rate = 1
+  # adj_close = close
+  # adj_rate = adj_close_p1 / adj_close   
   df['split_n1'] = df['Split'].shift(-1).fillna(1.0)
   df['adj_close_p1'] = df['Adj Close'].shift(1)
   df['adj_rate'] = df['adj_close_p1'] / df['Adj Close']
   df = df.sort_index(ascending=False)
-  for idx, row in df.iterrows():
-    df.loc[idx, 'Adj Close'] *= adj_rate
-    if row['Split'] != 1.0:
-      if row['adj_rate'] >= 1.95 or row['adj_rate'] <= 0.45:
-        adj_rate = 1/row['Split']
-    elif row['split_n1'] != 1.0:
-      if row['adj_rate'] >= 1.95 or row['adj_rate'] <= 0.45:
-        adj_rate = 1/row['split_n1']
+
+  # 初始化 adj_factor
+  start_idx = df.index[0]
+  df.loc[start_idx, 'adj_factor'] = 1
+
+  # Split在今日, 价格变化也在今日
+  split_idx = df.query('Split != 1.0 and (adj_rate >= 1.95 or adj_rate <= 0.45)').index
+  df.loc[split_idx, 'adj_factor'] = 1 / df.loc[split_idx, 'Split']
+
+  # Split在昨日, 价格变化却在今日
+  split_n1_idx = df.query('split_n1 != 1.0 and (adj_rate >= 1.95 or adj_rate <= 0.45)').index
+  df.loc[split_n1_idx, 'adj_factor'] = 1 / df.loc[split_idx, 'split_n1']
+
+  df['adj_factor'] = df['adj_factor'].fillna(method='ffill')
+  df['Adj Close'] = df['Adj Close'] * df['adj_factor']
+
+  if len(split_idx) != 0 or len(split_n1_idx) != 0:
+    print(f'Price need to be adjusted due to Split on {split_idx}, {split_n1_idx}')
+
+  # # 逐行处理, 以最新价格为基准, 向前复权(Forward Adjustment)   
+  # adj_rate = 1
+  # for idx, row in df.iterrows():
+
+  #   df.loc[idx, 'Adj Close'] *= adj_rate
+
+  #   # 当split != 1 (存在split), 且价格变化剧烈(adj_rate > 1.95 或 < 0.45)时
+  #   # 将adj_rate设置为1/split, 往下走
+  #   if row['Split'] != 1.0:
+  #     if row['adj_rate'] >= 1.95 or row['adj_rate'] <= 0.45:
+  #       adj_rate = 1/row['Split']
+  #   # 当split_n1 != 1 (昨日存在split), 且价格变化剧烈(adj_rate > 1.95 或 < 0.45)时
+  #   # 将adj_rate设置为1/split_n1, 往下走        
+  #   elif row['split_n1'] != 1.0:
+  #     if row['adj_rate'] >= 1.95 or row['adj_rate'] <= 0.45:
+  #       adj_rate = 1/row['split_n1']
+
   df = df.sort_index()
-  df.drop(['adj_rate', 'adj_close_p1', 'split_n1'], axis=1, inplace=True)
+  df.drop(['adj_rate', 'adj_close_p1', 'split_n1', 'adj_factor'], axis=1, inplace=True)
 
   # adjust open/high/low/close/volume values
   adj_rate = df['Adj Close'] / df['Close']
@@ -986,7 +1015,7 @@ def calculate_ta_feature(df, symbol, start_date=None, end_date=None, indicators=
     # # preprocess sec_data
     phase = 'preprocess'
     time_counter[phase] = datetime.datetime.now()
-    df = preprocess(df=df, symbol=symbol)[start_date:end_date].copy()
+    df = preprocess(df=df[start_date:end_date], symbol=symbol).copy()
     
     # calculate TA indicators
     phase = 'cal_ta_basic_features' 
@@ -1013,12 +1042,13 @@ def calculate_ta_feature(df, symbol, start_date=None, end_date=None, indicators=
   except Exception as e:
     print(symbol, phase, e)
 
-  for i in range(1, len(time_counter)):
-    ls = list(time_counter.keys())[i-1]
-    le = list(time_counter.keys())[i]
-    ts = time_counter[ls]
-    te = time_counter[le]
-    print(f'{ls}: {te-ts}')
+  # for i in range(1, len(time_counter)):
+  #   ls = list(time_counter.keys())[i-1]
+  #   le = list(time_counter.keys())[i]
+  #   ts = time_counter[ls]
+  #   te = time_counter[le]
+  #   print(f'{ls}: {te-ts}')
+  # print(f'total: {time_counter["end"] - time_counter["start"]}')
     
   return df
 
@@ -1677,11 +1707,11 @@ def filter_idx(df, condition_dict):
   for condition in condition_dict.keys():
     result[condition] = df.query(condition_dict[condition]).index
 
-  # other index
-  other_idx = df.index
-  for i in result.keys():
-    other_idx = [x for x in other_idx if x not in result[i]]
-  result['other'] = other_idx
+  # # other index
+  # other_idx = df.index
+  # for i in result.keys():
+  #   other_idx = [x for x in other_idx if x not in result[i]]
+  # result['other'] = other_idx
 
   return result
 
@@ -1767,6 +1797,46 @@ def wma(series, periods, fillna=False):
 
 # same direction accumulation
 def sda(series, zero_as=None, one_restart=False):
+  """
+  Accumulate value with same symbol (+/-), once the symbol changed, start over again
+
+  :param series: series to calculate
+  :param accumulate_by: if None, accumulate by its own value, other wise, add by specified value
+  :param zero_val: action when encounter 0: if None pass, else add(minus) spedicied value according to previous symbol 
+  :returns: series with same direction accumulation
+  :raises: None
+  """
+  # copy series
+  lst = series.values.tolist()
+  idx = series.index
+
+  # initialize
+  result = [lst[0]]  
+  for i in range(1, len(lst)):
+
+    # get current and previous number and their sign
+    current_num = lst[i]
+    current_num_sign = np.sign(current_num)
+    previous_num = lst[i - 1]
+    previous_num_sign = np.sign(previous_num)
+    
+    # same direction accumulation
+    if current_num_sign == 0:
+      if zero_as is None:
+        result.append(current_num)
+      else:
+        result.append(result[i-1] + zero_as*(1 if np.sign(result[i-1]) == 1 else -1))
+    else:
+      if (current_num_sign != previous_num) or (one_restart and current_num in [1, -1]):
+        result.append(current_num)
+      else:
+        result.append(result[i-1] + current_num)
+
+  result_series = pd.Series(result, index=idx)
+  return result_series
+
+# same direction accumulation
+def sda_old(series, zero_as=None, one_restart=False):
   """
   Accumulate value with same symbol (+/-), once the symbol changed, start over again
 

@@ -1242,7 +1242,7 @@ def load_stock_data(file_path, file_name, file_format='.csv', time_col='Date', s
 
     else:
       # load file
-      df = pd.read_csv(file_name, encoding='utf8', engine='python')
+      df = pd.read_csv(file_name, encoding='utf8')
       
       # transform dataframe to timeseries
       df = util.df_2_timeseries(df=df, time_col=time_col)
@@ -2214,7 +2214,7 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
       signal_file_content =pd.read_excel(signal_file, sheet_name=None, dtype={'代码': str})
       for s in signal_file_content.keys():
         if s == 'signal':
-          signals = signal_file_content.get('signal') # pd.read_excel(signal_file, sheet_name='signal')
+          signals = signal_file_content.get('signal') 
           if signals is not None:
             # if len(signals) > 0:
             for s in ['b', 's', 'n']:
