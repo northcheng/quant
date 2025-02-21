@@ -42,7 +42,8 @@
         "target_indicator": [
           "candlestick",
           "ichimoku",
-          "kama"
+          "kama",
+          "linear"
         ],
         "candlestick_color": {
           "color_up": "limegreen",
