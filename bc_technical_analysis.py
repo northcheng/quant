@@ -2963,11 +2963,9 @@ def add_linear_features(df, max_period=60, min_period=5, is_print=False):
 
   # # add high/low fit values
   idx_min = min(min(high['x']), min(low['x']))
-  idx_max = len(idxs)
   std_high = df[start:end]['High'].std()
   std_low = df[start:end]['Low'].std()
   std_factor = 0.5
-  counter = 9
 
   idx_num = range(1, len(idxs)+1)
 
