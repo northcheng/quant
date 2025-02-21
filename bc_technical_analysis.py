@@ -15,10 +15,12 @@ import mplfinance as mpf
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from scipy.stats import linregress
+from scipy.signal import argrelextrema
 from numpy.lib.stride_tricks import as_strided
 from matplotlib import gridspec
 from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
+import matplotlib.dates as mdates
 
 # from mplfinance.original_flavor import candlestick_ohlc
 from quant import bc_util as util
@@ -35,7 +37,7 @@ default_signal_val = {'pos_signal':'b', 'neg_signal':'s', 'none_signal':'', 'wav
 
 # default indicators and dynamic trend for calculation
 default_indicators = {'trend': ['ichimoku', 'kama', 'adx'], 'volume': [], 'momentum':['rsi'], 'volatility': [], 'other': []}
-default_perspectives = ['candle', 'support_resistant']
+default_perspectives = ['candle', 'support_resistant', 'linear']
 default_support_resistant_col = ['kama_fast', 'kama_slow', 'tankan', 'kijun', 'renko_h', 'renko_l', 'candle_gap_top', 'candle_gap_bottom']
 
 # default arguments for visualization
@@ -808,47 +810,47 @@ def calculate_ta_dynamic(df, perspective=default_perspectives):
       # add linear features
       df = add_linear_features(df=df)
 
-      # crossover signals between Close and linear_fit_high/linear_fit_low, # , 'support', 'resistant'
-      for col in ['linear_fit_high', 'linear_fit_low']:
-        signal_col = None
+    #   # crossover signals between Close and linear_fit_high/linear_fit_low, # , 'support', 'resistant'
+    #   for col in ['linear_fit_high', 'linear_fit_low']:
+    #     signal_col = None
 
-        if col in df.columns:
-          signal_col = f'{col}_signal'
-          df[signal_col] = cal_crossover_signal(df=df, fast_line='Close', slow_line=col, pos_signal=1, neg_signal=-1, none_signal=0)
+    #     if col in df.columns:
+    #       signal_col = f'{col}_signal'
+    #       df[signal_col] = cal_crossover_signal(df=df, fast_line='Close', slow_line=col, pos_signal=1, neg_signal=-1, none_signal=0)
 
-          if signal_col in df.columns:
-            df[signal_col] = sda(series=df[signal_col], zero_as=1)
-        else:
-          print(f'{col} not in df.columns')
+    #       if signal_col in df.columns:
+    #         df[signal_col] = sda(series=df[signal_col], zero_as=1)
+    #     else:
+    #       print(f'{col} not in df.columns')
       
-      # trends from linear fit 
-      # hitpeak or rebound
-      conditions = {
-        'up': '((linear_fit_low_stop >= 1 and linear_fit_support < candle_entity_bottom) and (Close > linear_fit_low_stop_price))', 
-        'down': '((linear_fit_high_stop >= 1 and linear_fit_resistant > candle_entity_top) and (Close < linear_fit_high_stop_price))',
-        'wave': '(linear_fit_high_slope == 0 and linear_fit_low_slope == 0)'} 
-      values = {
-        'up': 'u', 
-        'down': 'd',
-        'wave': 'n'}
-      df = assign_condition_value(df=df, column='linear_bounce_trend', condition_dict=conditions, value_dict=values)
-      df['linear_bounce_trend'] = df['linear_bounce_trend'].fillna(method='ffill').fillna('')
-      df['linear_bounce_day'] = sda(series=df['linear_bounce_trend'].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
+    #   # trends from linear fit 
+    #   # hitpeak or rebound
+    #   conditions = {
+    #     'up': '((linear_fit_low_stop >= 1 and linear_fit_support < candle_entity_bottom) and (Close > linear_fit_low_stop_price))', 
+    #     'down': '((linear_fit_high_stop >= 1 and linear_fit_resistant > candle_entity_top) and (Close < linear_fit_high_stop_price))',
+    #     'wave': '(linear_fit_high_slope == 0 and linear_fit_low_slope == 0)'} 
+    #   values = {
+    #     'up': 'u', 
+    #     'down': 'd',
+    #     'wave': 'n'}
+    #   df = assign_condition_value(df=df, column='linear_bounce_trend', condition_dict=conditions, value_dict=values)
+    #   df['linear_bounce_trend'] = df['linear_bounce_trend'].fillna(method='ffill').fillna('')
+    #   df['linear_bounce_day'] = sda(series=df['linear_bounce_trend'].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
       
-      # break through up or down
-      conditions = {
-        'up': '((linear_fit_high_stop >= 5 or linear_fit_high_slope == 0) and linear_fit_high_signal >= 1 and ((candle_color == 1 and candle_entity_top > linear_fit_resistant) or (candle_entity_bottom > linear_fit_resistant)))', 
-        'down': '((linear_fit_low_stop >= 5 or linear_fit_low_slope == 0) and linear_fit_low_signal <= -1 and ((candle_color == -1 and candle_entity_bottom < linear_fit_support) or (candle_entity_top < linear_fit_support)))'} 
-      values = {
-        'up': 'u', 
-        'down': 'd'}
-      df = assign_condition_value(df=df, column='linear_break_trend', condition_dict=conditions, value_dict=values)
-      df['linear_break_trend'] = df['linear_break_trend'].fillna(method='ffill').fillna('')
-      df['linear_break_day'] = sda(series=df['linear_break_trend'].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
+    #   # break through up or down
+    #   conditions = {
+    #     'up': '((linear_fit_high_stop >= 5 or linear_fit_high_slope == 0) and linear_fit_high_signal >= 1 and ((candle_color == 1 and candle_entity_top > linear_fit_resistant) or (candle_entity_bottom > linear_fit_resistant)))', 
+    #     'down': '((linear_fit_low_stop >= 5 or linear_fit_low_slope == 0) and linear_fit_low_signal <= -1 and ((candle_color == -1 and candle_entity_bottom < linear_fit_support) or (candle_entity_top < linear_fit_support)))'} 
+    #   values = {
+    #     'up': 'u', 
+    #     'down': 'd'}
+    #   df = assign_condition_value(df=df, column='linear_break_trend', condition_dict=conditions, value_dict=values)
+    #   df['linear_break_trend'] = df['linear_break_trend'].fillna(method='ffill').fillna('')
+    #   df['linear_break_day'] = sda(series=df['linear_break_trend'].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
 
-      # focus on the last row only
-      max_idx = df.index.max()
-      valid_idxs = df.query('linear_slope == linear_slope').index
+    #   # focus on the last row only
+    #   max_idx = df.index.max()
+    #   valid_idxs = df.query('linear_slope == linear_slope').index
 
     # ================================ support & resistant =======================
     phase = 'support and resistant'
@@ -1486,20 +1488,6 @@ def calculate_ta_signal(df):
                       (trigger_score < 0)
                     )
                     '''.replace('\n', ''),    
-
-      # '特殊_buy':   '''
-      #               (trend == "up") and 
-      #               (
-      #                 (trigger_score > 0)
-      #               )
-      #               '''.replace('\n', ''),
-
-      # '特殊_sell':  '''
-      #               (trend == "down") and 
-      #               (
-      #                 (trigger_score < 0)
-      #               )
-      #               '''.replace('\n', ''), 
     } 
     values = {
 
@@ -1597,7 +1585,7 @@ def visualization(df, start=None, end=None, interval='day', title=None, save_pat
     plot_args = visualization_args.get('plot_args')
     
     plot_multiple_indicators(
-      df=df, title=title, args=plot_args,  start=start, end=end, interval=interval,
+      df=df, title=title, args=plot_args, start=start, end=end, interval=interval,
       show_image=is_show, save_image=is_save, save_path=save_path, trade_info=trade_info)
   except Exception as e:
     print(phase, e)
@@ -2900,19 +2888,15 @@ def add_linear_features(df, max_period=60, min_period=5, is_print=False):
 
   # get all indexes
   idxs = df.index.tolist()
+  skip_latest = 3
 
   # get current date, renko_color, earliest-start date, latest-end date
-  current_date = df.index.max()
   earliest_start = idxs[-60] if len(idxs) >= 60 else idxs[0] # df.tail(max_period).index.min()
-  latest_end = idxs[-2]
-  # if (idxs[-1] - idxs[-2]).days >= 7:
-  #   latest_end = idxs[-2]
-  # else:
-  #   latest_end = current_date - datetime.timedelta(days=(current_date.weekday()+1))
+  latest_end = idxs[-skip_latest]
   if is_print:
     print(earliest_start, latest_end)
 
-  # recent high/low 
+  # sampling: recent high/low 
   recent_period = int(max_period / 2)
   possible_idxs = df[:latest_end].index.tolist()
   middle_high = df[possible_idxs[-recent_period]:latest_end]['High'].idxmax()
@@ -2955,9 +2939,7 @@ def add_linear_features(df, max_period=60, min_period=5, is_print=False):
 
   # linear regression for high/low values
   highest_high = df[start:latest_end]['High'].max()
-  highest_high_idx = tmp_data['High'].idxmax()
   lowest_low = df[start:latest_end]['Low'].min()
-  lowest_low_idx = tmp_data['Low'].idxmin()
 
   # high linear regression
   if len(high['x']) < 2: 
@@ -2979,93 +2961,22 @@ def add_linear_features(df, max_period=60, min_period=5, is_print=False):
     if slope_score < 0.001:
       low_linear = (0, lowest_low, 0, 0)
 
-  # add high/low fit values
-  counter = 0
-  idx_max = len(idxs)
+  # # add high/low fit values
   idx_min = min(min(high['x']), min(low['x']))
-  std_ma = df[idx_min:idx_max]['Close'].std()
-  for x in range(idx_min, idx_max):
-    
-    idx = idxs[x]
-    counter += 1
-    df.loc[idx, 'linear_day_count'] = counter
+  idx_max = len(idxs)
+  std_high = df[start:end]['High'].std()
+  std_low = df[start:end]['Low'].std()
+  std_factor = 0.5
+  counter = 9
 
-    # predicted high/low values    
-    linear_fit_high = high_linear[0] * x + high_linear[1] + 0.3 * std_ma
-    linear_fit_low = low_linear[0] * x + low_linear[1] - 0.3 * std_ma
+  idx_num = range(1, len(idxs)+1)
 
-    # linear fit high
-    df.loc[idx, 'linear_fit_high_slope'] = high_linear[0]
-    if (linear_fit_high <= highest_high and linear_fit_high >= lowest_low): 
-      df.loc[idx, 'linear_fit_high'] = linear_fit_high
-    elif linear_fit_high > highest_high:
-      df.loc[idx, 'linear_fit_high'] = highest_high
-    elif linear_fit_high < lowest_low:
-      df.loc[idx, 'linear_fit_high'] = lowest_low
-    else:
-      df.loc[idx, 'linear_fit_high'] = np.NaN
-    
-    # if  high_linear[0] > 0 and idx > highest_high_idx and df.loc[idx, 'linear_fit_high'] <= highest_high:
-    #   df.loc[idx, 'linear_fit_high'] = highest_high
-
-    # linear fit low
-    df.loc[idx, 'linear_fit_low_slope'] = low_linear[0]
-    if (linear_fit_low <= highest_high and linear_fit_low >= lowest_low): 
-      df.loc[idx, 'linear_fit_low'] = linear_fit_low
-    elif linear_fit_low > highest_high:
-      df.loc[idx, 'linear_fit_low'] = highest_high
-    elif linear_fit_low < lowest_low:
-      df.loc[idx, 'linear_fit_low'] = lowest_low
-    else:
-      df.loc[idx, 'linear_fit_low'] = np.NaN
-
-    # if  low_linear[0] < 0 and idx > lowest_low_idx and df.loc[idx, 'linear_fit_low'] >= lowest_low:
-    #   df.loc[idx, 'linear_fit_low'] = lowest_low
-
-  # high/low fit stop
-  df['linear_fit_high_stop'] = 0
-  df['linear_fit_low_stop'] = 0
-  reach_top_idx = df.query(f'High=={highest_high} and linear_fit_high_slope >= 0').index
-  reach_bottom_idx = df.query(f'Low=={lowest_low} and linear_fit_low_slope <= 0').index
-  df.loc[reach_top_idx, 'linear_fit_high_stop'] = 1
-  df.loc[reach_top_idx, 'linear_fit_high_stop_price'] = df.loc[reach_top_idx, 'candle_entity_bottom']
-  df.loc[reach_bottom_idx, 'linear_fit_low_stop'] = 1
-  df.loc[reach_bottom_idx, 'linear_fit_low_stop_price'] = df.loc[reach_bottom_idx, 'candle_entity_top']
-  for col in ['linear_fit_high_stop', 'linear_fit_high_stop_price', 'linear_fit_low_stop', 'linear_fit_low_stop_price']:
-    df[col] = df[col].fillna(method='ffill')
-    if col in ['linear_fit_high_stop', 'linear_fit_low_stop']:
-      df[col] = sda(df[col], zero_as=1)
-
-  # support and resistant
-  resistant_idx = df.query(f'linear_fit_high == {highest_high} and linear_fit_high_stop > 0').index
-  if len(resistant_idx) > 0:
-    df.loc[min(resistant_idx), 'linear_fit_resistant'] = highest_high
-  else:
-    df['linear_fit_resistant'] = np.nan
-
-  support_idx = df.query(f'linear_fit_low == {lowest_low} and linear_fit_low_stop > 0').index
-  if len(support_idx) > 0:
-    df.loc[min(support_idx), 'linear_fit_support'] = lowest_low
-  else:
-    df['linear_fit_support'] = np.nan
-
-  for col in ['linear_fit_support', 'linear_fit_resistant']:
-    df[col] = df[col].fillna(method='ffill')
-
-  # overall slope of High and Low
-  df['linear_slope']  = df['linear_fit_high_slope'] + df['linear_fit_low_slope']
-
-  # direction means the slopes of linear fit High/Low
-  conditions = {
-    'up': '(linear_fit_high_slope > 0 and linear_fit_low_slope > 0) or (linear_fit_high_slope > 0 and linear_fit_low_slope == 0) or (linear_fit_high_slope == 0 and linear_fit_low_slope > 0)', 
-    'down': '(linear_fit_high_slope < 0 and linear_fit_low_slope < 0) or (linear_fit_high_slope < 0 and linear_fit_low_slope == 0) or (linear_fit_high_slope == 0 and linear_fit_low_slope < 0)',
-    'none': '(linear_fit_high_slope > 0 and linear_fit_low_slope < 0) or (linear_fit_high_slope < 0 and linear_fit_low_slope > 0) or (linear_fit_high_slope == 0 and linear_fit_low_slope == 0)'} 
-  values = {
-    'up': 'u', 
-    'down': 'd',
-    'none': 'n'}
-  df = assign_condition_value(df=df, column='linear_direction', condition_dict=conditions, value_dict=values, default_value='')
-        
+  df['linear_fit_high'] = idx_num
+  df['linear_fit_high'] = df['linear_fit_high'].apply(lambda x: np.nan if (x < idx_min) else (high_linear[0] * x + high_linear[1] + std_factor * std_high))
+  df['linear_fit_low'] = idx_num
+  df['linear_fit_low'] = df['linear_fit_low'].apply(lambda x: np.nan if (x < idx_min) else (low_linear[0] * x + low_linear[1] - std_factor * std_low))
+  df[['linear_fit_high', 'linear_fit_low']] = df[['linear_fit_high', 'linear_fit_low']].fillna(method='ffill')
+  
   return df
  
 # linear regression for recent kama and ichimoku fast slow lines
@@ -6175,7 +6086,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
       pre_i = idxs.index(start)-1
       pre_start = idxs[pre_i] if pre_i > 0 else start
       tmp_data = df[start:end]
-      ax.fill_between(df[pre_start:end].index, top_value, bottom_value, hatch=gap_hatch, facecolor=gap_color, interpolate=True, alpha=0.3, edgecolor=gap_hatch_color, linewidth=0.1, zorder=default_zorders['gap']) #,  
+      ax.fill_between(df[pre_start:end].index, top_value, bottom_value, hatch=gap_hatch, facecolor=gap_color, interpolate=True, alpha=0.2, edgecolor=gap_hatch_color, linewidth=0.1, zorder=default_zorders['gap']) #,  
 
     # # gap support & resistant
     # ax.scatter(support_idx, df.loc[support_idx, 'Low'] * 0.98, marker='^', color='black', edgecolor='black', zorder=21)
@@ -6427,6 +6338,7 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   # add extention data
   extended = 1
   ext_columns = ['tankan', 'kijun', 'kama_fast', 'kama_slow']
+  linear_cols = ['linear_fit_high', 'linear_fit_low']
   renko_cols = ['renko_color', 'renko_o', 'renko_h', 'renko_l', 'renko_c',  'renko_start', 'renko_distance', 'renko_brick_number']
   candle_gap_cols = ['candle_gap', 'candle_gap_top', 'candle_gap_bottom']
   support_resistant_cols = ['Close', 'support', 'supporter', 'support_score', 'support_description', 'resistant', 'resistanter', 'resistant_score', 'resistant_description']
@@ -6446,7 +6358,11 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
       # for ec in ext_columns:
       #   slope = pred[ec][0]
       #   intercept = pred[ec][1]
-      #   df.loc[next_idx, ec] = (period + i + 1) * ( slope) + intercept  
+      #   df.loc[next_idx, ec] = (period + i + 1) * ( slope) + intercept 
+
+      if 'linear_fit_high' in df.columns and 'linear_fit_low' in df.columns:
+        df.loc[next_idx, linear_cols] = df.loc[max_idx, linear_cols]
+
       if 'renko_real' in df.columns:
         df.loc[next_idx, 'renko_real'] = np.nan
         df.loc[next_idx, renko_cols] = df.loc[max_idx, renko_cols]
@@ -6455,6 +6371,7 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
 
   else:
     extended = None
+
   
   # create figure
   ax = use_ax
@@ -6465,6 +6382,14 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   # as we usually ploting data within a year, therefore log_y is not necessary
   # ax.set_yscale("log")
 
+  # # get local max and min
+  # local_maxima_indices = argrelextrema(df['Open'].values, np.greater, order=1)
+  # local_minima_indices = argrelextrema(df['Close'].values, np.less, order=1)
+  # lmax_idx = df.index[local_maxima_indices]
+  # lmin_idx = df.index[local_minima_indices]
+  # ax.plot(lmax_idx, df.loc[lmax_idx, 'Open'], color='red')
+  # ax.plot(lmin_idx, df.loc[lmin_idx, 'Low'], color='red')
+  
   # plot close price
   if 'price' in target_indicator:
     alpha = 0.2
@@ -6537,19 +6462,61 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   
   # plot high/low trend
   if 'linear' in target_indicator:
-    colors = {'u': 'green', 'd': 'red', 'n': 'orange', '': 'grey'}
-    # hatches = {'u': '++', 'd': '--', 'n': '..', '': ''}
-    # plot aroon_up/aroon_down lines 
+    
+    # --------------------------------- stright line -------------------------------#
+    # # calculate linear feature
+    # linear_result = add_linear_features(df)
+    # high_linear = linear_result.get('high')
+    # low_linear = linear_result.get('low')
+    # start_x = linear_result.get('idx_start')
+    # end_x = len(df.index)
+    # start_point = df.index[start_x]
+    # end_point = df.index.max()
+    # std_ma = df[start_point:end_point]['Close'].std()
+
+    # # calculate start and end points
+    # std_factor = 0.75
+    # start_high = high_linear[0] * start_x + high_linear[1] + std_factor * std_ma
+    # start_low = low_linear[0] * start_x + low_linear[1] - std_factor * std_ma
+    # end_high = high_linear[0] * end_x + high_linear[1] + std_factor * std_ma
+    # end_low = low_linear[0] * end_x + low_linear[1] - std_factor * std_ma
+    # highs = [start_high, end_high]
+    # lows = [start_low, end_low]
+
+    # # determine color for ploting
+    # hs =  high_linear[0]
+    # ls = low_linear[0]
+    # hls = hs + ls
+    
+    # if hs >= 0 and ls >= 0 and hls > 0:
+    #   linear_color = 'green'
+    # elif hs <= 0 and ls <= 0 and hls < 0:
+    #   linear_color = 'red'
+    # elif hs >= 0 and ls <= 0 or hs <= 0 or ls >= 0 or hls == 0:
+    #   linear_color = 'orange'
+    # else:
+    #   linear_color = 'grey'
+
+    # # plot line
+    # line_alpha = 0.5
+    # ax.plot([start_point, end_point], highs, label='linear_fit_high', color=linear_color, linestyle='-.', alpha=line_alpha, zorder=default_zorders['default'])
+    # ax.plot([start_point, end_point], lows, label='linear_fit_low', color=linear_color, linestyle='-.', alpha=line_alpha, zorder=default_zorders['default'])
+
+    # # fill between linear_fit_high and linear_fit_low
+    # fill_alpha = 0.25
+    # linear_hatch = '--' # hatches[linear_direction]
+    # ax.fill_between([start_point, end_point], highs, lows, facecolor='white', edgecolor=linear_color, hatch=linear_hatch, interpolate=True, alpha=fill_alpha, zorder=default_zorders['default'])    
+
+    # --------------------------------- weekend line -------------------------------#
+    linear_color = 'black'
     line_alpha = 0.5
-    linear_direction = df.loc[max_idx, 'linear_direction']
-    linear_color = colors[linear_direction]
     ax.plot(df.index, df.linear_fit_high, label='linear_fit_high', color=linear_color, linestyle='-.', alpha=line_alpha, zorder=default_zorders['default'])
     ax.plot(df.index, df.linear_fit_low, label='linear_fit_low', color=linear_color, linestyle='-.', alpha=line_alpha, zorder=default_zorders['default'])
 
     # fill between linear_fit_high and linear_fit_low
     fill_alpha = 0.25
-    linear_range = df.linear_direction != ''
-    linear_hatch = '--' # hatches[linear_direction]
+    linear_range = df.linear_fit_high == df.linear_fit_high
+    linear_hatch = '--'
     ax.fill_between(df.index, df.linear_fit_high, df.linear_fit_low, where=linear_range, facecolor='white', edgecolor=linear_color, hatch=linear_hatch, interpolate=True, alpha=fill_alpha, zorder=default_zorders['default'])    
   
   # plot candlestick
@@ -6578,8 +6545,8 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
     up_key_col = {}
     down_key_col = {}
     close_price = df.loc[max_idx, 'Close']
-    col_names = {'tankan':'tankan', 'kijun':'kijun ', 'kama_fast':'km_fst', 'kama_slow':'km_slw', 'renko_h':'renk_h', 'renko_l':'renk_l', 'candle_gap_top':'gp_top', 'candle_gap_bottom':'gp_btm'}
-    for col in ['tankan', 'kijun', 'kama_fast', 'kama_slow', 'renko_h', 'renko_l', 'candle_gap_top', 'candle_gap_bottom']:
+    col_names = {'tankan':'tankan', 'kijun':'kijun ', 'kama_fast':'km_fst', 'kama_slow':'km_slw', 'renko_h':'renk_h', 'renko_l':'renk_l', 'candle_gap_top':'gp_top', 'candle_gap_bottom':'gp_btm', 'linear_fit_high': 'lnr_hi', 'linear_fit_low': 'lnr_lo'}
+    for col in col_names.keys():
       if col in df.columns:
         tmp_col_value = df.loc[max_idx, col]
         if np.isnan(tmp_col_value):
@@ -7179,6 +7146,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   width = 10 if width < 10 else width
 
   # create axes for each indicator
+  # fig = mpf.figure(figsize=(width, num_indicators*unit_size))
   fig = plt.figure(figsize=(width, num_indicators*unit_size))  
   gs = gridspec.GridSpec(num_indicators, 1, height_ratios=ratios)
   gs.update(wspace=wspace, hspace=hspace)
