@@ -37,7 +37,7 @@ default_signal_val = {'pos_signal':'b', 'neg_signal':'s', 'none_signal':'', 'wav
 
 # default indicators and dynamic trend for calculation
 default_indicators = {'trend': ['ichimoku', 'kama', 'adx'], 'volume': [], 'momentum':['rsi'], 'volatility': [], 'other': []}
-default_perspectives = ['candle', 'support_resistant', 'linear']
+default_perspectives = ['candle', 'support_resistant']
 default_support_resistant_col = ['kama_fast', 'kama_slow', 'tankan', 'kijun', 'renko_h', 'renko_l', 'candle_gap_top', 'candle_gap_bottom']
 
 # default arguments for visualization
@@ -7393,6 +7393,7 @@ def plot_historical_evolution(df, symbol, interval, config, his_start_date=None,
   # copy dataframe
   df = df.copy()
 
+  # check the data date
   df_max_idx = util.time_2_string(df.index.max())
   if df_max_idx < his_end_date:
     print(f'can only evolve to {df_max_idx}')
@@ -7406,6 +7407,7 @@ def plot_historical_evolution(df, symbol, interval, config, his_start_date=None,
     df = df[data_start_date:]
     plot_start_date = data_start_date
 
+  # summary setting
   if create_gif or plot_final:
     if plot_save_path is None:
       print('Please specify plot save path in parameters, create_gif disable for this time')
@@ -7415,6 +7417,8 @@ def plot_historical_evolution(df, symbol, interval, config, his_start_date=None,
       config['visualization']['save_image'] = True
       images = []
   
+  # calculate static data at once
+  # calculate dynamic data and signal day by day
   try:
     
     # preprocess sec_data
@@ -7430,14 +7434,15 @@ def plot_historical_evolution(df, symbol, interval, config, his_start_date=None,
     historical_ta_data = pd.DataFrame()
     ed = his_start_date
 
+    # calculate dynamic data
     current_max_idx = None
     while ed <= his_end_date:   
 
-      # calculate sd = ed - interval, et max_idx in df[sd:ed]
+      # calculate sd = ed - interval, get max_idx in df[sd:ed]
       sd = util.string_plus_day(string=ed, diff_days=-config['visualization']['plot_window'][interval])
       tmp_max_idx = df[sd:ed].index.max()
       
-      # decide whether to skip current loop
+      # decide whether to skip current loop (mainly for weekends)
       skip = False
       if current_max_idx is not None and tmp_max_idx <= current_max_idx:
         skip = True
@@ -7457,13 +7462,15 @@ def plot_historical_evolution(df, symbol, interval, config, his_start_date=None,
         
         # calculate the dynamic part: linear features
         # calculate TA trend
-        df = calculate_ta_static(df=df, indicators=indicators)
-        ta_data = calculate_ta_dynamic(df=df[sd:ed])
+        phase = 'cal_ta_dynamic_features_day_by_day'
+        ta_data = calculate_ta_static(df=df, indicators=indicators)
+        ta_data = calculate_ta_dynamic(df=ta_data[sd:ed])
         ta_data = calculate_ta_score(df=ta_data)
         ta_data = calculate_ta_signal(df=ta_data)
         historical_ta_data = pd.concat([historical_ta_data, ta_data.tail(1)])
 
         # create image for gif
+        phase = 'visualization_day_by_day'
         if create_gif:
           visualization(df=ta_data, start=plot_start_date, title=f'{symbol}({ed})', save_path=plot_save_path, visualization_args=config['visualization'])
           images.append(f'{plot_save_path}{symbol}({ed}).png')
@@ -7472,19 +7479,23 @@ def plot_historical_evolution(df, symbol, interval, config, his_start_date=None,
       ed = util.string_plus_day(string=ed, diff_days=1)
 
     # append data
-    historical_ta_data = ta_data.append(historical_ta_data)  
+    phase = 'final_data_construction'
+    historical_ta_data = pd.concat([ta_data, historical_ta_data])
     df = util.remove_duplicated_index(df=historical_ta_data, keep='last')
 
     # create gif
+    phase = 'plot_gif'
     if create_gif:
       util.image_2_gif(image_list=images, save_name=f'{plot_save_path}{symbol}({his_start_date}-{his_end_date}).gif')
 
     # remove original images
+    phase = 'plot_gif'
     if remove_origin:
       for img in images:
         os.remove(img)
 
     # if plot final data
+    phase = 'final_plot_visualization'
     if plot_final: 
       visualization(df=df, start=plot_start_date, title=f'{symbol}(final)', save_path=plot_save_path, visualization_args=config['visualization'])
 

@@ -537,7 +537,12 @@ def image_2_gif(image_list, save_name=None, remove_old_gif=True, fps=3):
   images = []
   for image in image_list:
     if os.path.exists(image):
-      tmp_image = imio.imread(image, format='png')
+      tmp_image = Image.open(image)
+      
+      if len(images) == 0:
+        target_size = tmp_image.size
+
+      tmp_image = tmp_image.resize(target_size, Image.LANCZOS)
       images.append(tmp_image)
 
   # save gif
@@ -545,6 +550,9 @@ def image_2_gif(image_list, save_name=None, remove_old_gif=True, fps=3):
     if save_name is None:
       save_name = 'gif_from_image.gif'
     imio.mimsave(save_name, images, fps=fps)
+    # 保存为 GIF
+    images[0].save(save_name, save_all=True, append_images=images[1:], duration=1000, loop=0)
+
   else:
     print('no images to convert to pdf')
 
