@@ -428,47 +428,6 @@ def calculate_ta_static(df, indicators=default_indicators):
           '中下': 'mid_down', '下方': 'down'}
         df = assign_condition_value(df=df, column=f'相对{target_indicator}位置', condition_dict=conditions, value_dict=values, default_value='')
 
-    # ================================ aroon trend ============================
-    target_indicator = 'aroon'
-    if target_indicator in indicators['trend']:
-      aroon_col = ['aroon_up', 'aroon_down', 'aroon_gap']
-      df[aroon_col] = df[aroon_col].round(1)
-      for col in aroon_col:
-        df = cal_change(df=df, target_col=col, add_prefix=True, add_accumulation=True)
-        col_to_drop.append(f'{col}_change')
-        col_to_drop.append(f'{col}_acc_change')
-        col_to_drop.append(f'{col}_acc_change_count')
-
-      # calculate aroon trend
-      df['aroon_trend'] = ''
-
-      # it is going up when:
-      # 1+. aroon_up is extramely positive(96+)
-      # 2+. aroon_up is strongly positive [88,100], aroon_down is strongly negative[0,12]
-      up_idx = df.query('(aroon_up>=96) or (aroon_up>=88 and aroon_down<=12)').index
-      df.loc[up_idx, 'aroon_trend'] = 'u'
-
-      # it is going down when
-      # 1-. aroon_down is extremely positive(96+)
-      # 2-. aroon_up is strongly negative[0,12], aroon_down is strongly positive[88,100]
-      down_idx = df.query('(aroon_down>=96) or (aroon_down>=88 and aroon_up<=12)').index
-      df.loc[down_idx, 'aroon_trend'] = 'd'
-
-      # otherwise up trend
-      # 3+. aroon_down is decreasing, and (aroon_up is increasing or aroon_down>aroon_up)
-      up_idx = df.query('(aroon_trend!="u" and aroon_trend!="d") and ((aroon_down_change<0) and (aroon_up_change>=0 or aroon_down>aroon_up))').index # and (aroon_up_acc_change_count <= -2 or aroon_down_acc_change_count <= -2)
-      df.loc[up_idx, 'aroon_trend'] = 'u'
-
-      # otherwise down trend
-      # 3-. aroon_up is decreasing, and (aroon_down is increasing or aroon_up>aroon_down)
-      down_idx = df.query('(aroon_trend!="u" and aroon_trend!="d") and ((aroon_up_change<0) and (aroon_down_change>=0 or aroon_up>aroon_down))').index #and (aroon_up_acc_change_count <= -2 or aroon_down_acc_change_count <= -2)
-      df.loc[down_idx, 'aroon_trend'] = 'd'
-
-      # it is waving when
-      # 1=. aroon_gap keep steady and aroon_up/aroon_down keep changing toward a same direction
-      wave_idx = df.query('-32<=aroon_gap<=32 and ((aroon_gap_change==0 and aroon_up_change==aroon_down_change<0) or ((aroon_up_change<0 and aroon_down<=4) or (aroon_down_change<0 and aroon_up<=4)))').index
-      df.loc[wave_idx, 'aroon_trend'] = 'n'
-
     # ================================ adx trend ==============================
     target_indicator = 'adx'
     if target_indicator in indicators['trend']:
@@ -533,7 +492,7 @@ def calculate_ta_static(df, indicators=default_indicators):
             end = extreme_idx[i]
 
           tmp_day = df.loc[tmp_idx, day_col]
-          tmp_extreme = df[start:end][base_col].max() if tmp_day < 0 else df[start:end][base_col].min()
+          # tmp_extreme = df[start:end][base_col].max() if tmp_day < 0 else df[start:end][base_col].min()
           tmp_start = df.loc[end, prev_col]
           df.loc[tmp_idx, start_col] = tmp_start
 
@@ -608,7 +567,64 @@ def calculate_ta_static(df, indicators=default_indicators):
       }
       df = assign_condition_value(df=df, column='adx_trend', condition_dict=conditions, value_dict=values, default_value=0)
       df['adx_day'] = sda(df['adx_trend'], zero_as=None)
+
+      # the true adx syn
+      conditions = {
+        'neg_u':      f'(adx_value < 0 and adx_value_change > 0 and adx_strength_change < 0)', 
+        'neg_d':      f'(adx_value < 0 and adx_value_change < 0 and adx_strength_change > 0)',
+        'pos_u':      f'(adx_value > 5 and adx_value_change > 0 and adx_strength_change > 0)', 
+        'pos_d':      f'(adx_value > 5 and adx_value_change < 0 and adx_strength_change < 0)',
+      } 
+      values = {
+        'neg_u':      1, 
+        'neg_d':      -1,
+        'pos_u':      1, 
+        'pos_d':      -1,
+      }
+      df = assign_condition_value(df=df, column='adx_syn', condition_dict=conditions, value_dict=values, default_value=0)
+      df['adx_syn'] = sda(df['adx_syn'], zero_as=None)
       
+    # ================================ aroon trend ============================
+    target_indicator = 'aroon'
+    if target_indicator in indicators['trend']:
+      aroon_col = ['aroon_up', 'aroon_down', 'aroon_gap']
+      df[aroon_col] = df[aroon_col].round(1)
+      for col in aroon_col:
+        df = cal_change(df=df, target_col=col, add_prefix=True, add_accumulation=True)
+        col_to_drop.append(f'{col}_change')
+        col_to_drop.append(f'{col}_acc_change')
+        col_to_drop.append(f'{col}_acc_change_count')
+
+      # calculate aroon trend
+      df['aroon_trend'] = ''
+
+      # it is going up when:
+      # 1+. aroon_up is extramely positive(96+)
+      # 2+. aroon_up is strongly positive [88,100], aroon_down is strongly negative[0,12]
+      up_idx = df.query('(aroon_up>=96) or (aroon_up>=88 and aroon_down<=12)').index
+      df.loc[up_idx, 'aroon_trend'] = 'u'
+
+      # it is going down when
+      # 1-. aroon_down is extremely positive(96+)
+      # 2-. aroon_up is strongly negative[0,12], aroon_down is strongly positive[88,100]
+      down_idx = df.query('(aroon_down>=96) or (aroon_down>=88 and aroon_up<=12)').index
+      df.loc[down_idx, 'aroon_trend'] = 'd'
+
+      # otherwise up trend
+      # 3+. aroon_down is decreasing, and (aroon_up is increasing or aroon_down>aroon_up)
+      up_idx = df.query('(aroon_trend!="u" and aroon_trend!="d") and ((aroon_down_change<0) and (aroon_up_change>=0 or aroon_down>aroon_up))').index # and (aroon_up_acc_change_count <= -2 or aroon_down_acc_change_count <= -2)
+      df.loc[up_idx, 'aroon_trend'] = 'u'
+
+      # otherwise down trend
+      # 3-. aroon_up is decreasing, and (aroon_down is increasing or aroon_up>aroon_down)
+      down_idx = df.query('(aroon_trend!="u" and aroon_trend!="d") and ((aroon_up_change<0) and (aroon_down_change>=0 or aroon_up>aroon_down))').index #and (aroon_up_acc_change_count <= -2 or aroon_down_acc_change_count <= -2)
+      df.loc[down_idx, 'aroon_trend'] = 'd'
+
+      # it is waving when
+      # 1=. aroon_gap keep steady and aroon_up/aroon_down keep changing toward a same direction
+      wave_idx = df.query('-32<=aroon_gap<=32 and ((aroon_gap_change==0 and aroon_up_change==aroon_down_change<0) or ((aroon_up_change<0 and aroon_down<=4) or (aroon_down_change<0 and aroon_up<=4)))').index
+      df.loc[wave_idx, 'aroon_trend'] = 'n'
+
     # ================================ kst trend ==============================
     target_indicator = 'kst'
     if target_indicator in indicators['trend']:
@@ -5523,8 +5539,8 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
   style = settings['main'] if signal_x in ['signal'] else settings['other']
 
   # plot signal base line
-  ax.plot(df.index, df[signal_y], label=signal_y, alpha=0)
-  # print(signal_x, signal_y)
+  signal_label = signal_y 
+  ax.plot(df.index, df[signal_y], label=signal_label, alpha=0)
 
   # plot trend
   trend_col = signal_x.replace('signal', 'trend')
@@ -7250,6 +7266,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
             df=plot_data, signal_x=signal_name, signal_y=f'signal_base_{signal_name}', 
             title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=subplot_args)
 
+      # signal_names = [{'adx':'adx(dst_chg)','overall':'overall(chg_dif)'}[x] if x in ['adx','overall'] else x for x in signal_names ]
       # legend and title
       plt.ylim(ymin=min(signal_bases)-1 , ymax=max(signal_bases)+1)
       plt.yticks(signal_bases, signal_names)
