@@ -6859,6 +6859,10 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
   plt.subplots_adjust(wspace=wspace, hspace=hspace)
   axes = {}
 
+  key_crateria = ['trend_score', 'trigger_score', 'pattern_score', 'candle_pattern_score', 'signal_score']
+  sort_crateria = ['signal_score', 'pattern_score']
+  sort_order = [True, True]
+
   # plot rate and score
   for i in range(n_row):
 
@@ -6867,20 +6871,32 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
 
     # get target data
     t = pools[i]
-    tmp_data = data['result'][t].sort_values(by=['signal_score', 'pattern_score', 'adx_direction_day', 'adx_direction_start'], ascending=[True, True, False, False]).copy() 
-    tmp_data = tmp_data[['symbol', 'rate', 'trigger_score', 'pattern_score', 'position_score', 'trend_score', 'signal_score']].set_index('symbol')
+
+    if 'use_previous_data' > '':
+      # previous data
+      tmp_data = pd.DataFrame()
+      for s in data['ta_data'][t].keys():
+        tmp_data_s = data['ta_data'][t][s].copy()
+        tmp_data_s[key_crateria] = tmp_data_s[key_crateria].shift(1)
+        tmp_data = pd.concat([tmp_data, tmp_data_s.tail(1)])
+    else:
+      # current_data
+      tmp_data = data['result'][t].copy()
+
+    tmp_data = tmp_data.sort_values(by=sort_crateria, ascending=sort_order)
+    tmp_data = tmp_data[['symbol', 'rate'] + key_crateria].set_index('symbol')
     tmp_data['name'] = tmp_data.index.values
 
     # get data
     if ('a_company' in t) or ('hs300' in t) or('a_etf' in t):
-      if config is not None:
+      if config is not None:        
         names = config['visualization']['plot_args']['sec_name']
         for idx, row in tmp_data.iterrows():
           tmp_name = names.get(idx)
           if tmp_name is not None:
-            tmp_data.loc[idx, 'name'] = tmp_name
+            tmp_data.loc[idx, 'name'] += f'({tmp_name})'
+
     tmp_data = tmp_data.set_index('name')
-    # tmp_data = tmp_data.sort_values('trigger_score', ascending=True)
     tmp_data['rate'] = tmp_data['rate'] * 100
 
     # get ax
@@ -6913,8 +6929,8 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
     colors = {'trigger_score': 'blue', 'pattern_score': 'yellow', 'trend_score': 'green'}
     for col in ['trend_score', 'pattern_score', 'trigger_score']:
 
-      tmp_data['tmp_value_pos'] = -tmp_data[col] if col == 'position_score' else tmp_data[col]
-      tmp_data['tmp_value_neg'] = -tmp_data[col] if col == 'position_score' else tmp_data[col]
+      tmp_data['tmp_value_pos'] = tmp_data[col]
+      tmp_data['tmp_value_neg'] = tmp_data[col]
       
       tmp_data['tmp_value_pos'] = tmp_data['tmp_value_pos'].apply(lambda x: max(0, x))
       tmp_data['tmp_value_neg'] = tmp_data['tmp_value_neg'].apply(lambda x: min(0, x))
