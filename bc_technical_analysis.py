@@ -7326,57 +7326,64 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   # get name of the symbol, and trend, trigger, pattern descriptions
   new_title = args['sec_name'].get(title.split('(')[0]) 
   
-  # signal desc
-  signal_score = df.loc[max_idx, "signal_score"]
-  desc = df.loc[max_idx, "signal_description"]
-  signal_desc = (f'{desc}' if len(desc) > 0 else '') + f' = 信号 {df.loc[max_idx, "signal_score"]:<5}'
-  signal_desc_title = (f'{desc}' if len(desc) > 0 else '')
+  # descroption
+  before_max_idx = df.index[-2]
+  for idx in [max_idx]:
 
-  # trend desc
-  desc = df.loc[max_idx, "trend_description"]
-  trend_desc = (f' {desc}' if len(desc) > 0 else '') + f' > 趋势 {df.loc[max_idx, "trend_score"]:<5}'
+    # signal desc
+    signal_score = df.loc[idx, "signal_score"]
+    desc = df.loc[idx, "signal_description"]
+    signal_desc = (f'{desc}' if len(desc) > 0 else '') + f' = 信号 {df.loc[idx, "signal_score"]:<5} ({df.loc[before_max_idx, "signal_score"]:<5})'
+    signal_desc_title = (f'{desc}' if len(desc) > 0 else '')
 
-  # trigger desc (break_through)
-  up_desc = df.loc[max_idx, "break_up_description"] # up_score_description
-  down_desc = df.loc[max_idx, "break_down_description"]
-  if len(up_desc) > 0:
-    up_desc = f'突破({up_desc})'
-  if len(down_desc) > 0:
-    down_desc = f'跌落({down_desc})'
-  if len(up_desc) > 0 and len(down_desc) > 0:
-    desc = f'{up_desc} | {down_desc}'
-  else:
-    desc = up_desc + down_desc
-  break_desc = (f' {desc}' if len(desc) > 0 else '') + f' > 突破 {df.loc[max_idx, "break_score"]:<5}'
+    # trend desc
+    desc = df.loc[idx, "trend_description"]
+    trend_desc = (f' {desc}' if len(desc) > 0 else '') + f' > 趋势 {df.loc[idx, "trend_score"]:<5} ({df.loc[before_max_idx, "trend_score"]:<5})'
 
-  # trigger desc (boundary)
-  up_desc = f'{df.loc[max_idx, "support_description"]}'
-  down_desc = f'{df.loc[max_idx, "resistant_description"]}'
-  if len(up_desc) > 0:
-    up_desc = f'支撑({up_desc})'
-  if len(down_desc) > 0:
-    down_desc = f'阻挡({down_desc})'
-  if len(up_desc) > 0 and len(down_desc) > 0:
-    desc = f'{up_desc} | {down_desc}'
-  else:
-    desc = up_desc + down_desc
-  boundary_desc = (f' {desc}' if len(desc) > 0 else '') + f' > 边界 {df.loc[max_idx, "boundary_score"]*0.5:<5}'
+    # trigger desc (break_through)
+    up_desc = df.loc[idx, "break_up_description"] # up_score_description
+    down_desc = df.loc[idx, "break_down_description"]
+    if len(up_desc) > 0:
+      up_desc = f'突破({up_desc})'
+    if len(down_desc) > 0:
+      down_desc = f'跌落({down_desc})'
+    if len(up_desc) > 0 and len(down_desc) > 0:
+      desc = f'{up_desc} | {down_desc}'
+    else:
+      desc = up_desc + down_desc
+    break_desc = (f' {desc}' if len(desc) > 0 else '') + f' > 突破 {df.loc[idx, "break_score"]:<5} ({df.loc[before_max_idx, "break_score"]:<5})'
 
-  # pattern desc
-  desc = df.loc[max_idx, "pattern_description"]
-  pattern_desc = (f' {desc}' if len(desc) > 0 else '') + f' > 模式 {df.loc[max_idx, "pattern_score"]:<5}'
+    # trigger desc (boundary)
+    up_desc = f'{df.loc[idx, "support_description"]}'
+    down_desc = f'{df.loc[idx, "resistant_description"]}'
+    if len(up_desc) > 0:
+      up_desc = f'支撑({up_desc})'
+    if len(down_desc) > 0:
+      down_desc = f'阻挡({down_desc})'
+    if len(up_desc) > 0 and len(down_desc) > 0:
+      desc = f'{up_desc} | {down_desc}'
+    else:
+      desc = up_desc + down_desc
+    boundary_desc = (f' {desc}' if len(desc) > 0 else '') + f' > 边界 {df.loc[idx, "boundary_score"]*0.5:<5} ({df.loc[before_max_idx, "boundary_score"]:<5})'
 
-  # candle pattern desc
-  up_desc = df.loc[max_idx, "up_pattern_description"]
-  up_desc = f'+[{up_desc}]' if len(up_desc) > 0 else up_desc
-  down_desc = df.loc[max_idx, "down_pattern_description"]
-  down_desc = f'-[{down_desc}]' if len(down_desc) > 0 else down_desc
-  if len(up_desc) > 0 and len(down_desc) > 0:
-    desc = f'{up_desc} | {down_desc}'
-  else:
-    desc = up_desc + down_desc
-  candle_pattern_desc = (f' {desc}' if len(desc) > 0 else '') + f' * 蜡烛 {df.loc[max_idx, "candle_pattern_score"]:<5}'
-  candle_desc_title = (f' {desc}' if len(desc) > 0 else '')
+    # pattern desc
+    desc = df.loc[idx, "pattern_description"]
+    pattern_desc = (f' {desc}' if len(desc) > 0 else '') + f' > 模式 {df.loc[idx, "pattern_score"]:<5} ({df.loc[before_max_idx, "pattern_score"]:<5})'
+
+    # candle pattern desc
+    up_desc = df.loc[idx, "up_pattern_description"]
+    up_desc = f'+[{up_desc}]' if len(up_desc) > 0 else up_desc
+    down_desc = df.loc[idx, "down_pattern_description"]
+    down_desc = f'-[{down_desc}]' if len(down_desc) > 0 else down_desc
+    if len(up_desc) > 0 and len(down_desc) > 0:
+      desc = f'{up_desc} | {down_desc}'
+    else:
+      desc = up_desc + down_desc
+    candle_pattern_desc = (f' {desc}' if len(desc) > 0 else '') + f' * 蜡烛 {df.loc[idx, "candle_pattern_score"]:<5} ({df.loc[before_max_idx, "candle_pattern_score"]:<5})'
+    candle_desc_title = (f' {desc}' if len(desc) > 0 else '')
+
+    plt.figtext(0.973, 1.05, f'{trend_desc}\n{break_desc}\n{boundary_desc}\n{pattern_desc}\n{signal_desc}\n{candle_pattern_desc}', fontsize=16, color='black', ha='right', va='top', bbox=dict(boxstyle="round", fc=desc_color, ec="1.0", alpha=abs(signal_score*0.025)))
+
 
   # construct super title
   if new_title is None:
@@ -7386,10 +7393,8 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   # super title description
   score_title = f'信号 {df.loc[max_idx, "signal_score"]}' + (f'| {signal_desc_title}' if signal_desc_title != '' else '')
   candle_title = f'蜡烛 {df.loc[max_idx, "candle_pattern_score"]}' + (f' | {candle_desc_title}' if candle_desc_title != '' else '')
-
   fig.suptitle(f'{super_title}\n{score_title}\n{candle_title}', ha='center', va='top', x=0.5, y=1.05, fontsize=24, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.05), linespacing = 1.8)
-  plt.figtext(0.973, 1.05, f'{trend_desc}\n{break_desc}\n{boundary_desc}\n{pattern_desc}\n{signal_desc}\n{candle_pattern_desc}', fontsize=16, color='black', ha='right', va='top', bbox=dict(boxstyle="round", fc=desc_color, ec="1.0", alpha=abs(signal_score*0.025)))
-
+  
   # save image
   if save_image and (save_path is not None):
     plt_save_name = save_path + title + '.png'
