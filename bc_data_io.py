@@ -278,7 +278,7 @@ def get_code_map_from_ak():
   local_file_name = f'us_spot_em_{today}.csv'
   
   # check the existence of loacl files  
-  if os.path.exists('us_spot_em.csv'):
+  if os.path.exists(local_file_name):
     us_spot_em = pd.read_csv(local_file_name)
   else:  
     # remove old files
