@@ -105,6 +105,7 @@
       "adx_direction_start": "ADX起始", "adx_direction_day": "ADX天数",      
       "support_score": "支撑分数", "resistant_score": "阻挡分数",      
       "position_score": "位置分数",
+      "break_score": "突破分数", "boundary_score": "边界分数",
       "trend": "趋势方向", "trend_score": "趋势分数", "trend_day": "趋势天数",       
       "trigger_score": "触发分数", "trigger_day": "触发天数",
       "pattern_score": "模式分数", "pattern_description": "模式描述",
