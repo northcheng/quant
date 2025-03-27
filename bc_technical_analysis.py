@@ -7253,6 +7253,31 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
 
       plot_bar(df=plot_data, target_col='Volume', width=bar_width, alpha=0.5, color_mode="up_down", benchmark=None, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
 
+    # plot score
+    elif tmp_indicator == 'score':
+      # set bar_width according to data interval
+      bar_width = datetime.timedelta(days=1)
+      if interval == 'day':
+        bar_width = datetime.timedelta(days=1)
+      elif interval == 'week':
+        bar_width = datetime.timedelta(days=7)
+      elif interval == 'month':
+        bar_width = datetime.timedelta(days=30)
+      elif interval == 'year':
+        bar_width = datetime.timedelta(days=365)
+      else:
+        pass
+      
+      # plot_data = cal_change(df=plot_data, target_col='signal_score', add_prefix=True, add_accumulation=False)
+      plot_bar(df=plot_data, target_col='trend_score', width=bar_width, alpha=0.3, color_mode="benchmark", benchmark=0, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
+      up_idx = plot_data.query('break_score > 0').index
+      down_idx = plot_data.query('break_score < 0').index
+      axes[tmp_indicator].scatter(up_idx, plot_data.loc[up_idx, 'signal_score'], color='green', edgecolor='black', label='signal_score', alpha=0.5, marker='^', zorder=3)
+      axes[tmp_indicator].scatter(down_idx, plot_data.loc[down_idx, 'signal_score'], color='red', edgecolor='black', label='signal_score', alpha=0.5, marker='v', zorder=3)
+      # axes[tmp_indicator].plot(plot_data.index, plot_data.signal_score, color='grey', label='signal_score',linestyle='-', alpha=0.5, zorder=3) # 
+      # axes[tmp_indicator].fill_between(plot_data.index, plot_data.trend_score, plot_data.signal_score, where=plot_data.break_score < 0, facecolor='red', interpolate=True, alpha=0.3)
+      # axes[tmp_indicator].fill_between(plot_data.index, plot_data.trend_score, plot_data.signal_score, where=plot_data.break_score > 0, facecolor='green', interpolate=True, alpha=0.3)
+
     # plot renko
     elif tmp_indicator == 'renko':
       plot_renko(plot_data, use_ax=axes[tmp_indicator], title=tmp_indicator, plot_args=default_plot_args)

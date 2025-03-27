@@ -18,13 +18,13 @@
     "plot_args": {
 
       "plot_ratio": {
-        "signals": 4, "adx": 2, "main_indicators": 9, "volume":1
+        "signals": 4, "score":1, "adx": 2, "main_indicators": 9
       },
 
       "signals": {
         "signal_list": [  
 
-          "support_score", "break_up_score", "position", "break_down_score", "resistant_score", 
+          "support_score", "position", "resistant_score", 
 
           "-----",
           "长期", "中期", "短期", 
