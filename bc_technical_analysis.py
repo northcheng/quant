@@ -5567,62 +5567,6 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
       if len(tmp_data) > 0:
         ax.scatter(tmp_data.index, tmp_data[signal_y], marker=markers[s], color=colors[s], alpha=tmp_data['signal_alpha'])
 
-    # annotate info
-    ylim = ax.get_ylim()
-    y_max = ylim[1]
-    max_idx = df.index.max()
-    x_signal = max_idx + datetime.timedelta(days=2)
-
-    # # annotate overall_change (overall_change_diff)
-    # v = round(df.loc[max_idx, 'signal_score'],1)
-    # v_change = str(df['signal_score'].round(1).values[-3:].tolist()).replace(' ', '')
-    # y_signal = y_max - 1.5 # round(y_middle)
-    # text_color = 'green' if v > 0 else 'red'
-    # plt.annotate(f'{v_change}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
-
-    # annotate adx_distance (adx_distance_change)
-    v = round(df.loc[max_idx, 'adx_distance'], 1)
-    v_change = round(df.loc[max_idx, 'adx_distance_change'],2)
-    text_color = 'green' if v_change > 0 else 'red'
-    v_change = f'+{v_change}' if v_change > 0 else f'{v_change}'
-    y_signal = y_max - 4
-    plt.annotate(f'[短]{v:0<4}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
-
-    # annotate overall_change (overall_change_diff)
-    v = round(df.loc[max_idx, 'overall_change'],1)
-    v_change = round(df.loc[max_idx, 'overall_change_diff'],2)
-    text_color = 'green' if v_change > 0 else 'red'
-    v_change = f'+{v_change}' if v_change > 0 else f'{v_change}'
-    y_signal = y_max - 6.5 # round(y_middle)
-    plt.annotate(f'[全]{v:0<4}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
-
-    # annotate adx/ichimoku/kama distance_status
-    adx_distance_status = df.loc[max_idx, "adx_distance_status"].replace('pos', '+').replace('neg', '-').replace('none', '=').replace('up', '↑').replace('down', '↓')
-    ichimoku_distance_status = df.loc[max_idx, "ichimoku_distance_status"].replace('pos', '+').replace('neg', '-').replace('none', '=').replace('up', '↑').replace('down', '↓')
-    kama_distance_status = df.loc[max_idx, "kama_distance_status"].replace('pos', '+').replace('neg', '-').replace('none', '=').replace('up', '↑').replace('down', '↓')
-    v = f'[A]{adx_distance_status}\n[I]{ichimoku_distance_status}\n[K]{kama_distance_status}'
-    v = f'  短  中  长  \n {adx_distance_status}  {ichimoku_distance_status}  {kama_distance_status} '
-    y_signal = y_max - 10 # round(y_middle + y_range/4)
-    text_color = 'black'
-    if (df.loc[max_idx, "adx_distance_status"] in ['posup', 'negup'] and df.loc[max_idx, "ichimoku_distance_status"] in ['posup', 'negup', 'posnone', 'negnone']):
-      text_color = 'green'
-    elif (df.loc[max_idx, "adx_distance_status"] in ['posdown', 'negdown'] and df.loc[max_idx, "ichimoku_distance_status"] in ['posdown', 'negdown', 'posnone', 'negnone']):
-      text_color = 'red'
-    else:
-      pass
-    plt.annotate(f'{v}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
-
-    # # fill colors for different position
-    # p_alpha = {'l': 0, 'ml': 0.1, 'mh': 0.2, 'h': 0.3}
-    # for p in ['l', 'ml', 'mh', 'h']:
-    #   ax.fill_between(df.index, 0, y_max, where=df['位置'] == p, hatch=None, linewidth=1, facecolor='orange', edgecolor='none', interpolate=False, alpha=p_alpha[p], zorder=0)
-
-    # title and legend
-    ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
-    ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
-    ax.grid(True, axis='x', linestyle='-', linewidth=0.5, alpha=0.1)
-    ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
-
   # trend
   if signal_x in ['trend']:
 
@@ -5665,6 +5609,16 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     if len(tmp_data) > 0:
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='red', alpha=tmp_data[tmp_col_a].fillna(0))
 
+    # outer circle
+    outer_alpha = 0.7
+    tmp_data = df.query(f'(break_up_score > 0)')
+    if len(tmp_data) > 0:
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='^', color='none', edgecolor='green', alpha=outer_alpha)
+  
+    tmp_data = df.query(f'(break_down_score < 0)')
+    if len(tmp_data) > 0:
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='v', color='none', edgecolor='red', alpha=outer_alpha)
+
     # # 趋势转换
     # tmp_col_v = f'adx_day'
     # tmp_col_a = f'adx_day_alpha'
@@ -5682,6 +5636,62 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     # if len(tmp_data) > 0:
     #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='red', alpha=0.75)
 
+    # annotate info
+    ylim = ax.get_ylim()
+    y_max = ylim[1]
+    max_idx = df.index.max()
+    x_signal = max_idx + datetime.timedelta(days=2)
+
+    # # annotate overall_change (overall_change_diff)
+    # v = round(df.loc[max_idx, 'signal_score'],1)
+    # v_change = str(df['signal_score'].round(1).values[-3:].tolist()).replace(' ', '')
+    # y_signal = y_max - 1.5 # round(y_middle)
+    # text_color = 'green' if v > 0 else 'red'
+    # plt.annotate(f'{v_change}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+
+    # annotate adx_distance (adx_distance_change)
+    v = round(df.loc[max_idx, 'adx_distance'], 1)
+    v_change = round(df.loc[max_idx, 'adx_distance_change'],2)
+    text_color = 'green' if v_change > 0 else 'red'
+    v_change = f'+{v_change}' if v_change > 0 else f'{v_change}'
+    y_signal = y_max - 1.5
+    plt.annotate(f'[短]{v:0<4}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+
+    # annotate overall_change (overall_change_diff)
+    v = round(df.loc[max_idx, 'overall_change'],1)
+    v_change = round(df.loc[max_idx, 'overall_change_diff'],2)
+    text_color = 'green' if v_change > 0 else 'red'
+    v_change = f'+{v_change}' if v_change > 0 else f'{v_change}'
+    y_signal = y_max - 3.5 # round(y_middle)
+    plt.annotate(f'[全]{v:0<4}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+
+    # annotate adx/ichimoku/kama distance_status
+    adx_distance_status = df.loc[max_idx, "adx_distance_status"].replace('pos', '+').replace('neg', '-').replace('none', '=').replace('up', '↑').replace('down', '↓')
+    ichimoku_distance_status = df.loc[max_idx, "ichimoku_distance_status"].replace('pos', '+').replace('neg', '-').replace('none', '=').replace('up', '↑').replace('down', '↓')
+    kama_distance_status = df.loc[max_idx, "kama_distance_status"].replace('pos', '+').replace('neg', '-').replace('none', '=').replace('up', '↑').replace('down', '↓')
+    v = f'[A]{adx_distance_status}\n[I]{ichimoku_distance_status}\n[K]{kama_distance_status}'
+    v = f'  短  中  长  \n {adx_distance_status}  {ichimoku_distance_status}  {kama_distance_status} '
+    y_signal = y_max - 7.5 # round(y_middle + y_range/4)
+    text_color = 'black'
+    if (df.loc[max_idx, "adx_distance_status"] in ['posup', 'negup'] and df.loc[max_idx, "ichimoku_distance_status"] in ['posup', 'negup', 'posnone', 'negnone']):
+      text_color = 'green'
+    elif (df.loc[max_idx, "adx_distance_status"] in ['posdown', 'negdown'] and df.loc[max_idx, "ichimoku_distance_status"] in ['posdown', 'negdown', 'posnone', 'negnone']):
+      text_color = 'red'
+    else:
+      pass
+    plt.annotate(f'{v}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+
+    # # fill colors for different position
+    # p_alpha = {'l': 0, 'ml': 0.1, 'mh': 0.2, 'h': 0.3}
+    # for p in ['l', 'ml', 'mh', 'h']:
+    #   ax.fill_between(df.index, 0, y_max, where=df['位置'] == p, hatch=None, linewidth=1, facecolor='orange', edgecolor='none', interpolate=False, alpha=p_alpha[p], zorder=0)
+
+    # title and legend
+    ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
+    ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
+    ax.grid(True, axis='x', linestyle='-', linewidth=0.5, alpha=0.1)
+    ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
+
   # adx_syn(whether adx_value and adx_strength goes the same direction)
   if signal_x in ['adx', 'overall']:
     
@@ -5696,7 +5706,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     outer_neg_marker = 'o'
     outer_alpha = 0.7
     inner_pos_marker = '.'
-    inner_neg_marker = 'x'
+    inner_neg_marker = '.'
     df['inner_alpha'] = normalize(df[inner_tmp_col_v].abs())
     none_marker = '_'
     
@@ -5761,8 +5771,8 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     neg_marker = '|'
     none_marker = '_'
     if signal_x in ["support_score", "resistant_score", ]:
-      pos_marker = '^' 
-      neg_marker = 'v'
+      pos_marker = '_' 
+      neg_marker = '_'
     elif signal_x in ['crossover_score']:
       pos_marker = '*' 
       neg_marker = '*'
@@ -5787,10 +5797,10 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
       # tmp_alpha = normalize(tmp_data[tmp_col_v].abs())
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker=neg_marker, color='red', alpha=tmp_data[tmp_col_a].fillna(0))
     
-    tmp_data = df.query(f'({-threhold} <= {tmp_col_v} <= {threhold})')
-    if len(tmp_data) > 0:
-      tmp_alpha = 0.1
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=none_marker, color='grey', alpha=tmp_alpha)
+    # tmp_data = df.query(f'({-threhold} <= {tmp_col_v} <= {threhold})')
+    # if len(tmp_data) > 0:
+    #   tmp_alpha = 0.05
+    #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker=none_marker, color='grey', alpha=tmp_alpha)
 
   # patterns
   if signal_x in ["边界", "距离", "蜡烛"]: # , "一般", "反弹", "蜡烛", "位置", "前瞻"
@@ -5856,8 +5866,8 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
     # position
     tmp_col_v = f'位置'
-    tmp_alpha = 0.5
-    tmp_color = 'grey'
+    tmp_alpha = 1
+    tmp_color = 'orange'
     
     values = {'低': 'l', '中低': 'ml', '中高': 'mh', '高': 'h'}
     markers = {'低': '_', '中低': 's', '中高': 's', '高': 's'}
@@ -5870,7 +5880,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
         ax.scatter(tmp_data.index, tmp_data[signal_y], marker=markers[p], color=colors[p], edgecolor=edgecolors[p], alpha=tmp_alpha)
 
         if p in ['中高']:
-          ax.scatter(tmp_data.index, tmp_data[signal_y], marker='x', color=tmp_color, alpha=tmp_alpha)
+          ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color=tmp_color, alpha=tmp_alpha)
 
     # 模式
     alpha = 0.75
@@ -5878,22 +5888,22 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     # 超买
     tmp_data = df.query(f'(超买超卖_up == 1)')
     if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='green', alpha=alpha)
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='green', alpha=alpha) # 'none', edgecolor=
 
     # 超卖
     tmp_data = df.query(f'(超买超卖_down == -1)')
     if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='red', alpha=alpha)
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='red', alpha=alpha) # 'none', edgecolor=
 
-    # 反弹
-    tmp_data = df.query(f'(支撑阻挡_up == 1)')
-    if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='green', alpha=alpha/2)
+    # # 反弹
+    # tmp_data = df.query(f'(支撑阻挡_up == 1)')
+    # if len(tmp_data) > 0:
+    #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='green', alpha=alpha/2)
 
-    # 触顶
-    tmp_data = df.query(f'(支撑阻挡_down == -1)')
-    if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='red', alpha=alpha/2)
+    # # 触顶
+    # tmp_data = df.query(f'(支撑阻挡_down == -1)')
+    # if len(tmp_data) > 0:
+    #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='red', alpha=alpha/2)
     
     # # none
     # tmp_data = df.query(f'(超买超卖_up == 0 and 超买超卖_down == 0 and 支撑阻挡_up == 0 and 支撑阻挡_down == 0 and trend_波动 == 0)')
@@ -7274,9 +7284,6 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
       down_idx = plot_data.query('break_score < 0').index
       axes[tmp_indicator].scatter(up_idx, plot_data.loc[up_idx, 'signal_score'], color='green', edgecolor='black', label='signal_score', alpha=0.5, marker='^', zorder=3)
       axes[tmp_indicator].scatter(down_idx, plot_data.loc[down_idx, 'signal_score'], color='red', edgecolor='black', label='signal_score', alpha=0.5, marker='v', zorder=3)
-      # axes[tmp_indicator].plot(plot_data.index, plot_data.signal_score, color='grey', label='signal_score',linestyle='-', alpha=0.5, zorder=3) # 
-      # axes[tmp_indicator].fill_between(plot_data.index, plot_data.trend_score, plot_data.signal_score, where=plot_data.break_score < 0, facecolor='red', interpolate=True, alpha=0.3)
-      # axes[tmp_indicator].fill_between(plot_data.index, plot_data.trend_score, plot_data.signal_score, where=plot_data.break_score > 0, facecolor='green', interpolate=True, alpha=0.3)
 
     # plot renko
     elif tmp_indicator == 'renko':
@@ -7366,12 +7373,11 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
     trend_desc = (f' {desc}' if len(desc) > 0 else '') + f' > 趋势 {df.loc[idx, "trend_score"]:<5} ({df.loc[before_max_idx, "trend_score"]:<5})'
 
     # trigger desc (break_through)
-    up_desc = df.loc[idx, "break_up_description"] # up_score_description
-    down_desc = df.loc[idx, "break_down_description"]
-    if len(up_desc) > 0:
-      up_desc = f'突破({up_desc})'
-    if len(down_desc) > 0:
-      down_desc = f'跌落({down_desc})'
+    up_desc = df.loc[idx, "break_up_score"] # break_up_description
+    down_desc = df.loc[idx, "break_down_score"]
+    
+    up_desc = f'突破({up_desc})' if up_desc > 0 else ''
+    down_desc = f'跌落({down_desc})' if down_desc < 0 else ''
     if len(up_desc) > 0 and len(down_desc) > 0:
       desc = f'{up_desc} | {down_desc}'
     else:
@@ -7379,12 +7385,10 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
     break_desc = (f' {desc}' if len(desc) > 0 else '') + f' > 突破 {df.loc[idx, "break_score"]:<5} ({df.loc[before_max_idx, "break_score"]:<5})'
 
     # trigger desc (boundary)
-    up_desc = f'{df.loc[idx, "support_description"]}'
-    down_desc = f'{df.loc[idx, "resistant_description"]}'
-    if len(up_desc) > 0:
-      up_desc = f'支撑({up_desc})'
-    if len(down_desc) > 0:
-      down_desc = f'阻挡({down_desc})'
+    up_desc = df.loc[idx, "support_score"]
+    down_desc = df.loc[idx, "resistant_score"]
+    up_desc = f'支撑({up_desc*0.5})' if up_desc > 0 else ''
+    down_desc = f'阻挡({down_desc*0.5})' if down_desc < 0 else ''
     if len(up_desc) > 0 and len(down_desc) > 0:
       desc = f'{up_desc} | {down_desc}'
     else:
