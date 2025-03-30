@@ -5506,7 +5506,7 @@ def plot_score(df, start=None, end=None, width=0.8, use_ax=None, title=None, plo
     return ax
 
 # plot signals on price line
-def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', use_ax=None, title=None, trend_val=default_trend_val, signal_val=default_signal_val, plot_args=default_plot_args):
+def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', use_ax=None, title=None, interval='day', trend_val=default_trend_val, signal_val=default_signal_val, plot_args=default_plot_args):
   """
   Plot signals along with the price
 
@@ -5663,7 +5663,8 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     ylim = ax.get_ylim()
     y_max = ylim[1]
     max_idx = df.index.max()
-    x_signal = max_idx + datetime.timedelta(days=2)
+    interval_factor = {'day':2, 'week': 10, 'month': 45}
+    x_signal = max_idx + datetime.timedelta(days=1 * interval_factor[interval])
 
     # # annotate overall_change (overall_change_diff)
     # v = round(df.loc[max_idx, 'signal_score'],1)
@@ -5677,7 +5678,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     v_change = round(df.loc[max_idx, 'adx_distance_change'],2)
     text_color = 'green' if v_change > 0 else 'red'
     v_change = f'+{v_change}' if v_change > 0 else f'{v_change}'
-    y_signal = y_max - 3.5
+    y_signal = y_max - 2.5
     plt.annotate(f'[短]{v:0<4}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
     # annotate overall_change (overall_change_diff)
@@ -5685,7 +5686,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     v_change = round(df.loc[max_idx, 'overall_change_diff'],2)
     text_color = 'green' if v_change > 0 else 'red'
     v_change = f'+{v_change}' if v_change > 0 else f'{v_change}'
-    y_signal = y_max - 5.5 # round(y_middle)
+    y_signal = y_max - 4.5 # round(y_middle)
     plt.annotate(f'[总]{v:0<4}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
     # annotate adx/ichimoku/kama distance_status
@@ -5694,7 +5695,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     kama_distance_status = df.loc[max_idx, "kama_distance_status"].replace('pos', '+').replace('neg', '-').replace('none', '=').replace('up', '↑').replace('down', '↓')
     v = f'[A]{adx_distance_status}\n[I]{ichimoku_distance_status}\n[K]{kama_distance_status}'
     v = f'  短  中  长  \n {adx_distance_status}  {ichimoku_distance_status}  {kama_distance_status} '
-    y_signal = y_max - 8.5 # round(y_middle + y_range/4)
+    y_signal = y_max - 7.5 # round(y_middle + y_range/4)
     text_color = 'black'
     if (df.loc[max_idx, "adx_distance_status"] in ['posup', 'negup'] and df.loc[max_idx, "ichimoku_distance_status"] in ['posup', 'negup', 'posnone', 'negnone']):
       text_color = 'green'
@@ -6024,6 +6025,7 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   plot_bar(df=df, target_col=target_col, alpha=0.4, width=bar_width, color_mode='up_down', edge_color=(0.5,0.5,0.5,0), benchmark=0, title='', use_ax=ax, plot_args=default_plot_args)
 
   # annotate adx (adx_strength_change)
+  interval_factor = {'day':2, 'week': 10, 'month': 45}
   ylim = ax.get_ylim()
   y_min = ylim[0]
   y_max = ylim[1]
@@ -6032,7 +6034,7 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
 
   max_idx = df.index.max()
   before_max_idx = df.index[-2]
-  x_signal = max_idx + datetime.timedelta(days=2)
+  x_signal = max_idx + datetime.timedelta(days=1 * interval_factor[interval])
   v = round(df.loc[max_idx, 'adx_strength'], 1)
   v_change = round(df.loc[max_idx, 'adx_strength_change'],1)
   y_signal = round(y_middle + y_range/4)
@@ -6041,8 +6043,10 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   v_change = f'+{v_change}' if v_change > 0 else f'{v_change}'
   plt.annotate(f'[强]{v:0<5}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
+  
+
   # annotate adx_value(adx_value_change)
-  x_signal = max_idx + datetime.timedelta(days=2)
+  x_signal = max_idx + datetime.timedelta(days=1 * interval_factor[interval])
   v = round(df.loc[max_idx, 'adx_value'],1)
   v_change = round(df.loc[max_idx, 'adx_value_change'],1)
   y_signal = round(y_middle)
@@ -6051,7 +6055,7 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
   plt.annotate(f'[值]{v:0<5}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
   # annotate adx_value_prediction(adx_value_prediction - adx_value)
-  x_signal = max_idx + datetime.timedelta(days=2)
+  x_signal = max_idx + datetime.timedelta(days=1 * interval_factor[interval])
   v = round(df.loc[max_idx, 'adx_value']-df.loc[max_idx, 'adx_value_prediction'],1)
   v_change = round(v - (df.loc[before_max_idx, 'adx_value']-df.loc[before_max_idx, 'adx_value_prediction']),1)
   y_signal = round(y_middle - y_range/4)
@@ -6419,14 +6423,15 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   support_resistant_cols = ['Close', 'support', 'supporter', 'support_score', 'support_description', 'resistant', 'resistanter', 'resistant_score', 'resistant_description']
   current_idx = max_idx
   next_idx = None
-
-  if interval == "day":
+  interval_factor = {'day':1, 'week': 56, 'month': 259}
+  
+  if interval in ["day", "week", "month"]:
     
     # pred = add_ma_linear_features(df, period=period, target_col=ext_columns)
 
     for i in range(extended):
 
-      next_idx = current_idx + datetime.timedelta(days = 1)
+      next_idx = current_idx + datetime.timedelta(days = interval_factor[interval])
       df.loc[next_idx, candle_gap_cols] = df.loc[max_idx, candle_gap_cols]
       df.loc[next_idx, support_resistant_cols] = df.loc[max_idx, support_resistant_cols]
       df.loc[next_idx, ext_columns] = df.loc[max_idx, ext_columns]
@@ -7368,7 +7373,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
           plot_data[f'signal_base_{signal_name}'] = i
           signal_bases.append(i)
           plot_signal(
-            df=plot_data, signal_x=signal_name, signal_y=f'signal_base_{signal_name}', 
+            df=plot_data, signal_x=signal_name, signal_y=f'signal_base_{signal_name}', interval=interval,
             title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=subplot_args)
 
       # signal_names = [{'adx':'adx(dst_chg)','overall':'overall(chg_dif)'}[x] if x in ['adx','overall'] else x for x in signal_names ]
