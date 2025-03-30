@@ -24,10 +24,11 @@
       "signals": {
         "signal_list": [  
 
-          "support_score", "长期", "中期", "短期", "resistant_score", 
-
-          "-----",
-          "position", "overall", "adx", "trigger"
+          "长期", "中期", "短期",
+          
+          "-----", "overall", "adx", 
+          
+          "-----", "position", "trigger", "break"
           
         ]
       },   
