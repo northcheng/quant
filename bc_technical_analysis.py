@@ -5597,20 +5597,19 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
     # position
     tmp_col_v = f'位置'
-    tmp_alpha = f'position_alpha'
-    df[tmp_alpha] = 0.5 # normalize(df['position_score'].abs())
-    tmp_color = 'grey'
+    tmp_color = 'orange'
     tmp_color_mid = 'orange'
     
     values = {'低': 'l', '中低': 'ml', '中高': 'mh', '高': 'h'}
     markers = {'低': '.', '中低': '.', '中高': 's', '高': 's'}
-    colors = {'低': tmp_color, '中低': tmp_color_mid, '中高': tmp_color_mid, '高': tmp_color}
+    colors = {'低': tmp_color, '中低': 'none', '中高': 'none', '高': tmp_color}
     edgecolors = {'低': tmp_color, '中低': tmp_color_mid, '中高': tmp_color_mid, '高': tmp_color}
+    alphas = {'低': 0.66, '中低': 1, '中高': 1, '高': 0.66}
 
     for p in markers.keys():
       tmp_data = df.query(f'({tmp_col_v} == "{values[p]}")')
       if len(tmp_data) > 0:
-        ax.scatter(tmp_data.index, tmp_data[signal_y], marker=markers[p], color=colors[p], edgecolor=edgecolors[p], alpha=tmp_data[tmp_alpha].fillna(0))
+        ax.scatter(tmp_data.index, tmp_data[signal_y], marker=markers[p], color=colors[p], edgecolor=edgecolors[p], alpha=alphas[p])
 
     # 模式
     alpha = 0.5
@@ -5641,6 +5640,15 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     tmp_data = df.query(f'({tmp_col_v} < {-threhold})')
     if len(tmp_data) > 0:
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='red', edgecolor='none', alpha=tmp_data[tmp_col_a].fillna(0))
+
+    # adx_distance_change + overall_change_diff
+    df['final_score'] = df['adx_distance_change'] + df['overall_change_diff']
+    df['final_score_alpha'] = normalize(df['final_score'].abs())
+
+    up_idx = df.query('((adx_day > 0 or overall_change > 0) and (adx_distance_change > 0 and overall_change_diff > 0)) or final_score > 0.2').index
+    down_idx = df.query('((adx_day < 0 or overall_change < 0) and (adx_distance_change < 0 and overall_change_diff < 0)) or final_score < -0.2').index
+    ax.scatter(up_idx, df.loc[up_idx, signal_y], marker='_', color='green', alpha=0.5)
+    ax.scatter(down_idx, df.loc[down_idx, signal_y], marker='_', color='red', alpha=0.5)
 
     # # 趋势转换
     # tmp_col_v = f'adx_day'
@@ -6927,8 +6935,8 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
   axes = {}
 
   key_crateria = ['trend_score', 'trigger_score', 'pattern_score', 'candle_pattern_score', 'signal_score']
-  sort_crateria = ['signal_score', 'pattern_score']
-  sort_order = [True, True]
+  sort_crateria = ['rate', 'pattern_score', 'trigger_score']
+  sort_order = [True, True, True]
 
   # plot rate and score
   for i in range(n_row):

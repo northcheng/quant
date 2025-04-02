@@ -28,7 +28,7 @@
           
           "-----", "overall", "adx", 
           
-          "-----", "position", "trigger", "break"
+          "-----", "position", "break", "trigger"
           
         ]
       },   
