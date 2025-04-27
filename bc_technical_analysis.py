@@ -1555,6 +1555,22 @@ def calculate_ta_signal(df):
                             )
                             '''.replace('\n', ''),
 
+      # B: 中高位波动买入  
+      '波动买入':           '''
+                            (signal == "b") and
+                            (
+                              (位置 in ['mh', 'h'] and adx_strong_day < 0 and adx_wave_day > 0 and adx_direction < 5)
+                            )
+                            '''.replace('\n', ''),
+
+      # S: 高位卖出  
+      '高位卖出':           '''
+                            (signal == "s") and
+                            (
+                              (位置 in ['h'] and ki_distance == 'gg' and position_score >= 2 and break_down_score == 0)
+                            )
+                            '''.replace('\n', ''),
+
     } 
     for c in none_signal_conditions.keys():
       df[c] = 0
@@ -7437,7 +7453,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
     desc = df.loc[idx, "signal_description"]
     change = round(df.loc[idx, "signal_score"] - df.loc[before_max_idx, "signal_score"], 2)
     change_desc = f'+{change}' if change >= 0 else f'{change}'
-    signal_desc = (f'{desc}' if len(desc) > 0 else '') + f'信号 {df.loc[idx, "signal_score"]:<5} ({change_desc:<5})'
+    signal_desc = (f'{desc}' if len(desc) > 0 else '') + f'   信号 {df.loc[idx, "signal_score"]:<5} ({change_desc:<5})'
     signal_desc_title = (f'{desc}' if len(desc) > 0 else '')
 
     # trend desc
@@ -7501,7 +7517,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   super_title = f' {title}({new_title})  {close_rate}% {title_symbol}'
 
   # super title description
-  score_title = f'信号 {df.loc[max_idx, "signal_score"]}' + (f'| {signal_desc_title}' if signal_desc_title != '' else '')
+  score_title = f'信号 {df.loc[max_idx, "signal_score"]}' + (f' | {signal_desc_title}' if signal_desc_title != '' else '')
   candle_title = f'蜡烛 {df.loc[max_idx, "candle_pattern_score"]}' + (f' | {candle_desc_title}' if candle_desc_title != '' else '')
   fig.suptitle(f'{super_title}\n{score_title}\n{candle_title}', ha='center', va='top', x=0.5, y=1.05, fontsize=24, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.05), linespacing = 1.8)
   
