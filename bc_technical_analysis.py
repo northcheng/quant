@@ -1089,6 +1089,7 @@ def calculate_ta_signal(df):
   df['adx_wave'] = df['adx_value_change'].abs() + df['adx_strength_change'].abs()
   df['candle_color_sda'] = sda(df['candle_color'], zero_as=0)
   df['ki_distance_sum'] = df['ichimoku_distance'] + df['kama_distance']
+  df['final_score'] = df['adx_distance_change'] + df['overall_change_diff']
   col_to_drop += ['prev_adx_day', 'adx_wave', 'ki_distance_sum', 'candle_color_sda']  # 
   
   # ================================ calculate position =====================
@@ -1479,7 +1480,10 @@ def calculate_ta_signal(df):
                     (trend == "up") and 
                     (
                       (0 < trend_day <= 1) and
-                      (trigger_score >= 0)
+                      (
+                        (trigger_score >= 0 and (相对kama位置 != "down" or 相对ichimoku位置 != "down")) or
+                        (trigger_score > 0 and 相对kama位置 == "down" and 相对ichimoku位置 == "down") 
+                      )
                     )
                     '''.replace('\n', ''),
 
@@ -1487,31 +1491,55 @@ def calculate_ta_signal(df):
                     (trend == "down") and 
                     (
                       (-1 <= trend_day < 0) and 
-                      (trigger_score <= 0)
+                      (
+                        (trigger_score <= 0 and (相对kama位置 != "up" or 相对ichimoku位置 != "up")) or
+                        (trigger_score < 0 and 相对kama位置 == "up" and 相对ichimoku位置 == "up") 
+                      )
                     )
                     '''.replace('\n', ''),   
 
       '触发_buy':   '''
                     (trend == "up") and 
                     (
-                      (trigger_score > 0)
+                      (trigger_score > 0) and
+                      (final_score > 0)
                     )
                     '''.replace('\n', ''),
 
       '触发_sell':  '''
                     (trend == "down") and 
                     (
-                      (trigger_score < 0)
+                      (trigger_score < 0) and
+                      (final_score < 0)
+                    )
+                    '''.replace('\n', ''),    
+
+      '前瞻_buy':   '''
+                    (trend_day <= 1) and 
+                    (
+                      (adx_day >= 0 or overall_change > 0) and
+                      (adx_distance_change > 0 and overall_change_diff > 0 and final_score > 0.1)
+                    )
+                    '''.replace('\n', ''),
+
+      '前瞻_sell':  '''
+                    (trend_day >= -1) and 
+                    (
+                      (adx_day <= 0 or overall_change < 0) and
+                      (adx_distance_change < -0 and overall_change_diff < 0 and final_score < -0.1)
                     )
                     '''.replace('\n', ''),    
     } 
     values = {
 
-      '转换_buy':          'b',
-      '转换_sell':         's',
+      # '转换_buy':          'b',
+      # '转换_sell':         's',
       
       '触发_buy':          'b',
       '触发_sell':         's',
+
+      '前瞻_buy':          'b',
+      '前瞻_sell':         's',
 
     }
     df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
@@ -1571,6 +1599,25 @@ def calculate_ta_signal(df):
                             )
                             '''.replace('\n', ''),
 
+      # B: 低位下行  
+      '低位下行':           '''
+                            (signal == "b") and
+                            (
+                              (位置 in ['l'] and ki_distance == 'rr' and kama_fast > kijun)
+                            )
+                            '''.replace('\n', ''),
+
+      # : 突破失败  
+      '突破失败':           '''
+                            (
+                              (位置 in ['l', 'ml']) and 
+                              (
+                                (kama_slow_resistant < 0 or candle_gap_top_resistant < 0) or 
+                                (kama_slow_break_up > 0 and candle_color == -1)
+                              )
+                            )
+                            '''.replace('\n', ''),
+
     } 
     for c in none_signal_conditions.keys():
       df[c] = 0
@@ -1582,6 +1629,12 @@ def calculate_ta_signal(df):
     none_signal_idx = list(set(none_signal_idx))
     df.loc[none_signal_idx, 'signal'] = 'n' + df.loc[none_signal_idx, 'signal']
     df['signal_description'] = df['signal_description'].apply(lambda x: x[:-2])
+
+    # change signal
+    additional_sell = df.query('突破失败 == -1').index
+    df.loc[additional_sell, 'signal'] = 's'
+
+    # signal day
     df['signal_day'] = sda(df['signal'].replace({'b': 1, 's': -1, '': 0, 'nb': 1, 'ns': -1}), zero_as=1)  
 
   # drop redundant columns
@@ -3065,7 +3118,7 @@ def add_support_resistance(df, target_col=default_support_resistant_col):
       tmp_distance = abs(df[col_1] - df[col_2]) / df[col_1]
       df[distance_col] = tmp_distance
       generated_cols[col_1].append(distance_col)
-      
+
   df['support_score'] = 0
   df['support_description'] = ''
   df['resistant_score'] = 0
@@ -3194,14 +3247,14 @@ def add_support_resistance(df, target_col=default_support_resistant_col):
   # ================================ in-day support and resistant ======================
   for col in target_col:
     
-    up_query = f'((Open > {col} and Low < {col} and Close > {col}) or ({col}_day != 1 and Open < {col} and Close > {col})) and ({col}_support == 0) and (candle_entity_bottom > {col}) and ({col}_break_up == 0)'
+    up_query = f'((Open > {col} and Low <= {col} and Close > {col}) or ({col}_day != 1 and Open < {col} and Close > {col})) and ({col}_support == 0) and (candle_entity_bottom > {col}) and ({col}_break_up == 0)'
     if 'renko' in col:
       up_query += ' and (renko_real != "red")'
     support_idx = df.query(up_query).index
     df.loc[support_idx, 'support_description'] += f'{col}, '
     df.loc[support_idx, f'{col}_support'] += 1
     
-    down_query = f'((Open < {col} and High > {col} and Close < {col}) or ({col}_day != -1 and Open > {col} and Close < {col})) and ({col}_resistant == 0) and (candle_entity_top < {col}) and ({col}_break_down == 0)'
+    down_query = f'((Open < {col} and High >= {col} and Close < {col}) or ({col}_day != -1 and Open > {col} and Close < {col})) and ({col}_resistant == 0) and (candle_entity_top < {col}) and ({col}_break_down == 0)'
     if 'renko' in col:
       down_query += ' and (renko_real != "green")'
     resistant_idx = df.query(down_query).index
@@ -3265,7 +3318,7 @@ def add_support_resistance(df, target_col=default_support_resistant_col):
 
   # drop unnecessary columns
   for col in col_to_drop:
-    if col in df.columns:
+    if col in df.columns and col not in ['candle_gap_top_resistant', 'candle_gap_bottom_resistant']:
       df.drop(col, axis=1, inplace=True)
 
   return df
@@ -5658,9 +5711,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='red', edgecolor='none', alpha=tmp_data[tmp_col_a].fillna(0))
 
     # adx_distance_change + overall_change_diff
-    df['final_score'] = df['adx_distance_change'] + df['overall_change_diff']
     df['final_score_alpha'] = normalize(df['final_score'].abs())
-
     up_idx = df.query('((adx_day > 0 or overall_change > 0) and (adx_distance_change > 0 and overall_change_diff > 0)) or final_score > 0.2').index
     down_idx = df.query('((adx_day < 0 or overall_change < 0) and (adx_distance_change < 0 and overall_change_diff < 0)) or final_score < -0.2').index
     ax.scatter(up_idx, df.loc[up_idx, signal_y], marker='_', color='green', alpha=0.5)
