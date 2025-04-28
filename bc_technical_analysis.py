@@ -1294,7 +1294,8 @@ def calculate_ta_signal(df):
       df.loc[tmp_idx, 'trend'] = ''
     
     df['trend_day'] = sda(df['trend'].replace({'':0, 'up':1, 'down': -1}), zero_as=1)
-
+    df['prev_trend_day'] = df['trend_day'].shift(1)
+    col_to_drop += ['prev_adx_day', 'adx_wave', 'ki_distance_sum', 'candle_color_sda'] 
   # ================================ calculate pattern ======================
   if 'pattern'  > '':
     df['pattern_up_score'] = 0
@@ -1477,7 +1478,7 @@ def calculate_ta_signal(df):
     conditions = {
       
       '转换_buy':   '''
-                    (adx_value <= 10) and (prev_adx_day < 0) and (trigger_score >= 0) and
+                    (adx_value <= 10) and (prev_adx_day < 0 or prev_trend_day < 0) and (trigger_score >= 0) and
                     (
                       ((adx_day == 0) and (overall_change > 0)) or
                       (adx_day == 1)
@@ -1485,7 +1486,7 @@ def calculate_ta_signal(df):
                     '''.replace('\n', ''),
 
       '转换_sell':  '''
-                    (adx_value >= -10) and (prev_adx_day > 0) and trigger_score <= 0 and
+                    (adx_value >= -10) and (prev_adx_day >= 0 or prev_trend_day > 0) and trigger_score <= 0 and
                     (
                       ((adx_day == 0) and (overall_change < 0)) or
                       (adx_day == -1)
@@ -5688,10 +5689,10 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
       if len(neg_data) > 0:
         ax.scatter(neg_data.index, neg_data[signal_y], marker=neg_marker, color=neg_color, edgecolor=neg_color_edge, alpha=1)
 
-    # df['muted_alpha'] = normalize(df['signal_muted'].abs()).clip(0, 0.5)
+    df['muted_alpha'] = normalize(df['signal_muted'].abs()) #.clip(0, 0.5)
     muted = df.query('signal_muted < 0')
     if len(muted) > 0:
-      ax.scatter(muted.index, muted[signal_y], marker='s', color='orange', edgecolor='none', alpha=0.4)
+      ax.scatter(muted.index, muted[signal_y], marker='s', color='purple', alpha=0.2) # muted['muted_alpha'].fillna(0)
 
   # trend
   if signal_x in ['trend']:
@@ -7603,6 +7604,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
     change = round(df.loc[idx, "pattern_score"] - df.loc[before_max_idx, "pattern_score"], 2)
     change_desc = f'+{change}' if change >= 0 else f'{change}'
     pattern_desc = (f' {desc}' if len(desc) > 0 else '') + f' > 模式 {df.loc[idx, "pattern_score"]:<5} ({change_desc:<5})'
+    pattern_desc_title = f'{desc}'
 
     # candle pattern desc
     up_desc = df.loc[idx, "up_pattern_description"]
@@ -7627,8 +7629,8 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   super_title = f' {title}({new_title})  {close_rate}% {title_symbol}'
 
   # super title description
-  score_title = f'信号 {df.loc[max_idx, "signal_score"]}' + (f' | {signal_desc_title}' if signal_desc_title != '' else '')
-  candle_title = f'蜡烛 {df.loc[max_idx, "candle_pattern_score"]}' + (f' | {candle_desc_title}' if candle_desc_title != '' else '')
+  score_title = (f'{pattern_desc_title}' if pattern_desc_title != '' else '') + (f' | {signal_desc_title}' if signal_desc_title != '' else '')
+  candle_title = (f'{candle_desc_title}' if candle_desc_title != '' else '')
   fig.suptitle(f'{super_title}\n{score_title}\n{candle_title}', ha='center', va='top', x=0.5, y=1.05, fontsize=24, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.05), linespacing = 1.8)
   
   # save image
