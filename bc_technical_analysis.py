@@ -1293,7 +1293,7 @@ def calculate_ta_signal(df):
       tmp_idx = df.query(tmp_condition).index
       df.loc[tmp_idx, 'trend'] = ''
     
-    df['trend_day'] = sda(df['trend'].replace({'':0, 'up':1, 'down': -1}))
+    df['trend_day'] = sda(df['trend'].replace({'':0, 'up':1, 'down': -1}), zero_as=1)
 
   # ================================ calculate pattern ======================
   if 'pattern'  > '':
@@ -1477,29 +1477,23 @@ def calculate_ta_signal(df):
     conditions = {
       
       '转换_buy':   '''
-                    (trend == "up") and 
+                    (adx_value <= 10) and (prev_adx_day < 0) and (trigger_score >= 0) and
                     (
-                      (0 < trend_day <= 1) and
-                      (
-                        (trigger_score >= 0 and (相对kama位置 != "down" or 相对ichimoku位置 != "down")) or
-                        (trigger_score > 0 and 相对kama位置 == "down" and 相对ichimoku位置 == "down") 
-                      )
+                      ((adx_day == 0) and (overall_change > 0)) or
+                      (adx_day == 1)
                     )
                     '''.replace('\n', ''),
 
       '转换_sell':  '''
-                    (trend == "down") and 
+                    (adx_value >= -10) and (prev_adx_day > 0) and trigger_score <= 0 and
                     (
-                      (-1 <= trend_day < 0) and 
-                      (
-                        (trigger_score <= 0 and (相对kama位置 != "up" or 相对ichimoku位置 != "up")) or
-                        (trigger_score < 0 and 相对kama位置 == "up" and 相对ichimoku位置 == "up") 
-                      )
+                      ((adx_day == 0) and (overall_change < 0)) or
+                      (adx_day == -1)
                     )
                     '''.replace('\n', ''),   
 
       '触发_buy':   '''
-                    (trend == "up") and 
+                    (trend == "up" or (trend == "" and adx_day == 0 and overall_change > 0)) and 
                     (
                       (trigger_score > 0) and
                       (final_score > 0)
@@ -1507,7 +1501,7 @@ def calculate_ta_signal(df):
                     '''.replace('\n', ''),
 
       '触发_sell':  '''
-                    (trend == "down") and 
+                    (trend == "down" or (trend == "" and adx_day == 0 and overall_change < 0)) and 
                     (
                       (trigger_score < 0) and
                       (final_score < 0)
@@ -1518,7 +1512,7 @@ def calculate_ta_signal(df):
                     (trend_day <= 1) and 
                     (
                       (adx_day >= 0 or overall_change > 0) and
-                      (adx_distance_change > 0 and overall_change_diff > 0 and final_score > 0.1)
+                      (adx_distance_change > 0 and overall_change_diff > 0 and final_score > 0.2)
                     )
                     '''.replace('\n', ''),
 
@@ -1526,23 +1520,44 @@ def calculate_ta_signal(df):
                     (trend_day >= -1) and 
                     (
                       (adx_day <= 0 or overall_change < 0) and
-                      (adx_distance_change < -0 and overall_change_diff < 0 and final_score < -0.1)
+                      (adx_distance_change < -0 and overall_change_diff < 0 and final_score < -0.2)
                     )
                     '''.replace('\n', ''),    
-    } 
-    values = {
-
-      # '转换_buy':          'b',
-      # '转换_sell':         's',
-      
-      '触发_buy':          'b',
-      '触发_sell':         's',
-
-      '前瞻_buy':          'b',
-      '前瞻_sell':         's',
-
     }
-    df = assign_condition_value(df=df, column='signal', condition_dict=conditions, value_dict=values, default_value='')
+    for c in conditions.keys():
+      tmp_name, tmp_action = c.split('_')
+      if tmp_name not in df.columns:
+        df[tmp_name] = 0
+
+      tmp_query = conditions[c]
+      tmp_idx = df.query(tmp_query).index
+      df.loc[tmp_idx, tmp_name] = 1 if tmp_action == 'buy' else -1
+    
+    buy_idx = df.query('转换 > 0 or 触发 > 0 or 前瞻 > 0').index
+    df.loc[buy_idx, 'signal'] = 'b'
+
+    sell_idx = df.query('转换 < 0 or 触发 < 0 or 前瞻 < 0').index
+    df.loc[sell_idx, 'signal'] = 's'
+
+    # values = {
+
+    #   '转换_buy':          1,
+    #   '转换_sell':         -1,
+      
+    #   '触发_buy':          2,
+    #   '触发_sell':         -2,
+
+    #   '前瞻_buy':          3,
+    #   '前瞻_sell':         -3,
+
+    # }
+    # df = assign_condition_value(df=df, column='signal_type', condition_dict=conditions, value_dict=values, default_value=0)
+
+    # buy_idx = df.query('signal_type > 0').index
+    # df.loc[buy_idx, 'signal'] = 'b'
+
+    # sell_idx = df.query('signal_type < 0').index
+    # df.loc[sell_idx, 'signal'] = 's'
 
     # disable some false alarms
     none_signal_idx = []
@@ -1579,7 +1594,7 @@ def calculate_ta_signal(df):
       '高位买入':           '''
                             (signal == "b") and
                             (
-                              (位置 in ['mh', 'h'] and 十字星_trend != "n")
+                              (位置 in ['mh', 'h'] and (十字星_trend != "n" or position_score > 1))
                             )
                             '''.replace('\n', ''),
 
@@ -1619,12 +1634,14 @@ def calculate_ta_signal(df):
                             '''.replace('\n', ''),
 
     } 
+    df['signal_muted'] = 0
     for c in none_signal_conditions.keys():
       df[c] = 0
       tmp_condition = none_signal_conditions[c]
       tmp_idx = df.query(tmp_condition).index
       df.loc[tmp_idx, c] = -1
       df.loc[tmp_idx, 'signal_description'] += f'{c}, '
+      df.loc[tmp_idx, 'signal_muted'] -= 1
       none_signal_idx += tmp_idx.tolist()    
     none_signal_idx = list(set(none_signal_idx))
     df.loc[none_signal_idx, 'signal'] = 'n' + df.loc[none_signal_idx, 'signal']
@@ -3096,6 +3113,7 @@ def add_support_resistance(df, target_col=default_support_resistant_col):
   key_cols = ['tankan', 'kijun', 'kama_fast', 'kama_slow']
   other_cols = [x for x in target_col if x not in key_cols]
   
+  # calculate cross-over day (with Close)
   for col in other_cols:
     if f'{col}_day' not in df.columns:
       df[f'{col}_day'] = cal_crossover_signal(df=df, fast_line='Close', slow_line=col, pos_signal=1, neg_signal=-1, none_signal=0)
@@ -3133,6 +3151,8 @@ def add_support_resistance(df, target_col=default_support_resistant_col):
   for col in target_col:
     if col in key_cols:
       break_weight[col] = 1
+    elif col in ['candle_gap_top', 'candle_gap_bottom']:
+      break_weight[col] = 0
     else:
       break_weight[col] = 0.5
 
@@ -3172,6 +3192,7 @@ def add_support_resistance(df, target_col=default_support_resistant_col):
   distance_threshold_strict = 0.0075
   shadow_pct_threhold = 0.2
   for col in generated_cols['Low']:
+
     tmp_col = col.split('_to_')[-1]
     df[f'{tmp_col}_support'] = 0
     support_query = f'''
@@ -3209,6 +3230,7 @@ def add_support_resistance(df, target_col=default_support_resistant_col):
 
   # calculate resistance
   for col in generated_cols['High']:
+
     tmp_col = col.split('_to_')[-1]
     df[f'{tmp_col}_resistant'] = 0
     resistant_query = f'''
@@ -5625,16 +5647,51 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
   # buy and sell
   if signal_x == ' ':
 
-    df['signal_alpha'] = df['signal_score'].abs() / 15
-    df['signal_alpha'] = df['signal_alpha'].clip(0, 1)
+    types = ['转换', '触发', '前瞻']
+    for t in types:
 
-    # b/nb, s/ns signals
-    markers = {'b': '^', 's': 'v', 'nb': '_', 'ns': '_'} # 
-    colors = {'b': 'green', 's': 'red', 'nb': 'green', 'ns': 'red'}
-    for s in markers.keys():
-      tmp_data = df.query(f'signal == "{s}"')
-      if len(tmp_data) > 0:
-        ax.scatter(tmp_data.index, tmp_data[signal_y], marker=markers[s], color=colors[s], alpha=tmp_data['signal_alpha'])
+      # markers
+      if t == '转换':
+        pos_marker = 's'
+        neg_marker = 's'
+        pos_color = 'none'
+        neg_color = 'none'
+        pos_color_edge = 'green'
+        neg_color_edge = 'red'
+      elif t == '触发':
+        pos_marker = '|'
+        neg_marker = '|'
+        pos_color = 'green'
+        neg_color = 'red'
+        pos_color_edge = 'none'
+        neg_color_edge = 'none'
+      elif t == '前瞻':
+        pos_marker = '_'
+        neg_marker = '_'
+        pos_color = 'green'
+        neg_color = 'red'
+        pos_color_edge = 'none'
+        neg_color_edge = 'none'
+      else:
+        pos_marker = '^'
+        neg_marker = 'v'
+        pos_color = 'green'
+        neg_color = 'red'
+        pos_color_edge = 'green'
+        neg_color_edge = 'red'
+
+      pos_data = df.query(f'{t} == 1')
+      if len(pos_data) > 0:
+        ax.scatter(pos_data.index, pos_data[signal_y], marker=pos_marker, color=pos_color, edgecolor=pos_color_edge, alpha=1)
+
+      neg_data = df.query(f'{t} == -1')
+      if len(neg_data) > 0:
+        ax.scatter(neg_data.index, neg_data[signal_y], marker=neg_marker, color=neg_color, edgecolor=neg_color_edge, alpha=1)
+
+    # df['muted_alpha'] = normalize(df['signal_muted'].abs()).clip(0, 0.5)
+    muted = df.query('signal_muted < 0')
+    if len(muted) > 0:
+      ax.scatter(muted.index, muted[signal_y], marker='s', color='orange', edgecolor='none', alpha=0.4)
 
   # trend
   if signal_x in ['trend']:
@@ -5673,7 +5730,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     markers = {'低': '.', '中低': '.', '中高': 's', '高': 's'}
     colors = {'低': tmp_color, '中低': 'none', '中高': 'none', '高': tmp_color}
     edgecolors = {'低': tmp_color, '中低': tmp_color_mid, '中高': tmp_color_mid, '高': tmp_color}
-    alphas = {'低': 0.66, '中低': 1, '中高': 1, '高': 0.66}
+    alphas = {'低': 0.5, '中低': 1, '中高': 1, '高': 0.5}
 
     for p in markers.keys():
       tmp_data = df.query(f'({tmp_col_v} == "{values[p]}")')
@@ -5790,6 +5847,8 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
     ax.grid(True, axis='x', linestyle='-', linewidth=0.5, alpha=0.1)
     ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
+
+    
 
   # break_score
   if signal_x in ['break']:
@@ -7428,7 +7487,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
       signals = tmp_args.get('signal_list')
 
       # plot one by one
-      labels = {'trigger': '触发', 'break': '突破(支撑/阻挡)', 'position': '位置(超买/超卖)'}
+      labels = {'trigger': '触发(A/O变化)', 'break': '突破(支撑/阻挡)', 'position': '位置(超买/超卖)'}
       signal_bases = []
       signal_names = []
       if signals is not None:
