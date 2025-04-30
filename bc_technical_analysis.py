@@ -1487,7 +1487,6 @@ def calculate_ta_signal(df):
                     '''.replace('\n', ''),   
       
       '转换_buy':   '''
-                    (位置 not in ['h', 'mh']) and
                     (trend_day == 1 and prev_trend_day < 0) and
                     (adx_day > 0)
                     '''.replace('\n', ''),
@@ -1506,26 +1505,15 @@ def calculate_ta_signal(df):
                     '''.replace('\n', ''),    
 
       '前瞻_buy':   '''
-                    (位置 not in ['h', 'mh']) and
-                    (adx_value_change > 0) and
-                    (
-                      (trend == '' and prev_trend_day < 0) or
-                      (
-                        (adx_distance_change > 0 and overall_change_diff > 0) and
-                        (adx_day >= 0 or overall_change >= 0)
-                      )
-                    )
+                    (prev_trend_day < 0) and
+                    (adx_distance_change > 0 and overall_change_diff > 0) and
+                    (adx_day == 0 or trend_day < 0)
                     '''.replace('\n', ''),
 
       '前瞻_sell':  '''
-                    (trend == '' and prev_trend_day > 0) or
-                    (
-                      (trend == "up") and 
-                      (
-                        (adx_distance_change < 0 and overall_change_diff < 0) or 
-                        (final_score < -0.2)
-                      )
-                    )
+                    (prev_trend_day > 0) and
+                    (adx_distance_change < 0 and overall_change_diff < 0) and
+                    (adx_day == 0 or trend_day > 0)
                     '''.replace('\n', ''),    
     }
     for c in conditions.keys():
