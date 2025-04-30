@@ -102,8 +102,8 @@
     "keep_columns": {
       "symbol": "代码", "name": "名称", "Close": "收盘", "rate": "涨跌", "support": "支撑", "resistant": "阻挡",       
       "adx_direction_start": "ADX起始", "adx_direction_day": "ADX天数",      
-      "support_score": "支撑分数", "resistant_score": "阻挡分数",      
-      "position_score": "位置分数", "final_score": "综合变化分数",
+      "位置": "支撑分数", "resistant_score": "阻挡分数",      
+      "position": "位置", "position_score": "位置分数", "final_score": "综合变化分数",
       "break_score": "突破分数", "boundary_score": "边界分数",
       "trend": "趋势方向", "trend_score": "趋势分数", "trend_day": "趋势天数",       
       "trigger_score": "触发分数", "trigger_day": "触发天数",
