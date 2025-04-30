@@ -1477,8 +1477,17 @@ def calculate_ta_signal(df):
 
     # signal conditions
     conditions = {
+
+      '趋势_buy':   '''
+                    Close< 0
+                    '''.replace('\n', ''),
+
+      '趋势_sell':  '''
+                    Close< 0
+                    '''.replace('\n', ''),   
       
       '转换_buy':   '''
+                    (位置 not in ['h', 'mh']) and
                     (trend_day == 1 and prev_trend_day < 0) and
                     (adx_day > 0)
                     '''.replace('\n', ''),
@@ -1497,11 +1506,26 @@ def calculate_ta_signal(df):
                     '''.replace('\n', ''),    
 
       '前瞻_buy':   '''
-                    (trend == '' and prev_trend_day < 0)
+                    (位置 not in ['h', 'mh']) and
+                    (adx_value_change > 0) and
+                    (
+                      (trend == '' and prev_trend_day < 0) or
+                      (
+                        (adx_distance_change > 0 and overall_change_diff > 0) and
+                        (adx_day >= 0 or overall_change >= 0)
+                      )
+                    )
                     '''.replace('\n', ''),
 
       '前瞻_sell':  '''
-                    (trend == '' and prev_trend_day > 0)
+                    (trend == '' and prev_trend_day > 0) or
+                    (
+                      (trend == "up") and 
+                      (
+                        (adx_distance_change < 0 and overall_change_diff < 0) or 
+                        (final_score < -0.2)
+                      )
+                    )
                     '''.replace('\n', ''),    
     }
     for c in conditions.keys():
@@ -1519,7 +1543,6 @@ def calculate_ta_signal(df):
     sell_idx = df.query('转换 < 0').index
     df.loc[sell_idx, 'signal'] = 's'
 
-    
     # disable some false alarms
     none_signal_idx = []
     none_signal_conditions = {
@@ -5610,10 +5633,10 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
     types = ['转换', '触发', '前瞻']
     settings = {
-      '转换': {'pos_marker': '^', 'neg_marker': 'v', 'pos_color': 'none', 'neg_color': 'none', 'pos_color_edge': 'green', 'neg_color_edge': 'red'},
-      '触发': {'pos_marker': '|', 'neg_marker': '|', 'pos_color': 'green', 'neg_color': 'red', 'pos_color_edge': 'none', 'neg_color_edge': 'none'},
-      '前瞻': {'pos_marker': '_', 'neg_marker': '_', 'pos_color': 'green', 'neg_color': 'red', 'pos_color_edge': 'none', 'neg_color_edge': 'none'},
-      '默认': {'pos_marker': '^', 'neg_marker': 'v', 'pos_color': 'green', 'neg_color': 'red', 'pos_color_edge': 'green', 'neg_color_edge': 'red'},
+      '转换': {'pos_marker': 'o', 'neg_marker': 'o', 'pos_color': 'none', 'neg_color': 'none', 'pos_color_edge': 'green', 'neg_color_edge': 'red', 'alpha': 1},
+      '触发': {'pos_marker': '|', 'neg_marker': '|', 'pos_color': 'green', 'neg_color': 'red', 'pos_color_edge': 'none', 'neg_color_edge': 'none', 'alpha': 1},
+      '前瞻': {'pos_marker': '.', 'neg_marker': '.', 'pos_color': 'green', 'neg_color': 'red', 'pos_color_edge': 'none', 'neg_color_edge': 'none', 'alpha': 0.5},
+      '默认': {'pos_marker': '^', 'neg_marker': 'v', 'pos_color': 'green', 'neg_color': 'red', 'pos_color_edge': 'green', 'neg_color_edge': 'red', 'alpha': 1},
     }
     for t in types:
 
@@ -5621,11 +5644,11 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
 
       pos_data = df.query(f'{t} == 1')
       if len(pos_data) > 0:
-        ax.scatter(pos_data.index, pos_data[signal_y], marker=tmp_setting['pos_marker'], color=tmp_setting['pos_color'], edgecolor=tmp_setting['pos_color_edge'], alpha=1)
+        ax.scatter(pos_data.index, pos_data[signal_y], marker=tmp_setting['pos_marker'], color=tmp_setting['pos_color'], edgecolor=tmp_setting['pos_color_edge'], alpha=tmp_setting['alpha'])
 
       neg_data = df.query(f'{t} == -1')
       if len(neg_data) > 0:
-        ax.scatter(neg_data.index, neg_data[signal_y], marker=tmp_setting['neg_marker'], color=tmp_setting['neg_color'], edgecolor=tmp_setting['neg_color_edge'], alpha=1)
+        ax.scatter(neg_data.index, neg_data[signal_y], marker=tmp_setting['neg_marker'], color=tmp_setting['neg_color'], edgecolor=tmp_setting['neg_color_edge'], alpha=tmp_setting['alpha'])
 
     # df['muted_alpha'] = normalize(df['signal_muted'].abs()) #.clip(0, 0.5)
     # muted = df.query('signal_muted < 0')
@@ -5647,12 +5670,13 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     # plt.annotate(f'{v_change}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
     # annotate final_score (adx_distance_change+overall_change_diff)
-    df['prev_final_score'] = df['final_score'].shift(1)
+    df['final_score_change'] = df['final_score'] - df['final_score'].shift(1)
     v = round(df.loc[max_idx, 'final_score'], 2)
-    v_prev = round(df.loc[max_idx, 'prev_final_score'],2)
+    v_change = round(df.loc[max_idx, 'final_score_change'],2)
     text_color = 'green' if v > 0 else 'red'
+    v_change = f'+{v_change}' if v_change > 0 else f'{v_change}'
     y_signal = y_max - 2
-    plt.annotate(f' {v_prev:0<4} → {v:0<4} ', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+    plt.annotate(f'{v:0<4}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
     # annotate adx_distance (adx_distance_change)
     v = round(df.loc[max_idx, 'adx_distance'], 1)
