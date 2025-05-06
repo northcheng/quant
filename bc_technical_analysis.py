@@ -1619,8 +1619,51 @@ def calculate_ta_signal(df):
     # df['signal_day'] = sda(df['signal'].replace({'b': 1, 's': -1, '': 0, 'nb': 1, 'ns': -1}), zero_as=1)  
 
     # signal score
-    df['signal_score'] = (df['trend_score'] + df['trigger_score'] + df['pattern_score']).round(2)
+    df['signal_score'] = 0
+    df['total_score'] = (df['trend_score'] + df['trigger_score'] + df['pattern_score']).round(2)
 
+    signal_conditions = {
+
+      '处于低位':            '''
+                            位置 in ['l']
+                            '''.replace('\n', ''),
+
+      '价格上行':            '''
+                            candle_position_score > 0
+                            '''.replace('\n', ''),
+
+      '趋势向上':            '''
+                            trend == "up"
+                            '''.replace('\n', ''),
+
+      '方向明确':            '''
+                            trend_波动 == 0
+                            '''.replace('\n', ''),
+
+      '关键突破':            '''
+                            break_up_score > 0
+                            '''.replace('\n', ''),
+
+      '没有阻挡':            '''
+                            resistant_score == 0
+                            '''.replace('\n', ''),
+
+      '正向模式':            '''
+                            up_pattern_score > 0
+                            '''.replace('\n', ''),
+    } 
+    signal_condition_weights = {'处于低位': 1, '价格上行': 1, '趋势向上': 1, '方向明确': 1, '关键突破': 1, '没有阻挡': 0.5, '正向模式':0.5}
+
+    for c in signal_conditions.keys():
+      
+      tmp_condition = signal_conditions[c]
+      tmp_idx = df.query(tmp_condition).index
+
+      df.loc[tmp_idx, 'signal_score'] += signal_condition_weights[c]
+      df.loc[tmp_idx, 'signal_description'] += c + ', '
+
+    df['signal_description'] = df['signal_description'].apply(lambda x: x[:-2] if len(x) > 0 else '')
+      
   # drop redundant columns
   for col in col_to_drop:
     if col in df.columns:
@@ -3079,6 +3122,9 @@ def add_support_resistance(df, target_col=default_support_resistant_col):
   target_col = [x for x in target_col if x in df.columns]
   key_cols = ['tankan', 'kijun', 'kama_fast', 'kama_slow']
   other_cols = [x for x in target_col if x not in key_cols]
+
+  for col in target_col:
+    df[col] = df[col].round(3)
   
   # calculate cross-over day (with Close)
   for col in other_cols:
@@ -3236,14 +3282,14 @@ def add_support_resistance(df, target_col=default_support_resistant_col):
   # ================================ in-day support and resistant ======================
   for col in target_col:
     
-    up_query = f'((Open > {col} and Low <= {col} and Close > {col}) or ({col}_day != 1 and Open < {col} and Close > {col})) and ({col}_support == 0) and (candle_entity_bottom > {col}) and ({col}_break_up == 0)'
+    up_query = f'((Open > {col} and Low <= {col} and Close >= {col}) or ({col}_day != 1 and Open < {col} and Close > {col})) and ({col}_support == 0) and (candle_entity_bottom >= {col}) and ({col}_break_up == 0)'
     if 'renko' in col:
       up_query += ' and (renko_real != "red")'
     support_idx = df.query(up_query).index
     df.loc[support_idx, 'support_description'] += f'{col}, '
     df.loc[support_idx, f'{col}_support'] += 1
     
-    down_query = f'((Open < {col} and High >= {col} and Close < {col}) or ({col}_day != -1 and Open > {col} and Close < {col})) and ({col}_resistant == 0) and (candle_entity_top < {col}) and ({col}_break_down == 0)'
+    down_query = f'((Open < {col} and High >= {col} and Close <= {col}) or ({col}_day != -1 and Open > {col} and Close < {col})) and ({col}_resistant == 0) and (candle_entity_top <= {col}) and ({col}_break_down == 0)'
     if 'renko' in col:
       down_query += ' and (renko_real != "green")'
     resistant_idx = df.query(down_query).index
@@ -3305,10 +3351,10 @@ def add_support_resistance(df, target_col=default_support_resistant_col):
       if 'kama_slow' not in tmp_col:
         col_to_drop.append(tmp_col)
 
-  # drop unnecessary columns
-  for col in col_to_drop:
-    if col in df.columns and col not in ['candle_gap_top_resistant', 'candle_gap_bottom_support']:
-      df.drop(col, axis=1, inplace=True)
+  # # drop unnecessary columns
+  # for col in col_to_drop:
+  #   if col in df.columns and col not in ['candle_gap_top_resistant', 'candle_gap_bottom_support']:
+  #     df.drop(col, axis=1, inplace=True)
 
   return df
 
@@ -7361,11 +7407,14 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
 
     # signal desc
     signal_score = df.loc[idx, "signal_score"]
-    desc = df.loc[idx, "signal_description"]
-    change = round(df.loc[idx, "signal_score"] - df.loc[before_max_idx, "signal_score"], 2)
+    desc = df.loc[idx, 'signal_description']
+    signal_desc_title = (f'[{signal_score}]' + f' {desc}' if len(desc) > 0 else '')
+
+    # total_score desc
+    total_score = df.loc[idx, "total_score"]
+    change = round(df.loc[idx, "total_score"] - df.loc[before_max_idx, "total_score"], 2)
     change_desc = f'+{change}' if change >= 0 else f'{change}'
-    signal_desc = f'----------------------\n{df.loc[idx, "signal_score"]:<6} ({change_desc:<6})'
-    signal_desc_title = (f'{desc}' if len(desc) > 0 else '')
+    total_desc = f'----------------------\n{total_score:<6} ({change_desc:<6})'
 
     # trend desc
     desc = df.loc[idx, "trend_description"]
@@ -7403,8 +7452,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
     desc = df.loc[idx, "pattern_description"]
     change = round(df.loc[idx, "pattern_score"] - df.loc[before_max_idx, "pattern_score"], 2)
     change_desc = f'+{change}' if change >= 0 else f'{change}'
-    pattern_desc = f' | 模式 {df.loc[idx, "pattern_score"]:<6} ({change_desc:<6})'
-    pattern_desc_title = f'{desc}'
+    pattern_desc = (f' {desc}' if len(desc) > 0 else '') + f' | 模式 {df.loc[idx, "pattern_score"]:<6} ({change_desc:<6})'
 
     # candle pattern desc
     up_desc = df.loc[idx, "up_pattern_description"]
@@ -7420,7 +7468,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
     candle_pattern_desc = (f' {desc}' if len(desc) > 0 else '') + f' * 蜡烛 {df.loc[idx, "candle_pattern_score"]:<6} ({change_desc:<6})'
     candle_desc_title = (f' {desc}' if len(desc) > 0 else '')
 
-    plt.figtext(0.973, 1.05, f'{pattern_desc}\n{break_desc}\n{boundary_desc}\n{trend_desc}\n{signal_desc}', fontsize=16, color='black', ha='right', va='top', bbox=dict(boxstyle="round", fc=desc_color, ec="1.0", alpha=abs(signal_score*0.025)))
+    plt.figtext(0.973, 1.05, f'{pattern_desc}\n{break_desc}\n{boundary_desc}\n{trend_desc}\n{total_desc}', fontsize=16, color='black', ha='right', va='top', bbox=dict(boxstyle="round", fc=desc_color, ec="1.0", alpha=abs(signal_score*0.025)))
 
 
   # construct super title
@@ -7429,7 +7477,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   super_title = f' {title}({new_title})  {close_rate}% {title_symbol}'
 
   # super title description
-  score_title = (f'{pattern_desc_title}' if pattern_desc_title != '' else '') + (f' | ' if (pattern_desc_title != '' and signal_desc_title != '') else '') + (f'-[{signal_desc_title}]' if signal_desc_title != '' else '')
+  score_title = (f'{signal_desc_title}' if signal_desc_title != '' else '')
   candle_title = (f'{candle_desc_title}' if candle_desc_title != '' else '')
   fig.suptitle(f'{super_title}\n{score_title}\n{candle_title}', ha='center', va='top', x=0.5, y=1.05, fontsize=24, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.05), linespacing = 1.8)
   
