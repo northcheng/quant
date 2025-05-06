@@ -1082,16 +1082,13 @@ def calculate_ta_signal(df):
     print(f'No data for calculate_ta_signal')
     return None
 
-  # columns to drop
-  col_to_drop = []               
-
+  # columns to drop          
   df['prev_adx_day'] = sda(df['adx_trend'].shift(1), zero_as=0)
   df['adx_wave'] = df['adx_value_change'].abs() + df['adx_strength_change'].abs()
-  df['candle_color_sda'] = sda(df['candle_color'], zero_as=0)
   df['ki_distance_sum'] = df['ichimoku_distance'] + df['kama_distance']
   df['final_score'] = df['adx_distance_change'] + df['overall_change_diff']
   df['final_score_change'] = df['final_score'] - df['final_score'].shift(1)
-  col_to_drop += ['prev_adx_day', 'adx_wave', 'ki_distance_sum', 'candle_color_sda']  # 
+  col_to_drop = ['prev_adx_day', 'adx_wave', 'ki_distance_sum']
   
   # ================================ calculate position =====================
   if 'position' > '':
@@ -1296,7 +1293,6 @@ def calculate_ta_signal(df):
     
     df['trend_day'] = sda(df['trend'].replace({'':0, 'up':1, 'down': -1}), zero_as=1)
     df['prev_trend_day'] = df['trend_day'].shift(1)
-    col_to_drop += ['prev_adx_day', 'adx_wave', 'ki_distance_sum', 'candle_color_sda'] 
   
   # ================================ calculate pattern ======================
   if 'pattern'  > '':
@@ -1309,9 +1305,10 @@ def calculate_ta_signal(df):
     col_to_drop += ['pattern_up', 'pattern_down']
 
     # mark pattern
-    pattern_up = []
-    pattern_down = []
+    # pattern_up = []
+    # pattern_down = []
     pattern_conditions = {
+
       # 超卖
       '超买超卖_up':            '''
                             (rsi < 30)
@@ -1321,57 +1318,30 @@ def calculate_ta_signal(df):
                             (rsi > 70)
                             '''.replace('\n', ''),
 
-      # 下跌反弹(kama_slow支撑)
-      '支撑阻挡_up':            '''
-                            (位置 in ['mh']) and
-                            (
-                              (
-                                (kama_slow_support > 0) and 
-                                (candle_lower_shadow_pct > 0.33 > candle_upper_shadow_pct)
-                              ) or
-                              (
-                                (kama_slow_break_up > 0)
-                              )
-                            )
-                            '''.replace('\n', ''),
-      # 上涨触顶(kama_slow阻挡)
-      '支撑阻挡_down':          '''
-                            (位置 in ['ml']) and
-                            (
-                              ( 
-                                (kama_slow_resistant < 0) and 
-                                (candle_upper_shadow_pct > 0.33 > candle_lower_shadow_pct)
-                              ) or
-                              (
-                                (kama_slow_break_down < 0)
-                              )
-                            )
-                            '''.replace('\n', ''),
-
-      # 关键突破(ichimoku, kama)
-      '关键突破_up':            '''
-                            (位置 in ['l', 'ml']) and
-                            (
-                              (
-                                (tankan_day == 1) or
-                                (kijun_day == 1) or
-                                (kama_fast_day == 1) or
-                                (kama_slow_day == 1)                                 
-                              )
-                            )
-                            '''.replace('\n', ''),
-      # 关键突破(ichimoku, kama)
-      '关键突破_down':          '''
-                            (位置 in ['h', 'mh']) and
-                            (
-                              ( 
-                                (tankan_day == -1) or
-                                (kijun_day == -1) or
-                                (kama_fast_day == -1) or
-                                (kama_slow_day == -1)   
-                              )
-                            )
-                            '''.replace('\n', ''),
+      # # 关键突破(ichimoku, kama)
+      # '关键突破_up':            '''
+      #                       (位置 in ['l', 'ml']) and
+      #                       (
+      #                         (
+      #                           (tankan_day == 1) or
+      #                           (kijun_day == 1) or
+      #                           (kama_fast_day == 1) or
+      #                           (kama_slow_day == 1)                                 
+      #                         )
+      #                       )
+      #                       '''.replace('\n', ''),
+      # # 关键突破(ichimoku, kama)
+      # '关键突破_down':          '''
+      #                       (位置 in ['h', 'mh']) and
+      #                       (
+      #                         ( 
+      #                           (tankan_day == -1) or
+      #                           (kijun_day == -1) or
+      #                           (kama_fast_day == -1) or
+      #                           (kama_slow_day == -1)   
+      #                         )
+      #                       )
+      #                       '''.replace('\n', ''),
 
       # 关键交叉(ichimoku, kama)
       '关键交叉i_up':            '''
@@ -1399,22 +1369,71 @@ def calculate_ta_signal(df):
                             )
                             '''.replace('\n', ''),
 
+      # 关键边界(ichimoku, kama, gap)
+      '长线边界_up':            '''
+                            (
+                              位置 in ['h', 'mh'] and
+                              (
+                                (kama_slow_support > 0) or 
+                                (kama_slow_break_down < 0 and candle_color == 1 and 长影线_trend == "u") or
+                                (kama_slow_break_up > 0 and (candle_position_score > 0 or candle_color == 1))
+                              )
+                            )
+                            '''.replace('\n', ''),
+      # 关键边界(ichimoku, kama, gap)
+      '长线边界_down':          '''
+                            (
+                              位置 in ['l', 'ml'] and
+                              (
+                                (kama_slow_resistant < 0) or 
+                                (kama_slow_break_up > 0 and (candle_color == -1 or 长影线_trend == "d")) or
+                                (kama_slow_break_down < 0 and (candle_position_score < 0 or candle_color == -1))
+                              ) 
+                            )
+                            '''.replace('\n', ''),
+
 
     } 
+
+    # calculate pattern score and description
+    p_up_desc = {
+      '超买超卖': '超卖',
+      '关键突破': '突破',
+      '关键交叉i': '金叉(ichi)',
+      '关键交叉k': '金叉(kama)',
+      '长线边界': '长线支撑'
+    }
+    p_down_desc = {
+      '超买超卖': '超买',
+      '关键突破': '跌落',
+      '关键交叉i': '死叉(ichi)',
+      '关键交叉k': '死叉(kama)',
+      '长线边界': '长线阻挡'
+    }
     for c in pattern_conditions.keys():
       
-      # get index which matches the condition
-      df[c] = 0
+      name, direction = c.split('_')
+      if name not in df.columns:
+        df[name] = 0
+
+      # # get index which matches the condition
+      # df[c] = 0
       tmp_condition = pattern_conditions[c]
       tmp_idx = df.query(tmp_condition).index
 
       # mark up/down pattern
-      if 'up' in c:
-        df.loc[tmp_idx, c] += 1
-        pattern_up.append(c)
-      elif 'down' in c:
-        df.loc[tmp_idx, c] = -1
-        pattern_down.append(c)
+      if direction == 'up':
+        df.loc[tmp_idx, name] += 1
+        df.loc[tmp_idx, 'pattern_score'] += 1
+        df.loc[tmp_idx, 'pattern_up_score'] += 1
+        df.loc[tmp_idx, 'pattern_up'] += p_up_desc[name] + ', '
+        # pattern_up.append(c)
+      elif direction == 'down':
+        df.loc[tmp_idx, name] = -1
+        df.loc[tmp_idx, 'pattern_score'] -= 1
+        df.loc[tmp_idx, 'pattern_down_score'] -= 1
+        df.loc[tmp_idx, 'pattern_down'] += p_down_desc[name] + ', '
+        # pattern_down.append(c)
       else:
         pass
 
@@ -1426,36 +1445,22 @@ def calculate_ta_signal(df):
       tmp_idx = df.query(tmp_condition).index
       df.loc[tmp_idx, c] = 0
 
-    # calculate pattern score and description
-    p_up_desc = {
-      '超买超卖': '超卖',
-      '支撑阻挡': '支撑',
-      '关键突破': '突破',
-      '关键交叉i': '金叉(ichi)',
-      '关键交叉k': '金叉(kama)'
-    }
-    p_down_desc = {
-      '超买超卖': '超买',
-      '支撑阻挡': '阻挡',
-      '关键突破': '跌落',
-      '关键交叉i': '死叉(ichi)',
-      '关键交叉k': '死叉(kama)'
-    }
-    for c in pattern_conditions.keys():
-      p_name = c.split('_')[0]
+    
+    # for c in pattern_conditions.keys():
+    #   p_name = c.split('_')[0]
 
-      if 'up' in c:
-        tmp_idx = df.query(f'{c} == 1').index
-        df.loc[tmp_idx, 'pattern_score'] += 1
-        df.loc[tmp_idx, 'pattern_up_score'] += 1
-        df.loc[tmp_idx, 'pattern_up'] += p_up_desc[p_name] + ', '
-      elif 'down' in c:
-        tmp_idx = df.query(f'{c} == -1').index
-        df.loc[tmp_idx, 'pattern_score'] -= 1
-        df.loc[tmp_idx, 'pattern_down_score'] -= 1
-        df.loc[tmp_idx, 'pattern_down'] += p_down_desc[p_name] + ', '
-      else:
-        pass
+    #   if 'up' in c:
+    #     tmp_idx = df.query(f'{c} == 1').index
+    #     df.loc[tmp_idx, 'pattern_score'] += 1
+    #     df.loc[tmp_idx, 'pattern_up_score'] += 1
+    #     df.loc[tmp_idx, 'pattern_up'] += p_up_desc[p_name] + ', '
+    #   elif 'down' in c:
+    #     tmp_idx = df.query(f'{c} == -1').index
+    #     df.loc[tmp_idx, 'pattern_score'] -= 1
+    #     df.loc[tmp_idx, 'pattern_down_score'] -= 1
+    #     df.loc[tmp_idx, 'pattern_down'] += p_down_desc[p_name] + ', '
+    #   else:
+    #     pass
   
     # final post-processing
     df['pattern_score'] = df['pattern_score'].round(2)
@@ -1473,163 +1478,148 @@ def calculate_ta_signal(df):
     # signal
     df['signal'] = ''
     df['signal_day'] = 0
-    df['signal_score'] = (df['trend_score'] + df['trigger_score'] + df['pattern_score']).round(2)
     df['signal_description'] = ''
 
-    # signal conditions
-    conditions = {
+    # # signal conditions
+    # conditions = {
 
-      '趋势_buy':   '''
-                    Close< 0
-                    '''.replace('\n', ''),
+    #   '趋势_buy':   '''
+    #                 Close< 0
+    #                 '''.replace('\n', ''),
 
-      '趋势_sell':  '''
-                    Close< 0
-                    '''.replace('\n', ''),   
+    #   '趋势_sell':  '''
+    #                 Close< 0
+    #                 '''.replace('\n', ''),   
       
-      '转换_buy':   '''
-                    (trend_day == 1 and prev_trend_day < 0) and
-                    (adx_day > 0 or (final_score > 0.25))
-                    '''.replace('\n', ''),
+    #   '转换_buy':   '''
+    #                 (trend_day == 1 and prev_trend_day < 0) and
+    #                 (adx_day > 0 or (final_score > 0.25))
+    #                 '''.replace('\n', ''),
 
-      '转换_sell':  '''
-                    (trend_day == -1 and prev_trend_day > 0) and
-                    (adx_day < 0 or (final_score < -0.25))
-                    '''.replace('\n', ''),   
+    #   '转换_sell':  '''
+    #                 (trend_day == -1 and prev_trend_day > 0) and
+    #                 (adx_day < 0 or (final_score < -0.25))
+    #                 '''.replace('\n', ''),   
 
-      '触发_buy':   '''
-                    (Close < 0)
-                    '''.replace('\n', ''),
+    #   '触发_buy':   '''
+    #                 (Close < 0)
+    #                 '''.replace('\n', ''),
 
-      '触发_sell':  '''
-                    (Close < 0)
-                    '''.replace('\n', ''),    
+    #   '触发_sell':  '''
+    #                 (Close < 0)
+    #                 '''.replace('\n', ''),    
 
-      '前瞻_buy':   '''
-                    (Close < 0)
-                    '''.replace('\n', ''),
+    #   '前瞻_buy':   '''
+    #                 (Close < 0)
+    #                 '''.replace('\n', ''),
 
-      '前瞻_sell':  '''
-                    (Close < 0)
-                    '''.replace('\n', ''),    
+    #   '前瞻_sell':  '''
+    #                 (Close < 0)
+    #                 '''.replace('\n', ''),    
       
-      '蜡烛_buy':   '''
-                    (candle_pattern_score > 0)
-                    '''.replace('\n', ''),
+    #   '蜡烛_buy':   '''
+    #                 (candle_pattern_score > 0)
+    #                 '''.replace('\n', ''),
 
-      '蜡烛_sell':  '''
-                    (candle_pattern_score < 0)
-                    '''.replace('\n', ''),  
-    }
-    for c in conditions.keys():
-      tmp_name, tmp_action = c.split('_')
-      if tmp_name not in df.columns:
-        df[tmp_name] = 0
+    #   '蜡烛_sell':  '''
+    #                 (candle_pattern_score < 0)
+    #                 '''.replace('\n', ''),  
+    # }
+    # for c in conditions.keys():
+    #   tmp_name, tmp_action = c.split('_')
+    #   if tmp_name not in df.columns:
+    #     df[tmp_name] = 0
 
-      tmp_query = conditions[c]
-      tmp_idx = df.query(tmp_query).index
-      df.loc[tmp_idx, tmp_name] = 1 if tmp_action == 'buy' else -1
+    #   tmp_query = conditions[c]
+    #   tmp_idx = df.query(tmp_query).index
+    #   df.loc[tmp_idx, tmp_name] = 1 if tmp_action == 'buy' else -1
     
-    buy_idx = df.query('转换 > 0').index
-    df.loc[buy_idx, 'signal'] = 'b'
+    # buy_idx = df.query('转换 > 0').index
+    # df.loc[buy_idx, 'signal'] = 'b'
 
-    sell_idx = df.query('转换 < 0').index
-    df.loc[sell_idx, 'signal'] = 's'
+    # sell_idx = df.query('转换 < 0').index
+    # df.loc[sell_idx, 'signal'] = 's'
 
-    # disable some false alarms
-    none_signal_idx = []
-    none_signal_conditions = {
+    # # disable some false alarms
+    # none_signal_idx = []
+    # none_signal_conditions = {
       
-      # B|S:  无adx强度数据  
-      '信号不全':           '''
-                            (signal == "b" or signal == "s") and (adx_power_day == 0)
-                            '''.replace('\n', ''),
+    #   # B|S:  无adx强度数据  
+    #   '信号不全':           '''
+    #                         (signal == "b" or signal == "s") and (adx_power_day == 0)
+    #                         '''.replace('\n', ''),
 
-      # B: 去下降趋势中的买入信号  
-      '距离过大':           '''
-                            (signal == "b") and
-                            (ki_distance in ['rr']) and
-                            (
-                              (ichimoku_distance < -0.15 and kama_distance < -0.15) or
-                              (ki_distance_sum < -0.125)
-                            )
-                            '''.replace('\n', ''),
+    #   # B: 去下降趋势中的买入信号  
+    #   '距离过大':           '''
+    #                         (signal == "b") and
+    #                         (ki_distance in ['rr']) and
+    #                         (
+    #                           (ichimoku_distance < -0.15 and kama_distance < -0.15) or
+    #                           (ki_distance_sum < -0.125)
+    #                         )
+    #                         '''.replace('\n', ''),
 
-      # B: 受到阻挡  
-      '受到阻挡':           '''
-                            (signal == "b") and
-                            (resistant_score < 0) and
-                            (candle_color == -1) and 
-                            (
-                              (candle_position_score < 0) or 
-                              (candle_upper_shadow_pct > 0.4 > candle_lower_shadow_pct) or
-                              (entity_trend != "d" and candle_entity_pct > 0.6)
-                            )
-                            '''.replace('\n', ''),
+    #   # B: 受到阻挡  
+    #   '受到阻挡':           '''
+    #                         (signal == "b") and
+    #                         (resistant_score < 0) and
+    #                         (candle_color == -1) and 
+    #                         (
+    #                           (candle_position_score < 0) or 
+    #                           (candle_upper_shadow_pct > 0.4 > candle_lower_shadow_pct) or
+    #                           (entity_trend != "d" and candle_entity_pct > 0.6)
+    #                         )
+    #                         '''.replace('\n', ''),
 
-      # B: 高位买入  
-      '高位买入':           '''
-                            (signal == "b") and
-                            (
-                              (位置 in ['mh', 'h'] and (十字星_trend != "n" or position_score > 1))
-                            )
-                            '''.replace('\n', ''),
+    #   # B: 高位买入  
+    #   '高位买入':           '''
+    #                         (signal == "b") and
+    #                         (
+    #                           (位置 in ['mh', 'h'] and (十字星_trend != "n" or position_score > 1))
+    #                         )
+    #                         '''.replace('\n', ''),
 
-      # B: 中高位波动买入  
-      '波动买入':           '''
-                            (signal == "b") and
-                            (
-                              (位置 in ['mh', 'h'] and adx_strong_day < 0 and adx_wave_day > 0 and adx_direction < 5)
-                            )
-                            '''.replace('\n', ''),
+    #   # B: 中高位波动买入  
+    #   '波动买入':           '''
+    #                         (signal == "b") and
+    #                         (
+    #                           (位置 in ['mh', 'h'] and adx_strong_day < 0 and adx_wave_day > 0 and adx_direction < 5)
+    #                         )
+    #                         '''.replace('\n', ''),
 
-      # S: 高位卖出  
-      '高位卖出':           '''
-                            (signal == "s") and
-                            (
-                              (位置 in ['h'] and ki_distance == 'gg' and position_score >= 2 and break_down_score == 0)
-                            )
-                            '''.replace('\n', ''),
+    #   # S: 高位卖出  
+    #   '高位卖出':           '''
+    #                         (signal == "s") and
+    #                         (
+    #                           (位置 in ['h'] and ki_distance == 'gg' and position_score >= 2 and break_down_score == 0)
+    #                         )
+    #                         '''.replace('\n', ''),
 
-      # B: 低位下行  
-      '低位下行':           '''
-                            (signal == "b") and
-                            (
-                              (位置 in ['l'] and ki_distance == 'rr' and kama_fast > kijun)
-                            )
-                            '''.replace('\n', ''),
+    #   # B: 低位下行  
+    #   '低位下行':           '''
+    #                         (signal == "b") and
+    #                         (
+    #                           (位置 in ['l'] and ki_distance == 'rr' and kama_fast > kijun)
+    #                         )
+    #                         '''.replace('\n', '')
 
-      # : 突破失败  
-      '突破失败':           '''
-                            (
-                              (位置 in ['l', 'ml']) and 
-                              (
-                                (kama_slow_resistant < 0 or candle_gap_top_resistant < 0) or 
-                                (kama_slow_break_up > 0 and candle_color == -1)
-                              )
-                            )
-                            '''.replace('\n', ''),
+    # } 
+    # for c in none_signal_conditions.keys():
+    #   df[c] = 0
+    #   tmp_condition = none_signal_conditions[c]
+    #   tmp_idx = df.query(tmp_condition).index
+    #   df.loc[tmp_idx, c] = -1
+    #   df.loc[tmp_idx, 'signal_description'] += f'{c}, '
+    #   none_signal_idx += tmp_idx.tolist()    
+    # none_signal_idx = list(set(none_signal_idx))
+    # df.loc[none_signal_idx, 'signal'] = 'n' + df.loc[none_signal_idx, 'signal']
+    # df['signal_description'] = df['signal_description'].apply(lambda x: x[:-2])
 
-    } 
-    df['signal_muted'] = 0
-    for c in none_signal_conditions.keys():
-      df[c] = 0
-      tmp_condition = none_signal_conditions[c]
-      tmp_idx = df.query(tmp_condition).index
-      df.loc[tmp_idx, c] = -1
-      df.loc[tmp_idx, 'signal_description'] += f'{c}, '
-      df.loc[tmp_idx, 'signal_muted'] -= 1
-      none_signal_idx += tmp_idx.tolist()    
-    none_signal_idx = list(set(none_signal_idx))
-    df.loc[none_signal_idx, 'signal'] = 'n' + df.loc[none_signal_idx, 'signal']
-    df['signal_description'] = df['signal_description'].apply(lambda x: x[:-2])
+    # # signal day
+    # df['signal_day'] = sda(df['signal'].replace({'b': 1, 's': -1, '': 0, 'nb': 1, 'ns': -1}), zero_as=1)  
 
-    # change signal
-    additional_sell = df.query('突破失败 == -1').index
-    df.loc[additional_sell, 'signal'] = 's'
-
-    # signal day
-    df['signal_day'] = sda(df['signal'].replace({'b': 1, 's': -1, '': 0, 'nb': 1, 'ns': -1}), zero_as=1)  
+    # signal score
+    df['signal_score'] = (df['trend_score'] + df['trigger_score'] + df['pattern_score']).round(2)
 
   # drop redundant columns
   for col in col_to_drop:
@@ -3317,7 +3307,7 @@ def add_support_resistance(df, target_col=default_support_resistant_col):
 
   # drop unnecessary columns
   for col in col_to_drop:
-    if col in df.columns and col not in ['candle_gap_top_resistant', 'candle_gap_bottom_resistant']:
+    if col in df.columns and col not in ['candle_gap_top_resistant', 'candle_gap_bottom_support']:
       df.drop(col, axis=1, inplace=True)
 
   return df
@@ -5642,11 +5632,6 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     #   neg_data = df.query(f'{t} == -1')
     #   if len(neg_data) > 0:
     #     ax.scatter(neg_data.index, neg_data[signal_y], marker=tmp_setting['neg_marker'], color=tmp_setting['neg_color'], edgecolor=tmp_setting['neg_color_edge'], alpha=tmp_setting['alpha'])
-
-    # df['muted_alpha'] = normalize(df['signal_muted'].abs()) #.clip(0, 0.5)
-    # muted = df.query('signal_muted < 0')
-    # if len(muted) > 0:
-    #   ax.scatter(muted.index, muted[signal_y], marker='s', color='purple', alpha=0.2) # muted['muted_alpha'].fillna(0)
     
     # annotate info
     ylim = ax.get_ylim()
@@ -5822,14 +5807,24 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     alpha = 1
 
     # 超卖
-    tmp_data = df.query(f'(超买超卖_up == 1)')
+    tmp_data = df.query(f'(超买超卖 == 1)')
     if len(tmp_data) > 0:
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='o', color='none', edgecolor='green', alpha=alpha) # 
     
     # 超买
-    tmp_data = df.query(f'(超买超卖_down == -1)')
+    tmp_data = df.query(f'(超买超卖 == -1)')
     if len(tmp_data) > 0:
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='o', color='none', edgecolor='red', alpha=alpha) # 'none', edgecolor=
+
+    # # 其他pattern
+    # tmp_data = df.query(f'(pattern_score > 0 and 超买超卖 == 0)')
+    # if len(tmp_data) > 0:
+    #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='green', alpha=alpha) # 
+    
+    # # 其他pattern
+    # tmp_data = df.query(f'(pattern_score < 0 and 超买超卖 == 0)')
+    # if len(tmp_data) > 0:
+    #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='red', alpha=alpha) # 'none', edgecolor=
 
   # adx_syn(whether adx_value and adx_strength goes the same direction)
   if signal_x in ['adx', 'overall']:
