@@ -1620,7 +1620,6 @@ def calculate_ta_signal(df):
 
     # signal score
     df['signal_score'] = 0
-    df['total_score'] = (df['trend_score'] + df['trigger_score'] + df['pattern_score']).round(2)
 
     signal_conditions = {
 
@@ -1663,6 +1662,8 @@ def calculate_ta_signal(df):
       df.loc[tmp_idx, 'signal_description'] += c + ', '
 
     df['signal_description'] = df['signal_description'].apply(lambda x: x[:-2] if len(x) > 0 else '')
+    df['total_score'] = (df['trend_score'] + df['trigger_score'] + df['pattern_score']).round(2)
+    df['signal_score'] = (df['signal_score'] + df['total_score']).round(2)
       
   # drop redundant columns
   for col in col_to_drop:
