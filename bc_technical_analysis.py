@@ -1650,8 +1650,12 @@ def calculate_ta_signal(df):
       '正向模式':            '''
                             up_pattern_score > 0
                             '''.replace('\n', ''),
+
+      '高位下降':            '''
+                            位置 in ['h'] and 相对ichimoku位置 in ['up'] and 相对kama位置 in ['up'] and (candle_color == -1 or 长影线_trend == "d")
+                            '''.replace('\n', ''),
     } 
-    signal_condition_weights = {'处于低位': 1, '价格上行': 1, '趋势向上': 1, '方向明确': 1, '关键突破': 1, '没有阻挡': 0.5, '正向模式':0.5}
+    signal_condition_weights = {'处于低位': 1, '价格上行': 1, '趋势向上': 1, '方向明确': 1, '关键突破': 1, '没有阻挡': 0.5, '正向模式':0.5, '高位下降': -1}
 
     for c in signal_conditions.keys():
       
