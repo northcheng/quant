@@ -1318,37 +1318,13 @@ def calculate_ta_signal(df):
                             (rsi > 70)
                             '''.replace('\n', ''),
 
-      # # 关键突破(ichimoku, kama)
-      # '关键突破_up':            '''
-      #                       (位置 in ['l', 'ml']) and
-      #                       (
-      #                         (
-      #                           (tankan_day == 1) or
-      #                           (kijun_day == 1) or
-      #                           (kama_fast_day == 1) or
-      #                           (kama_slow_day == 1)                                 
-      #                         )
-      #                       )
-      #                       '''.replace('\n', ''),
-      # # 关键突破(ichimoku, kama)
-      # '关键突破_down':          '''
-      #                       (位置 in ['h', 'mh']) and
-      #                       (
-      #                         ( 
-      #                           (tankan_day == -1) or
-      #                           (kijun_day == -1) or
-      #                           (kama_fast_day == -1) or
-      #                           (kama_slow_day == -1)   
-      #                         )
-      #                       )
-      #                       '''.replace('\n', ''),
-
       # 关键交叉(ichimoku, kama)
       '关键交叉i_up':            '''
                             (
                               (ichimoku_distance_day == 1)
                             )
                             '''.replace('\n', ''),
+
       # 关键交叉(ichimoku, kama)
       '关键交叉i_down':          '''
                             (
@@ -1362,6 +1338,7 @@ def calculate_ta_signal(df):
                               (kama_distance_day == 1)
                             )
                             '''.replace('\n', ''),
+
       # 关键交叉(ichimoku, kama)
       '关键交叉k_down':          '''
                             (
@@ -1380,19 +1357,18 @@ def calculate_ta_signal(df):
                               )
                             )
                             '''.replace('\n', ''),
+
       # 关键边界(ichimoku, kama, gap)
       '长线边界_down':          '''
                             (
                               位置 in ['l', 'ml'] and
                               (
                                 (kama_slow_resistant < 0) or 
-                                (kama_slow_break_up > 0 and (candle_color == -1 or 长影线_trend == "d")) or
+                                (kama_slow_break_up > 0 and (candle_color == -1 or 长影线_trend == "d" or resistant_score < 0)) or
                                 (kama_slow_break_down < 0 and (candle_position_score < 0 or candle_color == -1))
                               ) 
                             )
                             '''.replace('\n', ''),
-
-
     } 
 
     # calculate pattern score and description
@@ -1417,7 +1393,6 @@ def calculate_ta_signal(df):
         df[name] = 0
 
       # # get index which matches the condition
-      # df[c] = 0
       tmp_condition = pattern_conditions[c]
       tmp_idx = df.query(tmp_condition).index
 
@@ -1427,25 +1402,24 @@ def calculate_ta_signal(df):
         df.loc[tmp_idx, 'pattern_score'] += 1
         df.loc[tmp_idx, 'pattern_up_score'] += 1
         df.loc[tmp_idx, 'pattern_up'] += p_up_desc[name] + ', '
-        # pattern_up.append(c)
+
       elif direction == 'down':
         df.loc[tmp_idx, name] = -1
         df.loc[tmp_idx, 'pattern_score'] -= 1
         df.loc[tmp_idx, 'pattern_down_score'] -= 1
         df.loc[tmp_idx, 'pattern_down'] += p_down_desc[name] + ', '
-        # pattern_down.append(c)
+
       else:
         pass
 
-    # exceptions
-    none_pattern_conditions = {
-    } 
-    for c in none_pattern_conditions.keys():
-      tmp_condition = none_pattern_conditions[c]
-      tmp_idx = df.query(tmp_condition).index
-      df.loc[tmp_idx, c] = 0
+    # # exceptions
+    # none_pattern_conditions = {
+    # } 
+    # for c in none_pattern_conditions.keys():
+    #   tmp_condition = none_pattern_conditions[c]
+    #   tmp_idx = df.query(tmp_condition).index
+    #   df.loc[tmp_idx, c] = 0
 
-    
     # for c in pattern_conditions.keys():
     #   p_name = c.split('_')[0]
 
