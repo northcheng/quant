@@ -6885,9 +6885,9 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
   plt.subplots_adjust(wspace=wspace, hspace=hspace)
   axes = {}
 
-  key_crateria = ['trend_score', 'trigger_score', 'pattern_score', 'candle_pattern_score', 'signal_score']
-  sort_crateria = ['rate', 'pattern_score', 'trigger_score']
-  sort_order = [True, True, True]
+  key_crateria = ['trend_score', 'trigger_score', 'pattern_score', 'candle_pattern_score', 'total_score', 'signal_score']
+  sort_crateria = ['rate', 'signal_score'] # 'rate', 'pattern_score', 'trigger_score'
+  sort_order = [True, True]
 
   # plot rate and score
   for i in range(n_row):
@@ -6952,8 +6952,8 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
     # plot trigger/position/pattern/trend score
     tmp_data['max'] = 0
     tmp_data['min'] = 0
-    colors = {'trigger_score': 'blue', 'pattern_score': 'yellow', 'trend_score': 'green'}
-    for col in ['trend_score', 'pattern_score', 'trigger_score']:
+    colors = {'pattern_score': 'yellow', 'trigger_score': 'blue', 'trend_score': 'green'}
+    for col in ['pattern_score', 'trigger_score', 'trend_score', ]:
 
       tmp_data['tmp_value_pos'] = tmp_data[col]
       tmp_data['tmp_value_neg'] = tmp_data[col]
@@ -7197,7 +7197,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   # dynamically calculate figure size
   start = util.time_2_string(plot_data.index.min())
   end = util.time_2_string(plot_data.index.max())
-  width = util.num_days_between(start, end) / interval_factor[interval] * width_factor
+  width = (util.num_days_between(start, end) / interval_factor[interval]) * width_factor
   width = 10 if width < 10 else width
 
   # create axes for each indicator
