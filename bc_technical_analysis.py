@@ -1613,7 +1613,7 @@ def calculate_ta_signal(df):
                             break_up_score > 0
                             '''.replace('\n', ''),
       '无波动':            '''
-                            trend_波动 < 0
+                            trend_波动 == 0
                             '''.replace('\n', ''),
 
       '无阻挡':            '''
