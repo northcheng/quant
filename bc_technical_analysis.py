@@ -1601,22 +1601,23 @@ def calculate_ta_signal(df):
                             trend == "up"
                             '''.replace('\n', ''),
 
-      '低位':            '''
+      '低位':               '''
                             位置 in ['l']
                             '''.replace('\n', ''),
 
-      '上行':            '''
+      '上行':               '''
                             candle_position_score > 0
                             '''.replace('\n', ''),
       
-      '突破':            '''
+      '突破':               '''
                             break_up_score > 0
                             '''.replace('\n', ''),
-      '无波动':            '''
+                            
+      '无波动':             '''
                             trend_波动 == 0
                             '''.replace('\n', ''),
 
-      '无阻挡':            '''
+      '无阻挡':             '''
                             resistant_score == 0
                             '''.replace('\n', ''),
 
@@ -7386,7 +7387,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
     # signal desc
     signal_score = df.loc[idx, "signal_score"]
     desc = df.loc[idx, 'signal_description']
-    signal_desc_title = (f'[{signal_score}]' + f' {desc}' if len(desc) > 0 else '')
+    signal_desc_title = (f'[{signal_score}]' + (f' {desc}' if len(desc) > 0 else ''))
 
     # total_score desc
     total_score = df.loc[idx, "total_score"]
@@ -7444,7 +7445,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
       desc = up_desc + down_desc
     change = round(df.loc[idx, "candle_pattern_score"] - df.loc[before_max_idx, "candle_pattern_score"], 2)
     change_desc = f'+{change}' if change >= 0 else f'{change}'
-    candle_pattern_desc = (f' {desc}' if len(desc) > 0 else '') + f' * 蜡烛 {df.loc[idx, "candle_pattern_score"]:<6} ({change_desc:<6})'
+    # candle_pattern_desc = (f' {desc}' if len(desc) > 0 else '') + f' * 蜡烛 {df.loc[idx, "candle_pattern_score"]:<6} ({change_desc:<6})'
     candle_desc_title = (f' {desc}' if len(desc) > 0 else '')
 
     plt.figtext(0.973, 1.05, f'{pattern_desc}\n{break_desc}\n{boundary_desc}\n{trend_desc}\n{total_desc}', fontsize=16, color='black', ha='right', va='top', bbox=dict(boxstyle="round", fc=desc_color, ec="1.0", alpha=abs(signal_score*0.025)))
