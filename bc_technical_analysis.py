@@ -21,6 +21,7 @@ from matplotlib import gridspec
 from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
 import matplotlib.dates as mdates
+import seaborn as sns
 
 # from mplfinance.original_flavor import candlestick_ohlc
 from quant import bc_util as util
@@ -1643,11 +1644,7 @@ def calculate_ta_signal(df):
     df['total_score'] = (df['trend_score'] + df['trigger_score'] + df['pattern_score']).round(2)
     df['desc_score'] = df['signal_score'].copy()
     df['signal_score'] = (df['signal_score'] + df['total_score']).round(2)
-      
-  # prev_scores:
-  for col in ['pattern', 'trigger', 'trend', 'signal', 'desc']:
-    df[f'prev_{col}_score'] = df[f'{col}_score'].shift(1)
-    
+
   # drop redundant columns
   for col in col_to_drop:
     if col in df.columns:
@@ -3335,10 +3332,10 @@ def add_support_resistance(df, target_col=default_support_resistant_col):
       if 'kama_slow' not in tmp_col:
         col_to_drop.append(tmp_col)
 
-  # # drop unnecessary columns
-  # for col in col_to_drop:
-  #   if col in df.columns and col not in ['candle_gap_top_resistant', 'candle_gap_bottom_support']:
-  #     df.drop(col, axis=1, inplace=True)
+  # drop unnecessary columns
+  for col in col_to_drop:
+    if col in df.columns and col not in ['candle_gap_top_resistant', 'candle_gap_bottom_support']:
+      df.drop(col, axis=1, inplace=True)
 
   return df
 
@@ -6874,10 +6871,27 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
   pools = list(data['result'].keys())
   num_symbols_in_pool = {}
   for p in pools:
-    tmp_len = len(data['result'][p])
+    # get pool name and interval
+    splited = p.split('_')
+    pool_name = '_'.join(splited[:-1])
+    interval = splited[-1]
+
+    # get result and ta_data
+    tmp_result_data = data['result'][p]
+    tmp_ta_data = data['ta_data'][p]
+    tmp_len = len(tmp_result_data)
+    num_symbols_in_pool[p] = tmp_len
     if tmp_len <= 0:
       continue
-    num_symbols_in_pool[p] = tmp_len
+    
+  #   # add previous score
+  #   for idx, row in tmp_result_data.iterrows():
+  #     tmp_symbol = row['symbol']
+  #     tmp_si = f'{tmp_symbol}_interval'
+
+  #   # prev_scores:
+  # for col in ['pattern', 'trigger', 'trend', 'signal', 'desc']:
+  #   df[f'prev_{col}_score'] = df[f'{col}_score'].shift(1)
 
   # remove empty pool
   pools = list(num_symbols_in_pool.keys())
@@ -6891,10 +6905,11 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
   plt.subplots_adjust(wspace=wspace, hspace=hspace)
   axes = {}
 
-  key_crateria = ['trend_score', 'trigger_score', 'pattern_score', 'desc_score', 'signal_score', 'candle_pattern_score', 
-                  'prev_trend_score', 'prev_trigger_score', 'prev_pattern_score', 'prev_desc_score', 'prev_signal_score']
+  key_crateria = ['trend_score', 'trigger_score', 'pattern_score', 'desc_score', 'signal_score', 'candle_pattern_score']
+  
   sort_crateria = ['rate', 'signal_score'] # 'rate', 'pattern_score', 'trigger_score'
   sort_order = [True, True]
+  reverse_order = [not x for x in sort_order]
 
   # plot rate and score
   for i in range(n_row):
@@ -6905,19 +6920,31 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
     # get target data
     t = pools[i]
 
+    # prev_key_crateria = ['prev_' + x for x in key_crateria]
+    # if 'use_previous_data' > '':
+    #   # previous data
+    #   tmp_data = pd.DataFrame()
+    #   for s in data['ta_data'][t].keys():
+    #     tmp_data_s = data['ta_data'][t][s].copy()
+    #     tmp_data_s[prev_key_crateria] = tmp_data_s[key_crateria].shift(1)
+    #     tmp_data = pd.concat([tmp_data, tmp_data_s.tail(1)])
+    num_lookback_days = 15
+    max_value = 15
+    prev_key_crateria = [f'{x}' for x in range(1, num_lookback_days + 1)]
     if 'use_previous_data' > '':
       # previous data
       tmp_data = pd.DataFrame()
       for s in data['ta_data'][t].keys():
         tmp_data_s = data['ta_data'][t][s].copy()
-        tmp_data_s[key_crateria] = tmp_data_s[key_crateria].shift(1)
+        prev_scores = tmp_data_s['signal_score'].values[-num_lookback_days:] / max_value
+        tmp_data_s[prev_key_crateria] = prev_scores
         tmp_data = pd.concat([tmp_data, tmp_data_s.tail(1)])
     else:
       # current_data
       tmp_data = data['result'][t].copy()
 
     tmp_data = tmp_data.sort_values(by=sort_crateria, ascending=sort_order)
-    tmp_data = tmp_data[['symbol', 'rate'] + key_crateria].set_index('symbol')
+    tmp_data = tmp_data[['symbol', 'rate'] + key_crateria + prev_key_crateria].set_index('symbol')
     tmp_data['name'] = tmp_data.index.values
 
     # get data
@@ -6942,45 +6969,71 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
       rate_ax = plt.subplot(gs[i*2], sharex=axes['rate'], zorder=1) 
       score_ax = plt.subplot(gs[i*2+1], sharex=axes['score'], zorder=0)
     
-    # plot signal score
-    tmp_data['score_color'] = 'yellow'
-    rate_ax.barh(tmp_data.index, tmp_data['signal_score'], color=tmp_data['score_color'], label='signal_score', alpha=0.5, edgecolor='k') #, edgecolor='k'  
-    
-    # plot rate
-    tmp_data['rate_color'] = 'green'
-    down_idx = tmp_data.query('rate <= 0').index    
-    tmp_data.loc[down_idx, 'rate_color'] = 'red'
-    num_down = len(down_idx)
-    title_color = 'green' if num_total/2 > num_down else 'red'  
-    rate_ax.barh(tmp_data.index, tmp_data['rate'], color=tmp_data['rate_color'], label='rate', alpha=0.5) #, edgecolor='k'
-    rate_ax.set_xlabel(f'[{t.replace("_day", "")}] Rate ({num_total-num_down}/{num_total})', labelpad = 10, fontsize = 20) 
-    rate_ax.legend(loc='upper left', ncol=plot_args['ncol']) 
-
-    # plot trigger/position/pattern/trend score
-    tmp_data['max'] = 0
-    tmp_data['min'] = 0
-    colors = {'trigger_score': 'red', 'trend_score': 'green', 'pattern_score': 'blue', 'signal_score': 'white', 'desc_score': 'purple'}
-    for col in ['signal_score', 'desc_score', 'trend_score', 'pattern_score', 'trigger_score']:
+    if 'plot_signal_score' > '':
+      # plot signal score
+      tmp_data['score_color'] = 'yellow'
+      rate_ax.barh(tmp_data.index, tmp_data['signal_score'], color=tmp_data['score_color'], label='signal_score', alpha=0.5, edgecolor='k') #, edgecolor='k'  
       
-      prev_col = f'prev_{col}'
-      edgecolor = 'k' if col in ['signal_score'] else 'none'
-      hatch = '///' if col in ['signal_score'] else 'none'
+      # plot rate
+      tmp_data['rate_color'] = 'green'
+      down_idx = tmp_data.query('rate <= 0').index    
+      tmp_data.loc[down_idx, 'rate_color'] = 'red'
+      num_down = len(down_idx)
+      title_color = 'green' if num_total/2 > num_down else 'red'  
+      rate_ax.barh(tmp_data.index, tmp_data['rate'], color=tmp_data['rate_color'], label='rate', alpha=0.5) #, edgecolor='k'
+      rate_ax.set_xlabel(f'[{t.replace("_day", "")}] Rate ({num_total-num_down}/{num_total})', labelpad = 10, fontsize = 20) 
+      rate_ax.legend(loc='upper left', ncol=plot_args['ncol']) 
 
-      tmp_data['tmp_value_pos'] = tmp_data[prev_col]
-      tmp_data['tmp_value_neg'] = tmp_data[prev_col]
-      
-      tmp_data['tmp_value_pos'] = tmp_data['tmp_value_pos'].apply(lambda x: max(0, x))
-      tmp_data['tmp_value_neg'] = tmp_data['tmp_value_neg'].apply(lambda x: min(0, x))
+    if 'plot_previous_signal_score' > '':
 
-      score_ax.barh(tmp_data.index, tmp_data['tmp_value_pos'], color=colors[col], left=tmp_data['max'], alpha=0.5, edgecolor=edgecolor, hatch=hatch)
-      score_ax.barh(tmp_data.index, tmp_data['tmp_value_neg'], color=colors[col], left=tmp_data['min'], label=col, alpha=0.5, edgecolor=edgecolor, hatch=hatch)
+      tmp_data['len'] = 1
 
-      if col not in ['signal_score']:
-        tmp_data['max'] += tmp_data['tmp_value_pos']
-        tmp_data['min'] += tmp_data['tmp_value_neg']
+      for pkc in prev_key_crateria:
 
-    score_ax.legend(loc='upper left', ncol=plot_args['ncol']) 
-    score_ax.set_xlabel(f'Previous Scores', labelpad = 10, fontsize = 20) 
+        tmp_data['alpha'] = abs(tmp_data[pkc]).clip(0, 1)
+        tmp_data['color'] = tmp_data[pkc].apply(lambda x: 'green' if x >0 else 'red')
+        tmp_data['tmp_value_pos'] = tmp_data[pkc]
+        tmp_data['tmp_value_neg'] = tmp_data[pkc]
+        
+        tmp_data['tmp_value_pos'] = tmp_data['tmp_value_pos'].apply(lambda x: max(0, x))
+        tmp_data['tmp_value_neg'] = tmp_data['tmp_value_neg'].apply(lambda x: min(0, x))
+
+        bars = score_ax.barh(tmp_data.index, tmp_data['len'], color=tmp_data['color'], left=int(pkc)-1, alpha=1, edgecolor=tmp_data['color'])#, edgecolor=edgecolor, hatch=hatch)
+        for bar, alpha in zip(bars, tmp_data['alpha'].values):
+          bar.set_alpha(alpha)
+        # if col not in ['signal_score']:
+        #   tmp_data['max'] += tmp_data['tmp_value_pos']
+        #   tmp_data['min'] += tmp_data['tmp_value_neg']
+
+      # # plot trigger/position/pattern/trend score
+      # tmp_data['max'] = 0
+      # tmp_data['min'] = 0
+      # colors = {'trigger_score': 'red', 'trend_score': 'green', 'pattern_score': 'blue', 'signal_score': 'white', 'desc_score': 'purple'}
+      # for col in ['signal_score', 'desc_score', 'trend_score', 'pattern_score', 'trigger_score']:
+        
+      #   prev_col = f'prev_{col}'
+      #   edgecolor = 'k' if col in ['signal_score'] else 'none'
+      #   hatch = '///' if col in ['signal_score'] else 'none'
+
+      #   tmp_data['tmp_value_pos'] = tmp_data[prev_col]
+      #   tmp_data['tmp_value_neg'] = tmp_data[prev_col]
+        
+      #   tmp_data['tmp_value_pos'] = tmp_data['tmp_value_pos'].apply(lambda x: max(0, x))
+      #   tmp_data['tmp_value_neg'] = tmp_data['tmp_value_neg'].apply(lambda x: min(0, x))
+
+      #   score_ax.barh(tmp_data.index, tmp_data['tmp_value_pos'], color=colors[col], left=tmp_data['max'], alpha=0.5, edgecolor=edgecolor, hatch=hatch)
+      #   score_ax.barh(tmp_data.index, tmp_data['tmp_value_neg'], color=colors[col], left=tmp_data['min'], label=col, alpha=0.5, edgecolor=edgecolor, hatch=hatch)
+
+      #   if col not in ['signal_score']:
+      #     tmp_data['max'] += tmp_data['tmp_value_pos']
+      #     tmp_data['min'] += tmp_data['tmp_value_neg']
+
+      # score_ax.legend(loc='upper left', ncol=plot_args['ncol']) 
+     
+      # reverse X axis
+      score_ax.invert_xaxis()
+      score_ax.set_xlabel(f'Previous Scores', labelpad = 10, fontsize = 20) 
+
     # borders
     rate_ax.spines['right'].set_alpha(0)
     score_ax.spines['left'].set_alpha(0)
@@ -6995,7 +7048,7 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
     rate_ax.grid(True, axis='x', linestyle='--', linewidth=0.5, alpha=0.3)
     rate_ax.grid(True, axis='y', linestyle='-', linewidth=0.5, alpha=1)
     score_ax.grid(True, axis='x', linestyle='--', linewidth=0.5, alpha=0.3)
-    score_ax.grid(True, axis='y', linestyle='-', linewidth=0.5, alpha=1)
+    # score_ax.grid(True, axis='y', linestyle='-', linewidth=0.5, alpha=1)
 
     # rate_ax.xaxis.set_ticks_position('top') 
     rate_ax.xaxis.set_label_position('top')
