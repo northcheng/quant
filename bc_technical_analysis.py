@@ -1612,7 +1612,7 @@ def calculate_ta_signal(df):
       '突破':               '''
                             break_up_score > 0
                             '''.replace('\n', ''),
-                            
+
       '无波动':             '''
                             trend_波动 == 0
                             '''.replace('\n', ''),
@@ -1641,8 +1641,13 @@ def calculate_ta_signal(df):
 
     df['signal_description'] = df['signal_description'].apply(lambda x: x[:-2] if len(x) > 0 else '')
     df['total_score'] = (df['trend_score'] + df['trigger_score'] + df['pattern_score']).round(2)
+    df['desc_score'] = df['signal_score'].copy()
     df['signal_score'] = (df['signal_score'] + df['total_score']).round(2)
       
+  # prev_scores:
+  for col in ['pattern', 'trigger', 'trend', 'signal', 'desc']:
+    df[f'prev_{col}_score'] = df[f'{col}_score'].shift(1)
+    
   # drop redundant columns
   for col in col_to_drop:
     if col in df.columns:
@@ -6886,7 +6891,8 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
   plt.subplots_adjust(wspace=wspace, hspace=hspace)
   axes = {}
 
-  key_crateria = ['trend_score', 'trigger_score', 'pattern_score', 'candle_pattern_score', 'total_score', 'signal_score']
+  key_crateria = ['trend_score', 'trigger_score', 'pattern_score', 'desc_score', 'signal_score', 'candle_pattern_score', 
+                  'prev_trend_score', 'prev_trigger_score', 'prev_pattern_score', 'prev_desc_score', 'prev_signal_score']
   sort_crateria = ['rate', 'signal_score'] # 'rate', 'pattern_score', 'trigger_score'
   sort_order = [True, True]
 
@@ -6953,23 +6959,28 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
     # plot trigger/position/pattern/trend score
     tmp_data['max'] = 0
     tmp_data['min'] = 0
-    colors = {'pattern_score': 'yellow', 'trigger_score': 'blue', 'trend_score': 'green'}
-    for col in ['pattern_score', 'trigger_score', 'trend_score', ]:
+    colors = {'trigger_score': 'red', 'trend_score': 'green', 'pattern_score': 'blue', 'signal_score': 'white', 'desc_score': 'purple'}
+    for col in ['signal_score', 'desc_score', 'trend_score', 'pattern_score', 'trigger_score']:
+      
+      prev_col = f'prev_{col}'
+      edgecolor = 'k' if col in ['signal_score'] else 'none'
+      hatch = '///' if col in ['signal_score'] else 'none'
 
-      tmp_data['tmp_value_pos'] = tmp_data[col]
-      tmp_data['tmp_value_neg'] = tmp_data[col]
+      tmp_data['tmp_value_pos'] = tmp_data[prev_col]
+      tmp_data['tmp_value_neg'] = tmp_data[prev_col]
       
       tmp_data['tmp_value_pos'] = tmp_data['tmp_value_pos'].apply(lambda x: max(0, x))
       tmp_data['tmp_value_neg'] = tmp_data['tmp_value_neg'].apply(lambda x: min(0, x))
 
-      score_ax.barh(tmp_data.index, tmp_data['tmp_value_pos'], color=colors[col], left=tmp_data['max'], alpha=0.5, edgecolor='k')
-      score_ax.barh(tmp_data.index, tmp_data['tmp_value_neg'], color=colors[col], left=tmp_data['min'], label=col, alpha=0.5, edgecolor='k')
+      score_ax.barh(tmp_data.index, tmp_data['tmp_value_pos'], color=colors[col], left=tmp_data['max'], alpha=0.5, edgecolor=edgecolor, hatch=hatch)
+      score_ax.barh(tmp_data.index, tmp_data['tmp_value_neg'], color=colors[col], left=tmp_data['min'], label=col, alpha=0.5, edgecolor=edgecolor, hatch=hatch)
 
-      tmp_data['max'] += tmp_data['tmp_value_pos']
-      tmp_data['min'] += tmp_data['tmp_value_neg']
+      if col not in ['signal_score']:
+        tmp_data['max'] += tmp_data['tmp_value_pos']
+        tmp_data['min'] += tmp_data['tmp_value_neg']
 
     score_ax.legend(loc='upper left', ncol=plot_args['ncol']) 
-
+    score_ax.set_xlabel(f'Previous Scores', labelpad = 10, fontsize = 20) 
     # borders
     rate_ax.spines['right'].set_alpha(0)
     score_ax.spines['left'].set_alpha(0)
