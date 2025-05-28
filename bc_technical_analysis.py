@@ -44,7 +44,7 @@ default_support_resistant_col = ['kama_fast', 'kama_slow', 'tankan', 'kijun', 'r
 # default arguments for visualization
 default_candlestick_color = {'color_up':'green', 'color_down':'red', 'shadow_color':'black', 'entity_edge_color':'black', 'alpha':1}
 default_main_indicator = {'candlestick'}
-default_plot_args = {'figsize':(30, 3), 'title_rotation':'vertical', 'xaxis_position': 'bottom', 'yaxis_position': 'right', 'title_x':-0.01, 'title_y':0.2, 'bbox_to_anchor':(1.02, 0.), 'loc':3, 'ncol':1, 'borderaxespad':0.0}
+default_plot_args = {'figsize':(30, 3), 'title_rotation':'vertical', 'xaxis_position': 'bottom', 'yaxis_position': 'right', 'title_x':-0.01, 'title_y':0, 'bbox_to_anchor':(1.02, 0.), 'loc':3, 'ncol':1, 'borderaxespad':0.0}
 
 # zorders
 default_zorders = {}
@@ -5641,6 +5641,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
   # buy and sell
   if signal_x == ' ':
 
+    pass
     # types = ['转换', '触发', '前瞻']
     # settings = {
     #   '转换': {'pos_marker': '.', 'neg_marker': '.', 'pos_color': 'green', 'neg_color': 'red', 'pos_color_edge': 'none', 'neg_color_edge': 'none', 'alpha': 1},
@@ -5660,68 +5661,6 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     #   if len(neg_data) > 0:
     #     ax.scatter(neg_data.index, neg_data[signal_y], marker=tmp_setting['neg_marker'], color=tmp_setting['neg_color'], edgecolor=tmp_setting['neg_color_edge'], alpha=tmp_setting['alpha'])
     
-    # annotate info
-    ylim = ax.get_ylim()
-    y_max = ylim[1]
-    max_idx = df.index.max()
-    interval_factor = {'day':2, 'week': 10, 'month': 45}
-    x_signal = max_idx + datetime.timedelta(days=1 * interval_factor[interval])
-
-    # # annotate overall_change (overall_change_diff)
-    # v = round(df.loc[max_idx, 'signal_score'],1)
-    # v_change = str(df['signal_score'].round(1).values[-3:].tolist()).replace(' ', '')
-    # y_signal = y_max - 1.5 # round(y_middle)
-    # text_color = 'green' if v > 0 else 'red'
-    # plt.annotate(f'{v_change}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
-
-    # annotate final_score (adx_distance_change+overall_change_diff)
-    df['prev_final_score'] = df['final_score'].shift(1)
-    v = round(df.loc[max_idx, 'final_score'], 2)
-    text_color = 'green' if v > 0 else 'red'
-    v_prev = round(df.loc[max_idx, 'prev_final_score'], 2)
-    v_change = round(df.loc[max_idx, 'final_score_change'],2)
-    v_change = f'+{v_change}' if v_change > 0 else f'{v_change}'
-    y_signal = y_max - 1.5
-    plt.annotate(f'{v_prev:0<4}{v_change:0<4}→{v:0<4}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
-
-    # annotate adx_distance (adx_distance_change)
-    v = round(df.loc[max_idx, 'adx_distance'], 1)
-    v_change = round(df.loc[max_idx, 'adx_distance_change'],2)
-    text_color = 'green' if v_change > 0 else 'red'
-    v_change = f'+{v_change}' if v_change > 0 else f'{v_change}'
-    y_signal = y_max - 3
-    plt.annotate(f'[短]{v:0<4}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
-
-    # annotate overall_change (overall_change_diff)
-    v = round(df.loc[max_idx, 'overall_change'],1)
-    v_change = round(df.loc[max_idx, 'overall_change_diff'],2)
-    text_color = 'green' if v_change > 0 else 'red'
-    v_change = f'+{v_change}' if v_change > 0 else f'{v_change}'
-    y_signal = y_max - 4.5 # round(y_middle)
-    plt.annotate(f'[总]{v:0<4}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
-
-    # # annotate adx/ichimoku/kama distance_status
-    # adx_distance_status = df.loc[max_idx, "adx_distance_status"].replace('pos', '+').replace('neg', '-').replace('none', '=').replace('up', '↑').replace('down', '↓')
-    # ichimoku_distance_status = df.loc[max_idx, "ichimoku_distance_status"].replace('pos', '+').replace('neg', '-').replace('none', '=').replace('up', '↑').replace('down', '↓')
-    # kama_distance_status = df.loc[max_idx, "kama_distance_status"].replace('pos', '+').replace('neg', '-').replace('none', '=').replace('up', '↑').replace('down', '↓')
-    # v = f'[A]{adx_distance_status}\n[I]{ichimoku_distance_status}\n[K]{kama_distance_status}'
-    # v = f'  短  中  长  \n {adx_distance_status}  {ichimoku_distance_status}  {kama_distance_status} '
-    # y_signal = y_max - 8 # round(y_middle + y_range/4)
-    # text_color = 'black'
-    # if (df.loc[max_idx, "adx_distance_status"] in ['posup', 'negup'] and df.loc[max_idx, "ichimoku_distance_status"] in ['posup', 'negup', 'posnone', 'negnone']):
-    #   text_color = 'green'
-    # elif (df.loc[max_idx, "adx_distance_status"] in ['posdown', 'negdown'] and df.loc[max_idx, "ichimoku_distance_status"] in ['posdown', 'negdown', 'posnone', 'negnone']):
-    #   text_color = 'red'
-    # else:
-    #   pass
-    # plt.annotate(f'{v}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
-
-    # title and legend
-    ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
-    ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
-    ax.grid(True, axis='x', linestyle='-', linewidth=0.5, alpha=0.1)
-    ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
-
   # trigger_score
   if signal_x in ['trigger']:
 
@@ -5810,6 +5749,69 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     down_idx = df.query('((adx_day < 0 or overall_change < 0) and (adx_distance_change < 0 and overall_change_diff < 0) and final_score < 0) or final_score < -0.2').index
     ax.scatter(up_idx, df.loc[up_idx, signal_y], marker='s', color='green', edgecolor='none', alpha=df.loc[up_idx, 'final_score_alpha'].fillna(0))
     ax.scatter(down_idx, df.loc[down_idx, signal_y], marker='s', color='red', edgecolor='none', alpha=df.loc[down_idx, 'final_score_alpha'].fillna(0))
+
+
+    # annotate info
+    ylim = ax.get_ylim()
+    y_max = ylim[1]
+    max_idx = df.index.max()
+    interval_factor = {'day':2, 'week': 10, 'month': 45}
+    x_signal = max_idx + datetime.timedelta(days=1 * interval_factor[interval])
+
+    # # annotate overall_change (overall_change_diff)
+    # v = round(df.loc[max_idx, 'signal_score'],1)
+    # v_change = str(df['signal_score'].round(1).values[-3:].tolist()).replace(' ', '')
+    # y_signal = y_max - 1.5 # round(y_middle)
+    # text_color = 'green' if v > 0 else 'red'
+    # plt.annotate(f'{v_change}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+
+    # annotate final_score (adx_distance_change+overall_change_diff)
+    df['prev_final_score'] = df['final_score'].shift(1)
+    v = round(df.loc[max_idx, 'final_score'], 2)
+    text_color = 'green' if v > 0 else 'red'
+    v_prev = round(df.loc[max_idx, 'prev_final_score'], 2)
+    v_change = round(df.loc[max_idx, 'final_score_change'],2)
+    v_change = f'+{v_change}' if v_change > 0 else f'{v_change}'
+    y_signal = y_max - 0.5
+    plt.annotate(f'{v_prev:0<4}{v_change:0<4}→{v:0<4}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+
+    # annotate adx_distance (adx_distance_change)
+    v = round(df.loc[max_idx, 'adx_distance'], 1)
+    v_change = round(df.loc[max_idx, 'adx_distance_change'],2)
+    text_color = 'green' if v_change > 0 else 'red'
+    v_change = f'+{v_change}' if v_change > 0 else f'{v_change}'
+    y_signal = y_max - 1.75
+    plt.annotate(f'[短]{v:0<4}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+
+    # annotate overall_change (overall_change_diff)
+    v = round(df.loc[max_idx, 'overall_change'],1)
+    v_change = round(df.loc[max_idx, 'overall_change_diff'],2)
+    text_color = 'green' if v_change > 0 else 'red'
+    v_change = f'+{v_change}' if v_change > 0 else f'{v_change}'
+    y_signal = y_max - 3 # round(y_middle)
+    plt.annotate(f'[总]{v:0<4}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+
+    # # annotate adx/ichimoku/kama distance_status
+    # adx_distance_status = df.loc[max_idx, "adx_distance_status"].replace('pos', '+').replace('neg', '-').replace('none', '=').replace('up', '↑').replace('down', '↓')
+    # ichimoku_distance_status = df.loc[max_idx, "ichimoku_distance_status"].replace('pos', '+').replace('neg', '-').replace('none', '=').replace('up', '↑').replace('down', '↓')
+    # kama_distance_status = df.loc[max_idx, "kama_distance_status"].replace('pos', '+').replace('neg', '-').replace('none', '=').replace('up', '↑').replace('down', '↓')
+    # v = f'[A]{adx_distance_status}\n[I]{ichimoku_distance_status}\n[K]{kama_distance_status}'
+    # v = f'  短  中  长  \n {adx_distance_status}  {ichimoku_distance_status}  {kama_distance_status} '
+    # y_signal = y_max - 8 # round(y_middle + y_range/4)
+    # text_color = 'black'
+    # if (df.loc[max_idx, "adx_distance_status"] in ['posup', 'negup'] and df.loc[max_idx, "ichimoku_distance_status"] in ['posup', 'negup', 'posnone', 'negnone']):
+    #   text_color = 'green'
+    # elif (df.loc[max_idx, "adx_distance_status"] in ['posdown', 'negdown'] and df.loc[max_idx, "ichimoku_distance_status"] in ['posdown', 'negdown', 'posnone', 'negnone']):
+    #   text_color = 'red'
+    # else:
+    #   pass
+    # plt.annotate(f'{v}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+
+    # title and legend
+    ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
+    ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
+    ax.grid(True, axis='x', linestyle='-', linewidth=0.5, alpha=0.1)
+    ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
 
   # 位置(及波动标识)
   if signal_x in ['position']:
@@ -7303,7 +7305,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
 
     # set border color
     spine_alpha = 0.3
-    for position in ['top', 'bottom', 'left', 'right']:
+    for position in ['top', 'bottom']: # , 'left', 'right'
       if (i in [1, 2, 3] and position in ['top']) or (i in [0] and position in ['bottom']):
         axes[tmp_indicator].spines[position].set_alpha(0)
       else:
@@ -7342,8 +7344,9 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
       else:
         pass
 
-      plot_bar(df=plot_data, target_col='Volume', width=bar_width, alpha=0.5, color_mode="up_down", benchmark=None, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
-
+      # plot_bar(df=plot_data, target_col='Volume', width=bar_width, alpha=0.5, color_mode="up_down", benchmark=None, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
+      plot_bar(df=plot_data, target_col='Volume', width=bar_width, alpha=0.4, color_mode="up_down", benchmark=None, edge_color='grey', title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
+      
     # plot score
     elif tmp_indicator == 'score':
       # set bar_width according to data interval
@@ -7360,11 +7363,11 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
         pass
       
       # plot_data = cal_change(df=plot_data, target_col='signal_score', add_prefix=True, add_accumulation=False)
-      plot_bar(df=plot_data, target_col='trend_score', width=bar_width, alpha=0.3, color_mode="benchmark", benchmark=0, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
-      up_idx = plot_data.query('break_score > 0').index
-      down_idx = plot_data.query('break_score < 0').index
-      axes[tmp_indicator].scatter(up_idx, plot_data.loc[up_idx, 'signal_score'], color='green', edgecolor='black', label='signal_score', alpha=0.5, marker='^', zorder=3)
-      axes[tmp_indicator].scatter(down_idx, plot_data.loc[down_idx, 'signal_score'], color='red', edgecolor='black', label='signal_score', alpha=0.5, marker='v', zorder=3)
+      plot_bar(df=plot_data, target_col='signal_score', width=bar_width, alpha=0.4, color_mode="benchmark", edge_color='grey', benchmark=0, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
+      # up_idx = plot_data.query('break_score > 0').index
+      # down_idx = plot_data.query('break_score < 0').index
+      # axes[tmp_indicator].scatter(up_idx, plot_data.loc[up_idx, 'signal_score'], color='green', edgecolor='black', label='signal_score', alpha=0.5, marker='^', zorder=3)
+      # axes[tmp_indicator].scatter(down_idx, plot_data.loc[down_idx, 'signal_score'], color='red', edgecolor='black', label='signal_score', alpha=0.5, marker='v', zorder=3)
 
     # plot renko
     elif tmp_indicator == 'renko':
