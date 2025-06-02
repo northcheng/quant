@@ -5363,13 +5363,13 @@ def plot_bar(df, target_col, start=None, end=None, width=0.8, alpha=1, color_mod
     ax.bar(df.index, height=df[target_col], color=df.color, width=width , alpha=alpha, label=target_col, edgecolor=edge_color)
     
   if add_line:
-    ax.plot(df[target_col], color=df.color, alpha=alpha, label=target_col)
+    color = 'gray'
+    ax.plot(df[target_col], color=color, alpha=alpha, label=target_col)
 
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
   ax.grid(True, axis='both', linestyle='-', linewidth=0.5, alpha=0.3)
-  
   ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
 
   # return ax
@@ -6443,7 +6443,7 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   if 'ichimoku' in target_indicator:
     
     # tankan/kijun
-    alpha = 0.8
+    alpha = 0.4
     ax.plot(df.index, df.tankan, label='tankan', color='green', linestyle='-', alpha=alpha, zorder=default_zorders['ichimoku']) # magenta
     ax.plot(df.index, df.kijun, label='kijun', color='red', linestyle='-', alpha=alpha, zorder=default_zorders['ichimoku']) # blue
     alpha = 0.1
@@ -6624,11 +6624,15 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
       if counter < len(sorted_down_key_col):
         down_price += '\n'
 
-    # add candle_upper_shadow_pct and candle_lower_shadow_pct
+    # add candle_upper_shadow_pct and candle_lower_shadow_pct and OHLC
+    # open_price = round(df.loc[max_idx, "Open"], 3)
+    high_price = round(df.loc[max_idx, "High"], 3)
+    low_price = round(df.loc[max_idx, "Low"], 3)
+    # close_price = round(df.loc[max_idx, "Close"], 3)
     upper_shadow = round(df.loc[max_idx, "candle_upper_shadow_pct"], 3) * 100
     entity = round(df.loc[max_idx, "candle_entity_pct"], 3) * 100
     lower_shadow = round(df.loc[max_idx, "candle_lower_shadow_pct"], 3) * 100
-    price_info = f'{up_price}\n\n' + f'----{upper_shadow:5.1f}%----' + f'\n----{entity:5.1f}%----\n' + f'----{lower_shadow:5.1f}%----' + f'\n\n{down_price}'
+    price_info = f'{up_price}\n\n' + f'    [{high_price:05.3f}]    \n----{upper_shadow:5.1f}%----' + f'\n----{entity:5.1f}%----\n' + f'----{lower_shadow:5.1f}%----\n    [{low_price:05.3f}]    ' + f'\n\n{down_price}'
     
     # add the string to the chart
     plt.text(
@@ -7255,14 +7259,6 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
         tmp_data.loc[tmp_idx, 'test'] = 0
       axes[tmp_indicator].plot(tmp_data.index, tmp_data['test'], alpha=0)
 
-    # set border color
-    spine_alpha = 0.3
-    for position in ['top', 'bottom']: # , 'left', 'right'
-      if (i in [1, 2, 3] and position in ['top']) or (i in [0] and position in ['bottom']):
-        axes[tmp_indicator].spines[position].set_alpha(0)
-      else:
-        axes[tmp_indicator].spines[position].set_alpha(spine_alpha)
-
     # plot ichimoku with candlesticks
     if tmp_indicator == 'main_indicators':
       # get candlestick color and target indicator from ta_config
@@ -7357,6 +7353,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
 
       # signal_names = [{'adx':'adx(dst_chg)','overall':'overall(chg_dif)'}[x] if x in ['adx','overall'] else x for x in signal_names ]
       # legend and title
+      
       plt.ylim(ymin=min(signal_bases)-1 , ymax=max(signal_bases)+1)
       plt.yticks(signal_bases, signal_names)
       axes[tmp_indicator].legend().set_visible(False)
@@ -7364,6 +7361,14 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
     # plot other indicators
     else:
       print(f'method for indicator ({tmp_indicator}) not defined')
+
+    # set border color
+    spine_alpha = 0.3
+    for position in ['top', 'bottom']: # , 'left', 'right'
+      if (i in [0, 1, 2, 3] and position in ['top']) or (position in ['bottom'] and i != 4):
+        axes[tmp_indicator].spines[position].set_alpha(0)
+      else:
+        axes[tmp_indicator].spines[position].set_alpha(spine_alpha)
 
   # adjust plot layout
   max_idx = df.index.max()
