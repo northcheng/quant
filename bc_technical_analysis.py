@@ -1722,14 +1722,14 @@ def postprocess(df, keep_columns, drop_columns, sec_names, target_interval=''):
   return df
 
 
-# ================================================ Basic calculation ================================================ #
+# ================================================ Condition calculation ============================================ #
 # drop na values for dataframe
 def dropna(df):
   """
   Drop rows with "Nans" values
 
-  :param df: original dfframe
-  :returns: dfframe with Nans dropped
+  :param df: original dataframe
+  :returns: dataframe with Nans dropped
   :raises: none
   """
   df = df[df < math.exp(709)]  # big number
@@ -1774,7 +1774,7 @@ def get_min_max(x1, x2, f='min'):
 # filter index that meet conditions
 def filter_idx(df, condition_dict):
   """
-  # Filter index that meet conditions
+  Filter index that meet conditions. Usually used in func[assign_condition_value]
 
   :param df: dataframe to search
   :param condition_dict: dictionary of conditions
@@ -1786,25 +1786,19 @@ def filter_idx(df, condition_dict):
   for condition in condition_dict.keys():
     result[condition] = df.query(condition_dict[condition]).index
 
-  # # other index
-  # other_idx = df.index
-  # for i in result.keys():
-  #   other_idx = [x for x in other_idx if x not in result[i]]
-  # result['other'] = other_idx
-
   return result
 
 # set value to column of indeies that meet specific conditions
 def assign_condition_value(df, column, condition_dict, value_dict, default_value=None):
   """
-  # set value to column of index that meet conditions
+  Set value to column of index that meet conditions
 
   :param df: dataframe to search
   :param column: target column
   :param condition_dict: dictionary of conditions
   :param value_dict: corresponding value to assign to the column
   :param default_value: default value of the column
-  :returns: dataframe with the column set
+  :returns: dataframe with the column assigned with corresponding values
   :raises: None
   """
   # copy dataframe
@@ -1825,6 +1819,59 @@ def assign_condition_value(df, column, condition_dict, value_dict, default_value
     else:
       df.loc[condition_idx, column] = condition_value
   
+  return df
+
+# calculate score according to conditions
+def assign_condition_score(df, condition_dict, up_score_col, down_score_col):
+  """
+  Calculate up(+) and down(-) score according to corresponding conditions
+  
+  :param df: original dataframe
+  :param condition_dict: dictionary of conditions and corresponding scores
+  :param up_score_col: column name of up score (positive score)
+  :param down_score_col: column name of down score (negative score)
+  :returns: dataframe with up_score_col and down_score_col columns
+  :raises: none
+  """
+  # initialization
+  if up_score_col not in df.columns:
+    df[up_score_col] = 0
+  if down_score_col not in df.columns:
+    df[down_score_col] = 0
+  
+  df[f'{up_score_col}_description'] = ''
+  df[f'{down_score_col}_description'] = ''
+
+  # extract score, label and condition from dict
+  labels = {}
+  scores = {}
+  conditions = {}
+  for k in condition_dict.keys():
+    scores[k] = condition_dict[k][0]
+    labels[k] = condition_dict[k][1]
+    conditions[k] = condition_dict[k][2]
+  
+  # calculate score and score_description
+  for c in conditions.keys():
+    tmp_idx = df.query(conditions[c]).index
+    
+    # scores
+    if c[0] == '+':
+      df.loc[tmp_idx, up_score_col] += scores[c]
+      df.loc[tmp_idx, f'{up_score_col}_description'] += f'{c}, '
+    elif c[0] == '-':
+      df.loc[tmp_idx, down_score_col] +=scores[c]
+      df.loc[tmp_idx, f'{down_score_col}_description'] += f'{c}, '
+    else:
+      print(f'{c} not recognized')
+
+  # postprocess
+  df[up_score_col] = df[up_score_col].round(2)
+  df[f'{up_score_col}_description'] = df[f'{up_score_col}_description'].apply(lambda x: x[:-2])  
+  if down_score_col != up_score_col:
+    df[down_score_col] = df[down_score_col].round(2)
+    df[f'{down_score_col}_description'] = df[f'{down_score_col}_description'].apply(lambda x: x[:-2])
+
   return df
 
 
@@ -1877,12 +1924,12 @@ def wma(series, periods, fillna=False):
 # same direction accumulation
 def sda(series, zero_as=None, one_restart=False):
   """
-  Accumulate value with same symbol (+/-), once the symbol changed, start over again
+  Accumulate values with same symbol (+/-), once the symbol changed, start over again
 
   :param series: series to calculate
   :param accumulate_by: if None, accumulate by its own value, other wise, add by specified value
   :param zero_val: action when encounter 0: if None pass, else add(minus) spedicied value according to previous symbol 
-  :returns: series with same direction accumulation
+  :returns: series with accumulated value
   :raises: None
   """
   # copy series
@@ -1929,71 +1976,6 @@ def sda(series, zero_as=None, one_restart=False):
   result_series = pd.Series(result, index=idx)
   return result_series
 
-# same direction accumulation
-def sda_old(series, zero_as=None, one_restart=False):
-  """
-  Accumulate value with same symbol (+/-), once the symbol changed, start over again
-
-  :param series: series to calculate
-  :param accumulate_by: if None, accumulate by its own value, other wise, add by specified value
-  :param zero_val: action when encounter 0: if None pass, else add(minus) spedicied value according to previous symbol 
-  :returns: series with same direction accumulation
-  :raises: None
-  """
-  # copy series
-  target_col = series.name
-  index_col = series.index.name
-  new_series = series.reset_index()
-
-  if index_col is None:
-    print('please assigan a name to index column')
-
-  previous_idx = None
-  current_idx = None
-  for index, row in new_series.iterrows():
-    
-    # record current index
-    current_idx = index
-
-    # for the first loop
-    if previous_idx is None:
-      pass
-    
-    # for the rest of loops
-    else:
-      current_val = new_series.loc[current_idx, target_col]
-      previous_val = new_series.loc[previous_idx, target_col]
-
-      if current_val * previous_val > 0:
-        if one_restart and current_val in [1, -1]:
-          new_series.loc[current_idx, target_col] = current_val
-
-        else:
-          new_series.loc[current_idx, target_col] = current_val + previous_val
-      
-      # current value is 0 and previous value is not 0
-      elif current_val == 0 and previous_val != 0:
-        if zero_as is not None:
-          if previous_val > 0:
-            new_series.loc[current_idx, target_col] = previous_val + zero_as
-          else: 
-            new_series.loc[current_idx, target_col] = previous_val - zero_as
-
-      # otherwise(different direction, previous(and current) value is 0)
-      else:
-        pass
-
-    # record previous index
-    previous_idx = index
-
-  # reset index back
-  if index_col is not None:
-    new_series = new_series.set_index(index_col)[target_col].copy()
-  else:
-    new_series = new_series[target_col].copy()
-
-  return new_series
-
 # moving slope
 def moving_slope(series, periods):
   """
@@ -2017,7 +1999,7 @@ def moving_slope(series, periods):
   return (padded_slopes, padded_intercepts)
 
 # normilization
-def normalize(series, fillna=None):
+def normalize(series, fillna=None, method='default'):
   """
   Normalize a series.
 
@@ -2027,28 +2009,22 @@ def normalize(series, fillna=None):
   :raises: None
   """  
   normalaized = series
+  
+  # fill NA values if specified
   if fillna is not None:  
     normalaized = series.fillna(method=fillna)
 
+  # normalization
   normalaized = (normalaized - normalaized.min()) / (normalaized.max() - normalaized.min())
+
+  # Scale the normalized seriesto the range [-1, 1]
+  if method == 'minmax':
+    normalized = normalized * 2 - 1
+  # Scale the normalized seriesto the range [0, 1]
+  else:
+    pass
+
   return normalaized
-
-# min-max normalization
-def min_max_normalize(series, fillna=None):
-  """
-  Normalize a series using min-max normalization.
-
-  :param series: The input series to be normalized.
-  :param fillna: Optional value to fill NaN values in the series. If not provided, NaN values will not be filled.
-  :returns: The normalized series.
-  :raises: None
-  """
-  # Call the normalize function to normalize the series
-  normalized = normalize(series, fillna)
-  # Scale the normalized series to the range [-1, 1]
-  normalized = normalized * 2 - 1
-
-  return normalized
 
 
 # ================================================ Change calculation =============================================== #
@@ -2057,7 +2033,7 @@ def cal_change(df, target_col, periods=1, add_accumulation=True, add_prefix=Fals
   """
   Calculate change of a column with a sliding window
   
-  :param df: original dfframe
+  :param df: original dataframe
   :param target_col: change of which column to calculate
   :param periods: calculate the change within the period
   :param add_accumulation: wether to add accumulative change in a same direction
@@ -2112,7 +2088,7 @@ def cal_change_rate(df, target_col, periods=1, add_accumulation=True, add_prefix
   :returns: dataframe with change rate columns
   :raises: none
   """
-  # copy dfframe
+  # copy dataframe
   df = df.copy()
   
   # set prefix for result columns
@@ -2143,50 +2119,6 @@ def cal_change_rate(df, target_col, periods=1, add_accumulation=True, add_prefix
     df[acc_day_col] = df[acc_day_col].fillna(0).astype(int) 
   if drop_na:        
     df.dropna(inplace=True) 
-
-  return df
-
-# calculate score according to conditions
-def cal_score(df, condition_dict, up_score_col, down_score_col):
-
-  # initialization
-  if up_score_col not in df.columns:
-    df[up_score_col] = 0
-  if down_score_col not in df.columns:
-    df[down_score_col] = 0
-  
-  df[f'{up_score_col}_description'] = ''
-  df[f'{down_score_col}_description'] = ''
-
-  # extract score, label and condition from dict
-  labels = {}
-  scores = {}
-  conditions = {}
-  for k in condition_dict.keys():
-    scores[k] = condition_dict[k][0]
-    labels[k] = condition_dict[k][1]
-    conditions[k] = condition_dict[k][2]
-  
-  # calculate score and score_description
-  for c in conditions.keys():
-    tmp_idx = df.query(conditions[c]).index
-    
-    # scores
-    if c[0] == '+':
-      df.loc[tmp_idx, up_score_col] += scores[c]
-      df.loc[tmp_idx, f'{up_score_col}_description'] += f'{c}, '
-    elif c[0] == '-':
-      df.loc[tmp_idx, down_score_col] +=scores[c]
-      df.loc[tmp_idx, f'{down_score_col}_description'] += f'{c}, '
-    else:
-      print(f'{c} not recognized')
-
-  df[up_score_col] = df[up_score_col].round(2)
-  df[f'{up_score_col}_description'] = df[f'{up_score_col}_description'].apply(lambda x: x[:-2])
-
-  if down_score_col != up_score_col:
-    df[down_score_col] = df[down_score_col].round(2)
-    df[f'{down_score_col}_description'] = df[f'{down_score_col}_description'].apply(lambda x: x[:-2])
 
   return df
 
@@ -2259,56 +2191,6 @@ def cal_boundary_signal(df, upper_col, lower_col, upper_boundary, lower_boundary
 
   return df[[result_col]]
 
-# replace signal values 
-def replace_signal(df, signal_col='signal', replacement={'b':1, 's':-1, 'n': 0}):
-  """
-  Replace signals with different values
-  :param df: df that contains signal column
-  :param signal_col: column name of the signal
-  :param replacement: replacement, key is original value, value is the new value
-  :returns: df with signal values replaced
-  :raises: none
-  """
-  # copy dataframe
-  new_df = df.copy()
-
-  # find and replace
-  for i in replacement.keys():
-    new_df[signal_col].replace(to_replace=i, value=replacement[i], inplace=True)
-
-  return new_df
-
-# remove duplicated signals
-def remove_redundant_signal(df, signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', keep='first'):
-  """
-  Remove redundant (duplicated continuous) signals, keep only the first or the last one
-
-  :param df: signal dataframe
-  :param signal_col: columnname of the signal value
-  :param keep: which one to keep: first/last
-  :param pos_signal: the value of positive signal
-  :param neg_siganl: the value of negative signal
-  :param none_signal: the value of none signal  
-  :returns: signal dataframe with redundant signal removed
-  :raises: none
-  """
-  # copy dataframe
-  df = df.copy()
-  
-  # initialize
-  signals = df.query(f'{signal_col} != "{none_signal}"').copy()
-  movement = {'first': 1, 'last': -1}.get(keep)
-
-  # find duplicated signals and set to none_signal
-  if len(signals) > 0 and movement is not None:
-    signals['is_dup'] = signals[signal_col] + signals[signal_col].shift(movement)
-    dup_idx = signals.query(f'is_dup == "{pos_signal}{pos_signal}" or is_dup == "{neg_signal}{neg_signal}"').index
-
-    if len(dup_idx) > 0:
-      df.loc[dup_idx, signal_col] = none_signal
-
-  return df
-
 
 # ================================================ Self-defined TA ================================================== #
 # linear regression
@@ -2323,9 +2205,11 @@ def linear_fit(df, target_col, periods):
   :raises: none
   """
 
+  # not enough data
   if len(df) <= periods:
     return {'slope': 0, 'intecept': 0}
   
+  # calculate linear regression prediction
   else:
     x = range(1, periods+1)
     y = df[target_col].fillna(0).tail(periods).values.tolist()
@@ -2368,11 +2252,10 @@ def cal_moving_average(df, target_col, ma_windows=[50, 105], start=None, end=Non
 # add position features
 def cal_position_score(df):
   """
-  Add candlestick dimentions for dataframe
+  Calculate inter-candlestick position score
 
   :param df: original OHLCV dataframe
-  :param ohlcv_col: column name of Open/High/Low/Close/Volume
-  :returns: dataframe with candlestick columns
+  :returns: dataframe with new columns [position, position_score, ki_distance]
   :raises: none
   """
   df = df.copy()
@@ -2437,7 +2320,6 @@ def cal_position_score(df):
       df = assign_condition_value(df=df, column=col_v, condition_dict=position_conditions, value_dict=position_values, default_value=0) 
     
     df['position_score'] += df[col_v]
-  # df = cal_change(df=df, target_col='position_score', periods=1, add_accumulation=False, add_prefix=True)
 
   # ichimoku-kama position
   threshold = 1
@@ -2492,7 +2374,7 @@ def cal_position_score(df):
 # add candle stick features 
 def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
   """
-  Add candlestick dimentions for dataframe
+  Add candlestick features for dataframe
 
   :param df: original OHLCV dataframe
   :param ohlcv_col: column name of Open/High/Low/Close/Volume
@@ -2676,7 +2558,13 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
 
 # add candle stick patterns
 def add_candlestick_patterns(df):
+  """
+  Add candlestick patterns for dataframe
 
+  :param df: dataframe with candlestick features
+  :returns: dataframe with candlestick patterns
+  :raises: none
+  """
   # columns to drop
   col_to_drop = []
 
@@ -2978,7 +2866,15 @@ def add_heikin_ashi_features(df, ohlcv_col=default_ohlcv_col, replace_ohlc=False
 
 # linear regression for recent high and low values
 def add_linear_features(df, max_period=60, min_period=5, is_print=False):
+  """
+  Add linear regression for High/Low by the most recent peaks and troughs
 
+  :param df: original OHLCV dataframe
+  :param max_period: maximum length of the input series
+  :param min_period: minimum length of the input series  
+  :returns: dataframe with candlestick columns
+  :raises: none
+  """
   # get all indexes
   idxs = df.index.tolist()
   skip_latest = 3
@@ -3071,7 +2967,15 @@ def add_linear_features(df, max_period=60, min_period=5, is_print=False):
  
 # linear regression for recent kama and ichimoku fast slow lines
 def add_ma_linear_features(df, period=5, target_col=['kama_fast', 'kama_slow', 'tankan', 'kijun']):
+  """
+  Add linear regression for ichimoku/kama fast and slow lines
 
+  :param df: dataframe with ichimoku/kama features
+  :param period: length of input data  
+  :param target_col: columns that need to predict  
+  :returns: dataframe with prediction values
+  :raises: none
+  """
   result = {}
   
   for col in target_col:
@@ -3485,7 +3389,7 @@ def add_cci_features(df, n=20, c=0.015, ohlcv_col=default_ohlcv_col, fillna=Fals
   df['cci'] = cci
 
   # calculate siganl
-  df['cci_ma'] = sm(series=df['cci'], periods=5).mean() #cal_moving_average(df=df, target_col='cci', ma_windows=[3, 5])
+  df['cci_ma'] = sm(series=df['cci'], periods=5).mean() 
 
   return df
 
@@ -4699,7 +4603,6 @@ def add_mfi_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_si
   # calculate signals
   if cal_signal:
     df['mfi_signal'] = cal_boundary_signal(df=df, upper_col='mfi', lower_col='mfi', upper_boundary=max(boundary), lower_boundary=min(boundary))
-    df = remove_redundant_signal(df=df, signal_col='mfi_signal', pos_signal='s', neg_signal='b', none_signal='n', keep='first')
 
   df.drop('up_or_down', axis=1, inplace=True)
   return df
@@ -4751,7 +4654,6 @@ def add_rsi_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_si
   # calculate signals
   if cal_signal:
     df['rsi_signal'] = cal_boundary_signal(df=df, upper_col='rsi', lower_col='rsi', upper_boundary=max(boundary), lower_boundary=min(boundary), pos_signal='s', neg_signal='b', none_signal='n')
-    df = remove_redundant_signal(df=df, signal_col='rsi_signal', pos_signal='s', neg_signal='b', none_signal='n', keep='first')
 
   return df
 
@@ -4796,7 +4698,6 @@ def add_srsi_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_s
   # calculate signals
   if cal_signal:
     df['srsi_signal'] = cal_boundary_signal(df=df, upper_col='srsi', lower_col='srsi', upper_boundary=max(boundary), lower_boundary=min(boundary), pos_signal='s', neg_signal='b', none_signal='n')
-    df = remove_redundant_signal(df=df, signal_col='srsi_signal', pos_signal='s', neg_signal='b', none_signal='n', keep='first')
 
   return df
 
@@ -5029,69 +4930,6 @@ def add_atr_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_si
     df['atr_diff'] = df['tr'] - df['atr']
 
   df.drop(['h_l', 'h_pc', 'l_pc'], axis=1, inplace=True)
-
-  return df
-
-# Mean Reversion
-def add_mean_reversion_features(df, n=100, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True, mr_threshold=2):
-  """
-  Calculate Mean Reversion
-
-  :param df: original OHLCV dataframe
-  :param n: look back window size
-  :param ohlcv_col: column name of Open/High/Low/Close/Volume
-  :param fillna: whether to fill na with 0
-  :param cal_signal: whether to calculate signal
-  :param mr_threshold: the threshold to triger signal
-  :returns: dataframe with new features generated
-  """
-  # copy dataframe
-  df = df.copy()
-
-  # set column names
-  # open = ohlcv_col['open']
-  # high = ohlcv_col['high']
-  # low = ohlcv_col['low']
-  close = ohlcv_col['close']
-  # volume = ohlcv_col['volume']
-
-  # calculate change rate of close price
-  df = cal_change_rate(df=df, target_col=close, periods=1, add_accumulation=True)
-  target_col = ['rate', 'acc_rate', 'acc_day']
-
-  # calculate the (current value - moving avg) / moving std
-  for col in target_col:
-    mw = sm(series=df[col], periods=n)
-    tmp_mean = mw.mean()
-    tmp_std = mw.std()
-    df[col+'_bias'] = (df[col] - tmp_mean) / (tmp_std)
-
-  # calculate the expected change rate that will triger signal
-  result = cal_mean_reversion_expected_rate(df=df, rate_col='acc_rate', n=n, mr_threshold=mr_threshold)
-  last_acc_rate = df['acc_rate'].tail(1).values[0]
-  last_close = df[close].tail(1).values[0]
-
-  up = down = 0
-  if last_acc_rate > 0:
-    up = max(result) - last_acc_rate
-    down = min(result)
-  else:
-    up = max(result)
-    down = min(result) - last_acc_rate
-
-  up_price = round((1+up) * last_close, ndigits=2)
-  down_price = round((1+down) * last_close, ndigits=2)
-  up = round(up * 100, ndigits=0) 
-  down = round(down * 100, ndigits=0) 
-  df['mr_price'] = f'{up_price}({up}%%),{down_price}({down}%%)'
-
-  # calculate mr signal
-  if cal_signal:
-    df['rate_signal'] = cal_boundary_signal(df=df, upper_col='rate_bias', lower_col='rate_bias', upper_boundary=mr_threshold, lower_boundary=-mr_threshold, pos_signal=1, neg_signal=-1, none_signal=0)
-    df['acc_rate_signal'] = cal_boundary_signal(df=df, upper_col='acc_rate_bias', lower_col='acc_rate_bias', upper_boundary=mr_threshold, lower_boundary=-mr_threshold, pos_signal=1, neg_signal=-1, none_signal=0)
-    df['mr_signal'] = df['rate_signal'].astype(int) + df['acc_rate_signal'].astype(int)
-    df = replace_signal(df=df, signal_col='mr_signal', replacement={0: 'n', 1: 'n', -1:'n', 2:'b', -2:'s'})
-    df.drop(['rate_signal', 'acc_rate_signal'], axis=1, inplace=True)   
 
   return df
 
