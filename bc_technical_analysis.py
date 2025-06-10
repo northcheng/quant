@@ -6989,7 +6989,7 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
       score_ax.legend(loc='upper left', ncol=plot_args['ncol']) 
      
       # reverse X axis
-      score_ax.invert_xaxis()
+      # score_ax.invert_xaxis()
       score_ax.set_xlabel(f'Previous Scores', labelpad = 10, fontsize = 20) 
 
     # borders
