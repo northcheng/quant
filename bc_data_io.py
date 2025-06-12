@@ -1047,6 +1047,8 @@ def update_stock_data_from_ak(symbols, stock_data_path, file_format='.csv', upda
     return None
 
   # get the benchmark of eod data
+  current_weekday = datetime.datetime.now().weekday()
+  current_hour = datetime.datetime.now().hour
   today = util.time_2_string(datetime.datetime.today().date())
   start_date = util.string_plus_day(today, -7)
   benchmark_symbol = '105.AAPL' if not cn_stock else '000001'
@@ -1109,8 +1111,14 @@ def update_stock_data_from_ak(symbols, stock_data_path, file_format='.csv', upda
       data[symbol] = util.remove_duplicated_index(df=data[symbol], keep='last').dropna()
 
       # save data to local csv files
+      # as ak data contains the real-time data
       if is_save:
-        save_stock_data(df=data[symbol], file_path=stock_data_path, file_name=symbol, file_format=file_format, reset_index=True, index=False)
+        if cn_stock:
+          if current_weekday in [5, 6] or current_hour >= 15:
+            data_to_save = data[symbol]
+          else:
+            data_to_save = data[symbol][:-1]
+        save_stock_data(df=data_to_save, file_path=stock_data_path, file_name=symbol, file_format=file_format, reset_index=True, index=False)
     
     else:
       up_to_date_symbols.append(symbol)
