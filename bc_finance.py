@@ -137,7 +137,7 @@ def cal_risk_premium(expected_rate, risk_free_rate):
   return RP
 
 
-def cal_excess_raturn(expected_rate, real_rate):
+def cal_excess_return(expected_rate, real_rate):
   """
   Calculate Excess-Return
 
@@ -214,10 +214,10 @@ def cal_period_rate_risk(data, dim='value', by='month'):
       period_rate['period'].append(p_pair[0])
       period_rate['start'].append(p_pair[0])
       period_rate['end'].append(p_pair[1])
-      period_rate['HPR'].append(cal_HPR(data=tmp_data, start=None, end=None, dim='Close'))
-      period_rate['EAR'].append(cal_EAR(data=tmp_data, start=None, end=None, dim='Close'))
-      period_rate['APR'].append(cal_APR(data=tmp_data, start=None, end=None, dim='Close'))
-      period_rate['CCR'].append(cal_CCR(data=tmp_data, start=None, end=None, dim='Close'))
+      period_rate['HPR'].append(cal_HPR(data=tmp_data, start=None, end=None, dim=dim))
+      period_rate['EAR'].append(cal_EAR(data=tmp_data, start=None, end=None, dim=dim))
+      period_rate['APR'].append(cal_APR(data=tmp_data, start=None, end=None, dim=dim))
+      period_rate['CCR'].append(cal_CCR(data=tmp_data, start=None, end=None, dim=dim))
       period_rate['daily_rate_mean'].append(tmp_data.rate.mean())
       period_rate['daily_rate_std'].append(tmp_data.rate.std())
   
@@ -227,15 +227,15 @@ def cal_period_rate_risk(data, dim='value', by='month'):
   return period_rate
 
 
-def cal_sharp_ratio(data, start, end, rfr=0.04, price_dim='value', rate_dim='rate'):
+def cal_sharpe_ratio(data, start, end, rfr=0.04, price_dim='value', rate_dim='rate'):
   EAR = cal_EAR(data=data, start=start, end=end, dim=price_dim)
   AV = cal_AV(data=data, start=start, end=end, dim=rate_dim)
 
-  sharp_ratio = (EAR - rfr) / AV
+  sharpe_ratio = (EAR - rfr) / AV
   return sharp_ratio
 
 
-def cal_max_drawndown(data, dim='value'):
+def cal_max_drawndown(data, start, end, dim='value', dividends=0):
   """
   Calculate max drawn down in the specified period
 
@@ -247,7 +247,7 @@ def cal_max_drawndown(data, dim='value'):
   :returns: APR
   :raises: none
   """
-  data = data.copy()
+  data = data[start:end].copy()
   data['drawndown'] = 0
 
   for index, row in data.iterrows():
