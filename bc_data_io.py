@@ -2181,9 +2181,9 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
           position = position.drop('latest_time', axis=1)[['name', 'quantity', 'rate', 'market_value']].to_html()
 
           for l in lower_than_support:
-            position = position.replace(l, f'<font color="red">{l}</front>')
+            position = position.replace(l, f'<font color="red">{l}</font>')
           for h in higher_than_resistant:
-            position = position.replace(h, f'<font color="green">{h}</front>')
+            position = position.replace(h, f'<font color="green">{h}</font>')
 
         else:
           position = None
@@ -2316,15 +2316,21 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
     m.attach(i)
 
   # if test, print info parts, else send the email with attachments
-  if test:
-    print(full_info)
-    ret = 'test'
-  else:
-    # start SMTP service, send email, stop SMTP service
-    server=smtplib.SMTP_SSL(smtp_server)
-    server.connect(smtp_server,465)
-    server.login(from_addr, password)
-    server.sendmail(from_addr, to_addr, m.as_string())
-    ret = server.quit()
+  try:
+    if test:
+      print(full_info)
+      ret = 'test'
+    else:
+      # start SMTP service, send email, stop SMTP service
+      server = smtplib.SMTP_SSL(smtp_server)
+      # Use port from config if available, otherwise default to 465
+      port = config.get('email_port', 465)
+      server.connect(smtp_server, port)
+      server.login(from_addr, password)
+      server.sendmail(from_addr, to_addr, m.as_string())
+      ret = server.quit()
+  except Exception as e:
+    print(f"Error sending email: {str(e)}")
+    ret = f"Error: {str(e)}"
 
   return ret

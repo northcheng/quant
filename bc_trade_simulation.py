@@ -157,7 +157,7 @@ class FixedPositionTrader:
       symbol = k.split('_')[0]
       min_date = sec_data[k][start_date:].index.min()
       global_min_date = min_date if global_min_date is None else min(min_date, global_min_date)
-    start_date = util.time_2_string(min_date)
+    start_date = util.time_2_string(global_min_date)
     
     # set recalculate mode for each symbol
     cut_data = []
@@ -217,7 +217,8 @@ class FixedPositionTrader:
           self.record[symbol] = ta_util.calculate_ta_signal(df=self.record[symbol])
         else:
           print(f'{symbol} has no data, remove it from record')
-          self.record.pop(symbol)
+          if symbol in self.record:
+            self.record.pop(symbol)
       else:
         continue
 
@@ -370,7 +371,7 @@ class FixedPositionTrader:
       if symbol == 'portfolio':
         benchmark_record['value'] = benchmark_record['value'] * (len(self.sec_list)-1)
       benchmark_record['original'] = benchmark_record.loc[benchmark_min_idx, 'value']
-      money_plot.plot(benchmark_record.index, benchmark_record.value, label='benckmark', color='black', linestyle='--',)
+      money_plot.plot(benchmark_record.index, benchmark_record.value, label='benchmark', color='black', linestyle='--',)
     
     # set title and legend
     trade_plot.legend(bbox_to_anchor=(1.02, 0.), loc=3, ncol=1, borderaxespad=0.0) 
@@ -481,13 +482,13 @@ class FixedPositionTrader:
     return analysis
 
   # save data
-  def save_data(self, file_name='back_test_data'):
+  def save_data(self, save_dir, file_name='back_test_data'):
 
-    saved_file = f'C:\\Users\\north\\quant\\backtest_data\\{file_name}'
+    saved_file = os.path.join(save_dir, file_name)
     
     # initialize
-    if os.path.exists(file_name):
-      saved_data = io_util.pickle_load_data(file_path='', file_name=saved_file)
+    if os.path.exists(saved_file):
+      saved_data = io_util.pickle_load_data(file_path=save_dir, file_name=file_name)
     else:
       saved_data = {}
 
@@ -496,17 +497,17 @@ class FixedPositionTrader:
       saved_data[symbol] = self.record[symbol]
 
     # save data
-    io_util.pickle_dump_data(data=saved_data, file_path='', file_name=saved_file)
+    io_util.pickle_dump_data(data=saved_data, file_path=save_dir, file_name=file_name)
     print(f'[simu]: saved record to local file: {saved_file}')
     
   # load data
-  def load_data(self, file_name='back_test_data'):
-    
-    saved_file = f'C:\\Users\\north\\quant\\backtest_data\\{file_name}'
+  def load_data(self, save_dir, file_name='back_test_data'):
+
+    saved_file = os.path.join(save_dir, file_name)
 
     # initialize
     if os.path.exists(saved_file):
-      loaded_data = io_util.pickle_load_data(file_path='', file_name=saved_file)
+      loaded_data = io_util.pickle_load_data(file_path=save_dir, file_name=file_name)
       updated_time = util.timestamp_2_time(os.stat(saved_file).st_mtime, unit='s').strftime(format='%Y-%m-%d %H:%M:%S')
       self.record = loaded_data
       print(f'[simu]: initialized record from data saved on: {updated_time}, data range [{loaded_data["benchmark"].index.min().date()} - {loaded_data["benchmark"].index.max().date()}]')

@@ -23,7 +23,7 @@ def cal_HPR(data, start, end, dim='value', dividends=0):
   :param start: start date
   :param end: end date
   :param dim: price dim to calculate
-  :param dividends: divndends to add
+  :param dividends: dividends to add
   :returns: HPR
   :raises: none
   """
@@ -75,6 +75,8 @@ def cal_AV(data, start, end, dim='rate'):
   end_date = util.time_2_string(data[start:end].index.max())
   num_days = util.num_days_between(start_date, end_date) - 1
 
+  if num_days <= 0:
+    return 0
   AV = (data[dim].var() * (365 / num_days)) ** 0.5
   return AV
 
@@ -232,7 +234,7 @@ def cal_sharpe_ratio(data, start, end, rfr=0.04, price_dim='value', rate_dim='ra
   AV = cal_AV(data=data, start=start, end=end, dim=rate_dim)
 
   sharpe_ratio = (EAR - rfr) / AV
-  return sharp_ratio
+  return sharpe_ratio
 
 
 def cal_max_drawndown(data, start, end, dim='value', dividends=0):

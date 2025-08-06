@@ -181,7 +181,7 @@ class Trader(object):
           acquire = avg_fill_price * quantity - commission
           new_cash = record_cash + acquire
           new_position = record_position - quantity
-          print(action, symbol, cost, new_cash, new_position)
+          print(action, symbol, acquire, new_cash, new_position)
 
         else:
           new_cash = record_cash
@@ -333,9 +333,9 @@ class Trader(object):
 
     # if signal list is not empty
     if len(signal) > 0:
-      # # get latest price for signals
-      # signal_brief = io_util.get_stock_briefs(symbols=signal.index.tolist(), source='eod', api_key=self.eod_api_key).set_index('symbol')
-      # signal = pd.merge(signal, signal_brief[['latest_price']], how='left', left_index=True, right_index=True)
+      # get latest price for signals
+      signal_brief = io_util.get_stock_briefs(symbols=signal.index.tolist(), source='eod', api_key=self.eod_api_key).set_index('symbol')
+      signal = pd.merge(signal, signal_brief[['latest_price']], how='left', left_index=True, right_index=True)
 
       # get in-position quantity and latest price for signals
       self.update_position(get_briefs=False)
@@ -373,7 +373,7 @@ class Trader(object):
       if minimum_position is None:
         minimum_position = money_per_sec
 
-      # get buy signals which not in posiitons yet
+      # get buy signals which not in positions yet
       default_money_per_sec = money_per_sec
       buy_signal = signal.query('action == "b"')
       if len(buy_signal) > 0:
@@ -489,7 +489,7 @@ class Trader(object):
       if len(cash_out_list) > 0:
         cash_out_position =  position.loc[cash_out_list, ].copy()
         self.logger.info(f'[STOP]: LOSS: {stop_loss_list}, PROFIT: {stop_profit_list}')
-        self.logger.info(f'[STOP]: LOSS_INDAY: {stop_loss_list}, PROFIT_INDAY: {stop_profit_list}')
+        self.logger.info(f'[STOP]: LOSS_INDAY: {stop_loss_list_inday}, PROFIT_INDAY: {stop_profit_list_inday}')
 
         for index, row in cash_out_position.iterrows():
           self.trade(symbol=index, action='SELL', quantity=row['quantity'], print_summary=print_summary)
@@ -579,7 +579,7 @@ class Futu(Trader):
 
     # 失败重试
     retry_count = 0
-    while retry_count < 1:
+    while retry_count < 3:
       
       retry_count += 1
       try:
@@ -1046,7 +1046,7 @@ class Tiger(Trader):
     }
 
   # update market status
-  def update_market_status(self, market=Market, return_str=False):
+  def update_market_status(self, return_str=False):
     
     try:
       # get market status

@@ -4907,7 +4907,7 @@ def add_atr_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_si
   # volume = ohlcv_col['volume']
 
   # calculate true range
-  df['h_l'] = df[low] - df[low]
+  df['h_l'] = df[high] - df[low]
   df['h_pc'] = abs(df[high] - df[close].shift(1))
   df['l_pc'] = abs(df[low] - df[close].shift(1))
   df['tr'] = df[['h_l', 'h_pc', 'l_pc']].max(axis=1)
@@ -5153,7 +5153,7 @@ def add_ui_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_sig
 
 # ================================================ Indicator visualization  ========================================= #
 # plot bar
-def plot_bar(df, target_col, start=None, end=None, width=0.8, alpha=1, color_mode='up_down', edge_color=(0,0,0,0.1), benchmark=None, add_line=False, title=None, use_ax=None, ytick_roration=0, plot_args=default_plot_args):
+def plot_bar(df, target_col, start=None, end=None, width=0.8, alpha=1, color_mode='up_down', edge_color=(0,0,0,0.1), benchmark=None, add_line=False, title=None, use_ax=None, ytick_rotation=0, plot_args=default_plot_args):
   """
   Plot a series in bar
   :param df: time-series dataframe which contains target columns
@@ -5168,7 +5168,7 @@ def plot_bar(df, target_col, start=None, end=None, width=0.8, alpha=1, color_mod
   :param add_line: whether to add a line along bars
   :param title: plot title
   :param use_ax: the already-created ax to draw on
-  :param ytick_roration: rotation degree of ytick
+  :param ytick_rotation: rotation degree of ytick
   :param plot_args: plot arguments
   :returns: figure with bar plotted
   :raises: none
@@ -5258,12 +5258,6 @@ def plot_scatter(df, target_col, start=None, end=None, marker='.', alpha=1, colo
 
   # plot indicator
   if 'color' in df.columns:
-    # df = cal_change_rate(df=df, target_col='Volume', add_accumulation=False, add_prefix=True)
-    # threshold = 0.2
-    # strong_trend_idx = df.query(f'Volume_rate >= {threshold} or Volume_rate <= {-threshold}').index
-    # weak_trend_idx = df.query(f'{-threshold} < Volume_rate < {threshold}').index
-    # ax.scatter(strong_trend_idx, df.loc[strong_trend_idx, 'Volume'], color=df.loc[strong_trend_idx, 'color'], label=target_col, alpha=0.4, marker='s')
-    # ax.scatter(weak_trend_idx, df.loc[weak_trend_idx, 'adx_strength'], color=df.loc[weak_trend_idx, 'color'], alpha=0.4, marker='_')
     ax.scatter(df.index, df[target_col], marker=marker,color=df.color, alpha=alpha, label=target_col)
 
   if add_line:
@@ -5312,7 +5306,7 @@ def plot_up_down(df, col='trend_idx', start=None, end=None, use_ax=None, title=N
   #   'up': 'u', 
   #   'down': 'd'}
   # df = assign_condition_value(df=df, column='{col}_trend', condition_dict=conditions, value_dict=values, default_value=np.nan)
-  # df['{col}_trend'] = df['{col}_trend'].fillna(method='ffill')
+  # df[f'{col}_trend'] = df[f'{col}_trend'].fillna(method='ffill')
 
   # create figure
   ax = use_ax
@@ -5913,7 +5907,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
   max_idx = idxs[-1]
   annotation_idx = max_idx + datetime.timedelta(days=1)
   min_idx = df.index.min()
-  padding = (df.High.max() - df.Low.min()) / 100
+  padding = (df[high].max() - df[low].min()) / 100
 
   # annotate split
   if 'split' in add_on and 'Split' in df.columns:
@@ -5924,7 +5918,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
       x = s
       y = df.loc[s, 'High']
       x_text = all_idx[max(0, all_idx.index(s)-2)]
-      y_text = df.High.max()
+      y_text = df[high].max()
       sp = round(df.loc[s, 'Split'], 4)
       plt.annotate(f'splited {sp}', xy=(x, y), xytext=(x_text,y_text), xycoords='data', textcoords='data', arrowprops=dict(arrowstyle='->', alpha=0.5), bbox=dict(boxstyle="round", fc="1.0", alpha=0.5))
   
@@ -6121,9 +6115,9 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
         text = tmp_annotation[k]['text']
         style = settings[tmp_annotation[k]['style']]
         if a == 'up':
-          y_text = df.Low.min() - y_text_padding[counter % 2]
+          y_text = df[low].min() - y_text_padding[counter % 2]
         else:
-          y_text = df.High.max() + y_text_padding[counter % 2]
+          y_text = df[high].max() + y_text_padding[counter % 2]
           
         plt.annotate(f'{text}', xy=(x, y), xytext=(x,y_text), fontsize=style['fontsize'], rotation=0, color=style['fontcolor'], va=style['va'],  ha=style['ha'], xycoords='data', textcoords='data', arrowprops=dict(arrowstyle=style['arrowstyle'], alpha=0.5, color='black'), bbox=dict(boxstyle="round", facecolor=style[a], edgecolor='none', alpha=style['alpha']))
         counter += 1
@@ -6229,19 +6223,13 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
   
   if interval in ["day", "week", "month"]:
     
-    # pred = add_ma_linear_features(df, period=period, target_col=ext_columns)
-
     for i in range(extended):
 
       next_idx = current_idx + datetime.timedelta(days = interval_factor[interval])
       df.loc[next_idx, candle_gap_cols] = df.loc[max_idx, candle_gap_cols]
       df.loc[next_idx, support_resistant_cols] = df.loc[max_idx, support_resistant_cols]
       df.loc[next_idx, ext_columns] = df.loc[max_idx, ext_columns]
-      # for ec in ext_columns:
-      #   slope = pred[ec][0]
-      #   intercept = pred[ec][1]
-      #   df.loc[next_idx, ec] = (period + i + 1) * ( slope) + intercept 
-
+     
       if 'linear_fit_high' in df.columns and 'linear_fit_low' in df.columns:
         df.loc[next_idx, linear_cols] = df.loc[max_idx, linear_cols]
 
@@ -6618,7 +6606,7 @@ def plot_renko(df, start=None, end=None, use_ax=None, title=None, close_alpha=0.
 # plot rsi chart
 def plot_rsi(df, start=None, end=None, use_ax=None, title=None, plot_args=default_plot_args):
   """
-  Plot aroon chart
+  Plot RSI chart
 
   :param df: dataframe with ichimoku indicator columns
   :param start: start row to plot
@@ -7315,7 +7303,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
 
   # construct super title
   if new_title is None:
-    new_title == ''
+    new_title = ''
   super_title = f' {title}({new_title})  {close_rate}% {title_symbol}'
 
   # super title description

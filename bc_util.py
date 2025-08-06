@@ -10,6 +10,7 @@ import pytz
 import shutil
 import datetime
 import subprocess
+from typing import List, Optional, Union, Any, Dict, Tuple
 import numpy as np
 import pandas as pd
 import matplotlib.cm as cmx
@@ -23,7 +24,7 @@ default_date_format = '%Y-%m-%d'
 
 
 #----------------------- Date manipulation -----------------------#
-def string_2_time(string, diff_days=0, date_format=default_date_format):
+def string_2_time(string: str, diff_days: int = 0, date_format: str = default_date_format) -> datetime.datetime:
   """
   Convert a date from string to datetime
 
@@ -39,7 +40,7 @@ def string_2_time(string, diff_days=0, date_format=default_date_format):
   return time_object
  
 
-def time_2_string(time_object, diff_days=0, date_format=default_date_format):
+def time_2_string(time_object: datetime.datetime, diff_days: int = 0, date_format: str = default_date_format) -> str:
   """
   Convert datetime instance to date string, with plus/minus certain days
 
@@ -55,7 +56,7 @@ def time_2_string(time_object, diff_days=0, date_format=default_date_format):
   return time_string
 
 
-def timestamp_2_time(timestamp, unit='ms', timezone='CN'):
+def timestamp_2_time(timestamp: Union[int, float], unit: str = 'ms', timezone: str = 'CN') -> datetime.datetime:
   """
   Convert pytz timestamp instance to datetime instance
 
@@ -80,7 +81,7 @@ def timestamp_2_time(timestamp, unit='ms', timezone='CN'):
   return time_object
 
 
-def string_plus_day(string, diff_days, date_format=default_date_format):
+def string_plus_day(string: str, diff_days: int, date_format: str = default_date_format) -> str:
   """
   Add or reduce days on a date string
 
@@ -96,7 +97,7 @@ def string_plus_day(string, diff_days, date_format=default_date_format):
   return time_string    
 
 
-def num_days_between(start_date, end_date, date_format=default_date_format):
+def num_days_between(start_date: str, end_date: str, date_format: str = default_date_format) -> int:
   """
   Calculate the number of days between 2 date strings
 
@@ -113,7 +114,7 @@ def num_days_between(start_date, end_date, date_format=default_date_format):
   return diff.days
 
 
-def convert_timezone(time_object, from_tz, to_tz, keep_tzinfo=False):
+def convert_timezone(time_object: datetime.datetime, from_tz: pytz.BaseTzInfo, to_tz: pytz.BaseTzInfo, keep_tzinfo: bool = False) -> datetime.datetime:
   """
   Convert a time object from one timezone to another
 
@@ -132,7 +133,7 @@ def convert_timezone(time_object, from_tz, to_tz, keep_tzinfo=False):
 
 
 #----------------------- File manipulation -----------------------#
-def synchronize_file(local_folder, remote_folder, newer_only=False, syn_file=True, syn_folder=True, file_type=None, folder_name=None, is_print=True):
+def synchronize_file(local_folder: str, remote_folder: str, newer_only: bool = False, syn_file: bool = True, syn_folder: bool = True, file_type: Optional[List[str]] = None, folder_name: Optional[List[str]] = None, is_print: bool = True) -> None:
   """
   Synchronize files from remote folder to local folder
 
@@ -245,7 +246,7 @@ def synchronize_file(local_folder, remote_folder, newer_only=False, syn_file=Tru
     print('please check existence of path')
 
 
-def print_folder_tree(path, parent_is_last=1, depth_limit=-1, tab_width=1):
+def print_folder_tree(path: str, parent_is_last: int = 1, depth_limit: int = -1, tab_width: int = 1) -> List[str]:
   """
   Print folder and files in a tree structure
   :param path: target path
@@ -281,7 +282,7 @@ def print_folder_tree(path, parent_is_last=1, depth_limit=-1, tab_width=1):
 
 
 #----------------------- Dataframe manipulation ------------------#
-def df_2_timeseries(df, time_col='date'):
+def df_2_timeseries(df: pd.DataFrame, time_col: str = 'date') -> pd.DataFrame:
   """
   Convert dataframe to timeseries-dataframe
 
@@ -296,7 +297,7 @@ def df_2_timeseries(df, time_col='date'):
   return df
 
 
-def remove_duplicated_index(df, keep='first'):
+def remove_duplicated_index(df: pd.DataFrame, keep: str = 'first') -> pd.DataFrame:
   """
   remove duplicated index with its row from dataframe
 
@@ -314,7 +315,7 @@ def remove_duplicated_index(df, keep='first'):
 
 
 #----------------------- Http Request/Response -------------------#
-def response_2_json(response, print_status=False):
+def response_2_json(response: Any, print_status: bool = False) -> Optional[Dict[str, Any]]:
   """
   extract json content from http response
 
@@ -350,7 +351,7 @@ def response_2_json(response, print_status=False):
 
 
 #----------------------- Data visualization ----------------------#
-def plot_data(df, columns, start=None, end=None, figsize=(20, 5), colormap='tab10'):
+def plot_data(df: pd.DataFrame, columns: List[str], start: Optional[int] = None, end: Optional[int] = None, figsize: Tuple[int, int] = (20, 5), colormap: str = 'tab10') -> plt.Figure:
   """
   Plot chart for several different lines
 
@@ -383,11 +384,12 @@ def plot_data(df, columns, start=None, end=None, figsize=(20, 5), colormap='tab1
   # plot legend, grid and rotate xticks    
   plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=5, mode="expand", borderaxespad=0.)
   plt.grid(True)
-  plt.xticks(rotation=90)   
+  plt.xticks(rotation=90)
+  return plt.gcf()
 
 
 #----------------------- Print assistence ------------------------#
-def print_when(condition, true_content='', false_content=None):
+def print_when(condition: bool, true_content: str = '', false_content: Optional[str] = None) -> None:
   """
   Print different content under different conditions
 
@@ -407,7 +409,7 @@ def print_when(condition, true_content='', false_content=None):
 
 
 #----------------------- Process control -------------------------#
-def sleep_until(target_time, description=None, check_frequency=3600):
+def sleep_until(target_time: datetime.datetime, description: Optional[str] = None, check_frequency: int = 3600) -> None:
   """
   Sleep with a fixed frequency, until the target time
 
@@ -439,7 +441,7 @@ def sleep_until(target_time, description=None, check_frequency=3600):
 
 
 #----------------------- Image manipulation ----------------------#
-def concate_image(image_list, adjust_size=False, save_name=None, remove_old_image=True):
+def concate_image(image_list: List[str], adjust_size: bool = False, save_name: Optional[str] = None, remove_old_image: bool = True) -> None:
   """
   Concate images in the image list, save to a image named <save_name>
 
@@ -485,7 +487,7 @@ def concate_image(image_list, adjust_size=False, save_name=None, remove_old_imag
     print(f'{save_name}: No image to concate')
 
 
-def image_2_pdf(image_list, save_name=None, remove_old_pdf=True, is_print=False):
+def image_2_pdf(image_list: List[str], save_name: Optional[str] = None, remove_old_pdf: bool = True, is_print: bool = False) -> None:
   """
   save images in the image list to a pdf file
 
@@ -515,10 +517,10 @@ def image_2_pdf(image_list, save_name=None, remove_old_pdf=True, is_print=False)
     images[0].save(save_name, save_all=True, append_images=images[1:])
   else:
     if is_print:
-      print('no images to convert to pdf')
+      print('no images to convert to gif')
 
 
-def image_2_gif(image_list, save_name=None, remove_old_gif=True, fps=3):
+def image_2_gif(image_list: List[str], save_name: Optional[str] = None, remove_old_gif: bool = True, fps: int = 3) -> None:
   """
   save images in the image list to a gif file
 
@@ -549,7 +551,6 @@ def image_2_gif(image_list, save_name=None, remove_old_gif=True, fps=3):
   if len(images) > 0:
     if save_name is None:
       save_name = 'gif_from_image.gif'
-    imio.mimsave(save_name, images, fps=fps)
     # 保存为 GIF
     images[0].save(save_name, save_all=True, append_images=images[1:], duration=1000, loop=0)
 
@@ -558,13 +559,13 @@ def image_2_gif(image_list, save_name=None, remove_old_gif=True, fps=3):
 
 
 #----------------------- Script runner ---------------------------#
-def run_script(cmd, retry=1, timeout=1800):
+def run_script(cmd: Union[List[str], str], retry: int = 1, timeout: int = 1800) -> Optional[int]:
   
   # try to run non_visual script, if failed, retry(10 times)
   retry_count = 0
   while retry_count < retry:
 
-    # set retru count and current time
+    # set retry count and current time
     retry_count += 1
     return_code = None
 
