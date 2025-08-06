@@ -74,7 +74,7 @@ default_data_sources = {
 
 
 #----------------------------- Stock Data -------------------------------------#
-def add_postfix_for_cn_symbol(symbol):
+def add_postfix_for_cn_symbol(symbol: str) -> str:
   """
   Add postfix for chinese stock symbols
 
@@ -105,13 +105,13 @@ def add_postfix_for_cn_symbol(symbol):
   return symbol
 
 # preprocess symbol for downloading
-def preprocess_symbol(symbols, style):
+def preprocess_symbol(symbols: list, style: str) -> dict:
   """
   Add preprocess list of symbols to meet the style of different datasource
 
   :param symbols: list of symbols in STANDARD_CN_SYMBOL/STANDARD_CN_SYMBOL format
   :param style: name of the datasource
-  :returns: list of processed symbols
+  :returns: dict of {original symbol: processed symbol}
   :raises: none
   """
 
@@ -162,7 +162,7 @@ def preprocess_symbol(symbols, style):
   return result
 
 # get ohlcv data from eod(US/CN/HK)
-def get_data_from_eod(symbol, start_date=None, end_date=None, interval='d', is_print=False, api_key=default_eod_key, add_dividend=True, add_split=True):
+def get_data_from_eod(symbol: str, start_date: str = None, end_date: str = None, interval: str = 'd', is_print: bool = False, api_key: str = default_eod_key, add_dividend: bool = True, add_split: bool = True) -> pd.DataFrame:
   """
   Download stock data from EOD
 
@@ -271,7 +271,7 @@ def get_data_from_eod(symbol, start_date=None, end_date=None, interval='d', is_p
   return data
 
 # get us_spot_em from ak, for mapping US symbols to ak format
-def get_code_map_from_ak():
+def get_code_map_from_ak() -> pd.DataFrame:
 
   # get current date and filename
   today = f'{datetime.datetime.today().date()}'
@@ -304,7 +304,7 @@ def get_code_map_from_ak():
   return us_spot_em
 
 # get ohlcv data from ak(US/CN/HK)
-def get_data_from_ak(symbol, start_date=None, end_date=None, interval='daily', is_print=False, adjust='qfq'):
+def get_data_from_ak(symbol: str, start_date: str = None, end_date: str = None, interval: str = 'daily', is_print: bool = False, adjust: str = 'qfq') -> pd.DataFrame:
   """
   Download stock data from akshare
   https://github.com/akfamily/akshare
@@ -365,14 +365,12 @@ def get_data_from_ak(symbol, start_date=None, end_date=None, interval='daily', i
   return result
 
 # get ohlcv data from easyquotation(HK: 1500rows)
-def get_data_from_easyquotation(symbol, is_print=False):
+def get_data_from_easyquotation(symbol: str, is_print: bool = False) -> pd.DataFrame:
   """
   Download HK stock data from easyquotation
   https://github.com/shidenggui/easyquotation
 
   :param symbol: target symbol, e.g. '00700'
-  :param start_date: start date of the data
-  :param end_date: end date of the data
   :param is_print: whether to print download information
   :returns: dataframe or None
   :raises: exception when downloading failed
@@ -391,7 +389,7 @@ def get_data_from_easyquotation(symbol, is_print=False):
   return df
 
 # postprocess downloaded data
-def post_process_download_data(df, source):
+def post_process_download_data(df: pd.DataFrame, source: str) -> pd.DataFrame:
   """
   Post process data downloaded from certain data source
 
@@ -436,7 +434,7 @@ def post_process_download_data(df, source):
   return df
 
 # get data from specific datasource
-def get_data(symbol, start_date=None, end_date=None, interval='d', is_print=False, source='eod', api_key=default_eod_key, add_dividend=True, add_split=True, adjust='qfq'):
+def get_data(symbol: str, start_date: str = None, end_date: str = None, interval: str = 'd', is_print: bool = False, source: str = 'eod', api_key: str = default_eod_key, add_dividend: bool = True, add_split: bool = True, adjust: str = 'qfq') -> pd.DataFrame:
   """
   Download stock data from web sources
 
@@ -480,7 +478,7 @@ def get_data(symbol, start_date=None, end_date=None, interval='d', is_print=Fals
   return data
 
 # get 15min-delayed US market realtime data from eod
-def get_real_time_data_from_eod(symbols, api_key=default_eod_key, is_print=False, batch_size=15):
+def get_real_time_data_from_eod(symbols: list, api_key: str = default_eod_key, is_print: bool = False, batch_size: int = 15) -> pd.DataFrame:
   """
   Download real-time stock data from EOD
 
@@ -574,7 +572,7 @@ def get_real_time_data_from_eod(symbols, api_key=default_eod_key, is_print=False
   return result
 
 # get realtime CN market realtime data from easyquotation
-def get_real_time_data_from_easyquotation(symbols, source='sina'):
+def get_real_time_data_from_easyquotation(symbols: list, source: str = 'sina') -> pd.DataFrame:
   """
   Download real-time stock data (chinese stock only) from easyquotation
   https://github.com/shidenggui/easyquotation
@@ -629,7 +627,7 @@ def get_real_time_data_from_easyquotation(symbols, source='sina'):
   return df
 
 # get realtime data from specific datasource
-def get_real_time_data(symbols, source='eod', sub_source='sina', api_key=default_eod_key, is_print=False, batch_size=15):
+def get_real_time_data(symbols: list, source: str = 'eod', sub_source: str = 'sina', api_key: str = default_eod_key, is_print: bool = False, batch_size: int = 15) -> pd.DataFrame:
 
   data = None
 
@@ -655,7 +653,7 @@ def get_real_time_data(symbols, source='eod', sub_source='sina', api_key=default
   return data
 
 # get realtime data for a list of stocks from eod
-def get_stock_briefs_from_eod(symbols, api_key=default_eod_key, batch_size=15):
+def get_stock_briefs_from_eod(symbols: list, api_key: str = default_eod_key, batch_size: int = 15) -> pd.DataFrame:
   """
   Get latest stock data for symbols from eod
 
@@ -677,7 +675,7 @@ def get_stock_briefs_from_eod(symbols, api_key=default_eod_key, batch_size=15):
   return latest_data
 
 # get realtime data for a list of stocks from specified datasource
-def get_stock_briefs(symbols, source='eod', api_key=default_eod_key, batch_size=15):
+def get_stock_briefs(symbols: list, source: str = 'eod', api_key: str = default_eod_key, batch_size: int = 15) -> pd.DataFrame:
   """
   Get latest stock data for symbols
 
@@ -701,7 +699,7 @@ def get_stock_briefs(symbols, source='eod', api_key=default_eod_key, batch_size=
   return briefs
 
 # update stock data (eod and/or realtime)
-def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_mode='eod', required_date=None, window_size=3, is_print=False, is_return=False, is_save=True, sources=default_data_sources, api_keys={}, add_dividend=True, add_split=True, batch_size=15, adjust='qfq', query_benchmark=True):
+def update_stock_data_new(symbols: list, stock_data_path: str, file_format: str = '.csv', update_mode: str = 'eod', required_date: str = None, window_size: int = 3, is_print: bool = False, is_return: bool = False, is_save: bool = True, sources: dict = default_data_sources, api_keys: dict = {}, add_dividend: bool = True, add_split: bool = True, batch_size: int = 15, adjust: str = 'qfq', query_benchmark: bool = True) -> dict:
   """
   update local stock data from eod
 
@@ -714,11 +712,11 @@ def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_m
   :param is_return: whether to return the updated data
   :param is_save: whether to save the updated data to local files
   :param sources: data sources for different markets
-  :param api_key: api token to access eod data
+  :param api_keys: api tokens for different data sources
   :param add_dividend: whether to add dividend data
   :param add_split: whether to add split data
   :param batch_size: batch size of symbols of getting real-time data  
-  :returns: dataframe of latest stock data, per row each symbol
+  :returns: dict of dataframes with symbol as key
   :raises: none
   """
 
@@ -919,7 +917,7 @@ def update_stock_data_new(symbols, stock_data_path, file_format='.csv', update_m
     return data
 
 # update stock data from eod 
-def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', update_mode='eod', required_date=None, window_size=3, is_print=False, is_return=False, is_save=True, cn_stock=False, api_key=default_eod_key, add_dividend=True, add_split=True, batch_size=15):
+def update_stock_data_from_eod(symbols: list, stock_data_path: str, file_format: str = '.csv', update_mode: str = 'eod', required_date: str = None, window_size: int = 3, is_print: bool = False, is_return: bool = False, is_save: bool = True, cn_stock: bool = False, api_key: str = default_eod_key, add_dividend: bool = True, add_split: bool = True, batch_size: int = 15) -> dict:
   """
   update local stock data from eod
 
@@ -936,7 +934,7 @@ def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', upd
   :param batch_size: batch size of symbols of getting real-time data
   :param update_mode: how to update data - realtime/eod/both(eod+realtime)/refresh(delete and redownload)
   :param cn_stock: whether updating chinese stocks
-  :returns: dataframe of latest stock data, per row each symbol
+  :returns: dict of dataframes with symbol as key
   :raises: none
   """
 
@@ -1039,7 +1037,7 @@ def update_stock_data_from_eod(symbols, stock_data_path, file_format='.csv', upd
     return data
 
 # update stock data from ak
-def update_stock_data_from_ak(symbols, stock_data_path, file_format='.csv', update_mode='eod', required_date=None, window_size=3, is_print=False, is_return=False, is_save=True, cn_stock=False):
+def update_stock_data_from_ak(symbols: list, stock_data_path: str, file_format: str = '.csv', update_mode: str = 'eod', required_date: str = None, window_size: int = 3, is_print: bool = False, is_return: bool = False, is_save: bool = True, cn_stock: bool = False) -> dict:
 
   # verify update_mode
   if update_mode not in ['eod', 'refresh', 'both', 'realtime']:
@@ -1151,7 +1149,7 @@ def update_stock_data_from_ak(symbols, stock_data_path, file_format='.csv', upda
     return data
 
 # update stock data (old, aborted)
-def update_stock_data(symbols, stock_data_path, file_format='.csv', update_mode='eod', cn_stock=False, required_date=None, is_print=False, is_return=False, is_save=True, source='eod', api_key=default_eod_key, add_dividend=True, add_split=True, batch_size=15):
+def update_stock_data(symbols: list, stock_data_path: str, file_format: str = '.csv', update_mode: str = 'eod', cn_stock: bool = False, required_date: str = None, is_print: bool = False, is_return: bool = False, is_save: bool = True, source: str = 'eod', api_key: str = default_eod_key, add_dividend: bool = True, add_split: bool = True, batch_size: int = 15) -> dict:
   """
   update local stock data
 
@@ -1160,13 +1158,12 @@ def update_stock_data(symbols, stock_data_path, file_format='.csv', update_mode=
   :param source: data source to download latest stock data
   :param file_format: default is .csv
   :param required_date: if the local data have already meet the required date, it won't be updated
-  :param by: 'stock'-update one by one; 'date'-update for batch of stocks which have same latest dates
   :param is_print: whether to print info when downloading
   :param is_return: whether to return the updated data
   :param is_save: whether to save the updated data to local files
   :param update_mode: how to update data - realtime/eod/both(eod+realtime)/refresh(delete and redownload)
   :param cn_stock: whether updating chinese stocks
-  :returns: dataframe of latest stock data, per row each symbol
+  :returns: dict of dataframes with symbol as key or None
   :raises: none
   """
 
@@ -1183,7 +1180,7 @@ def update_stock_data(symbols, stock_data_path, file_format='.csv', update_mode=
     return result
 
 # save downloaded stock data
-def save_stock_data(df, file_path, file_name, file_format='.csv', reset_index=True, index=False):
+def save_stock_data(df: pd.DataFrame, file_path: str, file_name: str, file_format: str = '.csv', reset_index: bool = True, index: bool = False) -> None:
   """
   save stock data (dataframe) to .csv file
 
@@ -1217,7 +1214,7 @@ def save_stock_data(df, file_path, file_name, file_format='.csv', reset_index=Tr
     print('Empty dataframe to save, skipped')
   
 # load data from stock data file (csv file)
-def load_stock_data(file_path, file_name, file_format='.csv', time_col='Date', standard_columns=False, sort_index=True):
+def load_stock_data(file_path: str, file_name: str, file_format: str = '.csv', time_col: str = 'Date', standard_columns: bool = False, sort_index: bool = True) -> pd.DataFrame:
   """
   load stock data (dataframe) from .csv file
 
@@ -1227,7 +1224,7 @@ def load_stock_data(file_path, file_name, file_format='.csv', time_col='Date', s
   :param time_col: column name of the time col, default is Date
   :param standard_columns: whether to return dataframe with standard columns (OHLCV, Adj Close, Dividend, Split)
   :param sort_index: whether to sort index
-  :returns: none
+  :returns: dataframe of stock data
   :raises: none
   """
   # for chinese stocks
@@ -1271,7 +1268,7 @@ def load_stock_data(file_path, file_name, file_format='.csv', time_col='Date', s
   return df
 
 # remove stock data file (csv file)
-def remove_stock_data(symbol, file_path, file_format='.csv'):
+def remove_stock_data(symbol: str, file_path: str, file_format: str = '.csv') -> None:
   '''
   Remove stock data file from drive
 
@@ -1295,12 +1292,12 @@ def remove_stock_data(symbol, file_path, file_format='.csv'):
     print(symbol, e) 
 
 # create weekly data from daily data
-def create_week_data(df):
+def create_week_data(df: pd.DataFrame) -> pd.DataFrame:
   '''
   convert day-interval data into week-interval 
 
   :param df: day-interval OHLCV data
-  :returns: None
+  :returns: week-interval OHLCV data
   :raises: None
   '''
   # count weeks
@@ -1356,12 +1353,12 @@ def create_week_data(df):
   return week_data
 
 # create monthly data from daily data
-def create_month_data(df):
+def create_month_data(df: pd.DataFrame) -> pd.DataFrame:
   '''
   convert day-interval data into month-interval 
 
   :param df: day-interval OHLCV data
-  :returns: None
+  :returns: month-interval OHLCV data
   :raises: None
   '''
   # get minimum and maximum index
@@ -1428,13 +1425,13 @@ def create_month_data(df):
   return month_data
     
 # switch data interval (daily, weekly, monthly)
-def switch_data_interval(df, interval):
+def switch_data_interval(df: pd.DataFrame, interval: str) -> pd.DataFrame:
   '''
   convert day-interval data into week-interval or month-interval data
 
   :param df: day-interval OHLCV data
   :param interval: interval of target data week/month
-  :returns: None
+  :returns: converted data with specified interval
   :raises: None
   '''
   # initialize result
@@ -1461,7 +1458,7 @@ def switch_data_interval(df, interval):
 
 #----------------------------- NYTimes Data -------------------------------------#
 
-def download_nytimes(year, month, api_key, file_path, file_format='.json', is_print=False, is_return=False):
+def download_nytimes(year: int, month: int, api_key: str, file_path: str, file_format: str = '.json', is_print: bool = False, is_return: bool = False) -> dict:
   '''
   download news from newyork times api
 
@@ -1527,14 +1524,14 @@ def download_nytimes(year, month, api_key, file_path, file_format='.json', is_pr
     return data
 
 
-def read_nytimes(year, month, file_path, file_format='.json'):
+def read_nytimes(year: int, month: int, file_path: str, file_format: str = '.json') -> pd.DataFrame:
   """
   read nytimes files into dataframe
 
   :param year: year to read
   :param month: month to read
   :param file_path: where to read the file
-  :file_format: what is the file format of the file
+  :param file_format: what is the file format of the file
   :returns: dataframe
   :raises: None
   """
@@ -1589,7 +1586,7 @@ def read_nytimes(year, month, file_path, file_format='.json'):
 
 
 #----------------------------- Stock List Management ----------------------------#
-def process_futu_exported(file_path, file_name):
+def process_futu_exported(file_path: str, file_name: str) -> pd.DataFrame:
   """
   process stock info that exported from futu-niuniu
 
@@ -1673,12 +1670,15 @@ def process_futu_exported(file_path, file_name):
   return universe
 
 
-def filter_futu_exported(df, condition=None, q=0.7, price_limit=[5, 1000], market='us'):
+def filter_futu_exported(df: pd.DataFrame, condition: dict = None, q: float = 0.7, price_limit: list = [5, 1000], market: str = 'us') -> pd.DataFrame:
   """
   filter symbols from data that exported from futu
 
   :param df: dataframe of stock information
   :param condition: dict of filter conditions
+  :param q: quantile for volume thresholds
+  :param price_limit: price range limit
+  :param market: market type (us/a)
   :returns: dataframe
   :raises: None
   """
@@ -1732,12 +1732,12 @@ def filter_futu_exported(df, condition=None, q=0.7, price_limit=[5, 1000], marke
   return filtered_df
 
 
-def import_futu_exported(df, num=100):
+def import_futu_exported(df: pd.DataFrame, num: int = 100) -> dict:
   """
   get list and dict from stock info dataframe, for importing into selected_sec_list.json and ta_config.json
 
   :param df: dataframe of stock information
-  :param config: dict of config
+  :param num: number of stocks to import
   :returns: dict
   :raises: None
   """
@@ -1759,7 +1759,7 @@ def import_futu_exported(df, num=100):
 
 
 #----------------------------- Json File Processing---- -------------------------#
-def create_config_file(config_dict, file_path, file_name, print=False, ensure_ascii=True):
+def create_config_file(config_dict: dict, file_path: str, file_name: str, print: bool = False, ensure_ascii: bool = True) -> None:
   """
   Create a config file and save global parameters into the file
 
@@ -1767,6 +1767,7 @@ def create_config_file(config_dict, file_path, file_name, print=False, ensure_as
   :param file_path: the path to save the file
   :param file_name: the name of the file
   :param print: whether to print result
+  :param ensure_ascii: whether to ensure ascii encoding
   :returns: None
   :raises: save error
   """
@@ -1781,7 +1782,7 @@ def create_config_file(config_dict, file_path, file_name, print=False, ensure_as
     print(e)
 
 
-def read_config(file_path, file_name):
+def read_config(file_path: str, file_name: str) -> dict:
   """
   Read config from a specific file
 
@@ -1802,7 +1803,7 @@ def read_config(file_path, file_name):
   return config_dict
 
 
-def add_config(config_key, config_value, file_path, file_name, is_print=False):
+def add_config(config_key: str, config_value: any, file_path: str, file_name: str, is_print: bool = False) -> None:
   """
   Add a new config in to the config file
 
@@ -1810,7 +1811,7 @@ def add_config(config_key, config_value, file_path, file_name, is_print=False):
   :param config_value: value of the config
   :param file_path: the path to save the file
   :param file_name: the name of the file
-  :param print: whether to print result
+  :param is_print: whether to print result
   :returns: None
   :raises: save error
   """
@@ -1829,14 +1830,14 @@ def add_config(config_key, config_value, file_path, file_name, is_print=False):
     print(e)
 
 
-def remove_config(config_key, file_path, file_name, is_print=False):
+def remove_config(config_key: str, file_path: str, file_name: str, is_print: bool = False) -> None:
   """
   remove a config from the config file
 
-  :param config_key: name of the new config
+  :param config_key: name of the config to remove
   :param file_path: the path to save the file
   :param file_name: the name of the file
-  :param print: whether to print result
+  :param is_print: whether to print result
   :returns: None
   :raises: save error
   """
@@ -1854,15 +1855,15 @@ def remove_config(config_key, file_path, file_name, is_print=False):
     print(e)
 
 
-def modify_config(config_key, config_value, file_path, file_name, is_print=False):
+def modify_config(config_key: str, config_value: any, file_path: str, file_name: str, is_print: bool = False) -> None:
   """
   modify the value of a config with certain config_key
 
-  :param config_key: name of the new config
-  :param config_value: value of the config
+  :param config_key: name of the config to modify
+  :param config_value: new value of the config
   :param file_path: the path to save the file
   :param file_name: the name of the file
-  :param print: whether to print result
+  :param is_print: whether to print result
   :returns: None
   :raises: save error
   """
@@ -1881,7 +1882,7 @@ def modify_config(config_key, config_value, file_path, file_name, is_print=False
 
 
 #----------------------------- Solidify data ------------------------------------# 
-def dict_2_excel(dictionary, file_path, file_name, keep_index=False):
+def dict_2_excel(dictionary: dict, file_path: str, file_name: str, keep_index: bool = False) -> None:
   """
   Save dictionary into an excel file
   :param dictionary: target dict
@@ -1903,7 +1904,7 @@ def dict_2_excel(dictionary, file_path, file_name, keep_index=False):
   writer.close()
 
 
-def folder_2_zip(folder_path, destination_path, zip_file_name):
+def folder_2_zip(folder_path: str, destination_path: str, zip_file_name: str) -> str:
   """
   Zip folder
   :param folder_path: full path of the folder
@@ -1928,7 +1929,7 @@ def folder_2_zip(folder_path, destination_path, zip_file_name):
   return zip_file_name
 
 
-def pickle_dump_data(data, file_path, file_name):
+def pickle_dump_data(data: any, file_path: str, file_name: str) -> None:
   """
   pickle data into a file
   :param data: data to dump
@@ -1942,7 +1943,7 @@ def pickle_dump_data(data, file_path, file_name):
     pickle.dump(data, f)
 
 
-def pickle_load_data(file_path, file_name):
+def pickle_load_data(file_path: str, file_name: str) -> any:
   """
   load data from pickled file
   :param file_path: source file path
@@ -1959,7 +1960,7 @@ def pickle_load_data(file_path, file_name):
 
 
 #----------------------------- portfolio updating -------------------------------#
-def update_portfolio_support_resistant(config, data, portfolio_file_name='portfolio.json', is_return=False):
+def update_portfolio_support_resistant(config: dict, data: dict, portfolio_file_name: str = 'portfolio.json', is_return: bool = False) -> dict:
   """
   record support and resistant for symbols in portfolio
   :param config: config dict
@@ -2102,7 +2103,7 @@ def update_portfolio_support_resistant(config, data, portfolio_file_name='portfo
 
 
 #----------------------------- Email sending ------------------------------------#
-def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subject=None, platform=['tiger'], signal_file_date=None, log_file_date=None, test=False, pool=None):
+def send_result_by_email(config: dict, to_addr: str, from_addr: str, smtp_server: str, password: str, subject: str = None, platform: list = ['tiger'], signal_file_date: str = None, log_file_date: str = None, test: bool = False, pool: str = None) -> any:
   """
   send automatic_trader's trading result and technical_analyst's calculation result by email
 
@@ -2116,6 +2117,7 @@ def send_result_by_email(config, to_addr, from_addr, smtp_server, password, subj
   :param signal_file_date: date of signal file which will be attached on email
   :param log_file_date: date of log file which will be attached on email
   :param test: whether on test mode(print message rather than send the email)
+  :param pool: pool name
   :return: smtp ret code
   :raise: none
   """
