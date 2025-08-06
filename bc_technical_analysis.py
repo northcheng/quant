@@ -22,6 +22,7 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
 import matplotlib.dates as mdates
 import seaborn as sns
+from typing import List, Dict, Optional, Union, Tuple, Any, Callable
 
 # from mplfinance.original_flavor import candlestick_ohlc
 from quant import bc_util as util
@@ -55,7 +56,7 @@ for item in ['default', 'price', 'gap', 'ichimoku', 'kama', 'renko', 'candle_pat
 
 # ================================================ Load configuration =============================================== # 
 # load configuration
-def load_config(root_paths):
+def load_config(root_paths: Dict[str, str]) -> Dict[str, Any]:
   """ 
   Load configuration from json file
 
@@ -96,7 +97,7 @@ def load_config(root_paths):
   return config
 
 # load locally saved data(sec_data, ta_data, results)
-def load_data(target_list, config, interval='day', load_empty_data=False, load_derived_data=False):
+def load_data(target_list: List[str], config: Dict[str, Any], interval: str = 'day', load_empty_data: bool = False, load_derived_data: bool = False) -> Dict[str, Any]:
   """ 
   Load locally saved data(sec_data, ta_data, results)
   
@@ -144,7 +145,7 @@ def load_data(target_list, config, interval='day', load_empty_data=False, load_d
 
 # ================================================ Core progress ==================================================== # 
 # preprocess stock data (OHLCV)
-def preprocess(df, symbol, print_error=True):
+def preprocess(df: pd.DataFrame, symbol: str, print_error: bool = True) -> Optional[pd.DataFrame]:
   '''
   Preprocess stock data (OHLCV)
 
@@ -255,7 +256,7 @@ def preprocess(df, symbol, print_error=True):
   return df
 
 # calculate indicators according to definition
-def calculate_ta_basic(df, indicators=default_indicators):
+def calculate_ta_basic(df: pd.DataFrame, indicators: Dict[str, List[str]] = None) -> Optional[pd.DataFrame]:
   '''
   Calculate indicators according to definition
 
@@ -301,7 +302,7 @@ def calculate_ta_basic(df, indicators=default_indicators):
   return df
 
 # calculate static trend according to indicators
-def calculate_ta_static(df, indicators=default_indicators):
+def calculate_ta_static(df: pd.DataFrame, indicators: Dict[str, List[str]] = None) -> Optional[pd.DataFrame]:
   """
   Calculate static trend according to indicators (which is static to different start/end time).
 
@@ -786,7 +787,7 @@ def calculate_ta_static(df, indicators=default_indicators):
   return df
 
 # calculate dynamic trend according to indicators and static trend
-def calculate_ta_dynamic(df, perspective=default_perspectives):
+def calculate_ta_dynamic(df: pd.DataFrame, perspective: List[str] = None) -> Optional[pd.DataFrame]:
   """
   Calculate dynamic trend according to indicators and static trend (which is static to different start/end time).
 
@@ -880,12 +881,12 @@ def calculate_ta_dynamic(df, perspective=default_perspectives):
   return df
 
 # generate description for ta features
-def calculate_ta_score(df):
+def calculate_ta_score(df: pd.DataFrame) -> pd.DataFrame:
   """
   Generate description for latest ta_data of symbols(aka. result).
 
   :param df: dataframe which contains latest ta_data of symbols, each row for a symbol
-  :raturns: dataframe with description
+  :returns: dataframe with description
   :raises: None
   """
 
@@ -1009,7 +1010,7 @@ def calculate_ta_score(df):
   return df
 
 # calculate all features (ta_basic + ta_static + ta_dynamic + ta_score) all at once
-def calculate_ta_feature(df, symbol, start_date=None, end_date=None, indicators=default_indicators):
+def calculate_ta_feature(df: pd.DataFrame, symbol: str, start_date: Optional[str] = None, end_date: Optional[str] = None, indicators: Dict[str, List[str]] = None) -> Optional[pd.DataFrame]:
   """
   Calculate all features (ta_data + ta_static + ta_dynamic) all at once.
 
@@ -1070,12 +1071,12 @@ def calculate_ta_feature(df, symbol, start_date=None, end_date=None, indicators=
   return df
 
 # calculate signal according to features
-def calculate_ta_signal(df):
+def calculate_ta_signal(df: pd.DataFrame) -> Optional[pd.DataFrame]:
   """
   Calculate signal according to features.
 
   :param df: dataframe with ta features and derived features for calculating signals
-  :raturns: dataframe with signal
+  :returns: dataframe with signal
   :raises: None
   """
 
@@ -1653,7 +1654,7 @@ def calculate_ta_signal(df):
   return df
 
 # visualize features and signals
-def visualization(df, start=None, end=None, interval='day', title=None, save_path=None, visualization_args={}, trade_info=None):
+def visualization(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str] = None, interval: str = 'day', title: Optional[str] = None, save_path: Optional[str] = None, visualization_args: Dict[str, Any] = None, trade_info: Optional[Any] = None) -> None:
   """
   Visualize features and signals.
 
@@ -1684,14 +1685,15 @@ def visualization(df, start=None, end=None, interval='day', title=None, save_pat
     print(phase, e)
 
 # postprocess
-def postprocess(df, keep_columns, drop_columns, sec_names, target_interval=''):
+def postprocess(df: pd.DataFrame, keep_columns: List[str], drop_columns: List[str], sec_names: List[str], target_interval: str = '') -> pd.DataFrame:
   """
   Postprocess
 
   :param df: dataframe with ta features and ta derived features
   :param keep_columns: columns to keep for the final result
   :param drop_columns: columns to drop for the final result
-  :param watch_columns: list of indicators to keep watching
+  :param sec_names: list of security names
+  :param target_interval: target interval for the data
   :returns: postprocessed dataframe
   :raises: None
   """
@@ -1724,7 +1726,7 @@ def postprocess(df, keep_columns, drop_columns, sec_names, target_interval=''):
 
 # ================================================ Condition calculation ============================================ #
 # drop na values for dataframe
-def dropna(df):
+def dropna(df: pd.DataFrame) -> pd.DataFrame:
   """
   Drop rows with "Nans" values
 
@@ -1738,7 +1740,7 @@ def dropna(df):
   return df
 
 # fill na values for dataframe
-def fillna(series, fill_value=0):
+def fillna(series: pd.Series, fill_value: float = 0) -> pd.Series:
   """
   Fill na value for a series with specific value
 
@@ -1751,7 +1753,7 @@ def fillna(series, fill_value=0):
   return series
 
 # get max/min in 2 values
-def get_min_max(x1, x2, f='min'):
+def get_min_max(x1: Union[float, int], x2: Union[float, int], f: str = 'min') -> Union[float, int, np.float64]:
   """
   Get Max or Min value from 2 values
 
@@ -1759,7 +1761,7 @@ def get_min_max(x1, x2, f='min'):
   :param x2: value 2
   :param f: which one do you want: max/min
   :returns: max or min value
-  :raises:
+  :raises: ValueError if f is not 'min' or 'max'
   """    
   if not np.isnan(x1) and not np.isnan(x2):
     if f == 'max':
@@ -1772,7 +1774,7 @@ def get_min_max(x1, x2, f='min'):
     return np.nan    
     
 # filter index that meet conditions
-def filter_idx(df, condition_dict):
+def filter_idx(df: pd.DataFrame, condition_dict: Dict[str, str]) -> Dict[str, pd.Index]:
   """
   Filter index that meet conditions. Usually used in func[assign_condition_value]
 
@@ -1789,7 +1791,7 @@ def filter_idx(df, condition_dict):
   return result
 
 # set value to column of indeies that meet specific conditions
-def assign_condition_value(df, column, condition_dict, value_dict, default_value=None):
+def assign_condition_value(df: pd.DataFrame, column: str, condition_dict: Dict[str, str], value_dict: Dict[str, Any], default_value: Any = None) -> pd.DataFrame:
   """
   Set value to column of index that meet conditions
 
@@ -1822,7 +1824,7 @@ def assign_condition_value(df, column, condition_dict, value_dict, default_value
   return df
 
 # calculate score according to conditions
-def assign_condition_score(df, condition_dict, up_score_col, down_score_col):
+def assign_condition_score(df: pd.DataFrame, condition_dict: Dict[str, Tuple[float, str, str]], up_score_col: str, down_score_col: str) -> pd.DataFrame:
   """
   Calculate up(+) and down(-) score according to corresponding conditions
   
@@ -1877,7 +1879,7 @@ def assign_condition_score(df, condition_dict, up_score_col, down_score_col):
 
 # ================================================ Rolling windows ================================================== #
 # simple moving window
-def sm(series, periods, fillna=False):
+def sm(series: pd.Series, periods: int, fillna: bool = False) -> pd.core.window.rolling.Rolling:
   """
   Simple Moving Window
 
@@ -1892,7 +1894,7 @@ def sm(series, periods, fillna=False):
   return series.rolling(window=periods, min_periods=periods)
 
 # exponential moving window
-def em(series, periods, fillna=False):
+def em(series: pd.Series, periods: int, fillna: bool = False) -> pd.core.window.rolling.Rolling:
   """
   Exponential Moving Window
 
@@ -1907,7 +1909,7 @@ def em(series, periods, fillna=False):
   return series.ewm(span=periods, min_periods=periods)  
 
 # weighted moving average
-def wma(series, periods, fillna=False):
+def wma(series: pd.Series, periods: int, fillna: bool = False) -> pd.Series:
   """
   Weighted monving average from simple moving window
 
@@ -1922,13 +1924,13 @@ def wma(series, periods, fillna=False):
   return weighted_average
 
 # same direction accumulation
-def sda(series, zero_as=None, one_restart=False):
+def sda(series: pd.Series, zero_as: Optional[float] = None, one_restart: bool = False) -> pd.Series:
   """
   Accumulate values with same symbol (+/-), once the symbol changed, start over again
 
   :param series: series to calculate
-  :param accumulate_by: if None, accumulate by its own value, other wise, add by specified value
-  :param zero_val: action when encounter 0: if None pass, else add(minus) spedicied value according to previous symbol 
+  :param zero_as: action when encounter 0: if None pass, else add(minus) specified value according to previous symbol
+  :param one_restart: whether to restart accumulation when encountering 1 or -1
   :returns: series with accumulated value
   :raises: None
   """
@@ -1977,7 +1979,7 @@ def sda(series, zero_as=None, one_restart=False):
   return result_series
 
 # moving slope
-def moving_slope(series, periods):
+def moving_slope(series: pd.Series, periods: int) -> Tuple[pd.Series, pd.Series]:
   """
   Moving Slope
 
@@ -1999,7 +2001,7 @@ def moving_slope(series, periods):
   return (padded_slopes, padded_intercepts)
 
 # normilization
-def normalize(series, fillna=None, method='default'):
+def normalize(series: pd.Series, fillna: Optional[str] = None, method: str = 'default') -> pd.Series:
   """
   Normalize a series.
 
@@ -2029,16 +2031,16 @@ def normalize(series, fillna=None, method='default'):
 
 # ================================================ Change calculation =============================================== #
 # calculate change of a column in certain period
-def cal_change(df, target_col, periods=1, add_accumulation=True, add_prefix=False, drop_na=False):
+def cal_change(df: pd.DataFrame, target_col: str, periods: int = 1, add_accumulation: bool = True, add_prefix: bool = False, drop_na: bool = False) -> pd.DataFrame:
   """
   Calculate change of a column with a sliding window
   
   :param df: original dataframe
   :param target_col: change of which column to calculate
   :param periods: calculate the change within the period
-  :param add_accumulation: wether to add accumulative change in a same direction
+  :param add_accumulation: whether to add accumulative change in a same direction
   :param add_prefix: whether to add prefix for the result columns (when there are multiple target columns to calculate)
-  :param drop_na: whether to drop na values from dataframe:
+  :param drop_na: whether to drop na values from dataframe
   :returns: dataframe with change columns
   :raises: none
   """
@@ -2075,7 +2077,7 @@ def cal_change(df, target_col, periods=1, add_accumulation=True, add_prefix=Fals
   return df 
 
 # calculate change rate of a column in certain period
-def cal_change_rate(df, target_col, periods=1, add_accumulation=True, add_prefix=False, drop_na=False):
+def cal_change_rate(df: pd.DataFrame, target_col: str, periods: int = 1, add_accumulation: bool = True, add_prefix: bool = False, drop_na: bool = False) -> pd.DataFrame:
   """
   Calculate change rate of a column with a sliding window
   
@@ -2125,20 +2127,20 @@ def cal_change_rate(df, target_col, periods=1, add_accumulation=True, add_prefix
 
 # ================================================ Signal processing ================================================ #
 # calculate signal that generated from 2 lines crossover
-def cal_crossover_signal(df, fast_line, slow_line, result_col='signal', pos_signal='b', neg_signal='s', none_signal='n'):
+def cal_crossover_signal(df: pd.DataFrame, fast_line: str, slow_line: str, result_col: str = 'signal', pos_signal: str = 'b', neg_signal: str = 's', none_signal: str = 'n') -> pd.DataFrame:
   """
   Calculate signal generated from the crossover of 2 lines
   When fast line breakthrough slow line from the bottom, positive signal will be generated
   When fast line breakthrough slow line from the top, negative signal will be generated 
 
-  :param df: original dffame which contains a fast line and a slow line
+  :param df: original dataframe which contains a fast line and a slow line
   :param fast_line: columnname of the fast line
   :param slow_line: columnname of the slow line
   :param result_col: columnname of the result
   :param pos_signal: the value of positive signal
   :param neg_signal: the value of negative signal
   :param none_signal: the value of none signal
-  :returns: series of the result column
+  :returns: dataframe of the result column
   :raises: none
   """
   df = df.copy()
@@ -2159,22 +2161,22 @@ def cal_crossover_signal(df, fast_line, slow_line, result_col='signal', pos_sign
   return df[[result_col]]
 
 # calculate signal that generated from trigering boundaries
-def cal_boundary_signal(df, upper_col, lower_col, upper_boundary, lower_boundary, result_col='signal', pos_signal='b', neg_signal='s', none_signal='n'):
+def cal_boundary_signal(df: pd.DataFrame, upper_col: str, lower_col: str, upper_boundary: float, lower_boundary: float, result_col: str = 'signal', pos_signal: str = 'b', neg_signal: str = 's', none_signal: str = 'n') -> pd.DataFrame:
   """
-  Calculate signal generated from triger of boundaries
+  Calculate signal generated from trigger of boundaries
   When upper_col breakthrough upper_boundary, positive signal will be generated
   When lower_col breakthrough lower_boundary, negative signal will be generated 
 
-  :param df: original dffame which contains a fast line and a slow line
+  :param df: original dataframe which contains the columns to check against boundaries
   :param upper_col: columnname of the positive column
   :param lower_col: columnname of the negative column
   :param upper_boundary: upper boundary
   :param lower_boundary: lower boundary
   :param result_col: columnname of the result
   :param pos_signal: the value of positive signal
-  :param neg_siganl: the value of negative signal
+  :param neg_signal: the value of negative signal
   :param none_signal: the value of none signal
-  :returns: series of the result column
+  :returns: dataframe of the result column
   :raises: none
   """
   # copy dataframe
@@ -2194,14 +2196,14 @@ def cal_boundary_signal(df, upper_col, lower_col, upper_boundary, lower_boundary
 
 # ================================================ Self-defined TA ================================================== #
 # linear regression
-def linear_fit(df, target_col, periods):
+def linear_fit(df: pd.DataFrame, target_col: str, periods: int) -> Dict[str, float]:
   """
   Calculate slope for selected piece of data
 
   :param df: dataframe
   :param target_col: target column name
   :param periods: input data length 
-  :returns: slope of selected data from linear regression
+  :returns: dictionary containing slope and intercept from linear regression
   :raises: none
   """
 
@@ -2218,9 +2220,9 @@ def linear_fit(df, target_col, periods):
     return {'slope': lr[0], 'intecept': lr[1]}
 
 # calculate moving average 
-def cal_moving_average(df, target_col, ma_windows=[50, 105], start=None, end=None, window_type='em'):
+def cal_moving_average(df: pd.DataFrame, target_col: str, ma_windows: List[int] = [50, 105], start: Optional[str] = None, end: Optional[str] = None, window_type: str = 'em') -> pd.DataFrame:
   """
-  Calculate moving average of the tarhet column with specific window size
+  Calculate moving average of the target column with specific window size
 
   :param df: original dataframe which contains target column
   :param ma_windows: a list of moving average window size to be calculated
@@ -2250,7 +2252,7 @@ def cal_moving_average(df, target_col, ma_windows=[50, 105], start=None, end=Non
   return df
 
 # add position features
-def cal_position_score(df):
+def cal_position_score(df: pd.DataFrame) -> pd.DataFrame:
   """
   Calculate inter-candlestick position score
 
@@ -2372,7 +2374,7 @@ def cal_position_score(df):
   return df
 
 # add candle stick features 
-def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
+def add_candlestick_features(df: pd.DataFrame, ohlcv_col: Dict[str, str] = default_ohlcv_col) -> pd.DataFrame:
   """
   Add candlestick features for dataframe
 
@@ -2557,7 +2559,7 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
   return df
 
 # add candle stick patterns
-def add_candlestick_patterns(df):
+def add_candlestick_patterns(df: pd.DataFrame) -> pd.DataFrame:
   """
   Add candlestick patterns for dataframe
 
@@ -2816,12 +2818,14 @@ def add_candlestick_patterns(df):
   return df
 
 # add heikin-ashi candlestick features
-def add_heikin_ashi_features(df, ohlcv_col=default_ohlcv_col, replace_ohlc=False, dropna=True):
+def add_heikin_ashi_features(df: pd.DataFrame, ohlcv_col: Dict[str, str] = default_ohlcv_col, replace_ohlc: bool = False, dropna: bool = True) -> pd.DataFrame:
   """
-  Add heikin-ashi candlestick dimentions for dataframe
+  Add heikin-ashi candlestick dimensions for dataframe
 
   :param df: original OHLCV dataframe
   :param ohlcv_col: column name of Open/High/Low/Close/Volume
+  :param replace_ohlc: whether to replace original OHLC with heikin-ashi OHLC
+  :param dropna: whether to drop NA values
   :returns: dataframe with candlestick columns
   :raises: none
   """
@@ -2865,14 +2869,15 @@ def add_heikin_ashi_features(df, ohlcv_col=default_ohlcv_col, replace_ohlc=False
   return df
 
 # linear regression for recent high and low values
-def add_linear_features(df, max_period=60, min_period=5, is_print=False):
+def add_linear_features(df: pd.DataFrame, max_period: int = 60, min_period: int = 5, is_print: bool = False) -> pd.DataFrame:
   """
   Add linear regression for High/Low by the most recent peaks and troughs
 
   :param df: original OHLCV dataframe
   :param max_period: maximum length of the input series
-  :param min_period: minimum length of the input series  
-  :returns: dataframe with candlestick columns
+  :param min_period: minimum length of the input series
+  :param is_print: whether to print debug information
+  :returns: dataframe with linear regression features
   :raises: none
   """
   # get all indexes
@@ -2966,7 +2971,7 @@ def add_linear_features(df, max_period=60, min_period=5, is_print=False):
   return df
  
 # linear regression for recent kama and ichimoku fast slow lines
-def add_ma_linear_features(df, period=5, target_col=['kama_fast', 'kama_slow', 'tankan', 'kijun']):
+def add_ma_linear_features(df: pd.DataFrame, period: int = 5, target_col: List[str] = ['kama_fast', 'kama_slow', 'tankan', 'kijun']) -> Dict[str, Any]:
   """
   Add linear regression for ichimoku/kama fast and slow lines
 
@@ -2990,7 +2995,7 @@ def add_ma_linear_features(df, period=5, target_col=['kama_fast', 'kama_slow', '
   return result
 
 # kama and ichimoku fast/slow line support and resistance
-def add_support_resistance(df, target_col=default_support_resistant_col):
+def add_support_resistance(df: pd.DataFrame, target_col: List[str] = default_support_resistant_col) -> pd.DataFrame:
   """
   Add support and resistance 
 
@@ -3246,7 +3251,7 @@ def add_support_resistance(df, target_col=default_support_resistant_col):
 
 # ================================================ Trend indicators ================================================= #
 # ADX(Average Directional Index) 
-def add_adx_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, adx_threshold=25):
+def add_adx_features(df: pd.DataFrame, n: int = 14, ohlcv_col: Dict[str, str] = default_ohlcv_col, fillna: bool = False, adx_threshold: int = 25) -> pd.DataFrame:
   """
   Calculate ADX(Average Directional Index)
 
@@ -3316,7 +3321,7 @@ def add_adx_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, adx_th
   return df
 
 # Aroon # 25
-def add_aroon_features(df, n=25, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True, boundary=[50, 50]):
+def add_aroon_features(df: pd.DataFrame, n: int = 25, ohlcv_col: Dict[str, str] = default_ohlcv_col, fillna: bool = False, cal_signal: bool = True, boundary: List[int] = [50, 50]) -> pd.DataFrame:
   """
   Calculate Aroon
 
@@ -3357,7 +3362,7 @@ def add_aroon_features(df, n=25, ohlcv_col=default_ohlcv_col, fillna=False, cal_
   return df
 
 # CCI(Commidity Channel Indicator)
-def add_cci_features(df, n=20, c=0.015, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True, boundary=[200, -200]):
+def add_cci_features(df: pd.DataFrame, n: int = 20, c: float = 0.015, ohlcv_col: Dict[str, str] = default_ohlcv_col, fillna: bool = False, cal_signal: bool = True, boundary: List[int] = [200, -200]) -> pd.DataFrame:
   """
   Calculate CCI(Commidity Channel Indicator) 
 
@@ -3394,7 +3399,7 @@ def add_cci_features(df, n=20, c=0.015, ohlcv_col=default_ohlcv_col, fillna=Fals
   return df
 
 # DPO(Detrended Price Oscillator)
-def add_dpo_features(df, n=20, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True):
+def add_dpo_features(df: pd.DataFrame, n: int = 20, ohlcv_col: Dict[str, str] = default_ohlcv_col, fillna: bool = False, cal_signal: bool = True) -> pd.DataFrame:
   """
   Calculate DPO(Detrended Price Oscillator) 
 
@@ -3432,7 +3437,7 @@ def add_dpo_features(df, n=20, ohlcv_col=default_ohlcv_col, fillna=False, cal_si
   return df
 
 # Ichimoku 
-def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is_shift=True, ohlcv_col=default_ohlcv_col, fillna=False, cal_status=True):
+def add_ichimoku_features(df: pd.DataFrame, n_short: int = 9, n_medium: int = 26, n_long: int = 52, method: str = 'ta', is_shift: bool = True, ohlcv_col: Dict[str, str] = default_ohlcv_col, fillna: bool = False, cal_status: bool = True) -> pd.DataFrame:
   """
   Calculate Ichimoku indicators
 
@@ -3501,7 +3506,7 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
   return df
 
 # KST(Know Sure Thing)
-def add_kst_features(df, r1=10, r2=15, r3=20, r4=30, n1=10, n2=10, n3=10, n4=15, nsign=9, ohlcv_col=default_ohlcv_col, fillna=False):
+def add_kst_features(df: pd.DataFrame, r1: int = 10, r2: int = 15, r3: int = 20, r4: int = 30, n1: int = 10, n2: int = 10, n3: int = 10, n4: int = 15, nsign: int = 9, ohlcv_col: Dict[str, str] = default_ohlcv_col, fillna: bool = False) -> pd.DataFrame:
   """
   Calculate KST(Know Sure Thing)
 
@@ -3554,7 +3559,7 @@ def add_kst_features(df, r1=10, r2=15, r3=20, r4=30, n1=10, n2=10, n3=10, n4=15,
   return df
 
 # MACD(Moving Average Convergence Divergence)
-def add_macd_features(df, n_fast=12, n_slow=26, n_sign=9, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True):
+def add_macd_features(df: pd.DataFrame, n_fast: int = 12, n_slow: int = 26, n_sign: int = 9, ohlcv_col: Dict[str, str] = default_ohlcv_col, fillna: bool = False, cal_signal: bool = True) -> pd.DataFrame:
   """
   Calculate MACD(Moving Average Convergence Divergence)
 
@@ -3606,7 +3611,7 @@ def add_macd_features(df, n_fast=12, n_slow=26, n_sign=9, ohlcv_col=default_ohlc
   return df
 
 # Mass Index
-def add_mi_features(df, n=9, n2=25, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True):
+def add_mi_features(df: pd.DataFrame, n: int = 9, n2: int = 25, ohlcv_col: Dict[str, str] = default_ohlcv_col, fillna: bool = False, cal_signal: bool = True) -> pd.DataFrame:
   """
   Calculate Mass Index
 
@@ -3661,7 +3666,7 @@ def add_mi_features(df, n=9, n2=25, ohlcv_col=default_ohlcv_col, fillna=False, c
   return df
 
 # TRIX
-def add_trix_features(df, n=15, n_sign=9, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True, signal_mode='mix'):
+def add_trix_features(df: pd.DataFrame, n: int = 15, n_sign: int = 9, ohlcv_col: Dict[str, str] = default_ohlcv_col, fillna: bool = False, cal_signal: bool = True, signal_mode: str = 'mix') -> pd.DataFrame:
   """
   Calculate TRIX
 
@@ -3702,7 +3707,7 @@ def add_trix_features(df, n=15, n_sign=9, ohlcv_col=default_ohlcv_col, fillna=Fa
   return df
 
 # Vortex
-def add_vortex_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True):
+def add_vortex_features(df: pd.DataFrame, n: int = 14, ohlcv_col: Dict[str, str] = default_ohlcv_col, fillna: bool = False, cal_signal: bool = True) -> pd.DataFrame:
   """
   Calculate Vortex indicator
 

@@ -25,7 +25,7 @@ ACCOUNT_GROUPS = {
 class Trader(object):
   
   # init
-  def __init__(self, platform, account_type, config, logger_name=None):
+  def __init__(self, platform: str, account_type: str, config: dict, logger_name: str = None) -> None:
     
     # get logger
     if logger_name is not None:
@@ -65,39 +65,39 @@ class Trader(object):
     self.logger.info(f'[{platform}]: instance created - {logger_name}')
   
   # get client config
-  def set_client_config(self, config):
+  def set_client_config(self, config: dict) -> None:
     pass
   
   # get quote client
-  def open_quote_client(self):
+  def open_quote_client(self) -> None:
     self.quote_client = None
   
   # close quote client
-  def close_trade_client(self):
+  def close_trade_client(self) -> None:
     pass
   
   # get trade client
-  def open_trade_client(self):
+  def open_trade_client(self) -> None:
     self.trade_client = None
   
   # close trade client
-  def close_quote_client(self):
+  def close_quote_client(self) -> None:
     pass
   
   # finalize trader
-  def finalize(self):
+  def finalize(self) -> None:
     pass
   
   # get position
-  def update_position(self):
+  def update_position(self) -> None:
     self.position = None
   
   # get asset
-  def update_asset(self):
+  def update_asset(self) -> None:
     self.asset = None
     
   # get available cash
-  def get_available_cash(self):
+  def get_available_cash(self) -> float:
     
     available_cash = 0
     
@@ -113,7 +113,7 @@ class Trader(object):
     return available_cash
   
   # get quantity of symbol currently in the position
-  def get_in_position_quantity(self, symbol, get_briefs=False):
+  def get_in_position_quantity(self, symbol: str, get_briefs: bool = False) -> int:
 
     # initialize affordable quantity
     quantity = 0
@@ -129,7 +129,7 @@ class Trader(object):
     return quantity
 
   # check whether it is affordable to buy certain amount of a stock
-  def get_affordable_quantity(self, symbol, cash=None, trading_fee=3):
+  def get_affordable_quantity(self, symbol: str, cash: float = None, trading_fee: float = 3) -> int:
 
     # initialize affordable quantity and available cash
     quantity = 0
@@ -145,7 +145,7 @@ class Trader(object):
     return quantity
 
   # update position for an account
-  def update_position_record(self, config, init_cash=None, init_position=None, start_time=None, end_time=None, is_print=True):
+  def update_position_record(self, config: dict, init_cash: float = None, init_position: int = None, start_time: str = None, end_time: str = None, is_print: bool = True) -> None:
     
     # set default values
     account_group = ACCOUNT_GROUPS[self.platform][self.account_type]
@@ -206,7 +206,7 @@ class Trader(object):
       self.logger.exception(f'[erro]: fail updating position records for {self.account_type}, {e}')
   
   # synchronize position record with real position status
-  def synchronize_position_record(self, config):
+  def synchronize_position_record(self, config: dict) -> None:
     
     if self.position is None:
       pass
@@ -265,7 +265,7 @@ class Trader(object):
         # io_util.create_config_file(config_dict=self.position_record, file_path=config['config_path'], file_name='_position_record.json')
 
   # update portfolio for an account
-  def update_portfolio_record(self, config, position=None, get_briefs=True, is_print=True):
+  def update_portfolio_record(self, config: dict, position: pd.DataFrame = None, get_briefs: bool = True, is_print: bool = True) -> None:
 
     # get position summary
     if position is None:
@@ -321,7 +321,7 @@ class Trader(object):
       self.logger.info(f'[{self.account_type[:4]}]: net value {old_net_value} --> {net_value}')
 
   # auto trade according to signals
-  def signal_trade(self, signal, money_per_sec, order_type='market', trading_fee=5, pool=None, according_to_record=True, minimum_position=None):    
+  def signal_trade(self, signal: pd.DataFrame, money_per_sec: float, order_type: str = 'market', trading_fee: float = 5, pool: list = None, according_to_record: bool = True, minimum_position: float = None) -> None:    
     
     # set symbol to index
     if len(signal) > 0:
@@ -422,7 +422,7 @@ class Trader(object):
       self.logger.info(f'[SKIP]: no signal')
     
   # auto trader according to conditions
-  def condition_trade(self, condition_df):
+  def condition_trade(self, condition_df: pd.DataFrame) -> list:
 
     # initialize return
     trade_summary = []
@@ -455,7 +455,7 @@ class Trader(object):
     return trade_summary
   
   # stop loss or stop profit or clear all position
-  def cash_out(self, stop_loss_rate=None, stop_profit_rate=None, stop_loss_rate_inday=None, stop_profit_rate_inday=None, clear_all=False, get_briefs=True, print_summary=True):
+  def cash_out(self, stop_loss_rate: float = None, stop_profit_rate: float = None, stop_loss_rate_inday: float = None, stop_profit_rate_inday: float = None, clear_all: bool = False, get_briefs: bool = True, print_summary: bool = True) -> None:
     
     # 若为实盘先解锁交易
     if self.platform == 'futu' and self.account_type == 'real':
@@ -499,11 +499,11 @@ class Trader(object):
   
 class Futu(Trader):
   
-  def __init__(self, platform, account_type, config, logger_name=None):
+  def __init__(self, platform: str, account_type: str, config: dict, logger_name: str = None) -> None:
     super().__init__(platform=platform, account_type=account_type, config=config, logger_name=logger_name)
     
   # get quote client
-  def open_quote_client(self):
+  def open_quote_client(self) -> None:
 
     try:
       host = self.user_info['host']
@@ -515,13 +515,13 @@ class Futu(Trader):
       self.logger.exception(f'[erro]: can not create quote context:{e}')
 
   # exit current quote client
-  def close_quote_client(self):
+  def close_quote_client(self) -> None:
     if self.quote_client is not None:
       self.quote_client.close()
       self.quote_client = None
       
   # get trade context
-  def open_trade_client(self, market='US'):
+  def open_trade_client(self, market: str = 'US') -> None:
 
     try:
       self.market = market
@@ -545,7 +545,7 @@ class Futu(Trader):
       self.logger.exception(f'[erro]: can not create trade context:{e}')
 
   # exit current trade client
-  def close_trade_client(self):
+  def close_trade_client(self) -> None:
     if self.trade_client is not None:
       
       # 锁定实盘交易
@@ -560,13 +560,13 @@ class Futu(Trader):
       self.trade_client = None
 
   # finalize trader
-  def finalize(self):
+  def finalize(self) -> None:
     self.close_quote_client()
     self.close_trade_client()
     self.logger.info(f'[fin]: instance finalized - {self.logger.name}')
     
   # get summary of position
-  def update_position(self, get_briefs=False):
+  def update_position(self, get_briefs: bool = False) -> None:
     result = pd.DataFrame({'symbol':[], 'quantity':[], 'average_cost':[], 'latest_price':[], 'rate':[], 'rate_inday':[], 'market_value':[], 'latest_time':[]})
     
     # 若为实盘先解锁交易
@@ -623,7 +623,7 @@ class Futu(Trader):
     self.position = result
     
   # get summary of asset
-  def update_asset(self):
+  def update_asset(self) -> None:
 
     # 若为实盘先解锁交易
     if self.account_type == 'real':
@@ -652,7 +652,7 @@ class Futu(Trader):
       self.logger.exception(f'[erro]: can not get asset summary: {e}')
 
   # get orders
-  def get_orders(self, start_time=None, end_time=None):
+  def get_orders(self, start_time: str = None, end_time: str = None) -> pd.DataFrame:
 
     # 若为实盘先解锁交易
     if self.account_type == 'real':
@@ -671,7 +671,7 @@ class Futu(Trader):
     return orders
     
   # buy or sell stocks
-  def trade(self, symbol, action, quantity, price=None, print_summary=True):
+  def trade(self, symbol: str, action: str, quantity: int, price: float = None, print_summary: bool = True) -> str:
 
     # 若为实盘先解锁交易
     if self.account_type == 'real':
@@ -741,14 +741,14 @@ class Futu(Trader):
 
 class Tiger(Trader):
   
-  def __init__(self, platform, account_type, config, logger_name=None):
+  def __init__(self, platform: str, account_type: str, config: dict, logger_name: str = None) -> None:
     super().__init__(platform=platform, account_type=account_type, config=config, logger_name=logger_name)  
     
     # get market status and trade time
     self.update_trade_time()
 
   # get client config
-  def set_client_config(self, config):
+  def set_client_config(self, config: dict) -> None:
     # initialize client_config
     self.client_config = TigerOpenClientConfig(sandbox_debug=self.user_info['sandbox_debug'])
     self.client_config.private_key = read_private_key(config['trader_path'] + self.user_info['private_key_name'])
@@ -757,25 +757,25 @@ class Tiger(Trader):
     self.client_config.account = self.account 
   
   # get quote client
-  def open_quote_client(self):
+  def open_quote_client(self) -> None:
     self.quote_client = QuoteClient(self.client_config)
     
   # exit current quote client
-  def close_quote_client(self):
+  def close_quote_client(self) -> None:
     if self.quote_client is not None:
       self.quote_client = None
   
   # get trade client
-  def open_trade_client(self):
+  def open_trade_client(self) -> None:
     self.trade_client = TradeClient(self.client_config)
     
   # exit current trade client
-  def close_trade_client(self):
+  def close_trade_client(self) -> None:
     if self.trade_client is not None:
       self.trade_client = None
   
   # get summary of position
-  def update_position(self, get_briefs=False):
+  def update_position(self, get_briefs: bool = False) -> None:
     
     result = pd.DataFrame({'symbol':[], 'quantity':[], 'average_cost':[], 'latest_price':[], 'rate':[], 'rate_inday':[], 'market_value':[], 'latest_time':[]})
 
@@ -829,7 +829,7 @@ class Tiger(Trader):
     self.position = result
   
   # get summary of asset
-  def update_asset(self):
+  def update_asset(self) -> None:
 
     # update asset
     asset = self.trade_client.get_assets(account=self.client_config.account)
@@ -846,7 +846,7 @@ class Tiger(Trader):
     self.asset = pd.DataFrame(result)
 
   # get orders
-  def get_orders(self, start_time=None, end_time=None):
+  def get_orders(self, start_time: str = None, end_time: str = None) -> pd.DataFrame:
     
     start_time = self.trade_time['pre_open_time'].strftime(format="%Y-%m-%d %H:%M:%S") if (start_time is None) else start_time
     end_time = self.trade_time['post_close_time'].strftime(format="%Y-%m-%d %H:%M:%S") if (end_time is None) else end_time
@@ -899,7 +899,7 @@ class Tiger(Trader):
     return result_df
     
   # buy or sell stocks
-  def trade(self, symbol, action, quantity, price=None, stop_loss=None, stop_profit=None, print_summary=True):
+  def trade(self, symbol: str, action: str, quantity: int, price: float = None, stop_loss: float = None, stop_profit: float = None, print_summary: bool = True) -> str:
 
     trade_summary = ''
     try:
@@ -961,7 +961,7 @@ class Tiger(Trader):
     return trade_summary
 
   # update trade time
-  def update_trade_time(self, market=Market, tz='Asia/Shanghai', open_time_adj=0, close_time_adj=0):
+  def update_trade_time(self, market=Market, tz: str = 'Asia/Shanghai', open_time_adj: int = 0, close_time_adj: int = 0) -> None:
 
     # get local timezone
     tz = pytz.timezone(tz)
@@ -1046,7 +1046,7 @@ class Tiger(Trader):
     }
 
   # update market status
-  def update_market_status(self, return_str=False):
+  def update_market_status(self, return_str: bool = False) -> tuple or None:
     
     try:
       # get market status
@@ -1078,7 +1078,7 @@ class Tiger(Trader):
       time.sleep(12)
 
   # idle for specified time and check position in certain frequency
-  def idle(self, target_time, check_frequency=600):
+  def idle(self, target_time: datetime.datetime, check_frequency: int = 600) -> None:
     """
     Sleep with a fixed frequency, until the target time
 

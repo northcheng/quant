@@ -15,7 +15,7 @@ from quant import bc_technical_analysis as ta_util
 #----------------------------- Rate and Risk -----------------------------------#
 # risk_premium = mean(excess_return)
 # risk = std(excess_return)
-def cal_HPR(data, start, end, dim='value', dividends=0):
+def cal_HPR(data: pd.DataFrame, start: str, end: str, dim: str = 'value', dividends: float = 0) -> float:
   """
   Calculate Holding-Period-Rate
 
@@ -33,7 +33,7 @@ def cal_HPR(data, start, end, dim='value', dividends=0):
   return HPR
 
 
-def cal_EAR(data, start, end, dim='value', dividends=0):
+def cal_EAR(data: pd.DataFrame, start: str, end: str, dim: str = 'value', dividends: float = 0) -> float:
   """
   Calculate Effective-Annual-Rate
 
@@ -59,7 +59,7 @@ def cal_EAR(data, start, end, dim='value', dividends=0):
   return EAR
 
 
-def cal_AV(data, start, end, dim='rate'):
+def cal_AV(data: pd.DataFrame, start: str, end: str, dim: str = 'rate') -> float:
   """
   Calculate Annual-volatility
 
@@ -81,7 +81,7 @@ def cal_AV(data, start, end, dim='rate'):
   return AV
 
 
-def cal_APR(data, start, end, dim='value', dividends=0):
+def cal_APR(data: pd.DataFrame, start: str, end: str, dim: str = 'value', dividends: float = 0) -> float:
   """
   Calculate Annual-Percentile-Rate
 
@@ -107,7 +107,7 @@ def cal_APR(data, start, end, dim='value', dividends=0):
   return APR
 
 
-def cal_CCR(data, start, end, dim='value', dividends=0):
+def cal_CCR(data: pd.DataFrame, start: str, end: str, dim: str = 'value', dividends: float = 0) -> float:
   """
   Calculate Continuous-Compouding-Rate
 
@@ -125,7 +125,7 @@ def cal_CCR(data, start, end, dim='value', dividends=0):
   return CCR
 
 
-def cal_risk_premium(expected_rate, risk_free_rate):
+def cal_risk_premium(expected_rate: float, risk_free_rate: float) -> float:
   """
   Calculate Risk-Premium
 
@@ -139,7 +139,7 @@ def cal_risk_premium(expected_rate, risk_free_rate):
   return RP
 
 
-def cal_excess_return(expected_rate, real_rate):
+def cal_excess_return(expected_rate: float, real_rate: float) -> float:
   """
   Calculate Excess-Return
 
@@ -153,7 +153,7 @@ def cal_excess_return(expected_rate, real_rate):
   return ER
 
 
-def cal_period_rate_risk(data, dim='value', by='month'):
+def cal_period_rate_risk(data: pd.DataFrame, dim: str = 'value', by: str = 'month') -> pd.DataFrame:
   """
   Calculate rate and risk in a specfic period
 
@@ -229,7 +229,7 @@ def cal_period_rate_risk(data, dim='value', by='month'):
   return period_rate
 
 
-def cal_sharpe_ratio(data, start, end, rfr=0.04, price_dim='value', rate_dim='rate'):
+def cal_sharpe_ratio(data: pd.DataFrame, start: str, end: str, rfr: float = 0.04, price_dim: str = 'value', rate_dim: str = 'rate') -> float:
   EAR = cal_EAR(data=data, start=start, end=end, dim=price_dim)
   AV = cal_AV(data=data, start=start, end=end, dim=rate_dim)
 
@@ -237,7 +237,7 @@ def cal_sharpe_ratio(data, start, end, rfr=0.04, price_dim='value', rate_dim='ra
   return sharpe_ratio
 
 
-def cal_max_drawndown(data, start, end, dim='value', dividends=0):
+def cal_max_drawndown(data: pd.DataFrame, start: str, end: str, dim: str = 'value') -> float:
   """
   Calculate max drawn down in the specified period
 
@@ -245,8 +245,7 @@ def cal_max_drawndown(data, start, end, dim='value', dividends=0):
   :param start: start date
   :param end: end date
   :param dim: price dim to calculate
-  :param dividends: divndends to add
-  :returns: APR
+  :returns: max drawndown
   :raises: none
   """
   data = data[start:end].copy()
