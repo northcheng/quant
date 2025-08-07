@@ -14,16 +14,13 @@ import pandas as pd
 import mplfinance as mpf
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+
 from scipy.stats import linregress
-from scipy.signal import argrelextrema
 from numpy.lib.stride_tricks import as_strided
 from matplotlib import gridspec
 from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
-import matplotlib.dates as mdates
-import seaborn as sns
 
-# from mplfinance.original_flavor import candlestick_ohlc
 from quant import bc_util as util
 from quant import bc_data_io as io_util
 
@@ -885,7 +882,7 @@ def calculate_ta_score(df):
   Generate description for latest ta_data of symbols(aka. result).
 
   :param df: dataframe which contains latest ta_data of symbols, each row for a symbol
-  :raturns: dataframe with description
+  :returns: dataframe with description
   :raises: None
   """
 
@@ -1691,7 +1688,7 @@ def postprocess(df, keep_columns, drop_columns, sec_names, target_interval=''):
   :param df: dataframe with ta features and ta derived features
   :param keep_columns: columns to keep for the final result
   :param drop_columns: columns to drop for the final result
-  :param watch_columns: list of indicators to keep watching
+  :param sec_names: security names mapping
   :returns: postprocessed dataframe
   :raises: None
   """
@@ -1788,7 +1785,7 @@ def filter_idx(df, condition_dict):
 
   return result
 
-# set value to column of indeies that meet specific conditions
+# set value to column of indices that meet specific conditions
 def assign_condition_value(df, column, condition_dict, value_dict, default_value=None):
   """
   Set value to column of index that meet conditions
