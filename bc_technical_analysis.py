@@ -14,7 +14,7 @@ import pandas as pd
 import mplfinance as mpf
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-
+from typing import Literal, Optional, Any
 from scipy.stats import linregress
 from numpy.lib.stride_tricks import as_strided
 from matplotlib import gridspec
@@ -52,7 +52,7 @@ for item in ['default', 'price', 'gap', 'ichimoku', 'kama', 'renko', 'candle_pat
 
 # ================================================ Load configuration =============================================== # 
 # load configuration
-def load_config(root_paths):
+def load_config(root_paths: dict):
   """ 
   Load configuration from json file
 
@@ -93,7 +93,7 @@ def load_config(root_paths):
   return config
 
 # load locally saved data(sec_data, ta_data, results)
-def load_data(target_list, config, interval='day', load_empty_data=False, load_derived_data=False):
+def load_data(target_list: dict, config: dict, interval: str = 'day', load_empty_data: bool = False, load_derived_data: bool = False):
   """ 
   Load locally saved data(sec_data, ta_data, results)
   
@@ -141,7 +141,7 @@ def load_data(target_list, config, interval='day', load_empty_data=False, load_d
 
 # ================================================ Core progress ==================================================== # 
 # preprocess stock data (OHLCV)
-def preprocess(df, symbol, print_error=True):
+def preprocess(df: pd.DataFrame, symbol: str, print_error: bool = True):
   '''
   Preprocess stock data (OHLCV)
 
@@ -252,7 +252,7 @@ def preprocess(df, symbol, print_error=True):
   return df
 
 # calculate indicators according to definition
-def calculate_ta_basic(df, indicators=default_indicators):
+def calculate_ta_basic(df: pd.DataFrame, indicators: dict = default_indicators):
   '''
   Calculate indicators according to definition
 
@@ -298,7 +298,7 @@ def calculate_ta_basic(df, indicators=default_indicators):
   return df
 
 # calculate static trend according to indicators
-def calculate_ta_static(df, indicators=default_indicators):
+def calculate_ta_static(df: pd.DataFrame, indicators: dict = default_indicators):
   """
   Calculate static trend according to indicators (which is static to different start/end time).
 
@@ -783,7 +783,7 @@ def calculate_ta_static(df, indicators=default_indicators):
   return df
 
 # calculate dynamic trend according to indicators and static trend
-def calculate_ta_dynamic(df, perspective=default_perspectives):
+def calculate_ta_dynamic(df: pd.DataFrame, perspective: list = default_perspectives):
   """
   Calculate dynamic trend according to indicators and static trend (which is static to different start/end time).
 
@@ -877,7 +877,7 @@ def calculate_ta_dynamic(df, perspective=default_perspectives):
   return df
 
 # generate description for ta features
-def calculate_ta_score(df):
+def calculate_ta_score(df: pd.DataFrame):
   """
   Generate description for latest ta_data of symbols(aka. result).
 
@@ -1006,7 +1006,7 @@ def calculate_ta_score(df):
   return df
 
 # calculate all features (ta_basic + ta_static + ta_dynamic + ta_score) all at once
-def calculate_ta_feature(df, symbol, start_date=None, end_date=None, indicators=default_indicators):
+def calculate_ta_feature(df: pd.DataFrame, symbol: str, start_date: str = None, end_date: str = None, indicators: dict = default_indicators):
   """
   Calculate all features (ta_data + ta_static + ta_dynamic) all at once.
 
@@ -1067,7 +1067,7 @@ def calculate_ta_feature(df, symbol, start_date=None, end_date=None, indicators=
   return df
 
 # calculate signal according to features
-def calculate_ta_signal(df):
+def calculate_ta_signal(df: pd.DataFrame):
   """
   Calculate signal according to features.
 
@@ -1650,7 +1650,7 @@ def calculate_ta_signal(df):
   return df
 
 # visualize features and signals
-def visualization(df, start=None, end=None, interval='day', title=None, save_path=None, visualization_args={}, trade_info=None):
+def visualization(df: pd.DataFrame, start: str = None, end: str = None, interval: str = 'day', title: str = None, save_path: str = None, visualization_args: dict = {}, trade_info: dict = None):
   """
   Visualize features and signals.
 
@@ -1681,7 +1681,7 @@ def visualization(df, start=None, end=None, interval='day', title=None, save_pat
     print(phase, e)
 
 # postprocess
-def postprocess(df, keep_columns, drop_columns, sec_names, target_interval=''):
+def postprocess(df: pd.DataFrame, keep_columns: dict, drop_columns: list, sec_names: dict, target_interval: str = ''):
   """
   Postprocess
 
@@ -1721,7 +1721,7 @@ def postprocess(df, keep_columns, drop_columns, sec_names, target_interval=''):
 
 # ================================================ Condition calculation ============================================ #
 # drop na values for dataframe
-def dropna(df):
+def dropna(df: pd.DataFrame) -> pd.DataFrame:
   """
   Drop rows with "Nans" values
 
@@ -1735,7 +1735,7 @@ def dropna(df):
   return df
 
 # fill na values for dataframe
-def fillna(series, fill_value=0):
+def fillna(series: pd.Series, fill_value: float = 0) -> pd.Series:
   """
   Fill na value for a series with specific value
 
@@ -1748,7 +1748,7 @@ def fillna(series, fill_value=0):
   return series
 
 # get max/min in 2 values
-def get_min_max(x1, x2, f='min'):
+def get_min_max(x1: float, x2: float, f: Literal['min','max'] = 'min') -> float:
   """
   Get Max or Min value from 2 values
 
@@ -1769,7 +1769,7 @@ def get_min_max(x1, x2, f='min'):
     return np.nan    
     
 # filter index that meet conditions
-def filter_idx(df, condition_dict):
+def filter_idx(df: pd.DataFrame, condition_dict: dict) -> dict:
   """
   Filter index that meet conditions. Usually used in func[assign_condition_value]
 
@@ -1786,7 +1786,7 @@ def filter_idx(df, condition_dict):
   return result
 
 # set value to column of indices that meet specific conditions
-def assign_condition_value(df, column, condition_dict, value_dict, default_value=None):
+def assign_condition_value(df: pd.DataFrame, column: str, condition_dict: dict, value_dict: dict, default_value: Any = None) -> pd.DataFrame:
   """
   Set value to column of index that meet conditions
 
@@ -1819,7 +1819,7 @@ def assign_condition_value(df, column, condition_dict, value_dict, default_value
   return df
 
 # calculate score according to conditions
-def assign_condition_score(df, condition_dict, up_score_col, down_score_col):
+def assign_condition_score(df: pd.DataFrame, condition_dict: dict, up_score_col: str, down_score_col: str) -> pd.DataFrame:
   """
   Calculate up(+) and down(-) score according to corresponding conditions
   
@@ -1874,7 +1874,7 @@ def assign_condition_score(df, condition_dict, up_score_col, down_score_col):
 
 # ================================================ Rolling windows ================================================== #
 # simple moving window
-def sm(series, periods, fillna=False):
+def sm(series: pd.Series, periods: int, fillna: bool = False) -> pd.core.window.rolling.Rolling:
   """
   Simple Moving Window
 
@@ -1889,7 +1889,7 @@ def sm(series, periods, fillna=False):
   return series.rolling(window=periods, min_periods=periods)
 
 # exponential moving window
-def em(series, periods, fillna=False):
+def em(series: pd.Series, periods: int, fillna: bool = False) -> pd.core.window.ewm.ExponentialMovingWindow:
   """
   Exponential Moving Window
 
@@ -1904,7 +1904,7 @@ def em(series, periods, fillna=False):
   return series.ewm(span=periods, min_periods=periods)  
 
 # weighted moving average
-def wma(series, periods, fillna=False):
+def wma(series: pd.Series, periods: int, fillna: bool = False) -> pd.Series:
   """
   Weighted monving average from simple moving window
 
@@ -1919,7 +1919,7 @@ def wma(series, periods, fillna=False):
   return weighted_average
 
 # same direction accumulation
-def sda(series, zero_as=None, one_restart=False):
+def sda(series: pd.Series, zero_as: Optional[float] = None, one_restart: bool = False) -> pd.Series:
   """
   Accumulate values with same symbol (+/-), once the symbol changed, start over again
 
@@ -1974,7 +1974,7 @@ def sda(series, zero_as=None, one_restart=False):
   return result_series
 
 # moving slope
-def moving_slope(series, periods):
+def moving_slope(series: pd.Series, periods: int) -> tuple:
   """
   Moving Slope
 
@@ -1996,7 +1996,7 @@ def moving_slope(series, periods):
   return (padded_slopes, padded_intercepts)
 
 # normilization
-def normalize(series, fillna=None, method='default'):
+def normalize(series: pd.Series, fillna: Optional[str] = None, method: str = 'default') -> pd.Series:
   """
   Normalize a series.
 
@@ -2026,7 +2026,7 @@ def normalize(series, fillna=None, method='default'):
 
 # ================================================ Change calculation =============================================== #
 # calculate change of a column in certain period
-def cal_change(df, target_col, periods=1, add_accumulation=True, add_prefix=False, drop_na=False):
+def cal_change(df: pd.DataFrame, target_col: str, periods: int = 1, add_accumulation: bool = True, add_prefix: bool = False, drop_na: bool = False) -> pd.DataFrame:
   """
   Calculate change of a column with a sliding window
   
@@ -2072,7 +2072,7 @@ def cal_change(df, target_col, periods=1, add_accumulation=True, add_prefix=Fals
   return df 
 
 # calculate change rate of a column in certain period
-def cal_change_rate(df, target_col, periods=1, add_accumulation=True, add_prefix=False, drop_na=False):
+def cal_change_rate(df: pd.DataFrame, target_col: str, periods: int = 1, add_accumulation: bool = True, add_prefix: bool = False, drop_na: bool = False) -> pd.DataFrame:
   """
   Calculate change rate of a column with a sliding window
   
@@ -2122,7 +2122,7 @@ def cal_change_rate(df, target_col, periods=1, add_accumulation=True, add_prefix
 
 # ================================================ Signal processing ================================================ #
 # calculate signal that generated from 2 lines crossover
-def cal_crossover_signal(df, fast_line, slow_line, result_col='signal', pos_signal='b', neg_signal='s', none_signal='n'):
+def cal_crossover_signal(df: pd.DataFrame, fast_line: str, slow_line: str, result_col: str = 'signal', pos_signal: str = 'b', neg_signal: str = 's', none_signal: str = 'n') -> pd.DataFrame:
   """
   Calculate signal generated from the crossover of 2 lines
   When fast line breakthrough slow line from the bottom, positive signal will be generated
@@ -2156,7 +2156,7 @@ def cal_crossover_signal(df, fast_line, slow_line, result_col='signal', pos_sign
   return df[[result_col]]
 
 # calculate signal that generated from trigering boundaries
-def cal_boundary_signal(df, upper_col, lower_col, upper_boundary, lower_boundary, result_col='signal', pos_signal='b', neg_signal='s', none_signal='n'):
+def cal_boundary_signal(df: pd.DataFrame, upper_col: str, lower_col: str, upper_boundary: float, lower_boundary: float, result_col: str = 'signal', pos_signal: str = 'b', neg_signal: str = 's', none_signal: str = 'n') -> pd.DataFrame:
   """
   Calculate signal generated from triger of boundaries
   When upper_col breakthrough upper_boundary, positive signal will be generated
@@ -2191,7 +2191,7 @@ def cal_boundary_signal(df, upper_col, lower_col, upper_boundary, lower_boundary
 
 # ================================================ Self-defined TA ================================================== #
 # linear regression
-def linear_fit(df, target_col, periods):
+def linear_fit(df: pd.DataFrame, target_col: str, periods: int) -> dict:
   """
   Calculate slope for selected piece of data
 
@@ -2215,7 +2215,7 @@ def linear_fit(df, target_col, periods):
     return {'slope': lr[0], 'intecept': lr[1]}
 
 # calculate moving average 
-def cal_moving_average(df, target_col, ma_windows=[50, 105], start=None, end=None, window_type='em'):
+def cal_moving_average(df: pd.DataFrame, target_col: str, ma_windows: list = [50, 105], start: Optional[str] = None, end: Optional[str] = None, window_type: str = 'em') -> pd.DataFrame:
   """
   Calculate moving average of the tarhet column with specific window size
 
@@ -2247,7 +2247,7 @@ def cal_moving_average(df, target_col, ma_windows=[50, 105], start=None, end=Non
   return df
 
 # add position features
-def cal_position_score(df):
+def cal_position_score(df: pd.DataFrame) -> pd.DataFrame:
   """
   Calculate inter-candlestick position score
 
@@ -2369,7 +2369,7 @@ def cal_position_score(df):
   return df
 
 # add candle stick features 
-def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
+def add_candlestick_features(df: pd.DataFrame, ohlcv_col: dict = default_ohlcv_col) -> pd.DataFrame:
   """
   Add candlestick features for dataframe
 
@@ -2554,7 +2554,7 @@ def add_candlestick_features(df, ohlcv_col=default_ohlcv_col):
   return df
 
 # add candle stick patterns
-def add_candlestick_patterns(df):
+def add_candlestick_patterns(df: pd.DataFrame) -> pd.DataFrame:
   """
   Add candlestick patterns for dataframe
 
@@ -2813,7 +2813,7 @@ def add_candlestick_patterns(df):
   return df
 
 # add heikin-ashi candlestick features
-def add_heikin_ashi_features(df, ohlcv_col=default_ohlcv_col, replace_ohlc=False, dropna=True):
+def add_heikin_ashi_features(df: pd.DataFrame, ohlcv_col: dict = default_ohlcv_col, replace_ohlc: bool = False, dropna: bool = True) -> pd.DataFrame:
   """
   Add heikin-ashi candlestick dimentions for dataframe
 
@@ -2862,7 +2862,7 @@ def add_heikin_ashi_features(df, ohlcv_col=default_ohlcv_col, replace_ohlc=False
   return df
 
 # linear regression for recent high and low values
-def add_linear_features(df, max_period=60, min_period=5, is_print=False):
+def add_linear_features(df: pd.DataFrame, max_period: int = 60, min_period: int = 5, is_print: bool = False) -> pd.DataFrame:
   """
   Add linear regression for High/Low by the most recent peaks and troughs
 
@@ -2963,7 +2963,7 @@ def add_linear_features(df, max_period=60, min_period=5, is_print=False):
   return df
  
 # linear regression for recent kama and ichimoku fast slow lines
-def add_ma_linear_features(df, period=5, target_col=['kama_fast', 'kama_slow', 'tankan', 'kijun']):
+def add_ma_linear_features(df: pd.DataFrame, period: int = 5, target_col: list = ['kama_fast', 'kama_slow', 'tankan', 'kijun']) -> dict:
   """
   Add linear regression for ichimoku/kama fast and slow lines
 
@@ -2987,7 +2987,7 @@ def add_ma_linear_features(df, period=5, target_col=['kama_fast', 'kama_slow', '
   return result
 
 # kama and ichimoku fast/slow line support and resistance
-def add_support_resistance(df, target_col=default_support_resistant_col):
+def add_support_resistance(df: pd.DataFrame, target_col: list = default_support_resistant_col) -> pd.DataFrame:
   """
   Add support and resistance 
 
@@ -3243,7 +3243,7 @@ def add_support_resistance(df, target_col=default_support_resistant_col):
 
 # ================================================ Trend indicators ================================================= #
 # ADX(Average Directional Index) 
-def add_adx_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, adx_threshold=25):
+def add_adx_features(df: pd.DataFrame, n: int = 14, ohlcv_col: dict = default_ohlcv_col, fillna: bool = False, adx_threshold: int = 25) -> pd.DataFrame:
   """
   Calculate ADX(Average Directional Index)
 
@@ -3313,7 +3313,7 @@ def add_adx_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, adx_th
   return df
 
 # Aroon # 25
-def add_aroon_features(df, n=25, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True, boundary=[50, 50]):
+def add_aroon_features(df: pd.DataFrame, n: int = 25, ohlcv_col: dict = default_ohlcv_col, fillna: bool = False, cal_signal: bool = True, boundary: list = [50, 50]) -> pd.DataFrame:
   """
   Calculate Aroon
 
@@ -3354,7 +3354,7 @@ def add_aroon_features(df, n=25, ohlcv_col=default_ohlcv_col, fillna=False, cal_
   return df
 
 # CCI(Commidity Channel Indicator)
-def add_cci_features(df, n=20, c=0.015, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True, boundary=[200, -200]):
+def add_cci_features(df: pd.DataFrame, n: int = 20, c: float = 0.015, ohlcv_col: dict = default_ohlcv_col, fillna: bool = False, cal_signal: bool = True, boundary: list = [200, -200]) -> pd.DataFrame:
   """
   Calculate CCI(Commidity Channel Indicator) 
 
@@ -3391,7 +3391,7 @@ def add_cci_features(df, n=20, c=0.015, ohlcv_col=default_ohlcv_col, fillna=Fals
   return df
 
 # DPO(Detrended Price Oscillator)
-def add_dpo_features(df, n=20, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True):
+def add_dpo_features(df: pd.DataFrame, n: int = 20, ohlcv_col: dict = default_ohlcv_col, fillna: bool = False, cal_signal: bool = True) -> pd.DataFrame:
   """
   Calculate DPO(Detrended Price Oscillator) 
 
@@ -3429,7 +3429,7 @@ def add_dpo_features(df, n=20, ohlcv_col=default_ohlcv_col, fillna=False, cal_si
   return df
 
 # Ichimoku 
-def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is_shift=True, ohlcv_col=default_ohlcv_col, fillna=False, cal_status=True):
+def add_ichimoku_features(df: pd.DataFrame, n_short: int = 9, n_medium: int = 26, n_long: int = 52, method: str = 'ta', is_shift: bool = True, ohlcv_col: dict = default_ohlcv_col, fillna: bool = False, cal_status: bool = True) -> pd.DataFrame:
   """
   Calculate Ichimoku indicators
 
@@ -3498,7 +3498,7 @@ def add_ichimoku_features(df, n_short=9, n_medium=26, n_long=52, method='ta', is
   return df
 
 # KST(Know Sure Thing)
-def add_kst_features(df, r1=10, r2=15, r3=20, r4=30, n1=10, n2=10, n3=10, n4=15, nsign=9, ohlcv_col=default_ohlcv_col, fillna=False):
+def add_kst_features(df: pd.DataFrame, r1: int = 10, r2: int = 15, r3: int = 20, r4: int = 30, n1: int = 10, n2: int = 10, n3: int = 10, n4: int = 15, nsign: int = 9, ohlcv_col: dict = default_ohlcv_col, fillna: bool = False) -> pd.DataFrame:
   """
   Calculate KST(Know Sure Thing)
 
@@ -3551,7 +3551,7 @@ def add_kst_features(df, r1=10, r2=15, r3=20, r4=30, n1=10, n2=10, n3=10, n4=15,
   return df
 
 # MACD(Moving Average Convergence Divergence)
-def add_macd_features(df, n_fast=12, n_slow=26, n_sign=9, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True):
+def add_macd_features(df: pd.DataFrame, n_fast: int = 12, n_slow: int = 26, n_sign: int = 9, ohlcv_col: dict = default_ohlcv_col, fillna: bool = False, cal_signal: bool = True) -> pd.DataFrame:
   """
   Calculate MACD(Moving Average Convergence Divergence)
 
@@ -3603,7 +3603,7 @@ def add_macd_features(df, n_fast=12, n_slow=26, n_sign=9, ohlcv_col=default_ohlc
   return df
 
 # Mass Index
-def add_mi_features(df, n=9, n2=25, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True):
+def add_mi_features(df: pd.DataFrame, n: int = 9, n2: int = 25, ohlcv_col: dict = default_ohlcv_col, fillna: bool = False, cal_signal: bool = True) -> pd.DataFrame:
   """
   Calculate Mass Index
 
@@ -3658,7 +3658,7 @@ def add_mi_features(df, n=9, n2=25, ohlcv_col=default_ohlcv_col, fillna=False, c
   return df
 
 # TRIX
-def add_trix_features(df, n=15, n_sign=9, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True, signal_mode='mix'):
+def add_trix_features(df: pd.DataFrame, n: int = 15, n_sign: int = 9, ohlcv_col: dict = default_ohlcv_col, fillna: bool = False, cal_signal: bool = True, signal_mode: str = 'mix') -> pd.DataFrame:
   """
   Calculate TRIX
 
@@ -3699,7 +3699,7 @@ def add_trix_features(df, n=15, n_sign=9, ohlcv_col=default_ohlcv_col, fillna=Fa
   return df
 
 # Vortex
-def add_vortex_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True):
+def add_vortex_features(df: pd.DataFrame, n: int = 14, ohlcv_col: dict = default_ohlcv_col, fillna: bool = False, cal_signal: bool = True) -> pd.DataFrame:
   """
   Calculate Vortex indicator
 
@@ -3747,7 +3747,7 @@ def add_vortex_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal
   return df
 
 # PSAR
-def add_psar_features(df, ohlcv_col=default_ohlcv_col, step=0.02, max_step=0.10, fillna=False):
+def add_psar_features(df: pd.DataFrame, ohlcv_col: dict = default_ohlcv_col, step: float = 0.02, max_step: float = 0.10, fillna: bool = False) -> pd.DataFrame:
   """
   Calculate Parabolic Stop and Reverse (Parabolic SAR) indicator
 
@@ -3843,7 +3843,7 @@ def add_psar_features(df, ohlcv_col=default_ohlcv_col, step=0.02, max_step=0.10,
   return df
 
 # Schaff Trend Cycle
-def add_stc_features(df, n_fast=23, n_slow=50, n_cycle=10, n_smooth=3, ohlcv_col=default_ohlcv_col, fillna=False):
+def add_stc_features(df: pd.DataFrame, n_fast: int = 23, n_slow: int = 50, n_cycle: int = 10, n_smooth: int = 3, ohlcv_col: dict = default_ohlcv_col, fillna: bool = False) -> pd.DataFrame:
   """
   Calculate Schaff Trend Cycle indicator
 
@@ -3891,7 +3891,7 @@ def add_stc_features(df, n_fast=23, n_slow=50, n_cycle=10, n_smooth=3, ohlcv_col
   return df
 
 # Renko
-def add_renko_features(df, brick_size_factor=0.05, dynamic_brick=True, merge_duplicated=True):
+def add_renko_features(df: pd.DataFrame, brick_size_factor: float = 0.05, dynamic_brick: bool = True, merge_duplicated: bool = True) -> pd.DataFrame:
   """
   Calculate Renko indicator
   :param df: original OHLCV dataframe
@@ -4115,7 +4115,7 @@ def add_renko_features(df, brick_size_factor=0.05, dynamic_brick=True, merge_dup
 
 # ================================================ Volume indicators ================================================ #
 # Accumulation Distribution Index
-def add_adi_features(df, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True):
+def add_adi_features(df: pd.DataFrame, ohlcv_col: dict = default_ohlcv_col, fillna: bool = False, cal_signal: bool = True) -> pd.DataFrame:
   """
   Calculate Accumulation Distribution Index
 
@@ -4156,7 +4156,7 @@ def add_adi_features(df, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=T
   return df
 
 # *Chaikin Money Flow (CMF)
-def add_cmf_features(df, n=20, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True):
+def add_cmf_features(df: pd.DataFrame, n: int = 20, ohlcv_col: dict = default_ohlcv_col, fillna: bool = False, cal_signal: bool = True) -> pd.DataFrame:
   """
   Calculate Chaikin Money FLow
 
@@ -4198,7 +4198,7 @@ def add_cmf_features(df, n=20, ohlcv_col=default_ohlcv_col, fillna=False, cal_si
   return df
 
 # Ease of movement (EoM, EMV)
-def add_eom_features(df, n=20, ohlcv_col=default_ohlcv_col, fillna=False):
+def add_eom_features(df: pd.DataFrame, n: int = 20, ohlcv_col: dict = default_ohlcv_col, fillna: bool = False) -> pd.DataFrame:
   """
   Calculate Vortex indicator
 
@@ -4240,7 +4240,7 @@ def add_eom_features(df, n=20, ohlcv_col=default_ohlcv_col, fillna=False):
   return df
 
 # Force Index (FI)
-def add_fi_features(df, n1=2, n2=22, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True):
+def add_fi_features(df: pd.DataFrame, n1: int = 2, n2: int = 22, ohlcv_col: dict = default_ohlcv_col, fillna: bool = False, cal_signal: bool = True) -> pd.DataFrame:
   """
   Calculate Force Index
 
@@ -4281,7 +4281,7 @@ def add_fi_features(df, n1=2, n2=22, ohlcv_col=default_ohlcv_col, fillna=False, 
   return df
 
 # *Negative Volume Index (NVI)
-def add_nvi_features(df, n=255, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True):
+def add_nvi_features(df: pd.DataFrame, n: int = 255, ohlcv_col: dict = default_ohlcv_col, fillna: bool = False, cal_signal: bool = True) -> pd.DataFrame:
   """
   Calculate Negative Volume Index (NVI)
 
@@ -4330,7 +4330,7 @@ def add_nvi_features(df, n=255, ohlcv_col=default_ohlcv_col, fillna=False, cal_s
   return df
 
 # *On-balance volume (OBV)
-def add_obv_features(df, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True):
+def add_obv_features(df: pd.DataFrame, ohlcv_col: dict = default_ohlcv_col, fillna: bool = False, cal_signal: bool = True) -> pd.DataFrame:
   """
   Calculate Force Index
 
@@ -4372,7 +4372,7 @@ def add_obv_features(df, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=T
   return df
 
 # *Volume-price trend (VPT)
-def add_vpt_features(df, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True):
+def add_vpt_features(df: pd.DataFrame, ohlcv_col: dict = default_ohlcv_col, fillna: bool = False, cal_signal: bool = True) -> pd.DataFrame:
   """
   Calculate Vortex indicator
 
@@ -4416,7 +4416,7 @@ def add_vpt_features(df, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=T
 
 # ================================================ Momentum indicators ============================================== #
 # Awesome Oscillator
-def add_ao_features(df, n_short=5, n_long=34, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True):
+def add_ao_features(df: pd.DataFrame, n_short: int = 5, n_long: int = 34, ohlcv_col: dict = default_ohlcv_col, fillna: bool = False, cal_signal: bool = True) -> pd.DataFrame:
   """
   Calculate Awesome Oscillator
 
@@ -4453,7 +4453,7 @@ def add_ao_features(df, n_short=5, n_long=34, ohlcv_col=default_ohlcv_col, filln
   return df
 
 # Kaufman's Adaptive Moving Average (KAMA)
-def cal_kama(df, n1=10, n2=2, n3=30, ohlcv_col=default_ohlcv_col, fillna=False):
+def cal_kama(df: pd.DataFrame, n1: int = 10, n2: int = 2, n3: int = 30, ohlcv_col: dict = default_ohlcv_col, fillna: bool = False) -> pd.DataFrame:
   """
   Calculate Kaufman's Adaptive Moving Average
 
@@ -4511,7 +4511,7 @@ def cal_kama(df, n1=10, n2=2, n3=30, ohlcv_col=default_ohlcv_col, fillna=False):
   return df
 
 # Kaufman's Adaptive Moving Average (KAMA: short [10, 2, 30], long: [10, 5, 30])
-def add_kama_features(df, n_param={'kama_fast': [10, 2, 30], 'kama_slow': [15, 5, 42]}, ohlcv_col=default_ohlcv_col, fillna=False):
+def add_kama_features(df: pd.DataFrame, n_param: dict = {'kama_fast': [10, 2, 30], 'kama_slow': [15, 5, 42]}, ohlcv_col: dict = default_ohlcv_col, fillna: bool = False) -> pd.DataFrame:
   """
   Calculate Kaufman's Adaptive Moving Average Signal
 
@@ -4548,7 +4548,7 @@ def add_kama_features(df, n_param={'kama_fast': [10, 2, 30], 'kama_slow': [15, 5
   return df
 
 # Money Flow Index(MFI)
-def add_mfi_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True, boundary=[20, 80]):
+def add_mfi_features(df: pd.DataFrame, n: int = 14, ohlcv_col: dict = default_ohlcv_col, fillna: bool = False, cal_signal: bool = True, boundary: list = [20, 80]) -> pd.DataFrame:
   """
   Calculate Money Flow Index Signal
 
@@ -4605,7 +4605,7 @@ def add_mfi_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_si
   return df
 
 # Relative Strength Index (RSI)
-def add_rsi_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True, boundary=[30, 70]):
+def add_rsi_features(df: pd.DataFrame, n: int = 14, ohlcv_col: dict = default_ohlcv_col, fillna: bool = False, cal_signal: bool = True, boundary: list = [30, 70]) -> pd.DataFrame:
   """
   Calculate Relative Strength Index
 
@@ -4655,7 +4655,7 @@ def add_rsi_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_si
   return df
 
 # Stochastic RSI
-def add_srsi_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True, boundary=[20, 80]):
+def add_srsi_features(df: pd.DataFrame, n: int = 14, ohlcv_col: dict = default_ohlcv_col, fillna: bool = False, cal_signal: bool = True, boundary: list = [20, 80]) -> pd.DataFrame:
   """
   Calculate Stochastic RSI
 
@@ -4699,7 +4699,7 @@ def add_srsi_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_s
   return df
 
 # Stochastic Oscillator
-def add_stoch_features(df, n=14, d_n=3, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True, boundary=[20, 80]):
+def add_stoch_features(df: pd.DataFrame, n: int = 14, d_n: int = 3, ohlcv_col: dict = default_ohlcv_col, fillna: bool = False, cal_signal: bool = True, boundary: list = [20, 80]) -> pd.DataFrame:
   """
   Calculate Stochastic Oscillator
 
@@ -4742,7 +4742,7 @@ def add_stoch_features(df, n=14, d_n=3, ohlcv_col=default_ohlcv_col, fillna=Fals
   return df
 
 # True strength index (TSI)
-def add_tsi_features(df, r=25, s=13, ema_period=7, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True):
+def add_tsi_features(df: pd.DataFrame, r: int = 25, s: int = 13, ema_period: int = 7, ohlcv_col: dict = default_ohlcv_col, fillna: bool = False, cal_signal: bool = True) -> pd.DataFrame:
   """
   Calculate True strength index
 
@@ -4789,7 +4789,7 @@ def add_tsi_features(df, r=25, s=13, ema_period=7, ohlcv_col=default_ohlcv_col, 
   return df
 
 # Ultimate Oscillator
-def add_uo_features(df, s=7, m=14, l=28, ws=4.0, wm=2.0, wl=1.0, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=False):
+def add_uo_features(df: pd.DataFrame, s: int = 7, m: int = 14, l: int = 28, ws: float = 4.0, wm: float = 2.0, wl: float = 1.0, ohlcv_col: dict = default_ohlcv_col, fillna: bool = False, cal_signal: bool = False) -> pd.DataFrame:
   """
   Calculate Ultimate Oscillator
 
@@ -4839,7 +4839,7 @@ def add_uo_features(df, s=7, m=14, l=28, ws=4.0, wm=2.0, wl=1.0, ohlcv_col=defau
   return df
 
 # Williams %R
-def add_wr_features(df, lbp=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True, boundary=[-20, -80]):
+def add_wr_features(df: pd.DataFrame, lbp: int = 14, ohlcv_col: dict = default_ohlcv_col, fillna: bool = False, cal_signal: bool = True, boundary: list = [-20, -80]) -> pd.DataFrame:
   """
   Calculate Williams %R
 
@@ -4882,7 +4882,7 @@ def add_wr_features(df, lbp=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_s
 
 # ================================================ Volatility indicators ============================================ #
 # Average True Range
-def add_atr_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True):
+def add_atr_features(df: pd.DataFrame, n: int = 14, ohlcv_col: dict = default_ohlcv_col, fillna: bool = False, cal_signal: bool = True) -> pd.DataFrame:
   """
   Calculate Average True Range
 
@@ -4931,7 +4931,7 @@ def add_atr_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_si
   return df
 
 # Price that will triger mean reversion signal
-def cal_mean_reversion_expected_rate(df, rate_col, n=100, mr_threshold=2):
+def cal_mean_reversion_expected_rate(df: pd.DataFrame, rate_col: str, n: int = 100, mr_threshold: int = 2) -> tuple:
   """
   Calculate the expected rate change to triger mean-reversion signals
 
@@ -4952,7 +4952,7 @@ def cal_mean_reversion_expected_rate(df, rate_col, n=100, mr_threshold=2):
   return result
 
 # Bollinger Band
-def add_bb_features(df, n=20, ndev=2, ohlcv_col=default_ohlcv_col, fillna=False):
+def add_bb_features(df: pd.DataFrame, n: int = 20, ndev: int = 2, ohlcv_col: dict = default_ohlcv_col, fillna: bool = False) -> pd.DataFrame:
   """
   Calculate Bollinger Band
 
@@ -4996,7 +4996,7 @@ def add_bb_features(df, n=20, ndev=2, ohlcv_col=default_ohlcv_col, fillna=False)
   return df
 
 # Donchian Channel
-def add_dc_features(df, n=20, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=True):
+def add_dc_features(df: pd.DataFrame, n: int = 20, ohlcv_col: dict = default_ohlcv_col, fillna: bool = False, cal_signal: bool = True) -> pd.DataFrame:
   """
   Calculate Donchian Channel
 
@@ -5046,7 +5046,7 @@ def add_dc_features(df, n=20, ohlcv_col=default_ohlcv_col, fillna=False, cal_sig
   return df
 
 # Keltner channel (KC)
-def add_kc_features(df, n=10, ohlcv_col=default_ohlcv_col, method='atr', fillna=False, cal_signal=True):
+def add_kc_features(df: pd.DataFrame, n: int = 10, ohlcv_col: dict = default_ohlcv_col, method: str = 'atr', fillna: bool = False, cal_signal: bool = True) -> pd.DataFrame:
   """
   Calculate Keltner channel (KC)
 
@@ -5108,7 +5108,7 @@ def add_kc_features(df, n=10, ohlcv_col=default_ohlcv_col, method='atr', fillna=
   return df
 
 # Ulcer Index
-def add_ui_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_signal=False):
+def add_ui_features(df: pd.DataFrame, n: int = 14, ohlcv_col: dict = default_ohlcv_col, fillna: bool = False, cal_signal: bool = False) -> pd.DataFrame:
   """
   Calculate Ulcer Index
 
@@ -5150,7 +5150,7 @@ def add_ui_features(df, n=14, ohlcv_col=default_ohlcv_col, fillna=False, cal_sig
 
 # ================================================ Indicator visualization  ========================================= #
 # plot bar
-def plot_bar(df, target_col, start=None, end=None, width=0.8, alpha=1, color_mode='up_down', edge_color=(0,0,0,0.1), benchmark=None, add_line=False, title=None, use_ax=None, ytick_roration=0, plot_args=default_plot_args):
+def plot_bar(df: pd.DataFrame, target_col: str, start: Optional[str] = None, end: Optional[str] = None, width: float = 0.8, alpha: float = 1, color_mode: Literal['up_down', 'benchmark'] = 'up_down', edge_color: tuple = (0,0,0,0.1), benchmark: Optional[float] = None, add_line: bool = False, title: Optional[str] = None, use_ax: Optional[plt.Axes] = None, ytick_roration: int = 0, plot_args: dict = default_plot_args) -> Optional[plt.Axes]:
   """
   Plot a series in bar
   :param df: time-series dataframe which contains target columns
@@ -5212,7 +5212,7 @@ def plot_bar(df, target_col, start=None, end=None, width=0.8, alpha=1, color_mod
     return ax
 
 # plot volume
-def plot_scatter(df, target_col, start=None, end=None, marker='.', alpha=1, color_mode='up_down', benchmark=None, add_line=False, title=None, use_ax=None, plot_args=default_plot_args):
+def plot_scatter(df: pd.DataFrame, target_col: str, start: Optional[str] = None, end: Optional[str] = None, marker: str = '.', alpha: float = 1, color_mode: Literal['up_down', 'benchmark'] = 'up_down', benchmark: Optional[float] = None, add_line: bool = False, title: Optional[str] = None, use_ax: Optional[plt.Axes] = None, plot_args: dict = default_plot_args) -> Optional[plt.Axes]:
   """
   Plot a series in scatters
   :param df: time-series dataframe which contains target columns
@@ -5278,7 +5278,7 @@ def plot_scatter(df, target_col, start=None, end=None, marker='.', alpha=1, colo
     return ax
 
 # plot trend index
-def plot_up_down(df, col='trend_idx', start=None, end=None, use_ax=None, title=None, plot_args=default_plot_args):
+def plot_up_down(df: pd.DataFrame, col: str = 'trend_idx', start: Optional[str] = None, end: Optional[str] = None, use_ax: Optional[plt.Axes] = None, title: Optional[str] = None, plot_args: dict = default_plot_args) -> Optional[plt.Axes]:
   """
   Plot indicators around a benchmark
 
@@ -5371,7 +5371,7 @@ def plot_up_down(df, col='trend_idx', start=None, end=None, use_ax=None, title=N
     return ax
 
 # plot score and trigger score
-def plot_score(df, start=None, end=None, width=0.8, use_ax=None, title=None, plot_args=default_plot_args):
+def plot_score(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str] = None, width: float = 0.8, use_ax: Optional[plt.Axes] = None, title: Optional[str] = None, plot_args: dict = default_plot_args) -> Optional[plt.Axes]:
   """
   Plot overall score and trigger score
 
@@ -5426,7 +5426,7 @@ def plot_score(df, start=None, end=None, width=0.8, use_ax=None, title=None, plo
     return ax
 
 # plot signals on price line
-def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', use_ax=None, title=None, interval='day', trend_val=default_trend_val, signal_val=default_signal_val, plot_args=default_plot_args):
+def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str] = None, signal_x: str = 'signal', signal_y: str = 'Close', use_ax: Optional[plt.Axes] = None, title: Optional[str] = None, interval: str = 'day', trend_val: dict = default_trend_val, signal_val: dict = default_signal_val, plot_args: dict = default_plot_args) -> Optional[plt.Axes]:
   """
   Plot signals along with the price
 
@@ -5767,7 +5767,7 @@ def plot_signal(df, start=None, end=None, signal_x='signal', signal_y='Close', u
     return ax
 
 # plot adx chart
-def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=default_plot_args, interval='day'):
+def plot_adx(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str] = None, use_ax: Optional[plt.Axes] = None, title: Optional[str] = None, plot_args: dict = default_plot_args, interval: Literal['day', 'week', 'month', 'year'] = 'day') -> Optional[plt.Axes]:
   """
   Plot adx chart
 
@@ -5872,7 +5872,7 @@ def plot_adx(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
     return ax
 
 # plot candlestick chart
-def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split', 'gap', 'support_resistant', 'pattern'], use_ax=None, ohlcv_col=default_ohlcv_col, color=default_candlestick_color, plot_args=default_plot_args, interval='day'):
+def plot_candlestick(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str] = None, date_col: str = 'Date', add_on: list = ['split', 'gap', 'support_resistant', 'pattern'], use_ax: Optional[plt.Axes] = None, ohlcv_col: dict = default_ohlcv_col, color: dict = default_candlestick_color, plot_args: dict = default_plot_args, interval: Literal['day', 'week', 'month', 'year'] = 'day') -> Optional[plt.Axes]:
   """
   Plot candlestick chart
 
@@ -6191,7 +6191,7 @@ def plot_candlestick(df, start=None, end=None, date_col='Date', add_on=['split',
     return ax
 
 # plot ichimoku chart
-def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['split', 'gap', 'support_resistant', 'pattern'], target_indicator = ['price', 'ichimoku', 'kama', 'candlestick', 'bb', 'psar', 'renko', 'linear'], interval='day', use_ax=None, title=None, candlestick_color=default_candlestick_color, ohlcv_col=default_ohlcv_col, plot_args=default_plot_args):
+def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str] = None, date_col: str = 'Date', add_on: list = ['split', 'gap', 'support_resistant', 'pattern'], target_indicator: list = ['price', 'ichimoku', 'kama', 'candlestick', 'bb', 'psar', 'renko', 'linear'], interval: Literal['day', 'week', 'month', 'year'] = 'day', use_ax: Optional[plt.Axes] = None, title: Optional[str] = None, candlestick_color: dict = default_candlestick_color, ohlcv_col: dict = default_ohlcv_col, plot_args: dict = default_plot_args) -> Optional[plt.Axes]:
   """
   Plot ichimoku chart
 
@@ -6487,7 +6487,7 @@ def plot_main_indicators(df, start=None, end=None, date_col='Date', add_on=['spl
     return ax
 
 # plot aroon chart
-def plot_aroon(df, start=None, end=None, use_ax=None, title=None, plot_args=default_plot_args):
+def plot_aroon(df: pd.DataFrame, start: Optional[int] = None, end: Optional[int] = None, use_ax: Optional[plt.Axes] = None, title: Optional[str] = None, plot_args: dict = default_plot_args) -> Optional[plt.Axes]:
   """
   Plot aroon chart
 
@@ -6540,7 +6540,7 @@ def plot_aroon(df, start=None, end=None, use_ax=None, title=None, plot_args=defa
     return ax
 
 # plot renko chart
-def plot_renko(df, start=None, end=None, use_ax=None, title=None, close_alpha=0.5, save_path=None, save_image=False, show_image=False, plot_args=default_plot_args):
+def plot_renko(df: pd.DataFrame, start: Optional[int] = None, end: Optional[int] = None, use_ax: Optional[plt.Axes] = None, title: Optional[str] = None, close_alpha: float = 0.5, save_path: Optional[str] = None, save_image: bool = False, show_image: bool = False, plot_args: dict = default_plot_args) -> Optional[plt.Axes]:
   """
   Plot renko chart
 
@@ -6613,7 +6613,7 @@ def plot_renko(df, start=None, end=None, use_ax=None, title=None, close_alpha=0.
       plt.show()
 
 # plot rsi chart
-def plot_rsi(df, start=None, end=None, use_ax=None, title=None, plot_args=default_plot_args):
+def plot_rsi(df: pd.DataFrame, start: Optional[int] = None, end: Optional[int] = None, use_ax: Optional[plt.Axes] = None, title: Optional[str] = None, plot_args: dict = default_plot_args) -> Optional[plt.Axes]:
   """
   Plot aroon chart
 
@@ -6698,7 +6698,7 @@ def plot_rsi(df, start=None, end=None, use_ax=None, title=None, plot_args=defaul
     return ax
 
 # plot rate and trigger_score/trend_score for each target list
-def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_args=default_plot_args, config=None, save_path=None):
+def plot_summary(data: dict, width: int = 20, unit_size: float = 0.3, wspace: float = 0.2, hspace: float = 0.1, plot_args: dict = default_plot_args, config: Optional[dict] = None, save_path: Optional[str] = None) -> plt.Axes:
   """
   Plot rate and trigger_score/overall_change for each target list
   :param data: dict of dataframes including 'result'
@@ -6859,7 +6859,7 @@ def plot_summary(data, width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_arg
   return score_ax
 
 # plot review of signal's price
-def plot_review(prefix, df, sort_factors=['信号分数', "模式分数", 'ADX天数', 'ADX起始', ], sort_orders = [False, True, False, False], width=20, unit_size=0.3, wspace=0.2, hspace=0.1, plot_args=default_plot_args, config=None, save_path=None):
+def plot_review(prefix: str, df: pd.DataFrame, sort_factors: list = ['信号分数', "模式分数", 'ADX天数', 'ADX起始'], sort_orders: list = [False, True, False, False], width: int = 20, unit_size: float = 0.3, wspace: float = 0.2, hspace: float = 0.1, plot_args: dict = default_plot_args, config: Optional[dict] = None, save_path: Optional[str] = None) -> plt.Axes:
   """
   Plot rate and signal indicators for signal
   :param df: signal dataframe
@@ -6969,7 +6969,7 @@ def plot_review(prefix, df, sort_factors=['信号分数', "模式分数", 'ADX�
   return score_ax
 
 # plot selected 
-def plot_selected(data, config, make_pdf=False, dst_path=None, file_name=None):
+def plot_selected(data: dict, config: dict, make_pdf: bool = False, dst_path: Optional[str] = None, file_name: Optional[str] = None) -> pd.DataFrame:
   """
   Plot  signals
   :param data: dict of dataframes including'result'
@@ -7014,7 +7014,7 @@ def plot_selected(data, config, make_pdf=False, dst_path=None, file_name=None):
   return selected_data
 
 # plot multiple indicators on a same chart
-def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', trade_info=None, save_path=None, save_image=False, show_image=False, title=None, subplot_args=default_plot_args):
+def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[str] = None, end: Optional[str] = None, interval: Literal['day', 'week', 'month', 'year'] = 'day', trade_info: Optional[pd.DataFrame] = None, save_path: Optional[str] = None, save_image: bool = False, show_image: bool = False, title: Optional[str] = None, subplot_args: dict = default_plot_args) -> Optional[plt.Axes]:
   """
   Plot Ichimoku and mean reversion in a same plot
   :param df: dataframe with ichimoku and mean reversion columns
@@ -7336,7 +7336,7 @@ def plot_multiple_indicators(df, args={}, start=None, end=None, interval='day', 
   plt.close()
 
 # calculate ta indicators, trend and derivatives for historical data
-def plot_historical_evolution(df, symbol, interval, config, his_start_date=None, his_end_date=None, indicators=default_indicators, is_print=False, create_gif=False, plot_final=False, remove_origin=True, plot_save_path=None):
+def plot_historical_evolution(df: pd.DataFrame, symbol: str, interval: Literal['day', 'week', 'month', 'year'], config: dict, his_start_date: Optional[str] = None, his_end_date: Optional[str] = None, indicators: list = default_indicators, is_print: bool = False, create_gif: bool = False, plot_final: bool = False, remove_origin: bool = True, plot_save_path: Optional[str] = None) -> pd.DataFrame:
   """
   Calculate selected ta features for dataframe
 

@@ -33,7 +33,7 @@ from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
-
+from typing import Literal, Optional
 # self defined
 from quant import bc_util as util
 
@@ -105,12 +105,12 @@ def add_postfix_for_cn_symbol(symbol: str) -> str:
   return symbol
 
 # preprocess symbol for downloading
-def preprocess_symbol(symbols: list, style: str) -> dict:
+def preprocess_symbol(symbols: list, style: Literal['eod', 'ak', 'easyquotation']) -> dict:
   """
   Add preprocess list of symbols to meet the style of different datasource
 
   :param symbols: list of symbols in STANDARD_CN_SYMBOL/STANDARD_CN_SYMBOL format
-  :param style: name of the datasource
+  :param style: name of the datasource: 'eod'/'ak'/'easyquotation'
   :returns: dict of {original symbol: processed symbol}
   :raises: none
   """
@@ -162,7 +162,7 @@ def preprocess_symbol(symbols: list, style: str) -> dict:
   return result
 
 # get ohlcv data from eod(US/CN/HK)
-def get_data_from_eod(symbol: str, start_date: str = None, end_date: str = None, interval: str = 'd', is_print: bool = False, api_key: str = default_eod_key, add_dividend: bool = True, add_split: bool = True) -> pd.DataFrame:
+def get_data_from_eod(symbol: str, start_date: Optional[str] = None, end_date: Optional[str] = None, interval: Literal['d', 'w', 'm'] = 'd', is_print: bool = False, api_key: str = default_eod_key, add_dividend: bool = True, add_split: bool = True) -> Optional[pd.DataFrame]:
   """
   Download stock data from EOD
 

@@ -15,9 +15,9 @@ from quant import bc_util as util
 from quant import bc_data_io as io_util
 from quant import bc_finance as finance_util
 from quant import bc_technical_analysis as ta_util
+from typing import Literal
 
-
-def buy(money, price, trading_fee):
+def buy(money: float, price: float, trading_fee: float) -> dict[str, float | int]:
   """
   Buy stocks
 
@@ -37,7 +37,7 @@ def buy(money, price, trading_fee):
   return {'money': money, 'stock': stock} 
 
 
-def sell(stock, price, trading_fee):
+def sell(stock: int, price: float, trading_fee: float) -> dict[str, float | int]:
   """
   Sell stocks
 
@@ -73,7 +73,7 @@ class FixedPositionTrader:
   
 
   # init
-  def __init__(self, data, start_date=None, end_date=None, num_days=365, load_local_data=True):
+  def __init__(self, data: dict, start_date: str | None = None, end_date: str | None = None, num_days: int = 365, load_local_data: bool = True) -> None:
 
     # copy data(sec_data, ta_data), initialize record with ta_data
     self.data = data.copy()
@@ -97,7 +97,7 @@ class FixedPositionTrader:
     self.end_date = end_date
     
   # set benchmark 
-  def set_benchmark(self, benchmark, start_date=None, end_date=None): 
+  def set_benchmark(self, benchmark: str, start_date: str | None = None, end_date: str | None = None) -> None: 
     
     # set start_date/end_date
     start_date = self.start_date if start_date is None else start_date
@@ -122,7 +122,7 @@ class FixedPositionTrader:
       self.record['benchmark'].loc[benchmark_idx.max(),'signal'] = 's'
 
   # initialize record
-  def init_record(self, load_local_data=True):
+  def init_record(self, load_local_data: bool = True) -> None:
 
     # initialize record with local saved data
     if load_local_data:
@@ -138,7 +138,7 @@ class FixedPositionTrader:
       self.record[symbol]['value'] = np.NaN
 
   # recalculate data
-  def recalculate_data(self, sec_list, mode=None, start_date=None, end_date=None):
+  def recalculate_data(self, sec_list: list[str], mode: Literal['trend', 'signal'] | None = None, start_date: str | None = None, end_date: str | None = None) -> None:
 
     # verify value of mode
     if mode not in ['trend', 'signal', None]:

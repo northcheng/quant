@@ -1,3 +1,9 @@
+# -*- coding: utf-8 -*-
+"""
+Generally Utilities
+
+:author: Beichen Chen
+"""
 import math
 import logging
 import pytz

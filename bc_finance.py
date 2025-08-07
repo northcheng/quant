@@ -12,6 +12,7 @@ from quant import bc_util as util
 from quant import bc_technical_analysis as ta_util
 
 
+
 #----------------------------- Rate and Risk -----------------------------------#
 # risk_premium = mean(excess_return)
 # risk = std(excess_return)
