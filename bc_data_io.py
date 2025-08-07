@@ -34,6 +34,7 @@ from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
 from typing import Literal, Optional
+
 # self defined
 from quant import bc_util as util
 
@@ -2103,7 +2104,7 @@ def update_portfolio_support_resistant(config: dict, data: dict, portfolio_file_
 
 
 #----------------------------- Email sending ------------------------------------#
-def send_result_by_email(config: dict, to_addr: str, from_addr: str, smtp_server: str, password: str, subject: str = None, platform: list = ['tiger'], signal_file_date: str = None, log_file_date: str = None, test: bool = False, pool: str = None) -> any:
+def send_result_by_email(config: dict, to_addr: str, from_addr: str = 'northcheng@qq.com', smtp_server: str = 'smtp.qq.com', subject: str = None, platform: list = ['tiger'], signal_file_date: str = None, log_file_date: str = None, test: bool = False, pool: str = None) -> any:
   """
   send automatic_trader's trading result and technical_analyst's calculation result by email
 
@@ -2111,7 +2112,6 @@ def send_result_by_email(config: dict, to_addr: str, from_addr: str, smtp_server
   :param to_addr: destination email address
   :param from_addr: email address used for sending email
   :param smtp_server: smtp server address
-  :param password: pwd for smtp server
   :param subject: subject of the email
   :param platform: trading platforms include ['tiger', 'futu']
   :param signal_file_date: date of signal file which will be attached on email
@@ -2328,7 +2328,7 @@ def send_result_by_email(config: dict, to_addr: str, from_addr: str, smtp_server
       # Use port from config if available, otherwise default to 465
       port = config.get('email_port', 465)
       server.connect(smtp_server, port)
-      server.login(from_addr, password)
+      server.login(from_addr, config['api_key']['qq'])
       server.sendmail(from_addr, to_addr, m.as_string())
       ret = server.quit()
   except Exception as e:
