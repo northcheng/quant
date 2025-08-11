@@ -7245,6 +7245,7 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
 
     # signal desc
     signal_score = df.loc[idx, "signal_score"]
+    desc_score = df.loc[idx, 'desc_score']
     desc = df.loc[idx, 'signal_description']
     signal_desc_title = (f'[{signal_score}]' + (f' {desc}' if len(desc) > 0 else ''))
 
@@ -7316,7 +7317,8 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
   super_title = f' {title}({new_title})  {close_rate}% {title_symbol}'
 
   # super title description
-  score_title = (f'{signal_desc_title}' if signal_desc_title != '' else '')
+  connection_symbol = '+' if total_score >=0 else ' '
+  score_title = (f'{desc_score}{connection_symbol}{total_score}={signal_desc_title}' if signal_desc_title != '' else '')
   pattern_title = (f'{pattern_desc_title}' if pattern_desc_title != '' else '')
   candle_title = (f'{candle_desc_title}' if candle_desc_title != '' else '')
   fig.suptitle(f'{super_title}\n{score_title}\n{pattern_title}{candle_title}', ha='center', va='top', x=0.5, y=1.05, fontsize=24, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.05), linespacing = 1.8)
