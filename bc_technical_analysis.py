@@ -1595,6 +1595,10 @@ def calculate_ta_signal(df: pd.DataFrame):
 
     signal_conditions = {
 
+      # '首日触发':            '''
+      #                       ki_distance == "rr" and adx_direction_day == 1
+      #                       '''.replace('\n', ''),
+
       '趋势向上':            '''
                             trend == "up"
                             '''.replace('\n', ''),
@@ -1637,10 +1641,18 @@ def calculate_ta_signal(df: pd.DataFrame):
       df.loc[tmp_idx, 'signal_score'] += signal_condition_weights[c]
       df.loc[tmp_idx, 'signal_description'] += c + ', '
 
-    df['signal_description'] = df['signal_description'].apply(lambda x: x[:-2] if len(x) > 0 else '')
     df['total_score'] = (df['trend_score'] + df['trigger_score'] + df['pattern_score']).round(2)
-    df['desc_score'] = df['signal_score'].copy()
     df['signal_score'] = (df['signal_score'] + df['total_score']).round(2)
+    df['signal_score_change'] = (df['signal_score'] - df['signal_score'].shift(1)).round(2)
+
+    threshold = 4
+    signal_change_idx = df.query(f'signal_score_change >= {threshold} and adx_day == 1 or adx_direction_day == 1').index
+    df.loc[signal_change_idx, 'signal_score'] = (df.loc[signal_change_idx, 'signal_score'] + df.loc[signal_change_idx, 'signal_score_change']/threshold).round(2)
+    df.loc[signal_change_idx, 'signal_description'] += df.loc[signal_change_idx, 'signal_score_change'].apply(lambda x: f'分数剧增({x}), ')
+
+    df['desc_score'] = df['signal_score'].copy()
+    df['signal_description'] = df['signal_description'].apply(lambda x: x[:-2] if len(x) > 0 else '')
+
 
   # drop redundant columns
   for col in col_to_drop:
