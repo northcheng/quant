@@ -1652,7 +1652,7 @@ def calculate_ta_signal(df: pd.DataFrame):
 
     df['desc_score'] = df['signal_score'].copy()
     df['signal_description'] = df['signal_description'].apply(lambda x: x[:-2] if len(x) > 0 else '')
-
+    df['signal_direction_day'] = sda((df['signal_score_change'] > 0).replace({True:1, False:-1}))
 
   # drop redundant columns
   for col in col_to_drop:
