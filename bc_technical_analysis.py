@@ -1100,10 +1100,10 @@ def calculate_ta_signal(df: pd.DataFrame):
 
     } 
     position_values = {
-      '低':        f'l',
-      '中低':      f'ml',
-      '中高':      f'mh',
-      '高':        f'h',
+      '低':        f'll',
+      '中低':      f'lh',
+      '中高':      f'hl',
+      '高':        f'hh',
     }
     df = assign_condition_value(df=df, column='位置', condition_dict=position_conditions, value_dict=position_values, default_value='') 
     
@@ -1347,7 +1347,7 @@ def calculate_ta_signal(df: pd.DataFrame):
       # 关键边界(ichimoku, kama, gap)
       '长线边界_up':            '''
                             (
-                              位置 in ['h', 'mh'] and
+                              位置 in ['hh', 'hl'] and
                               (
                                 (kama_slow_support > 0) or 
                                 (kama_slow_break_down < 0 and candle_color == 1 and 长影线_trend == "u") or
@@ -1359,7 +1359,7 @@ def calculate_ta_signal(df: pd.DataFrame):
       # 关键边界(ichimoku, kama, gap)
       '长线边界_down':          '''
                             (
-                              位置 in ['l', 'ml'] and
+                              位置 in ['ll', 'lh'] and
                               (
                                 (kama_slow_resistant < 0) or 
                                 (kama_slow_break_up > 0 and (candle_color == -1 or 长影线_trend == "d" or resistant_score < 0)) or
@@ -1547,7 +1547,7 @@ def calculate_ta_signal(df: pd.DataFrame):
     #   '高位买入':           '''
     #                         (signal == "b") and
     #                         (
-    #                           (位置 in ['mh', 'h'] and (十字星_trend != "n" or position_score > 1))
+    #                           (位置 in ['hl', 'hh'] and (十字星_trend != "n" or position_score > 1))
     #                         )
     #                         '''.replace('\n', ''),
 
@@ -1555,7 +1555,7 @@ def calculate_ta_signal(df: pd.DataFrame):
     #   '波动买入':           '''
     #                         (signal == "b") and
     #                         (
-    #                           (位置 in ['mh', 'h'] and adx_strong_day < 0 and adx_wave_day > 0 and adx_direction < 5)
+    #                           (位置 in ['hl', 'hh'] and adx_strong_day < 0 and adx_wave_day > 0 and adx_direction < 5)
     #                         )
     #                         '''.replace('\n', ''),
 
@@ -1563,7 +1563,7 @@ def calculate_ta_signal(df: pd.DataFrame):
     #   '高位卖出':           '''
     #                         (signal == "s") and
     #                         (
-    #                           (位置 in ['h'] and ki_distance == 'gg' and position_score >= 2 and break_down_score == 0)
+    #                           (位置 in ['hh'] and ki_distance == 'gg' and position_score >= 2 and break_down_score == 0)
     #                         )
     #                         '''.replace('\n', ''),
 
@@ -1571,7 +1571,7 @@ def calculate_ta_signal(df: pd.DataFrame):
     #   '低位下行':           '''
     #                         (signal == "b") and
     #                         (
-    #                           (位置 in ['l'] and ki_distance == 'rr' and kama_fast > kijun)
+    #                           (位置 in ['ll'] and ki_distance == 'rr' and kama_fast > kijun)
     #                         )
     #                         '''.replace('\n', '')
 
@@ -1604,7 +1604,7 @@ def calculate_ta_signal(df: pd.DataFrame):
                             '''.replace('\n', ''),
 
       '低位':               '''
-                            位置 in ['l']
+                            位置 in ['ll']
                             '''.replace('\n', ''),
 
       '上行':               '''
@@ -1628,7 +1628,7 @@ def calculate_ta_signal(df: pd.DataFrame):
                             '''.replace('\n', ''),
 
       '高位下降':            '''
-                            位置 in ['h'] and 相对ichimoku位置 in ['up'] and 相对kama位置 in ['up'] and (candle_color == -1 or 长影线_trend == "d")
+                            位置 in ['hh'] and 相对ichimoku位置 in ['up'] and 相对kama位置 in ['up'] and (candle_color == -1 or 长影线_trend == "d")
                             '''.replace('\n', ''),
     } 
     signal_condition_weights = {'趋势向上': 1, '低位': 1, '上行': 1, '突破': 1, '无波动': 1, '无阻挡': 0.5, '正向模式':0.5, '高位下降': -1}
@@ -5668,7 +5668,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     tmp_color = 'orange'
     tmp_color_mid = 'grey'
     
-    values = {'低': 'l', '中低': 'ml', '中高': 'mh', '高': 'h'}
+    values = {'低': 'll', '中低': 'lh', '中高': 'hl', '高': 'hh'}
     markers = {'低': '.', '中低': '.', '中高': 'o', '高': 'o'}
     colors = {'低': tmp_color, '中低': 'none', '中高': 'none', '高': tmp_color}
     edgecolors = {'低': tmp_color, '中低': tmp_color_mid, '中高': tmp_color_mid, '高': tmp_color}
