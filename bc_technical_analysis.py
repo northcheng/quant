@@ -1640,6 +1640,9 @@ def calculate_ta_signal(df: pd.DataFrame):
 
       df.loc[tmp_idx, 'signal_score'] += signal_condition_weights[c]
       df.loc[tmp_idx, 'signal_description'] += c + ', '
+    
+    # desc_score 定性, signal_score 定量, 先定性, 再定量
+    df['desc_score'] = df['signal_score'].copy()
 
     df['total_score'] = (df['trend_score'] + df['trigger_score'] + df['pattern_score']).round(2)
     df['signal_score'] = (df['signal_score'] + df['total_score']).round(2)
@@ -1649,8 +1652,8 @@ def calculate_ta_signal(df: pd.DataFrame):
     signal_change_idx = df.query(f'signal_score_change >= {threshold} and adx_day == 1 or adx_direction_day == 1').index
     df.loc[signal_change_idx, 'signal_score'] = (df.loc[signal_change_idx, 'signal_score'] + df.loc[signal_change_idx, 'signal_score_change']/threshold).round(2)
     df.loc[signal_change_idx, 'signal_description'] += df.loc[signal_change_idx, 'signal_score_change'].apply(lambda x: f'分数剧增({x}), ')
-
-    df['desc_score'] = df['signal_score'].copy()
+    df.loc[signal_change_idx, 'desc_score'] += 1
+    
     df['signal_description'] = df['signal_description'].apply(lambda x: x[:-2] if len(x) > 0 else '')
     df['signal_direction_day'] = (df['signal_score_change'] > 0).replace({True:1, False:-1})
     zero_idx = df.query('-0.5 < signal_score_change < 0.5').index
