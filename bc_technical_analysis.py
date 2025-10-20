@@ -1641,7 +1641,6 @@ def calculate_ta_signal(df: pd.DataFrame):
       df.loc[tmp_idx, 'signal_score'] += signal_condition_weights[c]
       df.loc[tmp_idx, 'signal_description'] += c + ', '
     
-    # desc_score 定性, signal_score 定量, 先定性, 再定量
     df['desc_score'] = df['signal_score'].copy()
 
     df['total_score'] = (df['trend_score'] + df['trigger_score'] + df['pattern_score']).round(2)
@@ -1659,6 +1658,10 @@ def calculate_ta_signal(df: pd.DataFrame):
     zero_idx = df.query('-0.5 < signal_score_change < 0.5').index
     df.loc[zero_idx, 'signal_direction_day'] =  0
     df['signal_direction_day'] = sda(df['signal_direction_day'], zero_as=1)
+
+  # desc_score 定性, signal_score 定量, 先定性, 再定量
+  # 超卖 + (adx_value <<0, adx_value_change>0, adx_day==0) = 筑底
+  # 超买 + (adx_value >>0, adx_value_change<0, adx_day==0) = 筑顶 (跌破前一蜡烛bottom触发卖出)
 
   # drop redundant columns
   for col in col_to_drop:
