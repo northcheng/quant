@@ -1116,7 +1116,7 @@ def calculate_ta_signal(df: pd.DataFrame):
     df['trend_description'] = ''
 
     # up: 基础方向向上
-    up_data = df.query('adx_day > 0 or (adx_day == 0 and adx_value_change > 1)')
+    up_data = df.query('adx_day > 0 or (adx_day == 0 and (adx_value_change > 1 or (prev_adx_day < -10 and adx_value < -10)))')
     df.loc[up_data.index, 'trend'] = 'up'
     up_condition = {
       '低位':   [
