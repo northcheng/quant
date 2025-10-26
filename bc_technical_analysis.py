@@ -6752,7 +6752,7 @@ def plot_summary(data: dict, width: int = 20, unit_size: float = 0.3, wspace: fl
   plt.subplots_adjust(wspace=wspace, hspace=hspace)
   axes = {}
 
-  key_crateria = ['trend_score', 'trigger_score', 'pattern_score', 'desc_score', 'candle_pattern_score', 'signal_score', 'signal_score_change', 'signal_direction_day', 'adx_value','adx_value_change', 'adx_direction_day']
+  key_crateria = ['final_score', 'final_score_change', 'trend_score', 'trigger_score', 'pattern_score', 'desc_score', 'candle_pattern_score', 'signal_score', 'signal_score_change', 'signal_direction_day', 'adx_value','adx_value_change', 'adx_direction', 'adx_direction_day']
   prev_key_crateria = ['prev_' + x for x in key_crateria]
   sort_crateria = ['rate', 'signal_score'] # 'rate', 'pattern_score', 'trigger_score'
   sort_order = [True, True]
@@ -6808,28 +6808,14 @@ def plot_summary(data: dict, width: int = 20, unit_size: float = 0.3, wspace: fl
     
     # plot signal score
     if 'plot_signal_score' > '':
-      # plot signal score
+
+      # plot final score
       tmp_data['score_color'] = 'yellow'
-      rate_ax.barh(tmp_data.index, tmp_data['signal_score_change'], color=tmp_data['score_color'], label='signal_score', alpha=0.5, edgecolor='k') #, edgecolor='k'  
+      rate_ax.barh(tmp_data.index, tmp_data['final_score'], color=tmp_data['score_color'], label='final_score', alpha=0.3, edgecolor='k') #, edgecolor='k'  
 
-      # # days
-      # rate_ax.scatter(tmp_data['signal_direction_day'], tmp_data.index, color=colors['signal_direction_day'], label='signal_direction_day', alpha=0.5, marker='$S$')
-      # rate_ax.scatter(tmp_data['adx_direction_day'], tmp_data.index, color=colors['adx_direction_day'], label='adx_direction_day', alpha=0.5, marker='$A$')
-
-      # # changes
-      # for col in ['signal_score_change', 'adx_value_change']: # , 'adx_value', 'signal_score'
-        
-      #   value_col = f'{col}'
-      #   edgecolor = colors[col] # 'k' if col in ['signal_score', 'adx_value'] else 'none'
-
-      #   tmp_data['tmp_value_pos'] = tmp_data[value_col]
-      #   tmp_data['tmp_value_neg'] = tmp_data[value_col]
-        
-      #   tmp_data['tmp_value_pos'] = tmp_data['tmp_value_pos'].apply(lambda x: max(0, x))
-      #   tmp_data['tmp_value_neg'] = tmp_data['tmp_value_neg'].apply(lambda x: min(0, x))
-
-      #   rate_ax.barh(tmp_data.index, tmp_data['tmp_value_pos'], color=colors[col], left=tmp_data['max'], alpha=0.2, edgecolor=edgecolor, hatch=hatchs[col])
-      #   rate_ax.barh(tmp_data.index, tmp_data['tmp_value_neg'], color=colors[col], left=tmp_data['min'], label=col, alpha=0.2, edgecolor=edgecolor, hatch=hatchs[col])
+      # plot final score change
+      tmp_data['score_color'] = 'orange'
+      rate_ax.barh(tmp_data.index, tmp_data['final_score_change'], color=tmp_data['score_color'], label='final_score_change', alpha=0.3, edgecolor='k') #, edgecolor='k'  
 
       # plot rate
       tmp_data['rate_color'] = 'green'
@@ -6846,15 +6832,16 @@ def plot_summary(data: dict, width: int = 20, unit_size: float = 0.3, wspace: fl
       # plot trigger/position/pattern/trend score
       tmp_data['max'] = 0
       tmp_data['min'] = 0
-      colors = {'signal_score': 'darkgreen', 'signal_score_change': 'blue', 'adx_value': 'darkred', 'adx_value_change': 'm', 'signal_direction_day': 'k', 'adx_direction_day': 'k'}
-      hatchs = {'signal_score': None, 'signal_score_change': '|||', 'adx_value': None, 'adx_value_change': '---', 'signal_direction_day': None, 'adx_direction_day': None}
+      colors = {'signal_score': 'darkgreen', 'signal_score_change': 'blue', 'desc_score': 'darkred', 'adx_value_change': 'm', 'adx_value': 'k', 'signal_direction_day': 'k', 'adx_direction_day': 'k'}
+      hatchs = {'signal_score': None, 'signal_score_change': '|||', 'desc_score': None, 'adx_value_change': '---', 'adx_value': None, 'signal_direction_day': None, 'adx_direction_day': None}
       
       # days
       score_ax.scatter(tmp_data['prev_signal_direction_day'], tmp_data.index, color=colors['signal_direction_day'], label='signal_direction_day', alpha=0.5, marker='$S$')
       score_ax.scatter(tmp_data['prev_adx_direction_day'], tmp_data.index, color=colors['adx_direction_day'], label='adx_direction_day', alpha=0.5, marker='$A$')
+      score_ax.scatter(tmp_data['prev_adx_value'], tmp_data.index, color=colors['adx_value'], label='adx_value', alpha=0.5, marker='$V$')
 
       # changes
-      for col in ['signal_score_change', 'adx_value_change']: # , 'adx_value', 'signal_score'
+      for col in ['signal_score', 'desc_score']: # , 'adx_value', 'signal_score'
         
         value_col = f'prev_{col}'
         edgecolor = colors[col] # 'k' if col in ['signal_score', 'adx_value'] else 'none'
