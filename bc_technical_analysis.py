@@ -1642,6 +1642,7 @@ def calculate_ta_signal(df: pd.DataFrame):
       df.loc[tmp_idx, 'signal_description'] += c + ', '
     
     df['desc_score'] = df['signal_score'].copy()
+    df['desc_score_change'] = (df['desc_score'] - df['desc_score'].shift(1)).round(2)
 
     df['total_score'] = (df['trend_score'] + df['trigger_score'] + df['pattern_score']).round(2)
     df['signal_score'] = (df['signal_score'] + df['total_score']).round(2)
@@ -6752,7 +6753,13 @@ def plot_summary(data: dict, width: int = 20, unit_size: float = 0.3, wspace: fl
   plt.subplots_adjust(wspace=wspace, hspace=hspace)
   axes = {}
 
-  key_crateria = ['final_score', 'final_score_change', 'trend_score', 'trigger_score', 'pattern_score', 'desc_score', 'candle_pattern_score', 'signal_score', 'signal_score_change', 'signal_direction_day', 'adx_value','adx_value_change', 'adx_direction', 'adx_direction_day']
+  key_crateria = [
+    'signal_score', 'signal_score_change', 
+    # 'final_score', 'final_score_change', 
+    'desc_score', 'desc_score_change', 
+    'adx_value', 'adx_value_change',
+    # 'trend_score', 'trigger_score', 'pattern_score', 'candle_pattern_score'
+  ]
   prev_key_crateria = ['prev_' + x for x in key_crateria]
   sort_crateria = ['rate', 'signal_score'] # 'rate', 'pattern_score', 'trigger_score'
   sort_order = [True, True]
@@ -6803,19 +6810,35 @@ def plot_summary(data: dict, width: int = 20, unit_size: float = 0.3, wspace: fl
     
     tmp_data['max'] = 0
     tmp_data['min'] = 0
-    colors = {'signal_score': 'darkgreen', 'signal_score_change': 'blue', 'adx_value': 'darkred', 'adx_value_change': 'm', 'signal_direction_day': 'k', 'adx_direction_day': 'k'}
-    hatchs = {'signal_score': None, 'signal_score_change': '|||', 'adx_value': None, 'adx_value_change': '---', 'signal_direction_day': None, 'adx_direction_day': None}
-    
+
+    colors = {'signal_score': 'k', 'signal_score_change': 'blue', 'desc_score': 'k', 'desc_score_change':'purple', 'adx_value': 'k', 'adx_value_change': 'red'}
+    hatchs = {'signal_score': None, 'signal_score_change': None, 'desc_score': None, 'desc_score_change':None, 'adx_value': None, 'adx_value_change': None}
+    pos_hatch = None
+    neg_hatch = '///'
+    pos_alpha = 0.2
+    neg_alpha = 0.1
+
     # plot signal score
     if 'plot_signal_score' > '':
 
-      # plot final score
-      tmp_data['score_color'] = 'yellow'
-      rate_ax.barh(tmp_data.index, tmp_data['final_score'], color=tmp_data['score_color'], label='final_score', alpha=0.3, edgecolor='k') #, edgecolor='k'  
+      # scores
+      rate_ax.scatter(tmp_data['desc_score'], tmp_data.index, color=colors['desc_score'], label='desc_score', alpha=0.5, marker='$D$')
+      rate_ax.scatter(tmp_data['signal_score'], tmp_data.index, color=colors['signal_score'], label='signal_score', alpha=0.5, marker='$S$')
+      rate_ax.scatter(tmp_data['adx_value'], tmp_data.index, color=colors['adx_value'], label='adx_value', alpha=0.5, marker='$A$')
 
-      # plot final score change
-      tmp_data['score_color'] = 'orange'
-      rate_ax.barh(tmp_data.index, tmp_data['final_score_change'], color=tmp_data['score_color'], label='final_score_change', alpha=0.3, edgecolor='k') #, edgecolor='k'  
+      # changes
+      for col in ['signal_score_change', 'desc_score_change', 'adx_value_change']: # , 'adx_value', 'signal_score'
+        
+        value_col = f'{col}'
+        left_col = f'{col.replace("_change", "")}'
+        edgecolor = colors[col]
+        
+
+        pos_idx = tmp_data.query(f'{col} > 0').index
+        rate_ax.barh(pos_idx, -tmp_data.loc[pos_idx, value_col], color=colors[col], left=tmp_data.loc[pos_idx, left_col], label=value_col, alpha=pos_alpha, edgecolor=edgecolor, hatch=pos_hatch)
+
+        neg_idx = tmp_data.query(f'{col} <= 0').index
+        rate_ax.barh(neg_idx, -tmp_data.loc[neg_idx, value_col], color=colors[col], left=tmp_data.loc[neg_idx, left_col], alpha=neg_alpha, edgecolor=edgecolor, hatch=neg_hatch)
 
       # plot rate
       tmp_data['rate_color'] = 'green'
@@ -6824,42 +6847,36 @@ def plot_summary(data: dict, width: int = 20, unit_size: float = 0.3, wspace: fl
       num_down = len(down_idx)
       title_color = 'green' if num_total/2 > num_down else 'red'  
       rate_ax.scatter(tmp_data['rate'], tmp_data.index, color=tmp_data['rate_color'], label='rate', marker='o', alpha=0.5) #, edgecolor='k'
-      rate_ax.set_xlabel(f'[{t.replace("_day", "")}] Rate ({num_total-num_down}/{num_total})', labelpad = 10, fontsize = 20) 
+      rate_ax.set_xlabel(f'[{t.replace("_day", "")}] Today ({num_total-num_down}/{num_total})', labelpad = 10, fontsize = 20) 
       rate_ax.legend(loc='upper left', ncol=plot_args['ncol']) 
 
     # plot previous score
     if 'plot_previous_score' > '':
-      # plot trigger/position/pattern/trend score
-      tmp_data['max'] = 0
-      tmp_data['min'] = 0
-      colors = {'signal_score': 'darkgreen', 'signal_score_change': 'blue', 'desc_score': 'darkred', 'adx_value_change': 'm', 'adx_value': 'k', 'signal_direction_day': 'k', 'adx_direction_day': 'k'}
-      hatchs = {'signal_score': None, 'signal_score_change': '|||', 'desc_score': None, 'adx_value_change': '---', 'adx_value': None, 'signal_direction_day': None, 'adx_direction_day': None}
       
-      # days
-      score_ax.scatter(tmp_data['prev_signal_direction_day'], tmp_data.index, color=colors['signal_direction_day'], label='signal_direction_day', alpha=0.5, marker='$S$')
-      score_ax.scatter(tmp_data['prev_adx_direction_day'], tmp_data.index, color=colors['adx_direction_day'], label='adx_direction_day', alpha=0.5, marker='$A$')
-      score_ax.scatter(tmp_data['prev_adx_value'], tmp_data.index, color=colors['adx_value'], label='adx_value', alpha=0.5, marker='$V$')
-
+      # scores
+      score_ax.scatter(tmp_data['prev_desc_score'], tmp_data.index, color=colors['desc_score'], label='prev_desc_score', alpha=0.5, marker='$D$')
+      score_ax.scatter(tmp_data['prev_signal_score'], tmp_data.index, color=colors['signal_score'], label='prev_signal_score', alpha=0.5, marker='$S$')
+      score_ax.scatter(tmp_data['prev_adx_value'], tmp_data.index, color=colors['adx_value'], label='prev_adx_value', alpha=0.5, marker='$A$')
+      
       # changes
-      for col in ['signal_score', 'desc_score']: # , 'adx_value', 'signal_score'
+      for col in ['signal_score_change', 'desc_score_change', 'adx_value_change']:
         
         value_col = f'prev_{col}'
-        edgecolor = colors[col] # 'k' if col in ['signal_score', 'adx_value'] else 'none'
+        left_col = f'prev_{col.replace("_change", "")}'
+        edgecolor = colors[col]
 
-        tmp_data['tmp_value_pos'] = tmp_data[value_col]
-        tmp_data['tmp_value_neg'] = tmp_data[value_col]
-        
-        tmp_data['tmp_value_pos'] = tmp_data['tmp_value_pos'].apply(lambda x: max(0, x))
-        tmp_data['tmp_value_neg'] = tmp_data['tmp_value_neg'].apply(lambda x: min(0, x))
+        pos_idx = tmp_data.query(f'{value_col} > 0').index
+        score_ax.barh(pos_idx, -tmp_data.loc[pos_idx, value_col], color=colors[col], left=tmp_data.loc[pos_idx, left_col], label=value_col, alpha=pos_alpha, edgecolor=edgecolor, hatch=pos_hatch)
 
-        score_ax.barh(tmp_data.index, tmp_data['tmp_value_pos'], color=colors[col], left=tmp_data['max'], alpha=0.2, edgecolor=edgecolor, hatch=hatchs[col])
-        score_ax.barh(tmp_data.index, tmp_data['tmp_value_neg'], color=colors[col], left=tmp_data['min'], label=col, alpha=0.2, edgecolor=edgecolor, hatch=hatchs[col])
+        neg_idx = tmp_data.query(f'{value_col} <= 0').index
+        score_ax.barh(neg_idx, -tmp_data.loc[neg_idx, value_col], color=colors[col], left=tmp_data.loc[neg_idx, left_col], alpha=neg_alpha, edgecolor=edgecolor, hatch=neg_hatch)
 
       score_ax.legend(loc='upper right', ncol=plot_args['ncol']) 
      
       # reverse X axis
       # score_ax.invert_xaxis()
-      score_ax.set_xlabel(f'Previous Scores', labelpad = 10, fontsize = 20) 
+      # score_ax.scatter(tmp_data['previous_rate'], tmp_data.index, color=tmp_data['rate_color'], label='rate', marker='o', alpha=0.5)
+      score_ax.set_xlabel(f'Previous Day', labelpad = 10, fontsize = 20) 
 
     # borders
     rate_ax.spines['right'].set_alpha(0)
