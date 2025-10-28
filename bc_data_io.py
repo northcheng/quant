@@ -274,17 +274,20 @@ def get_data_from_eod(symbol: str, start_date: Optional[str] = None, end_date: O
 # get us_spot_em from ak, for mapping US symbols to ak format
 def get_code_map_from_ak() -> pd.DataFrame:
 
-  # get current date and filename
+  # initialization
   today = f'{datetime.datetime.today().date()}'
-  local_file_name = f'us_spot_em_{today}.csv'
+  us_spot_em = None
+
+  # mark-file that used for checking whether the file is up-to-date
+  mark_file = f'updated_us_spot_em_{today}'
+  local_file_name = f'us_spot_em.csv'
   
-  # check the existence of loacl files  
-  if os.path.exists(local_file_name):
-    us_spot_em = pd.read_csv(local_file_name)
-  else:  
+  # update us_spot_em if it is not updated today  
+  if not os.path.exists(mark_file):
+    
     # remove old files
     files = os.listdir()
-    expired_local_file_name = [x for x in files if 'us_spot_em_' in x]
+    expired_local_file_name = [x for x in files if 'updated_us_spot_em_' in x]
     for elf in expired_local_file_name:
       os.remove(elf)
 
@@ -293,14 +296,21 @@ def get_code_map_from_ak() -> pd.DataFrame:
     try_count = 0
     while try_count < retry_time:
       try_count += 1
-
       try:
         us_spot_em = ak.stock_us_spot_em()
         us_spot_em.to_csv(local_file_name, index=False)
+        with open(mark_file, 'w', encoding='utf-8') as f:
+          pass
         break
       except Exception as e:
         print(f'When calling ak.stock_us_spot(): {e}')
         continue
+  
+  # read old file if update failed
+  if us_spot_em is None:
+    if os.path.exists(local_file_name):
+      us_spot_em = pd.read_csv(local_file_name)
+      print(f'Using existed us_spot_em.csv')
 
   return us_spot_em
 
