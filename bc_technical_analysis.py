@@ -6848,7 +6848,7 @@ def plot_summary(data: dict, width: int = 20, unit_size: float = 0.3, wspace: fl
       title_color = 'green' if num_total/2 > num_down else 'red'  
       rate_ax.scatter(tmp_data['rate'], tmp_data.index, color=tmp_data['rate_color'], label='rate', marker='o', alpha=0.5) #, edgecolor='k'
       rate_ax.set_xlabel(f'[{t.replace("_day", "")}] Today ({num_total-num_down}/{num_total})', labelpad = 10, fontsize = 20) 
-      rate_ax.legend(loc='upper left', ncol=plot_args['ncol']) 
+      # rate_ax.legend(loc='upper left', ncol=plot_args['ncol']) 
 
     # plot previous score
     if 'plot_previous_score' > '':
