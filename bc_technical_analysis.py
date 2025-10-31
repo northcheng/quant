@@ -28,6 +28,8 @@ from quant import bc_data_io as io_util
 plt.rcParams['font.sans-serif'] = ['SimHei'] 
 plt.rcParams['axes.unicode_minus'] = False
 
+# ================================================ default parameters =============================================== # 
+
 # default values
 default_ohlcv_col = {'close':'Close', 'open':'Open', 'high':'High', 'low':'Low', 'volume':'Volume'}
 default_trend_val = {'pos_trend':'u', 'neg_trend':'d', 'none_trend':'', 'wave_trend':'n'}
@@ -745,32 +747,6 @@ def calculate_ta_static(df: pd.DataFrame, indicators: dict = default_indicators)
       df.loc[down_mask, 'ao_trend'] = 'd'
     
     # =========================================================================
-
-    phase = 'calculate trend overall'
-
-    # # ================================ overall trend ==========================
-    # target_indicator = 'trend_day'
-    # if target_indicator > '':
-    
-    #   # specify all indicators and specify the exclusives
-    #   all_indicators = []
-    #   for i in indicators.keys():
-    #     all_indicators += [x for x in indicators[i] if x not in all_indicators]
-
-    #   for indicator in all_indicators:
-    #     trend_col = f'{indicator}_trend'
-    #     day_col = f'{indicator}_day'
-
-    #     if trend_col not in df.columns:
-    #       df[trend_col] = 'n'
-    #     if day_col not in df.columns:
-    #       df[day_col] = 0
-
-    #     # calculate number of days since trend shifted
-    #     if indicator in ['bb']:
-    #       df[day_col] = sda(series=df[trend_col].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1, one_restart=True) 
-    #     else:
-    #       df[day_col] = sda(series=df[trend_col].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1) 
 
     # remove redandunt columns
     for col in col_to_drop:
