@@ -6731,7 +6731,7 @@ def plot_summary(data: dict, width: int = 20, unit_size: float = 0.3, wspace: fl
 
   key_crateria = [
     'signal_score', 'signal_score_change', 
-    # 'final_score', 'final_score_change', 
+    'final_score', 'final_score_change', 
     'desc_score', 'desc_score_change', 
     'adx_value', 'adx_value_change',
     # 'trend_score', 'trigger_score', 'pattern_score', 'candle_pattern_score'
@@ -6752,6 +6752,7 @@ def plot_summary(data: dict, width: int = 20, unit_size: float = 0.3, wspace: fl
       tmp_data = pd.DataFrame()
       for s in data['ta_data'][t].keys():
         tmp_data_s = data['ta_data'][t][s].copy()
+        tmp_data_s[['final_score', 'final_score_change']] = tmp_data_s[['final_score', 'final_score_change']] * 10
         tmp_data_s[prev_key_crateria] = tmp_data_s[key_crateria].shift(1)
         tmp_data = pd.concat([tmp_data, tmp_data_s.tail(1)])
     # use current_data
@@ -6787,12 +6788,12 @@ def plot_summary(data: dict, width: int = 20, unit_size: float = 0.3, wspace: fl
     tmp_data['max'] = 0
     tmp_data['min'] = 0
 
-    colors = {'signal_score': 'k', 'signal_score_change': 'blue', 'desc_score': 'k', 'desc_score_change':'purple', 'adx_value': 'k', 'adx_value_change': 'red'}
-    hatchs = {'signal_score': None, 'signal_score_change': None, 'desc_score': None, 'desc_score_change':None, 'adx_value': None, 'adx_value_change': None}
+    colors = {'signal_score': 'k', 'signal_score_change': 'blue', 'desc_score': 'k', 'desc_score_change':'purple', 'adx_value': 'k', 'adx_value_change': 'red', 'final_score': 'k', 'final_score_change': 'orange'}
+    hatchs = {'signal_score': None, 'signal_score_change': None, 'desc_score': None, 'desc_score_change':None, 'adx_value': None, 'adx_value_change': None, 'final_score': None, 'final_score_change': None}
     pos_hatch = None
     neg_hatch = '///'
     pos_alpha = 0.2
-    neg_alpha = 0.1
+    neg_alpha = 0.2
 
     # plot signal score
     if 'plot_signal_score' > '':
@@ -6801,20 +6802,20 @@ def plot_summary(data: dict, width: int = 20, unit_size: float = 0.3, wspace: fl
       rate_ax.scatter(tmp_data['desc_score'], tmp_data.index, color=colors['desc_score'], label='desc_score', alpha=0.5, marker='$D$')
       rate_ax.scatter(tmp_data['signal_score'], tmp_data.index, color=colors['signal_score'], label='signal_score', alpha=0.5, marker='$S$')
       rate_ax.scatter(tmp_data['adx_value'], tmp_data.index, color=colors['adx_value'], label='adx_value', alpha=0.5, marker='$A$')
+      rate_ax.scatter(tmp_data['final_score'], tmp_data.index, color=colors['final_score'], label='final_score', alpha=0.5, marker='$F$')
 
       # changes
-      for col in ['signal_score_change', 'desc_score_change', 'adx_value_change']: # , 'adx_value', 'signal_score'
+      for col in ['signal_score_change', 'desc_score_change', 'adx_value_change', 'final_score_change']: # , 'adx_value', 'signal_score'
         
         value_col = f'{col}'
         left_col = f'{col.replace("_change", "")}'
         edgecolor = colors[col]
         
-
         pos_idx = tmp_data.query(f'{col} > 0').index
         rate_ax.barh(pos_idx, -tmp_data.loc[pos_idx, value_col], color=colors[col], left=tmp_data.loc[pos_idx, left_col], label=value_col, alpha=pos_alpha, edgecolor=edgecolor, hatch=pos_hatch)
 
         neg_idx = tmp_data.query(f'{col} <= 0').index
-        rate_ax.barh(neg_idx, -tmp_data.loc[neg_idx, value_col], color=colors[col], left=tmp_data.loc[neg_idx, left_col], alpha=neg_alpha, edgecolor=edgecolor, hatch=neg_hatch)
+        rate_ax.barh(neg_idx, -tmp_data.loc[neg_idx, value_col], color='white', left=tmp_data.loc[neg_idx, left_col], alpha=neg_alpha, edgecolor=colors[col], hatch=neg_hatch)
 
       # plot rate
       tmp_data['rate_color'] = 'green'
@@ -6833,9 +6834,10 @@ def plot_summary(data: dict, width: int = 20, unit_size: float = 0.3, wspace: fl
       score_ax.scatter(tmp_data['prev_desc_score'], tmp_data.index, color=colors['desc_score'], label='prev_desc_score', alpha=0.5, marker='$D$')
       score_ax.scatter(tmp_data['prev_signal_score'], tmp_data.index, color=colors['signal_score'], label='prev_signal_score', alpha=0.5, marker='$S$')
       score_ax.scatter(tmp_data['prev_adx_value'], tmp_data.index, color=colors['adx_value'], label='prev_adx_value', alpha=0.5, marker='$A$')
+      score_ax.scatter(tmp_data['prev_final_score'], tmp_data.index, color=colors['final_score'], label='prev_final_score', alpha=0.5, marker='$F$')
       
       # changes
-      for col in ['signal_score_change', 'desc_score_change', 'adx_value_change']:
+      for col in ['signal_score_change', 'desc_score_change', 'adx_value_change', 'final_score_change']:
         
         value_col = f'prev_{col}'
         left_col = f'prev_{col.replace("_change", "")}'
@@ -6845,7 +6847,7 @@ def plot_summary(data: dict, width: int = 20, unit_size: float = 0.3, wspace: fl
         score_ax.barh(pos_idx, -tmp_data.loc[pos_idx, value_col], color=colors[col], left=tmp_data.loc[pos_idx, left_col], label=value_col, alpha=pos_alpha, edgecolor=edgecolor, hatch=pos_hatch)
 
         neg_idx = tmp_data.query(f'{value_col} <= 0').index
-        score_ax.barh(neg_idx, -tmp_data.loc[neg_idx, value_col], color=colors[col], left=tmp_data.loc[neg_idx, left_col], alpha=neg_alpha, edgecolor=edgecolor, hatch=neg_hatch)
+        score_ax.barh(neg_idx, -tmp_data.loc[neg_idx, value_col], color='white', left=tmp_data.loc[neg_idx, left_col], alpha=neg_alpha, edgecolor=colors[col], hatch=neg_hatch)
 
       score_ax.legend(loc='upper right', ncol=plot_args['ncol']) 
      
