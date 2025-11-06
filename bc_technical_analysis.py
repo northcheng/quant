@@ -5537,12 +5537,12 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     df['candle_position_alpha'] = df['candle_position_score'].abs()
     # candle pattern
     tmp_data = df.query(f'(candle_position_score > {threhold})')
-    if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='2', color='green', edgecolor='none', alpha=tmp_data['candle_position_alpha'].fillna(0)) # 'none', edgecolor=
+    if len(tmp_data) > 0: #2
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='green', edgecolor='none', alpha=tmp_data['candle_position_alpha'].fillna(0)) # 'none', edgecolor=
   
     tmp_data = df.query(f'(candle_position_score < {threhold})')
-    if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='1', color='red', edgecolor='none', alpha=tmp_data['candle_position_alpha'].fillna(0)) # 'none', edgecolor=
+    if len(tmp_data) > 0: #1
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='red', edgecolor='none', alpha=tmp_data['candle_position_alpha'].fillna(0)) # 'none', edgecolor=
 
   # trend
   if signal_x in ['trend']:
@@ -5671,12 +5671,12 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     # 超卖
     tmp_data = df.query(f'(超买超卖 == 1)')
     if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='green', alpha=alpha) # 
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='o', color='none', edgecolor='green', alpha=alpha) # 
     
     # 超买
     tmp_data = df.query(f'(超买超卖 == -1)')
     if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='red', alpha=alpha) # 'none', edgecolor=
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='o', color='none', edgecolor='red', alpha=alpha) # 'none', edgecolor=
 
     # # 其他pattern
     # tmp_data = df.query(f'(pattern_score > 0 and 超买超卖 == 0)')
