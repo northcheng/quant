@@ -24,6 +24,7 @@ from tigeropen.common.consts import (Language,  Market, BarPeriod, QuoteRight) #
 from tigeropen.common.util.contract_utils import (stock_contract, option_contract, future_contract) # 股票合约, 期权合约, 期货合约
 from tigeropen.common.util.order_utils import (market_order, limit_order, stop_order, stop_limit_order, trail_order, order_leg) # 市价单, 限价单, 止损单, 限价止损单, 移动止损单, 附加订单
 
+# 用于与ta_config中的止盈止损设定对应
 ACCOUNT_GROUPS = {
   'tiger': {'global_account': 'real', 'simulation_account':'simu'},
   'futu': {'REAL': 'real', 'SIMULATE':'simu'}}
@@ -701,7 +702,7 @@ class Futu(Trader):
         order_type = OrderType.NORMAL
 
       # construct trade summary
-      trade_summary += f'[{action}]: {symbol} X {quantity} ({order_type}:{price}) | '
+      trade_summary += f'[{action}]: {symbol} x {quantity} ({order_type}:{price}) | '
 
       # place buy order if possible
       if action == 'BUY':
@@ -922,7 +923,7 @@ class Tiger(Trader):
         order = limit_order(account=self.client_config.account, contract=contract, action=action, quantity=quantity, limit_price=price)
 
       # construct trade summary
-      trade_summary += f'[{action}]: {symbol} X {quantity} ({order_price}) | '
+      trade_summary += f'[{action}]: {symbol} x {quantity} ({order_price}) | '
 
       # attach order legs
       order_legs = []
