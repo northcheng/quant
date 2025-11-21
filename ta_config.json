@@ -124,7 +124,7 @@
     "pool": {
       "tiger": {
         "real": "tiger_pool",
-        "simu": "tiger_pool"
+        "simu": "etf_3x_all"
       },
       "futu": {
         "real": "futu_pool",
@@ -143,11 +143,11 @@
     },
     "stop_loss": {
       "tiger": {
-        "real": -0.3,
+        "real": -0.8,
         "simu": -0.3
       },
       "futu": {
-        "real": -0.3,
+        "real": -0.8,
         "simu": -0.3
       }
     },
