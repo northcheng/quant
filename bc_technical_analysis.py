@@ -6538,13 +6538,17 @@ def plot_summary(data: dict, width: int = 20, unit_size: float = 0.3, wspace: fl
   plt.subplots_adjust(wspace=wspace, hspace=hspace)
   axes = {}
 
-  key_crateria = [
-    'signal_score', 'signal_score_change', 
-    'aki_score', 'aki_score_change', 
-    'adx_value', 'adx_value_change'
+  key_criteria = [
+    # 'signal_score',
+    'trend_score',  
+    'trigger_score', 
+    'pattern_score',
   ]
-  prev_key_crateria = ['prev_' + x for x in key_crateria]
-  sort_crateria = ['rate', 'signal_score'] # 'rate', 'pattern_score', 'trigger_score'
+  change_key_criteria = [f'{kc}_change' for kc in key_criteria]
+  prev_key_criteria = [f'prev_{kc}' for kc in key_criteria]
+  prev_chnage_key_criteria = [f'prev_{kc}_change' for kc in key_criteria]
+
+  sort_criteria = ['rate', 'signal_score'] # 'rate', 'pattern_score', 'trigger_score'
   sort_order = [True, True]
 
   # plot rate and score
@@ -6558,16 +6562,21 @@ def plot_summary(data: dict, width: int = 20, unit_size: float = 0.3, wspace: fl
     if 'use_previous_data' > '':
       tmp_data = pd.DataFrame()
       for s in data['ta_data'][t].keys():
-        tmp_data_s = data['ta_data'][t][s].copy()
-        tmp_data_s[['aki_score', 'aki_score_change']] = tmp_data_s[['aki_score', 'aki_score_change']] * 10
-        tmp_data_s[prev_key_crateria] = tmp_data_s[key_crateria].shift(1)
+        tmp_data_s = data['ta_data'][t][s].copy()       
+        
+        tmp_data_s[change_key_criteria] = tmp_data_s[key_criteria] - tmp_data_s[key_criteria].shift(1)
+        tmp_data_s[prev_key_criteria] = tmp_data_s[key_criteria].shift(1)
+        # print(tmp_data_s[key_criteria], tmp_data_s[prev_key_criteria], tmp_data_s[key_criteria] - tmp_data_s[prev_key_criteria])
+        tmp_data_s[change_key_criteria] = tmp_data_s[key_criteria] - tmp_data_s[key_criteria].shift(1)
+        tmp_data_s[prev_chnage_key_criteria] = tmp_data_s[change_key_criteria].shift(1)
         tmp_data = pd.concat([tmp_data, tmp_data_s.tail(1)])
     # use current_data
     else:
       tmp_data = data['result'][t].copy()
+    
 
-    tmp_data = tmp_data.sort_values(by=sort_crateria, ascending=sort_order)
-    tmp_data = tmp_data[['symbol', 'rate'] + key_crateria + prev_key_crateria].set_index('symbol')
+    tmp_data = tmp_data.sort_values(by=sort_criteria, ascending=sort_order)
+    tmp_data = tmp_data[['symbol', 'rate'] + key_criteria + prev_key_criteria + change_key_criteria + prev_chnage_key_criteria].set_index('symbol')
     tmp_data['name'] = tmp_data.index.values
 
     # get data
@@ -6595,8 +6604,8 @@ def plot_summary(data: dict, width: int = 20, unit_size: float = 0.3, wspace: fl
     tmp_data['max'] = 0
     tmp_data['min'] = 0
 
-    colors = {'signal_score': 'k', 'signal_score_change': 'blue', 'adx_value': 'k', 'adx_value_change': 'red', 'aki_score': 'k', 'aki_score_change': 'orange'}
-    hatchs = {'signal_score': None, 'signal_score_change': None, 'adx_value': None, 'adx_value_change': None, 'aki_score': None, 'aki_score_change': None}
+    colors = {'trend_score': 'k', 'trend_score_change': 'blue', 'trigger_score': 'k', 'trigger_score_change': 'red', 'pattern_score': 'k', 'pattern_score_change': 'orange'}
+    hatchs = {'trend_score': None, 'trend_score_change': None, 'trigger_score': None, 'trigger_score_change': None, 'pattern_score': None, 'pattern_score_change': None}
     pos_hatch = None
     neg_hatch = '///'
     pos_alpha = 0.2
@@ -6606,12 +6615,12 @@ def plot_summary(data: dict, width: int = 20, unit_size: float = 0.3, wspace: fl
     if 'plot_signal_score' > '':
 
       # scores
-      rate_ax.scatter(tmp_data['signal_score'], tmp_data.index, color=colors['signal_score'], label='signal_score', alpha=0.5, marker='$S$')
-      rate_ax.scatter(tmp_data['adx_value'], tmp_data.index, color=colors['adx_value'], label='adx_value', alpha=0.5, marker='$A$')
-      rate_ax.scatter(tmp_data['aki_score'], tmp_data.index, color=colors['aki_score'], label='aki_score', alpha=0.5, marker='$F$')
+      rate_ax.scatter(tmp_data['trend_score'], tmp_data.index, color=colors['trend_score'], label='trend_score', alpha=0.5, marker='$T$')
+      rate_ax.scatter(tmp_data['trigger_score'], tmp_data.index, color=colors['trigger_score'], label='trigger_score', alpha=0.5, marker='$G$')
+      rate_ax.scatter(tmp_data['pattern_score'], tmp_data.index, color=colors['pattern_score'], label='pattern_score', alpha=0.5, marker='$P$')
 
       # changes
-      for col in ['signal_score_change', 'adx_value_change', 'aki_score_change']: # , 'adx_value', 'signal_score'
+      for col in ['trend_score_change', 'trigger_score_change', 'pattern_score_change']: # , 'adx_value', 'signal_score'
         
         value_col = f'{col}'
         left_col = f'{col.replace("_change", "")}'
@@ -6637,19 +6646,19 @@ def plot_summary(data: dict, width: int = 20, unit_size: float = 0.3, wspace: fl
     if 'plot_previous_score' > '':
       
       # scores
-      score_ax.scatter(tmp_data['prev_signal_score'], tmp_data.index, color=colors['signal_score'], label='prev_signal_score', alpha=0.5, marker='$S$')
-      score_ax.scatter(tmp_data['prev_adx_value'], tmp_data.index, color=colors['adx_value'], label='prev_adx_value', alpha=0.5, marker='$A$')
-      score_ax.scatter(tmp_data['prev_aki_score'], tmp_data.index, color=colors['aki_score'], label='prev_aki_score', alpha=0.5, marker='$F$')
+      score_ax.scatter(tmp_data['prev_trend_score'], tmp_data.index, color=colors['trend_score'], label='trend_score', alpha=0.5, marker='$T$')
+      score_ax.scatter(tmp_data['prev_trigger_score'], tmp_data.index, color=colors['trigger_score'], label='trigger_score', alpha=0.5, marker='$G$')
+      score_ax.scatter(tmp_data['prev_pattern_score'], tmp_data.index, color=colors['pattern_score'], label='pattern_score', alpha=0.5, marker='$P$')
       
       # changes
-      for col in ['signal_score_change', 'adx_value_change', 'aki_score_change']:
+      for col in ['trend_score_change', 'trigger_score_change', 'pattern_score_change']:
         
         value_col = f'prev_{col}'
         left_col = f'prev_{col.replace("_change", "")}'
         edgecolor = colors[col]
 
         pos_idx = tmp_data.query(f'{value_col} > 0').index
-        score_ax.barh(pos_idx, -tmp_data.loc[pos_idx, value_col], color=colors[col], left=tmp_data.loc[pos_idx, left_col], label=value_col, alpha=pos_alpha, edgecolor=edgecolor, hatch=pos_hatch)
+        score_ax.barh(pos_idx, -tmp_data.loc[pos_idx, value_col], color=colors[col], left=tmp_data.loc[pos_idx, left_col], label=col, alpha=pos_alpha, edgecolor=edgecolor, hatch=pos_hatch)
 
         neg_idx = tmp_data.query(f'{value_col} <= 0').index
         score_ax.barh(neg_idx, -tmp_data.loc[neg_idx, value_col], color='white', left=tmp_data.loc[neg_idx, left_col], alpha=neg_alpha, edgecolor=colors[col], hatch=neg_hatch)
