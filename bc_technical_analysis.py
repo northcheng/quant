@@ -567,22 +567,6 @@ def calculate_ta_static(df: pd.DataFrame, indicators: dict = default_indicators)
       }
       df = assign_condition_value(df=df, column='adx_trend', condition_dict=conditions, value_dict=values, default_value=0)
       df['adx_day'] = sda(df['adx_trend'], zero_as=None)
-
-      # # the true adx syn
-      # conditions = {
-      #   'neg_u':      f'(adx_value < 0 and adx_value_change > 0 and adx_strength_change < 0)', 
-      #   'neg_d':      f'(adx_value < 0 and adx_value_change < 0 and adx_strength_change > 0)',
-      #   'pos_u':      f'(adx_value > 5 and adx_value_change > 0 and adx_strength_change > 0)', 
-      #   'pos_d':      f'(adx_value > 5 and adx_value_change < 0 and adx_strength_change < 0)',
-      # } 
-      # values = {
-      #   'neg_u':      1, 
-      #   'neg_d':      -1,
-      #   'pos_u':      1, 
-      #   'pos_d':      -1,
-      # }
-      # df = assign_condition_value(df=df, column='adx_syn', condition_dict=conditions, value_dict=values, default_value=0)
-      # df['adx_syn'] = sda(df['adx_syn'], zero_as=None)
       
     # ================================ aroon trend ============================
     target_indicator = 'aroon'
@@ -1255,8 +1239,8 @@ def calculate_ta_signal(df: pd.DataFrame):
 
     # 趋势定性
     position_conditions = {
-      'up':        f'trend_score > 0',
-      'down':      f'trend_score <= 0'
+      'up':        f'adx_trend == 1', # f'trend_score > 0',
+      'down':      f'adx_trend == -1' # f'trend_score <= 0'
     } 
     position_values = {
       'up':        f'up',
