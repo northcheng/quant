@@ -65,11 +65,11 @@ BENCHMARK_SYMBOL = {'us': 'SPY', 'cn': '159941', 'hk': '00700'}
 
 # 跑数据用eod/easyquotation, 更新A股数据用ak
 default_data_sources = {
-  'us_eod': 'ak', 
+  'us_eod': 'eod', 
   'us_realtime': 'eod', 
-  'cn_eod': 'ak', 
+  'cn_eod': 'eod', 
   'cn_realtime': 'easyquotation', 
-  'hk_eod': 'ak', 
+  'hk_eod': 'eod', 
   'hk_realtime': 'easyquotation'
 }
 
