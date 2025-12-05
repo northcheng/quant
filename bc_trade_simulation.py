@@ -131,7 +131,7 @@ class FixedPositionTrader:
 
     # initialize back-test columns for records
     for symbol in self.record.keys():
-      self.record[symbol] = ta_util.remove_redundant_signal(self.record[symbol], signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', keep='first')
+      # self.record[symbol] = ta_util.remove_redundant_signal(self.record[symbol], signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', keep='first')
       self.record[symbol]['holding_price'] = 0
       self.record[symbol]['holding_return'] = 0
       self.record[symbol]['money'] = np.NaN
@@ -438,7 +438,7 @@ class FixedPositionTrader:
       EAR = finance_util.cal_EAR(data=record_data, start=min_idx.date(), end=max_idx.date(), dim='value', dividends=0)
       analysis['EAR'].append(EAR)
 
-      sharp_ratio = finance_util.cal_sharp_ratio(data=record_data, start=None, end=None, price_dim='value')
+      sharp_ratio = finance_util.cal_sharpe_ratio(data=record_data, start=None, end=None, price_dim='value')
       analysis['sharp_ratio'].append(sharp_ratio)
 
       max_drawndown = finance_util.cal_max_drawndown(data=record_data)
@@ -465,7 +465,7 @@ class FixedPositionTrader:
       value_sum['rate'] = value_sum['value'].pct_change().fillna(0)
       total_ear = finance_util.cal_EAR(data=value_sum, dim='value', start=None, end=None)
       total_max_drawndown = finance_util.cal_max_drawndown(data=value_sum, dim='value')
-      total_sharp_ratio = finance_util.cal_sharp_ratio(data=value_sum, price_dim='value', rate_dim='rate', start=None, end=None)
+      total_sharp_ratio = finance_util.cal_sharpe_ratio(data=value_sum, price_dim='value', rate_dim='rate', start=None, end=None)
 
       # resort dataframe
       if self.benchmark is not None:
