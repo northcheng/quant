@@ -20,6 +20,7 @@ from numpy.lib.stride_tricks import as_strided
 from matplotlib import gridspec
 from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
+from pathlib import Path
 
 from quant import bc_util as util
 from quant import bc_data_io as io_util
@@ -71,16 +72,14 @@ def load_config(root_paths: dict):
       print(f'{p} not exists!')
 
   # add derived paths
-  config['config_path'] = config['git_path']    +   'quant/'      # github files
-  config['quant_path'] = config['home_path']    +   'quant/'      # local files
+  config['config_path'] =   config['git_path']        / 'quant/'    # github files
+  config['quant_path'] =    config['home_path']       / 'quant/'    # local files
 
-  config['log_path'] = config['quant_path']     +   'logs/'       # logs of script execution
-  config['api_path'] = config['quant_path']     +   'api_key/'    # configuration for data api, etc.
-  config['futu_path'] = config['quant_path']    +   'futuopen/'   # configuration for futu platform
-  config['tiger_path'] = config['quant_path']   +   'tigeropen/'  # configuration for tiger platform
-  config['trader_path'] = config['quant_path']  +   'trader/'     # configuration for trader platforms
-  config['data_path'] = config['quant_path']    +   'stock_data/' # downloaded stock data (OHLCV)
-  config['result_path'] = config['quant_path']  +   'ta_model/'   # results of script execution
+  config['log_path'] =      config['quant_path']      / 'logs/'       # logs of script execution
+  config['api_path'] =      config['quant_path']      / 'api_key/'    # configuration for data api, etc.
+  config['trader_path'] =   config['quant_path']      / 'trader/'     # configuration for trader platforms
+  config['data_path'] =     config['quant_path']      / 'stock_data/' # downloaded stock data (OHLCV)
+  config['result_path'] =   config['quant_path']      / 'ta_model/'   # results of script execution
   
   # load self-defined pools (lists of stock symbols)
   config['selected_sec_list'] = io_util.read_config(file_path=config['config_path'], file_name='selected_sec_list.json')
@@ -121,7 +120,7 @@ def load_data(target_list: dict, config: dict, interval: str = 'day', load_empty
     for target in target_list:
       ti = f'{target}_{interval}'
       for symbol in target_list[target]:
-        if os.path.exists(data_path+f'{symbol.split(".")[0]}.csv'):
+        if os.path.exists(data_path/f'{symbol.split(".")[0]}.csv'):
           data['sec_data'][ti][f'{symbol}_day'] = io_util.load_stock_data(file_path=data_path, file_name=symbol, standard_columns=True)
         else:
           data['sec_data'][ti][f'{symbol}_day'] = None
@@ -133,7 +132,7 @@ def load_data(target_list: dict, config: dict, interval: str = 'day', load_empty
         ti = f'{target}_{interval}'
         for f in ['ta_data', 'result']:
           file_name = f'{ti}_{f}.pkl'
-          if os.path.exists(f'{file_path}{file_name}'):
+          if os.path.exists(file_path/f'{file_name}'):
             data[f][ti] = io_util.pickle_load_data(file_path=file_path, file_name=f'{file_name}')
           else:
             print(f'{file_name} not exists')
@@ -6397,7 +6396,7 @@ def plot_renko(df: pd.DataFrame, start: Optional[int] = None, end: Optional[int]
   else:
     # save image
     if save_image and (save_path is not None):
-      plt.savefig(save_path + title + '.png')
+      plt.savefig(Path(save_path)/f'{title}.png')
       
     # show image
     if show_image:
@@ -6816,8 +6815,8 @@ def plot_selected(data: dict, config: dict, make_pdf: bool = False, dst_path: Op
         ti_split = ti.split('_')
         target_list = target_list = '_'.join(ti_split[:-1])
         interval = ti_split[-1]
-        img_path = config['result_path'] + target_list + f'/{interval}/'
-        data['result'][ti]['img_path'] = data['result'][ti]['symbol'].apply(lambda x: f'{img_path}{x}.png') 
+        img_path = config['result_path']/target_list/f'{interval}'
+        data['result'][ti]['img_path'] = data['result'][ti]['symbol'].apply(lambda x: str(img_path/f'{x}.png')) 
         selected_data = pd.concat([selected_data, data['result'][ti]])
 
   # calculate rank and sort by rank    
@@ -6826,10 +6825,10 @@ def plot_selected(data: dict, config: dict, make_pdf: bool = False, dst_path: Op
   # make pdf from images
   if make_pdf:
     img_to_pdf = selected_data['img_path'].tolist()
-    dst_path = config['home_path'] + 'Desktop/view' if dst_path is None else dst_path
+    dst_path = config['home_path']/'Desktop'/'view' if dst_path is None else dst_path
     if not os.path.exists(dst_path):
       os.mkdir(dst_path)
-    file_name = dst_path + '/' + 'selected.pdf' if file_name is None else dst_path + '/' + file_name
+    file_name = dst_path/'selected.pdf' if file_name is None else dst_path/file_name
     util.image_2_pdf(img_to_pdf, save_name=file_name, is_print=True)
     print(f'{len(img_to_pdf)}/{len(selected_data)} images saved into {file_name}')
 
@@ -7140,7 +7139,7 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
   
   # save image
   if save_image and (save_path is not None):
-    plt_save_name = save_path + title + '.png'
+    plt_save_name = Path(save_path)/f'{title}.png'
     plt.savefig(plt_save_name, bbox_inches = 'tight')
 
   # show image
@@ -7254,7 +7253,7 @@ def plot_historical_evolution(df: pd.DataFrame, symbol: str, interval: Literal['
         phase = 'visualization_day_by_day'
         if create_gif:
           visualization(df=ta_data, start=plot_start_date, title=f'{symbol}({ed})', save_path=plot_save_path, visualization_args=config['visualization'])
-          images.append(f'{plot_save_path}{symbol}({ed}).png')
+          images.append(Path(plot_save_path)/f'{symbol}({ed}).png')
 
       # update ed
       ed = util.string_plus_day(string=ed, diff_days=1)

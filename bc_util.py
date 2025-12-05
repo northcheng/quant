@@ -18,6 +18,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 from PIL import Image
 import imageio as imio
+from pathlib import Path
 
 # default arguments
 default_date_format = '%Y-%m-%d'
@@ -148,19 +149,22 @@ def synchronize_file(local_folder: str, remote_folder: str, newer_only: bool = F
   :returns: none
   :raises: none
   """
+  # convert to Path
+  local_folder = Path(local_folder)
+  remote_folder = Path(remote_folder)
 
   # check accessibility of local and remote folders
   if os.path.exists(remote_folder) and os.path.exists(local_folder):
     
     # get local files and folders
     local_files = os.listdir(local_folder)
-    local_folders = [x for x in local_files if os.path.isdir(local_folder + x)]
-    local_files = [x for x in local_files if not os.path.isdir(local_folder + x)]
+    local_folders = [x for x in local_files if os.path.isdir(local_folder / x)]
+    local_files = [x for x in local_files if not os.path.isdir(local_folder / x)]
     
     # get remote files and folders
     remote_files = os.listdir(remote_folder)
-    remote_folders = [x for x in remote_files if os.path.isdir(remote_folder + x)]
-    remote_files = [x for x in remote_files if not os.path.isdir(remote_folder + x)]
+    remote_folders = [x for x in remote_files if os.path.isdir(remote_folder / x)]
+    remote_files = [x for x in remote_files if not os.path.isdir(remote_folder / x)]
 
     # for files
     if syn_file:
@@ -171,8 +175,8 @@ def synchronize_file(local_folder: str, remote_folder: str, newer_only: bool = F
         try:
         
           # get absolute path
-          rf_abs_path = remote_folder + '/' + rf
-          lf_abs_path = local_folder + '/' + rf
+          rf_abs_path = remote_folder / rf
+          lf_abs_path = local_folder / rf
 
           # skip if file_type is not None
           if file_type is not None and type(file_type) == list:
@@ -211,8 +215,8 @@ def synchronize_file(local_folder: str, remote_folder: str, newer_only: bool = F
         try:
         
           # get absolute path
-          rfd_abs_path = remote_folder + '/' + fd
-          lfd_abs_path = local_folder + '/' + fd
+          rfd_abs_path = remote_folder / fd
+          lfd_abs_path = local_folder / fd
           
           # skip if folder_name is not None
           if folder_name is not None and type(folder_name) == list:
@@ -255,13 +259,16 @@ def print_folder_tree(path: str, parent_is_last: int = 1, depth_limit: int = -1,
   :param parent_is_last: used for control output
   :return: list of all files in 'path'
   """
+  # convert to Path
+  path = Path(path)
+
   files = []
   if len(str(parent_is_last)) - 1 == depth_limit:
     return files
   items = os.listdir(path)
   for index, i in enumerate(items):
     is_last = index == len(items) - 1
-    i_path = path + "/" + i
+    i_path = path / i
     for k in str(parent_is_last)[1:]:
       if k == "0":
         print("│" + "\t" * tab_width, end="")
@@ -276,7 +283,7 @@ def print_folder_tree(path: str, parent_is_last: int = 1, depth_limit: int = -1,
       files.extend(print_folder_tree(
         path=i_path, depth_limit=depth_limit, parent_is_last=(parent_is_last * 10 + 1) if is_last else (parent_is_last * 10)))
     else:
-      print(i_path.split("/")[-1])
+      print(i_path.name)
       files.append(i_path)
   return files
 

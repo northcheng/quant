@@ -34,6 +34,7 @@ from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
 from typing import Literal, Optional
+from pathlib import Path
 
 # self defined
 from quant import bc_util as util
@@ -759,7 +760,8 @@ def update_stock_data_new(symbols: list, stock_data_path: str, file_format: str 
   benchmark_symbols = BENCHMARK_SYMBOL
   benchmark_dates = {}
   benchmark_api_keys = {}
-  
+
+  stock_data_path = Path(stock_data_path)
   for mkt in benchmark_symbols.keys():
     benchmark_source = sources[f'{mkt}_eod']
     benchmark_api_keys[mkt] = api_keys.get(benchmark_source)
@@ -833,7 +835,7 @@ def update_stock_data_new(symbols: list, stock_data_path: str, file_format: str 
           tmp_data_date = None
 
           # if local data exists, load existed data, update its most current date
-          symbol_file_name = f'{stock_data_path}{symbol}{file_format}'
+          symbol_file_name = stock_data_path / f'{symbol}{file_format}'
           if os.path.exists(symbol_file_name):
             
             # delete local data if update_mode == refresh
@@ -964,6 +966,7 @@ def update_stock_data_from_eod(symbols: list, stock_data_path: str, file_format:
   start_date = util.string_plus_day(benchmark_date, -window_size)
 
   # get the existed data and its latest date for each symbols
+  stock_data_path = Path(stock_data_path)
   data = {}
   up_to_date_symbols = []
   for symbol in symbols:
@@ -979,7 +982,7 @@ def update_stock_data_from_eod(symbols: list, stock_data_path: str, file_format:
       file_name = splited[0]      
 
     # if local data exists, load existed data, update its most current date
-    symbol_file_name = f'{stock_data_path}{file_name}{file_format}'
+    symbol_file_name = stock_data_path / f'{file_name}{file_format}'
     if os.path.exists(symbol_file_name):
       
       # delete local data if update_mode == refresh
@@ -1080,7 +1083,7 @@ def update_stock_data_from_ak(symbols: list, stock_data_path: str, file_format: 
   # # for cn stocks
   # else:
   #   symbols = [x.split('.')[0] for x in symbols]
-
+  stock_data_path = Path(stock_data_path)
   for symbol in symbols:
 
     # init symbol data and its most recent date
@@ -1089,7 +1092,7 @@ def update_stock_data_from_ak(symbols: list, stock_data_path: str, file_format: 
 
     # filename, if local data exists, load existed data, update its most current date
     file_name = symbol.split('.')[0]   
-    symbol_file_name = f'{stock_data_path}{file_name}{file_format}'
+    symbol_file_name = stock_data_path / f'{file_name}{file_format}'
     if os.path.exists(symbol_file_name):
       # delete local data if update_mode == refresh
       if update_mode == 'refresh':
@@ -1211,7 +1214,7 @@ def save_stock_data(df: pd.DataFrame, file_path: str, file_name: str, file_forma
     file_name = splited[0]
 
   # construct filename
-  file_name = f'{file_path}{file_name}{file_format}'
+  file_name = Path(file_path) / f'{file_name}{file_format}'
 
   if len(df) > 0:
     # reset index
@@ -1245,7 +1248,7 @@ def load_stock_data(file_path: str, file_name: str, file_format: str = '.csv', t
     file_name = splited[0]
 
   # contruct filename
-  file_name = f'{file_path}{file_name}{file_format}'
+  file_name = Path(file_path) / f'{file_name}{file_format}'
   
   # initialize data
   df = None
@@ -1291,7 +1294,7 @@ def remove_stock_data(symbol: str, file_path: str, file_format: str = '.csv') ->
   :raises: None
   '''
   # construct filename
-  file_name = f'{file_path}{symbol}{file_format}'
+  file_name = Path(file_path) / f'{symbol}{file_format}'
   
   # remove file
   try:
@@ -1488,7 +1491,7 @@ def download_nytimes(year: int, month: int, api_key: str, file_path: str, file_f
   url = f"https://api.nytimes.com/svc/archive/v1/{year}/{month}.json?api-key={api_key}"
 
   # construct file_name
-  file_name = f'{file_path}{year}-{month:02}{file_format}'
+  file_name = Path(file_path) / f'{year}-{month:02}{file_format}'
 
   # get data
   items = requests.get(url, headers=headers)
@@ -1548,7 +1551,7 @@ def read_nytimes(year: int, month: int, file_path: str, file_format: str = '.jso
   :raises: None
   """
   # construct file_name
-  file_name = f'{file_path}{year}-{month:02}{file_format}'
+  file_name = Path(file_path) / f'{year}-{month:02}{file_format}'
   
   # load json data
   with open(file_name) as data_file:    
@@ -1608,7 +1611,7 @@ def process_futu_exported(file_path: str, file_name: str) -> pd.DataFrame:
   :raises: None
   """
   # load futu exported excel file 
-  universe = pd.read_csv(file_path + file_name, dtype={'代码': str})
+  universe = pd.read_csv(Path(file_path) / file_name, dtype={'代码': str})
   
   # categorize columns
   id_columns = ['代码', '名称', '所属行业']
@@ -1784,7 +1787,7 @@ def create_config_file(config_dict: dict, file_path: str, file_name: str, print:
   :raises: save error
   """
   try:
-    with open(file_path + file_name, 'w') as f:
+    with open(Path(file_path) / file_name, 'w') as f:
       json.dump(config_dict, f, ensure_ascii=ensure_ascii)
     
     if print:
@@ -1805,7 +1808,7 @@ def read_config(file_path: str, file_name: str) -> dict:
   """
   try:
     # read existing config
-    with open(file_path + file_name, 'r', encoding='UTF-8') as f:
+    with open(Path(file_path) / file_name, 'r', encoding='UTF-8') as f:
       config_dict = json.loads(f.read())
 
   except Exception as e:
@@ -1833,7 +1836,7 @@ def add_config(config_key: str, config_value: any, file_path: str, file_name: st
     new_config = read_config(file_path, file_name)
     new_config[config_key] = config_value
 
-    with open(file_path + file_name, 'w', encoding='UTF-8') as f:
+    with open(Path(file_path) / file_name, 'w', encoding='UTF-8') as f:
       json.dump(new_config, f)
       if is_print:
         print('Config added successfully')
@@ -1858,7 +1861,7 @@ def remove_config(config_key: str, file_path: str, file_name: str, is_print: boo
     new_config = read_config(file_path, file_name)
     new_config.pop(config_key)
 
-    with open(file_path + file_name, 'w', encoding='UTF-8') as f:
+    with open(Path(file_path) / file_name, 'w', encoding='UTF-8') as f:
       json.dump(new_config, f)
       if is_print:
         print('Config removed successfully')
@@ -1884,7 +1887,7 @@ def modify_config(config_key: str, config_value: any, file_path: str, file_name:
     new_config = read_config(file_path, file_name)
     new_config[config_key] = config_value
 
-    with open(file_path + file_name, 'w', encoding='UTF-8') as f:
+    with open(Path(file_path) / file_name, 'w', encoding='UTF-8') as f:
       json.dump(new_config, f)
       if is_print:
         print('Config modified successfully')
@@ -1905,7 +1908,7 @@ def dict_2_excel(dictionary: dict, file_path: str, file_name: str, keep_index: b
   :raise: None
   """
   # 打开文件
-  writer = pd.ExcelWriter(f'{file_path}{file_name}')
+  writer = pd.ExcelWriter(Path(file_path) / file_name)
 
   # 写入
   for k in dictionary.keys():
@@ -1927,15 +1930,17 @@ def folder_2_zip(folder_path: str, destination_path: str, zip_file_name: str) ->
   """
   # create zip file
   start_dir = folder_path
-  zip_file_name = f'{destination_path}{zip_file_name}'
+  zip_file_name = Path(destination_path) / zip_file_name
   zip_writer = zipfile.ZipFile(zip_file_name, 'w', zipfile.ZIP_DEFLATED)
 
   # zip files in the folder into zip file
   for dir_path, dir_names, file_names in os.walk(start_dir):
     short_path = dir_path.replace(start_dir, '')
     short_path = short_path + os.sep if short_path is not None else ''
+    dir_path = Path(dir_path)
+    short_path  = Path(short_path)
     for f in file_names:
-      zip_writer.write(os.path.join(dir_path, f),short_path+f)
+      zip_writer.write(dir_path / f, short_path / f)
   zip_writer.close()
   
   return zip_file_name
@@ -1950,7 +1955,7 @@ def pickle_dump_data(data: any, file_path: str, file_name: str) -> None:
   :raises: None
   :returns: None
   """
-  file_name = file_path + file_name
+  file_name = Path(file_path) / file_name
   with open(file_name, 'wb') as f:
     pickle.dump(data, f)
 
@@ -1963,7 +1968,7 @@ def pickle_load_data(file_path: str, file_name: str) -> any:
   :raises: None
   :returns: pickled data
   """
-  file_name = file_path + file_name
+  file_name = Path(file_path) / file_name
   data = None
   with open(file_name, 'rb') as f:
     data = pickle.load(f)
@@ -2150,7 +2155,7 @@ def send_result_by_email(config: dict, to_addr: str, from_addr: str = 'northchen
   
   # get portfolio record
   assets = {}
-  if os.path.exists(config['config_path']+'portfolio.json'):
+  if os.path.exists(Path(config['config_path']) / 'portfolio.json'):
     portfolio_record = read_config(file_path=config['config_path'], file_name='portfolio.json')
 
     # for us_stock
@@ -2227,7 +2232,7 @@ def send_result_by_email(config: dict, to_addr: str, from_addr: str = 'northchen
   if signal_file_date is not None:
     
     prefix = '' if pool in ['us', ''] else f'{pool}_' # 'a_' if cn_stock else ''
-    signal_file = f'{config["result_path"]}{prefix}{signal_file_date}.xlsx'
+    signal_file = Path(config["result_path"]) / f'{prefix}{signal_file_date}.xlsx'
     
     if os.path.exists(signal_file):
 
@@ -2263,7 +2268,7 @@ def send_result_by_email(config: dict, to_addr: str, from_addr: str = 'northchen
   log_info = '<h3>Log</h3><ul>'
   if log_file_date is not None:
 
-    log_file = f'{config["log_path"]}automatic_trade_log_{log_file_date}.txt'
+    log_file = Path(config["log_path"]) / f'automatic_trade_log_{log_file_date}.txt'
     
     if os.path.exists(log_file):
       log_part = MIMEApplication(open(log_file, 'rb').read())
@@ -2290,7 +2295,7 @@ def send_result_by_email(config: dict, to_addr: str, from_addr: str = 'northchen
     for p in pdf_names:
 
       # consstruct pdf file path
-      tmp_pdf = f'{config["result_path"]}{p}.pdf'
+      tmp_pdf = Path(config["result_path"]) / f'{p}.pdf'
 
       # if pdf file exists, check its create date and attach its content
       if os.path.exists(tmp_pdf):

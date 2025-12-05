@@ -16,6 +16,7 @@ from quant import bc_data_io as io_util
 from quant import bc_finance as finance_util
 from quant import bc_technical_analysis as ta_util
 from typing import Literal
+from pathlib import Path
 
 def buy(money: float, price: float, trading_fee: float) -> dict[str, float | int]:
   """
@@ -385,7 +386,7 @@ class FixedPositionTrader:
 
     # save image
     if is_save and (save_path is not None):
-      plt.savefig(save_path + f'{symbol}_back_test' + '.png')
+      plt.savefig(Path(save_path) / f'{symbol}_back_test.png')
 
     # close image
     if not is_show:
@@ -484,7 +485,7 @@ class FixedPositionTrader:
   # save data
   def save_data(self, save_dir, file_name='back_test_data'):
 
-    saved_file = os.path.join(save_dir, file_name)
+    saved_file = Path(save_dir) / file_name
     
     # initialize
     if os.path.exists(saved_file):
@@ -503,7 +504,7 @@ class FixedPositionTrader:
   # load data
   def load_data(self, save_dir, file_name='back_test_data'):
 
-    saved_file = os.path.join(save_dir, file_name)
+    saved_file = Path(save_dir) / file_name
 
     # initialize
     if os.path.exists(saved_file):
