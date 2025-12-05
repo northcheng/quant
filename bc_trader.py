@@ -759,7 +759,7 @@ class Tiger(Trader):
   def set_client_config(self, config: dict) -> None:
     # initialize client_config
     self.client_config = TigerOpenClientConfig(sandbox_debug=self.user_info['sandbox_debug'])
-    self.client_config.private_key = read_private_key(self.config['trader_path'] / self.user_info['private_key_name'])
+    self.client_config.private_key = read_private_key(config['trader_path'] / self.user_info['private_key_name'])
     self.client_config.tiger_id = str(self.user_info['tiger_id'])
     self.client_config.language = Language.en_US
     self.client_config.account = self.account 
