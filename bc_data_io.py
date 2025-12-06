@@ -2268,11 +2268,11 @@ def send_result_by_email(config: dict, to_addr: str, from_addr: str = 'northchen
   log_info = '<h3>Log</h3><ul>'
   if log_file_date is not None:
 
-    log_file = Path(config["log_path"]) / f'automatic_trade_log_{log_file_date}.txt'
+    log_file = config["log_path"] / f'automatic_trade_log_{log_file_date}.txt'
     
     if os.path.exists(log_file):
       log_part = MIMEApplication(open(log_file, 'rb').read())
-      log_part.add_header('Content-Disposition', 'attachment', filename=log_file)
+      log_part.add_header('Content-Disposition', 'attachment', filename=f'automatic_trade_log_{log_file_date}.txt')
       log_info += f'<li><p>[Attached]</p></li>'
     
     else:
@@ -2295,7 +2295,7 @@ def send_result_by_email(config: dict, to_addr: str, from_addr: str = 'northchen
     for p in pdf_names:
 
       # consstruct pdf file path
-      tmp_pdf = Path(config["result_path"]) / f'{p}.pdf'
+      tmp_pdf = config["result_path"] / f'{p}.pdf'
 
       # if pdf file exists, check its create date and attach its content
       if os.path.exists(tmp_pdf):
