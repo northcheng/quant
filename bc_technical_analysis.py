@@ -4466,9 +4466,9 @@ def add_rsi_features(df: pd.DataFrame, n: int = 14, ohlcv_col: dict = default_oh
   # assign rsi to df
   df['rsi'] = rsi
 
-  # calculate signals
-  if cal_signal:
-    df['rsi_signal'] = cal_boundary_signal(df=df, upper_col='rsi', lower_col='rsi', upper_boundary=max(boundary), lower_boundary=min(boundary), pos_signal='s', neg_signal='b', none_signal='n')
+  # # calculate signals
+  # if cal_signal:
+  #   df['rsi_signal'] = cal_boundary_signal(df=df, upper_col='rsi', lower_col='rsi', upper_boundary=max(boundary), lower_boundary=min(boundary), pos_signal='s', neg_signal='b', none_signal='n')
 
   return df
 
