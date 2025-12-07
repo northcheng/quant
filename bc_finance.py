@@ -238,7 +238,7 @@ def cal_sharpe_ratio(data: pd.DataFrame, start: str, end: str, rfr: float = 0.04
   return sharpe_ratio
 
 
-def cal_max_drawndown(data: pd.DataFrame, start: str, end: str, dim: str = 'value') -> float:
+def cal_max_drawndown(data: pd.DataFrame, start: str = None, end: str = None, dim: str = 'value') -> float:
   """
   Calculate max drawn down in the specified period
 

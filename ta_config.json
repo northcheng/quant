@@ -24,7 +24,7 @@
       "signals": {
         "signal_list": [  
 
-          "position", "candle", "trigger", "trend"
+          " ", "position", "candle", "trigger", "trend"
 
         ]
       },   

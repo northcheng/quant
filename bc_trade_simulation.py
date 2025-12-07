@@ -59,23 +59,23 @@ def sell(stock: int, price: float, trading_fee: float) -> dict[str, float | int]
 
 class FixedPositionTrader:
 
-  sec_list = []
-  benchmark = None
-  start_date = None
-  end_date = None
-
-  data = {}
-  record = {}
-  
-  cash = {} 
-  stock = {}
-  value = {}
-  holding_price = {}
-  
+  DEFAULT_TRADING_FEE = 3
 
   # init
   def __init__(self, data: dict, start_date: str | None = None, end_date: str | None = None, num_days: int = 365, load_local_data: bool = True) -> None:
 
+    # property initialization
+    self.sec_list = []
+    self.benchmark = None
+    self.start_date = None
+    self.end_date = None
+    self.data = {}
+    self.record = {}
+    self.cash = {}
+    self.stock = {}
+    self.value = {}
+    self.holding_price = {}
+    
     # copy data(sec_data, ta_data), initialize record with ta_data
     self.data = data.copy()
     ta_data = data['ta_data']
@@ -104,17 +104,19 @@ class FixedPositionTrader:
     start_date = self.start_date if start_date is None else start_date
     end_date = self.end_date if end_date is None else end_date   
 
-    # find benchmark data from sec_data
-    benchmark_key = [x for x in self.data['sec_data'].keys() if benchmark == x.split('_')[0]]
+    # find benchmark data from ta_data
+    benchmark_key = [x for x in self.data['ta_data'].keys() if benchmark == x.split('_')[0]]
     benchmark_num = len(benchmark_key)
+    print(benchmark_key, benchmark_num, self.data['ta_data'].keys())
     if (benchmark_num > 1) or (benchmark_num==0):
       print(f'{benchmark_num} benchmark data found')
       self.benchmark = None
     
     else:
-      # set benchmark data from sec_data
+      # set benchmark data from ta_data
       self.benchmark = benchmark
-      self.record['benchmark'] = ta_util.cal_change_rate(df=self.data['sec_data'][benchmark_key[0]], target_col='Close').dropna()[start_date:end_date].copy()
+      sec_data_columns = ['Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume', 'Dividend', 'Split']
+      self.record['benchmark'] = ta_util.cal_change_rate(df=self.data['ta_data'][benchmark_key[0]][sec_data_columns], target_col='Close').dropna()[start_date:end_date].copy()
       
       # set benchmark trading signals
       benchmark_idx = self.record['benchmark'].index
@@ -123,11 +125,11 @@ class FixedPositionTrader:
       self.record['benchmark'].loc[benchmark_idx.max(),'signal'] = 's'
 
   # initialize record
-  def init_record(self, load_local_data: bool = True) -> None:
+  def init_record(self, load_local_data: bool = False, local_data_path = None) -> None:
 
     # initialize record with local saved data
-    if load_local_data:
-      self.load_data()
+    if load_local_data and local_data_path is not None:
+      self.load_data(save_dir=local_data_path)
 
     # initialize back-test columns for records
     for symbol in self.record.keys():
@@ -251,11 +253,7 @@ class FixedPositionTrader:
       self.value[symbol] = avg_position
 
     # construct trading date list
-    dates = []
-    next_date = start_date
-    while next_date <= end_date:
-      dates.append(next_date)
-      next_date = util.string_plus_day(next_date, 1)
+    dates = pd.date_range(start=start_date, end=end_date).strftime('%Y-%m-%d').tolist()
 
     # go through each trading day
     for date in dates:
@@ -284,14 +282,14 @@ class FixedPositionTrader:
 
           # buy stock
           if tmp_signal == 'b':
-            trade_result = buy(money=self.cash[symbol], price=tmp_price, trading_fee=3)
+            trade_result = buy(money=self.cash[symbol], price=tmp_price, trading_fee=self.DEFAULT_TRADING_FEE)
             self.cash[symbol] = trade_result['money']
             self.stock[symbol] += trade_result['stock']
             self.holding_price[symbol] = tmp_price
 
           # sell stock
           elif tmp_signal == 's':
-            trade_result = sell(stock=self.stock[symbol], price=tmp_price, trading_fee=3)
+            trade_result = sell(stock=self.stock[symbol], price=tmp_price, trading_fee=self.DEFAULT_TRADING_FEE)
             self.cash[symbol] += trade_result['money']
             self.stock[symbol] = trade_result['stock']
             self.holding_price[symbol] = 0
