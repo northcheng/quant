@@ -2240,7 +2240,7 @@ def add_candlestick_features(df: pd.DataFrame, ohlcv_col: dict = default_ohlcv_c
   df['pre_candle_bottom'] = df['candle_entity_bottom'].shift(1) 
   df['pre_candle_color'] = df['candle_color'].shift(1)
   
-  # window position status (beyond/below/among window)
+  # candle position status (beyond/below/among previous candle)
   conditions = {
     '上方': '(candle_entity_bottom >= pre_candle_top)',
     '中上': '((candle_entity_top > pre_candle_top) and (pre_candle_top > candle_entity_bottom >= pre_candle_bottom))',
