@@ -1078,15 +1078,9 @@ def calculate_ta_signal(df: pd.DataFrame):
 
     # 方向向上
     up_condition = {
-      '低位':   [
-        # 起始位置低
-        'adx_direction_start < -20', 
-        # ichimoku红云
-        'ichimoku_distance < 0', 
-        # kama红云
-        'kama_distance < 0', 
-        # 处于低(中低)位
-        'position_score < 0'
+      '转向上':   [
+        # adx转向上
+        '(adx_direction_day == 1) and (adx_day == 0 or adx_day == 1) and (prev_adx_duration < 0)', 
       ],
 
       '上行':   [
@@ -1137,15 +1131,9 @@ def calculate_ta_signal(df: pd.DataFrame):
 
     # 方向向下
     down_condition = {
-      '高位':   [
-        # 起始位置高
-        'adx_direction_start > 20', 
-        # ichimoku绿云
-        'ichimoku_distance > 0', 
-        # kama绿云
-        'kama_distance > 0', 
-        # 处于高(中高)位
-        'position_score > 0'
+      '转向下':   [
+        # adx转向下
+        '(adx_direction_day == -1) and (adx_day == 0 or adx_day == -1) and (prev_adx_duration > 0)', 
       ],
 
       '下行':   [
@@ -5293,13 +5281,27 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
 
   # buy and sell
   if signal_x == ' ':
-    
-    signal_symbols = {'b':'^', 's':'v'}
-    signal_colors = {'b':'green', 's':'red'}
-    for s in signal_symbols.keys():
-      tmp_data = df.query(f'signal == "{s}"')
-      if len(tmp_data) > 0:
-        ax.scatter(tmp_data.index, tmp_data[signal_y], marker=signal_symbols[s], color=signal_colors[s], alpha=0.5)
+
+    pass    
+    # # trend_score
+    # tmp_col_v = f'signal_score'
+    # tmp_col_a = f'signal_score_alpha'
+    # outer_alpha = 0.66
+
+    # tmp_data = df.query(f'(signal_score > 0)')
+    # if len(tmp_data) > 0:
+    #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='green', alpha=outer_alpha) # outer_alpha
+
+    # tmp_data = df.query(f'(signal_score < 0)')
+    # if len(tmp_data) > 0:
+    #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='red', alpha=outer_alpha)
+
+    # # aki_score = adx_distance_change + aki_rate_change
+    # df[tmp_col_a] = normalize(df['signal_score_change'].abs())
+    # up_idx = df.query('signal_score_change > 0').index
+    # down_idx = df.query('signal_score_change < 0').index
+    # ax.scatter(up_idx, df.loc[up_idx, signal_y], marker='s', color='green', edgecolor='none', alpha=df.loc[up_idx, tmp_col_a].fillna(0))
+    # ax.scatter(down_idx, df.loc[down_idx, signal_y], marker='s', color='red', edgecolor='none', alpha=df.loc[down_idx, tmp_col_a].fillna(0))
 
     # pass
     # types = ['转换', '触发', '前瞻']
@@ -5374,7 +5376,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
   # trend
   if signal_x in ['trend']:
 
-    # trigger_score
+    # trend_score
     tmp_col_v = f'{signal_x}_score'
     tmp_col_a = f'{signal_x}_score_alpha'
     outer_alpha = 0.66
@@ -5387,12 +5389,19 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     if len(tmp_data) > 0:
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='red', alpha=outer_alpha)
 
+    # # aki_score = adx_distance_change + aki_rate_change
+    # df['aki_score_alpha'] = normalize(df['aki_score'].abs())
+    # up_idx = df.query('((adx_day > 0 or aki_rate > 0) and (adx_distance_change > 0 and aki_rate_change > 0) and aki_score > 0) or aki_score > 0.2').index
+    # down_idx = df.query('((adx_day < 0 or aki_rate < 0) and (adx_distance_change < 0 and aki_rate_change < 0) and aki_score < 0) or aki_score < -0.2').index
+    # ax.scatter(up_idx, df.loc[up_idx, signal_y], marker='s', color='green', edgecolor='none', alpha=df.loc[up_idx, 'aki_score_alpha'].fillna(0))
+    # ax.scatter(down_idx, df.loc[down_idx, signal_y], marker='s', color='red', edgecolor='none', alpha=df.loc[down_idx, 'aki_score_alpha'].fillna(0))
+
     # aki_score = adx_distance_change + aki_rate_change
-    df['aki_score_alpha'] = normalize(df['aki_score'].abs())
-    up_idx = df.query('((adx_day > 0 or aki_rate > 0) and (adx_distance_change > 0 and aki_rate_change > 0) and aki_score > 0) or aki_score > 0.2').index
-    down_idx = df.query('((adx_day < 0 or aki_rate < 0) and (adx_distance_change < 0 and aki_rate_change < 0) and aki_score < 0) or aki_score < -0.2').index
-    ax.scatter(up_idx, df.loc[up_idx, signal_y], marker='s', color='green', edgecolor='none', alpha=df.loc[up_idx, 'aki_score_alpha'].fillna(0))
-    ax.scatter(down_idx, df.loc[down_idx, signal_y], marker='s', color='red', edgecolor='none', alpha=df.loc[down_idx, 'aki_score_alpha'].fillna(0))
+    df[tmp_col_a] = normalize(df['adx_distance'].abs())
+    up_idx = df.query('adx_distance > 0').index
+    down_idx = df.query('adx_distance < 0').index
+    ax.scatter(up_idx, df.loc[up_idx, signal_y], marker='s', color='green', edgecolor='none', alpha=df.loc[up_idx, tmp_col_a].fillna(0))
+    ax.scatter(down_idx, df.loc[down_idx, signal_y], marker='s', color='red', edgecolor='none', alpha=df.loc[down_idx, tmp_col_a].fillna(0))
 
 
     # annotate info
