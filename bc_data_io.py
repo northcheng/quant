@@ -163,6 +163,111 @@ def preprocess_symbol(symbols: list, style: Literal['eod', 'ak', 'easyquotation'
   
   return result
 
+# get us_spot_em from ak, for mapping US symbols to ak format
+def get_code_map_from_ak() -> pd.DataFrame:
+
+  # initialization
+  today = f'{datetime.datetime.today().date()}'
+  us_spot_em = None
+
+  # mark-file that used for checking whether the file is up-to-date
+  mark_file = f'updated_us_spot_em_{today}'
+  local_file_name = f'us_spot_em.csv'
+  
+  # update us_spot_em if it is not updated today  
+  if not os.path.exists(mark_file):
+    
+    # remove old files
+    files = os.listdir()
+    expired_local_file_name = [x for x in files if 'updated_us_spot_em_' in x]
+    for elf in expired_local_file_name:
+      os.remove(elf)
+
+    # get new file
+    retry_time = 5
+    try_count = 0
+    while try_count < retry_time:
+      try_count += 1
+      try:
+        us_spot_em = ak.stock_us_spot_em()
+        us_spot_em.to_csv(local_file_name, index=False)
+        with open(mark_file, 'w', encoding='utf-8') as f:
+          pass
+        break
+      except Exception as e:
+        print(f'When calling ak.stock_us_spot(): {e}')
+        continue
+  
+  # read old file if update failed
+  if us_spot_em is None:
+    if os.path.exists(local_file_name):
+      us_spot_em = pd.read_csv(local_file_name)
+      print(f'Using existed us_spot_em.csv')
+
+  return us_spot_em
+
+# get ohlcv data from ak(US/CN/HK)
+def get_data_from_ak(symbol: str, start_date: str = None, end_date: str = None, interval: str = 'daily', is_print: bool = False, adjust: str = 'qfq') -> pd.DataFrame:
+  """
+  Download stock data from akshare
+  https://github.com/akfamily/akshare
+
+  :param symbol: target symbol, e.g. '105.AAPL', '000001', '00700'
+  :param start_date: start date of the data
+  :param end_date: end date of the data
+  :param interval: daily/weekly/monthly
+  :param adjust: the way to adjust price, ''/''qfq'/'hfq'
+  :param is_print: whether to print download information
+  :returns: dataframe or None
+  :raises: exception when downloading failed
+  """
+  # initialize
+  market = None
+  result = None
+
+  # start and end date
+  start_date = '2000-01-01' if start_date is None else start_date
+  end_date = util.time_2_string(datetime.datetime.today().date()) if end_date is None else end_date
+  start_date = start_date.replace('-', '')
+  end_date = end_date.replace('-', '')
+  
+  # decide market from the first character of the symbol
+  symbol_end = symbol[-1]
+  if symbol_end.isalpha():
+    market = 'us'
+  elif symbol_end.isdigit():
+    if len(symbol) == 6:
+      market = 'cn'
+    elif len(symbol) == 5:
+      market = 'hk'
+    else:
+      print(f'symbol for unknown market: {symbol}')
+
+  # get data
+  if market == 'us':
+    result = ak.stock_us_hist(symbol=symbol, period=interval, start_date=start_date, end_date=end_date, adjust=adjust)
+
+  elif market == 'cn':
+    if symbol.startswith('0') or symbol.startswith('3') or symbol.startswith('6'):
+      result = ak.stock_zh_a_hist(symbol=symbol, period=interval, start_date=start_date, end_date=end_date, adjust=adjust)
+    if symbol.startswith('15') or symbol.startswith('51') or symbol.startswith('56') or symbol.startswith('58'):
+      # result = ak.stock_zh_a_hist(symbol=symbol, period=interval, start_date=start_date, end_date=end_date, adjust=adjust)      
+      result = ak.fund_etf_hist_em(symbol=symbol, period=interval, start_date=start_date, end_date=end_date, adjust=adjust)
+  
+  elif market == 'hk':
+    result = ak.stock_hk_hist(symbol=symbol, period=interval, start_date=start_date, end_date=end_date, adjust=adjust)
+
+  else:
+    pass
+
+  # postprocess: rename columns, add extra columns
+  result = post_process_download_data(result, 'ak')
+
+  if is_print:
+    print(f'{symbol:8}: {result.index.min()} - {result.index.max()}, 下载记录 {len(result)} from ak')
+  
+  return result
+
 # get ohlcv data from eod(US/CN/HK)
 def get_data_from_eod(symbol: str, start_date: Optional[str] = None, end_date: Optional[str] = None, interval: Literal['d', 'w', 'm'] = 'd', is_print: bool = False, api_key: str = default_eod_key, add_dividend: bool = True, add_split: bool = True) -> Optional[pd.DataFrame]:
   """
@@ -271,111 +376,6 @@ def get_data_from_eod(symbol: str, start_date: Optional[str] = None, end_date: O
     print(symbol, e)
 
   return data
-
-# get us_spot_em from ak, for mapping US symbols to ak format
-def get_code_map_from_ak() -> pd.DataFrame:
-
-  # initialization
-  today = f'{datetime.datetime.today().date()}'
-  us_spot_em = None
-
-  # mark-file that used for checking whether the file is up-to-date
-  mark_file = f'updated_us_spot_em_{today}'
-  local_file_name = f'us_spot_em.csv'
-  
-  # update us_spot_em if it is not updated today  
-  if not os.path.exists(mark_file):
-    
-    # remove old files
-    files = os.listdir()
-    expired_local_file_name = [x for x in files if 'updated_us_spot_em_' in x]
-    for elf in expired_local_file_name:
-      os.remove(elf)
-
-    # get new file
-    retry_time = 5
-    try_count = 0
-    while try_count < retry_time:
-      try_count += 1
-      try:
-        us_spot_em = ak.stock_us_spot_em()
-        us_spot_em.to_csv(local_file_name, index=False)
-        with open(mark_file, 'w', encoding='utf-8') as f:
-          pass
-        break
-      except Exception as e:
-        print(f'When calling ak.stock_us_spot(): {e}')
-        continue
-  
-  # read old file if update failed
-  if us_spot_em is None:
-    if os.path.exists(local_file_name):
-      us_spot_em = pd.read_csv(local_file_name)
-      print(f'Using existed us_spot_em.csv')
-
-  return us_spot_em
-
-# get ohlcv data from ak(US/CN/HK)
-def get_data_from_ak(symbol: str, start_date: str = None, end_date: str = None, interval: str = 'daily', is_print: bool = False, adjust: str = 'qfq') -> pd.DataFrame:
-  """
-  Download stock data from akshare
-  https://github.com/akfamily/akshare
-
-  :param symbol: target symbol, e.g. '105.AAPL', '000001', '00700'
-  :param start_date: start date of the data
-  :param end_date: end date of the data
-  :param interval: daily/weekly/monthly
-  :param adjust: the way to adjust price, ''/''qfq'/'hfq'
-  :param is_print: whether to print download information
-  :returns: dataframe or None
-  :raises: exception when downloading failed
-  """
-  # initialize
-  market = None
-  result = None
-
-  # start and end date
-  start_date = '2000-01-01' if start_date is None else start_date
-  end_date = util.time_2_string(datetime.datetime.today().date()) if end_date is None else end_date
-  start_date = start_date.replace('-', '')
-  end_date = end_date.replace('-', '')
-  
-  # decide market from the first character of the symbol
-  symbol_end = symbol[-1]
-  if symbol_end.isalpha():
-    market = 'us'
-  elif symbol_end.isdigit():
-    if len(symbol) == 6:
-      market = 'cn'
-    elif len(symbol) == 5:
-      market = 'hk'
-    else:
-      print(f'symbol for unknown market: {symbol}')
-
-  # get data
-  if market == 'us':
-    result = ak.stock_us_hist(symbol=symbol, period=interval, start_date=start_date, end_date=end_date, adjust=adjust)
-
-  elif market == 'cn':
-    if symbol.startswith('0') or symbol.startswith('3') or symbol.startswith('6'):
-      result = ak.stock_zh_a_hist(symbol=symbol, period=interval, start_date=start_date, end_date=end_date, adjust=adjust)
-    if symbol.startswith('15') or symbol.startswith('51') or symbol.startswith('56') or symbol.startswith('58'):
-      # result = ak.stock_zh_a_hist(symbol=symbol, period=interval, start_date=start_date, end_date=end_date, adjust=adjust)      
-      result = ak.fund_etf_hist_em(symbol=symbol, period=interval, start_date=start_date, end_date=end_date, adjust=adjust)
-  
-  elif market == 'hk':
-    result = ak.stock_hk_hist(symbol=symbol, period=interval, start_date=start_date, end_date=end_date, adjust=adjust)
-
-  else:
-    pass
-
-  # postprocess: rename columns, add extra columns
-  result = post_process_download_data(result, 'ak')
-
-  if is_print:
-    print(f'{symbol:8}: {result.index.min()} - {result.index.max()}, 下载记录 {len(result)} from ak')
-  
-  return result
 
 # get ohlcv data from easyquotation(HK: 1500rows)
 def get_data_from_easyquotation(symbol: str, is_print: bool = False) -> pd.DataFrame:
