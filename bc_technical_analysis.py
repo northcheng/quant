@@ -1071,181 +1071,184 @@ def calculate_ta_signal(df: pd.DataFrame):
   
     # trend
     df['trend'] = ''
-    df['trend_up_score'] = 0 
-    df['trend_down_score'] = 0 
-    df['trend_wave_score'] = 0 
+    # df['trend_up_score'] = 0 
+    # df['trend_down_score'] = 0 
+    # df['trend_wave_score'] = 0 
+    df['trend_score'] = 0
     df['trend_description'] = ''
 
-    # 方向向上
-    up_condition = {
-      '转向上':   [
-        # adx转向上
-        '(adx_direction_day == 1) and (adx_day == 0 or adx_day == 1) and (prev_adx_duration < 0)', 
-      ],
-
-      '上行':   [
-        # adx_trend正向
-        'adx_day > 0', 
-        # adx_distance绿云扩大
-        'adx_distance_status == "posup"', 
-        # 整体趋势向上
-        'aki_rate > 0 and aki_rate_change > 0'
-      ], 
-
-      '触底':   [
-        # adx_trend由负转正
-        'adx_day == 0 and prev_adx_day < 0 and adx_value_change > 1', 
-        # adx_distance红云收窄
-        'adx_distance_status == "negup"', 
-        # ichimoku_distance红云收窄
-        'ichimoku_distance_status == "negup"', 
-        # kama_distance红云收窄
-        'kama_distance_status == "negup"'
-      ]
-    }
-    for uc in up_condition.keys():
-      
-      # 当前方向分数列名
-      tmp_score_col = f'trend_{uc}'    
-      col_to_drop.append(tmp_score_col)
-
-      # 初始化
-      df[tmp_score_col] = 0
-      tmp_idx_merge = None
-
-      # 遍历细分方向条件
-      for q in up_condition[uc]:
-        tmp_idx = df.query(q).index
-
-        condition_value = (df.loc[tmp_idx, 'position_score'] * -0.5) if q == 'position_score < 0' else 1
-        df.loc[tmp_idx, tmp_score_col] += condition_value
-
-        if tmp_idx_merge is None:
-          tmp_idx_merge = pd.Index(tmp_idx)
-        else:
-          index2 = pd.Index(tmp_idx)
-          tmp_idx_merge = tmp_idx_merge.union(index2)
-      
-      df['trend_up_score'] += df[tmp_score_col]
-      df.loc[tmp_idx_merge, 'trend_description'] += f' {uc}(' + df.loc[tmp_idx_merge, tmp_score_col].astype(str) + ')'
-
-    # 方向向下
-    down_condition = {
-      '转向下':   [
-        # adx转向下
-        '(adx_direction_day == -1) and (adx_day == 0 or adx_day == -1) and (prev_adx_duration > 0)', 
-      ],
-
-      '下行':   [
-        # adx趋势向下
-        'adx_day < 0', 
-        # adx_distance红云扩大
-        'adx_distance_status == "negdown"', 
-        # 整体趋势向下
-        'aki_rate < 0 and aki_rate_change < 0'
-      ],
-
-      '触顶':   [
-        # adx_trend由正转负
-        'adx_day == 0 and prev_adx_day > 0 and adx_value_change < -1', 
-        # adx_distance绿云收窄
-        'adx_distance_status == "posdown"', 
-        # ichimoku_distance绿云收窄
-        'ichimoku_distance_status == "posdown"', 
-        # kama_distance绿云收窄
-        'kama_distance_status == "posdown"'
-      ]
-    }
-    for dc in down_condition.keys():  
-      
-      # 当前方向分数列名
-      tmp_score_col = f'trend_{dc}'    
-      col_to_drop.append(tmp_score_col)
-
-      # 初始化
-      df[tmp_score_col] = 0
-      tmp_idx_merge = None
-
-      # 遍历细分方向条件
-      for q in down_condition[dc]:
-        tmp_idx = df.query(q).index
-
-        condition_value = (df.loc[tmp_idx, 'position_score'] * -0.5) if q == 'position_score > 0' else -1
-        df.loc[tmp_idx, tmp_score_col] += condition_value
-
-        if tmp_idx_merge is None:
-          tmp_idx_merge = pd.Index(tmp_idx)
-        else:
-          index2 = pd.Index(tmp_idx)
-          tmp_idx_merge = tmp_idx_merge.union(index2)
-
-      df['trend_down_score'] += df[tmp_score_col]
-      df.loc[tmp_idx_merge, 'trend_description'] += f' {dc}(' + df.loc[tmp_idx_merge, tmp_score_col].astype(str) + ')'
-
-    # 波动趋势
-    wave_condition = {
-      '波动':   [
-        # adx强度弱(adx_strong_day < 0), 当前值在波动区间(-10 < adx_value < 10)
-        '(adx_strong_day < 0) and (-10 < adx_value < 10)',
-        # adx强度弱(adx_strong_day < 0), 起始于波动区间(-10 < adx_direction_start < 10)
-        '(adx_strong_day < 0) and (-10 < adx_direction_start < 10)',
-        # adx强度弱(adx_strong_day < 0), 长时间弱势(adx_strong_day <= -20)
-        '(adx_strong_day < 0) and (adx_strong_day <= -20)',
-      ]
-    }
-    for wc in wave_condition.keys():
-      
-      # 当前方向分数列名
-      tmp_score_col = f'trend_{wc}'    
-      col_to_drop.append(tmp_score_col)
-
-      # 初始化
-      df[tmp_score_col] = 0
-      tmp_idx_merge = None
-
-      # 遍历细分方向条件
-      for q in wave_condition[wc]:
-        tmp_idx = df.query(q).index
-
-        condition_value = 1
-        df.loc[tmp_idx, tmp_score_col] += condition_value
-
-        if tmp_idx_merge is None:
-          tmp_idx_merge = pd.Index(tmp_idx)
-        else:
-          index2 = pd.Index(tmp_idx)
-          tmp_idx_merge = tmp_idx_merge.union(index2)
-      
-      df['trend_wave_score'] += df[tmp_score_col]
-      df.loc[tmp_idx_merge, 'trend_description'] += f' {wc}(' + df.loc[tmp_idx_merge, tmp_score_col].astype(str) + ')'
-    
-    # 总分
-    df['trend_score'] = ((df['trend_up_score'] + df['trend_down_score']) * (0.8**df['trend_wave_score'])).round(2) # + df['candle_position_score']
-    # df['trend_score'] = df['trend_score'].round(2)
-    # df['trend_description'] += f' 蜡烛(' + df['candle_position_score'].astype(str) + ')'
+    # 趋势动量及强度
+    df['trend_momentum'] = normalize(df['adx_value_change'].abs()) * (df['adx_value_change'] > 0).replace({True: 1, False: -1})
+    df['trend_strength'] = normalize(df['adx_strength_change'].abs()) * (df['adx_strength_change'] > 0).replace({True: 1, False: -1})
+    df['trend_score'] = (df['trend_momentum'] + df['trend_strength'] * (df['adx_value'] > 0).replace({True: 1, False: -1})).round(2)
 
     # 趋势定性
     position_conditions = {
-      'up':        f'adx_trend == 1', # f'trend_score > 0',
-      'down':      f'adx_trend == -1' # f'trend_score <= 0'
+      'up':        f'adx_trend == 1', 
+      'down':      f'adx_trend == -1',
+      'up_plus':   f'adx_trend == 0 and trend_score > 0.1',
+      'down_plus': f'adx_trend == 0 and trend_score < -0.1',
     } 
     position_values = {
       'up':        f'up',
-      'down':      f'down'
+      'down':      f'down',
+      'up_plus':   f'up',
+      'down_plus': f'down',
     }
-    df = assign_condition_value(df=df, column='trend', condition_dict=position_conditions, value_dict=position_values, default_value='') 
-    
-    # # exceptions: 例外情况
-    # none_trend_conditions = {
-    #   'false_up':   'adx_value_change > 0 and adx_day == 0 and (candle_position_score < 0)',
-    #   'false_down': 'adx_value_change < 0 and adx_day == 0 and (candle_position_score > 0)'
-    # } 
-    # for c in none_trend_conditions.keys():
-    #   tmp_condition = none_trend_conditions[c]
-    #   tmp_idx = df.query(tmp_condition).index
-    #   df.loc[tmp_idx, 'trend'] = ''
-    
+    df = assign_condition_value(df=df, column='trend', condition_dict=position_conditions, value_dict=position_values, default_value='')     
     df['trend_day'] = sda(df['trend'].replace({'':0, 'up':1, 'down': -1}), zero_as=1)
+
+
+    # # 方向向上
+    # up_condition = {
+    #   '转向上':   [
+    #     # adx转向上
+    #     '(adx_direction_day == 1) and (adx_day == 0 or adx_day == 1) and (prev_adx_duration < 0)', 
+    #   ],
+
+    #   '上行':   [
+    #     # adx_trend正向
+    #     'adx_day > 0', 
+    #     # adx_distance绿云扩大
+    #     'adx_distance_status == "posup"', 
+    #     # 整体趋势向上
+    #     'aki_rate > 0 and aki_rate_change > 0'
+    #   ], 
+
+    #   '触底':   [
+    #     # adx_trend由负转正
+    #     'adx_day == 0 and prev_adx_day < 0 and adx_value_change > 1', 
+    #     # adx_distance红云收窄
+    #     'adx_distance_status == "negup"', 
+    #     # ichimoku_distance红云收窄
+    #     'ichimoku_distance_status == "negup"', 
+    #     # kama_distance红云收窄
+    #     'kama_distance_status == "negup"'
+    #   ]
+    # }
+    # for uc in up_condition.keys():
+      
+    #   # 当前方向分数列名
+    #   tmp_score_col = f'trend_{uc}'    
+    #   col_to_drop.append(tmp_score_col)
+
+    #   # 初始化
+    #   df[tmp_score_col] = 0
+    #   tmp_idx_merge = None
+
+    #   # 遍历细分方向条件
+    #   for q in up_condition[uc]:
+    #     tmp_idx = df.query(q).index
+
+    #     condition_value = (df.loc[tmp_idx, 'position_score'] * -0.5) if q == 'position_score < 0' else 1
+    #     df.loc[tmp_idx, tmp_score_col] += condition_value
+
+    #     if tmp_idx_merge is None:
+    #       tmp_idx_merge = pd.Index(tmp_idx)
+    #     else:
+    #       index2 = pd.Index(tmp_idx)
+    #       tmp_idx_merge = tmp_idx_merge.union(index2)
+      
+    #   df['trend_up_score'] += df[tmp_score_col]
+    #   df.loc[tmp_idx_merge, 'trend_description'] += f' {uc}(' + df.loc[tmp_idx_merge, tmp_score_col].astype(str) + ')'
+
+    # # 方向向下
+    # down_condition = {
+    #   '转向下':   [
+    #     # adx转向下
+    #     '(adx_direction_day == -1) and (adx_day == 0 or adx_day == -1) and (prev_adx_duration > 0)', 
+    #   ],
+
+    #   '下行':   [
+    #     # adx趋势向下
+    #     'adx_day < 0', 
+    #     # adx_distance红云扩大
+    #     'adx_distance_status == "negdown"', 
+    #     # 整体趋势向下
+    #     'aki_rate < 0 and aki_rate_change < 0'
+    #   ],
+
+    #   '触顶':   [
+    #     # adx_trend由正转负
+    #     'adx_day == 0 and prev_adx_day > 0 and adx_value_change < -1', 
+    #     # adx_distance绿云收窄
+    #     'adx_distance_status == "posdown"', 
+    #     # ichimoku_distance绿云收窄
+    #     'ichimoku_distance_status == "posdown"', 
+    #     # kama_distance绿云收窄
+    #     'kama_distance_status == "posdown"'
+    #   ]
+    # }
+    # for dc in down_condition.keys():  
+      
+    #   # 当前方向分数列名
+    #   tmp_score_col = f'trend_{dc}'    
+    #   col_to_drop.append(tmp_score_col)
+
+    #   # 初始化
+    #   df[tmp_score_col] = 0
+    #   tmp_idx_merge = None
+
+    #   # 遍历细分方向条件
+    #   for q in down_condition[dc]:
+    #     tmp_idx = df.query(q).index
+
+    #     condition_value = (df.loc[tmp_idx, 'position_score'] * -0.5) if q == 'position_score > 0' else -1
+    #     df.loc[tmp_idx, tmp_score_col] += condition_value
+
+    #     if tmp_idx_merge is None:
+    #       tmp_idx_merge = pd.Index(tmp_idx)
+    #     else:
+    #       index2 = pd.Index(tmp_idx)
+    #       tmp_idx_merge = tmp_idx_merge.union(index2)
+
+    #   df['trend_down_score'] += df[tmp_score_col]
+    #   df.loc[tmp_idx_merge, 'trend_description'] += f' {dc}(' + df.loc[tmp_idx_merge, tmp_score_col].astype(str) + ')'
+
+    # # 波动趋势
+    # wave_condition = {
+    #   '波动':   [
+    #     # adx强度弱(adx_strong_day < 0), 当前值在波动区间(-10 < adx_value < 10)
+    #     '(adx_strong_day < 0) and (-10 < adx_value < 10)',
+    #     # adx强度弱(adx_strong_day < 0), 起始于波动区间(-10 < adx_direction_start < 10)
+    #     '(adx_strong_day < 0) and (-10 < adx_direction_start < 10)',
+    #     # adx强度弱(adx_strong_day < 0), 长时间弱势(adx_strong_day <= -20)
+    #     '(adx_strong_day < 0) and (adx_strong_day <= -20)',
+    #   ]
+    # }
+    # for wc in wave_condition.keys():
+      
+    #   # 当前方向分数列名
+    #   tmp_score_col = f'trend_{wc}'    
+    #   col_to_drop.append(tmp_score_col)
+
+    #   # 初始化
+    #   df[tmp_score_col] = 0
+    #   tmp_idx_merge = None
+
+    #   # 遍历细分方向条件
+    #   for q in wave_condition[wc]:
+    #     tmp_idx = df.query(q).index
+
+    #     condition_value = 1
+    #     df.loc[tmp_idx, tmp_score_col] += condition_value
+
+    #     if tmp_idx_merge is None:
+    #       tmp_idx_merge = pd.Index(tmp_idx)
+    #     else:
+    #       index2 = pd.Index(tmp_idx)
+    #       tmp_idx_merge = tmp_idx_merge.union(index2)
+      
+    #   df['trend_wave_score'] += df[tmp_score_col]
+    #   df.loc[tmp_idx_merge, 'trend_description'] += f' {wc}(' + df.loc[tmp_idx_merge, tmp_score_col].astype(str) + ')'
+    
+    # 总分
+    # df['trend_score'] = ((df['trend_up_score'] + df['trend_down_score']) * (0.8**df['trend_wave_score'])).round(2) # + df['candle_position_score']
+    # df['trend_score'] = df['trend_score'].round(2)
+    # df['trend_description'] += f' 蜡烛(' + df['candle_position_score'].astype(str) + ')'
+
+    
+    
   
   # ================================ calculate pattern ======================
   if 'pattern'  > '':
@@ -1380,10 +1383,13 @@ def calculate_ta_signal(df: pd.DataFrame):
     df['signal_day'] = 0
     df['signal_description'] = ''
 
-    df['signal_score'] = (df['trend_score'] + df['trigger_score'] + df['pattern_score']).round(2)
+    for col in ['trend_score', 'trigger_score', 'pattern_score']:
+      df['signal_score'] += normalize(df[col].abs()) * (df[col] > 0).replace({True: 1, False: -1})
+    df['signal_score'] = df['signal_score'].round(2)
     df['signal_score_change'] = (df['signal_score'] - df['signal_score'].shift(1)).round(2)
 
     # # 交易信号(测试)
+    # 趋势消失 + 十字星 = 卖出
     # position_conditions = {
     #   'up':        f'signal_score_change >= 5', # f'trend_score > 0',
     #   'down':      f'signal_score_change <= -5' # f'trend_score <= 0'
@@ -5282,47 +5288,27 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
   # buy and sell
   if signal_x == ' ':
 
-    pass    
-    # # trend_score
-    # tmp_col_v = f'signal_score'
-    # tmp_col_a = f'signal_score_alpha'
+    pass
+    # # aki_score
+    # tmp_col_v = f'aki_score'
+    # tmp_col_a = f'aki_score_alpha'
     # outer_alpha = 0.66
 
-    # tmp_data = df.query(f'(signal_score > 0)')
+    # tmp_data = df.query(f'(aki_score > 0)')
     # if len(tmp_data) > 0:
     #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='green', alpha=outer_alpha) # outer_alpha
 
-    # tmp_data = df.query(f'(signal_score < 0)')
+    # tmp_data = df.query(f'(aki_score < 0)')
     # if len(tmp_data) > 0:
     #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='red', alpha=outer_alpha)
 
-    # # aki_score = adx_distance_change + aki_rate_change
-    # df[tmp_col_a] = normalize(df['signal_score_change'].abs())
-    # up_idx = df.query('signal_score_change > 0').index
-    # down_idx = df.query('signal_score_change < 0').index
+    # # aki_score_change
+    # df[tmp_col_a] = normalize(df['aki_score_change'].abs())
+    # up_idx = df.query('aki_score_change > 0').index
+    # down_idx = df.query('aki_score_change < 0').index
     # ax.scatter(up_idx, df.loc[up_idx, signal_y], marker='s', color='green', edgecolor='none', alpha=df.loc[up_idx, tmp_col_a].fillna(0))
     # ax.scatter(down_idx, df.loc[down_idx, signal_y], marker='s', color='red', edgecolor='none', alpha=df.loc[down_idx, tmp_col_a].fillna(0))
 
-    # pass
-    # types = ['转换', '触发', '前瞻']
-    # settings = {
-    #   '转换': {'pos_marker': '.', 'neg_marker': '.', 'pos_color': 'green', 'neg_color': 'red', 'pos_color_edge': 'none', 'neg_color_edge': 'none', 'alpha': 1},
-    #   '触发': {'pos_marker': '|', 'neg_marker': '|', 'pos_color': 'green', 'neg_color': 'red', 'pos_color_edge': 'none', 'neg_color_edge': 'none', 'alpha': 1},
-    #   '前瞻': {'pos_marker': '.', 'neg_marker': '.', 'pos_color': 'green', 'neg_color': 'red', 'pos_color_edge': 'none', 'neg_color_edge': 'none', 'alpha': 1},
-    #   '默认': {'pos_marker': '^', 'neg_marker': 'v', 'pos_color': 'green', 'neg_color': 'red', 'pos_color_edge': 'green', 'neg_color_edge': 'red', 'alpha': 1},
-    # }
-    # for t in types:
-
-    #   tmp_setting = settings[t]
-
-    #   pos_data = df.query(f'{t} == 1')
-    #   if len(pos_data) > 0:
-    #     ax.scatter(pos_data.index, pos_data[signal_y], marker=tmp_setting['pos_marker'], color=tmp_setting['pos_color'], edgecolor=tmp_setting['pos_color_edge'], alpha=tmp_setting['alpha'])
-
-    #   neg_data = df.query(f'{t} == -1')
-    #   if len(neg_data) > 0:
-    #     ax.scatter(neg_data.index, neg_data[signal_y], marker=tmp_setting['neg_marker'], color=tmp_setting['neg_color'], edgecolor=tmp_setting['neg_color_edge'], alpha=tmp_setting['alpha'])
-    
   # trigger_score
   if signal_x in ['trigger']:
 
@@ -5396,10 +5382,10 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     # ax.scatter(up_idx, df.loc[up_idx, signal_y], marker='s', color='green', edgecolor='none', alpha=df.loc[up_idx, 'aki_score_alpha'].fillna(0))
     # ax.scatter(down_idx, df.loc[down_idx, signal_y], marker='s', color='red', edgecolor='none', alpha=df.loc[down_idx, 'aki_score_alpha'].fillna(0))
 
-    # aki_score = adx_distance_change + aki_rate_change
-    df[tmp_col_a] = normalize(df['adx_distance'].abs())
-    up_idx = df.query('adx_distance > 0').index
-    down_idx = df.query('adx_distance < 0').index
+    # adx_distance
+    df[tmp_col_a] = normalize(df['trend_score'].abs())
+    up_idx = df.query('trend_score > 0').index
+    down_idx = df.query('trend_score < 0').index
     ax.scatter(up_idx, df.loc[up_idx, signal_y], marker='s', color='green', edgecolor='none', alpha=df.loc[up_idx, tmp_col_a].fillna(0))
     ax.scatter(down_idx, df.loc[down_idx, signal_y], marker='s', color='red', edgecolor='none', alpha=df.loc[down_idx, tmp_col_a].fillna(0))
 
