@@ -1056,7 +1056,6 @@ def calculate_ta_signal(df: pd.DataFrame):
       '中低':      f'ki_distance in ["rg", "rn"]',
       '中高':      f'ki_distance in ["gr", "gn"]',
       '高':        f'ki_distance in ["gg"]',
-
     } 
     position_values = {
       '低':        f'll',
