@@ -1048,23 +1048,32 @@ def calculate_ta_signal(df: pd.DataFrame):
   col_to_drop = ['prev_adx_day', 'adx_wave', 'ki_distance_sum']
   
   # ================================ calculate position =====================
-  if 'position' > '':
+  # if 'position' > '':
 
-    # 低/中低/中高/高
-    position_conditions = {
-      '低':        f'ki_distance in ["rr"]',
-      '中低':      f'ki_distance in ["rg", "rn"]',
-      '中高':      f'ki_distance in ["gr", "gn"]',
-      '高':        f'ki_distance in ["gg"]',
-    } 
-    position_values = {
-      '低':        f'll',
-      '中低':      f'lh',
-      '中高':      f'hl',
-      '高':        f'hh',
-    }
-    df = assign_condition_value(df=df, column='位置', condition_dict=position_conditions, value_dict=position_values, default_value='') 
+  #   # 低/中低/中高/高
+  #   position_conditions = {
+  #     '低':        f'ki_distance in ["rr"]',
+  #     '中低':      f'ki_distance in ["rg", "rn"]',
+  #     '中高':      f'ki_distance in ["gr", "gn"]',
+  #     '高':        f'ki_distance in ["gg"]',
+  #   } 
+  #   position_values = {
+  #     '低':        f'll',
+  #     '中低':      f'lh',
+  #     '中高':      f'hl',
+  #     '高':        f'hh',
+  #   }
+  #   df = assign_condition_value(df=df, column='位置', condition_dict=position_conditions, value_dict=position_values, default_value='') 
+
+  # ================================ calculate candle =======================
+  if 'candle' > '':
+
+    df['candle_score'] = 0
+    for col in ['candle_position_score', 'candle_pattern_score']:
+      df['candle_score'] += normalize(df[col].abs()) * (df[col] > 0).replace({True: 1, False: -1})
+    df['candle_score'] = df['candle_score'].round(2)
     
+
   # ================================ calculate trend ========================
   if 'trend'  > '':
   
@@ -1266,6 +1275,7 @@ def calculate_ta_signal(df: pd.DataFrame):
       '超买超卖_up':            '''
                             (rsi < 30)
                             '''.replace('\n', ''),
+      
       # 超买
       '超买超卖_down':          '''
                             (rsi > 70)
@@ -1302,7 +1312,7 @@ def calculate_ta_signal(df: pd.DataFrame):
       # 关键边界(ichimoku, kama, gap)
       '长线边界_up':            '''
                             (
-                              位置 in ['hh', 'hl'] and
+                              ki_distance in ["gr", "gn", "gg"] and
                               (
                                 (kama_slow_support > 0) or 
                                 (kama_slow_break_down < 0 and candle_color == 1 and 长影线_trend == "u") or
@@ -1314,7 +1324,7 @@ def calculate_ta_signal(df: pd.DataFrame):
       # 关键边界(ichimoku, kama, gap)
       '长线边界_down':          '''
                             (
-                              位置 in ['ll', 'lh'] and
+                              ki_distance in ["rg", "rn", "rr"] and
                               (
                                 (kama_slow_resistant < 0) or 
                                 (kama_slow_break_up > 0 and (candle_color == -1 or 长影线_trend == "d" or resistant_score < 0)) or
@@ -1322,6 +1332,23 @@ def calculate_ta_signal(df: pd.DataFrame):
                               ) 
                             )
                             '''.replace('\n', ''),
+    
+      # 趋势转换(向上)
+      '趋势转换_up':          '''
+                            (
+                              (trend_day == 1 and prev_adx_duration < -1) or
+                              (trend == '' and prev_adx_duration < - 1)
+                            )
+                            '''.replace('\n', ''),
+
+      # 趋势转换(向下)
+      '趋势转换_down':          '''
+                            (
+                              (trend_day == -1 and prev_adx_duration > 1) or
+                              (trend == '' and prev_adx_duration > 1)
+                            )
+                            '''.replace('\n', ''),
+    
     } 
 
     # calculate pattern score and description
@@ -1329,13 +1356,15 @@ def calculate_ta_signal(df: pd.DataFrame):
       '超买超卖': '超卖',
       '关键交叉i': '金叉(ichi)',
       '关键交叉k': '金叉(kama)',
-      '长线边界': '长线支撑'
+      '长线边界': '长线支撑',
+      '趋势转换': '趋势转上'
     }
     p_down_desc = {
       '超买超卖': '超买',
       '关键交叉i': '死叉(ichi)',
       '关键交叉k': '死叉(kama)',
-      '长线边界': '长线阻挡'
+      '长线边界': '长线阻挡',
+      '趋势转换': '趋势转下'
     }
     for c in pattern_conditions.keys():
       
@@ -1382,10 +1411,14 @@ def calculate_ta_signal(df: pd.DataFrame):
     df['signal_day'] = 0
     df['signal_description'] = ''
 
-    for col in ['trend_score', 'trigger_score', 'pattern_score']:
+    for col in ['trend_score', 'trigger_score', 'pattern_score', 'position_score', 'candle_score']:
       df['signal_score'] += normalize(df[col].abs()) * (df[col] > 0).replace({True: 1, False: -1})
     df['signal_score'] = df['signal_score'].round(2)
     df['signal_score_change'] = (df['signal_score'] - df['signal_score'].shift(1)).round(2)
+
+    df['total_score'] = df['pattern_score'] + df['position_score'] + df['trend_score'] + df['candle_position_score'] + df['candle_pattern_score'] + df['break_score'] + df['boundary_score'] * 0.5
+    df['total_score'] = df['total_score'].round(2)
+    df['total_score_change'] = df['total_score'] - df['total_score'].shift(1)
 
     # # 交易信号(测试)
     # 趋势消失 + 十字星 = 卖出
@@ -2078,7 +2111,7 @@ def cal_position_score(df: pd.DataFrame) -> pd.DataFrame:
     col_p = rp_cols[col]
     col_d = f'{col}_distance'
     col_v = f'{col}_position_score'
-    col_to_drop.append(col_v)
+    # col_to_drop.append(col_v)
 
     if col_p not in df.columns or col_d not in df.columns:
       df[col_v] = 0
@@ -2566,9 +2599,9 @@ def add_candlestick_patterns(df: pd.DataFrame) -> pd.DataFrame:
     # long up/down shadow
     conditions = {
       # 长上影线: 
-      '长上影': '((shadow_diff > 0.5) and (candle_upper_shadow_pct > 0.5)) or ((shadow_diff > 0.25) and (candle_upper_shadow_pct > 0.75))',
+      '长上影': '((shadow_diff > 0.25) and (candle_upper_shadow_pct > 0.5)) or ((shadow_diff > 0.25) and (candle_upper_shadow_pct > 0.75))',
       # 长下影线: 
-      '长下影': '((shadow_diff > 0.5) and (candle_lower_shadow_pct > 0.5)) or ((shadow_diff > 0.25) and (candle_lower_shadow_pct > 0.75))',
+      '长下影': '((shadow_diff > 0.25) and (candle_lower_shadow_pct > 0.5)) or ((shadow_diff > 0.25) and (candle_lower_shadow_pct > 0.75))',
       }
     values = {'长上影': 'd', '长下影': 'u'} 
     df = assign_condition_value(df=df, column='长影线_trend', condition_dict=conditions, value_dict=values, default_value='n')
@@ -5454,24 +5487,35 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
   # 位置(及波动标识)
   if signal_x in ['position']:
 
-    # position
-    tmp_col_v = f'位置'
-    tmp_color = 'orange'
-    tmp_color_mid = 'grey'
+    # # position
+    # tmp_col_v = f'位置'
+    # tmp_color = 'orange'
+    # tmp_color_mid = 'grey'
     
-    values = {'低': 'll', '中低': 'lh', '中高': 'hl', '高': 'hh'}
-    markers = {'低': '.', '中低': '.', '中高': 'o', '高': 'o'}
-    colors = {'低': tmp_color, '中低': 'none', '中高': 'none', '高': tmp_color}
-    edgecolors = {'低': tmp_color, '中低': tmp_color_mid, '中高': tmp_color_mid, '高': tmp_color}
-    alphas = {'低': 0.7, '中低': 1, '中高': 1, '高': 0.7}
+    # values = {'低': 'll', '中低': 'lh', '中高': 'hl', '高': 'hh'}
+    # markers = {'低': '.', '中低': '.', '中高': 'o', '高': 'o'}
+    # colors = {'低': tmp_color, '中低': 'none', '中高': 'none', '高': tmp_color}
+    # edgecolors = {'低': tmp_color, '中低': tmp_color_mid, '中高': tmp_color_mid, '高': tmp_color}
+    # alphas = {'低': 0.7, '中低': 1, '中高': 1, '高': 0.7}
 
-    for p in markers.keys():
-      tmp_data = df.query(f'({tmp_col_v} == "{values[p]}")')
-      if len(tmp_data) > 0:
-        ax.scatter(tmp_data.index, tmp_data[signal_y], marker=markers[p], color=colors[p], edgecolor=edgecolors[p], alpha=alphas[p])
+    # for p in markers.keys():
+    #   tmp_data = df.query(f'({tmp_col_v} == "{values[p]}")')
+    #   if len(tmp_data) > 0:
+    #     ax.scatter(tmp_data.index, tmp_data[signal_y], marker=markers[p], color=colors[p], edgecolor=edgecolors[p], alpha=alphas[p])
+
+    tmp_col_v = 'position'
+    tmp_col_a = 'position_alpha'
+    df[tmp_col_a] = normalize(df['position_score'].abs()) * 0.8
+    markers = {'up': 'o', 'mid_up': '.', 'down': 'o', 'mid_down': '.'}
+    colors = {'up': 'green', 'mid_up': 'green', 'mid_down': 'red', 'down': 'red'}
+
+    for p in ['up', 'mid_up', 'down', 'mid_down']:
+      tmp_idx = df.query(f'({tmp_col_v} == "{p}")').index
+      if len(tmp_idx) > 0:
+        ax.scatter(tmp_idx, df.loc[tmp_idx, signal_y], marker=markers[p], color=colors[p], edgecolor='none', alpha=df.loc[tmp_idx, tmp_col_a].fillna(0))
 
     # 模式
-    alpha = 1
+    alpha = 0.8
 
     # 超卖
     tmp_data = df.query(f'(超买超卖 == 1)')
@@ -5481,17 +5525,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     # 超买
     tmp_data = df.query(f'(超买超卖 == -1)')
     if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='o', color='none', edgecolor='red', alpha=alpha) # 'none', edgecolor=
-
-    # # 其他pattern
-    # tmp_data = df.query(f'(pattern_score > 0 and 超买超卖 == 0)')
-    # if len(tmp_data) > 0:
-    #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='green', alpha=alpha) # 
-    
-    # # 其他pattern
-    # tmp_data = df.query(f'(pattern_score < 0 and 超买超卖 == 0)')
-    # if len(tmp_data) > 0:
-    #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='red', alpha=alpha) # 'none', edgecolor=
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='o', color='none', edgecolor='red', alpha=alpha) # 
 
   # adx, aki(adk&kama&ichimoku)
   if signal_x in ['adx', 'aki']:
@@ -5644,8 +5678,6 @@ def plot_adx(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str] =
   text_color = 'green' if df.loc[max_idx, 'adx_strength_change'] > 0 else 'red'
   v_change = f'+{v_change}' if v_change > 0 else f'{v_change}'
   plt.annotate(f'[强]{v:0<5}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
-
-  
 
   # annotate adx_value(adx_value_change)
   x_signal = max_idx + datetime.timedelta(days=1 * interval_factor[interval])
@@ -6997,7 +7029,7 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
       signals = tmp_args.get('signal_list')
 
       # plot one by one
-      labels = {' ': '信号', 'trigger': '触发(突破/边界)', 'trend': '趋势(方向/变化)', 'candle': '蜡烛(模式/位置)', 'position': '位置(超买/超卖)'}
+      labels = {' ': '信号', 'trigger': '触发(突破/边界)', 'trend': '趋势(变化/方向)', 'candle': '蜡烛(位置/模式)', 'position': '位置(高低/超买超卖)'}
       signal_bases = []
       signal_names = []
       if signals is not None:
@@ -7081,63 +7113,92 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
     # signal score desc
     change = round(df.loc[idx, "signal_score_change"], 2)
     change_desc = f'+{change}' if change >= 0 else f'{change}'
-    total_desc = f'----------------------\n{signal_score:<6} ({change_desc:<6})'
+    signal_desc_title = f'{signal_score:<6} ({change_desc:<6})'
 
     # trend desc
-    desc = df.loc[idx, "trend_description"]
+    desc = df.loc[idx, "trend_score"]
+    desc = f'上行' if desc > 0 else '下行'
     change = round(df.loc[idx, "trend_score"] - df.loc[before_max_idx, "trend_score"], 2)
     change_desc = f'+{change}' if change >= 0 else f'{change}'
+    desc = desc + '(增强)' if change > 0 else desc + '(减弱)'
     trend_desc = (f' {desc}' if len(desc) > 0 else '') + f' | 趋势 {df.loc[idx, "trend_score"]:<6} ({change_desc:<6})'
 
-    # trigger desc (break_through)
-    up_desc = df.loc[idx, "break_up_score"] # break_up_description
-    down_desc = df.loc[idx, "break_down_score"]
-    up_desc = f'突破({up_desc})' if up_desc > 0 else ''
-    down_desc = f'跌落({down_desc})' if down_desc < 0 else ''
+    # # trigger desc (break_through)
+    # break_up_desc = df.loc[idx, "break_up_score"] # break_up_description
+    # break_down_desc = df.loc[idx, "break_down_score"]
+    # break_up_desc = f'突破({break_up_desc})' if break_up_desc > 0 else ''
+    # break_down_desc = f'跌落({break_down_desc})' if break_down_desc < 0 else ''
+    # if len(break_up_desc) > 0 and len(break_down_desc) > 0:
+    #   break_desc = f'{break_up_desc} | {break_down_desc}'
+    # else:
+    #   break_desc = break_up_desc + break_down_desc
+    # break_change = round(df.loc[idx, "break_score"] - df.loc[before_max_idx, "break_score"], 2)
+    # break_change_desc = f'+{break_change}' if break_change >= 0 else f'{break_change}'
+    # break_desc = (f' {break_desc}' if len(break_desc) > 0 else '') + f' | 突破 {df.loc[idx, "break_score"]:<6} ({break_change_desc:<6})'
+
+    # # trigger desc (boundary)
+    # boundary_up_desc = df.loc[idx, "support_score"]
+    # boundary_down_desc = df.loc[idx, "resistant_score"]
+    # boundary_up_desc = f'支撑({boundary_up_desc*0.5})' if boundary_up_desc > 0 else ''
+    # boundary_down_desc = f'阻挡({boundary_down_desc*0.5})' if boundary_down_desc < 0 else ''
+    # if len(boundary_up_desc) > 0 and len(boundary_down_desc) > 0:
+    #   boundary_desc = f'{boundary_up_desc} | {boundary_down_desc}'
+    # else:
+    #   boundary_desc = boundary_up_desc + boundary_down_desc
+    # boundary_change = round(df.loc[idx, "boundary_score"] - df.loc[before_max_idx, "boundary_score"], 2)
+    # boundary_change_desc = f'+{boundary_change}' if boundary_change >= 0 else f'{boundary_change}'
+    # boundary_desc = (f' {boundary_desc}' if len(boundary_desc) > 0 else '') + f' | 触发 {df.loc[idx, "boundary_score"]*0.5:<6} ({boundary_change_desc:<6})'
+
+    # trigger desc (trigger)
+    up_desc = df.loc[idx, "trigger_up_score_description"]
+    down_desc = df.loc[idx, "trigger_down_score_description"]
     if len(up_desc) > 0 and len(down_desc) > 0:
       desc = f'{up_desc} | {down_desc}'
     else:
       desc = up_desc + down_desc
-    change = round(df.loc[idx, "break_score"] - df.loc[before_max_idx, "break_score"], 2)
+    change = round(df.loc[idx, "trigger_score"] - df.loc[before_max_idx, "trigger_score"], 2)
     change_desc = f'+{change}' if change >= 0 else f'{change}'
-    break_desc = (f' {desc}' if len(desc) > 0 else '') + f' | 突破 {df.loc[idx, "break_score"]:<6} ({change_desc:<6})'
+    trigger_desc = (f' {desc}' if len(desc) > 0 else '') + f' | 触发 {df.loc[idx, "trigger_score"]:<6} ({change_desc:<6})'
 
-    # trigger desc (boundary)
-    up_desc = df.loc[idx, "support_score"]
-    down_desc = df.loc[idx, "resistant_score"]
-    up_desc = f'支撑({up_desc*0.5})' if up_desc > 0 else ''
-    down_desc = f'阻挡({down_desc*0.5})' if down_desc < 0 else ''
-    if len(up_desc) > 0 and len(down_desc) > 0:
-      desc = f'{up_desc} | {down_desc}'
-    else:
-      desc = up_desc + down_desc
-    change = round(df.loc[idx, "boundary_score"] - df.loc[before_max_idx, "boundary_score"], 2)
-    change_desc = f'+{change}' if change >= 0 else f'{change}'
-    boundary_desc = (f' {desc}' if len(desc) > 0 else '') + f' | 边界 {df.loc[idx, "boundary_score"]*0.5:<6} ({change_desc:<6})'
-
-    # pattern desc
+    # pattern desc (pattern)
     desc = df.loc[idx, "pattern_description"]
     change = round(df.loc[idx, "pattern_score"] - df.loc[before_max_idx, "pattern_score"], 2)
     change_desc = f'+{change}' if change >= 0 else f'{change}'
     pattern_desc = (f' {desc}' if len(desc) > 0 else '') + f' | 模式 {df.loc[idx, "pattern_score"]:<6} ({change_desc:<6})'
     pattern_desc_title = (f'{desc}' if len(desc) > 0 else '')
 
-    # candle pattern desc
+    # position desc (position)
+    position_dict = {'down': '低位', 'mid_down': '中低位', 'mid': '中位', 'mid_up': '中高位', 'up': '高位'}
+    desc = position_dict[df.loc[idx, "position"]]
+    change = round(df.loc[idx, "position_score"] - df.loc[before_max_idx, "position_score"], 2)
+    change_desc = f'+{change}' if change >= 0 else f'{change}'
+    position_desc = (f' {desc}' if len(desc) > 0 else '') + f' | 位置 {df.loc[idx, "position_score"]:<6} ({change_desc:<6})'
+
+    # candle pattern desc (candle)
+    candle_score_desc = df.loc[idx, "candle_position_score"] + df.loc[idx, "candle_pattern_score"]
+    candle_score_desc = f'价格上涨' if candle_score_desc > 0 else f'价格下跌'
     up_desc = df.loc[idx, "candle_pattern_up_description"]
     up_desc = f'+[{up_desc}]' if len(up_desc) > 0 else up_desc
     down_desc = df.loc[idx, "candle_pattern_down_description"]
     down_desc = f'-[{down_desc}]' if len(down_desc) > 0 else down_desc
     if len(up_desc) > 0 and len(down_desc) > 0:
-      desc = f'{up_desc} | {down_desc}'
+      desc = f'{candle_score_desc} | {up_desc} | {down_desc}'
     else:
       desc = up_desc + down_desc
-    change = round(df.loc[idx, "candle_pattern_score"] - df.loc[before_max_idx, "candle_pattern_score"], 2)
+    
+    desc = candle_score_desc + f' | {desc}' if len(desc) > 0 else candle_score_desc
+    change = round(df.loc[idx, "candle_position_score"] + df.loc[idx, "candle_pattern_score"] - df.loc[before_max_idx, "candle_position_score"] - df.loc[before_max_idx, "candle_pattern_score"], 2)
     change_desc = f'+{change}' if change >= 0 else f'{change}'
-    # candle_pattern_desc = (f' {desc}' if len(desc) > 0 else '') + f' * 蜡烛 {df.loc[idx, "candle_pattern_score"]:<6} ({change_desc:<6})'
+    
+    candle_pattern_desc = (f' {desc}' if len(desc) > 0 else '') + f' | 蜡烛 {df.loc[idx, "candle_score"]:<6} ({change_desc:<6})'
     candle_desc_title = (f' {desc}' if len(desc) > 0 else '')
+    
+    total_score = df.loc[idx, "total_score"]
+    total_score_change = (df.loc[idx, "total_score_change"]).round(2)
+    total_score_change = f'+{total_score_change}' if total_score_change >= 0 else f'{total_score_change}'
+    total_desc = f'----------------------\n{total_score:<6} ({total_score_change:<6})'
 
-    plt.figtext(0.973, 1.05, f'{pattern_desc}\n{break_desc}\n{boundary_desc}\n{trend_desc}\n{total_desc}', fontsize=16, color='black', ha='right', va='top', bbox=dict(boxstyle="round", fc=desc_color, ec="1.0", alpha=abs(signal_score*0.025)))
-
+    plt.figtext(0.973, 1.05, f'{pattern_desc}\n{position_desc}\n{trend_desc}\n{candle_pattern_desc}\n{trigger_desc}\n{total_desc}', fontsize=16, color='black', ha='right', va='top', bbox=dict(boxstyle="round", fc=desc_color, ec="1.0", alpha=abs(signal_score*0.025)))
 
   # construct super title
   if new_title is None:
@@ -7145,7 +7206,7 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
   super_title = f' {title}({new_title})  {close_rate}% {title_symbol}'
 
   # super title description
-  score_title = (f'{signal_desc_title}' if signal_desc_title != '' else '')
+  # score_title = (f'{signal_desc_title}' if signal_desc_title != '' else '')
   pattern_title = (f'{pattern_desc_title}' if pattern_desc_title != '' else '')
   candle_title = (f'{candle_desc_title}' if candle_desc_title != '' else '')
   fig.suptitle(f'{super_title}\n{signal_desc_title}', ha='center', va='top', x=0.5, y=1.05, fontsize=24, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.05), linespacing = 1.8)
