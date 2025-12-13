@@ -888,74 +888,74 @@ def calculate_ta_score(df: pd.DataFrame):
   df = assign_condition_value(df=df, column='trigger_day', condition_dict=trigger_conditions, value_dict=trigger_values, default_value=0)
   df['trigger_day'] = sda(series=df['trigger_day'], zero_as=1)
 
-  # ================================ calculate aki rate & status ======
-  df['aki_rate'] = 0
-  df['aki_status'] = 0
+  # # ================================ calculate aki rate & status ======
+  # df['aki_rate'] = 0
+  # df['aki_status'] = 0
 
-  # adx/ichimoku/kama distance
-  threhold = 0.00
-  for col in ['adx', 'ichimoku', 'kama']:
+  # # adx/ichimoku/kama distance
+  # threhold = 0.00
+  # for col in ['adx', 'ichimoku', 'kama']:
 
-    distance_col = f'{col}_distance'
-    distance_middle_col = f'{col}_distance_middle'
-    result_col = f'{col}_distance_status'
-    status_col = f'{col}_status'
-    rate_col = f'{col}_rate'
-    df[result_col] = ''
+  #   distance_col = f'{col}_distance'
+  #   distance_middle_col = f'{col}_distance_middle'
+  #   result_col = f'{col}_distance_status'
+  #   status_col = f'{col}_status'
+  #   rate_col = f'{col}_rate'
+  #   df[result_col] = ''
 
-    col_to_drop += [distance_middle_col, status_col]
+  #   col_to_drop += [distance_middle_col, status_col]
 
-    flr = {'kama_distance': 'kama_fast_rate', 'ichimoku_distance': 'tankan_rate', 'adx_distance': 'adx_value_change'}[distance_col]
-    slr = {'kama_distance': 'kama_slow_rate', 'ichimoku_distance': 'kijun_rate', 'adx_distance': 'adx_value_pred_change'}[distance_col]
+  #   flr = {'kama_distance': 'kama_fast_rate', 'ichimoku_distance': 'tankan_rate', 'adx_distance': 'adx_value_change'}[distance_col]
+  #   slr = {'kama_distance': 'kama_slow_rate', 'ichimoku_distance': 'kijun_rate', 'adx_distance': 'adx_value_pred_change'}[distance_col]
 
-    # distance 决定 color 与 alpha
-    distance_conditions = {
-      'pos': f'{distance_col} > {threhold}', 
-      'neg': f'{distance_col} < {-threhold}', 
-      'none':f'{-threhold} <= {distance_col} <= {threhold}'
-    }
+  #   # distance 决定 color 与 alpha
+  #   distance_conditions = {
+  #     'pos': f'{distance_col} > {threhold}', 
+  #     'neg': f'{distance_col} < {-threhold}', 
+  #     'none':f'{-threhold} <= {distance_col} <= {threhold}'
+  #   }
     
-    # distance_change 决定 marker
-    distance_change_conditions = {
-      'up': f'''
-            (
-              ({flr} > {threhold} and {slr} > {threhold}) or 
-              ({rate_col} > 0 and {distance_middle_col} > {threhold})
-            )
-            '''.replace('\n', ''), 
+  #   # distance_change 决定 marker
+  #   distance_change_conditions = {
+  #     'up': f'''
+  #           (
+  #             ({flr} > {threhold} and {slr} > {threhold}) or 
+  #             ({rate_col} > 0 and {distance_middle_col} > {threhold})
+  #           )
+  #           '''.replace('\n', ''), 
 
-      'down': f'''
-            (
-              ({flr} < {-threhold} and {slr} < {-threhold}) or 
-              ({rate_col} < {-threhold} and {distance_middle_col} < {-threhold})
-            )
-            '''.replace('\n', ''), 
+  #     'down': f'''
+  #           (
+  #             ({flr} < {-threhold} and {slr} < {-threhold}) or 
+  #             ({rate_col} < {-threhold} and {distance_middle_col} < {-threhold})
+  #           )
+  #           '''.replace('\n', ''), 
 
-      'none':f'''
-            (
-              ({-threhold} <= {flr} <= {threhold}) and ({-threhold} <= {slr} <= {threhold}) or
-              ({rate_col} < {-threhold} and {distance_middle_col} > {threhold}) or
-              ({rate_col} > {threhold} and {distance_middle_col} < {-threhold})
-            )
-            '''.replace('\n', ''),  
-    }
+  #     'none':f'''
+  #           (
+  #             ({-threhold} <= {flr} <= {threhold}) and ({-threhold} <= {slr} <= {threhold}) or
+  #             ({rate_col} < {-threhold} and {distance_middle_col} > {threhold}) or
+  #             ({rate_col} > {threhold} and {distance_middle_col} < {-threhold})
+  #           )
+  #           '''.replace('\n', ''),  
+  #   }
     
-    # 综合 distance 和 distance_change
-    for d in distance_conditions.keys():
-      for dc in distance_change_conditions.keys():
-        tmp_condition = distance_conditions[d] + ' and ' + distance_change_conditions[dc]
-        tmp_match = df.query(tmp_condition).index
-        df.loc[tmp_match, result_col] = f'{d}{dc}'
+  #   # 综合 distance 和 distance_change
+  #   for d in distance_conditions.keys():
+  #     for dc in distance_change_conditions.keys():
+  #       tmp_condition = distance_conditions[d] + ' and ' + distance_change_conditions[dc]
+  #       tmp_match = df.query(tmp_condition).index
+  #       df.loc[tmp_match, result_col] = f'{d}{dc}'
 
-    df[status_col] = (df[rate_col] > 0).replace({True: 1, False: -1})
-    df['aki_rate'] += normalize(df[rate_col].abs()) * df[status_col]
-    df['aki_status'] += df[status_col]
+  #   df[status_col] = (df[rate_col] > 0).replace({True: 1, False: -1})
+  #   df['aki_rate'] += normalize(df[rate_col].abs()) * df[status_col]
+  #   df['aki_status'] += df[status_col]
 
-  # adx/kama/ichimoku rate and status 
-  df['aki_rate_day'] = (df['aki_rate'] > 0).replace({True: 1, False: -1})
-  df['aki_rate'] = normalize(df['aki_rate'].abs()) * df['aki_rate_day']
-  df['aki_rate_change'] = df['aki_rate'] - df['aki_rate'].shift(1)
-  df['aki_rate_day'] = sda(series=df['aki_rate_day'], zero_as=1) 
+  # # adx/kama/ichimoku rate and status 
+  # df['aki_rate_day'] = (df['aki_rate'] > 0).replace({True: 1, False: -1})
+  # df['aki_rate'] = normalize(df['aki_rate'].abs()) * df['aki_rate_day']
+  # df['aki_rate_change'] = df['aki_rate'] - df['aki_rate'].shift(1)
+  # df['aki_rate_day'] = sda(series=df['aki_rate_day'], zero_as=1) 
 
   # remove redandunt columns
   for col in col_to_drop:
@@ -1040,12 +1040,7 @@ def calculate_ta_signal(df: pd.DataFrame):
     return None
 
   # columns to drop          
-  df['prev_adx_day'] = sda(df['adx_trend'].shift(1), zero_as=0)
-  df['adx_wave'] = df['adx_value_change'].abs() + df['adx_strength_change'].abs()
-  df['ki_distance_sum'] = df['ichimoku_distance'] + df['kama_distance']
-  df['aki_score'] = df['aki_rate_change'] # df['adx_distance_change'] + 
-  df['aki_score_change'] = df['aki_score'] - df['aki_score'].shift(1)
-  col_to_drop = ['prev_adx_day', 'adx_wave', 'ki_distance_sum']
+  col_to_drop = []
   
 
   # ================================ calculate candle =======================
@@ -1158,39 +1153,47 @@ def calculate_ta_signal(df: pd.DataFrame):
                                 (kama_slow_break_down < 0 and (candle_position_score < 0 or candle_color == -1))
                               ) 
                             )
-                            '''.replace('\n', ''),
+                            '''.replace('\n', ''),        
 
-      # # 下降动能耗尽(向上)
-      # '动能耗尽_up':          '''
-      #                       (
-      #                         ((trend_day < -1 and trend_score_change > 0) and (0 > trend_score > -0.33)) or
-      #                         (trend_day < 0 and trend_score_change > 0 and trend_score > -0.1)
-      #                       )
-      #                       '''.replace('\n', ''),
-
-      # # 上涨动能耗尽(向下)
-      # '动能耗尽_down':          '''
-      #                       (
-      #                         ((trend_day > 1 and trend_score_change < 0) and (0 < trend_score < 0.33)) or
-      #                         (trend_day > 0 and trend_score_change < 0 and trend_score < 0.1)
-      #                       )
-      #                       '''.replace('\n', ''),                      
-    
       # 趋势转换(向上)
-      '趋势转换_up':          '''
+      '趋势渐弱_up':          '''
                             ( 
                               (trend == 'wave' and trend_day < 0 and trend_score > -1)
                             )
                             '''.replace('\n', ''),
 
       # 趋势转换(向下)
-      '趋势转换_down':          '''
+      '趋势渐弱_down':          '''
                             (
                               (trend == 'wave' and trend_day > 0 and trend_score < 1)
+                            )
+                            '''.replace('\n', ''),          
+    
+      # 趋势转换(向上)
+      '趋势转换_up':          '''
+                            ( 
+                              (trend_day == 1 and prev_trend_day < -5)
+                            )
+                            '''.replace('\n', ''),
+
+      # 趋势转换(向下)
+      '趋势转换_down':          '''
+                            (
+                              (trend_day == -1 and prev_trend_day > 5)
                             )
                             '''.replace('\n', ''),
     
     } 
+
+    # set pattern weigths
+    p_weights = {
+      '超买超卖': 0.5,
+      '关键交叉i': 0.5,
+      '关键交叉k': 0.5,
+      '长线边界': 0.75,
+      '趋势渐弱': 0.75,
+      '趋势转换': 1
+    }
 
     # calculate pattern score and description
     p_up_desc = {
@@ -1198,16 +1201,16 @@ def calculate_ta_signal(df: pd.DataFrame):
       '关键交叉i': '金叉(ichi)',
       '关键交叉k': '金叉(kama)',
       '长线边界': '长线支撑',
+      '趋势渐弱': '下行暂缓',
       '趋势转换': '趋势转上',
-      # '动能耗尽': '下降动能耗尽'
     }
     p_down_desc = {
       '超买超卖': '超买',
       '关键交叉i': '死叉(ichi)',
       '关键交叉k': '死叉(kama)',
       '长线边界': '长线阻挡',
+      '趋势渐弱': '上行暂缓',
       '趋势转换': '趋势转下',
-      # '动能耗尽': '上涨动能耗尽'
     }
     for c in pattern_conditions.keys():
       
@@ -1218,18 +1221,19 @@ def calculate_ta_signal(df: pd.DataFrame):
       # # get index which matches the condition
       tmp_condition = pattern_conditions[c]
       tmp_idx = df.query(tmp_condition).index
+      tmp_score = p_weights[name]
 
       # mark up/down pattern
       if direction == 'up':
-        df.loc[tmp_idx, name] += 1
-        df.loc[tmp_idx, 'pattern_score'] += 1
-        df.loc[tmp_idx, 'pattern_up_score'] += 1
+        df.loc[tmp_idx, name] += tmp_score
+        df.loc[tmp_idx, 'pattern_score'] += tmp_score
+        df.loc[tmp_idx, 'pattern_up_score'] += tmp_score
         df.loc[tmp_idx, 'pattern_up'] += p_up_desc[name] + ', '
 
       elif direction == 'down':
-        df.loc[tmp_idx, name] = -1
-        df.loc[tmp_idx, 'pattern_score'] -= 1
-        df.loc[tmp_idx, 'pattern_down_score'] -= 1
+        df.loc[tmp_idx, name] -= tmp_score
+        df.loc[tmp_idx, 'pattern_score'] -= tmp_score
+        df.loc[tmp_idx, 'pattern_down_score'] -= tmp_score
         df.loc[tmp_idx, 'pattern_down'] += p_down_desc[name] + ', '
 
       else:
@@ -5111,7 +5115,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     # if len(tmp_data) > 0:
     #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='red', edgecolor='none', alpha=outer_alpha)
 
-    # aki_score_change
+    # pattern score
     df[tmp_col_a] = normalize(df['pattern_score'].abs()) * 0.5
     up_idx = df.query('pattern_score > 0').index
     down_idx = df.query('pattern_score < 0').index
@@ -5187,12 +5191,6 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     tmp_data = df.query(f'(trend == "wave")')
     if len(tmp_data) > 0:
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='orange', edgecolor='none', alpha=outer_alpha)
-    # # aki_score = adx_distance_change + aki_rate_change
-    # df['aki_score_alpha'] = normalize(df['aki_score'].abs())
-    # up_idx = df.query('((adx_day > 0 or aki_rate > 0) and (adx_distance_change > 0 and aki_rate_change > 0) and aki_score > 0) or aki_score > 0.2').index
-    # down_idx = df.query('((adx_day < 0 or aki_rate < 0) and (adx_distance_change < 0 and aki_rate_change < 0) and aki_score < 0) or aki_score < -0.2').index
-    # ax.scatter(up_idx, df.loc[up_idx, signal_y], marker='s', color='green', edgecolor='none', alpha=df.loc[up_idx, 'aki_score_alpha'].fillna(0))
-    # ax.scatter(down_idx, df.loc[down_idx, signal_y], marker='s', color='red', edgecolor='none', alpha=df.loc[down_idx, 'aki_score_alpha'].fillna(0))
 
     # adx_distance
     df[tmp_col_a] = normalize(df['trend_score'].abs())
@@ -5201,13 +5199,12 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     ax.scatter(up_idx, df.loc[up_idx, signal_y], marker='s', color='green', edgecolor='none', alpha=df.loc[up_idx, tmp_col_a].fillna(0))
     ax.scatter(down_idx, df.loc[down_idx, signal_y], marker='s', color='red', edgecolor='none', alpha=df.loc[down_idx, tmp_col_a].fillna(0))
 
-
-    # annotate info
-    ylim = ax.get_ylim()
-    y_max = ylim[1]
-    max_idx = df.index.max()
-    interval_factor = {'day':2, 'week': 10, 'month': 45}
-    x_signal = max_idx + datetime.timedelta(days=1 * interval_factor[interval])
+    # # annotate info
+    # ylim = ax.get_ylim()
+    # y_max = ylim[1]
+    # max_idx = df.index.max()
+    # interval_factor = {'day':2, 'week': 10, 'month': 45}
+    # x_signal = max_idx + datetime.timedelta(days=1 * interval_factor[interval])
 
     # # annotate aki_rate (aki_rate_change)
     # v = round(df.loc[max_idx, 'signal_score'],1)
@@ -5217,30 +5214,30 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     # plt.annotate(f'{v_change}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
     # annotate aki_score (adx_distance_change+aki_rate_change)
-    df['prev_aki_score'] = df['aki_score'].shift(1)
-    v = round(df.loc[max_idx, 'aki_score'], 2)
-    text_color = 'green' if v > 0 else 'red'
-    v_prev = round(df.loc[max_idx, 'prev_aki_score'], 2)
-    v_change = round(df.loc[max_idx, 'aki_score_change'],2)
-    v_change = f'+{v_change}' if v_change > 0 else f'{v_change}'
-    y_signal = y_max - 0.5
-    plt.annotate(f'{v_prev:0<4}{v_change:0<4}→{v:0<4}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+    # df['prev_aki_score'] = df['aki_score'].shift(1)
+    # v = round(df.loc[max_idx, 'aki_score'], 2)
+    # text_color = 'green' if v > 0 else 'red'
+    # v_prev = round(df.loc[max_idx, 'prev_aki_score'], 2)
+    # v_change = round(df.loc[max_idx, 'aki_score_change'],2)
+    # v_change = f'+{v_change}' if v_change > 0 else f'{v_change}'
+    # y_signal = y_max - 0.5
+    # plt.annotate(f'{v_prev:0<4}{v_change:0<4}→{v:0<4}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
-    # annotate adx_distance (adx_distance_change)
-    v = round(df.loc[max_idx, 'adx_distance'], 1)
-    v_change = round(df.loc[max_idx, 'adx_distance_change'],2)
-    text_color = 'green' if v_change > 0 else 'red'
-    v_change = f'+{v_change}' if v_change > 0 else f'{v_change}'
-    y_signal = y_max - 1.75
-    plt.annotate(f'[短]{v:0<4}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+    # # annotate adx_distance (adx_distance_change)
+    # v = round(df.loc[max_idx, 'adx_distance'], 1)
+    # v_change = round(df.loc[max_idx, 'adx_distance_change'],2)
+    # text_color = 'green' if v_change > 0 else 'red'
+    # v_change = f'+{v_change}' if v_change > 0 else f'{v_change}'
+    # y_signal = y_max - 1.75
+    # plt.annotate(f'[短]{v:0<4}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
-    # annotate aki_rate (aki_rate_change)
-    v = round(df.loc[max_idx, 'aki_rate'],1)
-    v_change = round(df.loc[max_idx, 'aki_rate_change'],2)
-    text_color = 'green' if v_change > 0 else 'red'
-    v_change = f'+{v_change}' if v_change > 0 else f'{v_change}'
-    y_signal = y_max - 3 # round(y_middle)
-    plt.annotate(f'[总]{v:0<4}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+    # # annotate aki_rate (aki_rate_change)
+    # v = round(df.loc[max_idx, 'aki_rate'],1)
+    # v_change = round(df.loc[max_idx, 'aki_rate_change'],2)
+    # text_color = 'green' if v_change > 0 else 'red'
+    # v_change = f'+{v_change}' if v_change > 0 else f'{v_change}'
+    # y_signal = y_max - 3 # round(y_middle)
+    # plt.annotate(f'[总]{v:0<4}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
     # # annotate adx/ichimoku/kama distance_status
     # adx_distance_status = df.loc[max_idx, "adx_distance_status"].replace('pos', '+').replace('neg', '-').replace('none', '=').replace('up', '↑').replace('down', '↓')
@@ -5290,43 +5287,6 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     tmp_data = df.query(f'(超买超卖 == -1)')
     if len(tmp_data) > 0:
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='o', color='none', edgecolor='red', alpha=alpha) # 
-
-  # adx, aki(adk&kama&ichimoku)
-  if signal_x in ['adx', 'aki']:
-    
-    # columns
-    outer_cols = {'adx': 'adx_day', 'aki': 'aki_rate'}
-    inner_cols = {'adx': 'adx_distance_change', 'aki': 'aki_rate_change'}
-    outer_tmp_col_v = outer_cols[signal_x]
-    inner_tmp_col_v = inner_cols[signal_x]
-
-    # markers and alpha
-    outer_pos_marker = 'o'
-    outer_neg_marker = 'o'
-    outer_alpha = 0.25
-    inner_pos_marker = 'o'
-    inner_neg_marker = 'o'
-    df['inner_alpha'] = normalize(df[inner_tmp_col_v].abs())
-    none_marker = '_'
-    
-    threhold = 0
-    # outer circle
-    tmp_data = df.query(f'({outer_tmp_col_v} > {threhold})')
-    if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=outer_pos_marker, color='none', edgecolor='green', alpha=outer_alpha)
-  
-    tmp_data = df.query(f'({outer_tmp_col_v} < {-threhold})')
-    if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=outer_neg_marker, color='none', edgecolor='red', alpha=outer_alpha)
-
-    # inner point
-    tmp_data = df.query(f'({inner_tmp_col_v} > {threhold})')
-    if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=inner_pos_marker, color='green', edgecolor='none', alpha=tmp_data['inner_alpha'].fillna(0))
-  
-    tmp_data = df.query(f'({inner_tmp_col_v} < {-threhold})')
-    if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker=inner_neg_marker, color='red', edgecolor='none', alpha=tmp_data['inner_alpha'].fillna(0))
 
   # ichimoku/kama distance
   if signal_x in ["短期", "中期", "长期"]:
@@ -6299,7 +6259,7 @@ def plot_rsi(df: pd.DataFrame, start: Optional[int] = None, end: Optional[int] =
 # plot rate and trigger_score/trend_score for each target list
 def plot_summary(data: dict, width: int = 20, unit_size: float = 0.3, wspace: float = 0.2, hspace: float = 0.1, plot_args: dict = default_plot_args, config: Optional[dict] = None, save_path: Optional[str] = None) -> plt.Axes:
   """
-  Plot rate and trigger_score/aki_rate for each target list
+  Plot rate and major indicator scores for each target list
   :param data: dict of dataframes including 'result'
   :param figsize:  figure size
   :param save_path:  path to save the figure
@@ -6878,13 +6838,13 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
 
     # trend desc
     desc = df.loc[idx, "trend_score"]
-    desc = f'向上' if desc > 0 else '向下'
+    desc = f'上涨' if desc > 0 else '下降'
     change = round(df.loc[idx, "trend_score"] - df.loc[before_max_idx, "trend_score"], 2)
     change_desc = f'+{change}' if change >= 0 else f'{change}'
     if df.loc[idx, "trend"] == 'wave':
       desc = '波动' + desc
     else:
-      desc = (desc + '增强' if change > 0 else desc + '减缓') if desc == '向上' else (desc + '减缓' if change > 0 else desc + '增强')
+      desc = (desc + '趋势增强' if change > 0 else desc + '趋势减缓') if desc == '上涨' else (desc + '趋势减缓' if change > 0 else desc + '趋势增强')
     trend_desc = (f' {desc}' if len(desc) > 0 else '') + f' | 趋势 {df.loc[idx, "trend_score"]:<6} ({change_desc:<6})'
 
     # trigger desc (trigger)
@@ -6914,11 +6874,10 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
 
     # candle pattern desc (candle)
     candle_prefix_pos = {0.33: '微', 0.66: '上', 0.99: '大'}
-    candle_prefix_neg = {-0.33: '微', -0.66: '上', -0.99: '大'}
+    candle_prefix_neg = {-0.33: '微', -0.66: '下', -0.99: '大'}
     candle_position_score = df.loc[idx, "candle_position_score"]
     candle_score_desc = f'价格{candle_prefix_pos[candle_position_score]}涨' if candle_position_score > 0 else f'价格{candle_prefix_neg[candle_position_score]}跌'
     
-    candle_pattern_score = df.loc[idx, "candle_pattern_score"]
     up_desc = df.loc[idx, "candle_pattern_up_description"]
     up_desc = f'+[{up_desc}]' if len(up_desc) > 0 else up_desc
     down_desc = df.loc[idx, "candle_pattern_down_description"]
@@ -6932,7 +6891,7 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
     change = round(df.loc[idx, "candle_position_score"] + df.loc[idx, "candle_pattern_score"] - df.loc[before_max_idx, "candle_position_score"] - df.loc[before_max_idx, "candle_pattern_score"], 2)
     change_desc = f'+{change}' if change >= 0 else f'{change}'
     
-    candle_pattern_desc = (f' {desc}' if len(desc) > 0 else '') + f' | 蜡烛 {(df.loc[idx, "candle_position_score"] + df.loc[idx, "candle_pattern_score"]):<6} ({change_desc:<6})'
+    candle_pattern_desc = (f' {desc}' if len(desc) > 0 else '') + f' | 蜡烛 {(df.loc[idx, "candle_position_score"] + df.loc[idx, "candle_pattern_score"]).round(2):<6} ({change_desc:<6})'
     candle_desc_title = (f' {desc}' if len(desc) > 0 else '')
     
     total_score = df.loc[idx, "total_score"]
@@ -6940,7 +6899,7 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
     total_score_change = f'+{total_score_change}' if total_score_change >= 0 else f'{total_score_change}'
     total_desc = f'----------------------\n{total_score:<6} ({total_score_change:<6})'
 
-    plt.figtext(0.973, 1.05, f'{position_desc}\n{candle_pattern_desc}\n{trend_desc}\n{trigger_desc}\n{pattern_desc}\n{total_desc}', fontsize=16, color='black', ha='right', va='top', bbox=dict(boxstyle="round", fc=desc_color, ec="1.0", alpha=abs(signal_score*0.025)))
+    plt.figtext(0.973, 1.05, f'{position_desc}\n{trend_desc}\n{candle_pattern_desc}\n{trigger_desc}\n{pattern_desc}\n{total_desc}', fontsize=16, color='black', ha='right', va='top', bbox=dict(boxstyle="round", fc=desc_color, ec="1.0", alpha=abs(signal_score*0.025)))
 
   # construct super title
   if new_title is None:
