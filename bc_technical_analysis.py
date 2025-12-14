@@ -952,10 +952,10 @@ def calculate_ta_score(df: pd.DataFrame):
   #   df['aki_status'] += df[status_col]
 
   # # adx/kama/ichimoku rate and status 
-  # df['aki_rate_day'] = (df['aki_rate'] > 0).replace({True: 1, False: -1})
-  # df['aki_rate'] = normalize(df['aki_rate'].abs()) * df['aki_rate_day']
+  # df['aki_day'] = (df['aki_rate'] > 0).replace({True: 1, False: -1})
+  # df['aki_rate'] = normalize(df['aki_rate'].abs()) * df['aki_day']
   # df['aki_rate_change'] = df['aki_rate'] - df['aki_rate'].shift(1)
-  # df['aki_rate_day'] = sda(series=df['aki_rate_day'], zero_as=1) 
+  # df['aki_day'] = sda(series=df['aki_day'], zero_as=1) 
 
   # remove redandunt columns
   for col in col_to_drop:
@@ -1065,9 +1065,9 @@ def calculate_ta_signal(df: pd.DataFrame):
 
     # 趋势定性
     position_conditions = {
-      'up':        f'adx_trend == 1', 
-      'down':      f'adx_trend == -1',
-      'wave':      f'adx_trend == 0',
+      'up':        f'adx_trend == 1 and adx_direction > 1', 
+      'down':      f'adx_trend == -1 and adx_direction < -1',
+      'wave':      f'adx_trend == 0 or (-1 <= adx_trend <= 1 and -1 <= adx_direction <= 1)',
     } 
     position_values = {
       'up':        f'up',
@@ -1077,6 +1077,8 @@ def calculate_ta_signal(df: pd.DataFrame):
     df = assign_condition_value(df=df, column='trend', condition_dict=position_conditions, value_dict=position_values, default_value='')     
     df['trend_day'] = sda(df['trend'].replace({'':0, 'up':1, 'down': -1, 'wave': 0}), zero_as=1)
     df['prev_trend_day'] = df['trend_day'].shift(1)
+    df['prev_trend'] = df['trend'].shift(1)
+    col_to_drop += ['prev_trend', 'prev_trend_day']
 
   # ================================ calculate pattern ======================
   if 'pattern'  > '':
@@ -1099,34 +1101,6 @@ def calculate_ta_signal(df: pd.DataFrame):
       # 超买
       '超买超卖_down':          '''
                             (rsi > 70)
-                            '''.replace('\n', ''),
-
-      # 关键交叉(ichimoku, kama)
-      '关键交叉i_up':            '''
-                            (
-                              (ichimoku_distance_day == 1)
-                            )
-                            '''.replace('\n', ''),
-
-      # 关键交叉(ichimoku, kama)
-      '关键交叉i_down':          '''
-                            (
-                              (ichimoku_distance_day == -1)
-                            )
-                            '''.replace('\n', ''),
-
-      # 关键交叉(ichimoku, kama)
-      '关键交叉k_up':            '''
-                            (
-                              (kama_distance_day == 1)
-                            )
-                            '''.replace('\n', ''),
-
-      # 关键交叉(ichimoku, kama)
-      '关键交叉k_down':          '''
-                            (
-                              (kama_distance_day == -1)
-                            )
                             '''.replace('\n', ''),
 
       # 关键边界(ichimoku, kama, gap)
@@ -1158,59 +1132,78 @@ def calculate_ta_signal(df: pd.DataFrame):
       # 趋势转换(向上)
       '趋势渐弱_up':          '''
                             ( 
-                              (trend == 'wave' and trend_day < 0 and trend_score > -1)
+                              (trend == 'wave' and trend_day < 0 and trend_score > -1) or
+                              (trend == 'down' and trend_score > -1)
                             )
                             '''.replace('\n', ''),
 
       # 趋势转换(向下)
       '趋势渐弱_down':          '''
                             (
-                              (trend == 'wave' and trend_day > 0 and trend_score < 1)
+                              (trend == 'wave' and trend_day > 0 and trend_score < 1) or
+                              (trend == 'up' and trend_score < 1)
                             )
                             '''.replace('\n', ''),          
     
       # 趋势转换(向上)
       '趋势转换_up':          '''
                             ( 
-                              (trend_day == 1 and prev_trend_day < -5)
+                              (trend_day == 1 and prev_trend_day < -5) or 
+                              (trend_day == 1 and adx_direction > 1) or
+                              (trend == 'up' and prev_trend != 'up' and adx_direction > 1)
                             )
                             '''.replace('\n', ''),
 
       # 趋势转换(向下)
       '趋势转换_down':          '''
                             (
-                              (trend_day == -1 and prev_trend_day > 5)
+                              (trend_day == -1 and prev_trend_day > 5) or 
+                              (trend_day == -1 and adx_direction < -1) or
+                              (trend == 'down' and prev_trend != 'down' and adx_direction < -1)
+                            )
+                            '''.replace('\n', ''),
+
+      # 趋势启动(低位向上)
+      '趋势启动_up':          '''
+                            ( 
+                              (position in ['down', 'mid_down']) and (trend_day == 1)
+                            )
+                            '''.replace('\n', ''),
+
+      # 趋势启动(高位向下)
+      '趋势启动_down':          '''
+                            (
+                              (position in ['up', 'mid_up']) and (trend_day == -1)
                             )
                             '''.replace('\n', ''),
     
+      # 区间波动
+
     } 
 
     # set pattern weigths
     p_weights = {
-      '超买超卖': 0.5,
-      '关键交叉i': 0.5,
-      '关键交叉k': 0.5,
+      '超买超卖': 0.1,
       '长线边界': 0.75,
       '趋势渐弱': 0.75,
-      '趋势转换': 1
+      '趋势转换': 1,
+      '趋势启动': 1,
     }
 
     # calculate pattern score and description
     p_up_desc = {
       '超买超卖': '超卖',
-      '关键交叉i': '金叉(ichi)',
-      '关键交叉k': '金叉(kama)',
       '长线边界': '长线支撑',
       '趋势渐弱': '下行暂缓',
       '趋势转换': '趋势转上',
+      '趋势启动': '低位向上',
     }
     p_down_desc = {
       '超买超卖': '超买',
-      '关键交叉i': '死叉(ichi)',
-      '关键交叉k': '死叉(kama)',
       '长线边界': '长线阻挡',
       '趋势渐弱': '上行暂缓',
       '趋势转换': '趋势转下',
+      '趋势启动': '高位向下',
     }
     for c in pattern_conditions.keys():
       
@@ -1251,22 +1244,34 @@ def calculate_ta_signal(df: pd.DataFrame):
 
   # ================================ calculate signal =======================
   if 'signal'  > '':
+
+    # total
+    df['total_score'] = df['pattern_score'] + df['trend_score'] + df['candle_position_score'] + df['candle_pattern_score'] + df['break_score'] + df['boundary_score'] * 0.5
+    df['total_score'] = df['total_score'].round(2)
+    df['total_score_change'] = df['total_score'] - df['total_score'].shift(1)
   
-    # signal
+    # signal score
     df['signal_score'] = 0
-    df['signal'] = ''
     df['signal_day'] = 0
     df['signal_description'] = ''
 
-    signal_weight = {'trend_score': 2, 'trigger_score': 1, 'pattern_score': 1, 'candle_position_score': 1, 'candle_pattern_score': 1, 'position_score': 0, }
+    signal_weight = {'trend_score': 2, 'trigger_score': 1, 'position_score': 0, 'candle_position_score': 1, 'candle_pattern_score': 1, }
     for col in signal_weight.keys():
       df['signal_score'] += normalize(df[col].abs()) * (df[col] > 0).replace({True: 1, False: -1})
     df['signal_score'] = df['signal_score'].round(2)
     df['signal_score_change'] = (df['signal_score'] - df['signal_score'].shift(1)).round(2)
 
-    df['total_score'] = df['pattern_score'] + df['trend_score'] + df['candle_position_score'] + df['candle_pattern_score'] + df['break_score'] + df['boundary_score'] * 0.5
-    df['total_score'] = df['total_score'].round(2)
-    df['total_score_change'] = df['total_score'] - df['total_score'].shift(1)
+    # signal
+    df['signal'] = ''
+    position_conditions = {
+      'buy':       f'(signal_score_change > 0) and ((trend == "up" or trigger_score > 0) and pattern_score > 0)', 
+      'sell':      f'(signal_score_change < 0) and ((trend == "down"  or trigger_score < 0) and pattern_score < 0)',
+    } 
+    position_values = {
+      'buy':       f'b',
+      'sell':      f's',
+    }
+    df = assign_condition_value(df=df, column='signal', condition_dict=position_conditions, value_dict=position_values, default_value='')
 
   # drop redundant columns
   for col in col_to_drop:
@@ -5093,27 +5098,49 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
   # buy and sell
   if signal_x == ' ':
 
+    # signal
+    alpha = 0.5
+
+    tmp_data = df.query(f'(signal == "b")')
+    if len(tmp_data) > 0:
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='^', color='green', edgecolor='green', alpha=alpha) # outer_alpha
+
+    tmp_data = df.query(f'(signal == "s")')
+    if len(tmp_data) > 0:
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='v', color='red', edgecolor='red', alpha=alpha)
+
+  # patterns
+  if signal_x == '模式':
+
     # pass
     # pattern_score
     tmp_col_v = f'pattern_score'
     tmp_col_a = f'pattern_score_alpha'
-    outer_alpha = 0.66
+    outer_alpha = 0.5
 
-    # tmp_data = df.query(f'(趋势转换 > 0)')
-    # if len(tmp_data) > 0:
-    #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='^', color='none', edgecolor='green', alpha=outer_alpha) # outer_alpha
+    tmp_data = df.query(f'(趋势转换 > 0 or 趋势启动 > 0)')
+    if len(tmp_data) > 0:
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='o', color='none', edgecolor='green', alpha=outer_alpha) # outer_alpha
 
-    # tmp_data = df.query(f'(趋势转换 < 0)')
-    # if len(tmp_data) > 0:
-    #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='v', color='none', edgecolor='red', alpha=outer_alpha)
+    tmp_data = df.query(f'(趋势转换 < 0 or 趋势启动 < 0)')
+    if len(tmp_data) > 0:
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='o', color='none', edgecolor='red', alpha=outer_alpha)
 
-    # tmp_data = df.query(f'(动能耗尽 > 0)')
+    # tmp_data = df.query(f'(趋势渐弱 > 0)')
     # if len(tmp_data) > 0:
     #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='green', edgecolor='none', alpha=outer_alpha) # outer_alpha
 
-    # tmp_data = df.query(f'(动能耗尽 < 0)')
+    # tmp_data = df.query(f'(趋势渐弱 < 0)')
     # if len(tmp_data) > 0:
-    #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='red', edgecolor='none', alpha=outer_alpha)
+    #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.',color='red', edgecolor='none', alpha=outer_alpha)
+
+    tmp_data = df.query(f'(长线边界 > 0)')
+    if len(tmp_data) > 0:
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='green', edgecolor='none', alpha=outer_alpha) # outer_alpha
+
+    tmp_data = df.query(f'(长线边界 < 0)')
+    if len(tmp_data) > 0:
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', edgecolor='none', alpha=outer_alpha)
 
     # pattern score
     df[tmp_col_a] = normalize(df['pattern_score'].abs()) * 0.5
@@ -5267,24 +5294,25 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     tmp_col_v = 'position'
     tmp_col_a = 'position_alpha'
     df[tmp_col_a] = normalize(df['position_score'].abs()) * 0.8
-    markers = {'up': 'o', 'mid_up': '.', 'down': 'o', 'mid_down': '.'}
-    colors = {'up': 'green', 'mid_up': 'green', 'mid_down': 'red', 'down': 'red'}
+    markers = {'down': '.', 'mid_down': '.', 'mid_up': 'o', 'up': 'o'}
+    colors = {'down': 'orange', 'mid_down': 'orange', 'mid_up': 'orange', 'up': 'orange'}
 
     for p in ['up', 'mid_up', 'down', 'mid_down']:
       tmp_idx = df.query(f'({tmp_col_v} == "{p}")').index
       if len(tmp_idx) > 0:
+        # ax.scatter(tmp_idx, df.loc[tmp_idx, signal_y], marker=markers[p], color='none', edgecolor='grey', alpha=0.6)
         ax.scatter(tmp_idx, df.loc[tmp_idx, signal_y], marker=markers[p], color=colors[p], edgecolor='none', alpha=df.loc[tmp_idx, tmp_col_a].fillna(0))
 
     # 模式
-    alpha = 0.8
+    alpha = 0.5
 
     # 超卖
-    tmp_data = df.query(f'(超买超卖 == 1)')
+    tmp_data = df.query(f'(超买超卖 > 0)')
     if len(tmp_data) > 0:
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='o', color='none', edgecolor='green', alpha=alpha) # 
     
     # 超买
-    tmp_data = df.query(f'(超买超卖 == -1)')
+    tmp_data = df.query(f'(超买超卖 < 0)')
     if len(tmp_data) > 0:
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='o', color='none', edgecolor='red', alpha=alpha) # 
 
