@@ -1263,15 +1263,39 @@ def calculate_ta_signal(df: pd.DataFrame):
 
     # signal
     df['signal'] = ''
-    position_conditions = {
-      'buy':       f'(signal_score_change > 0) and ((trend == "up" or trigger_score > 0) and pattern_score > 0)', 
-      'sell':      f'(signal_score_change < 0) and ((trend == "down"  or trigger_score < 0) and pattern_score < 0)',
+    signal_conditions = {
+      '通常买入':       f'(signal_score_change > 0) and (pattern_score > 0) and (trend == "up")', 
+      '通常卖出':      f'(signal_score_change < 0) and (pattern_score < 0) and (trend == "down")', 
+      '可能买入':       f'(signal_score_change > 0) and (pattern_score > 0) and (trigger_up_score > 0 and trigger_down_score == 0)', 
+      '可能卖出':      f'(signal_score_change < 0) and (pattern_score < 0) and (trigger_down_score < 0 and trigger_score < 0)',  
     } 
-    position_values = {
-      'buy':       f'tob',
-      'sell':      f'tos',
+    signal_values = {
+      '通常买入':       f'buy',
+      '通常卖出':      f'sell',
+      '可能买入':       f'to_buy',
+      '可能卖出':      f'to_sell',
     }
-    df = assign_condition_value(df=df, column='signal', condition_dict=position_conditions, value_dict=position_values, default_value='')
+    # df = assign_condition_value(df=df, column='signal', condition_dict=signal_conditions, value_dict=signal_values, default_value='')
+    for sc in signal_conditions.keys():
+      tmp_idx = df.query(signal_conditions[sc]).index
+      if len(tmp_idx) > 0:
+        df.loc[tmp_idx, 'signal'] = signal_values[sc]
+        df.loc[tmp_idx, 'signal_description'] += f'{sc} '
+
+    # additional-signal
+    none_signal_conditions = {
+      '高位十字星':       f'(signal in ["buy", "to_buy"]) and (position in ["up"] and 十字星_trend != "n")', 
+      '高位平头顶':       f'(position in ["up"] and 平头_trend == "d")', 
+    } 
+    none_signal_values = {
+      '高位十字星':       f'', 
+      '高位平头顶':       f'to_sell', 
+    }
+    for nc in none_signal_conditions.keys():
+      tmp_idx = df.query(none_signal_conditions[nc]).index
+      if len(tmp_idx) > 0:
+        df.loc[tmp_idx, 'signal'] = none_signal_values[nc]
+        df.loc[tmp_idx, 'signal_description'] += f'{nc} '
 
   # drop redundant columns
   for col in col_to_drop:
@@ -5101,13 +5125,21 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     # signal
     alpha = 0.5
 
-    tmp_data = df.query(f'(signal == "tob")')
+    tmp_data = df.query(f'(signal == "buy")')
     if len(tmp_data) > 0:
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='^', color='green', edgecolor='green', alpha=alpha) # outer_alpha
 
-    tmp_data = df.query(f'(signal == "tos")')
+    tmp_data = df.query(f'(signal == "sell")')
     if len(tmp_data) > 0:
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='v', color='red', edgecolor='red', alpha=alpha)
+
+    tmp_data = df.query(f'(signal == "to_buy")')
+    if len(tmp_data) > 0:
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='^', color='none', edgecolor='green', alpha=alpha) # outer_alpha
+
+    tmp_data = df.query(f'(signal == "to_sell")')
+    if len(tmp_data) > 0:
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='v', color='none', edgecolor='red', alpha=alpha)
 
   # patterns
   if signal_x == '模式':
@@ -6860,9 +6892,10 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
 
     # signal desc
     signal_score = df.loc[idx, "signal_score"]
+    signal_description = df.loc[idx, "signal_description"]
     change = round(df.loc[idx, "signal_score_change"], 2)
     change_desc = f'+{change}' if change >= 0 else f'{change}'
-    signal_desc_title = f'{signal_score:<6} ({change_desc:<6})'
+    signal_desc_title = f'{signal_score:<6} ({change_desc:<6})' +f'\n{signal_description}'
 
     # trend desc
     desc = df.loc[idx, "trend_score"]
