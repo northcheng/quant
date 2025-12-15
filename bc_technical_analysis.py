@@ -1268,8 +1268,8 @@ def calculate_ta_signal(df: pd.DataFrame):
       'sell':      f'(signal_score_change < 0) and ((trend == "down"  or trigger_score < 0) and pattern_score < 0)',
     } 
     position_values = {
-      'buy':       f'b',
-      'sell':      f's',
+      'buy':       f'tob',
+      'sell':      f'tos',
     }
     df = assign_condition_value(df=df, column='signal', condition_dict=position_conditions, value_dict=position_values, default_value='')
 
@@ -5101,11 +5101,11 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     # signal
     alpha = 0.5
 
-    tmp_data = df.query(f'(signal == "b")')
+    tmp_data = df.query(f'(signal == "tob")')
     if len(tmp_data) > 0:
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='^', color='green', edgecolor='green', alpha=alpha) # outer_alpha
 
-    tmp_data = df.query(f'(signal == "s")')
+    tmp_data = df.query(f'(signal == "tos")')
     if len(tmp_data) > 0:
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='v', color='red', edgecolor='red', alpha=alpha)
 
@@ -6866,7 +6866,7 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
 
     # trend desc
     desc = df.loc[idx, "trend_score"]
-    desc = f'上涨' if desc > 0 else '下降'
+    desc = f'上行' if desc > 0 else '下行'
     change = round(df.loc[idx, "trend_score"] - df.loc[before_max_idx, "trend_score"], 2)
     change_desc = f'+{change}' if change >= 0 else f'{change}'
     if df.loc[idx, "trend"] == 'wave':
