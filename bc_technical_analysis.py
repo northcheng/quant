@@ -6890,16 +6890,16 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
   before_max_idx = df.index[-2]
   for idx in [max_idx]:
 
-    # signal desc
-    signal_score = df.loc[idx, "signal_score"]
-    signal_description = df.loc[idx, "signal_description"]
-    change = round(df.loc[idx, "signal_score_change"], 2)
+    # position desc (position)
+    position_dict = {'down': '低位', 'mid_down': '中低位', 'mid': '中位', 'mid_up': '中高位', 'up': '高位'}
+    desc = position_dict[df.loc[idx, "position"]]
+    change = round(df.loc[idx, "position_score"] - df.loc[before_max_idx, "position_score"], 2)
     change_desc = f'+{change}' if change >= 0 else f'{change}'
-    signal_desc_title = f'{signal_score:<6} ({change_desc:<6})' +f'\n{signal_description}'
+    position_desc = (f' {desc}' if len(desc) > 0 else '') + f' | 位置 {df.loc[idx, "position_score"]:<6} ({change_desc:<6})'
 
     # trend desc
     desc = df.loc[idx, "trend_score"]
-    desc = f'上行' if desc > 0 else '下行'
+    desc = f'向上' if desc > 0 else '向下'
     change = round(df.loc[idx, "trend_score"] - df.loc[before_max_idx, "trend_score"], 2)
     change_desc = f'+{change}' if change >= 0 else f'{change}'
     if df.loc[idx, "trend"] == 'wave':
@@ -6907,6 +6907,25 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
     else:
       desc = (desc + '趋势增强' if change > 0 else desc + '趋势减缓') if desc == '上涨' else (desc + '趋势减缓' if change > 0 else desc + '趋势增强')
     trend_desc = (f' {desc}' if len(desc) > 0 else '') + f' | 趋势 {df.loc[idx, "trend_score"]:<6} ({change_desc:<6})'
+
+    # candle position and pattern desc
+    candle_score_level = {0.33: '微', 0.66: '上', 0.99: '大'}
+    candle_position_score = df.loc[idx, "candle_position_score"]
+    c_direction = '涨' if candle_position_score > 0 else '跌'
+    c_level = candle_score_level[abs(candle_position_score)]
+    candle_score_desc = f'价格{c_level}{c_direction}'
+    
+    up_desc = df.loc[idx, "candle_pattern_up_description"]
+    up_desc = f'+[{up_desc}]' if len(up_desc) > 0 else up_desc
+    down_desc = df.loc[idx, "candle_pattern_down_description"]
+    down_desc = f'-[{down_desc}]' if len(down_desc) > 0 else down_desc
+    desc = f'{up_desc} | {down_desc}' if len(up_desc) > 0 and len(down_desc) > 0 else up_desc + down_desc
+    desc = candle_score_desc + (f' | {desc}' if len(desc) > 0 else desc)
+
+    change = round(df.loc[idx, "candle_position_score"] + df.loc[idx, "candle_pattern_score"] - df.loc[before_max_idx, "candle_position_score"] - df.loc[before_max_idx, "candle_pattern_score"], 2)
+    change_desc = f'+{change}' if change >= 0 else f'{change}'
+    candle_pattern_desc = (f' {desc}' if len(desc) > 0 else '') + f' | 蜡烛 {(df.loc[idx, "candle_position_score"] + df.loc[idx, "candle_pattern_score"]).round(2):<6} ({change_desc:<6})'
+    candle_desc_title = (f' {desc}' if len(desc) > 0 else '')
 
     # trigger desc (trigger)
     up_desc = df.loc[idx, "trigger_up_score_description"]
@@ -6925,40 +6944,19 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
     change_desc = f'+{change}' if change >= 0 else f'{change}'
     pattern_desc = (f' {desc}' if len(desc) > 0 else '') + f' | 模式 {df.loc[idx, "pattern_score"]:<6} ({change_desc:<6})'
     pattern_desc_title = (f'{desc}' if len(desc) > 0 else '')
-
-    # position desc (position)
-    position_dict = {'down': '低位', 'mid_down': '中低位', 'mid': '中位', 'mid_up': '中高位', 'up': '高位'}
-    desc = position_dict[df.loc[idx, "position"]]
-    change = round(df.loc[idx, "position_score"] - df.loc[before_max_idx, "position_score"], 2)
-    change_desc = f'+{change}' if change >= 0 else f'{change}'
-    position_desc = (f' {desc}' if len(desc) > 0 else '') + f' | 位置 {df.loc[idx, "position_score"]:<6} ({change_desc:<6})'
-
-    # candle pattern desc (candle)
-    candle_prefix_pos = {0.33: '微', 0.66: '上', 0.99: '大'}
-    candle_prefix_neg = {-0.33: '微', -0.66: '下', -0.99: '大'}
-    candle_position_score = df.loc[idx, "candle_position_score"]
-    candle_score_desc = f'价格{candle_prefix_pos[candle_position_score]}涨' if candle_position_score > 0 else f'价格{candle_prefix_neg[candle_position_score]}跌'
     
-    up_desc = df.loc[idx, "candle_pattern_up_description"]
-    up_desc = f'+[{up_desc}]' if len(up_desc) > 0 else up_desc
-    down_desc = df.loc[idx, "candle_pattern_down_description"]
-    down_desc = f'-[{down_desc}]' if len(down_desc) > 0 else down_desc
-    if len(up_desc) > 0 and len(down_desc) > 0:
-      desc = f'{candle_score_desc} | {up_desc} | {down_desc}'
-    else:
-      desc = up_desc + down_desc
-    
-    desc = candle_score_desc + f' | {desc}' if len(desc) > 0 else candle_score_desc
-    change = round(df.loc[idx, "candle_position_score"] + df.loc[idx, "candle_pattern_score"] - df.loc[before_max_idx, "candle_position_score"] - df.loc[before_max_idx, "candle_pattern_score"], 2)
-    change_desc = f'+{change}' if change >= 0 else f'{change}'
-    
-    candle_pattern_desc = (f' {desc}' if len(desc) > 0 else '') + f' | 蜡烛 {(df.loc[idx, "candle_position_score"] + df.loc[idx, "candle_pattern_score"]).round(2):<6} ({change_desc:<6})'
-    candle_desc_title = (f' {desc}' if len(desc) > 0 else '')
-    
+    # total desc
     total_score = df.loc[idx, "total_score"]
     total_score_change = (df.loc[idx, "total_score_change"]).round(2)
     total_score_change = f'+{total_score_change}' if total_score_change >= 0 else f'{total_score_change}'
     total_desc = f'----------------------\n{total_score:<6} ({total_score_change:<6})'
+
+    # signal desc
+    signal_score = df.loc[idx, "signal_score"]
+    signal_description = df.loc[idx, "signal_description"]
+    change = round(df.loc[idx, "signal_score_change"], 2)
+    change_desc = f'+{change}' if change >= 0 else f'{change}'
+    signal_desc_title = f'{signal_score:<6} ({change_desc:<6})' +f'\n{signal_description}'
 
     plt.figtext(0.973, 1.05, f'{position_desc}\n{trend_desc}\n{candle_pattern_desc}\n{trigger_desc}\n{pattern_desc}\n{total_desc}', fontsize=16, color='black', ha='right', va='top', bbox=dict(boxstyle="round", fc=desc_color, ec="1.0", alpha=abs(signal_score*0.025)))
 
