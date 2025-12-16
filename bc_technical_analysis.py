@@ -1080,6 +1080,17 @@ def calculate_ta_signal(df: pd.DataFrame):
     df['prev_trend'] = df['trend'].shift(1)
     col_to_drop += ['prev_trend', 'prev_trend_day']
 
+
+  # ================================ calculate signal score ======================
+  if 'score'  > '':
+    df['signal_score'] = 0
+
+    signal_weight = {'trend_score': 2, 'trigger_score': 1, 'position_score': 0, 'candle_position_score': 1, 'candle_pattern_score': 1, }
+    for col in signal_weight.keys():
+      df['signal_score'] += normalize(df[col].abs()) * (df[col] > 0).replace({True: 1, False: -1})
+    df['signal_score'] = df['signal_score'].round(2)
+    df['signal_score_change'] = (df['signal_score'] - df['signal_score'].shift(1)).round(2)
+
   # ================================ calculate pattern ======================
   if 'pattern'  > '':
     df['pattern_up_score'] = 0
@@ -1110,9 +1121,9 @@ def calculate_ta_signal(df: pd.DataFrame):
                               十字星_trend == "n" and
                               (candle_color == 1 or candle_lower_shadow_pct > 0.25) and
                               (
-                                (kama_slow_support > 0) or 
-                                (kama_slow_break_down < 0 and candle_color == 1 and 长影线_trend == "u") or
-                                (kama_slow_break_up > 0 and (candle_position_score > 0 or candle_color == 1))
+                                (kama_slow_support > 0 or kijun_support > 0 or candle_gap_top_support > 0 or candle_gap_bottom_support > 0) or 
+                                (candle_color == 1 and 长影线_trend == "u" and (kama_slow_break_down < 0 or kijun_break_down < 0 or candle_gap_top_break_down < 0 or candle_gap_top_break_down < 0)) or
+                                ((candle_position_score > 0 or candle_color == 1) and (kama_slow_break_up > 0 or kijun_break_up > 0 or candle_gap_top_break_up > 0 or candle_gap_bottom_break_up > 0))
                               )
                             )
                             '''.replace('\n', ''),
@@ -1122,9 +1133,9 @@ def calculate_ta_signal(df: pd.DataFrame):
                             (
                               ki_distance in ["rg", "rn", "rr"] and
                               (
-                                (kama_slow_resistant < 0) or 
-                                (kama_slow_break_up > 0 and (candle_color == -1 or 长影线_trend == "d" or resistant_score < 0)) or
-                                (kama_slow_break_down < 0 and (candle_position_score < 0 or candle_color == -1))
+                                (kama_slow_resistant < 0 or kijun_resistant < 0 or candle_gap_top_resistant < 0 or candle_gap_bottom_resistant < 0) or 
+                                ((candle_color == -1 or 长影线_trend == "d" or resistant_score < 0) and (kama_slow_break_up > 0 or kijun_break_up > 0 or candle_gap_top_break_up > 0 or candle_gap_bottom_break_up > 0)) or
+                                ((candle_position_score < 0 or candle_color == -1) and (kama_slow_break_down < 0 or kijun_break_down < 0 or candle_gap_top_break_down < 0 or candle_gap_bottom_break_down < 0))
                               ) 
                             )
                             '''.replace('\n', ''),        
@@ -1177,6 +1188,20 @@ def calculate_ta_signal(df: pd.DataFrame):
                             )
                             '''.replace('\n', ''),
     
+      # 分数剧变(向上)
+      '分数剧变_up':          '''
+                            (
+                              (trend_day < 0 and signal_score_change >= 2)
+                            )
+                            '''.replace('\n', ''),
+
+      # 分数剧变(向下)
+      '分数剧变_down':          '''
+                            (
+                              (trend_day > 0 and signal_score_change <= -2 )
+                            )
+                            '''.replace('\n', ''),
+
       # 区间波动
 
     } 
@@ -1188,6 +1213,7 @@ def calculate_ta_signal(df: pd.DataFrame):
       '趋势渐弱': 0.75,
       '趋势转换': 1,
       '趋势启动': 1,
+      '分数剧变': 0.75
     }
 
     # calculate pattern score and description
@@ -1197,6 +1223,7 @@ def calculate_ta_signal(df: pd.DataFrame):
       '趋势渐弱': '下行暂缓',
       '趋势转换': '趋势转上',
       '趋势启动': '低位向上',
+      '分数剧变': '分数大涨',
     }
     p_down_desc = {
       '超买超卖': '超买',
@@ -1204,6 +1231,7 @@ def calculate_ta_signal(df: pd.DataFrame):
       '趋势渐弱': '上行暂缓',
       '趋势转换': '趋势转下',
       '趋势启动': '高位向下',
+      '分数剧变': '分数大跌',
     }
     for c in pattern_conditions.keys():
       
@@ -1250,19 +1278,11 @@ def calculate_ta_signal(df: pd.DataFrame):
     df['total_score'] = df['total_score'].round(2)
     df['total_score_change'] = df['total_score'] - df['total_score'].shift(1)
   
-    # signal score
-    df['signal_score'] = 0
+    # signal 
+    df['signal'] = ''
     df['signal_day'] = 0
     df['signal_description'] = ''
 
-    signal_weight = {'trend_score': 2, 'trigger_score': 1, 'position_score': 0, 'candle_position_score': 1, 'candle_pattern_score': 1, }
-    for col in signal_weight.keys():
-      df['signal_score'] += normalize(df[col].abs()) * (df[col] > 0).replace({True: 1, False: -1})
-    df['signal_score'] = df['signal_score'].round(2)
-    df['signal_score_change'] = (df['signal_score'] - df['signal_score'].shift(1)).round(2)
-
-    # signal
-    df['signal'] = ''
     signal_conditions = {
       '通常买入':       f'(signal_score_change > 0) and (pattern_score > 0) and (trend == "up")', 
       '通常卖出':      f'(signal_score_change < 0) and (pattern_score < 0) and (trend == "down")', 
@@ -2876,7 +2896,7 @@ def add_support_resistance(df: pd.DataFrame, target_col: list = default_support_
       else:
         print(f'error: {idx} not defined')
 
-      if 'kama_slow' not in tmp_col:
+      if col not in ['kijun', 'kama_slow', 'candle_gap_top', 'candle_gap_bottom']:
         col_to_drop.append(tmp_col)
 
   # drop unnecessary columns
