@@ -107,7 +107,7 @@ class FixedPositionTrader:
     # find benchmark data from ta_data
     benchmark_key = [x for x in self.data['ta_data'].keys() if benchmark == x.split('_')[0]]
     benchmark_num = len(benchmark_key)
-    print(benchmark_key, benchmark_num, self.data['ta_data'].keys())
+    # print(benchmark_key, benchmark_num, self.data['ta_data'].keys())
     if (benchmark_num > 1) or (benchmark_num==0):
       print(f'{benchmark_num} benchmark data found')
       self.benchmark = None
