@@ -1203,6 +1203,17 @@ def calculate_ta_signal(df: pd.DataFrame):
                             '''.replace('\n', ''),
 
       # 区间波动
+      '区间波动_up':          '''
+                            (
+                              Close < 0
+                            )
+                            '''.replace('\n', ''),
+
+      '区间波动_down':          '''
+                            (
+                              (adx_strong_day < 0 and -1 < adx_value_change < 1)
+                            )
+                            '''.replace('\n', ''),
 
     } 
 
@@ -1213,7 +1224,8 @@ def calculate_ta_signal(df: pd.DataFrame):
       '趋势渐弱': 0.75,
       '趋势转换': 1,
       '趋势启动': 1,
-      '分数剧变': 0.75
+      '分数剧变': 0.75,
+      '区间波动': 1
     }
 
     # calculate pattern score and description
@@ -1224,6 +1236,7 @@ def calculate_ta_signal(df: pd.DataFrame):
       '趋势转换': '趋势转上',
       '趋势启动': '低位向上',
       '分数剧变': '分数大涨',
+      '区间波动': '波动'
     }
     p_down_desc = {
       '超买超卖': '超买',
@@ -1232,6 +1245,7 @@ def calculate_ta_signal(df: pd.DataFrame):
       '趋势转换': '趋势转下',
       '趋势启动': '高位向下',
       '分数剧变': '分数大跌',
+      '区间波动': '波动'
     }
     for c in pattern_conditions.keys():
       
