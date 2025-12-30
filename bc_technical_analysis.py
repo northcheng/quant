@@ -365,7 +365,7 @@ def calculate_ta_static(df: pd.DataFrame, indicators: dict = default_indicators)
           # # fl/sl with none zero rate          
           # rate_col = f'{col}_rate'
           # none_zero_col = f'{rate_col}_none_zero'
-          # df[none_zero_col] = np.NaN
+          # df[none_zero_col] = np.nan
           # none_zero_idx = df.query(f'{rate_col} > {threshold} or {rate_col} < {threshold}').index
           # df.loc[none_zero_idx, none_zero_col] = df.loc[none_zero_idx, rate_col]
           # df[none_zero_col] = df[none_zero_col].fillna(method='ffill')
@@ -2185,9 +2185,9 @@ def add_candlestick_features(df: pd.DataFrame, ohlcv_col: dict = default_ohlcv_c
   
   # initialization
   df['candle_gap'] = 0
-  df['candle_gap_color'] = np.NaN
-  df['candle_gap_top'] = np.NaN
-  df['candle_gap_bottom'] = np.NaN
+  df['candle_gap_color'] = np.nan
+  df['candle_gap_top'] = np.nan
+  df['candle_gap_bottom'] = np.nan
   
   # gap up
   df['low_prev_high'] = df[low] - df[f'prev_{high}']
@@ -3450,8 +3450,8 @@ def add_psar_features(df: pd.DataFrame, ohlcv_col: dict = default_ohlcv_col, ste
   # volume = ohlcv_col['volume']
 
   df['psar'] = df[close].copy()
-  df['psar_up'] = np.NaN
-  df['psar_down'] = np.NaN
+  df['psar_up'] = np.nan
+  df['psar_down'] = np.nan
 
   up_trend = True
   af = step
