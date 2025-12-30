@@ -136,9 +136,9 @@ class FixedPositionTrader:
       # self.record[symbol] = ta_util.remove_redundant_signal(self.record[symbol], signal_col='signal', pos_signal='b', neg_signal='s', none_signal='n', keep='first')
       self.record[symbol]['holding_price'] = 0
       self.record[symbol]['holding_return'] = 0
-      self.record[symbol]['money'] = np.NaN
-      self.record[symbol]['stock'] = np.NaN
-      self.record[symbol]['value'] = np.NaN
+      self.record[symbol]['money'] = np.nan
+      self.record[symbol]['stock'] = np.nan
+      self.record[symbol]['value'] = np.nan
 
   # recalculate data
   def recalculate_data(self, sec_list: list[str], mode: Literal['trend', 'signal'] | None = None, start_date: str | None = None, end_date: str | None = None) -> None:
@@ -320,7 +320,7 @@ class FixedPositionTrader:
       total = pd.merge(total, tmp_data, how='left', left_index=True, right_index=True)
     total = total.fillna(method='bfill').fillna(0)
     total['value'] = total.sum(axis=1)
-    total['Close'] = np.NaN
+    total['Close'] = np.nan
     total['signal'] = 'n'
     self.record['portfolio'] = total.copy()
 

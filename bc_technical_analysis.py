@@ -365,7 +365,7 @@ def calculate_ta_static(df: pd.DataFrame, indicators: dict = default_indicators)
           # # fl/sl with none zero rate          
           # rate_col = f'{col}_rate'
           # none_zero_col = f'{rate_col}_none_zero'
-          # df[none_zero_col] = np.NaN
+          # df[none_zero_col] = np.nan
           # none_zero_idx = df.query(f'{rate_col} > {threshold} or {rate_col} < {threshold}').index
           # df.loc[none_zero_idx, none_zero_col] = df.loc[none_zero_idx, rate_col]
           # df[none_zero_col] = df[none_zero_col].fillna(method='ffill')
@@ -1203,6 +1203,17 @@ def calculate_ta_signal(df: pd.DataFrame):
                             '''.replace('\n', ''),
 
       # 区间波动
+      '区间波动_up':          '''
+                            (
+                              Close < 0
+                            )
+                            '''.replace('\n', ''),
+
+      '区间波动_down':          '''
+                            (
+                              (adx_strong_day < 0 and -1 < adx_value_change < 1)
+                            )
+                            '''.replace('\n', ''),
 
     } 
 
@@ -1213,7 +1224,8 @@ def calculate_ta_signal(df: pd.DataFrame):
       '趋势渐弱': 0.75,
       '趋势转换': 1,
       '趋势启动': 1,
-      '分数剧变': 0.75
+      '分数剧变': 0.75,
+      '区间波动': 1
     }
 
     # calculate pattern score and description
@@ -1224,6 +1236,7 @@ def calculate_ta_signal(df: pd.DataFrame):
       '趋势转换': '趋势转上',
       '趋势启动': '低位向上',
       '分数剧变': '分数大涨',
+      '区间波动': '波动'
     }
     p_down_desc = {
       '超买超卖': '超买',
@@ -1232,6 +1245,7 @@ def calculate_ta_signal(df: pd.DataFrame):
       '趋势转换': '趋势转下',
       '趋势启动': '高位向下',
       '分数剧变': '分数大跌',
+      '区间波动': '波动'
     }
     for c in pattern_conditions.keys():
       
@@ -2171,9 +2185,9 @@ def add_candlestick_features(df: pd.DataFrame, ohlcv_col: dict = default_ohlcv_c
   
   # initialization
   df['candle_gap'] = 0
-  df['candle_gap_color'] = np.NaN
-  df['candle_gap_top'] = np.NaN
-  df['candle_gap_bottom'] = np.NaN
+  df['candle_gap_color'] = np.nan
+  df['candle_gap_top'] = np.nan
+  df['candle_gap_bottom'] = np.nan
   
   # gap up
   df['low_prev_high'] = df[low] - df[f'prev_{high}']
@@ -3436,8 +3450,8 @@ def add_psar_features(df: pd.DataFrame, ohlcv_col: dict = default_ohlcv_col, ste
   # volume = ohlcv_col['volume']
 
   df['psar'] = df[close].copy()
-  df['psar_up'] = np.NaN
-  df['psar_down'] = np.NaN
+  df['psar_up'] = np.nan
+  df['psar_down'] = np.nan
 
   up_trend = True
   af = step
