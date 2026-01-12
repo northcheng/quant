@@ -5783,58 +5783,63 @@ def plot_candlestick(df: pd.DataFrame, start: Optional[str] = None, end: Optiona
   # df[date_col] = df[date_col].apply(mdates.date2num)
   # plot_data = df[[date_col, open, high, low, close]]
   # ls, rs = candlestick_ohlc(ax=ax, quotes=plot_data.values, width=width, colorup=color['color_up'], colordown=color['color_down'], alpha=color['alpha'])
-  
-  # set offset, bar_width according to data interval
-  if interval == 'day':
-    OFFSET = datetime.timedelta(days=0.5)
-    entity_width = datetime.timedelta(days=1)
-  elif interval == 'week':
-    OFFSET = datetime.timedelta(days=3.5)
-    entity_width = datetime.timedelta(days=7)
-  elif interval == 'month':
-    OFFSET = datetime.timedelta(days=15)
-    entity_width = datetime.timedelta(days=30)
-  elif interval == 'year':
-    OFFSET = datetime.timedelta(days=182.5)
-    entity_width = datetime.timedelta(days=365)
+  manual_candle = True
+  if manual_candle:    
+    # set offset, bar_width according to data interval
+    if interval == 'day':
+      OFFSET = datetime.timedelta(days=0.5)
+      entity_width = datetime.timedelta(days=1)
+    elif interval == 'week':
+      OFFSET = datetime.timedelta(days=3.5)
+      entity_width = datetime.timedelta(days=7)
+    elif interval == 'month':
+      OFFSET = datetime.timedelta(days=15)
+      entity_width = datetime.timedelta(days=30)
+    elif interval == 'year':
+      OFFSET = datetime.timedelta(days=182.5)
+      entity_width = datetime.timedelta(days=365)
+    else:
+      pass
+
+    # set colors
+    alpha = color['alpha'] 
+    shadow_color = color['shadow_color']
+    entity_edge_color = (0,0,0,0.1)
+    ax.fill_between(df.index, df.loc[min_idx, 'High'], df.loc[min_idx, 'Low'], facecolor=None, interpolate=True, alpha=0, linewidth=1, zorder=default_zorders['candle_pattern'])
+
+    # plot each candlestick
+    for idx, row in df.iterrows():
+      
+      # set entity_color
+      if row[close] >= row[open]:
+        entity_color = color['color_up']
+        lower = row[open]
+        height = row[close] - row[open]
+      else:
+        entity_color = color['color_down']
+        lower = row[close]
+        height = row[open] - row[close]
+      
+      # set shadow_color
+      if shadow_color is not None:
+        line_color = shadow_color
+      else:
+        line_color = entity_color
+      
+      # plot shadow
+      vline = Line2D(xdata=(idx, idx), ydata=(row[low], row[high]), color=line_color, linewidth=1, antialiased=True, zorder=default_zorders['candle_shadow'])
+      
+      # plot entity
+      x = idx - OFFSET
+      rect = Rectangle(xy=(x, lower), width=entity_width, height=height, facecolor=entity_color, linewidth=1, edgecolor=entity_edge_color, alpha=alpha, zorder=default_zorders['candle_entity'])
+
+      # add shadow and entity to plot
+      ax.add_line(vline)
+      ax.add_patch(rect)
   else:
-    pass
-
-  # set colors
-  alpha = color['alpha'] 
-  shadow_color = color['shadow_color']
-  entity_edge_color = (0,0,0,0.1)
-  ax.fill_between(df.index, df.loc[min_idx, 'High'], df.loc[min_idx, 'Low'], facecolor=None, interpolate=True, alpha=0, linewidth=1, zorder=default_zorders['candle_pattern'])
-
-  # plot each candlestick
-  for idx, row in df.iterrows():
-    
-    # set entity_color
-    if row[close] >= row[open]:
-      entity_color = color['color_up']
-      lower = row[open]
-      height = row[close] - row[open]
-    else:
-      entity_color = color['color_down']
-      lower = row[close]
-      height = row[open] - row[close]
-    
-    # set shadow_color
-    if shadow_color is not None:
-      line_color = shadow_color
-    else:
-      line_color = entity_color
-    
-    # plot shadow
-    vline = Line2D(xdata=(idx, idx), ydata=(row[low], row[high]), color=line_color, linewidth=1, antialiased=True, zorder=default_zorders['candle_shadow'])
-    
-    # plot entity
-    x = idx - OFFSET
-    rect = Rectangle(xy=(x, lower), width=entity_width, height=height, facecolor=entity_color, linewidth=1, edgecolor=entity_edge_color, alpha=alpha, zorder=default_zorders['candle_entity'])
-
-    # add shadow and entity to plot
-    ax.add_line(vline)
-    ax.add_patch(rect)
+    ohlcv_data = df[default_ohlcv_col.values()].copy().fillna(method='ffill')
+    print(ohlcv_data.head())
+    mpf.plot(ohlcv_data, type='candle', ax=ax, style='yahoo', datetime_format='%Y-%m', show_nontrading=True, tight_layout=True, warn_too_much_data=10000)
     
   ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
   ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])

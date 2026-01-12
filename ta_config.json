@@ -18,7 +18,7 @@
     "plot_args": {
 
       "plot_ratio": {
-        "score": 1, "signals": 1.75, "adx": 1.75, "volume":1, "main_indicators": 10
+        "score": 1, "signals": 1.75, "adx": 1.5, "volume":1, "main_indicators": 10
       },
 
       "signals": {
