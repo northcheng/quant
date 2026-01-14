@@ -1080,7 +1080,6 @@ def calculate_ta_signal(df: pd.DataFrame):
     df['prev_trend'] = df['trend'].shift(1)
     col_to_drop += ['prev_trend', 'prev_trend_day']
 
-
   # ================================ calculate signal score ======================
   if 'score'  > '':
     df['signal_score'] = 0
@@ -1212,7 +1211,7 @@ def calculate_ta_signal(df: pd.DataFrame):
       # 区间波动
       '区间波动_down':          '''
                             (
-                              (adx_strong_day < 0 and -10 < adx_direction_start < 15 and -20 < adx_value < 20)
+                              (adx_strong_day < 0 and -10 < adx_direction_start < 15 and -20 < adx_value < 20 and adx_direction_start > -10)                                                  
                             )
                             '''.replace('\n', ''),
 
@@ -2027,7 +2026,7 @@ def cal_position_score(df: pd.DataFrame) -> pd.DataFrame:
     df['position_score'] += df[col_v]
 
   # ichimoku-kama position
-  threshold = 1
+  threshold = 1.5
   position_conditions = {   
     'up':           f'position_score > {threshold}',
     'mid_up':       f'0 < position_score <= {threshold}', 
@@ -6958,18 +6957,18 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
     # trend desc
     desc = df.loc[idx, "trend_score"]
     desc = f'向上' if desc > 0 else '向下'
-    change = round(df.loc[idx, "trend_score"] - df.loc[before_max_idx, "trend_score"], 2)
+    change = round(df.loc[idx, "trend_score_change"], 2)
     change_desc = f'+{change}' if change >= 0 else f'{change}'
     if df.loc[idx, "trend"] == 'wave':
       desc = '波动' + desc
     else:
-      desc = (desc + '趋势增强' if change > 0 else desc + '趋势减缓') if desc == '上涨' else (desc + '趋势减缓' if change > 0 else desc + '趋势增强')
+      desc = ((desc + '趋势增强') if change > 0 else (desc + '趋势减缓')) if desc == '向上' else ((desc + '趋势减缓') if change > 0 else (desc + '趋势增强'))
     trend_desc = (f' {desc}' if len(desc) > 0 else '') + f' | 趋势 {df.loc[idx, "trend_score"]:<6} ({change_desc:<6})'
 
     # candle position and pattern desc
-    candle_score_level = {0.33: '微', 0.66: '上', 0.99: '大'}
+    candle_score_level = {0.33: '小幅', 0.66: '', 0.99: '大幅'}
     candle_position_score = df.loc[idx, "candle_position_score"]
-    c_direction = '涨' if candle_position_score > 0 else '跌'
+    c_direction = '上涨' if candle_position_score > 0 else '下跌'
     c_level = candle_score_level[abs(candle_position_score)]
     candle_score_desc = f'价格{c_level}{c_direction}'
     
@@ -7016,7 +7015,7 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
     change_desc = f'+{change}' if change >= 0 else f'{change}'
     signal_desc_title = f'{signal_score:<6} ({change_desc:<6})' +f'\n{signal_description}'
 
-    plt.figtext(0.973, 1.05, f'{position_desc}\n{trend_desc}\n{candle_pattern_desc}\n{trigger_desc}\n{pattern_desc}\n{total_desc}', fontsize=16, color='black', ha='right', va='top', bbox=dict(boxstyle="round", fc=desc_color, ec="1.0", alpha=abs(signal_score*0.025)))
+    plt.figtext(0.973, 1.05, f'{position_desc}\n{candle_pattern_desc}\n{trend_desc}\n{trigger_desc}\n{pattern_desc}\n{total_desc}', fontsize=16, color='black', ha='right', va='top', bbox=dict(boxstyle="round", fc=desc_color, ec="1.0", alpha=abs(signal_score*0.025)))
 
   # construct super title
   if new_title is None:
