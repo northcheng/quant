@@ -5325,9 +5325,9 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     if len(tmp_data) > 0:
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='red', alpha=outer_alpha)
 
-    tmp_data = df.query(f'(trend == "wave")')
-    if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='grey', edgecolor='none', alpha=outer_alpha)
+    # tmp_data = df.query(f'(trend == "wave")')
+    # if len(tmp_data) > 0:
+    #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='grey', edgecolor='none', alpha=outer_alpha)
 
     # adx_distance
     df[tmp_col_a] = normalize(df['trend_score'].abs())
@@ -5461,6 +5461,9 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
       if len(tmp_data) > 0:
         ax.scatter(tmp_data.index, tmp_data[signal_y], marker=tmp_marker, color=tmp_color, alpha=tmp_data[tmp_col_a].fillna(0))
   
+  ax.fill_between(df.index, 1.5, 2.5, hatch=None, linewidth=1, facecolor='yellow', edgecolor=None, alpha=0.1, zorder=0)
+
+
   # return ax
   if use_ax is not None:
     return ax
