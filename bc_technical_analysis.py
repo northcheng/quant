@@ -1229,19 +1229,48 @@ def calculate_ta_signal(df: pd.DataFrame):
                             )
                             '''.replace('\n', ''),
 
+      # ichimoku(金叉)
+      'ichimoku_up':          '''
+                            (
+                              ichimoku_distance_day == 1
+                            )
+                            '''.replace('\n', ''),
+      
+      # ichimoku(死叉)
+      'ichimoku_down':          '''
+                            (
+                              ichimoku_distance_day == -1
+                            )
+                            '''.replace('\n', ''),     
+
+      # kama(金叉)
+      'kama_up':          '''
+                            (
+                              kama_distance_day == 1
+                            )
+                            '''.replace('\n', ''),
+      
+      # kama(死叉)
+      'kama_down':          '''
+                            (
+                              kama_distance_day == -1
+                            )
+                            '''.replace('\n', ''),                                        
 
     } 
 
     # set pattern weigths
     p_weights = {
-      '超买超卖': 0.1,
-      '长线边界': 0.75,
-      '趋势渐弱': 0.75,
+      '超买超卖': 0.5,
+      '长线边界': 0.5,
+      '趋势渐弱': 0.25,
       '趋势转换': 1,
       '趋势启动': 1,
       '分数剧变': 0.75,
-      '区间波动': 1,
-      '触顶触底': 0.75
+      '区间波动': 0.25,
+      '触顶触底': 0.75,
+      'kama': 1,
+      'ichimoku': 1,
     }
 
     # calculate pattern score and description
@@ -1253,7 +1282,9 @@ def calculate_ta_signal(df: pd.DataFrame):
       '趋势启动': '低位向上',
       '分数剧变': '分数大涨',
       '区间波动': '波动',
-      '触顶触底': '触底'
+      '触顶触底': '触底',
+      'ichimoku': '金叉(I)',
+      'kama': '金叉(K)',
     }
     p_down_desc = {
       '超买超卖': '超买',
@@ -1263,7 +1294,9 @@ def calculate_ta_signal(df: pd.DataFrame):
       '趋势启动': '高位向下',
       '分数剧变': '分数大跌',
       '区间波动': '波动',
-      '触顶触底': '触顶'
+      '触顶触底': '触顶',
+      'ichimoku': '死叉(I)',
+      'kama': '死叉(K)',
     }
     for c in pattern_conditions.keys():
       
@@ -1965,9 +1998,33 @@ def cal_position_score(df: pd.DataFrame) -> pd.DataFrame:
   df = df.copy()
   col_to_drop = [] 
 
-  df['position_score'] = 0
+  # ================================ calculate kama & ichimoku distance =============
+  term_trend_conditions = {
+    'rr':    f'kama_distance <  0 and ichimoku_distance <  0', 
+    'rn':    f'kama_distance <  0 and ichimoku_distance == 0', 
+    'rg':    f'kama_distance <  0 and ichimoku_distance >  0', 
+    'nr':    f'kama_distance == 0 and ichimoku_distance <  0', 
+    'nn':    f'kama_distance == 0 and ichimoku_distance == 0',
+    'ng':    f'kama_distance == 0 and ichimoku_distance >  0', 
+    'gr':    f'kama_distance >  0 and ichimoku_distance <  0', 
+    'gn':    f'kama_distance >  0 and ichimoku_distance == 0',
+    'gg':    f'kama_distance >  0 and ichimoku_distance >  0', 
+  } 
+  term_trend_values = {
+    'rr':    f'rr', 
+    'rn':    f'rn', 
+    'rg':    f'rg', 
+    'nr':    f'nr', 
+    'nn':    f'nn',
+    'ng':    f'ng',
+    'gr':    f'gr', 
+    'gn':    f'gn',
+    'gg':    f'gg',
+  }
+  df = assign_condition_value(df=df, column='ki_distance', condition_dict=term_trend_conditions, value_dict=term_trend_values, default_value='n')
 
-  # position score
+  # ================================ calculate position score =======================
+  df['position_score'] = 0
   rp_cols = {"kama":"相对kama位置", "ichimoku":"相对ichimoku位置"}
   for col in ['ichimoku', 'kama']:
     
@@ -2028,45 +2085,22 @@ def cal_position_score(df: pd.DataFrame) -> pd.DataFrame:
   # ichimoku-kama position
   threshold = 1.5
   position_conditions = {   
-    'up':           f'position_score > {threshold}',
-    'mid_up':       f'0 < position_score <= {threshold}', 
-    'mid':          f'position_score == 0',
-    'mid_down':     f'0 > position_score >= {-threshold}', 
-    'down':         f'position_score < {-threshold}',
+    'up':           f'position_score == 2',
+    'down':         f'position_score == -2',
+    'mid_up':       f'position_score == 1.5 or (-1 <= position_score <= 1 and kama_distance > 0)', 
+    'mid_down':     f'position_score == -1.5 or (-1 <= position_score <= 1 and kama_distance <= 0)',
+    'mid':          f'position_score == 0',    
   } 
   position_values = {
     'up':           'up',
+    'down':         'down',
     'mid_up':       'mid_up',
-    'mid':          'mid',
     'mid_down':     'mid_down',
-    'down':         'down', 
+    'mid':          'mid',     
   }
   df = assign_condition_value(df=df, column='position', condition_dict=position_conditions, value_dict=position_values, default_value='')
 
-  # ================================ calculate kama & ichimoku distance =============
-  term_trend_conditions = {
-    'rr':    f'kama_distance <  0 and ichimoku_distance <  0', 
-    'rn':    f'kama_distance <  0 and ichimoku_distance == 0', 
-    'rg':    f'kama_distance <  0 and ichimoku_distance >  0', 
-    'nr':    f'kama_distance == 0 and ichimoku_distance <  0', 
-    'nn':    f'kama_distance == 0 and ichimoku_distance == 0',
-    'ng':    f'kama_distance == 0 and ichimoku_distance >  0', 
-    'gr':    f'kama_distance >  0 and ichimoku_distance <  0', 
-    'gn':    f'kama_distance >  0 and ichimoku_distance == 0',
-    'gg':    f'kama_distance >  0 and ichimoku_distance >  0', 
-  } 
-  term_trend_values = {
-    'rr':    f'rr', 
-    'rn':    f'rn', 
-    'rg':    f'rg', 
-    'nr':    f'nr', 
-    'nn':    f'nn',
-    'ng':    f'ng',
-    'gr':    f'gr', 
-    'gn':    f'gn',
-    'gg':    f'gg',
-  }
-  df = assign_condition_value(df=df, column='ki_distance', condition_dict=term_trend_conditions, value_dict=term_trend_values, default_value='n')
+  
 
   # drop unnecessary columns
   for col in col_to_drop:
@@ -5187,11 +5221,11 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
 
     tmp_data = df.query(f'(signal == "to_buy")')
     if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='^', color='none', edgecolor='green', alpha=alpha) # outer_alpha
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='green', edgecolor='none', alpha=alpha) # outer_alpha
 
     tmp_data = df.query(f'(signal == "to_sell")')
     if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='v', color='none', edgecolor='red', alpha=alpha)
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='red', edgecolor='none', alpha=alpha)
 
   # patterns
   if signal_x == '模式':
@@ -5202,29 +5236,21 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     tmp_col_a = f'pattern_score_alpha'
     outer_alpha = 0.5
 
-    tmp_data = df.query(f'(趋势转换 > 0 or 趋势启动 > 0)')
-    if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='o', color='none', edgecolor='green', alpha=outer_alpha) # outer_alpha
-
-    tmp_data = df.query(f'(趋势转换 < 0 or 趋势启动 < 0)')
-    if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='o', color='none', edgecolor='red', alpha=outer_alpha)
-
-    # tmp_data = df.query(f'(趋势渐弱 > 0)')
+    # tmp_data = df.query(f'(趋势转换 > 0 or 趋势启动 > 0)')
     # if len(tmp_data) > 0:
-    #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='green', edgecolor='none', alpha=outer_alpha) # outer_alpha
+    #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='o', color='none', edgecolor='green', alpha=outer_alpha) # outer_alpha
 
-    # tmp_data = df.query(f'(趋势渐弱 < 0)')
+    # tmp_data = df.query(f'(趋势转换 < 0 or 趋势启动 < 0)')
     # if len(tmp_data) > 0:
-    #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.',color='red', edgecolor='none', alpha=outer_alpha)
+    #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='o', color='none', edgecolor='red', alpha=outer_alpha)
 
-    tmp_data = df.query(f'(长线边界 > 0)')
-    if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='green', edgecolor='none', alpha=outer_alpha) # outer_alpha
+    # tmp_data = df.query(f'(长线边界 > 0)')
+    # if len(tmp_data) > 0:
+    #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='green', edgecolor='none', alpha=outer_alpha) # outer_alpha
 
-    tmp_data = df.query(f'(长线边界 < 0)')
-    if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', edgecolor='none', alpha=outer_alpha)
+    # tmp_data = df.query(f'(长线边界 < 0)')
+    # if len(tmp_data) > 0:
+    #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', edgecolor='none', alpha=outer_alpha)
 
     # pattern score
     df[tmp_col_a] = normalize(df['pattern_score'].abs()) * 0.5
@@ -5301,7 +5327,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
 
     tmp_data = df.query(f'(trend == "wave")')
     if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='grey', edgecolor='none', alpha=outer_alpha)
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='grey', edgecolor='none', alpha=outer_alpha)
 
     # adx_distance
     df[tmp_col_a] = normalize(df['trend_score'].abs())
@@ -5377,15 +5403,15 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     
     tmp_col_v = 'position'
     tmp_col_a = 'position_alpha'
-    df[tmp_col_a] = normalize(df['position_score'].abs()) * 0.8
-    markers = {'down': '.', 'mid_down': '.', 'mid_up': 'o', 'up': 'o'}
-    colors = {'down': 'orange', 'mid_down': 'orange', 'mid_up': 'orange', 'up': 'orange'}
-
-    for p in ['up', 'mid_up', 'down', 'mid_down']:
+    # df[tmp_col_a] = normalize(df['position_score'].abs()) * 0.8
+    markers = {'down': '.', 'mid_down': '.', 'mid': '_', 'mid_up': 'o', 'up': 'o'}
+    colors = {'down': 'orange', 'mid_down': 'orange', 'mid': 'orange', 'mid_up': 'orange', 'up': 'orange'}
+    alphas = {'down': 0.8, 'mid_down': 0.4, 'mid': 0.2, 'mid_up': 0.4, 'up': 0.8}
+    for p in ['up', 'mid_up', 'mid', 'down', 'mid_down']:
       tmp_idx = df.query(f'({tmp_col_v} == "{p}")').index
       if len(tmp_idx) > 0:
         # ax.scatter(tmp_idx, df.loc[tmp_idx, signal_y], marker=markers[p], color='none', edgecolor='grey', alpha=0.6)
-        ax.scatter(tmp_idx, df.loc[tmp_idx, signal_y], marker=markers[p], color=colors[p], edgecolor='none', alpha=df.loc[tmp_idx, tmp_col_a].fillna(0))
+        ax.scatter(tmp_idx, df.loc[tmp_idx, signal_y], marker=markers[p], color=colors[p], edgecolor='none', alpha=alphas[p])
 
     # 模式
     alpha = 0.5
@@ -6853,7 +6879,7 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
         pass
       
       # plot_data = cal_change(df=plot_data, target_col='signal_score', add_prefix=True, add_accumulation=False)
-      plot_bar(df=plot_data, target_col='signal_score', width=bar_width, alpha=0.4, color_mode="benchmark", edge_color='grey', benchmark=0, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
+      plot_bar(df=plot_data, target_col='pattern_score', width=bar_width, alpha=0.4, color_mode="benchmark", edge_color='grey', benchmark=0, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
       # up_idx = plot_data.query('break_score > 0').index
       # down_idx = plot_data.query('break_score < 0').index
       # axes[tmp_indicator].scatter(up_idx, plot_data.loc[up_idx, 'signal_score'], color='green', edgecolor='black', label='signal_score', alpha=0.5, marker='^', zorder=3)
