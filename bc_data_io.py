@@ -1615,20 +1615,26 @@ def process_futu_exported(file_path: str, file_name: str) -> pd.DataFrame:
   
   # categorize columns
   id_columns = ['代码', '名称', '所属行业']
-  basic_columns = ['涨跌速率%', '换手率%', '振幅%', '今开', '昨收', '最高', '最低', '最新价' ]
-  rate_change_columns = ['涨跌幅', '5日涨跌幅', '10日涨跌幅', '20日涨跌幅', '60日涨跌幅', '120日涨跌幅', '250日涨跌幅', '年初至今涨跌幅']
-  volume_columns = ['成交量', '成交额', '总市值', '流通市值', '总股本', '流通股本']
+  basic_columns = ['今开', '昨收', '最高', '最低', '最新价', '成交量']
+  rate_change_columns = ['换手率', '涨跌速率', '振幅', '涨跌幅', '5日涨跌幅', '10日涨跌幅', '20日涨跌幅', '60日涨跌幅', '120日涨跌幅', '250日涨跌幅', '年初至今']
+  volume_columns = ['成交额', '总市值', '流通值', '总股本']
   fundamental_columns = ['股息率TTM', '市盈率TTM', '市盈率(静)', '市净率']
 
-  # turn characters to numbers
-  unit = {'万': 10000, '亿': 100000000}
-  for col in volume_columns:
-    if universe[col].dtype == str:
-      universe[col] = universe[col].replace('-', '0')
-      universe[col] = universe[col].apply(lambda x: (float(x[:-1]) *unit[x[-1]]) if not x.isdigit() else float(x))
+  # turn prices to numbers
+  for col in basic_columns:
+    universe[col] = universe[col].replace('-', '0')
+    universe[col] = universe[col].astype(float)
+
+  # # turn characters to numbers
+  # unit = {'万': 10000, '亿': 100000000}
+  # for col in volume_columns:
+  #   if universe[col].dtype == str:
+  #     universe[col] = universe[col].replace('-', '0')
+  #     universe[col] = universe[col].apply(lambda x: (float(x[:-1]) *unit[x[-1]]) if not x.isdigit() else float(x))
     
   # turn '%' to numbers
   for col in rate_change_columns:
+    universe[col] = universe[col].replace('-', '0')
     universe[col] = universe[col].apply(lambda x: float(x.replace('%', ''))/100)  
   universe['股息率TTM'] = universe['股息率TTM'].apply(lambda x: float(x.replace('%', ''))/100)
 
@@ -1637,7 +1643,7 @@ def process_futu_exported(file_path: str, file_name: str) -> pd.DataFrame:
     universe[col] = universe[col].replace('亏损', '-1')
     universe[col] = universe[col].replace('-', '0')
     universe[col] = universe[col].astype(float)
-  universe['流通率'] = (universe['流通股本'] / universe['总股本']).round(2)
+    universe['流通率'] = (universe['流通股'] / universe['总股本']).round(2)
   
   # for chinese stock symbols
   for index, row in universe.iterrows():
@@ -1655,9 +1661,9 @@ def process_futu_exported(file_path: str, file_name: str) -> pd.DataFrame:
   # convert column names from chinese to english
   final_columns = {
     '代码': 'symbol', '名称': 'name', '所属行业': 'category', 
-    '换手率%': 'turnover', '振幅%': 'close_range', '今开': 'open', '昨收': 'close_p1', '最高': 'high', '最低': 'low', '最新价': 'close', 
-    '涨跌幅': 'close_rate', '5日涨跌幅': 'rate_5d', '10日涨跌幅': 'rate_10d', '20日涨跌幅': 'rate_20d', '60日涨跌幅': 'rate_60d', '120日涨跌幅':'rate_120d', '250日涨跌幅':'rate_250d', '年初至今涨跌幅': 'rate_this_year',
-    '流通率': 'circulation', '成交量': 'volume', '成交额': 'volume_value', '总市值': 'market_value', '流通市值': 'market_value_circulation', '总股本': 'stock_total', '流通股本': 'stock_circulation',
+    '换手率': 'turnover', '振幅': 'close_range', '今开': 'open', '昨收': 'close_p1', '最高': 'high', '最低': 'low', '最新价': 'close', 
+    '涨跌幅': 'close_rate', '5日涨跌幅': 'rate_5d', '10日涨跌幅': 'rate_10d', '20日涨跌幅': 'rate_20d', '60日涨跌幅': 'rate_60d', '120日涨跌幅':'rate_120d', '250日涨跌幅':'rate_250d', '年初至今': 'rate_this_year',
+    '成交量': 'volume', '成交额': 'volume_value', '总市值': 'market_value', '流通值': 'market_value_circulation', '总股本': 'stock_total', '流通股': 'stock_circulation',
     '股息率TTM': 'dividend_rate', '市盈率TTM': 'PE_TTM', '市盈率(静)': 'PE', '市净率': 'PB', 
     
   }

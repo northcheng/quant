@@ -350,8 +350,8 @@ def calculate_ta_static(df: pd.DataFrame, indicators: dict = default_indicators)
         df[distance_day] = df[distance_day].replace({True: 1, False: -1})
         df[distance_day] = sda(series=df[distance_day], zero_as=None).astype(int)
 
-        pos_none_idx = df.query(f'0 < {distance_day} and {distance} == 0').index
-        neg_none_idx = df.query(f'0 > {distance_day} and {distance} == 0').index
+        pos_none_idx = df.query(f'0 > {distance_day} and {distance} == 0').index
+        neg_none_idx = df.query(f'0 < {distance_day} and {distance} == 0').index
         df.loc[pos_none_idx, distance_day] = 1
         df.loc[neg_none_idx, distance_day] = -1       
         
@@ -2099,8 +2099,6 @@ def cal_position_score(df: pd.DataFrame) -> pd.DataFrame:
     'mid':          'mid',     
   }
   df = assign_condition_value(df=df, column='position', condition_dict=position_conditions, value_dict=position_values, default_value='')
-
-  
 
   # drop unnecessary columns
   for col in col_to_drop:
