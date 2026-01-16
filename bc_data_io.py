@@ -1615,7 +1615,7 @@ def process_futu_exported(file_path: str, file_name: str) -> pd.DataFrame:
   
   # categorize columns
   id_columns = ['代码', '名称', '所属行业']
-  basic_columns = ['今开', '昨收', '最高', '最低', '最新价', '成交量']
+  basic_columns = ['今开', '昨收', '最高', '最低', '最新价', '成交量', '综合热度']
   rate_change_columns = ['换手率', '涨跌速率', '振幅', '涨跌幅', '5日涨跌幅', '10日涨跌幅', '20日涨跌幅', '60日涨跌幅', '120日涨跌幅', '250日涨跌幅', '年初至今']
   volume_columns = ['成交额', '总市值', '流通值', '总股本']
   fundamental_columns = ['股息率TTM', '市盈率TTM', '市盈率(静)', '市净率']
@@ -1660,7 +1660,7 @@ def process_futu_exported(file_path: str, file_name: str) -> pd.DataFrame:
 
   # convert column names from chinese to english
   final_columns = {
-    '代码': 'symbol', '名称': 'name', '所属行业': 'category', 
+    '代码': 'symbol', '名称': 'name', '所属行业': 'category', '综合热度': 'hotness',
     '换手率': 'turnover', '振幅': 'close_range', '今开': 'open', '昨收': 'close_p1', '最高': 'high', '最低': 'low', '最新价': 'close', 
     '涨跌幅': 'close_rate', '5日涨跌幅': 'rate_5d', '10日涨跌幅': 'rate_10d', '20日涨跌幅': 'rate_20d', '60日涨跌幅': 'rate_60d', '120日涨跌幅':'rate_120d', '250日涨跌幅':'rate_250d', '年初至今': 'rate_this_year',
     '成交量': 'volume', '成交额': 'volume_value', '总市值': 'market_value', '流通值': 'market_value_circulation', '总股本': 'stock_total', '流通股': 'stock_circulation',
@@ -1718,8 +1718,8 @@ def filter_futu_exported(df: pd.DataFrame, condition: dict = None, q: float = 0.
     PB_threshold = -1.0
     PE_threshold = -1.0
     filtered_df = filtered_df.query(f'({price_limit[0]} <= close <= {price_limit[1]}) and (type == "company")').copy()
-    filtered_df = filtered_df.query(f'(volume >= {volume_threshold} and volume_value >= {volume_value_threshold} and market_value >= {market_value_threshold}) and PE >= {PE_threshold} and PB >= {PB_threshold} and rate_5d > 0 and rate_10d > 0').copy()
-    filtered_df = filtered_df.sort_values('market_value_circulation', ascending=False)
+    # filtered_df = filtered_df.query(f'(volume >= {volume_threshold} and volume_value >= {volume_value_threshold} and market_value >= {market_value_threshold}) and PE >= {PE_threshold} and PB >= {PB_threshold} and rate_5d > 0 and rate_10d > 0').copy()
+    filtered_df = filtered_df.sort_values('hotness', ascending=False)
     
     for index, row in filtered_df.iterrows():
       if ('.' in row['symbol']):
@@ -1768,6 +1768,7 @@ def import_futu_exported(df: pd.DataFrame, num: int = 100) -> dict:
 
   # selected_sec_list
   code_list = codes.index.tolist()
+  code_list.sort()
   # code_list = [x for x in code_list if x not in config['visualization']['plot_args']['sec_name'].keys()]
 
   # ta_config
