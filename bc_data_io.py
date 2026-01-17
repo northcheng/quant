@@ -1705,9 +1705,10 @@ def filter_futu_exported(df: pd.DataFrame, condition: dict = None, q: float = 0.
   """
 
   filtered_df = df
-  volume_threshold = df.volume.quantile(q)
-  volume_value_threshold = df.volume_value.quantile(q)
-  market_value_threshold = df.market_value.quantile(q)
+  # volume_threshold = df.volume.quantile(q)
+  # volume_value_threshold = df.volume_value.quantile(q)
+  # market_value_threshold = df.market_value.quantile(q)
+  market_value_threshold = 500000000
 
   # drop abnormal symbols
   to_drop = []
@@ -1718,7 +1719,7 @@ def filter_futu_exported(df: pd.DataFrame, condition: dict = None, q: float = 0.
     PB_threshold = -1.0
     PE_threshold = -1.0
     filtered_df = filtered_df.query(f'({price_limit[0]} <= close <= {price_limit[1]}) and (type == "company")').copy()
-    # filtered_df = filtered_df.query(f'(volume >= {volume_threshold} and volume_value >= {volume_value_threshold} and market_value >= {market_value_threshold}) and PE >= {PE_threshold} and PB >= {PB_threshold} and rate_5d > 0 and rate_10d > 0').copy()
+    filtered_df = filtered_df.query(f'(market_value >= {market_value_threshold})').copy() # volume >= {volume_threshold} and volume_value >= {volume_value_threshold} and  and PE >= {PE_threshold} and PB >= {PB_threshold} and rate_5d > 0 and rate_10d > 0
     filtered_df = filtered_df.sort_values('hotness', ascending=False)
     
     for index, row in filtered_df.iterrows():
