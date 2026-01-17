@@ -1211,7 +1211,7 @@ def calculate_ta_signal(df: pd.DataFrame):
       # 区间波动
       '区间波动_down':          '''
                             (
-                              (adx_strong_day < 0 and -10 < adx_direction_start < 15 and -20 < adx_value < 20 and adx_direction_start > -10)                                                  
+                              (adx_strong_day < 0 and -20 < adx_value < 20 and ((-10 < adx_direction_start < 15) or (adx_strength_change < 1 and -1 < adx_value_change < 1)))                                                  
                             )
                             '''.replace('\n', ''),
 
