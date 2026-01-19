@@ -5454,6 +5454,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     # annotate trend
     v = round(df.loc[max_idx, 'trend_score'], 1)
     v_change = df.loc[max_idx, 'trend_score_change']
+    v_day = df.loc[max_idx, 'trend_day']
     desc = f'向上' if v > 0 else '向下'
     if df.loc[max_idx, "trend"] == 'wave':
       desc = '波动' + desc
@@ -5461,7 +5462,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
       desc = ((desc + '增强') if v_change > 0 else (desc + '减缓')) if desc == '向上' else ((desc + '减缓') if v_change > 0 else (desc + '增强'))
     y_signal = df.loc[max_idx, signal_y]
     text_color = 'none' 
-    plt.annotate(f'[势]{desc}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+    plt.annotate(f'[势]{desc}({v_day})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
     # title and legend
     ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
