@@ -1111,6 +1111,26 @@ def calculate_ta_signal(df: pd.DataFrame):
                             (rsi > 70)
                             '''.replace('\n', ''),
 
+      # 关键突破(ichimoku, kama)
+      '关键突破_up':            '''
+                            (
+                              (ki_distance == 'rr') and 
+                              (position in ['down', 'mid_down']) and 
+                              (相对ichimoku位置 in ['down', 'mid_down'] and 相对kama位置 in ['down', 'mid_down']) and
+                              (tankan_day == 1 or kama_fast_day == 1)
+                            )
+                            '''.replace('\n', ''),
+      
+      # 关键突破(ichimoku, kama)
+      '关键突破_down':          '''
+                            (
+                              (ki_distance == 'gg') and 
+                              (position in ['up', 'mid_up']) and 
+                              (相对ichimoku位置 in ['up', 'mid_up'] and 相对kama位置 in ['up', 'mid_up']) and
+                              (tankan_day == -1 or kama_fast_day == -1)
+                            )
+                            '''.replace('\n', ''),
+
       # 关键边界(ichimoku, kama, gap)
       '长线边界_up':            '''
                             (
@@ -1260,6 +1280,7 @@ def calculate_ta_signal(df: pd.DataFrame):
     # set pattern weigths
     p_weights = {
       '超买超卖': 0.5,
+      '关键突破': 1,
       '长线边界': 0.5,
       '趋势渐弱': 0.25,
       '趋势转换': 1,
@@ -1274,6 +1295,7 @@ def calculate_ta_signal(df: pd.DataFrame):
     # calculate pattern score and description
     p_up_desc = {
       '超买超卖': '超卖',
+      '关键突破': '低位向上',
       '长线边界': '长线支撑',
       '趋势渐弱': '下行暂缓',
       '趋势转换': '趋势转上',
@@ -1286,6 +1308,7 @@ def calculate_ta_signal(df: pd.DataFrame):
     }
     p_down_desc = {
       '超买超卖': '超买',
+      '关键突破': '高位向下',
       '长线边界': '长线阻挡',
       '趋势渐弱': '上行暂缓',
       '趋势转换': '趋势转下',
@@ -1347,10 +1370,10 @@ def calculate_ta_signal(df: pd.DataFrame):
     df['signal_description'] = ''
 
     signal_conditions = {
-      '通常买入':       f'(signal_score_change > 0) and (pattern_score > 0) and (trend == "up")', 
-      '通常卖出':      f'(signal_score_change < 0) and (pattern_score < 0) and (trend == "down")', 
       '可能买入':       f'(signal_score_change > 0) and (pattern_score > 0) and (trigger_up_score > 0 and trigger_down_score == 0)', 
       '可能卖出':      f'(signal_score_change < 0) and (pattern_score < 0) and (trigger_down_score < 0 and trigger_score < 0)',  
+      '通常买入':       f'(signal_score_change > 0) and (pattern_score > 0) and (trend == "up")', 
+      '通常卖出':      f'(signal_score_change < 0) and (pattern_score < 0) and (trend == "down")', 
     } 
     signal_values = {
       '通常买入':       f'buy',
