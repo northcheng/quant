@@ -1769,7 +1769,7 @@ def import_futu_exported(df: pd.DataFrame, num: int = 100) -> dict:
 
   # selected_sec_list
   code_list = codes.index.tolist()
-  code_list.sort()
+  # code_list.sort()
   # code_list = [x for x in code_list if x not in config['visualization']['plot_args']['sec_name'].keys()]
 
   # ta_config
