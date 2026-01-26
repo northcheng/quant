@@ -6554,7 +6554,7 @@ def plot_summary(data: dict, width: int = 20, unit_size: float = 0.3, wspace: fl
   # set columns of indicators that need to be plotted
   key_criteria = [
     'pattern_score',
-    'signal_score',  
+    'trigger_score',  
     'position_score', 
   ]
 
@@ -6619,10 +6619,10 @@ def plot_summary(data: dict, width: int = 20, unit_size: float = 0.3, wspace: fl
     tmp_data['max'] = 0
     tmp_data['min'] = 0
 
-    colors = {'signal_score': 'k', 'signal_score_change': 'none', 'position_score': 'k', 'position_score_change': 'none', 'pattern_score': 'k', 'pattern_score_change': 'orange'}
-    hatchs = {'signal_score': None, 'signal_score_change': None, 'position_score': None, 'position_score_change': None, 'pattern_score': None, 'pattern_score_change': None}
-    hights = {'signal_score': 0.3, 'signal_score_change': 0.3, 'position_score': 0.8, 'position_score_change': 0.8, 'pattern_score': 0.8, 'pattern_score_change': 0.8}
-    zorders = {'signal_score': 1, 'signal_score_change': 1, 'position_score': 2, 'position_score_change': 2, 'pattern_score': 0, 'pattern_score_change': 0}
+    colors = {'trigger_score': 'k', 'trigger_score_change': 'k', 'position_score': 'k', 'position_score_change': 'none', 'pattern_score': 'k', 'pattern_score_change': 'orange'}
+    hatchs = {'trigger_score': None, 'trigger_score_change': None, 'position_score': None, 'position_score_change': None, 'pattern_score': None, 'pattern_score_change': None}
+    hights = {'trigger_score': 0.3, 'trigger_score_change': 0.3, 'position_score': 0.8, 'position_score_change': 0.8, 'pattern_score': 0.8, 'pattern_score_change': 0.8}
+    zorders = {'trigger_score': 1, 'trigger_score_change': 1, 'position_score': 2, 'position_score_change': 2, 'pattern_score': 0, 'pattern_score_change': 0}
     pos_hatch = None
     neg_hatch = None
     pos_alpha = 0.2
@@ -6631,24 +6631,35 @@ def plot_summary(data: dict, width: int = 20, unit_size: float = 0.3, wspace: fl
     # plot current score
     if 'plot_current_score' > '':
 
-      # scores
-      rate_ax.scatter(tmp_data['signal_score'], tmp_data.index, color=colors['signal_score'], label='signal_score', alpha=0.5, marker='$S$', zorder=zorders['signal_score'])
-      rate_ax.scatter(tmp_data['position_score'], tmp_data.index, color=colors['position_score'], label='position_score', alpha=0.5, marker='$W$', zorder=zorders['position_score'])
-      rate_ax.scatter(tmp_data['pattern_score'], tmp_data.index, color=colors['pattern_score'], label='pattern_score', alpha=0.5, marker='$P$', zorder=zorders['pattern_score'])
+      # position
+      tmp_data['position_color'] = tmp_data['position_score'].apply(lambda x: 'green' if x < 0 else 'red')
+      rate_ax.barh(tmp_data.index, tmp_data['position_score'], height=hights['position_score'], color=tmp_data['position_color'], label='position_score', alpha=pos_alpha, edgecolor=colors['position_score'], hatch=pos_hatch, zorder=zorders['position_score'])
+
+      # trigger
+      tmp_data['trigger_color'] = tmp_data['trigger_score'].apply(lambda x: ('red' if x < 0 else 'green'))
+      zero_idx = tmp_data.query('trigger_score == 0').index
+      tmp_data.loc[zero_idx, 'trigger_color'] = 'white' 
+      rate_ax.scatter(tmp_data['trigger_score'], tmp_data.index, color=tmp_data['trigger_color'], label='trigger_score', alpha=0.5, marker='x', zorder=zorders['trigger_score'])
+      
+      # pattern
+      tmp_data['pattern_color'] = tmp_data['pattern_score'].apply(lambda x: ('red' if x < 0 else 'green'))
+      zero_idx = tmp_data.query('pattern_score == 0').index
+      tmp_data.loc[zero_idx, 'pattern_color'] = 'white'  
+      rate_ax.scatter(tmp_data['pattern_score'], tmp_data.index, color=tmp_data['pattern_color'], label='pattern_score', alpha=0.5, marker='$⭐$', zorder=zorders['pattern_score'])
       rate_ax.axvline(x=0, color='grey', linestyle='--', linewidth=1)
 
-      # changes
-      for col in ['signal_score_change', 'pattern_score_change', 'position_score_change']: # , 'adx_value', 'pattern_score'
+      # # changes
+      # for col in ['trigger_score_change', 'pattern_score_change', 'position_score_change']: # , 'adx_value', 'pattern_score'
         
-        value_col = f'{col}'
-        left_col = f'{col.replace("_change", "")}'
-        edgecolor = colors[col]
+      #   value_col = f'{col}'
+      #   left_col = f'{col.replace("_change", "")}'
+      #   edgecolor = colors[col]
         
-        pos_idx = tmp_data.query(f'{col} > 0').index
-        rate_ax.barh(pos_idx, -tmp_data.loc[pos_idx, value_col], height=hights[col], color=colors[col], left=tmp_data.loc[pos_idx, left_col], label=value_col, alpha=pos_alpha, edgecolor=edgecolor, hatch=pos_hatch, zorder=zorders[col])
+      #   pos_idx = tmp_data.query(f'{col} > 0').index
+      #   rate_ax.barh(pos_idx, -tmp_data.loc[pos_idx, value_col], height=hights[col], color=colors[col], left=tmp_data.loc[pos_idx, left_col], label=value_col, alpha=pos_alpha, edgecolor=edgecolor, hatch=pos_hatch, zorder=zorders[col])
 
-        neg_idx = tmp_data.query(f'{col} <= 0').index
-        rate_ax.barh(neg_idx, -tmp_data.loc[neg_idx, value_col], height=hights[col], color='white', left=tmp_data.loc[neg_idx, left_col], alpha=neg_alpha, edgecolor=colors[col], hatch=neg_hatch, zorder=zorders[col])
+      #   neg_idx = tmp_data.query(f'{col} <= 0').index
+      #   rate_ax.barh(neg_idx, -tmp_data.loc[neg_idx, value_col], height=hights[col], color='white', left=tmp_data.loc[neg_idx, left_col], alpha=neg_alpha, edgecolor=colors[col], hatch=neg_hatch, zorder=zorders[col])
 
       # plot rate
       tmp_data['rate_color'] = 'green'
@@ -6656,7 +6667,7 @@ def plot_summary(data: dict, width: int = 20, unit_size: float = 0.3, wspace: fl
       tmp_data.loc[down_idx, 'rate_color'] = 'red'
       num_down = len(down_idx)
       title_color = 'green' if num_total/2 > num_down else 'red'  
-      rate_ax.scatter(tmp_data['rate'], tmp_data.index, color=tmp_data['rate_color'], label='rate', marker='o', alpha=0.5, zorder=10) #, edgecolor='k'
+      rate_ax.scatter(tmp_data['rate'], tmp_data.index, color=tmp_data['rate_color'], label='rate', marker='$R$', alpha=0.5, zorder=10) #, edgecolor='k'
       rate_ax.set_xlabel(f'[{t.replace("_day", "")}] Today ({num_total-num_down}/{num_total})', labelpad = 10, fontsize = 20) 
       rate_ax.legend(loc='upper left', ncol=plot_args['ncol']) 
 
@@ -6665,38 +6676,35 @@ def plot_summary(data: dict, width: int = 20, unit_size: float = 0.3, wspace: fl
 
       # position
       tmp_data['prev_position_color'] = tmp_data['prev_position_score'].apply(lambda x: 'green' if x < 0 else 'red')
-      score_ax.barh(tmp_data.index, tmp_data['prev_position_score'], height=hights[col], color=tmp_data['prev_position_color'], label='prev_pattern_score', alpha=pos_alpha, edgecolor=edgecolor, hatch=pos_hatch, zorder=zorders['position_score'])
+      score_ax.barh(tmp_data.index, tmp_data['prev_position_score'], height=hights['position_score'], color=tmp_data['prev_position_color'], label='prev_pattern_score', alpha=pos_alpha, edgecolor=colors['position_score'], hatch=pos_hatch, zorder=zorders['position_score'])
       # score_ax.scatter(tmp_data['prev_position_score'], tmp_data.index, color=colors['position_score'], label='position_score', alpha=0.5, marker='$W$', zorder=zorders['position_score'])
       
       # pattern
       tmp_data['prev_pattern_color'] = tmp_data['prev_pattern_score'].apply(lambda x: ('red' if x < 0 else 'green'))
       zero_idx = tmp_data.query('prev_pattern_score == 0').index
-      tmp_data.loc[zero_idx, 'prev_pattern_color'] = 'none'  
+      tmp_data.loc[zero_idx, 'prev_pattern_color'] = 'white'  
       score_ax.scatter(tmp_data['prev_pattern_score'], tmp_data.index, color=tmp_data['prev_pattern_color'], label='prev_pattern_score', alpha=0.5, marker='$⭐$', zorder=zorders['pattern_score'])
       
-      # signal
-      tmp_data['prev_signal_color'] = tmp_data['prev_signal_score_change'].apply(lambda x: ('red' if x < 0 else 'green'))
-      zero_idx = tmp_data.query('prev_signal_score_change == 0').index
-      tmp_data.loc[zero_idx, 'prev_signal_score_change'] = 'none' 
-
-      up_idx = tmp_data.query('prev_signal_score_change > 0').index
-      down_idx = tmp_data.query('prev_signal_score_change < 0').index
-      score_ax.scatter(tmp_data.loc[up_idx, 'prev_signal_score'], up_idx, color=tmp_data.loc[up_idx, 'prev_signal_color'], label='prev_signal_score_change', alpha=0.5, marker='>', zorder=zorders['signal_score'])
-      score_ax.scatter(tmp_data.loc[down_idx, 'prev_signal_score'], down_idx, color=tmp_data.loc[down_idx, 'prev_signal_color'], label='prev_signal_score_change', alpha=0.5, marker='<', zorder=zorders['signal_score'])
+      # trigger
+      tmp_data['prev_trigger_color'] = tmp_data['prev_trigger_score'].apply(lambda x: ('red' if x < 0 else 'green'))
+      zero_idx = tmp_data.query('prev_trigger_score == 0').index
+      tmp_data.loc[zero_idx, 'prev_trigger_color'] = 'white' 
+      score_ax.scatter(tmp_data['prev_trigger_score'], tmp_data.index, color=tmp_data['prev_trigger_color'], label='prev_trigger_score', alpha=0.5, marker='x', zorder=zorders['trigger_score'])
+      
       score_ax.axvline(x=0, color='grey', linestyle='--', linewidth=1)
       
-      # changes
-      for col in ['signal_score_change']:
+      # # changes
+      # for col in ['trigger_score_change']:
         
-        value_col = f'prev_{col}'
-        left_col = f'prev_{col.replace("_change", "")}'
-        edgecolor = colors[col]
+      #   value_col = f'prev_{col}'
+      #   left_col = f'prev_{col.replace("_change", "")}'
+      #   edgecolor = colors[col]
 
-        pos_idx = tmp_data.query(f'{value_col} > 0').index
-        score_ax.barh(pos_idx, -tmp_data.loc[pos_idx, value_col], height=hights[col], color='green', left=tmp_data.loc[pos_idx, left_col], label=col, alpha=pos_alpha, edgecolor=edgecolor, hatch=pos_hatch, zorder=zorders[col])
+      #   pos_idx = tmp_data.query(f'{value_col} > 0').index
+      #   score_ax.barh(pos_idx, -tmp_data.loc[pos_idx, value_col], height=hights[col], color='green', left=tmp_data.loc[pos_idx, left_col], label=col, alpha=pos_alpha, edgecolor=edgecolor, hatch=pos_hatch, zorder=zorders[col])
 
-        neg_idx = tmp_data.query(f'{value_col} <= 0').index
-        score_ax.barh(neg_idx, -tmp_data.loc[neg_idx, value_col], height=hights[col], color='red', left=tmp_data.loc[neg_idx, left_col], alpha=neg_alpha, edgecolor=colors[col], hatch=neg_hatch, zorder=zorders[col])
+      #   neg_idx = tmp_data.query(f'{value_col} <= 0').index
+      #   score_ax.barh(neg_idx, -tmp_data.loc[neg_idx, value_col], height=hights[col], color='red', left=tmp_data.loc[neg_idx, left_col], alpha=neg_alpha, edgecolor=colors[col], hatch=neg_hatch, zorder=zorders[col])
 
       # score_ax.legend(loc='upper right', ncol=plot_args['ncol']) 
      
@@ -7172,6 +7180,8 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
     candle_position_score = df.loc[idx, "candle_position_score"]
     c_direction = '上涨' if candle_position_score > 0 else '下跌'
     c_level = candle_score_level[abs(candle_position_score)]
+    if c_level == '大幅' and df.loc[idx, "entity_trend"] == 'd':
+      c_level = ''
     candle_score_desc = f'价格{c_level}{c_direction}'
     
     up_desc = df.loc[idx, "candle_pattern_up_description"]
