@@ -295,8 +295,8 @@ def get_data_from_eod(symbol: str, start_date: Optional[str] = None, end_date: O
       from_to += f'&to={end_date}'
 
     # get eod data (ohlcv)
-    url = f'https://eodhistoricaldata.com/api/eod/{symbol}?api_token={api_key}&period={interval}&fmt=json{from_to}'
-    response = requests.get(url, headers=headers)
+    url = f'https://eodhd.com/api/eod/{symbol}?api_token={api_key}&period={interval}&fmt=json{from_to}'
+    response = requests.get(url, headers=headers, timeout=30)
     if response.status_code==200: 
       eod = response.json()
       response_status = 'o' 
@@ -316,8 +316,8 @@ def get_data_from_eod(symbol: str, start_date: Optional[str] = None, end_date: O
       if add_dividend:
 
         # get dividend data
-        url = f'https://eodhistoricaldata.com/api/div/{symbol}?api_token={api_key}&fmt=json{from_to}'
-        response = requests.get(url, headers=headers)
+        url = f'https://eodhd.com/api/div/{symbol}?api_token={api_key}&fmt=json{from_to}'
+        response = requests.get(url, headers=headers, timeout=30)
         if response.status_code==200: 
           dividend = response.json()
           response_status = 'o' 
@@ -340,8 +340,8 @@ def get_data_from_eod(symbol: str, start_date: Optional[str] = None, end_date: O
       if add_split:
 
         # get split data
-        url = f'https://eodhistoricaldata.com/api/splits/{symbol}?api_token={api_key}&fmt=json{from_to}'  
-        response = requests.get(url, headers=headers)
+        url = f'https://eodhd.com/api/splits/{symbol}?api_token={api_key}&fmt=json{from_to}'  
+        response = requests.get(url, headers=headers, timeout=30)
         if response.status_code==200: 
           split = response.json()
           response_status = 'o' 
@@ -526,8 +526,8 @@ def get_real_time_data_from_eod(symbols: list, api_key: str = default_eod_key, i
       other_symbols = ','.join(tmp_list[1:])
   
     # get real-time data for current batch
-    url = f'https://eodhistoricaldata.com/api/real-time/{first_symbol}?api_token={api_key}&fmt=json&s={other_symbols}'
-    response = requests.get(url, headers=headers)
+    url = f'https://eodhd.com/api/real-time/{first_symbol}?api_token={api_key}&fmt=json&s={other_symbols}'
+    response = requests.get(url, headers=headers, timeout=30)
     try:
       real_time = [] if response.status_code!=200 else response.json()
     except Exception as e:
