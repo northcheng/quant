@@ -3030,8 +3030,8 @@ def add_adx_features(df: pd.DataFrame, n: int = 14, ohlcv_col: dict = default_oh
   df['mdm'] = df['low_diff'].combine(df['zero'], lambda x1, x2: get_min_max(x1, x2, 'max'))
   
   # plus/minus directional indicators
-  df['pdi'] = 100 * em(series=df['pdm'], periods=n).mean() / df['atr']
-  df['mdi'] = 100 * em(series=df['mdm'], periods=n).mean() / df['atr']
+  df['pdi'] = 100 * em(series=df['pdm'], periods=n).mean() / df['tr']
+  df['mdi'] = 100 * em(series=df['mdm'], periods=n).mean() / df['tr']
 
   # directional movement index
   df['dx'] = 100 * abs(df['pdi'] - df['mdi']) / (df['pdi'] + df['mdi'])
@@ -3039,13 +3039,7 @@ def add_adx_features(df: pd.DataFrame, n: int = 14, ohlcv_col: dict = default_oh
   # Average directional index
   df['adx'] = em(series=df['dx'], periods=n).mean()
 
-  idx = df.index.tolist()
-  for i in range(n*2, len(df)-1):
-    current_idx = idx[i]
-    previous_idx = idx[i-1]
-    df.loc[current_idx, 'adx'] = (df.loc[previous_idx, 'adx'] * (n-1) + df.loc[current_idx, 'dx']) / n
-
-  # (pdi-mdi) / (adx/25)
+  # (pdi-mdi)
   df['adx_diff'] = (df['pdi'] - df['mdi'])# * (df['adx']/adx_threshold)
   df['adx_diff_ma'] = em(series=df['adx_diff'], periods=5).mean()
 

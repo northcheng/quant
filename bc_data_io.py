@@ -783,7 +783,7 @@ def update_stock_data_new(symbols: list, stock_data_path: str, file_format: str 
 
             # get data for benchmark symbol of current market
             tmp_data = get_data(mkt_benchmark_symbol, start_date=start_date, end_date=today, interval='d', is_print=False, source=benchmark_source, api_key=benchmark_api_keys[mkt], add_dividend=False, add_split=False, adjust='qfq')
-            benchmark_dates[mkt] = util.time_2_string(tmp_data.index.max())        
+            benchmark_dates[mkt] = util.time_2_string(tmp_data.index.max())    
             
             # break when finish
             break
@@ -871,7 +871,6 @@ def update_stock_data_new(symbols: list, stock_data_path: str, file_format: str 
 
               # get new data
               new_data = get_data(symbol=tmp_symbol, start_date=start_date, end_date=required_date, interval='d', is_print=is_print, source=tmp_source, api_key=benchmark_api_keys[mkt], add_dividend=add_dividend, add_split=add_split, adjust=adjust)
-          
               # append new data to the origin
               data[symbol] = pd.concat([data[symbol], new_data])
               data[symbol] = util.remove_duplicated_index(df=data[symbol], keep='last').dropna()
@@ -885,7 +884,8 @@ def update_stock_data_new(symbols: list, stock_data_path: str, file_format: str 
               print(f'{symbol:5}: symbol not found from source {tmp_source}')
             
           else:
-            up_to_date_symbols.append(symbol)
+            if symbol not in up_to_date_symbols:
+              up_to_date_symbols.append(symbol)
             
         num_symbol_up_to_date = len(up_to_date_symbols)
         if num_symbol_up_to_date > 0:
@@ -1017,7 +1017,8 @@ def update_stock_data_from_eod(symbols: list, stock_data_path: str, file_format:
         save_stock_data(df=data[symbol], file_path=stock_data_path, file_name=symbol, file_format=file_format, reset_index=True, index=False)
     
     else:
-      up_to_date_symbols.append(symbol)
+      if symbol not in up_to_date_symbols:
+        up_to_date_symbols.append(symbol)
       
   num_symbol_up_to_date = len(up_to_date_symbols)
   if num_symbol_up_to_date > 0:
@@ -1134,7 +1135,8 @@ def update_stock_data_from_ak(symbols: list, stock_data_path: str, file_format: 
         save_stock_data(df=data_to_save, file_path=stock_data_path, file_name=symbol, file_format=file_format, reset_index=True, index=False)
     
     else:
-      up_to_date_symbols.append(symbol)
+      if symbol not in up_to_date_symbols:
+        up_to_date_symbols.append(symbol)
       
   num_symbol_up_to_date = len(up_to_date_symbols)
   if num_symbol_up_to_date > 0:
