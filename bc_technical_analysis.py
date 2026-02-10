@@ -7018,7 +7018,7 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
       text_color = 'green' if v_change > 0 else 'red'
       desc = '量升' if v_change > 0 else '量跌'
       v_change = f'+{v_change}' if v_change > 0 else f'{v_change}'
-      plt.annotate(f'{desc}({v_day})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+      plt.annotate(f'{desc}({v_day}天)', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
     # plot score
     elif tmp_indicator == 'score':
