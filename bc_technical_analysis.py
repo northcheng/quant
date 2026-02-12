@@ -37,7 +37,7 @@ default_trend_val = {'pos_trend':'u', 'neg_trend':'d', 'none_trend':'', 'wave_tr
 default_signal_val = {'pos_signal':'b', 'neg_signal':'s', 'none_signal':'', 'wave_signal': 'n'}
 
 # default indicators and dynamic trend for calculation
-default_indicators = {'trend': ['ichimoku', 'kama', 'adx'], 'volume': [], 'momentum':['rsi'], 'volatility': [], 'other': []}
+default_indicators = {'trend': ['ichimoku', 'kama', 'adx'], 'volume': [], 'momentum':['rsi'], 'volatility': [], 'other': ['renko']}
 default_perspectives = ['candle', 'support_resistant']
 default_support_resistant_col = ['kama_fast', 'kama_slow', 'tankan', 'kijun', 'renko_h', 'renko_l', 'candle_gap_top', 'candle_gap_bottom']
 
@@ -1042,7 +1042,6 @@ def calculate_ta_signal(df: pd.DataFrame):
   # columns to drop          
   col_to_drop = []
   
-
   # ================================ calculate candle =======================
   if 'candle' > '':
     df['volume_change'] = df['Volume'] - df['Volume'].shift(1)
@@ -5561,7 +5560,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
       if len(tmp_data) > 0:
         ax.scatter(tmp_data.index, tmp_data[signal_y], marker=tmp_marker, color=tmp_color, alpha=tmp_data[tmp_col_a].fillna(0))
   
-  ax.fill_between(df.index, 1.5, 2.5, hatch=None, linewidth=1, facecolor='yellow', edgecolor=None, alpha=0.1, zorder=0)
+  ax.fill_between(df.index, 3.5, 4.5, hatch=None, linewidth=1, facecolor='lightgrey', edgecolor=None, alpha=0.1, zorder=0)
 
 
   # return ax
@@ -6403,7 +6402,7 @@ def plot_renko(df: pd.DataFrame, start: Optional[int] = None, end: Optional[int]
     facecolor = 'white'
     edgecolor = 'black' if row['renko_color'] == 'green' else 'red'
     alpha = 0.4 if row['renko_color'] == 'green' else 0.5
-    renko = Rectangle((index, row['renko_o']), brick_length, row['renko_distance'], facecolor=facecolor, edgecolor=edgecolor, hatch=hatch, linewidth=0.1, fill=False, alpha=0.5, label=legends[row['renko_real']], zorder=default_zorders['renko']) #  edgecolor=row['renko_color'], linestyle='-', linewidth=5, 
+    renko = Rectangle((index, row['renko_o']), brick_length, row['renko_distance'], facecolor=facecolor, edgecolor=edgecolor, hatch=hatch, linewidth=0.1, fill=False, alpha=0.3, label=legends[row['renko_real']], zorder=default_zorders['renko']) #  edgecolor=row['renko_color'], linestyle='-', linewidth=5, 
     legends[row['renko_real']] = "_nolegend_"
     ax.add_patch(renko)
   
