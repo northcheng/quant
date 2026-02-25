@@ -49,7 +49,7 @@ headers = {'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/5
 # STANDARD_US_SYMBOL = 'AAPL'
 # STANDARD_CN_SYMBOL = '000001' # 00700
 # STANDARD_INTERVAL = 'd' # /w/m
-BENCHMARK_SYMBOL = {'us': 'SPY', 'cn': '159941', 'hk': '00700'}
+BENCHMARK_SYMBOL = {'us': 'SPY', 'cn': '000300', 'hk': '00700'}
 
 # EOD is mainly used for US stock eod and realtime(15min-delayed) price:  AAPL
 # EOD is able to access CN stock eod price, but the price is un-adjusted: 000001.SHE
@@ -779,11 +779,15 @@ def update_stock_data_new(symbols: list, stock_data_path: str, file_format: str 
         while retry_count < 5:
           try:
             retry_count += 1
-            print(f'[data]: querying benchmark date for [{mkt.upper()}] from {benchmark_source} (try #{retry_count})')        
+            print(f'[data]: querying benchmark({mkt_benchmark_symbol}) date for [{mkt.upper()}] from {benchmark_source} (try #{retry_count})')        
 
             # get data for benchmark symbol of current market
             tmp_data = get_data(mkt_benchmark_symbol, start_date=start_date, end_date=today, interval='d', is_print=False, source=benchmark_source, api_key=benchmark_api_keys[mkt], add_dividend=False, add_split=False, adjust='qfq')
-            benchmark_dates[mkt] = util.time_2_string(tmp_data.index.max())    
+            if len(tmp_data) > 0:
+              benchmark_dates[mkt] = util.time_2_string(tmp_data.index.max()) 
+            else:   
+              print(f'[-{mkt.upper()}-]: benchmark({mkt_benchmark_symbol}) data is empty, use today - {today}')
+              benchmark_dates[mkt] = today
             
             # break when finish
             break
