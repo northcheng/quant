@@ -102,7 +102,8 @@
       "trigger_score": "触发分数", "trigger_day": "触发天数",       
       "pattern_score": "模式分数", "pattern_description": "模式描述",
       "trend": "趋势方向", "trend_score": "趋势分数", "trend_day": "趋势天数",
-      "signal": "交易信号", "signal_day": "信号天数", "signal_score": "信号分数"
+      "signal": "交易信号", "signal_day": "信号天数", "signal_score": "信号分数",
+      "total_score": "总分"
     },
     "drop_columns": [],
     "save_result": true,
