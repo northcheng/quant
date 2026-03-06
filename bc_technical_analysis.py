@@ -14,6 +14,7 @@ import pandas as pd
 import mplfinance as mpf
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+import matplotlib.colors as mcolors
 from typing import Literal, Optional, Any
 from scipy.stats import linregress
 from numpy.lib.stride_tricks import as_strided
@@ -37,7 +38,7 @@ default_trend_val = {'pos_trend':'u', 'neg_trend':'d', 'none_trend':'', 'wave_tr
 default_signal_val = {'pos_signal':'b', 'neg_signal':'s', 'none_signal':'', 'wave_signal': 'n'}
 
 # default indicators and dynamic trend for calculation
-default_indicators = {'trend': ['ichimoku', 'kama', 'adx'], 'volume': [], 'momentum':['rsi'], 'volatility': [], 'other': []}
+default_indicators = {'trend': ['ichimoku', 'kama', 'adx'], 'volume': [], 'momentum':['rsi'], 'volatility': [], 'other': ['renko']}
 default_perspectives = ['candle', 'support_resistant']
 default_support_resistant_col = ['kama_fast', 'kama_slow', 'tankan', 'kijun', 'renko_h', 'renko_l', 'candle_gap_top', 'candle_gap_bottom']
 
@@ -49,7 +50,7 @@ default_plot_args = {'figsize':(30, 3), 'title_rotation':'vertical', 'xaxis_posi
 # zorders
 default_zorders = {}
 counter = 1
-for item in ['default', 'price', 'gap', 'ichimoku', 'kama', 'renko', 'candle_pattern', 'candle_shadow', 'candle_entity', 'extended', ]:
+for item in ['gap', 'renko', 'default', 'price', 'ichimoku', 'kama', 'candle_pattern', 'candle_shadow', 'candle_entity', 'extended', ]:
   default_zorders[item] = counter
   counter += 1
 
@@ -3635,7 +3636,7 @@ def add_stc_features(df: pd.DataFrame, n_fast: int = 23, n_slow: int = 50, n_cyc
   return df
 
 # Renko
-def add_renko_features(df: pd.DataFrame, brick_size_factor: float = 0.05, dynamic_brick: bool = True, merge_duplicated: bool = True) -> pd.DataFrame:
+def add_renko_features(df: pd.DataFrame, brick_size_factor: float = 0.075, dynamic_brick: bool = True, merge_duplicated: bool = True) -> pd.DataFrame:
   """
   Calculate Renko indicator
   :param df: original OHLCV dataframe
@@ -3653,6 +3654,7 @@ def add_renko_features(df: pd.DataFrame, brick_size_factor: float = 0.05, dynami
   if dynamic_brick:
     # use dynamic brick size: brick_size_factor * Close price
     df['bsz'] = (df['Close'] * brick_size_factor).round(3)
+    # df['bsz'] = (df['atr']).fillna(method='bfill').round(3)
   
   else:
     # use static brick size: brick_size_factor * Close price
@@ -6082,6 +6084,10 @@ def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Opt
   # ax.plot(lmax_idx, df.loc[lmax_idx, 'Open'], color='red')
   # ax.plot(lmin_idx, df.loc[lmin_idx, 'Low'], color='red')
   
+  # plot renko bricks
+  if 'renko' in target_indicator:
+    ax = plot_renko(df, use_ax=ax, plot_args=default_plot_args, close_alpha=0)
+
   # plot close price
   if 'price' in target_indicator:
     alpha = 0.2
@@ -6091,7 +6097,7 @@ def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Opt
   if 'ichimoku' in target_indicator:
     
     # tankan/kijun
-    alpha = 0.4
+    alpha = 1
     ax.plot(df.index, df.tankan, label='tankan', color='green', linestyle='-', alpha=alpha, zorder=default_zorders['ichimoku']) # magenta
     ax.plot(df.index, df.kijun, label='kijun', color='red', linestyle='-', alpha=alpha, zorder=default_zorders['ichimoku']) # blue
     alpha = 0.1
@@ -6215,9 +6221,7 @@ def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Opt
   if 'candlestick' in target_indicator:
     ax = plot_candlestick(df=df, start=start, end=end, date_col=date_col, add_on=add_on, ohlcv_col=ohlcv_col, color=candlestick_color, use_ax=ax, plot_args=plot_args, interval=interval)
   
-  # plot renko bricks
-  if 'renko' in target_indicator:
-    ax = plot_renko(df, use_ax=ax, plot_args=default_plot_args, close_alpha=0)
+  
 
   # plot mask for extended
   if extended is not None:
@@ -6398,11 +6402,11 @@ def plot_renko(df: pd.DataFrame, start: Optional[int] = None, end: Optional[int]
   for index, row in df.iterrows():
     
     brick_length = (row['renko_end'] - row['renko_start'])
-    hatch = '----'
-    facecolor = 'white'
-    edgecolor = 'black' if row['renko_color'] == 'green' else 'red'
-    alpha = 0.4 if row['renko_color'] == 'green' else 0.5
-    renko = Rectangle((index, row['renko_o']), brick_length, row['renko_distance'], facecolor=facecolor, edgecolor=edgecolor, hatch=hatch, linewidth=0.1, fill=False, alpha=0.3, label=legends[row['renko_real']], zorder=default_zorders['renko']) #  edgecolor=row['renko_color'], linestyle='-', linewidth=5, 
+    hatch = None #'----'
+    facecolor = mcolors.to_rgba('black' if row['renko_color'] == 'green' else 'red', alpha=0.2) # 'yellow' # 'grey' if row['renko_color'] == 'green' else 'red'
+    edgecolor = mcolors.to_rgba('black', alpha=0.6) # 'green' if row['renko_color'] == 'green' else 'red'
+    alpha = 0.3 # if row['renko_color'] == 'green' else 0.5
+    renko = Rectangle((index, row['renko_o']), brick_length, row['renko_distance'], facecolor=facecolor, edgecolor=edgecolor, hatch=hatch, linewidth=1.5, fill=True, label=legends[row['renko_real']], zorder=default_zorders['renko']) #  edgecolor=row['renko_color'], linestyle='-', linewidth=5, 
     legends[row['renko_real']] = "_nolegend_"
     ax.add_patch(renko)
   
