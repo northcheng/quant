@@ -3636,7 +3636,7 @@ def add_stc_features(df: pd.DataFrame, n_fast: int = 23, n_slow: int = 50, n_cyc
   return df
 
 # Renko
-def add_renko_features(df: pd.DataFrame, brick_size_factor: float = 0.075, dynamic_brick: bool = True, merge_duplicated: bool = True) -> pd.DataFrame:
+def add_renko_features(df: pd.DataFrame, brick_size_factor: float = 0.1, dynamic_brick: bool = True, merge_duplicated: bool = True) -> pd.DataFrame:
   """
   Calculate Renko indicator
   :param df: original OHLCV dataframe
@@ -6403,9 +6403,8 @@ def plot_renko(df: pd.DataFrame, start: Optional[int] = None, end: Optional[int]
     
     brick_length = (row['renko_end'] - row['renko_start'])
     hatch = None #'----'
-    facecolor = mcolors.to_rgba('black' if row['renko_color'] == 'green' else 'red', alpha=0.2) # 'yellow' # 'grey' if row['renko_color'] == 'green' else 'red'
-    edgecolor = mcolors.to_rgba('black', alpha=0.6) # 'green' if row['renko_color'] == 'green' else 'red'
-    alpha = 0.3 # if row['renko_color'] == 'green' else 0.5
+    facecolor = mcolors.to_rgba('black' if row['renko_color'] == 'green' else 'red', alpha=0.1) # 'yellow' # 'grey' if row['renko_color'] == 'green' else 'red'
+    edgecolor = mcolors.to_rgba('black', alpha=0.3) # 'green' if row['renko_color'] == 'green' else 'red'
     renko = Rectangle((index, row['renko_o']), brick_length, row['renko_distance'], facecolor=facecolor, edgecolor=edgecolor, hatch=hatch, linewidth=1.5, fill=True, label=legends[row['renko_real']], zorder=default_zorders['renko']) #  edgecolor=row['renko_color'], linestyle='-', linewidth=5, 
     legends[row['renko_real']] = "_nolegend_"
     ax.add_patch(renko)
