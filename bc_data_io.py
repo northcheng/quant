@@ -315,50 +315,58 @@ def get_data_from_eod(symbol: str, start_date: Optional[str] = None, end_date: O
       # add dividend data
       if add_dividend:
 
-        # get dividend data
-        url = f'https://eodhd.com/api/div/{symbol}?api_token={api_key}&fmt=json{from_to}'
-        response = requests.get(url, headers=headers, timeout=30)
-        if response.status_code==200: 
-          dividend = response.json()
-          response_status = 'o' 
-        else:
-          dividend = []
-          response_status = 'x' 
+        try:
+          # get dividend data
+          url = f'https://eodhd.com/api/div/{symbol}?api_token={api_key}&fmt=json{from_to}'
+          response = requests.get(url, headers=headers, timeout=30)
+          if response.status_code==200: 
+            dividend = response.json()
+            response_status = 'o' 
+          else:
+            dividend = []
+            response_status = 'x' 
+          
+          if is_print:
+            print(f'dividend({response_status})', end=', ')
 
-        if is_print:
-          print(f'dividend({response_status})', end=', ')
+          # post process dividend data
+          if len(dividend) > 0:
+            dividend_data = pd.DataFrame(dividend)
+            dividend_data = dividend_data[['date', 'value']].copy()
+            dividend_data = dividend_data.rename(columns={'value':'dividend'})
+            data = pd.merge(data, dividend_data, how='left', left_on='date', right_on='date')
+            data['dividend'] = data['dividend'].fillna(0.0)
+        
+        except Exception as e:
+          print(f'failed to get dividend({e}), filled with 0')
 
-        # post process dividend data
-        if len(dividend) > 0:
-          dividend_data = pd.DataFrame(dividend)
-          dividend_data = dividend_data[['date', 'value']].copy()
-          dividend_data = dividend_data.rename(columns={'value':'dividend'})
-          data = pd.merge(data, dividend_data, how='left', left_on='date', right_on='date')
-          data['dividend'] = data['dividend'].fillna(0.0)
-      
       # add split data
       if add_split:
 
-        # get split data
-        url = f'https://eodhd.com/api/splits/{symbol}?api_token={api_key}&fmt=json{from_to}'  
-        response = requests.get(url, headers=headers, timeout=30)
-        if response.status_code==200: 
-          split = response.json()
-          response_status = 'o' 
-        else:
-          split = []
-          response_status = 'x' 
+        try:
+          # get split data
+          url = f'https://eodhd.com/api/splits/{symbol}?api_token={api_key}&fmt=json{from_to}'  
+          response = requests.get(url, headers=headers, timeout=30)
+          if response.status_code==200: 
+            split = response.json()
+            response_status = 'o' 
+          else:
+            split = []
+            response_status = 'x' 
 
-        if is_print:
-          print(f'split({response_status})')
-        
-        # post process dividend data
-        if len(split) > 0:
-          split_data = pd.DataFrame(split)
-          split_data.split = split_data.split.apply(lambda x: float(x.split('/')[0])/float(x.split('/')[1]))
-          data = pd.merge(data, split_data, how='left', left_on='date', right_on='date')
-          data['split'] = data['split'].fillna(1.0)
+          if is_print:
+            print(f'split({response_status})')
           
+          # post process dividend data
+          if len(split) > 0:
+            split_data = pd.DataFrame(split)
+            split_data.split = split_data.split.apply(lambda x: float(x.split('/')[0])/float(x.split('/')[1]))
+            data = pd.merge(data, split_data, how='left', left_on='date', right_on='date')
+            data['split'] = data['split'].fillna(1.0)
+        
+        except Exception as e:
+          print(f'failed to get split({e}), filled with 1')
+
       # fill na values for dividend and split    
       if 'dividend' not in data.columns:
         data['dividend'] = 0.0

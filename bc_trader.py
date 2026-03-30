@@ -615,6 +615,12 @@ class Futu(Trader):
         _, position = self.trade_client.position_list_query(trd_env=self.account_type)
         if type(position) == pd.DataFrame and len(position) > 0:
 
+          # remove duplicated columns
+          col_to_drop = ['average_cost']
+          for ctd in col_to_drop:
+            if ctd in position.columns:
+              position.drop('average_cost', axis=1, inplace=True)
+
           # rename columns, add extra columns
           position.rename(columns={'code':'symbol', 'qty':'quantity', 'cost_price': 'average_cost', 'nominal_price':'latest_price', 'pl_ratio':'rate', 'market_val': 'market_value'}, inplace=True)
           position['symbol'] = position['symbol'].apply(lambda x: x.split('.')[1])
