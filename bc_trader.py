@@ -625,7 +625,7 @@ class Futu(Trader):
           position.rename(columns={'code':'symbol', 'qty':'quantity', 'cost_price': 'average_cost', 'nominal_price':'latest_price', 'pl_ratio':'rate', 'market_val': 'market_value'}, inplace=True)
           position['symbol'] = position['symbol'].apply(lambda x: x.split('.')[1])
           position['rate'] = round(position['rate'] / 100, 2)
-          position['rate_inday'] = 0
+          position['rate_inday'] = 0.0
           position['latest_time'] = None
           
           # get realtime data for stock in position
@@ -639,7 +639,7 @@ class Futu(Trader):
               position.drop(duplicated_col, axis=1, inplace=True)
               position = pd.merge(position, status, how='left', left_on=key_col, right_on=key_col)
               position['rate'] = round((position['latest_price'] - position['average_cost']) / position['average_cost'], 2)
-              position['rate_inday'] = round((position['Open'] - position['Close']) / position['Open'], 2)
+              position['rate_inday'] = round((position['Close'] - position['Open']) / position['average_cost'], 2)
               position['market_value'] = round(position['latest_price'] * position['quantity'], 2)
 
           # select columns
@@ -845,7 +845,7 @@ class Tiger(Trader):
               result.drop(duplicated_col, axis=1, inplace=True)
               result = pd.merge(result, status, how='left', left_on=key_col, right_on=key_col)
               result['rate'] = round((result['latest_price'] - result['average_cost']) / result['average_cost'], 2)
-              result['rate_inday'] = round((result['Close'] - result['Open']) / result['Open'], 2)
+              result['rate_inday'] = round((result['Close'] - result['Open']) / position['average_cost'], 2)
               result['market_value'] = round(result['latest_price'] * result['quantity'], 2)       
           
           # select columns
