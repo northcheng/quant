@@ -276,7 +276,7 @@ def calculate_ta_basic(df: pd.DataFrame, indicators: dict = default_indicators):
   try:
     # calculate close change rate
     phase = 'calculate close rate' 
-    df = cal_change_rate(df=df, target_col=default_ohlcv_col['close'], add_accumulation=False)
+    df['rate'] = df[default_ohlcv_col['close']].pct_change(periods=1) 
 
     # calculate candlestick features
     phase = 'calculate candlestick' 
@@ -337,29 +337,10 @@ def calculate_ta_static(df: pd.DataFrame, indicators: dict = default_indicators)
         distance = f'{target_indicator}_distance'
         distance_middle = f'{target_indicator}_distance_middle'
         
-        # distance
-        df[distance] = df[fl] - df[sl]
-        df[distance] = df[distance] / df[sl]
-
-        # distance change(normalized by slow_line)
-        # distance_change = f'{target_indicator}_distance_change'
-        # df[distance_change] = df[distance] - df[distance].shift(1)
-
-        # distance_day (fl & sl crossover)
-        distance_day = f'{target_indicator}_distance_day'
-        df[distance_day] = df[distance] > 0
-        df[distance_day] = df[distance_day].replace({True: 1, False: -1})
-        df[distance_day] = sda(series=df[distance_day], zero_as=None).astype(int)
-
-        pos_none_idx = df.query(f'0 > {distance_day} and {distance} == 0').index
-        neg_none_idx = df.query(f'0 < {distance_day} and {distance} == 0').index
-        df.loc[pos_none_idx, distance_day] = -1
-        df.loc[neg_none_idx, distance_day] = 1       
-        
         # fl/sl change rate and fl & Close, sl & Close crossover
         threshold = 0.00
         for col in [fl, sl]:
-          df = cal_change_rate(df=df, target_col=col, periods=1, add_accumulation=False, add_prefix=col, drop_na=False)
+          df[f'{col}_rate'] = df[col].pct_change(periods=1)
           df[f'{col}_day'] = cal_crossover_signal(df=df, fast_line='Close', slow_line=col, pos_signal=1, neg_signal=-1, none_signal=0)
           df[f'{col}_day'] = sda(series=df[f'{col}_day'], zero_as=1)
 
@@ -398,6 +379,25 @@ def calculate_ta_static(df: pd.DataFrame, indicators: dict = default_indicators)
         # }
         # df = assign_condition_value(df=df, column=status_col, condition_dict=conditions, value_dict=values, default_value=0.0)
 
+        # distance
+        df[distance] = df[fl] - df[sl]
+        df[distance] = df[distance] / df[sl]
+
+        # distance change(normalized by slow_line)
+        # distance_change = f'{target_indicator}_distance_change'
+        # df[distance_change] = df[distance] - df[distance].shift(1)
+
+        # distance_day (fl & sl crossover)
+        distance_day = f'{target_indicator}_distance_day'
+        df[distance_day] = df[distance] > 0
+        df[distance_day] = df[distance_day].replace({True: 1, False: -1})
+        df[distance_day] = sda(series=df[distance_day], zero_as=None).astype(int)
+
+        pos_none_idx = df.query(f'0 > {distance_day} and {distance} == 0').index
+        neg_none_idx = df.query(f'0 < {distance_day} and {distance} == 0').index
+        df.loc[pos_none_idx, distance_day] = -1
+        df.loc[neg_none_idx, distance_day] = 1       
+        
         # cloud top and bototm
         cloud_top_col = f'{target_indicator}_cloud_top'
         cloud_bottom_col = f'{target_indicator}_cloud_bottom'
@@ -435,8 +435,8 @@ def calculate_ta_static(df: pd.DataFrame, indicators: dict = default_indicators)
       # adx value and strength
       # df['adx_value'] = df['adx_diff_ma']
       # df['adx_strength'] = df['adx']
-      df = cal_change(df=df, target_col='adx_value', add_accumulation=False, add_prefix=True)
-      df = cal_change(df=df, target_col='adx_strength', add_accumulation=False, add_prefix=True)
+      df['adx_value_change'] = df['adx_value'].diff(periods=1)
+      df['adx_strength_change'] = df['adx_strength'].diff(periods=1)
 
       # # mute micro changes
       # wave_idx = df.query('-0.01 < adx_value_change < 0.01').index
@@ -448,17 +448,11 @@ def calculate_ta_static(df: pd.DataFrame, indicators: dict = default_indicators)
       df['adx_power'] = df['adx_strength_change']  # sda of adx_strength_change
       # wave_idx = df.query('-1 < adx_direction < 1 and -0.5 < adx_power < 0.5').index
 
-      # adx_value_prediction
-      df['adx_value_prediction'] = df['adx_value'] + em(series=df['adx_value_change'], periods=3).mean()
-      df['adx_value_prediction'] = em(series=df['adx_value_prediction'], periods=5).mean()
-      df['adx_value_pred_change'] = df['adx_value_prediction'] - df['adx_value_prediction'].shift(1) 
-
       # direction(of value) and power(of strength)
+      threshold = 0
       for col in ['adx_direction', 'adx_power']:
-        # df.loc[wave_idx, col] = 0
+        
         df[col] = sda(series=df[col], zero_as=0)
-
-        threshold = 0
         conditions = {
           'up': f'{col} > {threshold}', 
           'down': f'{col} < {-threshold}', 
@@ -469,6 +463,13 @@ def calculate_ta_static(df: pd.DataFrame, indicators: dict = default_indicators)
           'wave': 0}
         df = assign_condition_value(df=df, column=f'{col}_day', condition_dict=conditions, value_dict=values, default_value=0.0) 
         df[f'{col}_day'] = sda(series=df[f'{col}_day'], zero_as=1) 
+
+      # adx_value_prediction
+      df['adx_value_prediction'] = df['adx_value'] + em(series=df['adx_value_change'], periods=3).mean()
+      df['adx_value_prediction'] = em(series=df['adx_value_prediction'], periods=5).mean()
+      df['adx_value_pred_change'] = df['adx_value_prediction'] - df['adx_value_prediction'].shift(1) 
+
+      
 
       # highest(lowest) value of adx_value of previous uptrend(downtrend)
       base_columns = {'adx_direction': 'adx_value', 'adx_power': 'adx_strength'}
@@ -574,10 +575,8 @@ def calculate_ta_static(df: pd.DataFrame, indicators: dict = default_indicators)
       aroon_col = ['aroon_up', 'aroon_down', 'aroon_gap']
       df[aroon_col] = round(df[aroon_col], 1)
       for col in aroon_col:
-        df = cal_change(df=df, target_col=col, add_prefix=True, add_accumulation=True)
+        df[f'{col}_change'] = df[col].diff(periods=1)
         col_to_drop.append(f'{col}_change')
-        col_to_drop.append(f'{col}_acc_change')
-        col_to_drop.append(f'{col}_acc_change_count')
 
       # calculate aroon trend
       df['aroon_trend'] = ''
@@ -596,12 +595,12 @@ def calculate_ta_static(df: pd.DataFrame, indicators: dict = default_indicators)
 
       # otherwise up trend
       # 3+. aroon_down is decreasing, and (aroon_up is increasing or aroon_down>aroon_up)
-      up_idx = df.query('(aroon_trend!="u" and aroon_trend!="d") and ((aroon_down_change<0) and (aroon_up_change>=0 or aroon_down>aroon_up))').index # and (aroon_up_acc_change_count <= -2 or aroon_down_acc_change_count <= -2)
+      up_idx = df.query('(aroon_trend!="u" and aroon_trend!="d") and ((aroon_down_change<0) and (aroon_up_change>=0 or aroon_down>aroon_up))').index
       df.loc[up_idx, 'aroon_trend'] = 'u'
 
       # otherwise down trend
       # 3-. aroon_up is decreasing, and (aroon_down is increasing or aroon_up>aroon_down)
-      down_idx = df.query('(aroon_trend!="u" and aroon_trend!="d") and ((aroon_up_change<0) and (aroon_down_change>=0 or aroon_up>aroon_down))').index #and (aroon_up_acc_change_count <= -2 or aroon_down_acc_change_count <= -2)
+      down_idx = df.query('(aroon_trend!="u" and aroon_trend!="d") and ((aroon_up_change<0) and (aroon_down_change>=0 or aroon_up>aroon_down))').index
       df.loc[down_idx, 'aroon_trend'] = 'd'
 
       # it is waving when
@@ -1786,102 +1785,6 @@ def normalize(series: pd.Series, fillna: Optional[str] = None, method: str = 'de
   return normalaized
 
 
-# ================================================ Change calculation =============================================== #
-# calculate change of a column in certain period
-def cal_change(df: pd.DataFrame, target_col: str, periods: int = 1, add_accumulation: bool = True, add_prefix: bool = False, drop_na: bool = False) -> pd.DataFrame:
-  """
-  Calculate change of a column with a sliding window
-  
-  :param df: original dataframe
-  :param target_col: change of which column to calculate
-  :param periods: calculate the change within the period
-  :param add_accumulation: wether to add accumulative change in a same direction
-  :param add_prefix: whether to add prefix for the result columns (when there are multiple target columns to calculate)
-  :param drop_na: whether to drop na values from dataframe:
-  :returns: dataframe with change columns
-  :raises: none
-  """
-  # copy dateframe
-  df = df.copy()
-
-  # set prefix for result columns
-  prefix = ''
-  if add_prefix:
-    prefix = f'{target_col}_'
-
-  # set result column names
-  change_col = f'{prefix}change'
-  acc_change_col = f'{prefix}acc_change'
-  acc_change_count_col = f'{prefix}acc_change_count'
-
-  # calculate change within the period
-  df[change_col] = df[target_col].diff(periods=periods)
-  
-  # calculate accumulative change in a same direction
-  if add_accumulation:
-
-    df[acc_change_col] = sda(series=df[change_col], zero_as=0)
-
-    df[acc_change_count_col] = 0.0
-    df.loc[df[change_col]>0, acc_change_count_col] = 1
-    df.loc[df[change_col]<0, acc_change_count_col] = -1
-    df[acc_change_count_col] = sda(series=df[acc_change_count_col], zero_as=1)
-    
-  # drop NA values
-  if drop_na:        
-    df.dropna(inplace=True)
-
-  return df 
-
-# calculate change rate of a column in certain period
-def cal_change_rate(df: pd.DataFrame, target_col: str, periods: int = 1, add_accumulation: bool = True, add_prefix: bool = False, drop_na: bool = False) -> pd.DataFrame:
-  """
-  Calculate change rate of a column with a sliding window
-  
-  :param df: original dataframe
-  :param target_col: change rate of which column to calculate
-  :param periods: calculate the change rate within the period
-  :param add_accumulation: wether to add accumulative change rate in a same direction
-  :param add_prefix: whether to add prefix for the result columns (when there are multiple target columns to calculate)
-  :param drop_na: whether to drop na values from dataframe:
-  :returns: dataframe with change rate columns
-  :raises: none
-  """
-  # copy dataframe
-  df = df.copy()
-  
-  # set prefix for result columns
-  prefix = ''
-  if add_prefix:
-    prefix = f'{target_col}_'
-
-  # set result column names
-  rate_col = f'{prefix}rate'
-  acc_rate_col = f'{prefix}acc_rate'
-  acc_day_col = f'{prefix}acc_day'
-
-  # calculate change rate within the period
-  df[rate_col] = df[target_col].pct_change(periods=periods)
-  
-  # calculate accumulative change rate in a same direction
-  if add_accumulation:
-    df[acc_rate_col] = 0.0
-    df.loc[df[rate_col]>=0, acc_day_col] = 1
-    df.loc[df[rate_col]<0, acc_day_col] = -1
-
-    # add continuous values which has the same symbol (+/-)
-    df[acc_rate_col] = sda(series=df[rate_col], zero_as=0)
-    df[acc_day_col] = sda(series=df[acc_day_col], zero_as=1)
-
-    # fill NA in acc_day_col with 0
-    df[acc_rate_col] = df[acc_rate_col].fillna(0.0)
-    df[acc_day_col] = df[acc_day_col].fillna(0).astype(int) 
-  if drop_na:        
-    df.dropna(inplace=True) 
-
-  return df
-
-
 # ================================================ Signal processing ================================================ #
 # calculate signal that generated from 2 lines crossover
 def cal_crossover_signal(df: pd.DataFrame, fast_line: str, slow_line: str, result_col: str = 'signal', pos_signal: str = 'b', neg_signal: str = 's', none_signal: str = 'n') -> pd.DataFrame:
@@ -2327,32 +2230,6 @@ def add_candlestick_patterns(df: pd.DataFrame) -> pd.DataFrame:
   # columns to drop
   col_to_drop = []
 
-  # global position
-  if 'position' > '':
-    
-    # add position features
-    df = cal_position_score(df)
-    df['moving_max'] = sm(series=df['High'], periods=10).max()
-    df['moving_min'] = sm(series=df['Low'], periods=10).min()
-    
-    conditions = {
-      # 位置_trend == "u", 近10日最高价
-      '顶部': '(position == "up" and moving_max == High)', 
-      # 位置_trend == "d", 近10日最低价
-      '底部': '(position == "down" and moving_min == Low)'}
-    values = {'顶部': 'u', '底部': 'd'}
-    df = assign_condition_value(df=df, column='极限_trend', condition_dict=conditions, value_dict=values, default_value='n')
-    col_to_drop += ['moving_max', 'moving_min', '极限_trend']
-
-    # add gap features
-    conditions = {
-      # 位置_trend == "u", 近10日最高价
-      'gap_up':   '(candle_gap > 1)', 
-      # 位置_trend == "d", 近10日最低价
-      'gap_down': '(candle_gap < -1)'}
-    values = {'gap_up': 'u', 'gap_down': 'd'}
-    df = assign_condition_value(df=df, column='窗口_trend', condition_dict=conditions, value_dict=values, default_value='n')
-
   # shadow and entity
   if 'shadow_entity' > '':
 
@@ -2379,6 +2256,32 @@ def add_candlestick_patterns(df: pd.DataFrame) -> pd.DataFrame:
       '短实体': f'(entity_diff <= {lower_factor})'} 
     values = {'长实体': 'u', '短实体': 'd'}
     df = assign_condition_value(df=df, column='entity_trend', condition_dict=conditions, value_dict=values, default_value='n')
+
+  # global position
+  if 'position' > '':
+    
+    # add position features
+    df = cal_position_score(df)
+    df['moving_max'] = sm(series=df['High'], periods=10).max()
+    df['moving_min'] = sm(series=df['Low'], periods=10).min()
+    
+    conditions = {
+      # 位置_trend == "u", 近10日最高价
+      '顶部': '(position == "up" and moving_max == High)', 
+      # 位置_trend == "d", 近10日最低价
+      '底部': '(position == "down" and moving_min == Low)'}
+    values = {'顶部': 'u', '底部': 'd'}
+    df = assign_condition_value(df=df, column='极限_trend', condition_dict=conditions, value_dict=values, default_value='n')
+    col_to_drop += ['moving_max', 'moving_min', '极限_trend']
+
+    # add gap features
+    conditions = {
+      # 位置_trend == "u", 近10日最高价
+      'gap_up':   '(candle_gap > 1)', 
+      # 位置_trend == "d", 近10日最低价
+      'gap_down': '(candle_gap < -1)'}
+    values = {'gap_up': 'u', 'gap_down': 'd'}
+    df = assign_condition_value(df=df, column='窗口_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
   # patterns that consist only 1 candlestick
   if '1_candle' > '':
@@ -2522,9 +2425,9 @@ def add_candlestick_patterns(df: pd.DataFrame) -> pd.DataFrame:
   df['candle_pattern_down_description'] = ''
   
   pattern_weights = {
-    '十字星': 0, '长影线': 1, '流星': 1, '锤子': 1, '腰带': 1, '平头': 1, 
-    '穿刺': 1, '包孕': 1, '吞噬': 1, 
-    '启明黄昏': 2, '窗口': 2, 
+    '窗口': 2, '十字星': 0, '流星': 1, '锤子': 1, '腰带': 1, 
+    '平头': 1, '吞噬': 1, '包孕': 1, '穿刺': 1, 
+    '启明黄昏': 2, '长影线': 1, 
   }
   up_pattern_names = {
     '十字星': '十字星', '长影线': '长下影', '流星': '倒锤', '锤子': '锤子', '腰带': '多腰带', '平头': '平头底', 
@@ -5003,7 +4906,7 @@ def plot_scatter(df: pd.DataFrame, target_col: str, start: Optional[str] = None,
 
   # plot indicator
   if 'color' in df.columns:
-    # df = cal_change_rate(df=df, target_col='Volume', add_accumulation=False, add_prefix=True)
+    # df['Volume_rate'] = df['Volume'].pct_change(periods=1)
     # threshold = 0.2
     # strong_trend_idx = df.query(f'Volume_rate >= {threshold} or Volume_rate <= {-threshold}').index
     # weak_trend_idx = df.query(f'{-threshold} < Volume_rate < {threshold}').index
@@ -7039,7 +6942,7 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
       else:
         pass
       
-      # plot_data = cal_change(df=plot_data, target_col='signal_score', add_prefix=True, add_accumulation=False)
+      # plot_data['signal_score_change'] = plot_data['signal_score'].diff(periods=1)
       plot_bar(df=plot_data, target_col='pattern_score', width=bar_width, alpha=0.4, color_mode="benchmark", edge_color='grey', benchmark=0, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
       # up_idx = plot_data.query('break_score > 0').index
       # down_idx = plot_data.query('break_score < 0').index
@@ -7375,3 +7278,81 @@ def plot_historical_evolution(df: pd.DataFrame, symbol: str, interval: Literal['
 
   return df
 
+
+# ta_data_columns
+ta_data_columns = [
+  'Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume', 'Dividend', 'Split', 'symbol', 
+
+  'rate', # (Close - Close.shift(1))/Close
+  'candle_color', # 1 if Close > Open else -1
+  'candle_shadow', # High - Low
+  'candle_entity', # abs(Close - Open)
+  'candle_entity_top', # Close if candle_color == 1 else Open
+  'candle_entity_bottom', # Close if candle_color == -1 else Open
+  'candle_upper_shadow_pct', # (High - candle_entity_top) / candle_shadow
+  'candle_lower_shadow_pct', # (candle_entity_bottom - Low) / candle_shadow
+  'candle_entity_pct', # candle_entity / candle_shadow
+  '相对candle位置', 
+  'candle_position_score',
+  'candle_gap', 
+  'candle_gap_color', # 1 if candle_gap > 0 else -1
+  'candle_gap_top', 
+  'candle_gap_bottom',
+  'candle_gap_distance', 
+
+  'tankan_rate', 'tankan_day', 'kijun_rate', 'kijun_day',
+  'ichimoku_distance', 'ichimoku_distance_day', 'ichimoku_distance_middle', 'ichimoku_rate', '相对ichimoku位置',
+
+  'kama_fast_rate', 'kama_fast_day', 'kama_slow_rate', 'kama_slow_day',
+  'kama_distance', 'kama_distance_day', 'kama_distance_middle', 'kama_rate', '相对kama位置', 
+
+  'adx_value_change', 'adx_strength_change', 'adx_direction', 'adx_power', 'adx_direction_day', 'adx_power_day',
+  'adx_value_prediction', 'adx_value_pred_change', 'adx_direction_start', 'adx_power_start', 'adx_power_start_adx_value', 'adx_strong_day',
+  'adx_distance', 'adx_status', 'adx_distance_day', 'adx_distance_change', 'adx_distance_middle', 
+  'adx_rate', 'adx_trend', 'adx_day',
+
+  'shadow_trend', 'entity_trend', 'ki_distance', 'position_score', 'ichimoku_position_score', 'kama_position_score', 'position',
+
+  '窗口_trend', '十字星_trend', '流星_trend', '锤子_trend', '腰带_trend',
+  '平头_trend', '吞噬_trend', '包孕_trend', '穿刺_trend', '启明黄昏_trend', '长影线_trend',
+
+  'candle_pattern_up_score', 'candle_pattern_down_score', 'candle_pattern_up_description', 'candle_pattern_down_description',
+
+  '窗口_day', '十字星_day', '流星_day', '锤子_day', '腰带_day', 
+  '平头_day', '吞噬_day', '包孕_day', '穿刺_day', '启明黄昏_day', '长影线_day', 'candle_pattern_score',
+
+  'support_score', 'support_description', 
+  'resistant_score', 'resistant_description', 
+  'break_up_score', 'break_up_description',
+  'break_down_score', 'break_down_description', 
+
+  'kama_slow_break_up', 'kama_slow_break_down', 
+  'kijun_break_up', 'kijun_break_down',
+  'candle_gap_top_break_up', 'candle_gap_top_break_down',
+  'candle_gap_bottom_break_up', 'candle_gap_bottom_break_down',
+  'kama_slow_support', 
+  'kijun_support', 
+  'candle_gap_top_support',
+  'candle_gap_bottom_support', 
+  'kama_slow_resistant', 
+  'kijun_resistant',
+  'candle_gap_top_resistant', 
+  'candle_gap_bottom_resistant', 
+
+  'resistant', 'resistanter', 
+  'support', 'supporter', 
+  'boundary_score', 'break_score',
+
+  'trigger_score', 'trigger_up_score', 'trigger_down_score',
+  'trigger_up_score_description', 'trigger_down_score_description', 'trigger_day', 
+
+  'volume_change', 'volume_day', 
+
+  'trend', 'trend_score', 'trend_description', 'trend_score_change', 'trend_day', 
+  'signal_score', 'signal_score_change', 
+  'pattern_up_score', 'pattern_down_score', 'pattern_score', 'pattern_description', 
+  '超买超卖', '关键突破', '长线边界', '趋势渐弱', '趋势转换', '趋势启动', '分数剧变', '区间波动', '触顶触底', 'ichimoku', 'kama',
+
+  'total_score', 'total_score_change', 
+  'signal', 'signal_day', 'signal_description'
+]
