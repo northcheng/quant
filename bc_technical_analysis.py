@@ -181,7 +181,7 @@ def preprocess(df: pd.DataFrame, symbol: str, print_error: bool = True):
   split_n1_idx = df.query('split_n1 != 1.0 and (adj_rate >= 1.95 or adj_rate <= 0.45)').index
   df.loc[split_n1_idx, 'adj_factor'] = 1 / df.loc[split_idx, 'split_n1']
 
-  df['adj_factor'] = df['adj_factor'].fillna(method='ffill')
+  df['adj_factor'] = df['adj_factor'].ffill()
   df['Adj Close'] = df['Adj Close'] * df['adj_factor']
 
   if len(split_idx) != 0 or len(split_n1_idx) != 0:
@@ -277,7 +277,7 @@ def calculate_ta_basic(df: pd.DataFrame, indicators: dict = default_indicators):
     # calculate close change rate
     phase = 'calculate close rate' 
     df = cal_change_rate(df=df, target_col=default_ohlcv_col['close'], add_accumulation=False)
-    
+
     # calculate candlestick features
     phase = 'calculate candlestick' 
     df = add_candlestick_features(df=df)
@@ -369,7 +369,7 @@ def calculate_ta_static(df: pd.DataFrame, indicators: dict = default_indicators)
           # df[none_zero_col] = np.nan
           # none_zero_idx = df.query(f'{rate_col} > {threshold} or {rate_col} < {threshold}').index
           # df.loc[none_zero_idx, none_zero_col] = df.loc[none_zero_idx, rate_col]
-          # df[none_zero_col] = df[none_zero_col].fillna(method='ffill')
+          # df[none_zero_col] = df[none_zero_col].ffill()
 
         # # fl & sl crossover  
         # fs_day = f'{target_indicator}_cross_day'
@@ -396,7 +396,7 @@ def calculate_ta_static(df: pd.DataFrame, indicators: dict = default_indicators)
         #   'up':       1,
         #   'down':     -1
         # }
-        # df = assign_condition_value(df=df, column=status_col, condition_dict=conditions, value_dict=values, default_value=0)
+        # df = assign_condition_value(df=df, column=status_col, condition_dict=conditions, value_dict=values, default_value=0.0)
 
         # cloud top and bototm
         cloud_top_col = f'{target_indicator}_cloud_top'
@@ -467,7 +467,7 @@ def calculate_ta_static(df: pd.DataFrame, indicators: dict = default_indicators)
           'up': 1, 
           'down': -1,
           'wave': 0}
-        df = assign_condition_value(df=df, column=f'{col}_day', condition_dict=conditions, value_dict=values, default_value=0) 
+        df = assign_condition_value(df=df, column=f'{col}_day', condition_dict=conditions, value_dict=values, default_value=0.0) 
         df[f'{col}_day'] = sda(series=df[f'{col}_day'], zero_as=1) 
 
       # highest(lowest) value of adx_value of previous uptrend(downtrend)
@@ -502,20 +502,20 @@ def calculate_ta_static(df: pd.DataFrame, indicators: dict = default_indicators)
         if start_col not in df.columns:
           df[start_col] = np.nan
         else:
-          df[start_col] = df[start_col].fillna(method='ffill')
+          df[start_col] = df[start_col].ffill()
 
         if col == 'adx_power':
           if 'adx_power_start_adx_value' not in df.columns:
             df['adx_power_start_adx_value'] = np.nan
           else:
-            df['adx_power_start_adx_value'] = df['adx_power_start_adx_value'].fillna(method='ffill')
+            df['adx_power_start_adx_value'] = df['adx_power_start_adx_value'].ffill() 
 
       # previous adx_trend duration
       df['prev_adx_direction_day'] = df['adx_direction_day'].shift(1)
       col_to_drop.append('prev_adx_direction_day')
       start_idx = df.query('adx_direction_day == 1 or adx_direction_day == -1').index
       # df.loc[start_idx, 'prev_adx_duration'] = df.loc[start_idx, 'prev_adx_direction_day']
-      # df['prev_adx_duration'] = df['prev_adx_duration'].fillna(method='ffill')
+      # df['prev_adx_duration'] = df['prev_adx_duration'].ffill()
 
       # whether strength is strong or weak
       adx_strong_weak_threshold = 25
@@ -525,7 +525,7 @@ def calculate_ta_static(df: pd.DataFrame, indicators: dict = default_indicators)
       values = {
         'up': 1, 
         'down': -1}
-      df = assign_condition_value(df=df, column='adx_strong_day', condition_dict=conditions, value_dict=values, default_value=0)
+      df = assign_condition_value(df=df, column='adx_strong_day', condition_dict=conditions, value_dict=values, default_value=0.0)
       df['adx_strong_day'] = sda(series=df['adx_strong_day'], zero_as=1)
 
       # # whether value is waving around 0
@@ -565,14 +565,14 @@ def calculate_ta_static(df: pd.DataFrame, indicators: dict = default_indicators)
         'pos_u':      1, 
         'pos_d':      -1,
       }
-      df = assign_condition_value(df=df, column='adx_trend', condition_dict=conditions, value_dict=values, default_value=0)
+      df = assign_condition_value(df=df, column='adx_trend', condition_dict=conditions, value_dict=values, default_value=0.0)
       df['adx_day'] = sda(df['adx_trend'], zero_as=None)
       
     # ================================ aroon trend ============================
     target_indicator = 'aroon'
     if target_indicator in indicators['trend']:
       aroon_col = ['aroon_up', 'aroon_down', 'aroon_gap']
-      df[aroon_col] = df[aroon_col].round(1)
+      df[aroon_col] = round(df[aroon_col], 1)
       for col in aroon_col:
         df = cal_change(df=df, target_col=col, add_prefix=True, add_accumulation=True)
         col_to_drop.append(f'{col}_change')
@@ -808,7 +808,7 @@ def calculate_ta_dynamic(df: pd.DataFrame, perspective: list = default_perspecti
     #     'down': 'd',
     #     'wave': 'n'}
     #   df = assign_condition_value(df=df, column='linear_bounce_trend', condition_dict=conditions, value_dict=values)
-    #   df['linear_bounce_trend'] = df['linear_bounce_trend'].fillna(method='ffill').fillna('')
+    #   df['linear_bounce_trend'] = df['linear_bounce_trend'].ffill().fillna('')
     #   df['linear_bounce_day'] = sda(series=df['linear_bounce_trend'].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
       
     #   # break through up or down
@@ -819,7 +819,7 @@ def calculate_ta_dynamic(df: pd.DataFrame, perspective: list = default_perspecti
     #     'up': 'u', 
     #     'down': 'd'}
     #   df = assign_condition_value(df=df, column='linear_break_trend', condition_dict=conditions, value_dict=values)
-    #   df['linear_break_trend'] = df['linear_break_trend'].fillna(method='ffill').fillna('')
+    #   df['linear_break_trend'] = df['linear_break_trend'].ffill().fillna('')
     #   df['linear_break_day'] = sda(series=df['linear_break_trend'].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
 
     #   # focus on the last row only
@@ -847,12 +847,12 @@ def calculate_ta_score(df: pd.DataFrame):
   """
 
   # initialization
-  df['trigger_score'] = 0
+  df['trigger_score'] = 0.0
   col_to_drop = []
 
   # ================================ calculate trigger/position score =======
-  df['trigger_up_score'] = 0
-  df['trigger_down_score'] = 0
+  df['trigger_up_score'] = 0.0
+  df['trigger_down_score'] = 0.0
   df['trigger_up_score_description'] = ''
   df['trigger_down_score_description'] = ''
 
@@ -873,7 +873,8 @@ def calculate_ta_score(df: pd.DataFrame):
       df['trigger_down_score_description'] = (desc + df['trigger_down_score_description'])
 
   # trigger_score sum up
-  df['trigger_score'] = (df['trigger_up_score'] + df['trigger_down_score']).round(2) # 
+  df['trigger_score'] = round(df['trigger_up_score'] + df['trigger_down_score'], 2) # 
+  
   df['trigger_up_score_description'] = df['trigger_up_score_description'].apply(lambda x: x[:-2] if (len(x) >=2 and x[-2] == ',') else x)
   df['trigger_down_score_description'] = df['trigger_down_score_description'].apply(lambda x: x[:-2] if (len(x) >=2 and x[-2] == ',') else x)
 
@@ -886,12 +887,12 @@ def calculate_ta_score(df: pd.DataFrame):
     'pos':    1, 
     'neg':    -1,
   }
-  df = assign_condition_value(df=df, column='trigger_day', condition_dict=trigger_conditions, value_dict=trigger_values, default_value=0)
+  df = assign_condition_value(df=df, column='trigger_day', condition_dict=trigger_conditions, value_dict=trigger_values, default_value=0.0)
   df['trigger_day'] = sda(series=df['trigger_day'], zero_as=1)
 
   # # ================================ calculate aki rate & status ======
-  # df['aki_rate'] = 0
-  # df['aki_status'] = 0
+  # df['aki_rate'] = 0.0
+  # df['aki_status'] = 0.0
 
   # # adx/ichimoku/kama distance
   # threhold = 0.00
@@ -1054,12 +1055,12 @@ def calculate_ta_signal(df: pd.DataFrame):
   
     # trend
     df['trend'] = ''
-    df['trend_score'] = 0
+    df['trend_score'] = 0.0
     df['trend_description'] = ''
 
     # 趋势动量及强度
-    df['trend_score'] = (df['adx_value_change'] + df['adx_strength_change'] * (df['adx_value'] > 0).replace({True: 1, False: -1})).round(2)
-    df['trend_score_change'] = df['trend_score'] - df['trend_score'].shift(1)
+    df['trend_score'] = round(df['adx_value_change'] + df['adx_strength_change'] * (df['adx_value'] > 0).replace({True: 1, False: -1}), 2)
+    df['trend_score_change'] = round(df['trend_score'] - df['trend_score'].shift(1), 2)
 
     # 趋势定性
     position_conditions = {
@@ -1080,19 +1081,19 @@ def calculate_ta_signal(df: pd.DataFrame):
 
   # ================================ calculate signal score ======================
   if 'score'  > '':
-    df['signal_score'] = 0
+    df['signal_score'] = 0.0
 
     signal_weight = {'trend_score': 2, 'trigger_score': 1, 'position_score': 0, 'candle_position_score': 1, 'candle_pattern_score': 1, }
     for col in signal_weight.keys():
       df['signal_score'] += normalize(df[col].abs()) * (df[col] > 0).replace({True: 1, False: -1})
-    df['signal_score'] = df['signal_score'].round(2)
-    df['signal_score_change'] = (df['signal_score'] - df['signal_score'].shift(1)).round(2)
+    df['signal_score'] = round(df['signal_score'], 2)
+    df['signal_score_change'] = round(df['signal_score'] - df['signal_score'].shift(1), 2)
 
   # ================================ calculate pattern ======================
   if 'pattern'  > '':
-    df['pattern_up_score'] = 0
-    df['pattern_down_score'] = 0
-    df['pattern_score'] = 0
+    df['pattern_up_score'] = 0.0
+    df['pattern_down_score'] = 0.0
+    df['pattern_score'] = 0.0
     df['pattern_description'] = ''
     df['pattern_up'] = ''
     df['pattern_down'] = ''    
@@ -1280,16 +1281,16 @@ def calculate_ta_signal(df: pd.DataFrame):
     # set pattern weigths
     p_weights = {
       '超买超卖': 0.5,
-      '关键突破': 1,
+      '关键突破': 1.0,
       '长线边界': 0.5,
       '趋势渐弱': 0.25,
-      '趋势转换': 1,
-      '趋势启动': 1,
+      '趋势转换': 1.0,
+      '趋势启动': 1.0,
       '分数剧变': 0.75,
       '区间波动': 0.25,
       '触顶触底': 0.75,
-      'kama': 1,
-      'ichimoku': 1,
+      'kama': 1.0,
+      'ichimoku': 1.0,
     }
 
     # calculate pattern score and description
@@ -1323,7 +1324,7 @@ def calculate_ta_signal(df: pd.DataFrame):
       
       name, direction = c.split('_')
       if name not in df.columns:
-        df[name] = 0
+        df[name] = 0.0
 
       # # get index which matches the condition
       tmp_condition = pattern_conditions[c]
@@ -1347,7 +1348,7 @@ def calculate_ta_signal(df: pd.DataFrame):
         pass
 
     # final post-processing
-    df['pattern_score'] = df['pattern_score'].round(2)
+    df['pattern_score'] = round(df['pattern_score'], 2)
     df['pattern_up'] = df['pattern_up'].apply(lambda x: '+[' + x[:-2] + ']' if len(x) > 0 else '')
     df['pattern_down'] = df['pattern_down'].apply(lambda x: '-[' + x[:-2] + ']' if len(x) > 0 else '')
     df['pattern_description'] = df['pattern_up'] + ' | ' + df['pattern_down']
@@ -1361,7 +1362,7 @@ def calculate_ta_signal(df: pd.DataFrame):
 
     # total
     df['total_score'] = df['trend_score'] + df['candle_position_score'] + df['candle_pattern_score'] + df['break_score'] + df['boundary_score'] * 0.5
-    df['total_score'] = df['total_score'].round(2)
+    df['total_score'] = round(df['total_score'], 2)
     df['total_score_change'] = df['total_score'] - df['total_score'].shift(1)
   
     # signal 
@@ -1496,7 +1497,7 @@ def dropna(df: pd.DataFrame) -> pd.DataFrame:
   return df
 
 # fill na values for dataframe
-def fillna(series: pd.Series, fill_value: float = 0) -> pd.Series:
+def fillna(series: pd.Series, fill_value: float = 0.0) -> pd.Series:
   """
   Fill na value for a series with specific value
 
@@ -1593,9 +1594,9 @@ def assign_condition_score(df: pd.DataFrame, condition_dict: dict, up_score_col:
   """
   # initialization
   if up_score_col not in df.columns:
-    df[up_score_col] = 0
+    df[up_score_col] = 0.0
   if down_score_col not in df.columns:
-    df[down_score_col] = 0
+    df[down_score_col] = 0.0
   
   df[f'{up_score_col}_description'] = ''
   df[f'{down_score_col}_description'] = ''
@@ -1624,10 +1625,10 @@ def assign_condition_score(df: pd.DataFrame, condition_dict: dict, up_score_col:
       print(f'{c} not recognized')
 
   # postprocess
-  df[up_score_col] = df[up_score_col].round(2)
+  df[up_score_col] = round(df[up_score_col], 2)
   df[f'{up_score_col}_description'] = df[f'{up_score_col}_description'].apply(lambda x: x[:-2])  
   if down_score_col != up_score_col:
-    df[down_score_col] = df[down_score_col].round(2)
+    df[down_score_col] = round(df[down_score_col], 2)
     df[f'{down_score_col}_description'] = df[f'{down_score_col}_description'].apply(lambda x: x[:-2])
 
   return df
@@ -1770,7 +1771,7 @@ def normalize(series: pd.Series, fillna: Optional[str] = None, method: str = 'de
   
   # fill NA values if specified
   if fillna is not None:  
-    normalaized = series.fillna(method=fillna)
+    normalaized = series.ffill()
 
   # normalization
   normalaized = (normalaized - normalaized.min()) / (normalaized.max() - normalaized.min())
@@ -1821,7 +1822,7 @@ def cal_change(df: pd.DataFrame, target_col: str, periods: int = 1, add_accumula
 
     df[acc_change_col] = sda(series=df[change_col], zero_as=0)
 
-    df[acc_change_count_col] = 0
+    df[acc_change_count_col] = 0.0
     df.loc[df[change_col]>0, acc_change_count_col] = 1
     df.loc[df[change_col]<0, acc_change_count_col] = -1
     df[acc_change_count_col] = sda(series=df[acc_change_count_col], zero_as=1)
@@ -1864,7 +1865,7 @@ def cal_change_rate(df: pd.DataFrame, target_col: str, periods: int = 1, add_acc
   
   # calculate accumulative change rate in a same direction
   if add_accumulation:
-    df[acc_rate_col] = 0
+    df[acc_rate_col] = 0.0
     df.loc[df[rate_col]>=0, acc_day_col] = 1
     df.loc[df[rate_col]<0, acc_day_col] = -1
 
@@ -2045,7 +2046,7 @@ def cal_position_score(df: pd.DataFrame) -> pd.DataFrame:
   df = assign_condition_value(df=df, column='ki_distance', condition_dict=term_trend_conditions, value_dict=term_trend_values, default_value='n')
 
   # ================================ calculate position score =======================
-  df['position_score'] = 0
+  df['position_score'] = 0.0
   rp_cols = {"kama":"相对kama位置", "ichimoku":"相对ichimoku位置"}
   for col in ['ichimoku', 'kama']:
     
@@ -2055,7 +2056,7 @@ def cal_position_score(df: pd.DataFrame) -> pd.DataFrame:
     # col_to_drop.append(col_v)
 
     if col_p not in df.columns or col_d not in df.columns:
-      df[col_v] = 0
+      df[col_v] = 0.0
       continue
     else:
       position_conditions = {
@@ -2099,7 +2100,7 @@ def cal_position_score(df: pd.DataFrame) -> pd.DataFrame:
         'out_from_low_green':   0.5,
         'out_from_high_green':  0.5,
       }
-      df = assign_condition_value(df=df, column=col_v, condition_dict=position_conditions, value_dict=position_values, default_value=0) 
+      df = assign_condition_value(df=df, column=col_v, condition_dict=position_conditions, value_dict=position_values, default_value=0.0) 
     
     df['position_score'] += df[col_v]
 
@@ -2138,6 +2139,7 @@ def add_candlestick_features(df: pd.DataFrame, ohlcv_col: dict = default_ohlcv_c
   :returns: dataframe with candlestick columns
   :raises: none
   """
+  
   # copy dataframe
   df = df.copy()
   col_to_drop = [] 
@@ -2150,7 +2152,7 @@ def add_candlestick_features(df: pd.DataFrame, ohlcv_col: dict = default_ohlcv_c
   # volume = ohlcv_col['volume']
   
   # candle color
-  df['candle_color'] = 0
+  df['candle_color'] = 0.0
   up_idx = df[open] < df[close]
   down_idx = df[open] >= df[close]
   df.loc[up_idx, 'candle_color'] = 1
@@ -2161,10 +2163,10 @@ def add_candlestick_features(df: pd.DataFrame, ohlcv_col: dict = default_ohlcv_c
   
   # entity
   df['candle_entity'] = abs(df[close] - df[open])
-  
+
   # ======================================= shadow/entity ============================================ #
-  df['candle_entity_top'] = 0
-  df['candle_entity_bottom'] = 0
+  df['candle_entity_top'] = 0.0
+  df['candle_entity_bottom'] = 0.0
   df.loc[up_idx, 'candle_entity_top'] = df.loc[up_idx, close]
   df.loc[up_idx, 'candle_entity_bottom'] = df.loc[up_idx, open]
   df.loc[down_idx, 'candle_entity_top'] = df.loc[down_idx, open]  
@@ -2243,7 +2245,7 @@ def add_candlestick_features(df: pd.DataFrame, ohlcv_col: dict = default_ohlcv_c
     'green_red_mid':        -0.33,
     'green_red_mid_down':   -0.66,    
   }
-  df = assign_condition_value(df=df, column='candle_position_score', condition_dict=candle_conditions, value_dict=candle_values, default_value=0)
+  df = assign_condition_value(df=df, column='candle_position_score', condition_dict=candle_conditions, value_dict=candle_values, default_value=0.0)
 
   col_to_drop += ['candle_upper_shadow', 'candle_lower_shadow', 'pre_candle_top', 'pre_candle_bottom', 'pre_candle_color']
 
@@ -2255,7 +2257,7 @@ def add_candlestick_features(df: pd.DataFrame, ohlcv_col: dict = default_ohlcv_c
     col_to_drop.append(prev_col)
   
   # initialization
-  df['candle_gap'] = 0
+  df['candle_gap'] = 0.0
   df['candle_gap_color'] = np.nan
   df['candle_gap_top'] = np.nan
   df['candle_gap_bottom'] = np.nan
@@ -2278,7 +2280,7 @@ def add_candlestick_features(df: pd.DataFrame, ohlcv_col: dict = default_ohlcv_c
   gap_down_idx = df.query(f'prev_low_high > 0').index  
   df.loc[gap_down_idx, 'candle_gap'] = -1
   gap_down_mean = df.loc[gap_down_idx, 'prev_low_high'].mean() # df['prev_low_high'].nlargest(10).values[-1] # 
-  gap_down_mean = 0 if np.isnan(gap_down_mean) else gap_down_mean
+  gap_down_mean = 0.0 if np.isnan(gap_down_mean) else gap_down_mean
   strict_gap_down_idx = df.query(f'prev_low_high >= {gap_down_mean} and prev_low_high > 0').index  
   if len(strict_gap_down_idx) / len(df) < 0.05:
     df.loc[strict_gap_down_idx, 'candle_gap'] = -2
@@ -2287,10 +2289,10 @@ def add_candlestick_features(df: pd.DataFrame, ohlcv_col: dict = default_ohlcv_c
     df.loc[strict_gap_down_idx, 'candle_gap_bottom'] = df.loc[strict_gap_down_idx, f'{high}']
   
   # gap height, color, top and bottom
-  df['candle_gap_top'] = df['candle_gap_top'].fillna(method='ffill')
-  df['candle_gap_bottom'] = df['candle_gap_bottom'].fillna(method='ffill') 
-  df['candle_gap_color'] = df['candle_gap_color'].fillna(method='ffill').fillna(0)
-  df['candle_gap_distance'] = ((df['candle_gap_top'] - df['candle_gap_bottom']).fillna(method='ffill')) * df['candle_gap_color']
+  df['candle_gap_top'] = df['candle_gap_top'].ffill()
+  df['candle_gap_bottom'] = df['candle_gap_bottom'].ffill() 
+  df['candle_gap_color'] = df['candle_gap_color'].ffill().fillna(0)
+  df['candle_gap_distance'] = ((df['candle_gap_top'] - df['candle_gap_bottom']).ffill()) * df['candle_gap_color']
 
   # # window position status (beyond/below/among window)
   # conditions = {
@@ -2514,8 +2516,8 @@ def add_candlestick_patterns(df: pd.DataFrame) -> pd.DataFrame:
     df = assign_condition_value(df=df, column='长影线_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
   # days since signal triggered
-  df['candle_pattern_up_score'] = 0
-  df['candle_pattern_down_score'] = 0
+  df['candle_pattern_up_score'] = 0.0
+  df['candle_pattern_down_score'] = 0.0
   df['candle_pattern_up_description'] = ''
   df['candle_pattern_down_description'] = ''
   
@@ -2709,7 +2711,7 @@ def add_linear_features(df: pd.DataFrame, max_period: int = 60, min_period: int 
   df['linear_fit_high'] = df['linear_fit_high'].apply(lambda x: np.nan if (x < idx_min) else (high_linear[0] * x + high_linear[1] + std_factor * std_high))
   df['linear_fit_low'] = idx_num
   df['linear_fit_low'] = df['linear_fit_low'].apply(lambda x: np.nan if (x < idx_min) else (low_linear[0] * x + low_linear[1] - std_factor * std_low))
-  df[['linear_fit_high', 'linear_fit_low']] = df[['linear_fit_high', 'linear_fit_low']].fillna(method='ffill')
+  df[['linear_fit_high', 'linear_fit_low']] = df[['linear_fit_high', 'linear_fit_low']].ffill()
   
   return df
  
@@ -2757,7 +2759,7 @@ def add_support_resistance(df: pd.DataFrame, target_col: list = default_support_
   other_cols = [x for x in target_col if x not in key_cols]
 
   for col in target_col:
-    df[col] = df[col].round(3)
+    df[col] = round(df[col], 3)
   
   # calculate cross-over day (with Close)
   for col in other_cols:
@@ -2783,29 +2785,29 @@ def add_support_resistance(df: pd.DataFrame, target_col: list = default_support_
       df[distance_col] = tmp_distance
       generated_cols[col_1].append(distance_col)
 
-  df['support_score'] = 0
+  df['support_score'] = 0.0
   df['support_description'] = ''
-  df['resistant_score'] = 0
+  df['resistant_score'] = 0.0
   df['resistant_description'] = ''
-  df['break_up_score'] = 0
+  df['break_up_score'] = 0.0
   df['break_up_description'] = ''
-  df['break_down_score'] = 0
+  df['break_down_score'] = 0.0
   df['break_down_description'] = ''
 
   # ================================ breakthorough =====================================
   break_weight = {}
   for col in target_col:
     if col in key_cols:
-      break_weight[col] = 1
+      break_weight[col] = 1.0
     elif col in ['candle_gap_top', 'candle_gap_bottom']:
-      break_weight[col] = 0
+      break_weight[col] = 0.0
     else:
       break_weight[col] = 0.5
 
   for col in target_col:
 
-    df[f'{col}_break_up'] = 0
-    df[f'{col}_break_down'] = 0
+    df[f'{col}_break_up'] = 0.0
+    df[f'{col}_break_down'] = 0.0
 
     up_query = f'(({col}_day == 1 or (candle_color == 1 and candle_entity_top > {col} and candle_entity_bottom < {col})) and (十字星_trend == "n" or (十字星_trend != "n" and candle_entity_bottom > {col}))'
     if 'renko' in col:
@@ -2840,7 +2842,7 @@ def add_support_resistance(df: pd.DataFrame, target_col: list = default_support_
   for col in generated_cols['Low']:
 
     tmp_col = col.split('_to_')[-1]
-    df[f'{tmp_col}_support'] = 0
+    df[f'{tmp_col}_support'] = 0.0
     support_query = f'''
     (
       (candle_entity_bottom > {tmp_col}) and
@@ -2878,7 +2880,7 @@ def add_support_resistance(df: pd.DataFrame, target_col: list = default_support_
   for col in generated_cols['High']:
 
     tmp_col = col.split('_to_')[-1]
-    df[f'{tmp_col}_resistant'] = 0
+    df[f'{tmp_col}_resistant'] = 0.0
     resistant_query = f'''
     (
       (candle_entity_top < {tmp_col}) and
@@ -2958,8 +2960,8 @@ def add_support_resistance(df: pd.DataFrame, target_col: list = default_support_
     df.loc[max_idx, 'support'] = df.loc[max_idx, supporter]
 
   # ================================ bondary and break score ===========================
-  df['boundary_score'] = 0
-  df['break_score'] = 0
+  df['boundary_score'] = 0.0
+  df['break_score'] = 0.0
 
   # calculate scores
   for col in target_col:
@@ -3583,7 +3585,7 @@ def add_psar_features(df: pd.DataFrame, ohlcv_col: dict = default_ohlcv_col, ste
   # fill na values
   if fillna:
     for col in ['psar', 'psar_up', 'psar_down']:
-      df[col] = df[col].fillna(method='ffill').fillna(-1)
+      df[col] = df[col].ffill().fillna(-1)
 
   return df
 
@@ -3653,12 +3655,12 @@ def add_renko_features(df: pd.DataFrame, brick_size_factor: float = 0.077, dynam
 
   if dynamic_brick:
     # use dynamic brick size: brick_size_factor * Close price
-    df['bsz'] = (df['Close'] * brick_size_factor).round(3)
-    # df['bsz'] = (df['atr']).fillna(method='bfill').round(3)
+    df['bsz'] = round(df['Close'] * brick_size_factor, 3)
+    # df['bsz'] = round(df['atr'].bfill(), 3)
   
   else:
     # use static brick size: brick_size_factor * Close price
-    df['bsz'] = (df['Close'].values[0] * brick_size_factor).round(3)
+    df['bsz'] = round(df['Close'].values[0] * brick_size_factor, 3)
 
   na_bsz = df.query('bsz != bsz').index 
   df = df.drop(index=na_bsz).reset_index()
@@ -3805,7 +3807,7 @@ def add_renko_features(df: pd.DataFrame, brick_size_factor: float = 0.077, dynam
   # fill na values
   renko_columns = ['renko_o', 'renko_h','renko_l', 'renko_c', 'renko_color', 'renko_distance', 'renko_brick_number','renko_start', 'renko_end'] # 'renko_series_short', 'renko_series_long', 'renko_series_short_idx', 'renko_series_long_idx', 'renko_duration_p1', 'renko_direction', 'renko_duration'
   for col in renko_columns:
-    df[col] = df[col].fillna(method='ffill')
+    df[col] = df[col].ffill()
 
   # calculate length(number of days to the end of current brick) 
   # calculate of each brick(or merged brick): renko_brick_length, renko_countdown_days(for ploting)
@@ -4105,7 +4107,7 @@ def add_obv_features(df: pd.DataFrame, ohlcv_col: dict = default_ohlcv_col, fill
   if c2.any():
     df.loc[c2, 'OBV'] = df[volume]
   obv = df['OBV'].cumsum()
-  obv = obv.fillna(method='ffill')
+  obv = obv.ffill()
 
   # fill na values
   if fillna:
@@ -4228,7 +4230,7 @@ def cal_kama(df: pd.DataFrame, n1: int = 10, n2: int = 2, n3: int = 30, ohlcv_co
   ER_num = abs(close_values - np.roll(close_values, n1))
   ER_den = vol.rolling(n1).sum()
   ER = ER_num / ER_den
-  ER = ER.fillna(method='ffill')
+  ER = ER.ffill()
 
   sc = ((ER * (2.0/(n2+1.0) - 2.0/(n3+1.0)) + 2.0/(n3+1.0)) ** 2.0).values
 
@@ -4377,10 +4379,10 @@ def add_rsi_features(df: pd.DataFrame, n: int = 14, ohlcv_col: dict = default_oh
   diff = df[close].diff(1)#pct_change(1)
   
   up = diff.copy()
-  up[diff < 0] = 0
+  up[diff < 0] = 0.0
   
   down = -diff.copy()
-  down[diff > 0] = 0
+  down[diff > 0] = 0.0
   
   emaup = up.ewm(com=n-1, min_periods=0).mean()
   emadown = down.ewm(com=n-1, min_periods=0).mean()
@@ -4728,10 +4730,10 @@ def add_bb_features(df: pd.DataFrame, n: int = 20, ndev: int = 2, ohlcv_col: dic
 
   # fill na values
   if fillna:
-      mavg = mavg.replace([np.inf, -np.inf], np.nan).fillna(method='backfill')
-      mstd = mstd.replace([np.inf, -np.inf], np.nan).fillna(method='backfill')
-      high_band = high_band.replace([np.inf, -np.inf], np.nan).fillna(method='backfill')
-      low_band = low_band.replace([np.inf, -np.inf], np.nan).fillna(method='backfill')
+      mavg = mavg.replace([np.inf, -np.inf], np.nan).bfill()
+      mstd = mstd.replace([np.inf, -np.inf], np.nan).bfill()
+      high_band = high_band.replace([np.inf, -np.inf], np.nan).bfill()
+      low_band = low_band.replace([np.inf, -np.inf], np.nan).bfill()
       
   # assign values to df
   df['mavg'] = mavg
@@ -4770,9 +4772,9 @@ def add_dc_features(df: pd.DataFrame, n: int = 20, ohlcv_col: dict = default_ohl
 
   # fill na values
   if fillna:
-    high_band = high_band.replace([np.inf, -np.inf], np.nan).fillna(method='backfill')
-    low_band = low_band.replace([np.inf, -np.inf], np.nan).fillna(method='backfill')
-    middle_band = middle_band.replace([np.inf, -np.inf], np.nan).fillna(method='backfill')
+    high_band = high_band.replace([np.inf, -np.inf], np.nan).bfill()
+    low_band = low_band.replace([np.inf, -np.inf], np.nan).bfill()
+    middle_band = middle_band.replace([np.inf, -np.inf], np.nan).bfill()
 
   # assign values to df
   df['dc_high_band'] = high_band
@@ -4832,9 +4834,9 @@ def add_kc_features(df: pd.DataFrame, n: int = 10, ohlcv_col: dict = default_ohl
 
   # fill na values
   if fillna:
-    middle_band = middle_band.replace([np.inf, -np.inf], np.nan).fillna(method='backfill')
-    high_band = high_band.replace([np.inf, -np.inf], np.nan).fillna(method='backfill')
-    low_band = low_band.replace([np.inf, -np.inf], np.nan).fillna(method='backfill')
+    middle_band = middle_band.replace([np.inf, -np.inf], np.nan).bfill()
+    high_band = high_band.replace([np.inf, -np.inf], np.nan).bfill()
+    low_band = low_band.replace([np.inf, -np.inf], np.nan).bfill()
 
   # assign values to df
   df['kc_high_band'] = high_band
@@ -4883,7 +4885,7 @@ def add_ui_features(df: pd.DataFrame, n: int = 14, ohlcv_col: dict = default_ohl
 
   # fill na values
   if fillna:
-    ui = ui.replace([np.inf, -np.inf], np.nan).fillna(method='backfill')
+    ui = ui.replace([np.inf, -np.inf], np.nan).bfill()
 
   # assign values to df
   df['ui'] = ui
@@ -5055,7 +5057,7 @@ def plot_up_down(df: pd.DataFrame, col: str = 'trend_idx', start: Optional[str] 
   #   'up': 'u', 
   #   'down': 'd'}
   # df = assign_condition_value(df=df, column='{col}_trend', condition_dict=conditions, value_dict=values, default_value=np.nan)
-  # df['{col}_trend'] = df['{col}_trend'].fillna(method='ffill')
+  # df['{col}_trend'] = df['{col}_trend'].ffill()
 
   # create figure
   ax = use_ax
@@ -5092,7 +5094,7 @@ def plot_up_down(df: pd.DataFrame, col: str = 'trend_idx', start: Optional[str] 
       'up': 'u', 
       'down': 'd'}
     df = assign_condition_value(df=df, column=target_col, condition_dict=conditions, value_dict=values, default_value=np.nan)
-    df[target_col] = df[target_col].fillna(method='ffill')
+    df[target_col] = df[target_col].ffill()
     green_mask = ((df[target_col] == "u") | (df[target_col].shift(1) == "u"))
     red_mask = ((df[target_col] == "d") | (df[target_col].shift(1) == "d"))
     ax.fill_between(df.index, df[plot_col], df.zero, where=green_mask,  facecolor='green', interpolate=False, alpha=0.3) 
@@ -5418,7 +5420,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
 
     # # annotate aki_rate (aki_rate_change)
     # v = round(df.loc[max_idx, 'signal_score'],1)
-    # v_change = str(df['signal_score'].round(1).values[-3:].tolist()).replace(' ', '')
+    # v_change = str(round(df['signal_score'], 1).values[-3:].tolist()).replace(' ', '')
     # y_signal = y_max - 1.5 # round(y_middle)
     # text_color = 'green' if v > 0 else 'red'
     # plt.annotate(f'{v_change}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
@@ -5788,9 +5790,9 @@ def plot_candlestick(df: pd.DataFrame, start: Optional[str] = None, end: Optiona
     y_text_close = None
     
     y_close_padding = padding*5
-    y_close = df.loc[max_idx, 'Close'].round(3)
+    y_close = round(df.loc[max_idx, 'Close'], 3)
     y_text_close = y_close
-    plt.annotate(f'{y_close}', xy=(annotation_idx, y_text_close), xytext=(annotation_idx, y_text_close), fontsize=13, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", alpha=0))
+    plt.annotate(f'{y_close}', xy=(annotation_idx, y_text_close), xytext=(annotation_idx, y_text_close), fontsize=13, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", alpha=0.0))
 
     y_resistant = None
     y_text_resistant = None
@@ -5802,7 +5804,7 @@ def plot_candlestick(df: pd.DataFrame, start: Optional[str] = None, end: Optiona
       resistants = df.loc[max_idx, 'resistant_description'].split(', ') if df.loc[max_idx, 'resistant_description'] is not None else []
       resistants = [x for x in resistants if x != '']
       resistant_score = len(resistants)
-      y_resistant = df.loc[max_idx, 'resistant'].round(3)
+      y_resistant = round(df.loc[max_idx, 'resistant'], 3)
       y_text_resistant = y_resistant
 
       diff = y_text_resistant - y_text_close
@@ -5815,7 +5817,7 @@ def plot_candlestick(df: pd.DataFrame, start: Optional[str] = None, end: Optiona
       supports = df.loc[max_idx, 'support_description'].split(', ') if df.loc[max_idx, 'support_description'] is not None else []
       supports = [x for x in supports if x != '']
       support_score = len(supports)
-      y_support = df.loc[max_idx, 'support'].round(3)
+      y_support = round(df.loc[max_idx, 'support'], 3)
       y_text_support = y_support
       
       diff = y_text_close - y_text_support
@@ -5962,7 +5964,7 @@ def plot_candlestick(df: pd.DataFrame, start: Optional[str] = None, end: Optiona
     alpha = color['alpha'] 
     shadow_color = color['shadow_color']
     entity_edge_color = (0,0,0,0.1)
-    ax.fill_between(df.index, df.loc[min_idx, 'High'], df.loc[min_idx, 'Low'], facecolor=None, interpolate=True, alpha=0, linewidth=1, zorder=default_zorders['candle_pattern'])
+    ax.fill_between(df.index, df.loc[min_idx, 'High'], df.loc[min_idx, 'Low'], facecolor=None, interpolate=True, alpha=0.0, linewidth=1, zorder=default_zorders['candle_pattern'])
 
     # plot each candlestick
     for idx, row in df.iterrows():
@@ -5994,7 +5996,7 @@ def plot_candlestick(df: pd.DataFrame, start: Optional[str] = None, end: Optiona
       ax.add_line(vline)
       ax.add_patch(rect)
   else:
-    ohlcv_data = df[default_ohlcv_col.values()].copy().fillna(method='ffill')
+    ohlcv_data = df[default_ohlcv_col.values()].copy().ffill()
     print(ohlcv_data.head())
     mpf.plot(ohlcv_data, type='candle', ax=ax, style='yahoo', datetime_format='%Y-%m', show_nontrading=True, tight_layout=True, warn_too_much_data=10000)
     
@@ -6086,7 +6088,7 @@ def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Opt
   
   # plot renko bricks
   if 'renko' in target_indicator:
-    ax = plot_renko(df, use_ax=ax, plot_args=default_plot_args, close_alpha=0)
+    ax = plot_renko(df, use_ax=ax, plot_args=default_plot_args, close_alpha=0.0)
 
   # plot close price
   if 'price' in target_indicator:
@@ -6612,8 +6614,8 @@ def plot_summary(data: dict, width: int = 20, unit_size: float = 0.3, wspace: fl
       rate_ax = plt.subplot(gs[i*2], sharex=axes['rate'], zorder=1) 
       score_ax = plt.subplot(gs[i*2+1], sharex=axes['score'], zorder=0)
     
-    tmp_data['max'] = 0
-    tmp_data['min'] = 0
+    tmp_data['max'] = 0.0
+    tmp_data['min'] = 0.0
 
     colors = {'trigger_score': 'k', 'trigger_score_change': 'k', 'position_score': 'k', 'position_score_change': 'none', 'pattern_score': 'k', 'pattern_score_change': 'orange'}
     hatchs = {'trigger_score': None, 'trigger_score_change': None, 'position_score': None, 'position_score_change': None, 'pattern_score': None, 'pattern_score_change': None}
@@ -6970,7 +6972,7 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
       extra_days = 7
       for i in range(extra_days):
         tmp_idx = max_idx + datetime.timedelta(days=i+1)
-        tmp_data.loc[tmp_idx, 'test'] = 0
+        tmp_data.loc[tmp_idx, 'test'] = 0.0
       axes[tmp_indicator].plot(tmp_data.index, tmp_data['test'], alpha=0)
 
     # plot ichimoku with candlesticks
@@ -7104,7 +7106,7 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
   # adjust plot layout
   max_idx = df.index.max()
   up_down_symbol = {True: '↑', False: '↓'}
-  close_rate = (df.loc[max_idx, "rate"]*100).round(2)
+  close_rate = round(df.loc[max_idx, "rate"]*100, 2)
   signal_score = df.loc[max_idx, "signal_score"]
   title_color = 'green' if close_rate > 0 else 'red'
   desc_color = 'green' if signal_score > 0 else 'red'
@@ -7189,7 +7191,7 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
 
     change = round(df.loc[idx, "candle_position_score"] + df.loc[idx, "candle_pattern_score"] - df.loc[before_max_idx, "candle_position_score"] - df.loc[before_max_idx, "candle_pattern_score"], 2)
     change_desc = f'+{change}' if change >= 0 else f'{change}'
-    candle_pattern_desc = (f' {desc}' if len(desc) > 0 else '') + f' | 蜡烛 {(df.loc[idx, "candle_position_score"] + df.loc[idx, "candle_pattern_score"]).round(2):<6} ({change_desc:<6})'
+    candle_pattern_desc = (f' {desc}' if len(desc) > 0 else '') + f' | 蜡烛 {round((df.loc[idx, "candle_position_score"] + df.loc[idx, "candle_pattern_score"]), 2):<6} ({change_desc:<6})'
 
     # trigger desc (trigger)
     up_desc = df.loc[idx, "trigger_up_score_description"]
@@ -7204,7 +7206,7 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
 
     # total desc
     total_score = df.loc[idx, "total_score"]
-    total_score_change = (df.loc[idx, "total_score_change"]).round(2)
+    total_score_change = round(df.loc[idx, "total_score_change"], 2)
     total_score_change = f'+{total_score_change}' if total_score_change >= 0 else f'{total_score_change}'
     total_desc = f'----------------------\n{total_score:<6} ({total_score_change:<6})'
     super_title_score += f' | 分数 {df.loc[idx, "total_score"]} ({change_desc})'
