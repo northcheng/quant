@@ -845,7 +845,7 @@ class Tiger(Trader):
               result.drop(duplicated_col, axis=1, inplace=True)
               result = pd.merge(result, status, how='left', left_on=key_col, right_on=key_col)
               result['rate'] = round((result['latest_price'] - result['average_cost']) / result['average_cost'], 2)
-              result['rate_inday'] = round((result['Close'] - result['Open']) / position['average_cost'], 2)
+              result['rate_inday'] = round((result['Close'] - result['Open']) / result['average_cost'], 2)
               result['market_value'] = round(result['latest_price'] * result['quantity'], 2)       
           
           # select columns
