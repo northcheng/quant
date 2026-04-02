@@ -38,7 +38,7 @@ default_trend_val = {'pos_trend':'u', 'neg_trend':'d', 'none_trend':'', 'wave_tr
 default_signal_val = {'pos_signal':'b', 'neg_signal':'s', 'none_signal':'', 'wave_signal': 'n'}
 
 # default indicators and dynamic trend for calculation
-default_indicators = {'trend': ['ichimoku', 'kama', 'adx'], 'volume': [], 'momentum':['rsi'], 'volatility': [], 'other': ['renko']}
+default_indicators = {'trend': ['ichimoku', 'kama', 'adx'], 'volume': ['adi'], 'momentum':['rsi'], 'volatility': [], 'other': ['renko']}
 default_perspectives = ['candle', 'support_resistant']
 default_support_resistant_col = ['kama_fast', 'kama_slow', 'tankan', 'kijun', 'renko_h', 'renko_l', 'candle_gap_top', 'candle_gap_bottom']
 
@@ -1369,39 +1369,39 @@ def calculate_ta_signal(df: pd.DataFrame):
     df['signal_day'] = 0
     df['signal_description'] = ''
 
-    signal_conditions = {
-      '可能买入':       f'(signal_score_change > 0) and (pattern_score > 0) and (trigger_up_score > 0 and trigger_down_score == 0)', 
-      '可能卖出':      f'(signal_score_change < 0) and (pattern_score < 0) and (trigger_down_score < 0 and trigger_score < 0)',  
-      '通常买入':       f'(signal_score_change > 0) and (pattern_score > 0) and (trend == "up")', 
-      '通常卖出':      f'(signal_score_change < 0) and (pattern_score < 0) and (trend == "down")', 
-    } 
-    signal_values = {
-      '通常买入':       f'buy',
-      '通常卖出':      f'sell',
-      '可能买入':       f'to_buy',
-      '可能卖出':      f'to_sell',
-    }
-    # df = assign_condition_value(df=df, column='signal', condition_dict=signal_conditions, value_dict=signal_values, default_value='')
-    for sc in signal_conditions.keys():
-      tmp_idx = df.query(signal_conditions[sc]).index
-      if len(tmp_idx) > 0:
-        df.loc[tmp_idx, 'signal'] = signal_values[sc]
-        df.loc[tmp_idx, 'signal_description'] += f'{sc} '
+    # signal_conditions = {
+    #   '可能买入':       f'(signal_score_change > 0) and (pattern_score > 0) and (trigger_up_score > 0 and trigger_down_score == 0)', 
+    #   '可能卖出':      f'(signal_score_change < 0) and (pattern_score < 0) and (trigger_down_score < 0 and trigger_score < 0)',  
+    #   '通常买入':       f'(signal_score_change > 0) and (pattern_score > 0) and (trend == "up")', 
+    #   '通常卖出':      f'(signal_score_change < 0) and (pattern_score < 0) and (trend == "down")', 
+    # } 
+    # signal_values = {
+    #   '通常买入':       f'buy',
+    #   '通常卖出':      f'sell',
+    #   '可能买入':       f'to_buy',
+    #   '可能卖出':      f'to_sell',
+    # }
+    # # df = assign_condition_value(df=df, column='signal', condition_dict=signal_conditions, value_dict=signal_values, default_value='')
+    # for sc in signal_conditions.keys():
+    #   tmp_idx = df.query(signal_conditions[sc]).index
+    #   if len(tmp_idx) > 0:
+    #     df.loc[tmp_idx, 'signal'] = signal_values[sc]
+    #     df.loc[tmp_idx, 'signal_description'] += f'{sc} '
 
-    # additional-signal
-    none_signal_conditions = {
-      '高位十字星':       f'(signal in ["buy", "to_buy"]) and (position in ["up"] and 十字星_trend != "n")', 
-      '高位平头顶':       f'(position in ["up"] and 平头_trend == "d")', 
-    } 
-    none_signal_values = {
-      '高位十字星':       f'', 
-      '高位平头顶':       f'to_sell', 
-    }
-    for nc in none_signal_conditions.keys():
-      tmp_idx = df.query(none_signal_conditions[nc]).index
-      if len(tmp_idx) > 0:
-        df.loc[tmp_idx, 'signal'] = none_signal_values[nc]
-        df.loc[tmp_idx, 'signal_description'] += f'{nc} '
+    # # additional-signal
+    # none_signal_conditions = {
+    #   '高位十字星':       f'(signal in ["buy", "to_buy"]) and (position in ["up"] and 十字星_trend != "n")', 
+    #   '高位平头顶':       f'(position in ["up"] and 平头_trend == "d")', 
+    # } 
+    # none_signal_values = {
+    #   '高位十字星':       f'', 
+    #   '高位平头顶':       f'to_sell', 
+    # }
+    # for nc in none_signal_conditions.keys():
+    #   tmp_idx = df.query(none_signal_conditions[nc]).index
+    #   if len(tmp_idx) > 0:
+    #     df.loc[tmp_idx, 'signal'] = none_signal_values[nc]
+    #     df.loc[tmp_idx, 'signal_description'] += f'{nc} '
 
   # drop redundant columns
   for col in col_to_drop:
@@ -2417,6 +2417,10 @@ def add_candlestick_patterns(df: pd.DataFrame) -> pd.DataFrame:
       }
     values = {'长上影': 'd', '长下影': 'u'} 
     df = assign_condition_value(df=df, column='长影线_trend', condition_dict=conditions, value_dict=values, default_value='n')
+
+    # 进一步筛选
+    mute_idx = df.query('(长影线_trend == "u" and position in ["up", "mid_up"]) or (长影线_trend == "d" and position in ["down", "mid_down"])').index
+    df.loc[mute_idx, '长影线_trend'] = 'n'
 
   # days since signal triggered
   df['candle_pattern_up_score'] = 0.0
@@ -3851,7 +3855,7 @@ def add_cmf_features(df: pd.DataFrame, n: int = 20, ohlcv_col: dict = default_oh
 # Ease of movement (EoM, EMV)
 def add_eom_features(df: pd.DataFrame, n: int = 20, ohlcv_col: dict = default_ohlcv_col, fillna: bool = False) -> pd.DataFrame:
   """
-  Calculate Vortex indicator
+  Calculate EOM indicator
 
   :param df: original OHLCV dataframe
   :param n: ema window of close price
@@ -5160,7 +5164,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     v_change = round(df.loc[max_idx, 'total_score'], 2)
     text_color = 'green' if signal in ['buy', 'to_buy'] else 'red' 
     text_color = 'grey' if signal == '' else text_color
-    plt.annotate(f'{desc}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+    plt.annotate(f'{desc}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
   # patterns
   if signal_x == '模式':
@@ -5243,7 +5247,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
 
     y_signal = df.loc[max_idx, signal_y]    
     text_color = 'none'
-    plt.annotate(f'{desc}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+    plt.annotate(f'{desc}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
   # candle position and patterns
   if signal_x in ['candle']:
@@ -5285,7 +5289,29 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     v_change = df.loc[max_idx, 'candle_pattern_up_description'] + df.loc[max_idx, 'candle_pattern_down_description']
     
     text_color = 'none'
-    plt.annotate(f'{candle_desc} {v_change}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+    plt.annotate(f'{candle_desc} {v_change}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+
+  # volume
+  if signal_x in ['volume']:
+
+    volume_indicator = 'adi'
+    df[f'{volume_indicator}_diff'] = df[volume_indicator] - df[volume_indicator].shift(periods=1)
+    df[f'{volume_indicator}_color'] = df[f'{volume_indicator}_diff'].apply(lambda x: 'green' if x > 0 else 'red')
+    df[f'{volume_indicator}_alpha'] = normalize(df[f'{volume_indicator}_diff'].bfill().abs())
+
+    outer_alpha = 0.66
+    tmp_data = df.query(f'({volume_indicator}_diff > 0)')
+    if len(tmp_data) > 0:
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='green', alpha=outer_alpha) # outer_alpha
+    
+    tmp_data = df.query(f'({volume_indicator}_diff < 0)')
+    if len(tmp_data) > 0:
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='red', alpha=outer_alpha)
+
+    up_idx = df.query(f'({volume_indicator}_diff > 0)') .index
+    down_idx = df.query(f'({volume_indicator}_diff < 0)').index
+    ax.scatter(up_idx, df.loc[up_idx, signal_y], marker='s', color='green', edgecolor='none', alpha=df.loc[up_idx, f'{volume_indicator}_alpha'].fillna(0))
+    ax.scatter(down_idx, df.loc[down_idx, signal_y], marker='s', color='red', edgecolor='none', alpha=df.loc[down_idx, f'{volume_indicator}_alpha'].fillna(0))
 
   # trend
   if signal_x in ['trend']:
@@ -5326,7 +5352,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     # v_change = str(round(df['signal_score'], 1).values[-3:].tolist()).replace(' ', '')
     # y_signal = y_max - 1.5 # round(y_middle)
     # text_color = 'green' if v > 0 else 'red'
-    # plt.annotate(f'{v_change}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+    # plt.annotate(f'{v_change}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
     # annotate aki_score (adx_distance_change+aki_rate_change)
     # df['prev_aki_score'] = df['aki_score'].shift(1)
@@ -5336,7 +5362,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     # v_change = round(df.loc[max_idx, 'aki_score_change'],2)
     # v_change = f'+{v_change}' if v_change > 0 else f'{v_change}'
     # y_signal = y_max - 0.5
-    # plt.annotate(f'{v_prev:0<4}{v_change:0<4}→{v:0<4}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+    # plt.annotate(f'{v_prev:0<4}{v_change:0<4}→{v:0<4}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
     # # annotate adx_distance (adx_distance_change)
     # v = round(df.loc[max_idx, 'adx_distance'], 1)
@@ -5344,7 +5370,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     # text_color = 'green' if v_change > 0 else 'red'
     # v_change = f'+{v_change}' if v_change > 0 else f'{v_change}'
     # y_signal = y_max - 1.75
-    # plt.annotate(f'[短]{v:0<4}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+    # plt.annotate(f'[短]{v:0<4}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
     # # annotate aki_rate (aki_rate_change)
     # v = round(df.loc[max_idx, 'aki_rate'],1)
@@ -5352,7 +5378,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     # text_color = 'green' if v_change > 0 else 'red'
     # v_change = f'+{v_change}' if v_change > 0 else f'{v_change}'
     # y_signal = y_max - 3 # round(y_middle)
-    # plt.annotate(f'[总]{v:0<4}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+    # plt.annotate(f'[总]{v:0<4}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
     # # annotate adx/ichimoku/kama distance_status
     # adx_distance_status = df.loc[max_idx, "adx_distance_status"].replace('pos', '+').replace('neg', '-').replace('none', '=').replace('up', '↑').replace('down', '↓')
@@ -5368,7 +5394,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     #   text_color = 'red'
     # else:
     #   pass
-    # plt.annotate(f'{v}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+    # plt.annotate(f'{v}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
     # annotate trend
     v = round(df.loc[max_idx, 'trend_score'], 1)
@@ -5381,7 +5407,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
       desc = ((desc + '增强') if v_change > 0 else (desc + '减缓')) if desc == '向上' else ((desc + '减缓') if v_change > 0 else (desc + '增强'))
     y_signal = df.loc[max_idx, signal_y]
     text_color = 'none' 
-    plt.annotate(f'[{v_day}]{desc}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+    plt.annotate(f'[{v_day}]{desc}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
     # title and legend
     ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
@@ -5424,7 +5450,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     obos_score = df.loc[max_idx, "超买超卖"]
     v_change = '' if obos_score == 0 else ('(超买)' if obos_score < 0 else '(超卖)')
     text_color = 'none'    
-    plt.annotate(f'{v}{v_change}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+    plt.annotate(f'{v}{v_change}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
     # title and legend
     ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
@@ -5467,7 +5493,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
       if len(tmp_data) > 0:
         ax.scatter(tmp_data.index, tmp_data[signal_y], marker=tmp_marker, color=tmp_color, alpha=tmp_data[tmp_col_a].fillna(0))
   
-  ax.fill_between(df.index, 3.5, 4.5, hatch=None, linewidth=1, facecolor='lightgrey', edgecolor=None, alpha=0.1, zorder=0)
+  # ax.fill_between(df.index, 3.5, 4.5, hatch=None, linewidth=1, facecolor='yellow', edgecolor=None, alpha=0.05, zorder=0)
 
 
   # return ax
@@ -5761,6 +5787,7 @@ def plot_candlestick(df: pd.DataFrame, start: Optional[str] = None, end: Optiona
       '腰带_trend': {'u': '腰带', 'd': '腰带'},
       '锤子_trend': {'u': '锤子', 'd': '吊颈'},
       '流星_trend': {'u': '倒锤', 'd': '流星'},
+      '长影线_trend': {'u': '长下影', 'd': '长上影'},
 
       # '平头_trend': {'u': '平底', 'd': '平顶'},
       '穿刺_trend': {'u': '穿刺', 'd': '乌云'},
@@ -6126,8 +6153,6 @@ def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Opt
   if 'candlestick' in target_indicator:
     ax = plot_candlestick(df=df, start=start, end=end, date_col=date_col, add_on=add_on, ohlcv_col=ohlcv_col, color=candlestick_color, use_ax=ax, plot_args=plot_args, interval=interval)
   
-  
-
   # plot mask for extended
   if extended is not None:
     extended_data = df[ext_columns].tail(extended).copy()
@@ -6967,7 +6992,7 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
       signals = tmp_args.get('signal_list')
 
       # plot one by one
-      labels = {' ': '信号', 'trigger': '触发(突破/边界)', 'trend': '趋势(变化/方向)', 'candle': '蜡烛(位置/模式)', 'position': '位置(高低/超买超卖)'}
+      labels = {' ': '信号', 'trigger': '触发(突破/边界)', 'trend': '趋势(变化/方向)', 'candle': '蜡烛(位置/模式)', 'volume': '成交', 'position': '位置(高低/超买超卖)'}
       signal_bases = []
       signal_names = []
       if signals is not None:
