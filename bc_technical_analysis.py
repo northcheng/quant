@@ -6160,7 +6160,7 @@ def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Opt
 
   # plot key line prices
   if 'add_line_value' > '':
-    interval_factor = {'day':1, 'week': 6, 'month': 25}
+    interval_factor = {'day':1, 'week': 9, 'month': 25}
     annotation_idx = max_idx  + datetime.timedelta(days=24*interval_factor[interval])
     ylim = ax.get_ylim()
     y_min = ylim[0]

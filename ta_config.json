@@ -11,7 +11,7 @@
     "update_ta_signal": true,
     "save_ta_data": true,
     "update_mode": "eod",
-    "look_back_window": {"day": 250, "week": 1260, "month": 5400}
+    "look_back_window": {"day": 250, "week": 1750, "month": 5400}
   },
 
   "visualization": {
