@@ -40,7 +40,7 @@ default_signal_val = {'pos_signal':'b', 'neg_signal':'s', 'none_signal':'', 'wav
 # default indicators and dynamic trend for calculation
 default_indicators = {'trend': ['ichimoku', 'kama', 'adx'], 'volume': ['adi'], 'momentum':['rsi'], 'volatility': [], 'other': ['renko']}
 default_perspectives = ['candle', 'support_resistant']
-default_support_resistant_col = ['kama_fast', 'kama_slow', 'tankan', 'kijun', 'renko_h', 'renko_l', 'candle_gap_top', 'candle_gap_bottom']
+default_support_resistant_col = ['kama_fast', 'kama_slow', 'tankan', 'kijun', 'candle_gap_top', 'candle_gap_bottom']
 
 # default arguments for visualization
 default_candlestick_color = {'color_up':'green', 'color_down':'red', 'shadow_color':'black', 'entity_edge_color':'black', 'alpha':1}
@@ -50,7 +50,7 @@ default_plot_args = {'figsize':(30, 3), 'title_rotation':'vertical', 'xaxis_posi
 # zorders
 default_zorders = {}
 counter = 1
-for item in ['default', 'price', 'ichimoku', 'kama', 'candle_pattern', 'candle_shadow', 'candle_entity', 'extended', 'gap', 'renko', ]:
+for item in ['default', 'price', 'ichimoku', 'kama', 'candle_pattern', 'candle_shadow', 'candle_entity', 'extended', 'gap', 'renko', 'trend']:
   default_zorders[item] = counter
   counter += 1
 
@@ -5613,7 +5613,7 @@ def plot_adx(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str] =
     return ax
 
 # plot candlestick chart
-def plot_candlestick(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str] = None, date_col: str = 'Date', add_on: list = ['split', 'gap', 'support_resistant', 'pattern'], use_ax: Optional[plt.Axes] = None, ohlcv_col: dict = default_ohlcv_col, color: dict = default_candlestick_color, plot_args: dict = default_plot_args, interval: Literal['day', 'week', 'month', 'year'] = 'day') -> Optional[plt.Axes]:
+def plot_candlestick(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str] = None, date_col: str = 'Date', add_on: list = ['split', 'gap', 'support_resistant', 'pattern', 'trend'], use_ax: Optional[plt.Axes] = None, ohlcv_col: dict = default_ohlcv_col, color: dict = default_candlestick_color, plot_args: dict = default_plot_args, interval: Literal['day', 'week', 'month', 'year'] = 'day') -> Optional[plt.Axes]:
   """
   Plot candlestick chart
 
@@ -5867,6 +5867,46 @@ def plot_candlestick(df: pd.DataFrame, start: Optional[str] = None, end: Optiona
         plt.annotate(f'{text}', xy=(x, y), xytext=(x,y_text), fontsize=style['fontsize'], rotation=0, color=style['fontcolor'], va=style['va'],  ha=style['ha'], xycoords='data', textcoords='data', arrowprops=dict(arrowstyle=style['arrowstyle'], alpha=0.5, color='black'), bbox=dict(boxstyle="round", facecolor=style[a], edgecolor='none', alpha=style['alpha']))
         counter += 1
 
+  # annotate trend
+  if 'trend' > '':
+
+    y_min, y_max = ax.get_ylim()
+
+    prev_trend_day = df['trend_day'].shift(1)
+
+    df['prev_trend_day'] = df['trend_day'].shift(1)
+    idx_list = df.index.tolist()
+    trend_list = {
+      'up': (df['trend_day'] > prev_trend_day).to_list(),
+      'down': (df['trend_day'] < prev_trend_day).to_list(),
+      'wave': (df['trend'] == 'wave').to_list(),
+    }
+
+    hatches = {'up': None, 'down': None, 'wave': None}
+    colors = {'up': 'green', 'down': 'red', 'wave': 'grey'}
+    alphas = {'up': 0.1, 'down': 0.1, 'wave': 0.15}
+    
+    # 遍历三个列表
+    for t in trend_list.keys():
+      tmp_trend = trend_list[t]
+
+      # 初始化
+      start = 0
+      end = start
+      for i in range(len(tmp_trend)):
+        if tmp_trend[i]:
+          end = i
+        else:
+          if start < end:
+            x = (df[idx_list[start]:idx_list[end]].index).tolist()
+            x[0] = idx_list[start]+ datetime.timedelta(days=0.5)
+            x[-1] = idx_list[end] + datetime.timedelta(days=0.5)
+            
+            ax.fill_between(x, y_max, y_min, hatch=hatches[t], facecolor=colors[t], interpolate=True, alpha=0.1, edgecolor=None, linewidth=0.05, zorder=default_zorders['trend']) #,  
+            # print(f'{t} - {start_idx}:{end_idx}')
+          start = i
+          end = i
+    
   # transform date to numbers, plot candlesticks
   # df.reset_index(inplace=True)
   # df[date_col] = df[date_col].apply(mdates.date2num)
