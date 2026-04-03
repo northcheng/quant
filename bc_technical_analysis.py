@@ -44,13 +44,14 @@ default_support_resistant_col = ['kama_fast', 'kama_slow', 'tankan', 'kijun', 'c
 
 # default arguments for visualization
 default_candlestick_color = {'color_up':'green', 'color_down':'red', 'shadow_color':'black', 'entity_edge_color':'black', 'alpha':1}
+default_candlestict_add_on = ['split', 'gap', 'support_resistant', 'pattern']
 default_main_indicator = {'candlestick'}
 default_plot_args = {'figsize':(30, 3), 'title_rotation':'vertical', 'xaxis_position': 'bottom', 'yaxis_position': 'right', 'title_x':-0.01, 'title_y':0, 'bbox_to_anchor':(1.02, 0.), 'loc':3, 'ncol':1, 'borderaxespad':0.0}
 
 # zorders
 default_zorders = {}
 counter = 1
-for item in ['default', 'price', 'ichimoku', 'kama', 'candle_pattern', 'candle_shadow', 'candle_entity', 'extended', 'gap', 'renko', 'trend']:
+for item in [ 'default', 'trend', 'renko', 'gap', 'extended', 'ichimoku', 'kama', 'candle_shadow', 'candle_entity', 'price', 'candle_pattern',]:
   default_zorders[item] = counter
   counter += 1
 
@@ -5613,7 +5614,7 @@ def plot_adx(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str] =
     return ax
 
 # plot candlestick chart
-def plot_candlestick(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str] = None, date_col: str = 'Date', add_on: list = ['split', 'gap', 'support_resistant', 'pattern', 'trend'], use_ax: Optional[plt.Axes] = None, ohlcv_col: dict = default_ohlcv_col, color: dict = default_candlestick_color, plot_args: dict = default_plot_args, interval: Literal['day', 'week', 'month', 'year'] = 'day') -> Optional[plt.Axes]:
+def plot_candlestick(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str] = None, date_col: str = 'Date', add_on: list = default_candlestict_add_on, use_ax: Optional[plt.Axes] = None, ohlcv_col: dict = default_ohlcv_col, color: dict = default_candlestick_color, plot_args: dict = default_plot_args, interval: Literal['day', 'week', 'month', 'year'] = 'day') -> Optional[plt.Axes]:
   """
   Plot candlestick chart
 
@@ -5867,45 +5868,50 @@ def plot_candlestick(df: pd.DataFrame, start: Optional[str] = None, end: Optiona
         plt.annotate(f'{text}', xy=(x, y), xytext=(x,y_text), fontsize=style['fontsize'], rotation=0, color=style['fontcolor'], va=style['va'],  ha=style['ha'], xycoords='data', textcoords='data', arrowprops=dict(arrowstyle=style['arrowstyle'], alpha=0.5, color='black'), bbox=dict(boxstyle="round", facecolor=style[a], edgecolor='none', alpha=style['alpha']))
         counter += 1
 
-  # annotate trend
-  if 'trend' > '':
+  # # annotate trend
+  # if 'trend' in add_on:
 
-    y_min, y_max = ax.get_ylim()
+  #   idx_list = df.index.tolist()
+  #   y_min, y_max = ax.get_ylim()
 
-    prev_trend_day = df['trend_day'].shift(1)
+  #   prev_trend_day = df['trend_day'].shift(1)
+  #   trend_list = {
+  #     'up': (df['trend_day'] > prev_trend_day).to_list(),
+  #     'down': (df['trend_day'] < prev_trend_day).to_list(),
+  #     'wave': (df['trend'] == 'wave').to_list(),
+  #   }
 
-    df['prev_trend_day'] = df['trend_day'].shift(1)
-    idx_list = df.index.tolist()
-    trend_list = {
-      'up': (df['trend_day'] > prev_trend_day).to_list(),
-      'down': (df['trend_day'] < prev_trend_day).to_list(),
-      'wave': (df['trend'] == 'wave').to_list(),
-    }
-
-    hatches = {'up': None, 'down': None, 'wave': None}
-    colors = {'up': 'green', 'down': 'red', 'wave': 'grey'}
-    alphas = {'up': 0.1, 'down': 0.1, 'wave': 0.15}
+  #   hatches = {'up': None, 'down': None, 'wave': None}
+  #   colors = {'up': 'green', 'down': 'red', 'wave': 'grey'}
+  #   alphas = {'up': 0.08, 'down': 0.08, 'wave': 0.1}
     
-    # 遍历三个列表
-    for t in trend_list.keys():
-      tmp_trend = trend_list[t]
+  #   # 遍历三个列表
+  #   for t in trend_list.keys():
+  #     tmp_trend = trend_list[t]
 
-      # 初始化
-      start = 0
-      end = start
-      for i in range(len(tmp_trend)):
-        if tmp_trend[i]:
-          end = i
-        else:
-          if start < end:
-            x = (df[idx_list[start]:idx_list[end]].index).tolist()
-            x[0] = idx_list[start]+ datetime.timedelta(days=0.5)
-            x[-1] = idx_list[end] + datetime.timedelta(days=0.5)
+  #     # 初始化
+  #     start = 0
+  #     end = start
+  #     for i in range(len(tmp_trend)):
+  #       if tmp_trend[i]:
+  #         end = i
+  #       else:
+  #         if start < end:
+  #           # print(f'{t} - {idx_list[start]}:{idx_list[end]}')
+  #           start_idx = idx_list[start]
+  #           end_idx = idx_list[end]
+
+  #           if t == 'wave' and (idx_list[start+1] - idx_list[start]).days > 1:
+  #             start_idx = idx_list[start+1] - datetime.timedelta(days=1)
+
+  #           x = (df[idx_list[start]:idx_list[end]].index).tolist()
+  #           x[0] = start_idx + datetime.timedelta(days=0.5)
+  #           x[-1] = end_idx + datetime.timedelta(days=0.5)
+  #           # print(f'{t} - {x[0]}:{x[-1]}')
+  #           ax.fill_between(x, y_max, y_min, hatch=hatches[t], facecolor=colors[t], interpolate=True, alpha=alphas[t], edgecolor=None, linewidth=0.05, zorder=default_zorders['trend']) #,  
             
-            ax.fill_between(x, y_max, y_min, hatch=hatches[t], facecolor=colors[t], interpolate=True, alpha=0.1, edgecolor=None, linewidth=0.05, zorder=default_zorders['trend']) #,  
-            # print(f'{t} - {start_idx}:{end_idx}')
-          start = i
-          end = i
+  #         start = i
+  #         end = i
     
   # transform date to numbers, plot candlesticks
   # df.reset_index(inplace=True)
@@ -5978,7 +5984,7 @@ def plot_candlestick(df: pd.DataFrame, start: Optional[str] = None, end: Optiona
     return ax
 
 # plot ichimoku chart
-def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str] = None, date_col: str = 'Date', add_on: list = ['split', 'gap', 'support_resistant', 'pattern'], target_indicator: list = ['price', 'ichimoku', 'kama', 'candlestick', 'bb', 'psar', 'renko', 'linear'], interval: Literal['day', 'week', 'month', 'year'] = 'day', use_ax: Optional[plt.Axes] = None, title: Optional[str] = None, candlestick_color: dict = default_candlestick_color, ohlcv_col: dict = default_ohlcv_col, plot_args: dict = default_plot_args) -> Optional[plt.Axes]:
+def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str] = None, date_col: str = 'Date', add_on: list = default_candlestict_add_on, target_indicator: list = ['price', 'ichimoku', 'kama', 'candlestick', 'bb', 'psar', 'renko', 'linear'], interval: Literal['day', 'week', 'month', 'year'] = 'day', use_ax: Optional[plt.Axes] = None, title: Optional[str] = None, candlestick_color: dict = default_candlestick_color, ohlcv_col: dict = default_ohlcv_col, plot_args: dict = default_plot_args) -> Optional[plt.Axes]:
   """
   Plot ichimoku chart
 
@@ -5999,6 +6005,7 @@ def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Opt
   """
   # copy dataframe within a specific period
   max_idx = df.index.max()
+  original_df = df.copy()
   
   # add extention data
   extended = 2
@@ -6038,7 +6045,6 @@ def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Opt
   else:
     extended = None
 
-  
   # create figure
   ax = use_ax
   if ax is None:
@@ -6065,6 +6071,54 @@ def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Opt
     alpha = 0.2
     ax.plot(df.index, df[default_ohlcv_col['close']], label='close', color='black', linestyle='--', alpha=alpha, zorder=default_zorders['price'])
   
+  # annotate trend
+  if 'trend' in target_indicator:
+
+    idx_list = df.index.tolist()
+    y_min, y_max = ax.get_ylim()
+
+    prev_trend_day = df['trend_day'].shift(1)
+    trend_list = {
+      'up': (df['trend_day'] > prev_trend_day).to_list(),
+      'down': (df['trend_day'] < prev_trend_day).to_list(),
+      'wave': (df['trend'] == 'wave').to_list(),
+    }
+
+    hatches = {'up': None, 'down': None, 'wave': None}
+    colors = {'up': 'green', 'down': 'red', 'wave': 'grey'}
+    alphas = {'up': 0.08, 'down': 0.08, 'wave': 0.1}
+
+    # 遍历三个列表
+    for t in trend_list.keys():
+      tmp_trend = trend_list[t]
+        
+      # 遍历每种趋势
+      start_i = 0
+      end_i = start_i
+      for i in range(len(tmp_trend)):
+        if tmp_trend[i]:
+          end_i = i
+        else:
+          if start_i < end_i:
+            # print(f'{t} - {idx_list[start_i]}:{idx_list[end_i]} ({start_i}, {end_i} / {len(idx_list)})')
+            start_idx = idx_list[start_i]
+            end_idx = idx_list[end_i] 
+
+            if t == 'wave' and (idx_list[start_i+1] - idx_list[start_i]).days > 1:
+              start_idx = idx_list[start_i+1] - datetime.timedelta(days=1)
+
+            x = (df[idx_list[start_i]:idx_list[end_i]].index).tolist()
+            trend_start = start_idx + datetime.timedelta(days=0.5)
+            trend_end = end_idx + datetime.timedelta(days=0.5)
+
+            x[0] = trend_start
+            x[-1] = trend_end
+            # print(f'{t} - {x[0]}:{x[-1]} ({start_i}, {end_i} / {len(idx_list)})')
+            ax.fill_between(x, y_max, y_min, hatch=hatches[t], facecolor=colors[t], interpolate=True, alpha=alphas[t], edgecolor=None, linewidth=0.05, zorder=default_zorders['trend']) #,  
+            
+          start_i = i
+          end_i = i
+
   # plot senkou lines, clouds, tankan and kijun
   if 'ichimoku' in target_indicator:
     
@@ -6266,7 +6320,7 @@ def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Opt
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
-  ax.grid(True, axis='x', linestyle=':', linewidth=0.5)
+  # ax.grid(True, axis='x', linestyle=':', linewidth=0.5)
   ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
 
   # return ax
@@ -6372,10 +6426,10 @@ def plot_renko(df: pd.DataFrame, start: Optional[int] = None, end: Optional[int]
   for index, row in df.iterrows():
     
     brick_length = (row['renko_end'] - row['renko_start'])
-    hatch = '////' if row['renko_color'] == 'green' else '\\\\\\\\'# '----'
-    facecolor = mcolors.to_rgba('green' if row['renko_color'] == 'green' else 'red', alpha=0.05) # 'yellow' # 'grey' if row['renko_color'] == 'green' else 'red'
-    edgecolor = mcolors.to_rgba('black', alpha=0.15) # 'green' if row['renko_color'] == 'green' else 'red'
-    renko = Rectangle((index, row['renko_o']), brick_length, row['renko_distance'], facecolor=facecolor, edgecolor=edgecolor, hatch=hatch, linewidth=1.5, fill=True, label=legends[row['renko_real']], zorder=default_zorders['renko']) #  edgecolor=row['renko_color'], linestyle='-', linewidth=5, 
+    hatch = '----' # '//' if row['renko_color'] == 'green' else '\\\\'# 
+    facecolor = mcolors.to_rgba('green' if row['renko_color'] == 'green' else 'red', alpha=0.1) # 'yellow' # 'grey' if row['renko_color'] == 'green' else 'red'
+    edgecolor = mcolors.to_rgba('black', alpha=0.15)# if row['renko_color'] == 'green' else mcolors.to_rgba('red', alpha=0.3)
+    renko = Rectangle((index, row['renko_o']), brick_length, row['renko_distance'], facecolor=facecolor, edgecolor=edgecolor, hatch=hatch, linewidth=1, fill=True, label=legends[row['renko_real']], zorder=default_zorders['renko']) #  edgecolor=row['renko_color'], linestyle='-', linewidth=5, 
     legends[row['renko_real']] = "_nolegend_"
     ax.add_patch(renko)
   
