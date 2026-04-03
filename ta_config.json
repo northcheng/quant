@@ -18,23 +18,22 @@
     "plot_args": {
 
       "plot_ratio": {
-        "score": 0.75, "signals": 2, "adx": 1.5, "volume":0.75, "main_indicators": 10
+        "score": 0.75, "signals": 2, "adx": 1.5, "main_indicators": 10, "volume":0.75
       },
 
       "signals": {
         "signal_list": [  
-
-          "position", "volume", "candle", "trigger", "trend", " "
-
+          "position", "volume", "candle", "trend", "trigger"
         ]
       },   
 
       "main_indicators": {
         "target_indicator": [
-          "candlestick",
           "ichimoku",
           "kama",
-          "renko"
+          "renko",
+          "trend",
+          "candlestick"
         ],
         "candlestick_color": {
           "color_up": "limegreen",
