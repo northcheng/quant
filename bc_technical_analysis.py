@@ -5572,7 +5572,7 @@ def plot_adx(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str] =
   y_signal = round(y_middle + y_range/3.3)
   text_color = 'green' if v_change > 0 else 'red'
   v_change = f'+{v_change}' if v_change > 0 else f'{v_change}'
-  plt.annotate(f'[强]{v:0<5}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+  plt.annotate(f'[强]{v:0<5}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
   # annotate adx_value(adx_value_change)
   x_signal = max_idx + datetime.timedelta(days=1 * interval_factor[interval])
@@ -5581,7 +5581,7 @@ def plot_adx(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str] =
   y_signal = round(y_middle)
   text_color = 'green' if v_change > 0 else 'red'
   v_change = f'+{v_change}' if v_change > 0 else f'{v_change}'
-  plt.annotate(f'[值]{v:0<5}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+  plt.annotate(f'[值]{v:0<5}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
   # annotate adx_value_prediction(adx_value_prediction - adx_value)
   x_signal = max_idx + datetime.timedelta(days=1 * interval_factor[interval])
@@ -5600,7 +5600,7 @@ def plot_adx(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str] =
   else:
     text_color = 'grey'
   v_change = f'+{v_change}' if v_change > 0 else f'{v_change}'
-  plt.annotate(f'[差]{v:0<5}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+  plt.annotate(f'[差]{v:0<5}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
@@ -6258,7 +6258,7 @@ def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Opt
     ylim = ax.get_ylim()
     y_min = ylim[0]
     y_max = ylim[1]
-    y_mid = (y_max + y_min) / 2
+    y_mid = (y_max + y_min) / 1.95
 
     # lines beyond/below close
     up_key_col = {}
@@ -6313,7 +6313,7 @@ def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Opt
     plt.text(
       x=annotation_idx, y=y_mid, 
       s=price_info,
-      fontsize=12, color='black', va='center', ha='left', bbox=dict(boxstyle="round", facecolor='white', edgecolor='black', alpha=0.25)
+      fontsize=11, color='black', va='center', ha='left', bbox=dict(boxstyle="round", facecolor='white', edgecolor='black', alpha=0.25)
     )
 
   # title and legend
