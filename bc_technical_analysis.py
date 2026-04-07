@@ -470,11 +470,9 @@ def calculate_ta_static(df: pd.DataFrame, indicators: dict = default_indicators)
       df['adx_value_prediction'] = em(series=df['adx_value_prediction'], periods=5).mean()
       df['adx_value_pred_change'] = df['adx_value_prediction'] - df['adx_value_prediction'].shift(1) 
 
-      
-
       # highest(lowest) value of adx_value of previous uptrend(downtrend)
-      base_columns = {'adx_direction': 'adx_value', 'adx_power': 'adx_strength'}
-      for col in ['adx_direction', 'adx_power']:
+      base_columns = {'adx_direction': 'adx_value'}
+      for col in ['adx_direction']:
         start_col = f'{col}_start'
         day_col = f'{col}_day'
         base_col = base_columns[col]
@@ -5495,7 +5493,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
         ax.scatter(tmp_data.index, tmp_data[signal_y], marker=tmp_marker, color=tmp_color, alpha=tmp_data[tmp_col_a].fillna(0))
   
   # ax.fill_between(df.index, 3.5, 4.5, hatch=None, linewidth=1, facecolor='yellow', edgecolor=None, alpha=0.05, zorder=0)
-
+  
 
   # return ax
   if use_ax is not None:
@@ -6076,6 +6074,7 @@ def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Opt
 
     idx_list = df.index.tolist()
     y_min, y_max = ax.get_ylim()
+    # y_min = y_max - (y_max - y_min) * 0.1
 
     prev_trend_day = df['trend_day'].shift(1)
     trend_list = {
@@ -6086,7 +6085,7 @@ def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Opt
 
     hatches = {'up': None, 'down': None, 'wave': None}
     colors = {'up': 'green', 'down': 'red', 'wave': 'grey'}
-    alphas = {'up': 0.08, 'down': 0.08, 'wave': 0.1}
+    alphas = {'up': 0.06, 'down': 0.06, 'wave': 0.1}
 
     # 遍历三个列表
     for t in trend_list.keys():
@@ -7044,7 +7043,7 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
       text_color = 'green' if v_change > 0 else 'red'
       desc = '量升' if v_change > 0 else '量跌'
       v_change = f'+{v_change}' if v_change > 0 else f'{v_change}'
-      plt.annotate(f'{desc}({v_day}天)', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+      plt.annotate(f'{desc}({v_day})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
     # plot score
     elif tmp_indicator == 'score':
@@ -7086,7 +7085,7 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
       signals = tmp_args.get('signal_list')
 
       # plot one by one
-      labels = {' ': '信号', 'trigger': '触发(突破/边界)', 'trend': '趋势(变化/方向)', 'candle': '蜡烛(位置/模式)', 'volume': '成交', 'position': '位置(高低/超买超卖)'}
+      labels = {' ': '信号', 'trigger': '触发(突破/边界)', 'trend': '趋势(变化/方向)', 'candle': '蜡烛(位置/模式)', 'volume': '量价(变化/方向)', 'position': '位置(高低/超买超卖)'}
       signal_bases = []
       signal_names = []
       if signals is not None:
@@ -7240,7 +7239,7 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
     change_desc = f'+{change}' if change >= 0 else f'{change}'
     signal_desc_title = f'{signal_score:<6} ({change_desc:<6})' +f'\n{signal_description}'
 
-    plt.figtext(0.973, 1.05, f'{trend_desc}\n{trigger_desc}\n{candle_pattern_desc}\n{position_desc}\n{pattern_desc}\n{total_desc}', fontsize=15, color='black', ha='right', va='top', bbox=dict(boxstyle="round", fc=desc_color, ec="1.0", alpha=abs(signal_score*0.025)))
+    plt.figtext(0.973, 1.05, f'{trend_desc}\n{trigger_desc}\n{candle_pattern_desc}\n{position_desc}\n{pattern_desc}\n{total_desc}', fontsize=14, color='black', ha='right', va='top', bbox=dict(boxstyle="round", fc=desc_color, ec="1.0", alpha=abs(signal_score*0.025)))
 
   # construct super title
   if new_title is None:

@@ -49,7 +49,7 @@ headers = {'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/5
 # STANDARD_US_SYMBOL = 'AAPL'
 # STANDARD_CN_SYMBOL = '000001' # 00700
 # STANDARD_INTERVAL = 'd' # /w/m
-BENCHMARK_SYMBOL = {'us': 'SPY', 'cn': '000300', 'hk': '00700'}
+BENCHMARK_SYMBOL = {'us': 'SPY', 'cn': '000001', 'hk': '00700'}
 
 # EOD is mainly used for US stock eod and realtime(15min-delayed) price:  AAPL
 # EOD is able to access CN stock eod price, but the price is un-adjusted: 000001.SHE

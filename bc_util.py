@@ -515,6 +515,16 @@ def image_2_pdf(image_list: List[str], save_name: Optional[str] = None, remove_o
     if os.path.exists(image):
       tmp_image = Image.open(image)
       tmp_image = tmp_image.convert('RGB')
+      w, h = tmp_image.size
+      
+      # # compress image
+      # max_pixel = 1600 
+      # if max(w, h) > max_pixel:
+      #     scale = max_pixel / max(w, h)
+      #     new_w = int(w * scale)
+      #     new_h = int(h * scale)
+      #     tmp_image = tmp_image.resize((new_w, new_h), Image.Resampling.LANCZOS)
+      
       images.append(tmp_image)
 
   # save pdf
@@ -524,7 +534,7 @@ def image_2_pdf(image_list: List[str], save_name: Optional[str] = None, remove_o
     images[0].save(save_name, save_all=True, append_images=images[1:])
   else:
     if is_print:
-      print('no images to convert to gif')
+      print('no images to save to pdf')
 
 
 def image_2_gif(image_list: List[str], save_name: Optional[str] = None, remove_old_gif: bool = True, fps: int = 3) -> None:

@@ -45,7 +45,7 @@
       }, 
 
       "size": {
-        "unit_size": 2.2,
+        "unit_size": 1.8,
         "wspace": 0,
         "hspace": 0.015,
         "width_factor": 0.125,
@@ -80,9 +80,9 @@
     },
 
     "plot_window": {
-      "day": 200,
-      "week": 1260,
-      "month": 5400
+      "day": 180,
+      "week": 1134,
+      "month": 4860
     },
 
     "create_image": true,
