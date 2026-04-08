@@ -38,7 +38,7 @@ default_trend_val = {'pos_trend':'u', 'neg_trend':'d', 'none_trend':'', 'wave_tr
 default_signal_val = {'pos_signal':'b', 'neg_signal':'s', 'none_signal':'', 'wave_signal': 'n'}
 
 # default indicators and dynamic trend for calculation
-default_indicators = {'trend': ['ichimoku', 'kama', 'adx'], 'volume': ['adi'], 'momentum':['rsi'], 'volatility': [], 'other': ['renko']}
+default_indicators = {'trend': ['ichimoku', 'kama', 'adx'], 'volume': ['adi'], 'momentum':['rsi'], 'volatility': [], 'other': []}
 default_perspectives = ['candle', 'support_resistant']
 default_support_resistant_col = ['kama_fast', 'kama_slow', 'tankan', 'kijun', 'candle_gap_top', 'candle_gap_bottom']
 
@@ -1354,47 +1354,87 @@ def calculate_ta_signal(df: pd.DataFrame):
     df['pattern_description'] = df['pattern_description'].apply(lambda x: x[:-2] if (len(x) > 2 and x[-2] == '|') else x)
     df['pattern_description'] = df['pattern_description'].apply(lambda x: x[2:] if (len(x) > 2 and x[1] == '|') else x)
     df['pattern_description'] = df['pattern_description'].apply(lambda x: x[:-1] if (len(x) > 2 and x[-2] == ']') else x)
+    df['pattern_score_change'] = df['pattern_score'] - df['pattern_score'].shift(1)
 
   # ================================ calculate signal =======================
   if 'signal'  > '':
 
-    # total
+    # total score
     df['total_score'] = df['trend_score'] + df['candle_position_score'] + df['candle_pattern_score'] + df['break_score'] + df['boundary_score'] * 0.5
     df['total_score'] = round(df['total_score'], 2)
     df['total_score_change'] = df['total_score'] - df['total_score'].shift(1)
-  
+
+    # potential
+    df['potential'] = ''
+    potential_conditions = {
+      '趋势转上':       f'(trend_day < 0 and trend == "wave")',  
+      '趋势转下':       f'(trend_day > 0 and trend == "wave")', 
+      '上行起始':       f'(trend_day == 1)', 
+      '下行起始':       f'(trend_day == -1)', 
+      '上行':           f'(trend_day > 1 and trend != "wave")', 
+      '下行':           f'(trend_day < -1 and trend != "wave")', 
+    } 
+    potential_values = {
+      '趋势转上':       f'down_up',
+      '趋势转下':       f'up_down',      
+      '上行起始':       f'up_1',
+      '下行起始':       f'down_1',
+      '上行':           f'up',
+      '下行':           f'down',
+    }
+    df = assign_condition_value(df=df, column='potential', condition_dict=potential_conditions, value_dict=potential_values, default_value='')
+    
     # signal 
     df['signal'] = ''
     df['signal_day'] = 0
     df['signal_description'] = ''
+    signal_conditions = {
+      # 下行趋势暂停，向上突破/正向蜡烛模式
+      '下行趋势转上':     f'(potential == "down_up") and (break_score > 0 or candle_pattern_score > 0)',  
+      # 上行趋势暂停，向下突破/负向蜡烛模型/高位十字星
+      '上行趋势转下':     f'(potential == "up_down") and (break_score < 0 or candle_pattern_score < 0 or (position in ["up"] and 十字星_trend != "n"))', 
+      # 上行趋势开始，趋势增强
+      '上行起始':         f'(potential == "up_1") and (trend_score_change > 0)', 
+      # 下行趋势开始，（高位/中高位向下突破）/（低位/中低位/中位趋势增强）
+      '下行起始':         f'(potential == "down_1") and ((position not in ["up", "mid_up"]) or (position in ["up", "mid_up"] and break_down_score < 0))', 
+      # '上行':             f'(potential == "up")',
+      # '下行':             f'(potential == "down") and ((position not in ["up", "mid_up"]) or (position in ["up", "mid_up"] and break_down_score < 0))',
+      # '长线支撑':         f'(长线边界 == 1) and (boundary_score > 0)',
+      # '长线阻挡':         f'(长线边界 == -1) and (boundary_score < 0)',
+      # 高位，十字星/高浪线/平头顶
+      '触顶':             f'(potential not in ["down_up"]) and (position in ["up"]) and (十字星_trend != "n" or 平头_trend == "d")', 
+    } 
+    signal_values = {
+      '下行趋势转上':     f'buy',
+      '上行趋势转下':     f'sell',      
+      '上行起始':         f'buy',
+      '下行起始':         f'sell',
+      # '上行':             f'buy',
+      # '下行':             f'sell',
+      # '长线支撑':         f'buy',
+      # '长线阻挡':         f'sell',
+      # '高位十字星':       f'sell',
+      '触顶':       f'sell',
 
-    # signal_conditions = {
-    #   '可能买入':       f'(signal_score_change > 0) and (pattern_score > 0) and (trigger_up_score > 0 and trigger_down_score == 0)', 
-    #   '可能卖出':      f'(signal_score_change < 0) and (pattern_score < 0) and (trigger_down_score < 0 and trigger_score < 0)',  
-    #   '通常买入':       f'(signal_score_change > 0) and (pattern_score > 0) and (trend == "up")', 
-    #   '通常卖出':      f'(signal_score_change < 0) and (pattern_score < 0) and (trend == "down")', 
-    # } 
-    # signal_values = {
-    #   '通常买入':       f'buy',
-    #   '通常卖出':      f'sell',
-    #   '可能买入':       f'to_buy',
-    #   '可能卖出':      f'to_sell',
-    # }
-    # # df = assign_condition_value(df=df, column='signal', condition_dict=signal_conditions, value_dict=signal_values, default_value='')
-    # for sc in signal_conditions.keys():
-    #   tmp_idx = df.query(signal_conditions[sc]).index
-    #   if len(tmp_idx) > 0:
-    #     df.loc[tmp_idx, 'signal'] = signal_values[sc]
-    #     df.loc[tmp_idx, 'signal_description'] += f'{sc} '
+    }
+    # df = assign_condition_value(df=df, column='signal', condition_dict=signal_conditions, value_dict=signal_values, default_value='')
+    for sc in signal_conditions.keys():
+      tmp_idx = df.query(signal_conditions[sc]).index
+      if len(tmp_idx) > 0:
+        df.loc[tmp_idx, 'signal'] = signal_values[sc]
+        df.loc[tmp_idx, 'signal_description'] += f'{sc} '
 
     # # additional-signal
     # none_signal_conditions = {
-    #   '高位十字星':       f'(signal in ["buy", "to_buy"]) and (position in ["up"] and 十字星_trend != "n")', 
-    #   '高位平头顶':       f'(position in ["up"] and 平头_trend == "d")', 
+      
+    #   '波动':       f'(signal == "buy") and (adx_strong_day < 0) and ((-10 <= adx_value <= 10) or boundary_score < 0 or break_score < 0)', 
+    #   # '高位十字星':       f'(signal == "buy") and (position in ["up"] and 十字星_trend != "n")',
+    #   # '上行获支撑':       f'(signal == "sell") and (potential in ["up_down"]) and (position in ["up"]) and (break_down_score == 0 and support_score > 0 and resistant_score == 0)',
     # } 
     # none_signal_values = {
-    #   '高位十字星':       f'', 
-    #   '高位平头顶':       f'to_sell', 
+    #   '波动':       f'', 
+    #   # '高位十字星':       f'',
+    #   # '上行获支撑':       f'',
     # }
     # for nc in none_signal_conditions.keys():
     #   tmp_idx = df.query(none_signal_conditions[nc]).index
@@ -6003,7 +6043,6 @@ def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Opt
   """
   # copy dataframe within a specific period
   max_idx = df.index.max()
-  original_df = df.copy()
   
   # add extention data
   extended = 2
@@ -6069,55 +6108,6 @@ def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Opt
     alpha = 0.2
     ax.plot(df.index, df[default_ohlcv_col['close']], label='close', color='black', linestyle='--', alpha=alpha, zorder=default_zorders['price'])
   
-  # annotate trend
-  if 'trend' in target_indicator:
-
-    idx_list = df.index.tolist()
-    y_min, y_max = ax.get_ylim()
-    # y_min = y_max - (y_max - y_min) * 0.1
-
-    prev_trend_day = df['trend_day'].shift(1)
-    trend_list = {
-      'up': (df['trend_day'] > prev_trend_day).to_list(),
-      'down': (df['trend_day'] < prev_trend_day).to_list(),
-      'wave': (df['trend'] == 'wave').to_list(),
-    }
-
-    hatches = {'up': None, 'down': None, 'wave': None}
-    colors = {'up': 'green', 'down': 'red', 'wave': 'grey'}
-    alphas = {'up': 0.06, 'down': 0.06, 'wave': 0.1}
-
-    # 遍历三个列表
-    for t in trend_list.keys():
-      tmp_trend = trend_list[t]
-        
-      # 遍历每种趋势
-      start_i = 0
-      end_i = start_i
-      for i in range(len(tmp_trend)):
-        if tmp_trend[i]:
-          end_i = i
-        else:
-          if start_i < end_i:
-            # print(f'{t} - {idx_list[start_i]}:{idx_list[end_i]} ({start_i}, {end_i} / {len(idx_list)})')
-            start_idx = idx_list[start_i]
-            end_idx = idx_list[end_i] 
-
-            if t == 'wave' and (idx_list[start_i+1] - idx_list[start_i]).days > 1:
-              start_idx = idx_list[start_i+1] - datetime.timedelta(days=1)
-
-            x = (df[idx_list[start_i]:idx_list[end_i]].index).tolist()
-            trend_start = start_idx + datetime.timedelta(days=0.5)
-            trend_end = end_idx + datetime.timedelta(days=0.5)
-
-            x[0] = trend_start
-            x[-1] = trend_end
-            # print(f'{t} - {x[0]}:{x[-1]} ({start_i}, {end_i} / {len(idx_list)})')
-            ax.fill_between(x, y_max, y_min, hatch=hatches[t], facecolor=colors[t], interpolate=True, alpha=alphas[t], edgecolor=None, linewidth=0.05, zorder=default_zorders['trend']) #,  
-            
-          start_i = i
-          end_i = i
-
   # plot senkou lines, clouds, tankan and kijun
   if 'ichimoku' in target_indicator:
     
@@ -6182,7 +6172,7 @@ def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Opt
     s = 10
     ax.scatter(df.index, df.psar_up, label='psar', color='green', alpha=alpha, s=s, marker='o', zorder=default_zorders['default'])
     ax.scatter(df.index, df.psar_down, label='psar', color='red', alpha=alpha, s=s, marker='o', zorder=default_zorders['default'])
-  
+
   # plot high/low trend
   if 'linear' in target_indicator:
     
@@ -6246,6 +6236,58 @@ def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Opt
   if 'candlestick' in target_indicator:
     ax = plot_candlestick(df=df, start=start, end=end, date_col=date_col, add_on=add_on, ohlcv_col=ohlcv_col, color=candlestick_color, use_ax=ax, plot_args=plot_args, interval=interval)
   
+  # annotate trend
+  if 'trend' in target_indicator:
+
+    idx_list = df.index.tolist()
+    y_min, y_max = ax.get_ylim()
+
+    prev_trend_day = df['trend_day'].shift(1)
+    trend_list = {
+      'up': (df['trend_day'] > prev_trend_day).to_list(),
+      'down': (df['trend_day'] < prev_trend_day).to_list(),
+      'wave': (df['trend'] == 'wave').to_list(),
+    }
+
+    hatches = {'up': None, 'down': None, 'wave': None}
+    colors = {'up': 'green', 'down': 'red', 'wave': 'purple'}
+    alphas = {'up': 0.075, 'down': 0.075, 'wave': 0.075}
+
+    # 遍历三个列表
+    for t in trend_list.keys():
+      tmp_trend = trend_list[t]
+        
+      # 遍历每种趋势
+      start_i = 0
+      end_i = start_i
+      for i in range(len(tmp_trend)):
+        if tmp_trend[i]:
+          end_i = i
+        else:
+          if start_i < end_i:
+            start_idx = idx_list[start_i]
+            end_idx = idx_list[end_i] 
+
+            diff_days = (idx_list[start_i+1] - idx_list[start_i]).days
+            if diff_days > 1: # t == 'wave' and
+              start_idx = idx_list[start_i+1] - datetime.timedelta(days=diff_days/2)
+            
+            diff_days = (idx_list[end_i+1] - idx_list[end_i]).days
+            if diff_days > 1: # t == 'wave' and
+              end_idx = idx_list[end_i+1] - datetime.timedelta(days=diff_days/2)
+
+            x = (df[idx_list[start_i]:idx_list[end_i]].index).tolist()
+            trend_start = start_idx + datetime.timedelta(days=0.5)
+            trend_end = end_idx + datetime.timedelta(days=0.5)
+
+            x[0] = trend_start
+            x[-1] = trend_end
+
+            ax.fill_between(x, y_max, y_min, hatch=hatches[t], facecolor=colors[t], interpolate=True, alpha=alphas[t], edgecolor=None, linewidth=0.05, zorder=default_zorders['trend']) #,  
+            
+          start_i = i
+          end_i = i
+
   # plot mask for extended
   if extended is not None:
     extended_data = df[ext_columns].tail(extended).copy()

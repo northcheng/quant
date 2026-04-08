@@ -18,12 +18,12 @@
     "plot_args": {
 
       "plot_ratio": {
-        "score": 0.75, "signals": 2, "adx": 1.5, "main_indicators": 10, "volume":0.75
+        "score": 0.75, "signals": 2.5, "adx": 1.5, "main_indicators": 10, "volume":0.75
       },
 
       "signals": {
         "signal_list": [  
-          "position", "volume", "candle", "trend", "trigger"
+          "position", "volume", "candle", "trend", "trigger", " "
         ]
       },   
 
@@ -31,7 +31,6 @@
         "target_indicator": [
           "ichimoku",
           "kama",
-          "renko",
           "trend",
           "candlestick"
         ],
@@ -45,7 +44,7 @@
       }, 
 
       "size": {
-        "unit_size": 1.8,
+        "unit_size": 1.9,
         "wspace": 0,
         "hspace": 0.015,
         "width_factor": 0.125,
