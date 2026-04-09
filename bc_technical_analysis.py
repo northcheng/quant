@@ -1402,7 +1402,7 @@ def calculate_ta_signal(df: pd.DataFrame):
       # '长线支撑':         f'(长线边界 == 1) and (boundary_score > 0)',
       # '长线阻挡':         f'(长线边界 == -1) and (boundary_score < 0)',
       # 高位，十字星/高浪线/平头顶
-      '触顶':             f'(potential not in ["down_up"]) and (position in ["up"]) and (十字星_trend != "n" or 平头_trend == "d")', 
+      # '触顶':             f'(potential not in ["down_up", "up"]) and (position in ["up"]) and (十字星_trend != "n" or 平头_trend == "d")', 
     } 
     signal_values = {
       '下行趋势转上':     f'buy',
@@ -1414,7 +1414,7 @@ def calculate_ta_signal(df: pd.DataFrame):
       # '长线支撑':         f'buy',
       # '长线阻挡':         f'sell',
       # '高位十字星':       f'sell',
-      '触顶':       f'sell',
+      # '触顶':       f'sell',
 
     }
     # df = assign_condition_value(df=df, column='signal', condition_dict=signal_conditions, value_dict=signal_values, default_value='')
@@ -1428,8 +1428,8 @@ def calculate_ta_signal(df: pd.DataFrame):
     df['prev_potential'] = df['potential'].shift(1)
     col_to_drop.append('prev_potential')
     none_signal_conditions = {
-      # "重回上升趋势":       f'(signal == "") and (potential == "up" and prev_potential == "up_down") and (candle_position_score > 0)',
-      "低位买入未确认":       f'(signal == "buy") and (position == "down") and (break_up_score == 0)', 
+      "重回上升趋势":       f'(signal == "") and (prev_potential == "up_down" and potential == "up") and (candle_position_score > 0.33 and (position == "up" or trigger_score > 0))',
+      "低位买入未确认":       f'(signal == "buy") and (position == "down") and (break_up_score == 0 and candle_pattern_score <= 0)', 
       "中位波动":             f'(signal == "buy") and (position in ["mid", "mid_up", "mid_down"]) and (adx_strong_day < 0)', 
       
       # '波动':       f'(signal == "buy") and (adx_strong_day < 0) and ((-10 <= adx_value <= 10) or boundary_score < 0 or break_score < 0)', 
@@ -1437,7 +1437,7 @@ def calculate_ta_signal(df: pd.DataFrame):
       # '上行获支撑':       f'(signal == "sell") and (potential in ["up_down"]) and (position in ["up"]) and (break_down_score == 0 and support_score > 0 and resistant_score == 0)',
     } 
     none_signal_values = {
-      # "重回上升趋势":       f'buy',
+      "重回上升趋势":       f'buy',
       "低位买入未确认":       f'',
       "中位波动":             f'', 
       # '高位十字星':       f'',
