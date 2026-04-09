@@ -1383,7 +1383,7 @@ def calculate_ta_signal(df: pd.DataFrame):
       '下行':           f'down',
     }
     df = assign_condition_value(df=df, column='potential', condition_dict=potential_conditions, value_dict=potential_values, default_value='')
-    
+
     # signal 
     df['signal'] = ''
     df['signal_day'] = 0
@@ -1397,7 +1397,7 @@ def calculate_ta_signal(df: pd.DataFrame):
       '上行起始':         f'(potential == "up_1") and (trend_score_change > 0)', 
       # 下行趋势开始，（高位/中高位向下突破）/（低位/中低位/中位趋势增强）
       '下行起始':         f'(potential == "down_1") and ((position not in ["up", "mid_up"]) or (position in ["up", "mid_up"] and break_down_score < 0))', 
-      # '上行':             f'(potential == "up")',
+      # '上行':             f'(potential == "up") and (position in ["down", "mid_down"]) and (break_up_score > 0)',
       # '下行':             f'(potential == "down") and ((position not in ["up", "mid_up"]) or (position in ["up", "mid_up"] and break_down_score < 0))',
       # '长线支撑':         f'(长线边界 == 1) and (boundary_score > 0)',
       # '长线阻挡':         f'(长线边界 == -1) and (boundary_score < 0)',
@@ -1424,23 +1424,30 @@ def calculate_ta_signal(df: pd.DataFrame):
         df.loc[tmp_idx, 'signal'] = signal_values[sc]
         df.loc[tmp_idx, 'signal_description'] += f'{sc} '
 
-    # # additional-signal
-    # none_signal_conditions = {
+    # additional-signal
+    df['prev_potential'] = df['potential'].shift(1)
+    col_to_drop.append('prev_potential')
+    none_signal_conditions = {
+      # "重回上升趋势":       f'(signal == "") and (potential == "up" and prev_potential == "up_down") and (candle_position_score > 0)',
+      "低位买入未确认":       f'(signal == "buy") and (position == "down") and (break_up_score == 0)', 
+      "中位波动":             f'(signal == "buy") and (position in ["mid", "mid_up", "mid_down"]) and (adx_strong_day < 0)', 
       
-    #   '波动':       f'(signal == "buy") and (adx_strong_day < 0) and ((-10 <= adx_value <= 10) or boundary_score < 0 or break_score < 0)', 
-    #   # '高位十字星':       f'(signal == "buy") and (position in ["up"] and 十字星_trend != "n")',
-    #   # '上行获支撑':       f'(signal == "sell") and (potential in ["up_down"]) and (position in ["up"]) and (break_down_score == 0 and support_score > 0 and resistant_score == 0)',
-    # } 
-    # none_signal_values = {
-    #   '波动':       f'', 
-    #   # '高位十字星':       f'',
-    #   # '上行获支撑':       f'',
-    # }
-    # for nc in none_signal_conditions.keys():
-    #   tmp_idx = df.query(none_signal_conditions[nc]).index
-    #   if len(tmp_idx) > 0:
-    #     df.loc[tmp_idx, 'signal'] = none_signal_values[nc]
-    #     df.loc[tmp_idx, 'signal_description'] += f'{nc} '
+      # '波动':       f'(signal == "buy") and (adx_strong_day < 0) and ((-10 <= adx_value <= 10) or boundary_score < 0 or break_score < 0)', 
+      # '高位十字星':       f'(signal == "buy") and (position in ["up"] and 十字星_trend != "n")',
+      # '上行获支撑':       f'(signal == "sell") and (potential in ["up_down"]) and (position in ["up"]) and (break_down_score == 0 and support_score > 0 and resistant_score == 0)',
+    } 
+    none_signal_values = {
+      # "重回上升趋势":       f'buy',
+      "低位买入未确认":       f'',
+      "中位波动":             f'', 
+      # '高位十字星':       f'',
+      # '上行获支撑':       f'',
+    }
+    for nc in none_signal_conditions.keys():
+      tmp_idx = df.query(none_signal_conditions[nc]).index
+      if len(tmp_idx) > 0:
+        df.loc[tmp_idx, 'signal'] = none_signal_values[nc]
+        df.loc[tmp_idx, 'signal_description'] += f'{nc} '
 
   # drop redundant columns
   for col in col_to_drop:
@@ -2188,7 +2195,6 @@ def add_candlestick_features(df: pd.DataFrame, ohlcv_col: dict = default_ohlcv_c
     'green_red_mid_down':   -0.66,    
   }
   df = assign_condition_value(df=df, column='candle_position_score', condition_dict=candle_conditions, value_dict=candle_values, default_value=0.0)
-
   col_to_drop += ['candle_upper_shadow', 'candle_lower_shadow', 'pre_candle_top', 'pre_candle_bottom', 'pre_candle_color']
 
   # ======================================= gap ====================================================== #
@@ -2249,6 +2255,9 @@ def add_candlestick_features(df: pd.DataFrame, ohlcv_col: dict = default_ohlcv_c
   #   '中间': 'mid', '穿刺': 'out',
   #   '中下': 'mid_down', '下方': 'down'}
   # df = assign_condition_value(df=df, column='相对gap位置', condition_dict=conditions, value_dict=values, default_value='')
+
+  # # candle gap in position score
+  # df['candle_position_score'] = df['candle_position_score'] + df['candle_gap'].fillna(0) * 0.33
   
   # drop intermidiate columns
   for c in ['low_prev_high', 'prev_low_high']:
@@ -5316,13 +5325,14 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     # annotate candle  
     # candle position and pattern desc
     v = df.loc[max_idx, 'candle_position_score']
-    candle_score_level = {0.33: '微', 0.66: '', 0.99: ''}
-    c_direction = '价升' if v > 0 else '价跌'
-    c_level = candle_score_level[abs(v)]
-    if c_level != '':
-      candle_desc = f'{c_level}{c_direction[1:]}'
-    else:
-      candle_desc = f'{c_direction}'
+    # candle_score_level = {0.33: '微', 0.66: '', 0.99: ''}
+    # c_level = candle_score_level[abs(v)]
+    c_direction = '涨' if v > 0 else '跌'
+    
+    # if c_level != '':
+    #   candle_desc = f'{c_level}{c_direction[1:]}'
+    # else:
+    candle_desc = f'{c_direction}'
     
     y_signal = df.loc[max_idx, signal_y]
     v_change = df.loc[max_idx, 'candle_pattern_up_description'] + df.loc[max_idx, 'candle_pattern_down_description']
@@ -6295,7 +6305,7 @@ def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Opt
 
   # plot key line prices
   if 'add_line_value' > '':
-    interval_factor = {'day':1, 'week': 9, 'month': 25}
+    interval_factor = {'day':0.9, 'week': 9, 'month': 40}
     annotation_idx = max_idx  + datetime.timedelta(days=24*interval_factor[interval])
     ylim = ax.get_ylim()
     y_min = ylim[0]
@@ -7237,13 +7247,13 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
     trend_desc = (f' {desc}' if len(desc) > 0 else '') + f' | 趋势 {df.loc[idx, "trend_score"]:<6} ({change_desc:<6})'
 
     # candle position and pattern desc
-    candle_score_level = {0.33: '小幅', 0.66: '', 0.99: '大幅'}
+    # candle_score_level = {0.33: '小幅', 0.66: '', 0.99: '大幅'}
     candle_position_score = df.loc[idx, "candle_position_score"]
     c_direction = '上涨' if candle_position_score > 0 else '下跌'
-    c_level = candle_score_level[abs(candle_position_score)]
-    if c_level == '大幅' and df.loc[idx, "entity_trend"] == 'd':
-      c_level = ''
-    candle_score_desc = f'价格{c_level}{c_direction}'
+    # c_level = candle_score_level[abs(candle_position_score)]
+    # if c_level == '大幅' and df.loc[idx, "entity_trend"] == 'd':
+    #   c_level = ''
+    candle_score_desc = f'价格{c_direction}'
     
     up_desc = df.loc[idx, "candle_pattern_up_description"]
     up_desc = f'+[{up_desc}]' if len(up_desc) > 0 else up_desc
