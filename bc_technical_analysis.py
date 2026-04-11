@@ -1430,7 +1430,7 @@ def calculate_ta_signal(df: pd.DataFrame):
     none_signal_conditions = {
       "重回上升趋势":       f'(signal == "") and (prev_potential == "up_down" and potential == "up") and (candle_position_score > 0.33 and (position == "up" or trigger_score > 0))',
       "低位买入未确认":       f'(signal == "buy") and (position == "down") and (break_up_score == 0 and candle_pattern_score <= 0)', 
-      "中位波动":             f'(signal == "buy") and (position in ["mid", "mid_up", "mid_down"]) and (adx_strong_day < 0)', 
+      "中位波动":             f'(signal == "buy") and (position in ["mid", "mid_up", "mid_down"]) and (adx_strong_day < 0) and (trigger_score <= 0 or candle_position_score < 0)', 
       
       # '波动':       f'(signal == "buy") and (adx_strong_day < 0) and ((-10 <= adx_value <= 10) or boundary_score < 0 or break_score < 0)', 
       # '高位十字星':       f'(signal == "buy") and (position in ["up"] and 十字星_trend != "n")',
