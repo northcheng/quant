@@ -1384,6 +1384,11 @@ def calculate_ta_signal(df: pd.DataFrame):
     }
     df = assign_condition_value(df=df, column='potential', condition_dict=potential_conditions, value_dict=potential_values, default_value='')
 
+    # previous columns 
+    for col in ['Open', 'Close', 'High', 'Low', 'candle_color', 'potential']:
+      df[f'prev_{col}'] = df[col].shift(1)
+      col_to_drop.append(f'prev_{col}')
+
     # signal 
     df['signal'] = ''
     df['signal_day'] = 0
@@ -1397,24 +1402,16 @@ def calculate_ta_signal(df: pd.DataFrame):
       '上行起始':         f'(potential == "up_1") and (trend_score_change > 0)', 
       # 下行趋势开始，（高位/中高位向下突破）/（低位/中低位/中位趋势增强）
       '下行起始':         f'(potential == "down_1") and ((position not in ["up", "mid_up"]) or (position in ["up", "mid_up"] and break_down_score < 0))', 
-      # '上行':             f'(potential == "up") and (position in ["down", "mid_down"]) and (break_up_score > 0)',
-      # '下行':             f'(potential == "down") and ((position not in ["up", "mid_up"]) or (position in ["up", "mid_up"] and break_down_score < 0))',
-      # '长线支撑':         f'(长线边界 == 1) and (boundary_score > 0)',
-      # '长线阻挡':         f'(长线边界 == -1) and (boundary_score < 0)',
-      # 高位，十字星/高浪线/平头顶
-      # '触顶':             f'(potential not in ["down_up", "up"]) and (position in ["up"]) and (十字星_trend != "n" or 平头_trend == "d")', 
+
+      '触顶':             f'(position in ["up"]) and (十字星_trend != "n") and (平头_trend == "d" or 超买超卖 < 0 or resistant_score < 0)', 
     } 
     signal_values = {
       '下行趋势转上':     f'buy',
       '上行趋势转下':     f'sell',      
       '上行起始':         f'buy',
       '下行起始':         f'sell',
-      # '上行':             f'buy',
-      # '下行':             f'sell',
-      # '长线支撑':         f'buy',
-      # '长线阻挡':         f'sell',
-      # '高位十字星':       f'sell',
-      # '触顶':       f'sell',
+
+      '触顶':       f'sell',
 
     }
     # df = assign_condition_value(df=df, column='signal', condition_dict=signal_conditions, value_dict=signal_values, default_value='')
@@ -1425,29 +1422,37 @@ def calculate_ta_signal(df: pd.DataFrame):
         df.loc[tmp_idx, 'signal_description'] += f'{sc} '
 
     # additional-signal
-    df['prev_potential'] = df['potential'].shift(1)
     col_to_drop.append('prev_potential')
     none_signal_conditions = {
       "重回上升趋势":       f'(signal == "") and (prev_potential == "up_down" and potential == "up") and (candle_position_score > 0.33 and (position == "up" or trigger_score > 0))',
-      "低位买入未确认":       f'(signal == "buy") and (position == "down") and (break_up_score == 0 and candle_pattern_score <= 0)', 
-      "中位波动":             f'(signal == "buy") and (position in ["mid", "mid_up", "mid_down"]) and (adx_strong_day < 0) and (trigger_score <= 0 or candle_position_score < 0)', 
-      
-      # '波动':       f'(signal == "buy") and (adx_strong_day < 0) and ((-10 <= adx_value <= 10) or boundary_score < 0 or break_score < 0)', 
-      # '高位十字星':       f'(signal == "buy") and (position in ["up"] and 十字星_trend != "n")',
-      # '上行获支撑':       f'(signal == "sell") and (potential in ["up_down"]) and (position in ["up"]) and (break_down_score == 0 and support_score > 0 and resistant_score == 0)',
+      "低位买入未确认":     f'(signal == "buy") and (position == "down") and (break_up_score == 0 and (candle_pattern_score <= 0 or candle_position_score <= 0))', 
+      "中位波动":         f'(signal == "buy") and (position in ["mid", "mid_up", "mid_down"]) and (adx_strong_day < 0) and (break_down_score <= 0 or resistant_score < 0 or candle_position_score < 0)', 
+      '高位十字星':       f'(signal == "buy") and (position in ["up"] and 十字星_trend != "n") and (resistant_score < 0 or candle_pattern_score < 0 or pattern_score < 0)',
+
+      "上行":             f'(signal == "") and (potential in ["down_up", "up_1", "up"]) and (相对candle位置 in ["up", "mid_up", "out"] or candle_gap > 0)',
+      "下行":             f'(signal == "") and (potential in ["up_down", "down_1", "down"]) and (相对candle位置 in ["down", "mid_down", "out"] or candle_gap < 0)',
+
     } 
     none_signal_values = {
       "重回上升趋势":       f'buy',
       "低位买入未确认":       f'',
       "中位波动":             f'', 
-      # '高位十字星':       f'',
-      # '上行获支撑':       f'',
+      '高位十字星':       f'',
+
+      "上行":             f'to_buy',
+      "下行":             f'to_sell',
     }
     for nc in none_signal_conditions.keys():
       tmp_idx = df.query(none_signal_conditions[nc]).index
       if len(tmp_idx) > 0:
         df.loc[tmp_idx, 'signal'] = none_signal_values[nc]
         df.loc[tmp_idx, 'signal_description'] += f'{nc} '
+
+  buy_idx = df.query('signal == "buy"').index
+  sell_idx = df.query('signal == "sell"').index
+  df.loc[buy_idx, 'signal_day'] = 1
+  df.loc[sell_idx, 'signal_day'] = -1
+  df['signal_day'] = sda(df['signal_day'], zero_as=1)
 
   # drop redundant columns
   for col in col_to_drop:
@@ -2177,7 +2182,7 @@ def add_candlestick_features(df: pd.DataFrame, ohlcv_col: dict = default_ohlcv_c
     'green_out':            0.66, 
 
     'green_green_mid_down': -0.33,
-    'green_green_mid':      -0.33,
+    'green_green_mid':      0,
     'green_green_mid_up':   0.33, 
     'red_green_mid_down':   0.33,
     'red_green_mid':        0.33,
@@ -2188,7 +2193,7 @@ def add_candlestick_features(df: pd.DataFrame, ohlcv_col: dict = default_ohlcv_c
     'red_out':              -0.66, 
 
     'red_red_mid_up':       0.33, 
-    'red_red_mid':          0.33,
+    'red_red_mid':          0,
     'red_red_mid_down':     -0.33,
     'green_red_mid_up':     -0.33, 
     'green_red_mid':        -0.33,
@@ -5197,11 +5202,11 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
 
     tmp_data = df.query(f'(signal == "to_buy")')
     if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='green', edgecolor='none', alpha=alpha) # outer_alpha
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='none', edgecolor='green', alpha=alpha) # outer_alpha
 
     tmp_data = df.query(f'(signal == "to_sell")')
     if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='red', edgecolor='none', alpha=alpha)
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='none', edgecolor='red', alpha=alpha)
 
     # annotate signal
     signal_dict = {'': '', 'buy': '买入', 'sell': '卖出', 'to_buy': '可能买入', 'to_sell': '可能卖出'}
