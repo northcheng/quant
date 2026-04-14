@@ -574,7 +574,7 @@ def calculate_ta_static(df: pd.DataFrame, indicators: dict = default_indicators)
 
       # 底部上行，进入波动区域，以adx_direction为准
       # '波动' + adx_value起始<-0，方向向上 + adx_value>0 或 adx_value_change>0 & adx_value>-5
-      up_idx = df.query('(adx_trend == 0) and(adx_direction_start < 0 and adx_direction_day > 1 and (adx_value > 0 or (adx_value_change > 0 and adx_value > -5)))').index
+      up_idx = df.query('(adx_trend == 0) and (adx_direction_start < 0 and adx_direction_day > 1 and (adx_value > 0 or (adx_value_change > 0 and adx_value > -5)))').index
       df.loc[up_idx, 'adx_trend'] = 1
 
       # 顶部下行，进入波动区域，以adx_power为准
