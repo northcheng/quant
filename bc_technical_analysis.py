@@ -1414,6 +1414,8 @@ def calculate_ta_signal(df: pd.DataFrame):
       '下行':           f'down',
     }
     df = assign_condition_value(df=df, column='potential', condition_dict=potential_conditions, value_dict=potential_values, default_value='')
+    potential_score_dict = {'down_up':3, 'up_1':2, 'up':1, 'down':-1, 'down_1':-2, 'up_down': -3, '':0}
+    df['potential_score'] = df['potential'].apply(lambda x: potential_score_dict[x]).fillna(0)  
 
     # previous columns 
     for col in ['Open', 'Close', 'High', 'Low', 'candle_color', 'potential']:
@@ -1496,6 +1498,7 @@ def calculate_ta_signal(df: pd.DataFrame):
   # df.loc[buy_idx, 'signal_day'] = 1
   # df.loc[sell_idx, 'signal_day'] = -1
   # df['signal_day'] = sda(df['signal_day'], zero_as=1)
+  df['trend_strength_symbol'] = (df['adx_strong_day'] > 0).replace({True: 1, False: -1})
 
   # drop redundant columns
   for col in col_to_drop:
