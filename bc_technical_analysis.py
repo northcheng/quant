@@ -482,7 +482,7 @@ def calculate_ta_static(df: pd.DataFrame, indicators: dict = default_indicators)
         col_to_drop.append(prev_col)
         
         df[prev_col] = df[base_col].shift(1)
-        extreme_idx = df.query(f'{day_col} == 1 or {day_col} == -1').index.tolist()
+        extreme_idx = df.query(f'{day_col} == 1.0 or {day_col} == -1.0').index.tolist()
 
         for i in range(len(extreme_idx)):
           tmp_idx = extreme_idx[i]
@@ -572,30 +572,34 @@ def calculate_ta_static(df: pd.DataFrame, indicators: dict = default_indicators)
       }
       df = assign_condition_value(df=df, column='adx_trend', condition_dict=conditions, value_dict=values, default_value=0.0)
 
-      # 底部上行，进入波动区域，以adx_direction为准
-      # '波动' + adx_value起始<0，方向向上 + adx_value>0 或 adx_value_change>0 & adx_value>-5
-      up_idx = df.query('(adx_trend == 0) and (adx_direction_start < 0 and adx_direction_day > 1 and (adx_value > 0 or (adx_value > -5 and adx_value_change > 0)))').index
-      df.loc[up_idx, 'adx_trend'] = 1
+      df['abs_direction_day'] = df['adx_direction_day'].abs()
+      df['abs_power_day'] = df['adx_power_day'].abs()
+      col_to_drop = col_to_drop + ['abs_direction_day', 'abs_power_day']
 
-      # 顶部下行，进入波动区域，以adx_power为准
-      # '波动' + adx_strength起始>10(adx_value>0)，方向向下，当前-10<adx_value<10, + 不论adx_value转头向上还是继续向下
-      down_idx = df.query('(adx_trend == 0) and (adx_power_day < 0 and adx_power_start > 10 and adx_power_start_adx_value > 0 and adx_power_start_adx_direction < 0 and -10 < adx_value < 10)').index
-      df.loc[down_idx, 'adx_trend'] = -1
+      # # 底部上行，进入波动区域，以adx_direction周期更长, 以adx_direction为准
+      # # '波动' + adx_value起始<0，方向向上 + adx_value>0 或 adx_value_change>0 & adx_value>-5
+      # up_idx = df.query('(adx_trend == 0) and (abs_direction_day > abs_power_day and adx_direction_start < 0 and adx_direction_day > 1 and (adx_value > 0 or (adx_value > -5 and adx_value_change > 0)))').index
+      # df.loc[up_idx, 'adx_trend'] = 1
 
-      # 正趋势减弱，以adx_power为准
-      # '波动' + adx（+）高处回落(value向下，strength向下，趋势起始value>20, strength>25)，当前adx_value>10, + 不论adx_value转头向上还是继续向下
-      down_idx = df.query('(adx_trend == 0) and (adx_power_start_adx_direction < 0 and adx_power_day < 0 and adx_power_start > 25 and adx_power_start_adx_value > 20 and adx_value > 10) and (adx_direction_start > 10 and adx_direction_day > 0)').index
-      df.loc[down_idx, 'adx_trend'] = -1
+      # # 顶部下行，进入波动区域，以adx_power周期更长, 以adx_power为准
+      # # '波动' + adx_strength起始>10(adx_value>0)，方向向下，当前-10<adx_value<10, + 不论adx_value转头向上还是继续向下
+      # down_idx = df.query('(adx_trend == 0 and adx_direction_day > 0) and (abs_power_day > abs_direction_day and adx_power_day < 0 and adx_power_start > 10 and adx_power_start_adx_value > 0 and -10 < adx_value < 10)').index
+      # df.loc[down_idx, 'adx_trend'] = -1
 
-      # 上升，以adx_power为准
-      # '波动' + adx_strength方向向上，当前adx_strength>25(adx_value>10), + 不论adx_value转头向上还是继续向下
-      up_idx = df.query('(adx_trend == 0) and (adx_power_start_adx_direction > 0 and adx_power_day > 0 and adx_strength > 25 and adx_value > 10) and (adx_direction_start > 10 and adx_direction_day < 0)').index
-      df.loc[up_idx, 'adx_trend'] = 1
+      # # 正趋势减弱，以adx_power周期更长, 以adx_power为准
+      # # '波动' + adx（+）高处回落(value向下，strength向下，趋势起始value>20, strength>25)，当前adx_value>10, + 不论adx_value转头向上还是继续向下
+      # down_idx = df.query('(adx_trend == 0 and adx_direction_day > 0) and (abs_power_day > abs_direction_day and adx_power_day < 0 and adx_power_start > 25 and adx_power_start_adx_value > 20 and adx_value > 10) and (adx_direction_start > 10)').index
+      # df.loc[down_idx, 'adx_trend'] = -1
 
-      # 负趋势增强，以adx_power为准
-      # '波动' + adx（-）向下增强（value向下，strength向上），当前adx_strength>25(adx_value<-10), + 不论adx_value转头向上还是继续向下
-      down_idx = df.query('(adx_trend == 0) and (adx_power_start_adx_direction < 0 and adx_power_day > 0 and adx_strength > 25 and adx_value <-10) and (adx_direction_start <-10 and adx_direction_day > 0)').index
-      df.loc[down_idx, 'adx_trend'] = -1
+      # # 负趋势增强，以adx_power周期更长, 以adx_power为准
+      # # '波动' + adx（-）向下增强（value向下，strength向上），当前adx_strength>25(adx_value<-10), + 不论adx_value转头向上还是继续向下
+      # down_idx = df.query('(adx_trend == 0 and adx_direction_day > 0) and (abs_power_day > abs_direction_day and adx_power_day < 0 and adx_strength > 25 and adx_value <-10) and (adx_direction_start <-10)').index
+      # df.loc[down_idx, 'adx_trend'] = -1
+
+      # # 正趋势增强，以adx_power周期更长, 以adx_power为准
+      # # '波动' + adx（+）上升趋势，当前adx_strength>25(adx_value>10), + 不论adx_value转头向上还是继续向下
+      # up_idx = df.query('(adx_trend == 0 and adx_direction_day < 0) and (abs_power_day > abs_direction_day and adx_power_day > 0 and adx_power_start_adx_value > 10 and adx_strength > 25 and adx_value > 10) and (adx_direction_start > 10)').index
+      # df.loc[up_idx, 'adx_trend'] = 1
 
       df['adx_day'] = sda(df['adx_trend'], zero_as=None)
       
@@ -1414,6 +1418,22 @@ def calculate_ta_signal(df: pd.DataFrame):
       '下行':           f'down',
     }
     df = assign_condition_value(df=df, column='potential', condition_dict=potential_conditions, value_dict=potential_values, default_value='')
+
+    # additional-potential
+    none_potential_conditions = {
+      'down_up_无支撑': f'(potential == "down_up") and (break_down_score < 0 or (candle_color == -1 and candle_position_score < 0) or candle_pattern_score < 0)',
+      
+    } 
+    none_potential_values = {
+      'down_up_无支撑': f'down',
+           
+    }
+    for nc in none_potential_conditions.keys():
+      tmp_idx = df.query(none_potential_conditions[nc]).index
+      if len(tmp_idx) > 0:
+        df.loc[tmp_idx, 'potential'] = none_potential_values[nc]
+        # df.loc[tmp_idx, 'potential_description'] += f'{nc} '
+
     potential_score_dict = {'down_up':3, 'up_1':2, 'up':1, 'down':-1, 'down_1':-2, 'up_down': -3, '':0}
     df['potential_score'] = df['potential'].apply(lambda x: potential_score_dict[x]).fillna(0)  
 
