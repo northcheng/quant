@@ -573,18 +573,18 @@ def calculate_ta_static(df: pd.DataFrame, indicators: dict = default_indicators)
       df = assign_condition_value(df=df, column='adx_trend', condition_dict=conditions, value_dict=values, default_value=0.0)
 
       # 底部上行，进入波动区域，以adx_direction为准
-      # '波动' + adx_value起始<-0，方向向上 + adx_value>0 或 adx_value_change>0 & adx_value>-5
-      up_idx = df.query('(adx_trend == 0) and (adx_direction_start < 0 and adx_direction_day > 1 and (adx_value > 0 or (adx_value_change > 0 and adx_value > -5)))').index
+      # '波动' + adx_value起始<0，方向向上 + adx_value>0 或 adx_value_change>0 & adx_value>-5
+      up_idx = df.query('(adx_trend == 0) and (adx_direction_start < 0 and adx_direction_day > 1 and (adx_value > 0 or (adx_value > -5 and adx_value_change > 0)))').index
       df.loc[up_idx, 'adx_trend'] = 1
 
       # 顶部下行，进入波动区域，以adx_power为准
-      # '波动' + adx_strength起始>20(adx_value>10)，方向向下，当前-10<adx_value<10, + 不论adx_value转头向上还是继续向下
-      down_idx = df.query('(adx_trend == 0) and (adx_power_day < 0 and adx_power_start > 20 and adx_power_start_adx_value > 10 and adx_power_start_adx_direction < 0 and -10 < adx_value < 10)').index
+      # '波动' + adx_strength起始>10(adx_value>0)，方向向下，当前-10<adx_value<10, + 不论adx_value转头向上还是继续向下
+      down_idx = df.query('(adx_trend == 0) and (adx_power_day < 0 and adx_power_start > 10 and adx_power_start_adx_value > 0 and adx_power_start_adx_direction < 0 and -10 < adx_value < 10)').index
       df.loc[down_idx, 'adx_trend'] = -1
 
-      # 高位下降，以adx_power为准
-      # '波动' + adx_strength起始>25(adx_value>20)，方向向下，当前adx_value>10, + 不论adx_value转头向上还是继续向下
-      down_idx = df.query('(adx_trend == 0) and (adx_power_start > 25 and adx_power_start_adx_value > 20 and adx_power_day < 0 and adx_value > 10) and (adx_direction_start > 10 and adx_direction_day > 0)').index
+      # 正趋势减弱，以adx_power为准
+      # '波动' + adx（+）高处回落(value向下，strength向下，趋势起始value>20, strength>25)，当前adx_value>10, + 不论adx_value转头向上还是继续向下
+      down_idx = df.query('(adx_trend == 0) and (adx_power_start_adx_direction < 0 and adx_power_day < 0 and adx_power_start > 25 and adx_power_start_adx_value > 20 and adx_value > 10) and (adx_direction_start > 10 and adx_direction_day > 0)').index
       df.loc[down_idx, 'adx_trend'] = -1
 
       # 上升，以adx_power为准
@@ -592,8 +592,8 @@ def calculate_ta_static(df: pd.DataFrame, indicators: dict = default_indicators)
       up_idx = df.query('(adx_trend == 0) and (adx_power_start_adx_direction > 0 and adx_power_day > 0 and adx_strength > 25 and adx_value > 10) and (adx_direction_start > 10 and adx_direction_day < 0)').index
       df.loc[up_idx, 'adx_trend'] = 1
 
-      # 低位下降，以adx_power为准
-      # '波动' + adx_strength方向向下，当前adx_strength>25(adx_value<-10), + 不论adx_value转头向上还是继续向下
+      # 负趋势增强，以adx_power为准
+      # '波动' + adx（-）向下增强（value向下，strength向上），当前adx_strength>25(adx_value<-10), + 不论adx_value转头向上还是继续向下
       down_idx = df.query('(adx_trend == 0) and (adx_power_start_adx_direction < 0 and adx_power_day > 0 and adx_strength > 25 and adx_value <-10) and (adx_direction_start <-10 and adx_direction_day > 0)').index
       df.loc[down_idx, 'adx_trend'] = -1
 
