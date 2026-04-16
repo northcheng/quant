@@ -572,9 +572,40 @@ def calculate_ta_static(df: pd.DataFrame, indicators: dict = default_indicators)
       }
       df = assign_condition_value(df=df, column='adx_trend', condition_dict=conditions, value_dict=values, default_value=0.0)
 
-      df['abs_direction_day'] = df['adx_direction_day'].abs()
-      df['abs_power_day'] = df['adx_power_day'].abs()
-      col_to_drop = col_to_drop + ['abs_direction_day', 'abs_power_day']
+      # # wave conditions
+      # df['abs_direction_day'] = df['adx_direction_day'].abs()
+      # df['abs_power_day'] = df['adx_power_day'].abs()
+      # col_to_drop = col_to_drop + ['abs_direction_day', 'abs_power_day']
+
+      # # additional-potential
+      # none_wave_conditions = {
+      #   # 底部上行(value↑ strength↓)，进入波动区域, adx_power符号混乱, adx_direction周期更长, 以adx_direction为准
+      #   # adx_direction始于负区间, 方向向上
+      #   # 当前adx_value∈[0,10] 或 adx_value∈[-5,0]且adx_value_change>0
+      #   '底部上行_direction':  '''
+      #                         (abs_direction_day >= abs_power_day) and \
+      #                         (adx_direction_start < 0 and adx_direction_day > 1) and \
+      #                         ((10 > adx_value > 0) or (0 > adx_value > -5 and adx_value_change > 0))
+      #                       ''',
+
+      #   # 顶部下行(value↓ strength↑)，adx_direction符号混乱, adx_power周期更长, 以adx_power为准
+      #   # adx_power始于正区间(>10), 方向向下
+      #   # 当前adx_value∈[-10,10]
+      #   '顶部下行_power':  '''
+      #                         (abs_power_day >= abs_direction_day) and \
+      #                         ((-10 < adx_value < 10 and adx_power_start > 10 and adx_power_day < 0) or \
+      #                         (adx_value >= 10 and adx_power_start > 20 and adx_power_day < 0))
+      #                       '''
+      # } 
+      # none_wave_values = {
+      #   '底部上行_direction': 1,
+      #   '顶部下行_power': -1,
+      # }
+      # for nc in none_wave_conditions.keys():
+      #   tmp_idx = df.query(none_wave_conditions[nc]).index
+      #   if len(tmp_idx) > 0:
+      #     df.loc[tmp_idx, 'adx_trend'] = none_wave_values[nc]
+
 
       # # 底部上行，进入波动区域，以adx_direction周期更长, 以adx_direction为准
       # # '波动' + adx_value起始<0，方向向上 + adx_value>0 或 adx_value_change>0 & adx_value>-5
@@ -1420,19 +1451,65 @@ def calculate_ta_signal(df: pd.DataFrame):
     df = assign_condition_value(df=df, column='potential', condition_dict=potential_conditions, value_dict=potential_values, default_value='')
 
     # additional-potential
+    df['abs_direction_day'] = df['adx_direction_day'].abs()
+    df['abs_power_day'] = df['adx_power_day'].abs()
     none_potential_conditions = {
-      'down_up_无支撑': f'(potential == "down_up") and (break_down_score < 0 or (candle_color == -1 and candle_position_score < 0) or candle_pattern_score < 0)',
+      # 1. 正位下降(+value↓ strength↓), value波动, 看strength
+      # 2. 负位下降(-value↓ strength↓), value波动, 看strength
+      'down_up': f'''
+        (potential == "down_up") and \
+        ( \
+        ((abs_power_day >= abs_direction_day) and (adx_power_day < 0) and (trigger_score <= 0)) or \
+        ((abs_power_day >= abs_direction_day) and (adx_power_day > 0) and (trigger_score <= 0)) \
+        )
+      ''',
+
+      # 1. 负位上升(-value↑ strength↑), strength波动, 看value
+      # 2. 正位上升(+value↑ strength↑), value波动, 看strength
+      'up_down': f'''
+        (potential == "up_down") and \
+        ( \
+        ((abs_direction_day >= abs_power_day) and (adx_direction_start < -10) and (trigger_score >= 0)) or \
+        ((abs_power_day >= abs_direction_day) and (adx_value > 10 and adx_strength > 25) and (trigger_score >= 0)) \
+        )
+      ''',
       
     } 
     none_potential_values = {
-      'down_up_无支撑': f'down',
+      'down_up': f'down',
+      'up_down': f'up',
            
     }
     for nc in none_potential_conditions.keys():
       tmp_idx = df.query(none_potential_conditions[nc]).index
       if len(tmp_idx) > 0:
         df.loc[tmp_idx, 'potential'] = none_potential_values[nc]
-        # df.loc[tmp_idx, 'potential_description'] += f'{nc} '
+    
+    
+      # # 底部上行，进入波动区域，以adx_direction周期更长, 以adx_direction为准
+      # # '波动' + adx_value起始<0，方向向上 + adx_value>0 或 adx_value_change>0 & adx_value>-5
+      # up_idx = df.query('(adx_trend == 0) and (abs_direction_day > abs_power_day and adx_direction_start < 0 and adx_direction_day > 1 and (adx_value > 0 or (adx_value > -5 and adx_value_change > 0)))').index
+      # df.loc[up_idx, 'adx_trend'] = 1
+
+      # # 顶部下行，进入波动区域，以adx_power周期更长, 以adx_power为准
+      # # '波动' + adx_strength起始>10(adx_value>0)，方向向下，当前-10<adx_value<10, + 不论adx_value转头向上还是继续向下
+      # down_idx = df.query('(adx_trend == 0 and adx_direction_day > 0) and (abs_power_day > abs_direction_day and adx_power_day < 0 and adx_power_start > 10 and adx_power_start_adx_value > 0 and -10 < adx_value < 10)').index
+      # df.loc[down_idx, 'adx_trend'] = -1
+
+      # # 正趋势减弱，以adx_power周期更长, 以adx_power为准
+      # # '波动' + adx（+）高处回落(value向下，strength向下，趋势起始value>20, strength>25)，当前adx_value>10, + 不论adx_value转头向上还是继续向下
+      # down_idx = df.query('(adx_trend == 0 and adx_direction_day > 0) and (abs_power_day > abs_direction_day and adx_power_day < 0 and adx_power_start > 25 and adx_power_start_adx_value > 20 and adx_value > 10) and (adx_direction_start > 10)').index
+      # df.loc[down_idx, 'adx_trend'] = -1
+
+      # # 负趋势增强，以adx_power周期更长, 以adx_power为准
+      # # '波动' + adx（-）向下增强（value向下，strength向上），当前adx_strength>25(adx_value<-10), + 不论adx_value转头向上还是继续向下
+      # down_idx = df.query('(adx_trend == 0 and adx_direction_day > 0) and (abs_power_day > abs_direction_day and adx_power_day < 0 and adx_strength > 25 and adx_value <-10) and (adx_direction_start <-10)').index
+      # df.loc[down_idx, 'adx_trend'] = -1
+
+      # # 正趋势增强，以adx_power周期更长, 以adx_power为准
+      # # '波动' + adx（+）上升趋势，当前adx_strength>25(adx_value>10), + 不论adx_value转头向上还是继续向下
+      # up_idx = df.query('(adx_trend == 0 and adx_direction_day < 0) and (abs_power_day > abs_direction_day and adx_power_day > 0 and adx_power_start_adx_value > 10 and adx_strength > 25 and adx_value > 10) and (adx_direction_start > 10)').index
+      # df.loc[up_idx, 'adx_trend'] = 1
 
     potential_score_dict = {'down_up':3, 'up_1':2, 'up':1, 'down':-1, 'down_1':-2, 'up_down': -3, '':0}
     df['potential_score'] = df['potential'].apply(lambda x: potential_score_dict[x]).fillna(0)  
@@ -6327,15 +6404,15 @@ def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Opt
   
   # annotate trend
   if 'trend' in target_indicator:
-
+    
     idx_list = df.index.tolist()
     y_min, y_max = ax.get_ylim()
 
     prev_trend_day = df['trend_day'].shift(1)
-    trend_list = {
+    potential_list = {
       'up': (df['trend_day'] > prev_trend_day).to_list(),
       'down': (df['trend_day'] < prev_trend_day).to_list(),
-      'wave': (df['trend'] == 'wave').to_list(),
+      'wave': ((df['potential'] == "up_down") | (df['potential'] == "down_up")).to_list(),
     }
 
     hatches = {'up': None, 'down': None, 'wave': None}
@@ -6343,14 +6420,14 @@ def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Opt
     alphas = {'up': 0.075, 'down': 0.075, 'wave': 0.075}
 
     # 遍历三个列表
-    for t in trend_list.keys():
-      tmp_trend = trend_list[t]
+    for t in potential_list.keys():
+      tmp_potential = potential_list[t]
         
       # 遍历每种趋势
       start_i = 0
       end_i = start_i
-      for i in range(len(tmp_trend)):
-        if tmp_trend[i]:
+      for i in range(len(tmp_potential)):
+        if tmp_potential[i]:
           end_i = i
         else:
           if start_i < end_i:
@@ -6366,16 +6443,65 @@ def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Opt
               end_idx = idx_list[end_i+1] - datetime.timedelta(days=diff_days/2)
 
             x = (df[idx_list[start_i]:idx_list[end_i]].index).tolist()
-            trend_start = start_idx + datetime.timedelta(days=0.5)
-            trend_end = end_idx + datetime.timedelta(days=0.5)
+            potential_start = start_idx + datetime.timedelta(days=0.5)
+            potential_end = end_idx + datetime.timedelta(days=0.5)
 
-            x[0] = trend_start
-            x[-1] = trend_end
+            x[0] = potential_start
+            x[-1] = potential_end
 
             ax.fill_between(x, y_max, y_min, hatch=hatches[t], facecolor=colors[t], interpolate=True, alpha=alphas[t], edgecolor=None, linewidth=0.05, zorder=default_zorders['trend']) #,  
             
           start_i = i
           end_i = i
+
+    # idx_list = df.index.tolist()
+    # y_min, y_max = ax.get_ylim()
+
+    # prev_trend_day = df['trend_day'].shift(1)
+    # trend_list = {
+    #   'up': (df['trend_day'] > prev_trend_day).to_list(),
+    #   'down': (df['trend_day'] < prev_trend_day).to_list(),
+    #   'wave': (df['trend'] == 'wave').to_list(),
+    # }
+
+    # hatches = {'up': None, 'down': None, 'wave': None}
+    # colors = {'up': 'green', 'down': 'red', 'wave': 'purple'}
+    # alphas = {'up': 0.075, 'down': 0.075, 'wave': 0.075}
+
+    # # 遍历三个列表
+    # for t in trend_list.keys():
+    #   tmp_trend = trend_list[t]
+        
+    #   # 遍历每种趋势
+    #   start_i = 0
+    #   end_i = start_i
+    #   for i in range(len(tmp_trend)):
+    #     if tmp_trend[i]:
+    #       end_i = i
+    #     else:
+    #       if start_i < end_i:
+    #         start_idx = idx_list[start_i]
+    #         end_idx = idx_list[end_i] 
+
+    #         diff_days = (idx_list[start_i+1] - idx_list[start_i]).days
+    #         if diff_days > 1: # t == 'wave' and
+    #           start_idx = idx_list[start_i+1] - datetime.timedelta(days=diff_days/2)
+            
+    #         diff_days = (idx_list[end_i+1] - idx_list[end_i]).days
+    #         if diff_days > 1: # t == 'wave' and
+    #           end_idx = idx_list[end_i+1] - datetime.timedelta(days=diff_days/2)
+
+    #         x = (df[idx_list[start_i]:idx_list[end_i]].index).tolist()
+    #         trend_start = start_idx + datetime.timedelta(days=0.5)
+    #         trend_end = end_idx + datetime.timedelta(days=0.5)
+
+    #         x[0] = trend_start
+    #         x[-1] = trend_end
+
+    #         ax.fill_between(x, y_max, y_min, hatch=hatches[t], facecolor=colors[t], interpolate=True, alpha=alphas[t], edgecolor=None, linewidth=0.05, zorder=default_zorders['trend']) #,  
+            
+    #       start_i = i
+    #       end_i = i
 
   # plot mask for extended
   if extended is not None:
