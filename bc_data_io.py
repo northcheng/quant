@@ -2258,7 +2258,7 @@ def send_result_by_email(config: dict, to_addr: str, from_addr: str = 'northchen
     
     if os.path.exists(signal_file):
 
-      signal_file_content =pd.read_excel(signal_file, sheet_name=None, dtype={'代码': str})
+      signal_file_content =pd.read_excel(signal_file, sheet_name=None, dtype={'symbol': str})
       for s in signal_file_content.keys():
         if s == 'signal':
           signals = signal_file_content.get('signal') 
@@ -2266,13 +2266,13 @@ def send_result_by_email(config: dict, to_addr: str, from_addr: str = 'northchen
             # if len(signals) > 0:
             for s in ['b', 's', 'n']:
               font_color = signal_color[s]
-              tmp_signals = signals.query(f'交易信号 == "{s}"')['代码'].astype(str).tolist()
+              tmp_signals = signals.query(f'signal == "{s}"')['symbol'].astype(str).tolist()
               signal_info += f'<li>[ <b>{s}</b> ]: <font color="{font_color}">{", ".join(tmp_signals)}</font></li>'
         
         else:
           tmp_sheet = signal_file_content.get(s)
           if tmp_sheet is not None and len(tmp_sheet) > 0:
-            num_up = len(tmp_sheet.query('涨跌 > 0'))
+            num_up = len(tmp_sheet.query('rate > 0'))
             num_total = len(tmp_sheet)
             font_color = 'green' if num_up > num_total/2 else 'red'
             summary_info += f'<li>[ <b>{s}</b> ]: <font color="{font_color}">{num_up} / {num_total}</font></li>'
@@ -2313,7 +2313,7 @@ def send_result_by_email(config: dict, to_addr: str, from_addr: str = 'northchen
 
     # initialize header, attach pdfs
     image_info += f'<li>[Requested]: {signal_file_date}</li>'
-    pdf_names = ['portfolio', 'signal', 'index'] if pool in ['us', ''] else [f'{pool}_portfolio', f'{pool}_signal', f'{pool}_index']
+    pdf_names = ['portfolio', 'signal', 'index', 'global'] if pool in ['us', ''] else [f'{pool}_portfolio', f'{pool}_signal', f'{pool}_index', f'{pool}_global']
     for p in pdf_names:
 
       # consstruct pdf file path

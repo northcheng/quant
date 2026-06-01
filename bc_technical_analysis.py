@@ -1663,7 +1663,8 @@ def postprocess(df: pd.DataFrame, keep_columns: dict, drop_columns: list, sec_na
   df['name'] = df['name'].apply(lambda x: sec_names[x] if x in sec_names.keys() else x)
 
   # rename columns, keep 3 digits
-  df = df[list(keep_columns.keys())].rename(columns=keep_columns).round(3)
+  # df = df[list(keep_columns.keys())].rename(columns=keep_columns).round(3)
+  df = df.round(3)
   
   # add target-interval info
   df['ti'] = target_interval
@@ -7021,7 +7022,9 @@ def plot_summary(data: dict, width: int = 20, unit_size: float = 0.3, wspace: fl
   return score_ax
 
 # plot review of signal's price
-def plot_review(prefix: str, df: pd.DataFrame, sort_factors: list = ['信号分数', "模式分数", 'ADX天数', 'ADX起始'], sort_orders: list = [False, True, False, False], width: int = 20, unit_size: float = 0.3, wspace: float = 0.2, hspace: float = 0.1, plot_args: dict = default_plot_args, config: Optional[dict] = None, save_path: Optional[str] = None) -> plt.Axes:
+# def plot_review(prefix: str, df: pd.DataFrame, sort_factors: list = ['信号分数', "模式分数", 'ADX天数', 'ADX起始'], sort_orders: list = [False, True, False, False], width: int = 20, unit_size: float = 0.3, wspace: float = 0.2, hspace: float = 0.1, plot_args: dict = default_plot_args, config: Optional[dict] = None, save_path: Optional[str] = None) -> plt.Axes:
+def plot_review(prefix: str, df: pd.DataFrame, sort_factors: list = ['signal_score', "pattern_score", 'adx_direction_day', 'adx_direction_start'], sort_orders: list = [False, True, False, False], width: int = 20, unit_size: float = 0.3, wspace: float = 0.2, hspace: float = 0.1, plot_args: dict = default_plot_args, config: Optional[dict] = None, save_path: Optional[str] = None) -> plt.Axes:
+
   """
   Plot rate and signal indicators for signal
   :param df: signal dataframe
@@ -7055,7 +7058,8 @@ def plot_review(prefix: str, df: pd.DataFrame, sort_factors: list = ['信号分�
 
     # get target data
     tmp_data = df.sort_values(by=sort_factors, ascending=sort_orders).copy()
-    tmp_data = tmp_data.set_index('名称') 
+    # tmp_data = tmp_data.set_index('名称')
+    tmp_data = tmp_data.set_index('name')  
     tmp_data['name'] = tmp_data.index.values
     tmp_data['验证'] = tmp_data['验证'] * 100
 
