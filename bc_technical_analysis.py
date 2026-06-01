@@ -1699,8 +1699,8 @@ def fillna(series: pd.Series, fill_value: float = 0.0) -> pd.Series:
   :returns: series with na values filled
   :raises: none
   """
-  series.replace([np.inf, -np.inf], np.nan).fillna(fill_value)
-  return series
+  s = series.replace([np.inf, -np.inf], np.nan).fillna(fill_value)
+  return s
 
 # get max/min in 2 values
 def get_min_max(x1: float, x2: float, f: Literal['min','max'] = 'min') -> float:
@@ -1960,14 +1960,14 @@ def normalize(series: pd.Series, fillna: Optional[str] = None, method: str = 'de
   :returns: The normalized series.
   :raises: None
   """  
-  normalaized = series
+  normalized = series
   
   # fill NA values if specified
   if fillna is not None:  
-    normalaized = series.ffill()
+    normalized = series.ffill()
 
   # normalization
-  normalaized = (normalaized - normalaized.min()) / (normalaized.max() - normalaized.min())
+  normalized = (normalized - normalized.min()) / (normalized.max() - normalized.min())
 
   # Scale the normalized seriesto the range [-1, 1]
   if method == 'minmax':
@@ -1976,7 +1976,7 @@ def normalize(series: pd.Series, fillna: Optional[str] = None, method: str = 'de
   else:
     pass
 
-  return normalaized
+  return normalized
 
 
 # ================================================ Signal processing ================================================ #
@@ -4755,7 +4755,7 @@ def add_atr_features(df: pd.DataFrame, n: int = 14, ohlcv_col: dict = default_oh
   # volume = ohlcv_col['volume']
 
   # calculate true range
-  df['h_l'] = df[low] - df[low]
+  df['h_l'] = df[high] - df[low]
   df['h_pc'] = abs(df[high] - df[close].shift(1))
   df['l_pc'] = abs(df[low] - df[close].shift(1))
   df['tr'] = df[['h_l', 'h_pc', 'l_pc']].max(axis=1)
