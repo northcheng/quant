@@ -1981,7 +1981,7 @@ def normalize(series: pd.Series, fillna: Optional[str] = None, method: str = 'de
 
 # ================================================ Signal processing ================================================ #
 # calculate signal that generated from 2 lines crossover
-def cal_crossover_signal(df: pd.DataFrame, fast_line: str, slow_line: str, result_col: str = 'signal', pos_signal: str = 'b', neg_signal: str = 's', none_signal: str = 'n') -> pd.DataFrame:
+def cal_crossover_signal(df: pd.DataFrame, fast_line: str, slow_line: str, result_col: str = 'signal', pos_signal: str = 'b', neg_signal: str = 's', none_signal: str = 'n') -> pd.Series:
   """
   Calculate signal generated from the crossover of 2 lines
   When fast line breakthrough slow line from the bottom, positive signal will be generated
@@ -2012,10 +2012,10 @@ def cal_crossover_signal(df: pd.DataFrame, fast_line: str, slow_line: str, resul
     'down': neg_signal}
   df = assign_condition_value(df=df, column=result_col, condition_dict=conditions, value_dict=values, default_value=none_signal)
   
-  return df[[result_col]]
+  return df[result_col]
 
 # calculate signal that generated from trigering boundaries
-def cal_boundary_signal(df: pd.DataFrame, upper_col: str, lower_col: str, upper_boundary: float, lower_boundary: float, result_col: str = 'signal', pos_signal: str = 'b', neg_signal: str = 's', none_signal: str = 'n') -> pd.DataFrame:
+def cal_boundary_signal(df: pd.DataFrame, upper_col: str, lower_col: str, upper_boundary: float, lower_boundary: float, result_col: str = 'signal', pos_signal: str = 'b', neg_signal: str = 's', none_signal: str = 'n') -> pd.Series:
   """
   Calculate signal generated from triger of boundaries
   When upper_col breakthrough upper_boundary, positive signal will be generated
@@ -2045,7 +2045,7 @@ def cal_boundary_signal(df: pd.DataFrame, upper_col: str, lower_col: str, upper_
     'down': neg_signal}
   df = assign_condition_value(df=df, column=result_col, condition_dict=conditions, value_dict=values, default_value=none_signal)
 
-  return df[[result_col]]
+  return df[result_col]
 
 
 # ================================================ Self-defined TA ================================================== #
@@ -3850,7 +3850,7 @@ def add_renko_features(df: pd.DataFrame, brick_size_factor: float = 0.077, dynam
 
   # convert renko_df to time-series, add extra features(columns) to renko_df
   renko_df = util.df_2_timeseries(df=renko_df, time_col='Date')
-  renko_df.rename(columns={'Open':'renko_o', 'High': 'renko_h', 'High': 'renko_h', 'Low': 'renko_l', 'Close':'renko_c', 'uptrend': 'renko_color'}, inplace=True)
+  renko_df.rename(columns={'Open':'renko_o', 'High': 'renko_h', 'Low': 'renko_l', 'Close':'renko_c', 'uptrend': 'renko_color'}, inplace=True)
   
   # renko brick start/end points
   renko_df['renko_start'] = renko_df.index.copy()
