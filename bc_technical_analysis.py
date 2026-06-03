@@ -416,8 +416,8 @@ def calculate_ta_static(df: pd.DataFrame, indicators: dict = default_indicators)
         df[distance_middle] = df[distance_middle] - df[distance_middle].shift(1)
         df[fs_rate] = df[fl_rate] + df[sl_rate]
 
-        top = 'High'
-        bottom = 'Low'
+        top = 'candle_entity_top' #'High'
+        bottom = 'candle_entity_bottom' #'Low'
         conditions = {
           '上方': f'({bottom} >= {target_indicator}_cloud_top)',
           '中上': f'(({top} > {target_indicator}_cloud_top) and ({target_indicator}_cloud_top > {bottom} >= {target_indicator}_cloud_bottom))',
@@ -1523,72 +1523,95 @@ def calculate_ta_signal(df: pd.DataFrame):
     df['signal'] = ''
     df['signal_day'] = 0
     df['signal_description'] = ''
-  #   signal_conditions = {
-  #     # 下行趋势暂停，向上突破/正向蜡烛模式
-  #     '下行趋势转上':     f'(potential == "down_up") and (break_score > 0 or candle_pattern_score > 0)',  
+    signal_conditions = {
+      # # 大趋势向上(gg)
+      # '大趋势向上_上涨':     f'(ki_distance == "gg") and (potential in ["down_up", "up", "up_1"] and candle_position_score > 0)',
+      # '大趋势向上_下跌':     f'(ki_distance == "gg") and (potential in ["up_down", "down", "down_1"] and candle_position_score < 0)',
+
+      # # 大趋势向下(rr)
+      # '大趋势向下_上涨':     f'(ki_distance == "rr") and (potential in ["down_up", "up", "up_1"] and (candle_position_score > 0 and break_score > 0))',
+      # '大趋势向下_下跌':     f'(ki_distance == "rr") and (potential in ["up_down", "down", "down_1"] and candle_position_score < 0)',
+
+      # # 中位(gr, rg)
+      # '中位_上涨':     f'(ki_distance in ["gr", "rg"]) and (potential in ["down_up", "up", "up_1"] and candle_position_score > 0)',
+      # '中位_下跌':     f'(ki_distance in ["gr", "rg"]) and (potential in ["up_down", "down", "down_1"] and candle_position_score < 0)',
+
+      # 下行趋势暂停，向上突破/正向蜡烛模式
+      '下行趋势转上':     f'(potential == "down_up") and (break_score > 0 or candle_pattern_score > 0)',  
       
-  #     # 上行趋势暂停，向下突破/负向蜡烛模型/高位十字星
-  #     '上行趋势转下':     f'(potential == "up_down") and (break_score < 0 or candle_pattern_score < 0 or (position in ["up"] and 十字星_trend != "n"))', 
+      # 上行趋势暂停，向下突破/负向蜡烛模型/高位十字星
+      '上行趋势转下':     f'(potential == "up_down") and (break_score < 0 or candle_pattern_score < 0 or (position in ["up"] and 十字星_trend != "n"))', 
       
-  #     # 上行趋势开始，趋势增强
-  #     '上行起始':         f'(potential == "up_1") and (trend_score_change > 0)', 
+      # 上行趋势开始，趋势增强
+      '上行起始':         f'(potential == "up_1") and (trend_score_change > 0)', 
       
-  #     # 下行趋势开始，（高位/中高位向下突破）/（低位/中低位/中位趋势增强）
-  #     '下行起始':         f'(potential == "down_1") and ((position not in ["up", "mid_up"]) or (position in ["up", "mid_up"] and break_down_score < 0))', 
+      # 下行趋势开始，（高位/中高位向下突破）/（低位/中低位/中位趋势增强）
+      '下行起始':         f'(potential == "down_1") and ((position not in ["up", "mid_up"]) or (position in ["up", "mid_up"] and break_down_score < 0))', 
 
-  #     # '上行中':           f'((potential == "up") and (position in ["down", "mid_down", "mid"]) and (break_up_score > 0))', 
-  #     # '下行中':           f'((potential == "down") and (position in ["up", "mid_up", "mid"]) and (break_down_score < 0))',
+      # '上行中':           f'((potential == "up") and (position in ["down", "mid_down", "mid"]) and (break_up_score > 0))', 
+      # '下行中':           f'((potential == "down") and (position in ["up", "mid_up", "mid"]) and (break_down_score < 0))',
 
-  #     '触顶':             f'(position in ["up"]) and (十字星_trend != "n") and (平头_trend == "d" or 超买超卖 < 0 or resistant_score < 0)', 
-  #   } 
-  #   signal_values = {
-  #     '下行趋势转上':     f'buy',
-  #     '上行趋势转下':     f'sell',      
-  #     '上行起始':         f'buy',
-  #     '下行起始':         f'sell',
-  #     # '上行中':           f'buy',
-  #     # '下行中':           f'sell',
+      '触顶':             f'(position in ["up"]) and (十字星_trend != "n") and (平头_trend == "d" or 超买超卖 < 0 or resistant_score < 0)', 
+    } 
+    signal_values = {
+      # # 大趋势向上(gg)
+      # '大趋势向上_上涨':     f'buy',
+      # '大趋势向上_下跌':     f'sell',
 
-  #     '触顶':             f'sell',
+      # '大趋势向下_上涨':     f'buy',
+      # '大趋势向下_下跌':     f'sell',
 
-  #   }
-  #   # df = assign_condition_value(df=df, column='signal', condition_dict=signal_conditions, value_dict=signal_values, default_value='')
-  #   for sc in signal_conditions.keys():
-  #     tmp_idx = df.query(signal_conditions[sc]).index
-  #     if len(tmp_idx) > 0:
-  #       df.loc[tmp_idx, 'signal'] = signal_values[sc]
-  #       df.loc[tmp_idx, 'signal_description'] += f'{sc} '
+      # # 中位(gr, rg)
+      # '中位_上涨':     f'buy',
+      # '中位_下跌':     f'sell',
 
-  #   # additional-signal
-  #   col_to_drop.append('prev_potential')
-  #   none_signal_conditions = {
-  #     "重回上升趋势":       f'(signal == "") and (prev_potential == "up_down" and potential == "up") and (candle_position_score > 0.33 and (position == "up" or trigger_score > 0))',
-  #     "低位买入未确认":     f'(signal == "buy") and (position in ["down", "mid_down"]) and (break_up_score == 0 and (candle_pattern_score <= 0 or candle_position_score <= 0))', 
-  #     "高位买入需警惕":     f'(signal == "buy") and (position in ["up", "mid_up"]) and (candle_position_score < 0)', 
+      '下行趋势转上':     f'buy',
+      '上行趋势转下':     f'sell',      
+      '上行起始':         f'buy',
+      '下行起始':         f'sell',
+      # '上行中':           f'buy',
+      # '下行中':           f'sell',
+
+      '触顶':             f'sell',
+
+    }
+    df = assign_condition_value(df=df, column='signal', condition_dict=signal_conditions, value_dict=signal_values, default_value='')
+    for sc in signal_conditions.keys():
+      tmp_idx = df.query(signal_conditions[sc]).index
+      if len(tmp_idx) > 0:
+        df.loc[tmp_idx, 'signal'] = signal_values[sc]
+        df.loc[tmp_idx, 'signal_description'] += f'{sc} '
+
+    # additional-signal
+    col_to_drop.append('prev_potential')
+    none_signal_conditions = {
+      "重回上升趋势":       f'(signal == "") and (prev_potential == "up_down" and potential == "up") and (candle_position_score > 0.33 and (position == "up" or trigger_score > 0))',
+      "低位买入未确认":     f'(signal == "buy") and (position in ["down", "mid_down"]) and (break_up_score == 0 and (candle_pattern_score <= 0 or candle_position_score <= 0))', 
+      "高位买入需警惕":     f'(signal == "buy") and (position in ["up", "mid_up"]) and (candle_position_score < 0)', 
       
-  #     "中位波动":           f'(signal == "buy") and (position in ["mid", "mid_up", "mid_down"]) and (adx_strong_day < 0) and (break_down_score <= 0 or resistant_score < 0 or candle_position_score < 0)', 
-  #     '高位十字星':         f'(signal == "buy") and (position in ["up"] and 十字星_trend != "n") and (resistant_score < 0 or candle_pattern_score < 0 or pattern_score < 0)',
+      "中位波动":           f'(signal == "buy") and (position in ["mid", "mid_up", "mid_down"]) and (adx_strong_day < 0) and (break_down_score <= 0 or resistant_score < 0 or candle_position_score < 0)', 
+      '高位十字星':         f'(signal == "buy") and (position in ["up"] and 十字星_trend != "n") and (resistant_score < 0 or candle_pattern_score < 0 or pattern_score < 0)',
 
-  #     "上行趋势":           f'(signal == "") and (potential in ["down_up", "up_1", "up"]) and (相对candle位置 in ["up", "mid_up", "out"] or candle_gap > 0)',
-  #     "下行趋势":           f'(signal == "") and (potential in ["up_down", "down_1", "down"]) and (相对candle位置 in ["down", "mid_down", "out"] or candle_gap < 0)',
+      "上行趋势":           f'(signal == "") and (potential in ["down_up", "up_1", "up"]) and (相对candle位置 in ["up", "mid_up", "out"] or candle_gap > 0)',
+      "下行趋势":           f'(signal == "") and (potential in ["up_down", "down_1", "down"]) and (相对candle位置 in ["down", "mid_down", "out"] or candle_gap < 0)',
 
-  #   } 
-  #   none_signal_values = {
-  #     "重回上升趋势":       f'buy',
-  #     "低位买入未确认":     f'',
-  #     "高位买入需警惕":     f'',
+    } 
+    none_signal_values = {
+      "重回上升趋势":       f'buy',
+      "低位买入未确认":     f'',
+      "高位买入需警惕":     f'',
 
-  #     "中位波动":           f'', 
-  #     '高位十字星':         f'',
+      "中位波动":           f'', 
+      '高位十字星':         f'',
 
-  #     "上行趋势":           f'to_buy',
-  #     "下行趋势":           f'to_sell', 
-  #   }
-  #   for nc in none_signal_conditions.keys():
-  #     tmp_idx = df.query(none_signal_conditions[nc]).index
-  #     if len(tmp_idx) > 0:
-  #       df.loc[tmp_idx, 'signal'] = none_signal_values[nc]
-  #       df.loc[tmp_idx, 'signal_description'] += f'{nc} '
+      "上行趋势":           f'to_buy',
+      "下行趋势":           f'to_sell', 
+    }
+    for nc in none_signal_conditions.keys():
+      tmp_idx = df.query(none_signal_conditions[nc]).index
+      if len(tmp_idx) > 0:
+        df.loc[tmp_idx, 'signal'] = none_signal_values[nc]
+        df.loc[tmp_idx, 'signal_description'] += f'{nc} '
 
   # buy_idx = df.query('signal == "buy"').index
   # sell_idx = df.query('signal == "sell"').index
@@ -5359,6 +5382,14 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     tmp_data = df.query(f'(potential == "up_down")')
     if len(tmp_data) > 0:
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='red', edgecolor='red', alpha=alpha*0.5)
+
+    tmp_data = df.query(f'(signal == "buy")')
+    if len(tmp_data) > 0:
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='green', edgecolor='green', alpha=alpha*0.5) # outer_alpha
+
+    tmp_data = df.query(f'(signal == "sell")')
+    if len(tmp_data) > 0:
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='red', edgecolor='red', alpha=alpha*0.5)
 
     # annotate signal
     signal_dict = {'': '', 'buy': '买入', 'sell': '卖出', 'to_buy': '可能买入', 'to_sell': '可能卖出'}
