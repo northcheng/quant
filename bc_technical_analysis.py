@@ -1113,7 +1113,15 @@ def calculate_ta_signal(df: pd.DataFrame):
     df['volume_change'] = df['Volume'] - df['Volume'].shift(1)
     df['volume_day'] = (df['volume_change'] > 0).replace({True: 1, False: -1})
     df['volume_day'] = sda(df['volume_day'])
-    
+
+  # ================================ calculate distance =====================
+  if 'distance'  > '':
+    weights = {'ichimoku': 1, 'kama': 1, 'adx': 1}
+    df['distance'] = 0.0
+    df['distance'] = 0.0
+    for col in ['ichimoku', 'kama', 'adx']:
+      df['distance'] += normalize(df[f'{col}_distance'].abs()) * (df[f'{col}_distance'] > 0).replace({True: 1, False: -1}) * weights[col]
+  
   # ================================ calculate trend ========================
   if 'trend'  > '':
   
@@ -1143,7 +1151,7 @@ def calculate_ta_signal(df: pd.DataFrame):
     df['prev_trend'] = df['trend'].shift(1)
     col_to_drop += ['prev_trend', 'prev_trend_day']
 
-  # ================================ calculate signal score ======================
+  # ================================ calculate signal score =================
   if 'score'  > '':
     df['signal_score'] = 0.0
 
@@ -1168,12 +1176,12 @@ def calculate_ta_signal(df: pd.DataFrame):
 
       # 超卖
       '超买超卖_up':            '''
-                            (rsi < 30)
+                            (rsi < 25)
                             '''.replace('\n', ''),
       
       # 超买
       '超买超卖_down':          '''
-                            (rsi > 70)
+                            (rsi > 75)
                             '''.replace('\n', ''),
 
       # 关键突破(ichimoku, kama)
@@ -5056,17 +5064,29 @@ def plot_bar(df: pd.DataFrame, target_col: str, start: Optional[str] = None, end
     ax = fig.add_subplot(1,1,1, style=s)
 
   # plot bar
+  df['alpha'] = alpha
+  df['color'] = 'red'
+  light_idx = []
   current = target_col
   previous = 'previous_' + target_col
   if color_mode == 'up_down':  
-    df['color'] = 'red'  
     df[previous] = df[current].shift(1)
     df.loc[df[current] >= df[previous], 'color'] = 'green'
 
   # plot in benchmark mode
   elif color_mode == 'benchmark' and benchmark is not None:
-    df['color'] = 'red'
     df.loc[df[current] > benchmark, 'color'] = 'green'
+
+  elif color_mode == 'up_down_benchmark' and benchmark is not None:
+    df[previous] = df[current].shift(1)
+    df.loc[df[current] >= df[previous], 'color'] = 'green'
+
+    light_idx = df.query(f'({current} > {benchmark} and {current} < {previous})').index
+    df.loc[light_idx, 'color'] = 'lightgreen'
+
+    light_idx = df.query(f'({current} < {benchmark} and {current} > {previous})').index
+    df.loc[light_idx, 'color'] = 'pink'
+
 
   # plot indicator
   if 'color' in df.columns:
@@ -5377,19 +5397,19 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
 
     tmp_data = df.query(f'(potential == "down_up")')
     if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='green', edgecolor='green', alpha=alpha*0.5) # outer_alpha
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='2', color='green', edgecolor='green', alpha=alpha*0.5) # outer_alpha
 
     tmp_data = df.query(f'(potential == "up_down")')
     if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='|', color='red', edgecolor='red', alpha=alpha*0.5)
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='1', color='red', edgecolor='red', alpha=alpha*0.5)
 
     tmp_data = df.query(f'(signal == "buy")')
     if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='green', edgecolor='green', alpha=alpha*0.5) # outer_alpha
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='green', alpha=alpha*0.75) # outer_alpha
 
     tmp_data = df.query(f'(signal == "sell")')
     if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='red', edgecolor='red', alpha=alpha*0.5)
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='red', alpha=alpha*0.75)
 
     # annotate signal
     signal_dict = {'': '', 'buy': '买入', 'sell': '卖出', 'to_buy': '可能买入', 'to_sell': '可能卖出'}
@@ -7353,18 +7373,18 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
         pass
       
       # plot_data['signal_score_change'] = plot_data['signal_score'].diff(periods=1)
-      plot_bar(df=plot_data, target_col='pattern_score', width=bar_width, alpha=0.4, color_mode="benchmark", edge_color='grey', benchmark=0, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
+      plot_bar(df=plot_data, target_col='distance', width=bar_width, alpha=0.4, color_mode="up_down_benchmark", edge_color='grey', benchmark=0, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
       # up_idx = plot_data.query('break_score > 0').index
       # down_idx = plot_data.query('break_score < 0').index
       # axes[tmp_indicator].scatter(up_idx, plot_data.loc[up_idx, 'signal_score'], color='green', edgecolor='black', label='signal_score', alpha=0.5, marker='^', zorder=3)
       # axes[tmp_indicator].scatter(down_idx, plot_data.loc[down_idx, 'signal_score'], color='red', edgecolor='black', label='signal_score', alpha=0.5, marker='v', zorder=3)
 
-      # annotate pattern score
-      v = df.loc[max_idx, 'pattern_score']
-      y_signal = 0
-      text_color = 'green' if v > 0 else 'red'
-      text_color = 'grey' if v == 0 else text_color
-      plt.annotate(f'({v})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+      # # annotate distance
+      # v = df.loc[max_idx, 'distance']
+      # y_signal = 0
+      # text_color = 'green' if v > 0 else 'red'
+      # text_color = 'grey' if v == 0 else text_color
+      # plt.annotate(f'({v})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
     # plot renko
     elif tmp_indicator == 'renko':
