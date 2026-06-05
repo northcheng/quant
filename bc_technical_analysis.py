@@ -1092,7 +1092,7 @@ def calculate_ta_feature(df: pd.DataFrame, symbol: str, start_date: str = None, 
   return df
 
 # calculate signal according to features
-def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', horizon: int = 5,config: dict = None, signal_source: str = 'auto'):
+def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', ml_pool: str = 'us', horizon: int = 5,config: dict = None, signal_source: str = 'auto'):
   """
   Calculate signal according to features.
 
@@ -7398,18 +7398,56 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
         pass
       
       # plot_data['signal_score_change'] = plot_data['signal_score'].diff(periods=1)
-      plot_bar(df=plot_data, target_col='distance', width=bar_width, alpha=0.4, color_mode="up_down_benchmark", edge_color='grey', benchmark=0.5, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
+      # plot_bar(df=plot_data, target_col='distance', width=bar_width, alpha=0.4, color_mode="up_down", edge_color='grey', benchmark=0.5, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
+      # 顺序必须是：先画底下 c → 再画中间 b → 最后顶上 a
+      # 底部 c：红色
+      axes[tmp_indicator].bar(plot_data.index, plot_data['ml_proba_down'], bar_width, color='red', edgecolor='grey',alpha=0.4, label='down')
+      # 中间 b：橙色（底部是 c）
+      axes[tmp_indicator].bar(plot_data.index, plot_data['ml_proba_neutral'], bar_width, bottom=plot_data['ml_proba_down'], color='orange', edgecolor='grey', alpha=0.4, label='neutral')
+      # 顶部 a：绿色（底部是 c + b）
+      axes[tmp_indicator].bar(plot_data.index, plot_data['ml_proba_up'], bar_width, bottom=plot_data['ml_proba_down'] + plot_data['ml_proba_neutral'], color='green', edgecolor='grey', alpha=0.4, label='up')
+
+      # 新增两条水平分割线
+      axes[tmp_indicator].axhline(y=0.33, ls='--', c='grey', lw=0.5, label='y=0.33')
+      axes[tmp_indicator].axhline(y=0.50, ls='--', c='grey', lw=0.5, label='y=0.50')
+      axes[tmp_indicator].axhline(y=0.66, ls='--', c='grey', lw=0.5, label='y=0.66')
+
+      # title and legend
+      # axes[tmp_indicator].legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
+      # axes[tmp_indicator].set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
+      axes[tmp_indicator].grid(True, axis='both', linestyle='-', linewidth=0.5, alpha=0.3)
+      axes[tmp_indicator].yaxis.set_ticks_position(default_plot_args['yaxis_position'])
+
+      # ---------------------- 你要求的：固定 y 轴 0~1 ----------------------
+      plt.ylim(0, 1)
+
+      # # 图表美化
+      # plt.title('股票指标堆叠柱状图', fontsize=14)
+      # plt.xticks(x, [f'第{i+1}组' for i in range(len(df))])
+      # plt.ylabel('占比（总和=1）', fontsize=12)
+      # plt.legend(loc='upper right')  # 图例
+      # plt.grid(axis='y', alpha=0.3)
+      # plt.tight_layout()
+
+      axes[tmp_indicator].set_ylim(0, 1)
       # up_idx = plot_data.query('break_score > 0').index
       # down_idx = plot_data.query('break_score < 0').index
       # axes[tmp_indicator].scatter(up_idx, plot_data.loc[up_idx, 'signal_score'], color='green', edgecolor='black', label='signal_score', alpha=0.5, marker='^', zorder=3)
       # axes[tmp_indicator].scatter(down_idx, plot_data.loc[down_idx, 'signal_score'], color='red', edgecolor='black', label='signal_score', alpha=0.5, marker='v', zorder=3)
 
-      # # annotate distance
-      # v = df.loc[max_idx, 'distance']
-      # y_signal = 0
-      # text_color = 'green' if v > 0 else 'red'
-      # text_color = 'grey' if v == 0 else text_color
-      # plt.annotate(f'({v})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+      # annotate probability
+      v_up = round(df.loc[max_idx, 'ml_proba_up'], 2)
+      v_down = round(df.loc[max_idx, 'ml_proba_down'], 2)
+      v_neutral = round(df.loc[max_idx, 'ml_proba_neutral'], 2)
+      v = f'{v_up:.2%}\n{v_neutral:.2%}\n{v_down:.2%}'
+           
+      y_signal = 0.5
+      colors = ['green', 'orange', 'red']
+      values = np.array([v_up, v_neutral, v_down])
+      text_color = colors[np.argmax(values)]
+      # text_color = 'green' if v_up > 0.5 else 'red'
+      # text_color = 'grey' if v_up == 0 else text_color
+      plt.annotate(f'{v}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=10, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
     # plot renko
     elif tmp_indicator == 'renko':

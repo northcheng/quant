@@ -11,7 +11,18 @@
     "update_ta_signal": true,
     "save_ta_data": true,
     "update_mode": "eod",
-    "look_back_window": {"day": 250, "week": 1750, "month": 5400}
+    "look_back_window": {"day": 250, "week": 1750, "month": 5400},
+
+    "ml": {
+      "enabled": true,
+      "signal_source": "auto",
+      "horizon": 5,
+      "retrain": {
+        "enabled": true,
+        "pools": ["company_300", "etf_3x", "hs300", "a_etf", "a_test"],
+        "horizon": 5
+      }
+    }
   },
 
   "visualization": {

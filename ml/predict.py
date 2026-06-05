@@ -100,6 +100,7 @@ def load_latest_model(
   if not candidates:
     return None
   latest = candidates[-1]
+  # print(latest)
   with open(latest, 'rb') as f:
     bundle = pickle.load(f)
   logger.info(f'[load]: {latest} (train_date={bundle.get("train_date")})')

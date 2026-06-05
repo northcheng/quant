@@ -161,8 +161,8 @@ def _cli():
   import json
   from pathlib import Path
   root_paths = {
-    'home_path': Path('C:\\Users\\Dell'),
-    'git_path':  Path('C:\\Users\\Dell\\git'),
+    'home_path': Path.home(),
+    'git_path':  Path.home() / 'git',
   }
   if args.config:
     with open(args.config, 'r', encoding='utf-8') as f:
