@@ -1652,7 +1652,7 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
 
     try:
       from quant.ml.integration import attach_ml_scores
-      df = attach_ml_scores(df=df, market=market, pool=pool, horizon=horizon, config=config, signal_source=signal_source)
+      df = attach_ml_scores(df=df, market=market, pool=pool, horizon=horizon, config=config, signal_source=signal_source, ml_pool=ml_pool or None)
       df['distance'] = df['ml_score']
     except Exception as e:
       print(f'[calculate_ta_signal] ML attach failed: {e!r}; '

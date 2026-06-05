@@ -43,13 +43,25 @@ register_matplotlib_converters()
 
 # ================================================ 基础配置 ========================================================
 if 'basic_initialization' > '':
-  
+
   # 初始化日期, 时间
   today = util.time_2_string(datetime.datetime.today().date())
   start_time = datetime.datetime.now()
 
   # 获取参数配置
   config = ta_util.load_config(root_paths)
+
+  # 检查运行需要的文件
+  folder_check_pass = True
+  inexist_folder = []
+  for p in ['git_path', 'config_path', 'quant_path', 'log_path', 'api_path', 'trader_path', 'data_path', 'result_path']:
+    if not os.path.exists(config[p]):
+      folder_check_pass = False
+      inexist_folder.append(p)
+  if not folder_check_pass:
+    print(f'folder {inexist_folder} not exist')
+    exit()
+    
 
   # logger
   logger = logging.getLogger(__name__)
@@ -88,6 +100,9 @@ if 'parser_configuration' > '':
   parser.add_argument('--skip_postprocess', action='store_true', help='skip postprocess including signal and image extraction')
   parser.add_argument('--recalculate_signal', action='store_true', help='recalculate signal instead of recalculate all')
   parser.add_argument('--send_email', action='store_true', help='send calculation results by email')
+  parser.add_argument('--ml_signal_source', type=str, help='ML signal source: <auto>/<ml>/<total>/<off>. defaults to ta_config.json calculation.ml.signal_source', default='')
+  parser.add_argument('--ml_horizon', type=int, help='ML forecast horizon (trading days). defaults to ta_config.json calculation.ml.horizon', default=0)
+  parser.add_argument('--ml_pool', type=str, help='override the ML model pool tag (cross-pool model reuse, e.g. compute features for a_etf but use hs300 model). defaults to --pool', default='')
 
   # parse 参数获取
   args = parser.parse_args()
@@ -106,6 +121,14 @@ if 'parser_configuration' > '':
   skip_postprocess = args.skip_postprocess
   recalculate_signal = args.recalculate_signal
   send_email = args.send_email
+
+  # ML 参数设置 (signal_source / horizon): 优先用 CLI 参数, 缺省时读 ta_config.json
+  ml_cfg = config.get('calculation', {}).get('ml', {}) if isinstance(config, dict) and 'calculation' in config else {}
+  signal_source = args.ml_signal_source if args.ml_signal_source else ml_cfg.get('signal_source', 'auto')
+  ml_horizon    = args.ml_horizon if args.ml_horizon > 0 else int(ml_cfg.get('horizon', 5))
+  ml_pool       = args.ml_pool if args.ml_pool else pool  # 跨池模型复用, 默认与 pool 一致
+  if ml_pool != pool:
+    print(f'[ML cross-pool override]: data pool={pool}, model pool={ml_pool}')
 
   # 计算参数设置
   config['calculation']['save_sec_data'] = True
@@ -174,6 +197,27 @@ if 'stock_initialization' > '':
 
   # 读取本地数据: sec_data, ta_data, result
   data = ta_util.load_data(target_list=target_list, config=config, interval=interval, load_derived_data=skip_calculation, load_empty_data=False)
+
+
+# ================================================ ML 参数辅助 =====================================================
+if 'ml_helpers' > '':
+
+  def _infer_market_for_target(target_name: str, sec_list: list) -> str:
+    """
+    Best-effort market tag ('us' / 'a') for a given target list.
+
+    Rules (in order):
+      1. name-based: target starts with 'a_' or equals 'hs300' / 'a_test'  -> 'a'
+      2. symbol-based: first symbol whose first char is a digit            -> 'a'
+      3. fallback: 'us'
+    """
+    if target_name.startswith('a_') or target_name in ('hs300', 'a_test'):
+      return 'a'
+    if sec_list:
+      first = str(sec_list[0])
+      if first and first[0].isdigit():
+        return 'a'
+    return 'us'
 
 # 打印信息
 logger.info(f'[init]: running on {p}, data from {source}({update_mode} mode)')
@@ -261,7 +305,17 @@ try:
 
         # 重新计算 ta_signal
         if config['calculation']['update_ta_signal']:
-          ta_data = ta_util.calculate_ta_signal(df=ta_data)
+          # 推断 market (us / a) 给 ML 模型查找用
+          market_for_ml = _infer_market_for_target(target, sec_list)
+          ta_data = ta_util.calculate_ta_signal(
+            df=ta_data,
+            market=market_for_ml,
+            pool=target,
+            horizon=ml_horizon,
+            config=config,
+            signal_source=signal_source,
+            ml_pool=ml_pool,
+          )
 
         # 保存当前计算结果  
         if ta_data is None or len(ta_data) == 0:
@@ -391,7 +445,10 @@ try:
             images[label].append(config['result_path'] / target / i / f'{symbol}.png')
 
       # 添加summary
-      summary_img = config['result_path'] / 'macro' / f'{prefix}summary.png'
+      macro_path = config['result_path'] / 'macro' 
+      if not os.path.exists(macro_path):
+        os.mkdir(macro_path)
+      summary_img = macro_path / f'{prefix}summary.png'
       ta_util.plot_summary(data, save_path=summary_img, config=config)
       images['signal'] = [summary_img] + images['signal']
 

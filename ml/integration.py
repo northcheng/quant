@@ -108,6 +108,7 @@ def attach_ml_scores(
   signal_source: str = 'auto',
   benchmark_df: pd.DataFrame | None = None,
   signal_threshold: dict[str, float] | None = None,
+  ml_pool: str | None = None,
 ) -> pd.DataFrame:
   """
   Append the 5 standardized ML columns to ``df`` in place and return ``df``.
@@ -115,7 +116,7 @@ def attach_ml_scores(
   :param df: per-symbol ta_data DataFrame. Must have a 'Close' column
              (already the case for outputs of calculate_ta_signal).
   :param market: market tag used to look up the trained model.
-  :param pool: pool tag used to look up the trained model.
+  :param pool: data pool tag (kept for logging / context).
   :param horizon: forecast horizon (days) used to look up the trained model.
   :param config: optional config dict. If provided, models_dir is derived
                  from it via ``resolve_models_dir`` (in quant.ml.train).
@@ -130,12 +131,24 @@ def attach_ml_scores(
   :param benchmark_df: optional benchmark series forwarded to build_features.
   :param signal_threshold: dict {'buy': float, 'sell': float} for the
              discrete ml_signal column.  Default = {'buy': 0.5, 'sell': 0.5}.
+  :param ml_pool: optional override for the model pool tag.  When set, the ML
+             model is loaded using (market, ml_pool, horizon) instead of
+             (market, pool, horizon).  Useful for cross-pool model reuse
+             (e.g. compute features for ``a_etf`` but score with the
+             ``hs300`` model).  Defaults to ``pool`` (no change vs prior
+             behavior).
   :returns: the same DataFrame ``df`` with 5 new columns appended.
   :raises: never - all errors are logged and result in NaN ML columns so
            the rest of the pipeline keeps working.
   """
   if df is None or len(df) == 0:
     return df
+
+  # ML pool override (cross-pool model reuse)
+  effective_ml_pool = ml_pool or pool
+  if ml_pool and ml_pool != pool:
+    logger.info(f'attach_ml_scores: using cross-pool model {market}/{ml_pool}/h{horizon} '
+                f'(data pool={pool})')
 
   # resolve models_dir early so 'auto' can probe for a model
   if models_dir is None and config is not None:
@@ -146,7 +159,7 @@ def attach_ml_scores(
       logger.warning(f'could not resolve models_dir from config: {e!r}')
 
   # resolve source
-  source = _resolve_signal_source(signal_source, market, pool, horizon, models_dir=models_dir)
+  source = _resolve_signal_source(signal_source, market, effective_ml_pool, horizon, models_dir=models_dir)
   if source == 'off' or source == 'total':
     # no ML: still attach empty columns for schema stability
     empty = _empty_ml_frame(df.index)
@@ -165,10 +178,10 @@ def attach_ml_scores(
         logger.warning(f'could not resolve models_dir from config: {e!r}')
 
     bundle = load_latest_model(
-      market=market, pool=pool, horizon=horizon, models_dir=models_dir,
+      market=market, pool=effective_ml_pool, horizon=horizon, models_dir=models_dir,
     )
     if bundle is None:
-      logger.warning(f'no ML model for {market}/{pool}/h{horizon}; '
+      logger.warning(f'no ML model for {market}/{effective_ml_pool}/h{horizon}; '
                      f'attaching empty ML columns (fallback to total_score)')
       empty = _empty_ml_frame(df.index)
       for c in ML_COLUMNS:
@@ -179,7 +192,7 @@ def attach_ml_scores(
       df=df,
       model_bundle=bundle,
       market=market,
-      pool=pool,
+      pool=effective_ml_pool,
       horizon=horizon,
       benchmark_df=benchmark_df,
       signal_threshold=signal_threshold,
