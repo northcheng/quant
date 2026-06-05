@@ -36,7 +36,7 @@ fqdn==1.5.1
 futu-api==10.2.6208
 getmac==0.9.5
 gitdb==4.0.12
-gitpython==3.1.46
+gitpython==3.1.50
 h11==0.16.0
 html5lib==1.1
 httpcore==1.0.9
