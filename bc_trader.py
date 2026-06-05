@@ -329,9 +329,111 @@ class Trader(object):
     if is_print:
       self.logger.info(f'[{self.account_type[:4]}]: net value {old_net_value} --> {net_value}')
 
+  # --- signal-source helpers -----------------------------------------
+  @staticmethod
+  def _normalize_legacy_action(action: str) -> str:
+    """
+    Map legacy `signal` column values to short b/s/''.
+    legacy values: 'buy', 'sell', 'to_buy', 'to_sell', 'n', '', NaN
+    short:        'b',   's',    'b',     's',     '',  ''
+    Unknown values map to ''.
+    """
+    if action is None:
+      return ''
+    s = str(action).strip().lower()
+    if s in ('buy', 'to_buy', 'long', 'l'):
+      return 'b'
+    if s in ('sell', 'to_sell', 'short', 's'):
+      return 's'
+    if s in ('', 'n', 'none', 'nan', 'hold'):
+      return ''
+    return ''
+
+  @staticmethod
+  def _resolve_signal_source(signal: pd.DataFrame, signal_source: str, ml_signal_map: dict | pd.Series | None = None) -> tuple[pd.Series, str]:
+    """
+    Resolve the final action column (b/s/'') according to signal_source.
+
+    :param signal         : pd.DataFrame indexed by symbol, may contain 'action' and/or 'ml_signal' columns
+    :param signal_source  : 'ml' / 'total' / 'auto' / 'blend' / 'off'
+    :param ml_signal_map  : optional dict-like {symbol: ml_signal_value} used to inject an `ml_signal`
+                            column into `signal` when not already present (typical for condition_trade,
+                            which reads from a manual JSON file without ML columns). If `signal` already
+                            has an `ml_signal` column, the map is ignored.
+    :returns              : (action_col, source_used)
+    """
+    VALID = ('ml', 'total', 'auto', 'blend', 'off')
+    if signal_source not in VALID:
+      signal_source = 'auto'
+
+    if signal_source == 'off':
+      return pd.Series('', index=signal.index, dtype=object), 'off'
+
+    # inject ml_signal column from map if not already present
+    if ml_signal_map is not None and 'ml_signal' not in signal.columns:
+      if isinstance(ml_signal_map, pd.Series):
+        ml_series = ml_signal_map
+      else:
+        ml_series = pd.Series(ml_signal_map, dtype=object)
+      signal = signal.copy()
+      signal['ml_signal'] = signal.index.map(ml_series).fillna('').astype(str)
+
+    # normalize the legacy 'action' column (values like 'buy','to_buy', or broker 'BUY'/'SELL')
+    legacy = (
+      signal['action'].apply(Trader._normalize_legacy_action)
+      if 'action' in signal.columns
+      else pd.Series('', index=signal.index, dtype=object)
+    )
+    has_ml = 'ml_signal' in signal.columns
+    ml = (
+      signal['ml_signal'].fillna('').astype(str)
+      if has_ml
+      else pd.Series('', index=signal.index, dtype=object)
+    )
+    # any non-empty ml value not in {b,s} → strip
+    ml = ml.where(ml.isin(('b', 's', '')), '')
+
+    if signal_source == 'ml':
+      if not has_ml:
+        return legacy, 'total (ml_missing)'
+      return ml, 'ml'
+
+    if signal_source == 'total':
+      return legacy, 'total'
+
+    if signal_source == 'blend':
+      # OR: take ml first, fall back to legacy
+      blended = ml.where(ml != '', legacy)
+      return blended, 'blend'
+
+    # auto: prefer ml if column exists AND has at least one non-empty value
+    auto_source = 'ml' if (has_ml and (ml != '').any()) else 'total'
+    if auto_source == 'ml':
+      return ml, 'ml (auto)'
+    return legacy, 'total (auto_no_ml)'
+
   # auto trade according to signals
-  def signal_trade(self, signal: pd.DataFrame, money_per_sec: float, order_type: str = 'market', trading_fee: float = 5, pool: list = None, according_to_record: bool = True, minimum_position: float = None) -> None:    
-    
+  def signal_trade(self, signal: pd.DataFrame, money_per_sec: float, order_type: str = 'market', trading_fee: float = 5, pool: list = None, according_to_record: bool = True, minimum_position: float = None, signal_source: str = 'auto') -> None:
+
+    # ---- 解析信号源 ---------------------------------------------------
+    # signal_source: 'ml' / 'total' / 'auto' / 'blend' / 'off'
+    #   ml    : 优先用 ml_signal 列 (b/s/'')
+    #   total : 用 action 列 (legacy buy/sell/to_buy/to_sell)
+    #   auto  : 优先 ml, 缺则 total
+    #   blend : ml 与 total 任一为 b/s 即视为 b/s
+    #   off   : 跳过交易
+    action_col, source_used = self._resolve_signal_source(signal, signal_source)
+    signal = signal.copy()
+    signal['action'] = action_col  # 覆盖 action 列, 后续 query 直接用 'action == "b"'
+
+    self.logger.info(f'[signal_source]: requested={signal_source!r}  used={source_used!r}  '
+                     f'buy={int((action_col == "b").sum())}  sell={int((action_col == "s").sum())}  '
+                     f'empty={int((action_col == "").sum())}')
+
+    if signal_source == 'off' or len(signal) == 0 or (action_col == '').all():
+      self.logger.info(f'[SKIP]: signal_source=off or no actionable signal')
+      return
+
     # set symbol to index
     if len(signal) > 0:
 
@@ -440,44 +542,71 @@ class Trader(object):
       self.logger.info(f'[SKIP]: no signal')
     
   # auto trader according to conditions
-  def condition_trade(self, condition_df: pd.DataFrame) -> list:
+  def condition_trade(self, condition_df: pd.DataFrame, signal_source: str = 'auto', ml_signal_map: dict | pd.Series | None = None) -> list:
 
     # initialize return
     trade_summary = []
     
+    if len(condition_df) == 0:
+      return trade_summary
+
+    # ---- 解析信号源 (与 signal_trade 一致的 5 选 1 逻辑) ----------------
+    # condition_df 的 action 列存放的是 broker action ('BUY'/'SELL' 大写)
+    # 解析后, _resolved_action 列里是 b/s/'' 短码, 再转回 BUY/SELL 给 self.trade
+    action_col, source_used = self._resolve_signal_source(
+      condition_df, signal_source, ml_signal_map=ml_signal_map,
+    )
+    condition_df = condition_df.copy()
+    condition_df['_resolved_action'] = action_col
+
+    n_buy   = int((action_col == 'b').sum())
+    n_sell  = int((action_col == 's').sum())
+    n_empty = int((action_col == '').sum())
+    self.logger.info(f'[condition_trade][signal_source]: requested={signal_source!r}  '
+                     f'used={source_used!r}  buy={n_buy}  sell={n_sell}  empty={n_empty}')
+
+    if signal_source == 'off' or (n_buy + n_sell == 0):
+      self.logger.info(f'[condition_trade][SKIP]: signal_source=off or no actionable signal')
+      return trade_summary
+
+    ACTION_MAP = {'b': 'BUY', 's': 'SELL'}
+    
     # trade
-    if len(condition_df) > 0:
+    for symbol, row in condition_df.iterrows():
+      try:
 
-      # # 若为futu实盘先解锁交易
-      # if self.platform == 'futu' and self.account == 'REAL':
-      #   ret, msg = self.trade_client.unlock_trade(password_md5=self.user_info['unlock_pwd'], is_unlock=True)
-      #   if ret != RET_OK:
-      #     self.logger.exception(f'[erro]: can not unlock trade:{ret} - {msg}')
-      #   else:
-      #     self.logger.info(f'[futu]: unlock trade')
-
-      for symbol, row in condition_df.iterrows():
-        try:
-
-          # check condition 
-          condition = row['condition'].replace('\'', '\"')
-          condition = f'index == "{symbol}" and {condition}'
-          check_result = condition_df.query(condition)
+        # check condition 
+        condition = row['condition'].replace('\'', '\"')
+        condition = f'index == "{symbol}" and {condition}'
+        check_result = condition_df.query(condition)
+        
+        # condition matched
+        if len(check_result) == 1:
           
-          # condition matched
-          if len(check_result) == 1:
-            
-            # place order
-            action = row['action']
-            quantity = row['quantity']
-            order_type = row['order_type']
-            price = row['price'] if order_type in ['limit'] else None # 若为市价单, 则价格设为None
-            tmp_trade_summary = self.trade(symbol=symbol, action=action, quantity=quantity, price=price, print_summary=False)
-            trade_summary.append(tmp_trade_summary)
+          # resolve action: prefer _resolved_action, fall back to row['action'] if no ML signal
+          resolved = row['_resolved_action']
+          if resolved in ACTION_MAP:
+            action = ACTION_MAP[resolved]
+            action_origin = f'ml_or_total:{resolved!r}'
+          else:
+            # 兜底: 用原始 action 列 (兼容 action='BUY'/'SELL'/'buy'/'sell' 等)
+            original = str(row.get('action', '')).strip().upper()
+            if original not in ('BUY', 'SELL'):
+              self.logger.info(f'[condition_trade][SKIP]: {symbol} no actionable signal (resolved={resolved!r}, original={row.get("action", "")!r})')
+              continue
+            action = original
+            action_origin = f'fallback:{action!r}'
+
+          quantity = row['quantity']
+          order_type = row['order_type']
+          price = row['price'] if order_type in ['limit'] else None # 若为市价单, 则价格设为None
+          self.logger.info(f'[condition_trade]: {symbol} {action} x {quantity} (origin={action_origin})')
+          tmp_trade_summary = self.trade(symbol=symbol, action=action, quantity=quantity, price=price, print_summary=False)
+          trade_summary.append(tmp_trade_summary)
               
-        except Exception as e:
-          self.logger.error(f'Error when placing condition order for {symbol}:\n{row}', e)
-          continue
+      except Exception as e:
+        self.logger.error(f'Error when placing condition order for {symbol}:\n{row}', e)
+        continue
       
     return trade_summary
   

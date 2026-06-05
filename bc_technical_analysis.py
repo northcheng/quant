@@ -1092,12 +1092,24 @@ def calculate_ta_feature(df: pd.DataFrame, symbol: str, start_date: str = None, 
   return df
 
 # calculate signal according to features
-def calculate_ta_signal(df: pd.DataFrame):
+def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', horizon: int = 5,config: dict = None, signal_source: str = 'auto'):
   """
   Calculate signal according to features.
 
   :param df: dataframe with ta features and derived features for calculating signals
-  :raturns: dataframe with signal
+  :param market: market tag (used for ML model lookup).  Default: 'us'.
+  :param pool:   pool tag (used for ML model lookup).  Default: 'us'.
+  :param horizon: forecast horizon in trading days.  Default: 5.
+  :param config: optional config dict, forwarded to the ML integration
+                 for model-path resolution.
+  :param signal_source: one of 'ml', 'total', 'auto', 'off'.
+                 - 'auto' (default): try ML, fall back gracefully to NaN.
+                 - 'ml'  : require ML.
+                 - 'total' / 'off' : skip ML, attach empty ML columns.
+                 If the ML layer is unavailable (no model file, import error,
+                 or any runtime error), empty ML columns are attached so
+                 downstream code (postprocess, bc_trader) keeps working.
+  :raturns: dataframe with signal (and ML columns if signal_source != 'off')
   :raises: None
   """
 
@@ -1114,14 +1126,6 @@ def calculate_ta_signal(df: pd.DataFrame):
     df['volume_day'] = (df['volume_change'] > 0).replace({True: 1, False: -1})
     df['volume_day'] = sda(df['volume_day'])
 
-  # ================================ calculate distance =====================
-  if 'distance'  > '':
-    weights = {'ichimoku': 1, 'kama': 1, 'adx': 1}
-    df['distance'] = 0.0
-    df['distance'] = 0.0
-    for col in ['ichimoku', 'kama', 'adx']:
-      df['distance'] += normalize(df[f'{col}_distance'].abs()) * (df[f'{col}_distance'] > 0).replace({True: 1, False: -1}) * weights[col]
-  
   # ================================ calculate trend ========================
   if 'trend'  > '':
   
@@ -1632,6 +1636,27 @@ def calculate_ta_signal(df: pd.DataFrame):
   for col in col_to_drop:
     if col in df.columns:
       df.drop(col, axis=1, inplace=True)
+
+  # ---- ML integration (appends 5 standardized columns: ml_proba_* / ml_signal / ml_score) ----
+  # the call is wrapped in try/except so that an ML failure never breaks the
+  # legacy signal pipeline - empty ML columns are still attached for schema
+  # stability so postprocess/bc_trader can rely on their presence.
+  # ================================ calculate distance =====================
+  if 'distance'  > '':
+    # weights = {'ichimoku': 1, 'kama': 1, 'adx': 1}
+    # df['distance'] = 0.0
+    # df['distance'] = 0.0
+    # for col in ['ichimoku', 'kama', 'adx']:
+    #   df['distance'] += normalize(df[f'{col}_distance'].abs()) * (df[f'{col}_distance'] > 0).replace({True: 1, False: -1}) * weights[col]
+    df['distance'] = 0.0
+
+    try:
+      from quant.ml.integration import attach_ml_scores
+      df = attach_ml_scores(df=df, market=market, pool=pool, horizon=horizon, config=config, signal_source=signal_source)
+      df['distance'] = df['ml_score']
+    except Exception as e:
+      print(f'[calculate_ta_signal] ML attach failed: {e!r}; '
+            f'attaching empty ML columns')
 
   return df
 
@@ -7373,7 +7398,7 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
         pass
       
       # plot_data['signal_score_change'] = plot_data['signal_score'].diff(periods=1)
-      plot_bar(df=plot_data, target_col='distance', width=bar_width, alpha=0.4, color_mode="up_down_benchmark", edge_color='grey', benchmark=0, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
+      plot_bar(df=plot_data, target_col='distance', width=bar_width, alpha=0.4, color_mode="up_down_benchmark", edge_color='grey', benchmark=0.5, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
       # up_idx = plot_data.query('break_score > 0').index
       # down_idx = plot_data.query('break_score < 0').index
       # axes[tmp_indicator].scatter(up_idx, plot_data.loc[up_idx, 'signal_score'], color='green', edgecolor='black', label='signal_score', alpha=0.5, marker='^', zorder=3)
