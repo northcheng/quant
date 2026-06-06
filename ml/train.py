@@ -513,7 +513,8 @@ def _cli():
       config.setdefault(k, v)
   else:
     config = ta_util.load_config(root_paths)
-  target_list = config['selected_sec_list']
+  target_list = {args.pool: config['selected_sec_list'][args.pool]}
+  # target_list = config['selected_sec_list']
 
   if args.symbol:
     target_list = {args.pool: [args.symbol]}
@@ -526,9 +527,9 @@ def _cli():
   benchmark_sym = 'SPY' if args.market == 'us' else 'SH000300'
   if benchmark_sym in ta_data_pool:
     benchmark_df = ta_data_pool[benchmark_sym]
-
+  
   models_dir = resolve_models_dir(config)
-
+  
   if args.check:
     print('\n=== check: config ===')
     print(f"home_path    = {config.get('home_path')}")

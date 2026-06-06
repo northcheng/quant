@@ -455,6 +455,8 @@ class Trader(object):
 
       # get latest price for signals
       signal_brief = io_util.get_stock_briefs(symbols=signal.index.tolist(), source='eod', api_key=self.eod_api_key).set_index('symbol')
+      if 'latest_price' in signal.columns:
+        signal = signal.drop(columns=['latest_price'])
       signal = pd.merge(signal, signal_brief[['latest_price']], how='left', left_index=True, right_index=True)
 
       # get in-position quantity and latest price for signals

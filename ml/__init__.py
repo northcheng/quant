@@ -35,10 +35,18 @@ Integration with bc_technical_analysis.calculate_ta_signal:
 :author: Beichen Chen
 """
 
-from quant.ml.integration import attach_ml_scores, ML_COLUMNS, VALID_SOURCES
+# from quant.ml.integration import attach_ml_scores, ML_COLUMNS, VALID_SOURCES
 
-__all__ = [
-    'attach_ml_scores',
-    'ML_COLUMNS',
-    'VALID_SOURCES',
-]
+# __all__ = [
+#     'attach_ml_scores',
+#     'ML_COLUMNS',
+#     'VALID_SOURCES',
+# ]
+
+__all__ = ['attach_ml_scores', 'ML_COLUMNS', 'VALID_SOURCES']
+
+def __getattr__(name):
+    if name in __all__:
+        from quant.ml import integration
+        return getattr(integration, name)
+    raise AttributeError(f"module 'quant.ml' has no attribute {name!r}")

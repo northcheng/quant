@@ -2258,7 +2258,7 @@ def send_result_by_email(config: dict, to_addr: str, from_addr: str = 'northchen
     
     if os.path.exists(signal_file):
 
-      signal_file_content =pd.read_excel(signal_file, sheet_name=None, dtype={'symbol': str})
+      signal_file_content = pd.read_excel(signal_file, sheet_name=None, dtype={'symbol': str})
       for s in signal_file_content.keys():
         if s == 'signal':
           signals = signal_file_content.get('signal') 

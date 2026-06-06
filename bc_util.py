@@ -576,7 +576,7 @@ def image_2_gif(image_list: List[str], save_name: Optional[str] = None, remove_o
 
 
 #----------------------- Script runner ---------------------------#
-def run_script(cmd: Union[List[str], str], retry: int = 1, timeout: int = 1800) -> Optional[int]:
+def run_script(cmd: Union[List[str], str], cwd=None, retry: int = 1, timeout: int = 1800) -> Optional[int]:
   
   # try to run non_visual script, if failed, retry(10 times)
   retry_count = 0
@@ -587,7 +587,12 @@ def run_script(cmd: Union[List[str], str], retry: int = 1, timeout: int = 1800) 
     return_code = None
 
     try:
-      return_code = subprocess.check_call(cmd, timeout=timeout)
+      if cwd is None:
+        return_code = subprocess.check_call(cmd, timeout=timeout)
+      else:
+        print(cwd)
+        return_code = subprocess.check_call(cmd, cwd=cwd, timeout=timeout)
+      
       if return_code == 0:
         break              
     except Exception as e:
