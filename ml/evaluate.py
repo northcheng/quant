@@ -153,6 +153,10 @@ def _cli():
                  help='only score the last N rows of each symbol (out-of-sample test window)')
   p.add_argument('--show-insample', action='store_true',
                  help='also print the in-sample numbers (likely inflated)')
+  p.add_argument('--model-pool', default=None,
+                 help='which pool\'s model to load for prediction. '
+                      'Defaults to --pool (in-distribution eval). '
+                      'Set to a different pool for cross-pool transfer eval.')
   args = p.parse_args()
 
   logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s %(name)s: %(message)s')
@@ -188,23 +192,46 @@ def _cli():
   print(f'[load] result_pool:  {"DataFrame " + str(len(result_pool)) + " rows" if hasattr(result_pool, "__len__") and result_pool is not None else "0 symbols"}')
   models_dir = resolve_models_dir(config)
 
-  bundle = load_latest_model(market=args.market, pool=args.pool, horizon=args.horizon, models_dir=models_dir)
+  model_pool = args.model_pool or args.pool
+  is_transfer = model_pool != args.pool
+  bundle = load_latest_model(market=args.market, pool=model_pool, horizon=args.horizon, models_dir=models_dir)
   if bundle is None:
-    print(f'[error] no model under {models_dir} for {args.market}/{args.pool}/h{args.horizon}')
+    print(f'[error] no model under {models_dir} for {args.market}/{model_pool}/h{args.horizon}')
     return None
-  print(f'[load] model: train_date={bundle.get("train_date")}  features={len(bundle.get("feature_columns", []))}')
+  tag = f'TRANSFER (model={model_pool} -> data={args.pool})' if is_transfer else f'in-distribution (pool={args.pool})'
+  print(f'[load] model: {tag}  train_date={bundle.get("train_date")}  features={len(bundle.get("feature_columns", []))}')
 
   benchmark_df = ta_data_pool.get('SPY' if args.market == 'us' else 'SH000300')
 
   # ---- predictions ----------------------------------------------------------
-  pred_dict = predict_pool(
-    ta_data=ta_data_pool,
-    benchmark_df=benchmark_df,
-    market=args.market,
-    pool=args.pool,
-    horizon=args.horizon,
-    models_dir=models_dir,
-  )
+  if is_transfer:
+    # Cross-pool transfer: load model from model_pool, apply on args.pool data.
+    from quant.ml.predict import predict as _predict_one
+    pred_dict = {}
+    for sym, df in ta_data_pool.items():
+      if df is None or 'Close' not in df.columns:
+        continue
+      try:
+        p = _predict_one(
+          df=df,
+          model_bundle=bundle,
+          market=args.market,
+          pool=model_pool,
+          horizon=args.horizon,
+          benchmark_df=benchmark_df,
+        )
+        pred_dict[sym] = p
+      except Exception as e:
+        logger.warning(f'predict failed for {sym}: {e}')
+  else:
+    pred_dict = predict_pool(
+      ta_data=ta_data_pool,
+      benchmark_df=benchmark_df,
+      market=args.market,
+      pool=args.pool,
+      horizon=args.horizon,
+      models_dir=models_dir,
+    )
 
   # ---- realized forward returns --------------------------------------------
   rows = []
