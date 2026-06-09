@@ -1630,7 +1630,7 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
   # df.loc[buy_idx, 'signal_day'] = 1
   # df.loc[sell_idx, 'signal_day'] = -1
   # df['signal_day'] = sda(df['signal_day'], zero_as=1)
-  df['trend_strength_symbol'] = (df['adx_strong_day'] > 0).replace({True: 1, False: -1})
+  # df['trend_strength_symbol'] = (df['adx_strong_day'] > 0).replace({True: 1, False: -1})
 
   # drop redundant columns
   for col in col_to_drop:
@@ -1642,18 +1642,16 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
   # legacy signal pipeline - empty ML columns are still attached for schema
   # stability so postprocess/bc_trader can rely on their presence.
   # ================================ calculate distance =====================
-  if 'distance'  > '':
-    # weights = {'ichimoku': 1, 'kama': 1, 'adx': 1}
-    # df['distance'] = 0.0
-    # df['distance'] = 0.0
-    # for col in ['ichimoku', 'kama', 'adx']:
-    #   df['distance'] += normalize(df[f'{col}_distance'].abs()) * (df[f'{col}_distance'] > 0).replace({True: 1, False: -1}) * weights[col]
-    df['distance'] = 0.0
+  if 'probability'  > '':
+    
 
     try:
       from quant.ml.integration import attach_ml_scores
       df = attach_ml_scores(df=df, market=market, pool=pool, horizon=horizon, config=config, signal_source=signal_source, ml_pool=ml_pool or None)
-      df['distance'] = df['ml_score']
+     
+      df['proba_up'] = df['ml_proba_up']
+      df['proba_neutral'] = df['ml_proba_neutral']
+      df['proba_down'] = df['ml_proba_down']
     except Exception as e:
       print(f'[calculate_ta_signal] ML attach failed: {e!r}; '
             f'attaching empty ML columns')
@@ -4023,7 +4021,7 @@ def add_renko_features(df: pd.DataFrame, brick_size_factor: float = 0.077, dynam
 
 # ================================================ Volume indicators ================================================ #
 # Accumulation Distribution Index
-def add_adi_features(df: pd.DataFrame, ohlcv_col: dict = default_ohlcv_col, fillna: bool = False, cal_signal: bool = True) -> pd.DataFrame:
+def add_adi_features(df: pd.DataFrame, ohlcv_col: dict = default_ohlcv_col, fillna: bool = False, cal_signal: bool = False) -> pd.DataFrame:
   """
   Calculate Accumulation Distribution Index
 
@@ -7398,14 +7396,13 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
         pass
       
       # plot_data['signal_score_change'] = plot_data['signal_score'].diff(periods=1)
-      # plot_bar(df=plot_data, target_col='distance', width=bar_width, alpha=0.4, color_mode="up_down", edge_color='grey', benchmark=0.5, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
       # 顺序必须是：先画底下 c → 再画中间 b → 最后顶上 a
       # 底部 c：红色
-      axes[tmp_indicator].bar(plot_data.index, plot_data['ml_proba_down'], bar_width, color='red', edgecolor='grey',alpha=0.4, label='down')
+      axes[tmp_indicator].bar(plot_data.index, plot_data['proba_down'], bar_width, color='red', edgecolor='grey',alpha=0.4, label='down')
       # 中间 b：橙色（底部是 c）
-      axes[tmp_indicator].bar(plot_data.index, plot_data['ml_proba_neutral'], bar_width, bottom=plot_data['ml_proba_down'], color='orange', edgecolor='grey', alpha=0.4, label='neutral')
+      axes[tmp_indicator].bar(plot_data.index, plot_data['proba_neutral'], bar_width, bottom=plot_data['proba_down'], color='orange', edgecolor='grey', alpha=0.4, label='neutral')
       # 顶部 a：绿色（底部是 c + b）
-      axes[tmp_indicator].bar(plot_data.index, plot_data['ml_proba_up'], bar_width, bottom=plot_data['ml_proba_down'] + plot_data['ml_proba_neutral'], color='green', edgecolor='grey', alpha=0.4, label='up')
+      axes[tmp_indicator].bar(plot_data.index, plot_data['proba_up'], bar_width, bottom=plot_data['proba_down'] + plot_data['proba_neutral'], color='green', edgecolor='grey', alpha=0.4, label='up')
 
       # 新增两条水平分割线
       axes[tmp_indicator].axhline(y=0.33, ls='--', c='grey', lw=0.5, label='y=0.33')
@@ -7774,78 +7771,90 @@ def plot_historical_evolution(df: pd.DataFrame, symbol: str, interval: Literal['
 
 # ta_data_columns
 ta_data_columns = [
-  'Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume', 'Dividend', 'Split', 'symbol', 
+  # 基本数据
+  'symbol', 'Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume', 'Dividend', 'Split', 'rate', 
 
-  'rate', # (Close - Close.shift(1))/Close
-  'candle_color', # 1 if Close > Open else -1
-  'candle_shadow', # High - Low
-  'candle_entity', # abs(Close - Open)
-  'candle_entity_top', # Close if candle_color == 1 else Open
-  'candle_entity_bottom', # Close if candle_color == -1 else Open
-  'candle_upper_shadow_pct', # (High - candle_entity_top) / candle_shadow
-  'candle_lower_shadow_pct', # (candle_entity_bottom - Low) / candle_shadow
-  'candle_entity_pct', # candle_entity / candle_shadow
-  '相对candle位置', 
-  'candle_position_score',
-  'candle_gap', 
-  'candle_gap_color', # 1 if candle_gap > 0 else -1
-  'candle_gap_top', 
-  'candle_gap_bottom',
-  'candle_gap_distance', 
+  # 蜡烛（单个）
+  'candle_color', 
+  'candle_shadow', 'candle_upper_shadow_pct', 'candle_lower_shadow_pct',
+  'candle_entity', 'candle_entity_top', 'candle_entity_bottom', 'candle_entity_pct', 
 
-  'tankan_rate', 'tankan_day', 'kijun_rate', 'kijun_day',
+  # 蜡烛（多个）
+  '相对candle位置', 'candle_position_score',
+  'candle_gap', 'candle_gap_color', 'candle_gap_top', 'candle_gap_bottom', 'candle_gap_distance', 
+
+  # ichimoku
+  'tankan', 'kijun', 'senkou_a', 'senkou_b', 'chikan', 
+  'tankan_rate', 'tankan_day', 'kijun_rate', 'kijun_day', 
   'ichimoku_distance', 'ichimoku_distance_day', 'ichimoku_distance_middle', 'ichimoku_rate', '相对ichimoku位置',
 
+  # kama
+  'kama_fast', 'kama_slow', 
   'kama_fast_rate', 'kama_fast_day', 'kama_slow_rate', 'kama_slow_day',
   'kama_distance', 'kama_distance_day', 'kama_distance_middle', 'kama_rate', '相对kama位置', 
 
-  'adx_value_change', 'adx_strength_change', 'adx_direction', 'adx_power', 'adx_direction_day', 'adx_power_day',
-  'adx_value_prediction', 'adx_value_pred_change', 'adx_direction_start', 'adx_power_start', 'adx_power_start_adx_value', 'adx_strong_day',
-  'adx_distance', 'adx_status', 'adx_distance_day', 'adx_distance_change', 'adx_distance_middle', 
-  'adx_rate', 'adx_trend', 'adx_day',
+  # adx
+  'adx_value', 'adx_strength', 
+  'adx_value_change', 'adx_direction', 'adx_direction_day', 'adx_direction_start',
+  'adx_strength_change', 'adx_power', 'adx_power_day', 'adx_power_start', 'adx_power_start_adx_value', 'adx_power_start_adx_direction', 
+  'adx_value_prediction', 'adx_value_pred_change', 
+  'adx_strong_day', 'adx_distance', 'adx_status', 'adx_distance_day', 'adx_distance_change', 'adx_distance_middle', 'adx_rate', 
+  'adx_trend', 'adx_day',
 
-  'shadow_trend', 'entity_trend', 'ki_distance', 'position_score', 'ichimoku_position_score', 'kama_position_score', 'position',
+  # 其他指标
+  'tr', 'atr', 'adi', 'rsi', 
 
-  '窗口_trend', '十字星_trend', '流星_trend', '锤子_trend', '腰带_trend',
-  '平头_trend', '吞噬_trend', '包孕_trend', '穿刺_trend', '启明黄昏_trend', '长影线_trend',
+  # 蜡烛图
+  'shadow_trend', 'entity_trend', 
+  'ki_distance', 'position_score',
+  'ichimoku_position_score', 'kama_position_score', 'position',
+  '长影线_trend', '窗口_trend', '十字星_trend', '流星_trend', '锤子_trend', '腰带_trend', 
+  '平头_trend', '吞噬_trend', '包孕_trend', '穿刺_trend', 
+  '启明黄昏_trend', 
+  '长影线_day', '窗口_day', '十字星_day', '流星_day', '锤子_day', '腰带_day', 
+  '平头_day', '吞噬_day', '包孕_day', '穿刺_day', 
+  '启明黄昏_day', 
+  'candle_pattern_up_score', 'candle_pattern_down_score', 'candle_pattern_up_description', 'candle_pattern_down_description', 'candle_pattern_score',
 
-  'candle_pattern_up_score', 'candle_pattern_down_score', 'candle_pattern_up_description', 'candle_pattern_down_description',
-
-  '窗口_day', '十字星_day', '流星_day', '锤子_day', '腰带_day', 
-  '平头_day', '吞噬_day', '包孕_day', '穿刺_day', '启明黄昏_day', '长影线_day', 'candle_pattern_score',
-
-  'support_score', 'support_description', 
-  'resistant_score', 'resistant_description', 
-  'break_up_score', 'break_up_description',
-  'break_down_score', 'break_down_description', 
-
+  # 支持/阻挡、突破/跌落
+  'support_score', 'support_description', 'resistant_score', 'resistant_description', 
+  'break_up_score', 'break_up_description', 'break_down_score', 'break_down_description', 
   'kama_slow_break_up', 'kama_slow_break_down', 
   'kijun_break_up', 'kijun_break_down',
   'candle_gap_top_break_up', 'candle_gap_top_break_down',
   'candle_gap_bottom_break_up', 'candle_gap_bottom_break_down',
-  'kama_slow_support', 
-  'kijun_support', 
-  'candle_gap_top_support',
-  'candle_gap_bottom_support', 
-  'kama_slow_resistant', 
-  'kijun_resistant',
-  'candle_gap_top_resistant', 
-  'candle_gap_bottom_resistant', 
-
-  'resistant', 'resistanter', 
-  'support', 'supporter', 
+  'kama_slow_support', 'kama_slow_resistant', 
+  'kijun_support', 'kijun_resistant',
+  'candle_gap_top_support', 'candle_gap_top_resistant', 
+  'candle_gap_bottom_support', 'candle_gap_bottom_resistant', 
+  'resistant', 'resistanter', 'support', 'supporter', 
   'boundary_score', 'break_score',
-
   'trigger_score', 'trigger_up_score', 'trigger_down_score',
   'trigger_up_score_description', 'trigger_down_score_description', 'trigger_day', 
 
+  # 成交量
   'volume_change', 'volume_day', 
 
+  # 趋势
   'trend', 'trend_score', 'trend_description', 'trend_score_change', 'trend_day', 
+
+  # 综合分数
   'signal_score', 'signal_score_change', 
-  'pattern_up_score', 'pattern_down_score', 'pattern_score', 'pattern_description', 
+
+  # 模式
+  'pattern_up_score', 'pattern_down_score', 'pattern_score', 'pattern_description', 'pattern_score_change', 
   '超买超卖', '关键突破', '长线边界', '趋势渐弱', '趋势转换', '趋势启动', '分数剧变', '区间波动', '触顶触底', 'ichimoku', 'kama',
 
-  'total_score', 'total_score_change', 
-  'signal', 'signal_day', 'signal_description'
+  # 总分数
+  'total_score', 'total_score_change',
+
+  # 潜在趋势
+  'potential', 'abs_direction_day', 'abs_power_day', 'potential_score',
+
+  # 交易信号
+  'signal', 'signal_day', 'signal_description', 
+
+  # 可能性
+  'ml_proba_down', 'ml_proba_neutral', 'ml_proba_up', 'ml_signal', 'ml_score',
+  'proba_up', 'proba_neutral', 'proba_down'
 ]
