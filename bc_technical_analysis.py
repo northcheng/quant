@@ -1434,9 +1434,9 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
     df['pattern_description'] = df['pattern_description'].apply(lambda x: x[:-1] if (len(x) > 2 and x[-2] == ']') else x)
     df['pattern_score_change'] = df['pattern_score'] - df['pattern_score'].shift(1)
 
-  # ================================ calculate signal =======================
-  if 'signal'  > '':
-
+  # ================================ calculate potential ====================
+  if 'potential' > '':
+    
     # potential
     df['potential'] = ''
     potential_conditions = {
@@ -1485,13 +1485,12 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
     none_potential_values = {
       'down_up': f'down',
       'up_down': f'up',
-           
     }
+
     for nc in none_potential_conditions.keys():
       tmp_idx = df.query(none_potential_conditions[nc]).index
       if len(tmp_idx) > 0:
         df.loc[tmp_idx, 'potential'] = none_potential_values[nc]
-    
     
       # # 底部上行，进入波动区域，以adx_direction周期更长, 以adx_direction为准
       # # '波动' + adx_value起始<0，方向向上 + adx_value>0 或 adx_value_change>0 & adx_value>-5
@@ -1526,23 +1525,15 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
       df[f'prev_{col}'] = df[col].shift(1)
       col_to_drop.append(f'prev_{col}')
 
+  # ================================ calculate signal =======================
+  if 'signal'  > '':
+
     # signal 
     df['signal'] = ''
     df['signal_day'] = 0
     df['signal_description'] = ''
     signal_conditions = {
-      # # 大趋势向上(gg)
-      # '大趋势向上_上涨':     f'(ki_distance == "gg") and (potential in ["down_up", "up", "up_1"] and candle_position_score > 0)',
-      # '大趋势向上_下跌':     f'(ki_distance == "gg") and (potential in ["up_down", "down", "down_1"] and candle_position_score < 0)',
-
-      # # 大趋势向下(rr)
-      # '大趋势向下_上涨':     f'(ki_distance == "rr") and (potential in ["down_up", "up", "up_1"] and (candle_position_score > 0 and break_score > 0))',
-      # '大趋势向下_下跌':     f'(ki_distance == "rr") and (potential in ["up_down", "down", "down_1"] and candle_position_score < 0)',
-
-      # # 中位(gr, rg)
-      # '中位_上涨':     f'(ki_distance in ["gr", "rg"]) and (potential in ["down_up", "up", "up_1"] and candle_position_score > 0)',
-      # '中位_下跌':     f'(ki_distance in ["gr", "rg"]) and (potential in ["up_down", "down", "down_1"] and candle_position_score < 0)',
-
+ 
       # 下行趋势暂停，向上突破/正向蜡烛模式
       '下行趋势转上':     f'(potential == "down_up") and (break_score > 0 or candle_pattern_score > 0)',  
       
@@ -1555,30 +1546,15 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
       # 下行趋势开始，（高位/中高位向下突破）/（低位/中低位/中位趋势增强）
       '下行起始':         f'(potential == "down_1") and ((position not in ["up", "mid_up"]) or (position in ["up", "mid_up"] and break_down_score < 0))', 
 
-      # '上行中':           f'((potential == "up") and (position in ["down", "mid_down", "mid"]) and (break_up_score > 0))', 
-      # '下行中':           f'((potential == "down") and (position in ["up", "mid_up", "mid"]) and (break_down_score < 0))',
-
-      '触顶':             f'(position in ["up"]) and (十字星_trend != "n") and (平头_trend == "d" or 超买超卖 < 0 or resistant_score < 0)', 
+      # 上行趋势中，十字星 & (平头顶/超买/阻挡) 双重确认
+      '触顶':             f'(position in ["up"]) and (十字星_trend != "n" or 长影线_trend == "d") and (平头_trend == "d" or 超买超卖 < 0 or resistant_score < 0)', 
     } 
     signal_values = {
-      # # 大趋势向上(gg)
-      # '大趋势向上_上涨':     f'buy',
-      # '大趋势向上_下跌':     f'sell',
-
-      # '大趋势向下_上涨':     f'buy',
-      # '大趋势向下_下跌':     f'sell',
-
-      # # 中位(gr, rg)
-      # '中位_上涨':     f'buy',
-      # '中位_下跌':     f'sell',
 
       '下行趋势转上':     f'buy',
       '上行趋势转下':     f'sell',      
       '上行起始':         f'buy',
       '下行起始':         f'sell',
-      # '上行中':           f'buy',
-      # '下行中':           f'sell',
-
       '触顶':             f'sell',
 
     }
@@ -1620,12 +1596,12 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
         df.loc[tmp_idx, 'signal'] = none_signal_values[nc]
         df.loc[tmp_idx, 'signal_description'] += f'{nc} '
 
-  # buy_idx = df.query('signal == "buy"').index
-  # sell_idx = df.query('signal == "sell"').index
-  # df.loc[buy_idx, 'signal_day'] = 1
-  # df.loc[sell_idx, 'signal_day'] = -1
-  # df['signal_day'] = sda(df['signal_day'], zero_as=1)
-  # df['trend_strength_symbol'] = (df['adx_strong_day'] > 0).replace({True: 1, False: -1})
+  buy_idx = df.query('signal == "buy"').index
+  sell_idx = df.query('signal == "sell"').index
+  df.loc[buy_idx, 'signal_day'] = 1
+  df.loc[sell_idx, 'signal_day'] = -1
+  df['signal_day'] = sda(df['signal_day'], zero_as=1)
+  df['trend_strength_symbol'] = (df['adx_strong_day'] > 0).replace({True: 1, False: -1})
 
   # ================================ calculate probability ==================
   if 'probability'  > '':
@@ -5645,7 +5621,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
   # trend
   if signal_x in ["中期", "长期"]:
 
-    term_indicator = {"短期":'adx', "中期":'ichimoku', "长期":'kama'}
+    term_indicator = {"中期":'ichimoku', "长期":'kama'}
 
     # ichimoku_distance
     tmp_col_v = f'{term_indicator[signal_x]}_distance'
@@ -5670,6 +5646,12 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     down_idx = df.query(f'({tmp_col_v} < 0)').index
     ax.scatter(up_idx, df.loc[up_idx, signal_y], marker='s', color='green', edgecolor='none', alpha=df.loc[up_idx, tmp_col_a].fillna(0))
     ax.scatter(down_idx, df.loc[down_idx, signal_y], marker='s', color='red', edgecolor='none', alpha=df.loc[down_idx, tmp_col_a].fillna(0))
+
+    green_down_idx = df.query(f'({tmp_col_v} > 0 and {tmp_col_c} < 0)').index
+    red_down_idx = df.query(f'({tmp_col_v} < 0 and {tmp_col_c} > 0)').index
+    ax.scatter(green_down_idx, df.loc[green_down_idx, signal_y], marker='4', color='black', edgecolor='none', alpha=0.4)
+    ax.scatter(red_down_idx, df.loc[red_down_idx, signal_y], marker='4', color='black', edgecolor='none', alpha=0.4)
+
 
     # annotate trend
     v = round(df.loc[max_idx, tmp_col_v], 1)
