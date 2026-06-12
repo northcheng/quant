@@ -130,7 +130,7 @@ tabulate==0.10.0
 terminado==0.18.1
 tigeropen==3.5.7
 tinycss2==1.4.0
-tornado==6.5.5
+tornado==6.5.6
 tqdm==4.67.3
 traitlets==5.14.3
 typing-extensions==4.15.0
