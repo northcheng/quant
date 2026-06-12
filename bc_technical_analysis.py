@@ -336,7 +336,6 @@ def calculate_ta_static(df: pd.DataFrame, indicators: dict = default_indicators)
  
         # distance related column names
         distance = f'{target_indicator}_distance'
-        distance_middle = f'{target_indicator}_distance_middle'
         
         # fl/sl change rate and fl & Close, sl & Close crossover
         threshold = 0.00
@@ -385,8 +384,8 @@ def calculate_ta_static(df: pd.DataFrame, indicators: dict = default_indicators)
         df[distance] = df[distance] / df[sl]
 
         # distance change(normalized by slow_line)
-        # distance_change = f'{target_indicator}_distance_change'
-        # df[distance_change] = df[distance] - df[distance].shift(1)
+        distance_change = f'{target_indicator}_distance_change'
+        df[distance_change] = df[distance].diff()
 
         # distance_day (fl & sl crossover)
         distance_day = f'{target_indicator}_distance_day'
@@ -412,8 +411,6 @@ def calculate_ta_static(df: pd.DataFrame, indicators: dict = default_indicators)
         df.loc[red_idx, cloud_top_col] = df.loc[red_idx, sl]
         df.loc[red_idx, cloud_bottom_col] = df.loc[red_idx, fl]
 
-        df[distance_middle] = (df[cloud_top_col] + df[cloud_bottom_col])/2
-        df[distance_middle] = df[distance_middle] - df[distance_middle].shift(1)
         df[fs_rate] = df[fl_rate] + df[sl_rate]
 
         top = 'candle_entity_top' #'High'
@@ -552,9 +549,6 @@ def calculate_ta_static(df: pd.DataFrame, indicators: dict = default_indicators)
       df['adx_distance_day'] = sda(series=df['adx_status'], zero_as=None)
       df['adx_distance_change'] = df['adx_distance'] - df['adx_distance'].shift(1)  
       
-      df['adx_distance_middle'] = (df['adx_value'] + df['adx_value_prediction']) / 2
-      df['adx_distance_middle'] = df['adx_distance_middle'] - df['adx_distance_middle'].shift(1)
-
       df['adx_rate'] = df['adx_value_change'] + df['adx_value_pred_change']
 
       # the true adx trend
@@ -953,75 +947,6 @@ def calculate_ta_score(df: pd.DataFrame):
   }
   df = assign_condition_value(df=df, column='trigger_day', condition_dict=trigger_conditions, value_dict=trigger_values, default_value=0.0)
   df['trigger_day'] = sda(series=df['trigger_day'], zero_as=1)
-
-  # # ================================ calculate aki rate & status ======
-  # df['aki_rate'] = 0.0
-  # df['aki_status'] = 0.0
-
-  # # adx/ichimoku/kama distance
-  # threhold = 0.00
-  # for col in ['adx', 'ichimoku', 'kama']:
-
-  #   distance_col = f'{col}_distance'
-  #   distance_middle_col = f'{col}_distance_middle'
-  #   result_col = f'{col}_distance_status'
-  #   status_col = f'{col}_status'
-  #   rate_col = f'{col}_rate'
-  #   df[result_col] = ''
-
-  #   col_to_drop += [distance_middle_col, status_col]
-
-  #   flr = {'kama_distance': 'kama_fast_rate', 'ichimoku_distance': 'tankan_rate', 'adx_distance': 'adx_value_change'}[distance_col]
-  #   slr = {'kama_distance': 'kama_slow_rate', 'ichimoku_distance': 'kijun_rate', 'adx_distance': 'adx_value_pred_change'}[distance_col]
-
-  #   # distance 决定 color 与 alpha
-  #   distance_conditions = {
-  #     'pos': f'{distance_col} > {threhold}', 
-  #     'neg': f'{distance_col} < {-threhold}', 
-  #     'none':f'{-threhold} <= {distance_col} <= {threhold}'
-  #   }
-    
-  #   # distance_change 决定 marker
-  #   distance_change_conditions = {
-  #     'up': f'''
-  #           (
-  #             ({flr} > {threhold} and {slr} > {threhold}) or 
-  #             ({rate_col} > 0 and {distance_middle_col} > {threhold})
-  #           )
-  #           '''.replace('\n', ''), 
-
-  #     'down': f'''
-  #           (
-  #             ({flr} < {-threhold} and {slr} < {-threhold}) or 
-  #             ({rate_col} < {-threhold} and {distance_middle_col} < {-threhold})
-  #           )
-  #           '''.replace('\n', ''), 
-
-  #     'none':f'''
-  #           (
-  #             ({-threhold} <= {flr} <= {threhold}) and ({-threhold} <= {slr} <= {threhold}) or
-  #             ({rate_col} < {-threhold} and {distance_middle_col} > {threhold}) or
-  #             ({rate_col} > {threhold} and {distance_middle_col} < {-threhold})
-  #           )
-  #           '''.replace('\n', ''),  
-  #   }
-    
-  #   # 综合 distance 和 distance_change
-  #   for d in distance_conditions.keys():
-  #     for dc in distance_change_conditions.keys():
-  #       tmp_condition = distance_conditions[d] + ' and ' + distance_change_conditions[dc]
-  #       tmp_match = df.query(tmp_condition).index
-  #       df.loc[tmp_match, result_col] = f'{d}{dc}'
-
-  #   df[status_col] = (df[rate_col] > 0).replace({True: 1, False: -1})
-  #   df['aki_rate'] += normalize(df[rate_col].abs()) * df[status_col]
-  #   df['aki_status'] += df[status_col]
-
-  # # adx/kama/ichimoku rate and status 
-  # df['aki_day'] = (df['aki_rate'] > 0).replace({True: 1, False: -1})
-  # df['aki_rate'] = normalize(df['aki_rate'].abs()) * df['aki_day']
-  # df['aki_rate_change'] = df['aki_rate'] - df['aki_rate'].shift(1)
-  # df['aki_day'] = sda(series=df['aki_day'], zero_as=1) 
 
   # remove redandunt columns
   for col in col_to_drop:
@@ -1601,7 +1526,7 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
   df.loc[buy_idx, 'signal_day'] = 1
   df.loc[sell_idx, 'signal_day'] = -1
   df['signal_day'] = sda(df['signal_day'], zero_as=1)
-  df['trend_strength_symbol'] = (df['adx_strong_day'] > 0).replace({True: 1, False: -1})
+  # df['trend_strength_symbol'] = (df['adx_strong_day'] > 0).replace({True: 1, False: -1})
 
   # ================================ calculate probability ==================
   if 'probability'  > '':
@@ -1610,19 +1535,20 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
     df['proba_neutral'] = 0
     df['proba_down'] = 0
 
-    df['prob_up'] = df['break_up_score'] + df['support_score'] + df['candle_pattern_up_score'] + df['pattern_up_score']
-    df['prob_down'] = df['break_down_score'] + df['resistant_score'] + df['candle_pattern_down_score'] + df['pattern_down_score']
+    df['proba_up'] = df['break_up_score'] + df['support_score'] + df['candle_pattern_up_score'] + df['pattern_up_score']
+    df['proba_down'] = df['break_down_score'] + df['resistant_score'] + df['candle_pattern_down_score'] + df['pattern_down_score']
 
     for col in ['candle_position_score']:
       up_idx = df.query(f'{col} > 0').index
       down_idx = df.query(f'{col} < 0').index
-      df.loc[up_idx, 'prob_up'] += df.loc[up_idx, col]
-      df.loc[down_idx, 'prob_down'] += df.loc[down_idx, col]
+      df.loc[up_idx, 'proba_up'] += df.loc[up_idx, col]
+      df.loc[down_idx, 'proba_down'] += df.loc[down_idx, col]
 
-    score_max = (df['prob_up'].abs() + df['prob_down'].abs()).max()
-    df['proba_up'] = df['prob_up'].abs() / score_max
-    df['proba_down'] = df['prob_down'].abs() / score_max
+    score_max = (df['proba_up'].abs() + df['proba_down'].abs()).max()
+    df['proba_up'] = df['proba_up'].abs() / score_max
+    df['proba_down'] = df['proba_down'].abs() / score_max
     df['proba_neutral'] = 1 - df['proba_up'] - df['proba_down']
+    df['proba_score'] = df['proba_up'] - df['proba_down']
 
 
     # try:
@@ -5638,12 +5564,10 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     tmp_col_c = f'{term_indicator[signal_x]}_distance_change'
     tmp_col_a = f'{term_indicator[signal_x]}_distance_alpha'
     tmp_col_flr = f'{fast_indicator[signal_x]}_rate'
-    tmp_col_slr = f'{slow_indicator[signal_x]}_rate'
-    tmp_col_mc = f'{term_indicator[signal_x]}_distance_middle_change'
+
     outer_alpha = 0.66
 
     df[tmp_col_c] = df[f'{tmp_col_v}'].diff(periods=1)
-    df[tmp_col_mc] = df[f'{tmp_col_v}_middle'].diff(periods=1)
 
     # distance
     df[tmp_col_a] = normalize(df[f'{tmp_col_v}'].abs())
@@ -5672,7 +5596,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
       desc = ((desc + '增强') if v_change > 0 else (desc + '减缓')) if desc == '上行' else ((desc + '减缓') if v_change > 0 else (desc + '增强'))
     y_signal = df.loc[max_idx, signal_y]
     text_color = 'none' 
-    v_change = f'{v_change}' if v_change < 0 else f'+{v_change}'
+    v_change = f'{v_change}' if v_change <= 0 else f'+{v_change}'
     plt.annotate(f'{desc}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
     # title and legend
@@ -7707,19 +7631,19 @@ ta_data_columns = [
   # ichimoku
   'tankan', 'kijun', 'senkou_a', 'senkou_b', 'chikan', 
   'tankan_rate', 'tankan_day', 'kijun_rate', 'kijun_day', 
-  'ichimoku_distance', 'ichimoku_distance_day', 'ichimoku_distance_middle', 'ichimoku_rate', '相对ichimoku位置',
+  'ichimoku_distance', 'ichimoku_distance_change', 'ichimoku_distance_day', 'ichimoku_rate', '相对ichimoku位置',
 
   # kama
   'kama_fast', 'kama_slow', 
   'kama_fast_rate', 'kama_fast_day', 'kama_slow_rate', 'kama_slow_day',
-  'kama_distance', 'kama_distance_day', 'kama_distance_middle', 'kama_rate', '相对kama位置', 
+  'kama_distance', 'kama_distance_change', 'kama_distance_day', 'kama_rate', '相对kama位置', 
 
   # adx
   'adx_value', 'adx_strength', 
   'adx_value_change', 'adx_direction', 'adx_direction_day', 'adx_direction_start',
   'adx_strength_change', 'adx_power', 'adx_power_day', 'adx_power_start', 'adx_power_start_adx_value', 'adx_power_start_adx_direction', 
   'adx_value_prediction', 'adx_value_pred_change', 
-  'adx_strong_day', 'adx_distance', 'adx_status', 'adx_distance_day', 'adx_distance_change', 'adx_distance_middle', 'adx_rate', 
+  'adx_strong_day', 'adx_distance', 'adx_status', 'adx_distance_day', 'adx_distance_change', 'adx_rate', 
   'adx_trend', 'adx_day',
 
   # 其他指标
@@ -7773,6 +7697,5 @@ ta_data_columns = [
   'signal', 'signal_day', 'signal_description', 
 
   # 可能性
-  'ml_proba_down', 'ml_proba_neutral', 'ml_proba_up', 'ml_signal', 'ml_score',
   'proba_up', 'proba_neutral', 'proba_down'
 ]
