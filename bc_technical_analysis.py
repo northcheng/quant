@@ -5497,9 +5497,9 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     
     desc_boundary = ''
     if v_boundary > 0:
-      desc_boundary = f'支撑'
+      desc_boundary = f'受支撑'
     elif v_boundary < 0:
-      desc_boundary = f'阻挡'
+      desc_boundary = f'受阻挡'
 
     desc = ''
     if desc_break != '' and desc_boundary != '':
