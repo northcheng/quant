@@ -34,7 +34,7 @@
 
       "signals": {
         "signal_list": [  
-          "candle", "trigger", "trend", "中期", "position"
+          "trigger", "candle", "trend", "中期", "position"
         ]
       },   
 
