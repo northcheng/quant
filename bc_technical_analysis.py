@@ -1061,7 +1061,7 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
 
     # 趋势动量及强度
     df['trend_score'] = round(df['adx_value_change'] + df['adx_strength_change'] * (df['adx_value'] > 0).replace({True: 1, False: -1}), 2)
-    df['trend_score_change'] = round(df['trend_score'] - df['trend_score'].shift(1), 2)
+    df['trend_score_change'] = round(df['trend_score'].diff(), 2)
 
     # 趋势定性
     position_conditions = {
@@ -1084,6 +1084,7 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
   if 'score'  > '':
     df['signal_score'] = 0.0
 
+    # 计算信号分数(加权平均)
     signal_weight = {'trend_score': 2, 'trigger_score': 1, 'position_score': 0, 'candle_position_score': 1, 'candle_pattern_score': 1, }
     for col in signal_weight.keys():
       df['signal_score'] += normalize(df[col].abs()) * (df[col] > 0).replace({True: 1, False: -1})
@@ -1207,19 +1208,19 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
                             )
                             '''.replace('\n', ''),
     
-      # 分数剧变(向上)
-      '分数剧变_up':          '''
-                            (
-                              (trend_day < 0 and signal_score_change >= 2)
-                            )
-                            '''.replace('\n', ''),
+      # # 分数剧变(向上)
+      # '分数剧变_up':          '''
+      #                       (
+      #                         (trend_day < 0 and signal_score_change >= 2)
+      #                       )
+      #                       '''.replace('\n', ''),
 
-      # 分数剧变(向下)
-      '分数剧变_down':          '''
-                            (
-                              (trend_day > 0 and signal_score_change <= -2 )
-                            )
-                            '''.replace('\n', ''),
+      # # 分数剧变(向下)
+      # '分数剧变_down':          '''
+      #                       (
+      #                         (trend_day > 0 and signal_score_change <= -2 )
+      #                       )
+      #                       '''.replace('\n', ''),
 
       # 区间波动
       '区间波动_up':          '''
@@ -1287,7 +1288,7 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
       '趋势渐弱': 0.25,
       '趋势转换': 1.0,
       '趋势启动': 1.0,
-      '分数剧变': 0.75,
+      # '分数剧变': 0.75,
       '区间波动': 0.25,
       '触顶触底': 0.75,
       'kama': 1.0,
@@ -1302,7 +1303,7 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
       '趋势渐弱': '下行暂缓',
       '趋势转换': '趋势转上',
       '趋势启动': '低位向上',
-      '分数剧变': '分数大涨',
+      # '分数剧变': '分数大涨',
       '区间波动': '波动',
       '触顶触底': '触底',
       'ichimoku': '金叉(I)',
@@ -1315,7 +1316,7 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
       '趋势渐弱': '上行暂缓',
       '趋势转换': '趋势转下',
       '趋势启动': '高位向下',
-      '分数剧变': '分数大跌',
+      # '分数剧变': '分数大跌',
       '区间波动': '波动',
       '触顶触底': '触顶',
       'ichimoku': '死叉(I)',
@@ -1405,18 +1406,7 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
         ((abs_power_day >= abs_direction_day) and (adx_value > 10 and adx_strength > 25) and (trigger_score >= 0)) \
         )
       ''',
-      
-    } 
-    none_potential_values = {
-      'down_up': f'down',
-      'up_down': f'up',
-    }
 
-    for nc in none_potential_conditions.keys():
-      tmp_idx = df.query(none_potential_conditions[nc]).index
-      if len(tmp_idx) > 0:
-        df.loc[tmp_idx, 'potential'] = none_potential_values[nc]
-    
       # # 底部上行，进入波动区域，以adx_direction周期更长, 以adx_direction为准
       # # '波动' + adx_value起始<0，方向向上 + adx_value>0 或 adx_value_change>0 & adx_value>-5
       # up_idx = df.query('(adx_trend == 0) and (abs_direction_day > abs_power_day and adx_direction_start < 0 and adx_direction_day > 1 and (adx_value > 0 or (adx_value > -5 and adx_value_change > 0)))').index
@@ -1441,7 +1431,20 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
       # # '波动' + adx（+）上升趋势，当前adx_strength>25(adx_value>10), + 不论adx_value转头向上还是继续向下
       # up_idx = df.query('(adx_trend == 0 and adx_direction_day < 0) and (abs_power_day > abs_direction_day and adx_power_day > 0 and adx_power_start_adx_value > 10 and adx_strength > 25 and adx_value > 10) and (adx_direction_start > 10)').index
       # df.loc[up_idx, 'adx_trend'] = 1
+      
+    } 
+    none_potential_values = {
+      'down_up': f'down',
+      'up_down': f'up',
+    }
 
+    # mute false-alarm
+    for nc in none_potential_conditions.keys():
+      tmp_idx = df.query(none_potential_conditions[nc]).index
+      if len(tmp_idx) > 0:
+        df.loc[tmp_idx, 'potential'] = none_potential_values[nc]
+    
+    # calculate potential score
     potential_score_dict = {'down_up':3, 'up_1':2, 'up':1, 'down':-1, 'down_1':-2, 'up_down': -3, '':0}
     df['potential_score'] = df['potential'].apply(lambda x: potential_score_dict[x]).fillna(0)  
 
@@ -5519,6 +5522,23 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     if len(tmp_data) > 0:
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='red', alpha=outer_alpha)
 
+    # wave trend
+    tmp_data = df.query(f'(trend == "wave" and potential in ["up", "up_1"])')
+    if len(tmp_data) > 0:
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='green', edgecolor='green', alpha=outer_alpha) # outer_alpha
+
+    tmp_data = df.query(f'(trend == "wave" and potential in ["down", "down_1"])')
+    if len(tmp_data) > 0:
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', edgecolor='red', alpha=outer_alpha)
+
+    # tmp_data = df.query(f'(trend == "wave" and potential in ["down_up"])')
+    # if len(tmp_data) > 0:
+    #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='green', edgecolor='none', alpha=outer_alpha) # outer_alpha
+
+    # tmp_data = df.query(f'(trend == "wave" and potential in ["up_down"])')
+    # if len(tmp_data) > 0:
+    #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='red', edgecolor='none', alpha=outer_alpha)
+
     # adx_distance
     df[tmp_col_a] = normalize(df['trend_score'].abs())
     up_idx = df.query('trend_score > 0').index
@@ -5526,10 +5546,10 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     ax.scatter(up_idx, df.loc[up_idx, signal_y], marker='s', color='green', edgecolor='none', alpha=df.loc[up_idx, tmp_col_a].fillna(0))
     ax.scatter(down_idx, df.loc[down_idx, signal_y], marker='s', color='red', edgecolor='none', alpha=df.loc[down_idx, tmp_col_a].fillna(0))
 
-    # green_down_idx = df.query(f'(trend == "up" and {tmp_col_c} < 0)').index
-    # red_up_idx = df.query(f'(trend == "down" and {tmp_col_c} > 0)').index
-    # ax.scatter(green_down_idx, df.loc[green_down_idx, signal_y], marker='4', color='red', edgecolor='none', alpha=0.5)
-    # ax.scatter(red_up_idx, df.loc[red_up_idx, signal_y], marker='4', color='green', edgecolor='none', alpha=0.5)
+    green_down_idx = df.query(f'(trend == "up" and {tmp_col_c} < 0)').index
+    red_up_idx = df.query(f'(trend == "down" and {tmp_col_c} > 0)').index
+    ax.scatter(green_down_idx, df.loc[green_down_idx, signal_y], marker='4', color='red', edgecolor='none', alpha=0.5)
+    ax.scatter(red_up_idx, df.loc[red_up_idx, signal_y], marker='4', color='green', edgecolor='none', alpha=0.5)
 
     # annotate trend
     v = df.loc[max_idx, 'trend'] # round(df.loc[max_idx, 'trend_score'], 1)
@@ -5625,12 +5645,12 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     # 超卖
     tmp_data = df.query(f'(超买超卖 > 0)')
     if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='o', color='none', edgecolor='green', alpha=alpha) # 
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='x', color='green', edgecolor='green', alpha=alpha) # 
     
     # 超买
     tmp_data = df.query(f'(超买超卖 < 0)')
     if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='o', color='none', edgecolor='red', alpha=alpha) # 
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='x', color='red', edgecolor='red', alpha=alpha) # 
 
     # annotate position
     position_dict = {'down': '低位', 'mid_down': '中低位', 'mid': '中位', 'mid_up': '中高位', 'up': '高位'}
@@ -7688,7 +7708,7 @@ ta_data_columns = [
 
   # 模式
   'pattern_up_score', 'pattern_down_score', 'pattern_score', 'pattern_description', 'pattern_score_change', 
-  '超买超卖', '关键突破', '长线边界', '趋势渐弱', '趋势转换', '趋势启动', '分数剧变', '区间波动', '触顶触底', 'ichimoku', 'kama',
+  '超买超卖', '关键突破', '长线边界', '趋势渐弱', '趋势转换', '趋势启动', '区间波动', '触顶触底', 'ichimoku', 'kama',
 
   # 潜在趋势
   'potential', 'abs_direction_day', 'abs_power_day', 'potential_score',
@@ -7697,5 +7717,5 @@ ta_data_columns = [
   'signal', 'signal_day', 'signal_description', 
 
   # 可能性
-  'proba_up', 'proba_neutral', 'proba_down'
+  'proba_up', 'proba_neutral', 'proba_down', 'proba_score'
 ]
