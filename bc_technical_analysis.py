@@ -344,41 +344,6 @@ def calculate_ta_static(df: pd.DataFrame, indicators: dict = default_indicators)
           df[f'{col}_day'] = cal_crossover_signal(df=df, fast_line='Close', slow_line=col, pos_signal=1, neg_signal=-1, none_signal=0)
           df[f'{col}_day'] = sda(series=df[f'{col}_day'], zero_as=1)
 
-          # # fl/sl with none zero rate          
-          # rate_col = f'{col}_rate'
-          # none_zero_col = f'{rate_col}_none_zero'
-          # df[none_zero_col] = np.nan
-          # none_zero_idx = df.query(f'{rate_col} > {threshold} or {rate_col} < {threshold}').index
-          # df.loc[none_zero_idx, none_zero_col] = df.loc[none_zero_idx, rate_col]
-          # df[none_zero_col] = df[none_zero_col].ffill()
-
-        # # fl & sl crossover  
-        # fs_day = f'{target_indicator}_cross_day'
-        # df[fs_day] = cal_crossover_signal(df, fast_line=fl, slow_line=sl, result_col=fs_day, pos_signal='u', neg_signal='d', none_signal='n')
-        # df[fs_day] = df[fs_day].replace({'u':1, 'd':-1, 'n':0})
-        # df[fs_day] = sda(series=df[fs_day], zero_as=1)
-        
-        # # change
-        # result_col = f'{target_indicator}_change'
-        # status_col = f'{target_indicator}_status'
-        # df[result_col] = 0
-        # for col in [fl_rate, sl_rate]:
-        #   df[result_col] += df[col]
-        # col_symbol = (df[result_col] > 0).replace({True: 1, False: -1})
-        # df[result_col] = normalize(df[result_col].abs()) * col_symbol
-
-        # # status
-        # threshold = 0.00
-        # conditions = {
-        #   'up':       f'({fl_rate} > {threshold} and {sl_rate} > {threshold}) or ({fl_rate} > {threshold} and {distance_change} >= {threshold})', 
-        #   'down':     f'({fl_rate} < {threshold} and {sl_rate} < {threshold}) or ({fl_rate} < {threshold} and {distance_change} <= {threshold})',
-        # } 
-        # values = {
-        #   'up':       1,
-        #   'down':     -1
-        # }
-        # df = assign_condition_value(df=df, column=status_col, condition_dict=conditions, value_dict=values, default_value=0.0)
-
         # distance
         df[distance] = df[fl] - df[sl]
         df[distance] = df[distance] / df[sl]
@@ -391,12 +356,20 @@ def calculate_ta_static(df: pd.DataFrame, indicators: dict = default_indicators)
         distance_day = f'{target_indicator}_distance_day'
         df[distance_day] = df[distance] > 0
         df[distance_day] = df[distance_day].replace({True: 1, False: -1})
-        df[distance_day] = sda(series=df[distance_day], zero_as=None).astype(int)
 
-        pos_none_idx = df.query(f'0 > {distance_day} and {distance} == 0').index
-        neg_none_idx = df.query(f'0 < {distance_day} and {distance} == 0').index
-        df.loc[pos_none_idx, distance_day] = -1
-        df.loc[neg_none_idx, distance_day] = 1       
+        zero_idx = df.query(f'{distance} == 0').index
+        df.loc[zero_idx, distance_day] = 0
+
+        df[distance_day] = sda(series=df[distance_day], zero_as=0).astype(int)
+
+        # pos_none_idx = df.query(f'0 > {distance_day} and {distance} == 0').index
+        # neg_none_idx = df.query(f'0 < {distance_day} and {distance} == 0').index
+        # df.loc[pos_none_idx, distance_day] = 1
+        # df.loc[neg_none_idx, distance_day] = -1      
+        # trend change sda
+        if target_indicator == 'ichimoku':
+          df[f'm_direction_day'] = sda((df[distance_change] > 0).replace({True: 1, False: -1}), zero_as=0)
+        
         
         # cloud top and bototm
         cloud_top_col = f'{target_indicator}_cloud_top'
@@ -1062,6 +1035,7 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
     # 趋势动量及强度
     df['trend_score'] = round(df['adx_value_change'] + df['adx_strength_change'] * (df['adx_value'] > 0).replace({True: 1, False: -1}), 2)
     df['trend_score_change'] = round(df['trend_score'].diff(), 2)
+    df['s_direction_day'] = sda((df['trend_score_change'] > 0).replace({True: 1, False: -1}), zero_as=0)
 
     # 趋势定性
     position_conditions = {
@@ -1194,19 +1168,19 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
                             )
                             '''.replace('\n', ''),
 
-      # 趋势启动(低位向上)
-      '趋势启动_up':          '''
-                            ( 
-                              (position in ['down', 'mid_down']) and (trend_day == 1)
-                            )
-                            '''.replace('\n', ''),
+      # # 趋势启动(低位向上)
+      # '趋势启动_up':          '''
+      #                       ( 
+      #                         (position in ['down', 'mid_down']) and (trend_day == 1)
+      #                       )
+      #                       '''.replace('\n', ''),
 
-      # 趋势启动(高位向下)
-      '趋势启动_down':          '''
-                            (
-                              (position in ['up', 'mid_up']) and (trend_day == -1)
-                            )
-                            '''.replace('\n', ''),
+      # # 趋势启动(高位向下)
+      # '趋势启动_down':          '''
+      #                       (
+      #                         (position in ['up', 'mid_up']) and (trend_day == -1)
+      #                       )
+      #                       '''.replace('\n', ''),
     
       # # 分数剧变(向上)
       # '分数剧变_up':          '''
@@ -1287,7 +1261,7 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
       '长线边界': 0.5,
       '趋势渐弱': 0.25,
       '趋势转换': 1.0,
-      '趋势启动': 1.0,
+      # '趋势启动': 1.0,
       # '分数剧变': 0.75,
       '区间波动': 0.25,
       '触顶触底': 0.75,
@@ -1302,7 +1276,7 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
       '长线边界': '长线支撑',
       '趋势渐弱': '下行暂缓',
       '趋势转换': '趋势转上',
-      '趋势启动': '低位向上',
+      # '趋势启动': '低位向上',
       # '分数剧变': '分数大涨',
       '区间波动': '波动',
       '触顶触底': '触底',
@@ -1315,7 +1289,7 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
       '长线边界': '长线阻挡',
       '趋势渐弱': '上行暂缓',
       '趋势转换': '趋势转下',
-      '趋势启动': '高位向下',
+      # '趋势启动': '高位向下',
       # '分数剧变': '分数大跌',
       '区间波动': '波动',
       '触顶触底': '触顶',
@@ -1524,36 +1498,43 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
         df.loc[tmp_idx, 'signal'] = none_signal_values[nc]
         df.loc[tmp_idx, 'signal_description'] += f'{nc} '
 
-  buy_idx = df.query('signal == "buy"').index
-  sell_idx = df.query('signal == "sell"').index
-  df.loc[buy_idx, 'signal_day'] = 1
-  df.loc[sell_idx, 'signal_day'] = -1
-  df['signal_day'] = sda(df['signal_day'], zero_as=1)
-  # df['trend_strength_symbol'] = (df['adx_strong_day'] > 0).replace({True: 1, False: -1})
+    buy_idx = df.query('signal == "buy"').index
+    sell_idx = df.query('signal == "sell"').index
+    df.loc[buy_idx, 'signal_day'] = 1
+    df.loc[sell_idx, 'signal_day'] = -1
+    df['signal_day'] = sda(df['signal_day'], zero_as=1)
+    # df['trend_strength_symbol'] = (df['adx_strong_day'] > 0).replace({True: 1, False: -1})
 
   # ================================ calculate probability ==================
   if 'probability'  > '':
     
+    # 概率分数
     df['proba_up'] = 0
     df['proba_neutral'] = 0
     df['proba_down'] = 0
 
+    # 突破 + 支撑 + 正向蜡烛 + 正向模式
     df['proba_up'] = df['break_up_score'] + df['support_score'] + df['candle_pattern_up_score'] + df['pattern_up_score']
-    df['proba_down'] = df['break_down_score'] + df['resistant_score'] + df['candle_pattern_down_score'] + df['pattern_down_score']
 
+    # 跌落 + 阻挡 + 负向蜡烛 + 负向模式
+    df['proba_down'] = df['break_down_score'] + df['resistant_score'] + df['candle_pattern_down_score'] + df['pattern_down_score']
+ 
+    # 相对candle位置
     for col in ['candle_position_score']:
       up_idx = df.query(f'{col} > 0').index
       down_idx = df.query(f'{col} < 0').index
       df.loc[up_idx, 'proba_up'] += df.loc[up_idx, col]
       df.loc[down_idx, 'proba_down'] += df.loc[down_idx, col]
 
+    # 归一化
     score_max = (df['proba_up'].abs() + df['proba_down'].abs()).max()
     df['proba_up'] = df['proba_up'].abs() / score_max
     df['proba_down'] = df['proba_down'].abs() / score_max
     df['proba_neutral'] = 1 - df['proba_up'] - df['proba_down']
     df['proba_score'] = df['proba_up'] - df['proba_down']
 
-
+  # 机器学习概率分数
+  # if 'ml'  > '':
     # try:
     #   from quant.ml.integration import attach_ml_scores
     #   df = attach_ml_scores(df=df, market=market, pool=pool, horizon=horizon, config=config, signal_source=signal_source, ml_pool=ml_pool or None)
@@ -2581,9 +2562,9 @@ def add_candlestick_patterns(df: pd.DataFrame) -> pd.DataFrame:
     values = {'长上影': 'd', '长下影': 'u'} 
     df = assign_condition_value(df=df, column='长影线_trend', condition_dict=conditions, value_dict=values, default_value='n')
 
-    # 进一步筛选
-    mute_idx = df.query('(长影线_trend == "u" and position in ["up", "mid_up"]) or (长影线_trend == "d" and position in ["down", "mid_down"])').index
-    df.loc[mute_idx, '长影线_trend'] = 'n'
+    # # 进一步筛选
+    # mute_idx = df.query('(长影线_trend == "u" and position in ["up", "mid_up"]) or (长影线_trend == "d" and position in ["down", "mid_down"])').index
+    # df.loc[mute_idx, '长影线_trend'] = 'n'
 
   # days since signal triggered
   df['candle_pattern_up_score'] = 0.0
@@ -5577,11 +5558,11 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
 
     term_indicator = {"中期":'ichimoku', "长期":'kama'}
     fast_indicator = {"中期":'tankan', "长期":'kama_fast'}
-    slow_indicator = {"中期":'kijun', "长期":'kama_slow'}
 
     # ichimoku_distance
     tmp_col_v = f'{term_indicator[signal_x]}_distance'
     tmp_col_c = f'{term_indicator[signal_x]}_distance_change'
+    tmp_col_d = f'{term_indicator[signal_x]}_distance_day'
     tmp_col_a = f'{term_indicator[signal_x]}_distance_alpha'
     tmp_col_flr = f'{fast_indicator[signal_x]}_rate'
 
@@ -5600,23 +5581,29 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='red', alpha=outer_alpha)
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='red', edgecolor='none', alpha=tmp_data[tmp_col_a].fillna(0))
     
-    # distance_change
+    # distance narrow down
     green_down_idx = df.query(f'{tmp_col_v} >= 0 and ({tmp_col_c} < 0) and ({tmp_col_flr} <= 0)').index
     red_up_idx = df.query(f'{tmp_col_v} <= 0 and ({tmp_col_c} > 0) and ({tmp_col_flr} >= 0)').index
     ax.scatter(green_down_idx, df.loc[green_down_idx, signal_y], marker='4', color='red', edgecolor='none', alpha=0.5)
     ax.scatter(red_up_idx, df.loc[red_up_idx, signal_y], marker='4', color='green', edgecolor='none', alpha=0.5)
 
+    # distance == 0
+    green_down_idx = df.query(f'{tmp_col_v} == 0 and ({tmp_col_d} > 0)').index
+    red_up_idx = df.query(f'{tmp_col_v} == 0 and ({tmp_col_d} < 0)').index
+    ax.scatter(green_down_idx, df.loc[green_down_idx, signal_y], marker='_', color='red', edgecolor='none', alpha=0.5)
+    ax.scatter(red_up_idx, df.loc[red_up_idx, signal_y], marker='_', color='green', edgecolor='none', alpha=0.5)
+
     # annotate trend
-    v = round(df.loc[max_idx, tmp_col_v], 1)
-    v_change = round(df.loc[max_idx, tmp_col_c], 3)
+    v = df.loc[max_idx, tmp_col_v]
+    v_change = df.loc[max_idx, tmp_col_c]
     desc = f'上行' if v > 0 else '下行'
     if v_change == 0:
-      desc = desc + '波动'
+      desc = desc + '停滞'
     else:
       desc = ((desc + '增强') if v_change > 0 else (desc + '减缓')) if desc == '上行' else ((desc + '减缓') if v_change > 0 else (desc + '增强'))
     y_signal = df.loc[max_idx, signal_y]
     text_color = 'none' 
-    v_change = f'{v_change}' if v_change <= 0 else f'+{v_change}'
+    v_change = f'{v_change}' if v_change == 0 else f'{v_change:.2e}'
     plt.annotate(f'{desc}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
     # title and legend
@@ -5632,12 +5619,13 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     tmp_col_a = 'position_alpha'
     # df[tmp_col_a] = normalize(df['position_score'].abs()) * 0.8
     markers = {'down': '.', 'mid_down': '.', 'mid': '_', 'mid_up': 'o', 'up': 'o'}
-    colors = {'down': 'orange', 'mid_down': 'orange', 'mid': 'orange', 'mid_up': 'orange', 'up': 'orange'}
-    alphas = {'down': 0.8, 'mid_down': 0.4, 'mid': 0.2, 'mid_up': 0.4, 'up': 0.8}
+    colors = {'down': 'orange', 'mid_down': 'orange', 'mid': 'grey', 'mid_up': 'orange', 'up': 'orange'}
+    edge_colors = {'down': 'orange', 'mid_down': 'lightgrey', 'mid': 'grey', 'mid_up': 'lightgrey', 'up': 'orange'}
+    alphas = {'down': 0.8, 'mid_down': 0.4, 'mid': 0.4, 'mid_up': 0.4, 'up': 0.8}
     for p in ['up', 'mid_up', 'mid', 'down', 'mid_down']:
       tmp_idx = df.query(f'({tmp_col_v} == "{p}")').index
       if len(tmp_idx) > 0:
-        ax.scatter(tmp_idx, df.loc[tmp_idx, signal_y], marker=markers[p], color=colors[p], edgecolor='none', alpha=alphas[p])
+        ax.scatter(tmp_idx, df.loc[tmp_idx, signal_y], marker=markers[p], color=colors[p], edgecolor=edge_colors[p], alpha=alphas[p])
 
     # 模式
     alpha = 0.5
@@ -5738,8 +5726,11 @@ def plot_adx(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str] =
   y_range = (y_max - y_min)
   y_middle = (y_max + y_min)/2
 
+  # max_idx = df[['adx_value']].dropna().index.max()
+  # before_max_idx = df.loc[:max_idx].index[-2]
   max_idx = df.index.max()
   before_max_idx = df.index[-2]
+
   x_signal = max_idx + datetime.timedelta(days=1 * interval_factor[interval])
   v = round(df.loc[max_idx, 'adx_strength'], 1)
   v_change = round(df.loc[max_idx, 'adx_strength_change'],1)
@@ -6176,6 +6167,7 @@ def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Opt
   :raises: none
   """
   # copy dataframe within a specific period
+  df = df.copy()
   max_idx = df.index.max()
   
   # add extention data
@@ -7271,7 +7263,7 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
       text_color = 'green' if v_change > 0 else 'red'
       desc = '量升' if v_change > 0 else '量跌'
       v_change = f'+{v_change}' if v_change > 0 else f'{v_change}'
-      plt.annotate(f'{desc}({v_day})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+      plt.annotate(f'{desc}({v_day})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
     # plot score
     elif tmp_indicator == 'score':
