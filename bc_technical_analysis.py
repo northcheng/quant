@@ -7279,35 +7279,40 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
         bar_width = datetime.timedelta(days=365)
       else:
         pass
-   
-      # plot_data['signal_score_change'] = plot_data['signal_score'].diff(periods=1)
-      # 顺序必须是：先画底下 c → 再画中间 b → 最后顶上 a
-      # 底部 c：绿色
-      axes[tmp_indicator].bar(plot_data.index, plot_data['proba_up'], bar_width, color='green', edgecolor='grey', alpha=0.4, label='down')
-      # 中间 b：橙色（底部是 c）
-      axes[tmp_indicator].bar(plot_data.index, plot_data['proba_neutral'], bar_width, bottom=plot_data['proba_up'], color='orange', edgecolor='grey', alpha=0.2, label='neutral')
-      # 顶部 a：红色（底部是 c + b）
-      axes[tmp_indicator].bar(plot_data.index, plot_data['proba_down'], bar_width, bottom=plot_data['proba_up'] + plot_data['proba_neutral'], color='red', edgecolor='grey', alpha=0.4, label='up')
 
-      # # 新增水平分割线
-      plot_data['neutral']= 0.5
-      axes[tmp_indicator].plot(plot_data.index, plot_data['neutral'], color='grey', ls='--', lw=0.5)
-      axes[tmp_indicator].yaxis.set_ticks_position(default_plot_args['yaxis_position'])
+      plot_data['normalized_trend_score_change'] = plot_data['trend_score_change'] / plot_data['trend_score_change'].abs().max()      
+      up_idx = plot_data.query('trend_score_change > 0').index
+      axes[tmp_indicator].bar(up_idx, plot_data.loc[up_idx, 'normalized_trend_score_change'], bar_width, color='green', edgecolor='grey', alpha=0.4, label='up')
+      down_idx = plot_data.query('trend_score_change < 0').index
+      axes[tmp_indicator].bar(down_idx, plot_data.loc[down_idx, 'normalized_trend_score_change'], bar_width, color='red', edgecolor='grey', alpha=0.4, label='down')
 
-      # plt.ylim(0, 1)
-      # axes[tmp_indicator].set_ylim(0, 1)
+      # # 顺序必须是：先画底下 c → 再画中间 b → 最后顶上 a
+      # # 底部 c：绿色
+      # axes[tmp_indicator].bar(plot_data.index, plot_data['proba_up'], bar_width, color='green', edgecolor='grey', alpha=0.2, label='down')
+      # # 中间 b：橙色（底部是 c）
+      # axes[tmp_indicator].bar(plot_data.index, plot_data['proba_neutral'], bar_width, bottom=plot_data['proba_up'], color='orange', edgecolor='grey', alpha=0.2, label='neutral')
+      # # 顶部 a：红色（底部是 c + b）
+      # axes[tmp_indicator].bar(plot_data.index, plot_data['proba_down'], bar_width, bottom=plot_data['proba_up'] + plot_data['proba_neutral'], color='red', edgecolor='grey', alpha=0.2, label='up')
 
-      # annotate probability
-      v_up = round(plot_data.loc[max_idx, 'proba_up'], 2)
-      v_down = round(plot_data.loc[max_idx, 'proba_down'], 2)
-      v_neutral = round(plot_data.loc[max_idx, 'proba_neutral'], 2)
-      v = f'{v_down:.0%}↓ {v_neutral:.0%} ↑{v_up:.0%}'
+      # # # 新增水平分割线
+      # plot_data['neutral']= 0.5
+      # axes[tmp_indicator].plot(plot_data.index, plot_data['neutral'], color='grey', ls='--', lw=0.5)
+      # axes[tmp_indicator].yaxis.set_ticks_position(default_plot_args['yaxis_position'])
+
+      # # plt.ylim(0, 1)
+      # # axes[tmp_indicator].set_ylim(0, 1)
+
+      # # annotate probability
+      # v_up = round(plot_data.loc[max_idx, 'proba_up'], 2)
+      # v_down = round(plot_data.loc[max_idx, 'proba_down'], 2)
+      # v_neutral = round(plot_data.loc[max_idx, 'proba_neutral'], 2)
+      # v = f'{v_down:.0%}↓ {v_neutral:.0%} ↑{v_up:.0%}'
            
-      y_signal = 0.5
-      colors = ['green', 'orange', 'red']
-      values = np.array([v_up, v_neutral, v_down])
-      text_color = colors[np.argmax(values)]
-      plt.annotate(f'{v}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+      # y_signal = 0.5
+      # colors = ['green', 'orange', 'red']
+      # values = np.array([v_up, v_neutral, v_down])
+      # text_color = colors[np.argmax(values)]
+      # plt.annotate(f'{v}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
 
     # plot renko
