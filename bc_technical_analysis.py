@@ -7279,12 +7279,19 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
       else:
         pass
 
-      plot_data['normalized_trend_score_change'] = plot_data['trend_score_change'] / plot_data['trend_score_change'].abs().max()      
-      up_idx = plot_data.query('trend_score_change > 0').index
-      axes[tmp_indicator].bar(up_idx, plot_data.loc[up_idx, 'normalized_trend_score_change'], bar_width, color='green', edgecolor='grey', alpha=0.4, label='up')
-      down_idx = plot_data.query('trend_score_change < 0').index
-      axes[tmp_indicator].bar(down_idx, plot_data.loc[down_idx, 'normalized_trend_score_change'], bar_width, color='red', edgecolor='grey', alpha=0.4, label='down')
+      plot_data['normalized_trend_score'] = plot_data['trend_score'] / plot_data['trend_score'].abs().max()      
+      up_idx = plot_data.query('trend_score > 0').index
+      axes[tmp_indicator].bar(up_idx, plot_data.loc[up_idx, 'normalized_trend_score'], bar_width, color='green', edgecolor='grey', alpha=0.3, label='up')
+      down_idx = plot_data.query('trend_score < 0').index
+      axes[tmp_indicator].bar(down_idx, plot_data.loc[down_idx, 'normalized_trend_score'], bar_width, color='red', edgecolor='grey', alpha=0.3, label='down')
 
+      plot_data['ichimoku_distance_change'] = plot_data['ichimoku_distance'].diff()
+      plot_data['normalized_ichimoku_score_change'] = (plot_data['ichimoku_distance_change'] / plot_data['ichimoku_distance_change'].abs().max()) + (plot_data['tankan_rate'] / plot_data['tankan_rate'].abs().max())      
+      plot_data['normalized_ichimoku_score_change'] = plot_data['normalized_ichimoku_score_change'] / 2
+      up_idx = plot_data.query('normalized_ichimoku_score_change > 0').index
+      axes[tmp_indicator].bar(up_idx, plot_data.loc[up_idx, 'normalized_ichimoku_score_change'], bar_width, color='green', edgecolor='grey', alpha=0.2, label='up')
+      down_idx = plot_data.query('normalized_ichimoku_score_change < 0').index
+      axes[tmp_indicator].bar(down_idx, plot_data.loc[down_idx, 'normalized_ichimoku_score_change'], bar_width, color='red', edgecolor='grey', alpha=0.2, label='down')
       # # 顺序必须是：先画底下 c → 再画中间 b → 最后顶上 a
       # # 底部 c：绿色
       # axes[tmp_indicator].bar(plot_data.index, plot_data['proba_up'], bar_width, color='green', edgecolor='grey', alpha=0.2, label='down')
@@ -7299,7 +7306,7 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
       # axes[tmp_indicator].yaxis.set_ticks_position(default_plot_args['yaxis_position'])
 
       # # plt.ylim(0, 1)
-      # # axes[tmp_indicator].set_ylim(0, 1)
+      axes[tmp_indicator].set_ylim(-1, 1)
 
       # # annotate probability
       # v_up = round(plot_data.loc[max_idx, 'proba_up'], 2)
