@@ -6534,7 +6534,7 @@ def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Opt
     )
 
   # title and legend
-  ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
+  ax.legend(bbox_to_anchor=(1.02, 0.075), loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
   # ax.grid(True, axis='x', linestyle=':', linewidth=0.5)
   ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
