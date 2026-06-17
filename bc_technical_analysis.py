@@ -1111,7 +1111,7 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
       # 关键边界(ichimoku, kama, gap)
       '长线边界_up':            '''
                             (
-                              (ki_distance in ["gr", "gn", "gg"] or position in ['up', 'mid_up', 'mid']) and
+                              (ki_distance in ["gr", "gn", "gg"] or position in ['up', 'mid_up', 'mid_down', 'mid']) and
                               十字星_trend == "n" and
                               (candle_color == 1 or candle_lower_shadow_pct > 0.25) and
                               (
@@ -1125,7 +1125,7 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
       # 关键边界(ichimoku, kama, gap)
       '长线边界_down':          '''
                             (
-                              (ki_distance in ["rg", "rn", "rr"] or position in ['down', 'mid_down', 'mid']) and
+                              (ki_distance in ["rg", "rn", "rr"] or position in ['down', 'mid_up', 'mid_down', 'mid']) and
                               (
                                 (kama_slow_resistant < 0 or kijun_resistant < 0 or candle_gap_top_resistant < 0 or candle_gap_bottom_resistant < 0) or 
                                 ((candle_color == -1 or 长影线_trend == "d" or resistant_score < 0) and (kama_slow_break_up > 0 or kijun_break_up > 0 or candle_gap_top_break_up > 0 or candle_gap_bottom_break_up > 0)) or
@@ -5512,14 +5512,6 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     if len(tmp_data) > 0:
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', edgecolor='red', alpha=outer_alpha)
 
-    # tmp_data = df.query(f'(trend == "wave" and potential in ["down_up"])')
-    # if len(tmp_data) > 0:
-    #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='green', edgecolor='none', alpha=outer_alpha) # outer_alpha
-
-    # tmp_data = df.query(f'(trend == "wave" and potential in ["up_down"])')
-    # if len(tmp_data) > 0:
-    #   ax.scatter(tmp_data.index, tmp_data[signal_y], marker='.', color='red', edgecolor='none', alpha=outer_alpha)
-
     # adx_distance
     df[tmp_col_a] = normalize(df['trend_score'].abs())
     up_idx = df.query('trend_score > 0').index
@@ -5536,16 +5528,16 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     v = df.loc[max_idx, 'trend'] # round(df.loc[max_idx, 'trend_score'], 1)
     v_score = df.loc[max_idx, 'trend_score']
     v_change = round(df.loc[max_idx, 'trend_score_change'], 1)
-    desc = {'up':'上行', 'down':'下行', 'wave':'波动'}.get(v)
-    desc = '-' if desc is None else desc
+    desc = {'up':'↑', 'down':'↓', 'wave':'~'}.get(v)
+    desc = '/' if desc is None else desc
     if v == 'wave':
-      desc = '波动' + '上行' if v_score > 0 else '下行'
+      desc = '~' + ('↑' if v_score > 0 else '↓')
     else:
-      desc = ((desc + '增强') if v_change > 0 else (desc + '减缓')) if desc == '上行' else ((desc + '减缓') if v_change > 0 else (desc + '增强'))
+      desc = ((desc + '+') if v_change > 0 else (desc + '-')) if desc == '↑' else ((desc + '-') if v_change > 0 else (desc + '+'))
     y_signal = df.loc[max_idx, signal_y]
     text_color = 'none' 
     v_change = f'{v_change}' if v_change < 0 else f'+{v_change}'
-    plt.annotate(f'{desc}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+    plt.annotate(f'短 {desc}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
     # title and legend
     ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
@@ -5558,6 +5550,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
 
     term_indicator = {"中期":'ichimoku', "长期":'kama'}
     fast_indicator = {"中期":'tankan', "长期":'kama_fast'}
+    direction_day = {"中期":'m_direction_day', "长期":'l_direction_day'}
 
     # ichimoku_distance
     tmp_col_v = f'{term_indicator[signal_x]}_distance'
@@ -5565,6 +5558,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     tmp_col_d = f'{term_indicator[signal_x]}_distance_day'
     tmp_col_a = f'{term_indicator[signal_x]}_distance_alpha'
     tmp_col_flr = f'{fast_indicator[signal_x]}_rate'
+    tmp_col_dir = direction_day[signal_x]
 
     outer_alpha = 0.66
 
@@ -5582,10 +5576,15 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='red', edgecolor='none', alpha=tmp_data[tmp_col_a].fillna(0))
     
     # distance narrow down
-    green_down_idx = df.query(f'{tmp_col_v} >= 0 and ({tmp_col_c} < 0) and ({tmp_col_flr} <= 0)').index
-    red_up_idx = df.query(f'{tmp_col_v} <= 0 and ({tmp_col_c} > 0) and ({tmp_col_flr} >= 0)').index
+    green_down_idx = df.query(f'{tmp_col_v} >= 0 and (({tmp_col_c} < 0 and {tmp_col_flr} <= 0))').index
+    red_up_idx = df.query(f'{tmp_col_v} <= 0 and (({tmp_col_c} > 0 and {tmp_col_flr} >= 0))').index
     ax.scatter(green_down_idx, df.loc[green_down_idx, signal_y], marker='4', color='red', edgecolor='none', alpha=0.5)
     ax.scatter(red_up_idx, df.loc[red_up_idx, signal_y], marker='4', color='green', edgecolor='none', alpha=0.5)
+
+    green_down_idx = df.query(f'{tmp_col_v} > 0 and (({tmp_col_c} == 0 and {tmp_col_dir} < 0))').index
+    red_up_idx = df.query(f'{tmp_col_v} < 0 and (({tmp_col_c} == 0 and {tmp_col_dir} > 0))').index
+    ax.scatter(green_down_idx, df.loc[green_down_idx, signal_y], marker='_', color='red', edgecolor='none', alpha=0.5)
+    ax.scatter(red_up_idx, df.loc[red_up_idx, signal_y], marker='_', color='green', edgecolor='none', alpha=0.5)
 
     # distance == 0
     green_down_idx = df.query(f'{tmp_col_v} == 0 and ({tmp_col_d} > 0)').index
@@ -5596,15 +5595,15 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     # annotate trend
     v = df.loc[max_idx, tmp_col_v]
     v_change = df.loc[max_idx, tmp_col_c]
-    desc = f'上行' if v > 0 else '下行'
+    desc = f'↑' if v > 0 else '↓'
     if v_change == 0:
-      desc = desc + '停滞'
+      desc = desc + '~'
     else:
-      desc = ((desc + '增强') if v_change > 0 else (desc + '减缓')) if desc == '上行' else ((desc + '减缓') if v_change > 0 else (desc + '增强'))
+      desc = ((desc + '+') if v_change > 0 else (desc + '-')) if desc == '↑' else ((desc + '-') if v_change > 0 else (desc + '+'))
     y_signal = df.loc[max_idx, signal_y]
     text_color = 'none' 
-    v_change = f'{v_change}' if v_change == 0 else f'{v_change:.2e}'
-    plt.annotate(f'{desc}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+    v_change = f'{v_change}' if v_change == 0 else f'{v_change * 1000:.2f}'
+    plt.annotate(f'{signal_x[0]} {desc}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
     # title and legend
     ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
