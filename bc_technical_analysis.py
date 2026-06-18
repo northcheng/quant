@@ -7361,7 +7361,7 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
       signals = tmp_args.get('signal_list')
 
       # plot one by one
-      labels = {' ': '信号', 'trigger': '触发(突破/边界)', 'trigger_up': '触发(支撑/突破)', 'trigger_down': '触发(阻挡/跌落)', '中期': '中期(变化/方向)', 'trend': '短期(变化/方向)', 'candle': '蜡烛(位置/模式)', 'volume': '量价(变化/方向)', 'position': '位置(高低/超买超卖)'}
+      labels = {' ': '信号', 'trigger': '触发(突破/边界)', 'trigger_up': '触发(支撑/突破)', 'trigger_down': '触发(阻挡/跌落)', '中期': '中期(ichimoku)', 'trend': '短期(adx)', 'candle': '蜡烛(位置/模式)', 'volume': '量价(变化/方向)', 'position': '位置(高低/超买超卖)'}
       signal_bases = []
       signal_names = []
       if signals is not None:
@@ -7532,10 +7532,6 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
         desc += '减缓' if change != 0 else '波动'
       else:
         desc += '增强' if change != 0 else '波动'
-    # desc = ((desc + '增强') if m_dd > 0 else (desc + '减缓')) if desc == '上行' else ((desc + '减缓') if m_dd > 0 else (desc + '增强'))
-
-    
-    
     change_desc = f'+{change}' if change >= 0 else f'{change}'    
     m_trend_desc = (f' {desc}' if len(desc) > 0 else '') + f' | 距离 {distance:<6} ({change_desc:<6})'
     super_title_desc += (f' {desc}' if len(desc) > 0 else '')
@@ -7548,14 +7544,15 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
     
 
     # trend desc
-    desc = df.loc[idx, "trend_score"]
-    desc = f'向上' if desc > 0 else '向下'
-    change = round(df.loc[idx, "trend_score_change"], 2)
-    change_desc = f'+{change}' if change >= 0 else f'{change}'
-    if df.loc[idx, "trend"] == 'wave':
-      desc = '短期波动' + desc
+    v = df.loc[idx, 'trend'] # round(df.loc[max_idx, 'trend_score'], 1)
+    v_score = df.loc[idx, 'trend_score']
+    v_change = round(df.loc[idx, 'trend_score_change'], 1)
+    desc = {'up':'上行', 'down':'下行', 'wave':'波动'}.get(v)
+    desc = '/' if desc is None else desc
+    if v == 'wave':
+      desc = '短期波动' + ('上行' if v_score > 0 else '下行')
     else:
-      desc = '短期' + ((desc + '增强') if change > 0 else (desc + '减缓')) if desc == '向上' else ((desc + '减缓') if change > 0 else (desc + '增强'))
+      desc = '短期' + (((desc + '增强') if v_change > 0 else (desc + '减弱')) if desc == '上行' else ((desc + '减弱') if v_change > 0 else (desc + '增强')))
     trend_desc = (f' {desc}' if len(desc) > 0 else '') + f' | 趋势 {df.loc[idx, "trend_score"]:<6} ({change_desc:<6})'
     super_title_desc += (f' {desc}' if len(desc) > 0 else '')
     
