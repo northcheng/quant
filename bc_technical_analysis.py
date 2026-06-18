@@ -5460,7 +5460,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     desc = f'{desc}({v_score:.0f})' if desc != '' else desc
     y_signal = df.loc[max_idx, signal_y]    
     text_color = 'none'
-    plt.annotate(f'{desc}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+    plt.annotate(f'{desc}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color='green', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
   # trigger_down
   if signal_x in ['trigger_down']:
@@ -5501,7 +5501,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     desc = f'{desc}({v_score:.0f})' if desc != '' else desc
     y_signal = df.loc[max_idx, signal_y]    
     text_color = 'none'
-    plt.annotate(f'{desc}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+    plt.annotate(f'{desc}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color='red', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
   # candle position and patterns
   if signal_x in ['candle']:
@@ -5613,7 +5613,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     desc = {'up':'上行', 'down':'下行', 'wave':'波动'}.get(v)
     desc = '/' if desc is None else desc
     if v == 'wave':
-      desc = '波动' + ('↑' if v_score > 0 else '↓')
+      desc = '波动' + ('上行' if v_score > 0 else '下行')
     else:
       desc = ((desc + '增强') if v_change > 0 else (desc + '减弱')) if desc == '上行' else ((desc + '减弱') if v_change > 0 else (desc + '增强'))
     y_signal = df.loc[max_idx, signal_y]
@@ -7405,8 +7405,8 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
       }
 
       hatches = {'up': None, 'down': None, 'wave': None}
-      colors = {'up': 'green', 'down': 'red', 'wave': 'purple'}
-      alphas = {'up': 0.2, 'down': 0.2, 'wave': 0.2}
+      colors = {'up': 'green', 'down': 'red', 'wave': 'yellow'}
+      alphas = {'up': 0.25, 'down': 0.25, 'wave': 0.3}
 
       # 遍历三个列表
       for t in potential_list.keys():
@@ -7455,7 +7455,7 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
     # set border color
     spine_alpha = 0.3
     for position in ['top', 'bottom']: # , 'left', 'right'
-      if (i in [0, 2] and position in ['top']) or (position in ['bottom'] and i not in [1,4]):
+      if (position in ['top'] and tmp_indicator in ['potential', 'adx', 'volume']) or (position in ['bottom'] and tmp_indicator in ['signals', 'potential']):
         axes[tmp_indicator].spines[position].set_alpha(0)
       else:
         axes[tmp_indicator].spines[position].set_alpha(spine_alpha)
