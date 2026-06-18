@@ -7407,7 +7407,6 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
 
       hatches = {'up': None, 'down': None, 'wave_up': '////', 'wave_down': '\\\\\\\\'}
       colors = {'up': 'green', 'down': 'red', 'wave_up': 'white', 'wave_down': 'white'}
-      edgecolors = {'up': 'none', 'down': 'none', 'wave_up': 'black', 'wave_down': 'black'}
       alphas = {'up': 0.25, 'down': 0.25, 'wave_up': 0.25, 'wave_down': 0.25}
 
       # 遍历三个列表
@@ -7418,26 +7417,32 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
         start_i = 0
         end_i = start_i
         for i in range(len(tmp_potential)):
-
+          
+          # 当前趋势延续，且未到尽头：更新end_i
           if tmp_potential[i] and i <len(tmp_potential)-1:
             end_i = i
+
+          # 当前趋势变更，或到尽头：画图
           else:            
             
+            # 到尽头：更新end_i = i
             if i == len(tmp_potential)-1:
-              end_i = i
-              if not tmp_potential[i]:
-                continue
-
+              if tmp_potential[i]:
+                end_i = i
+              else:
+                pass
+            
+            # 填充 start_i - end_i 之间的区域
             if start_i < end_i:
               start_idx = idx_list[start_i]
               end_idx = idx_list[end_i] 
 
               diff_days = (idx_list[start_i+1] - idx_list[start_i]).days
-              if diff_days > 1: # t == 'wave' and
+              if diff_days > 1: 
                 start_idx = idx_list[start_i+1] - datetime.timedelta(days=diff_days/2)
               
               diff_days = (idx_list[end_i+1] - idx_list[end_i]).days
-              if diff_days > 1: # t == 'wave' and
+              if diff_days > 1: 
                 end_idx = idx_list[end_i+1] - datetime.timedelta(days=diff_days/2)
 
               x = (plot_data[idx_list[start_i]:idx_list[end_i]].index).tolist()
