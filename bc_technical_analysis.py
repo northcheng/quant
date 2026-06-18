@@ -5617,9 +5617,9 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     else:
       desc = ((desc + '增强') if v_change > 0 else (desc + '减弱')) if desc == '上行' else ((desc + '减弱') if v_change > 0 else (desc + '增强'))
     y_signal = df.loc[max_idx, signal_y]
-    text_color = 'none' 
+    text_color = 'black'
     v_change = f'{v_change}' if v_change < 0 else f'+{v_change}'
-    plt.annotate(f'{desc}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+    plt.annotate(f'{desc}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color=text_color, va='center',  ha='left', bbox=dict(boxstyle="round", facecolor='white', edgecolor='none', alpha=0.1))
 
     # title and legend
     ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
@@ -5644,7 +5644,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
 
     outer_alpha = 0.66
 
-    df[tmp_col_c] = df[f'{tmp_col_v}'].diff(periods=1)
+    # df[tmp_col_c] = df[f'{tmp_col_v}'].diff(periods=1)
 
     # distance
     df[tmp_col_a] = normalize(df[f'{tmp_col_v}'].abs())
@@ -5683,9 +5683,9 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     else:
       desc = ((desc + '增强') if v_change > 0 else (desc + '减弱')) if desc == '上行' else ((desc + '减弱') if v_change > 0 else (desc + '增强')) 
     y_signal = df.loc[max_idx, signal_y]
-    text_color = 'none' 
+    text_color = 'black'
     v_change = f'{v_change}' if v_change == 0 else f'{v_change * 1000:.2f}'
-    plt.annotate(f'{desc}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+    plt.annotate(f'{desc}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color=text_color, va='center',  ha='left', bbox=dict(boxstyle="round", facecolor='white', edgecolor='none', alpha=0.1))
 
     # title and legend
     ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
@@ -7315,7 +7315,7 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
       down_idx = plot_data.query('trend_score < 0').index
       axes[tmp_indicator].bar(down_idx, plot_data.loc[down_idx, 'normalized_trend_score'], bar_width, color='red', edgecolor='grey', alpha=0.3, label='down')
 
-      plot_data['ichimoku_distance_change'] = plot_data['ichimoku_distance'].diff()
+      # plot_data['ichimoku_distance_change'] = plot_data['ichimoku_distance'].diff()
       plot_data['normalized_ichimoku_score_change'] = (plot_data['ichimoku_distance_change'] / plot_data['ichimoku_distance_change'].abs().max()) + (plot_data['tankan_rate'] / plot_data['tankan_rate'].abs().max())      
       plot_data['normalized_ichimoku_score_change'] = plot_data['normalized_ichimoku_score_change'] / 2
       up_idx = plot_data.query('normalized_ichimoku_score_change > 0').index
@@ -7401,12 +7401,14 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
       potential_list = {
         'up': (plot_data['trend_day'] > prev_trend_day).to_list(),
         'down': (plot_data['trend_day'] < prev_trend_day).to_list(),
-        'wave': ((plot_data['potential'] == "up_down") | (plot_data['potential'] == "down_up")).to_list(),
+        'wave_up': ((plot_data['potential'] == "down_up")).to_list(),
+        'wave_down': ((plot_data['potential'] == "up_down")).to_list(),
       }
 
-      hatches = {'up': None, 'down': None, 'wave': None}
-      colors = {'up': 'green', 'down': 'red', 'wave': 'yellow'}
-      alphas = {'up': 0.25, 'down': 0.25, 'wave': 0.3}
+      hatches = {'up': None, 'down': None, 'wave_up': '////', 'wave_down': '\\\\\\\\'}
+      colors = {'up': 'green', 'down': 'red', 'wave_up': 'white', 'wave_down': 'white'}
+      edgecolors = {'up': 'none', 'down': 'none', 'wave_up': 'black', 'wave_down': 'black'}
+      alphas = {'up': 0.25, 'down': 0.25, 'wave_up': 0.25, 'wave_down': 0.25}
 
       # 遍历三个列表
       for t in potential_list.keys():
@@ -7423,6 +7425,8 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
             
             if i == len(tmp_potential)-1:
               end_i = i
+              if not tmp_potential[i]:
+                continue
 
             if start_i < end_i:
               start_idx = idx_list[start_i]
@@ -7447,6 +7451,8 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
 
             start_i = i
             end_i = i
+      axes[tmp_indicator].yaxis.tick_right()
+      axes[tmp_indicator].set_yticklabels([])
 
     # plot other indicators
     else:
@@ -7510,16 +7516,28 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
     super_title_desc += (f'{desc}' if len(desc) > 0 else '')
 
     # m_trend desc (m_trend)
+    # df['ichimoku_distance_change'] = df['ichimoku_distance'].diff()
+    distance = round(df.loc[idx, "ichimoku_distance"] * 1000, 2)
+    change = round(df.loc[idx, "ichimoku_distance_change"] * 1000, 2)
     m_d = df.loc[idx, "ichimoku_distance"]   
     m_dd = df.loc[idx, "m_direction_day"] 
     desc = f'中期上行' if m_d > 0 else '中期下行'
-    desc = ((desc + '增强') if m_dd > 0 else (desc + '减缓')) if desc == '上行' else ((desc + '减缓') if m_dd > 0 else (desc + '增强'))
+    if desc == '中期上行':
+      if m_dd > 0:
+        desc += '增强' if change != 0 else '波动'
+      else:
+        desc += '减缓' if change != 0 else '波动'
+    else:
+      if m_dd > 0:
+        desc += '减缓' if change != 0 else '波动'
+      else:
+        desc += '增强' if change != 0 else '波动'
+    # desc = ((desc + '增强') if m_dd > 0 else (desc + '减缓')) if desc == '上行' else ((desc + '减缓') if m_dd > 0 else (desc + '增强'))
 
-    df['ichimoku_distance_change'] = df['ichimoku_distance'].diff()
-    distance = round(df.loc[idx, "ichimoku_distance"] * 1000, 2)
-    change = round(df.loc[idx, "ichimoku_distance_change"] * 1000, 2)
+    
+    
     change_desc = f'+{change}' if change >= 0 else f'{change}'    
-    m_trend_desc = (f' {desc}' if len(desc) > 0 else '') + f' | 趋势 {distance:<6} ({change_desc:<6})'
+    m_trend_desc = (f' {desc}' if len(desc) > 0 else '') + f' | 距离 {distance:<6} ({change_desc:<6})'
     super_title_desc += (f' {desc}' if len(desc) > 0 else '')
 
     # pattern desc (pattern)
