@@ -1135,22 +1135,6 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
                             '''.replace('\n', ''),        
 
       # 趋势转换(向上)
-      '趋势渐弱_up':          '''
-                            ( 
-                              (trend == 'wave' and trend_day < 0 and trend_score > -1) or
-                              (trend == 'down' and trend_score > -1)
-                            )
-                            '''.replace('\n', ''),
-
-      # 趋势转换(向下)
-      '趋势渐弱_down':          '''
-                            (
-                              (trend == 'wave' and trend_day > 0 and trend_score < 1) or
-                              (trend == 'up' and trend_score < 1)
-                            )
-                            '''.replace('\n', ''),          
-    
-      # 趋势转换(向上)
       '趋势转换_up':          '''
                             ( 
                               (trend_day == 1 and prev_trend_day < -5) or 
@@ -1168,33 +1152,19 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
                             )
                             '''.replace('\n', ''),
 
-      # # 趋势启动(低位向上)
-      # '趋势启动_up':          '''
-      #                       ( 
-      #                         (position in ['down', 'mid_down']) and (trend_day == 1)
-      #                       )
-      #                       '''.replace('\n', ''),
+      # 趋势启动(低位向上)
+      '趋势启动_up':          '''
+                            ( 
+                              (position in ['down', 'mid_down']) and (trend_day == 1)
+                            )
+                            '''.replace('\n', ''),
 
-      # # 趋势启动(高位向下)
-      # '趋势启动_down':          '''
-      #                       (
-      #                         (position in ['up', 'mid_up']) and (trend_day == -1)
-      #                       )
-      #                       '''.replace('\n', ''),
-    
-      # # 分数剧变(向上)
-      # '分数剧变_up':          '''
-      #                       (
-      #                         (trend_day < 0 and signal_score_change >= 2)
-      #                       )
-      #                       '''.replace('\n', ''),
-
-      # # 分数剧变(向下)
-      # '分数剧变_down':          '''
-      #                       (
-      #                         (trend_day > 0 and signal_score_change <= -2 )
-      #                       )
-      #                       '''.replace('\n', ''),
+      # 趋势启动(高位向下)
+      '趋势启动_down':          '''
+                            (
+                              (position in ['up', 'mid_up']) and (trend_day == -1)
+                            )
+                            '''.replace('\n', ''),
 
       # 区间波动
       '区间波动_up':          '''
@@ -1224,49 +1194,46 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
                             )
                             '''.replace('\n', ''),
 
-      # ichimoku(金叉)
-      'ichimoku_up':          '''
+      # adx(回升)
+      '短期转向_up':          '''
                             (
-                              ichimoku_distance_day == 1
+                              (trend_score < 0 and trend_score_change > 0)
                             )
                             '''.replace('\n', ''),
       
-      # ichimoku(死叉)
-      'ichimoku_down':          '''
+      # adx(回落)
+      '短期转向_down':          '''
                             (
-                              ichimoku_distance_day == -1
+                              (trend_score > 0 and trend_score_change < 0)
+                            )
+                            '''.replace('\n', ''), 
+
+      # ichimoku(回升)
+      '中期转向_up':          '''
+                            (
+                              (ichimoku_distance <= 0 and ichimoku_distance_change > 0 and tankan_rate >= 0)
+                            )
+                            '''.replace('\n', ''),
+      
+      # ichimoku(回落)
+      '中期转向_down':          '''
+                            (
+                              (ichimoku_distance >= 0 and ichimoku_distance_change < 0 and tankan_rate <= 0)
                             )
                             '''.replace('\n', ''),     
-
-      # kama(金叉)
-      'kama_up':          '''
-                            (
-                              kama_distance_day == 1
-                            )
-                            '''.replace('\n', ''),
-      
-      # kama(死叉)
-      'kama_down':          '''
-                            (
-                              kama_distance_day == -1
-                            )
-                            '''.replace('\n', ''),                                        
-
     } 
 
     # set pattern weigths
     p_weights = {
-      '超买超卖': 0.5,
+      '超买超卖': 0.25,
       '关键突破': 1.0,
-      '长线边界': 0.5,
-      '趋势渐弱': 0.25,
+      '长线边界': 1.0,
       '趋势转换': 1.0,
-      # '趋势启动': 1.0,
-      # '分数剧变': 0.75,
+      '趋势启动': 1.0,
       '区间波动': 0.25,
       '触顶触底': 0.75,
-      'kama': 1.0,
-      'ichimoku': 1.0,
+      '短期转向': 1.0,
+      '中期转向': 1.0,
     }
 
     # calculate pattern score and description
@@ -1274,27 +1241,24 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
       '超买超卖': '超卖',
       '关键突破': '低位向上',
       '长线边界': '长线支撑',
-      '趋势渐弱': '下行暂缓',
       '趋势转换': '趋势转上',
-      # '趋势启动': '低位向上',
-      # '分数剧变': '分数大涨',
+      '趋势启动': '低位向上',
       '区间波动': '波动',
       '触顶触底': '触底',
-      'ichimoku': '金叉(I)',
-      'kama': '金叉(K)',
+      '短期转向': 'A下行减缓',
+      '中期转向': 'I下行减缓',
     }
     p_down_desc = {
       '超买超卖': '超买',
       '关键突破': '高位向下',
       '长线边界': '长线阻挡',
-      '趋势渐弱': '上行暂缓',
+      '趋势渐弱': 'A上行暂缓',
       '趋势转换': '趋势转下',
-      # '趋势启动': '高位向下',
-      # '分数剧变': '分数大跌',
+      '趋势启动': '高位向下',
       '区间波动': '波动',
       '触顶触底': '触顶',
-      'ichimoku': '死叉(I)',
-      'kama': '死叉(K)',
+      '短期转向': 'A上行减缓',
+      '中期转向': 'I上行减缓',
     }
     for c in pattern_conditions.keys():
       
@@ -1380,31 +1344,6 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
         ((abs_power_day >= abs_direction_day) and (adx_value > 10 and adx_strength > 25) and (trigger_score >= 0)) \
         )
       ''',
-
-      # # 底部上行，进入波动区域，以adx_direction周期更长, 以adx_direction为准
-      # # '波动' + adx_value起始<0，方向向上 + adx_value>0 或 adx_value_change>0 & adx_value>-5
-      # up_idx = df.query('(adx_trend == 0) and (abs_direction_day > abs_power_day and adx_direction_start < 0 and adx_direction_day > 1 and (adx_value > 0 or (adx_value > -5 and adx_value_change > 0)))').index
-      # df.loc[up_idx, 'adx_trend'] = 1
-
-      # # 顶部下行，进入波动区域，以adx_power周期更长, 以adx_power为准
-      # # '波动' + adx_strength起始>10(adx_value>0)，方向向下，当前-10<adx_value<10, + 不论adx_value转头向上还是继续向下
-      # down_idx = df.query('(adx_trend == 0 and adx_direction_day > 0) and (abs_power_day > abs_direction_day and adx_power_day < 0 and adx_power_start > 10 and adx_power_start_adx_value > 0 and -10 < adx_value < 10)').index
-      # df.loc[down_idx, 'adx_trend'] = -1
-
-      # # 正趋势减弱，以adx_power周期更长, 以adx_power为准
-      # # '波动' + adx（+）高处回落(value向下，strength向下，趋势起始value>20, strength>25)，当前adx_value>10, + 不论adx_value转头向上还是继续向下
-      # down_idx = df.query('(adx_trend == 0 and adx_direction_day > 0) and (abs_power_day > abs_direction_day and adx_power_day < 0 and adx_power_start > 25 and adx_power_start_adx_value > 20 and adx_value > 10) and (adx_direction_start > 10)').index
-      # df.loc[down_idx, 'adx_trend'] = -1
-
-      # # 负趋势增强，以adx_power周期更长, 以adx_power为准
-      # # '波动' + adx（-）向下增强（value向下，strength向上），当前adx_strength>25(adx_value<-10), + 不论adx_value转头向上还是继续向下
-      # down_idx = df.query('(adx_trend == 0 and adx_direction_day > 0) and (abs_power_day > abs_direction_day and adx_power_day < 0 and adx_strength > 25 and adx_value <-10) and (adx_direction_start <-10)').index
-      # df.loc[down_idx, 'adx_trend'] = -1
-
-      # # 正趋势增强，以adx_power周期更长, 以adx_power为准
-      # # '波动' + adx（+）上升趋势，当前adx_strength>25(adx_value>10), + 不论adx_value转头向上还是继续向下
-      # up_idx = df.query('(adx_trend == 0 and adx_direction_day < 0) and (abs_power_day > abs_direction_day and adx_power_day > 0 and adx_power_start_adx_value > 10 and adx_strength > 25 and adx_value > 10) and (adx_direction_start > 10)').index
-      # df.loc[up_idx, 'adx_trend'] = 1
       
     } 
     none_potential_values = {
@@ -1509,29 +1448,51 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
   if 'probability'  > '':
     
     # 概率分数
-    df['proba_up'] = 0
+    df['proba_up'] = df['pattern_up_score']
     df['proba_neutral'] = 0
-    df['proba_down'] = 0
+    df['proba_down'] = df['pattern_down_score']
+    df['proba_score'] = 0
 
-    # 突破 + 支撑 + 正向蜡烛 + 正向模式
-    df['proba_up'] = df['break_up_score'] + df['support_score'] + df['candle_pattern_up_score'] + df['pattern_up_score']
-
-    # 跌落 + 阻挡 + 负向蜡烛 + 负向模式
-    df['proba_down'] = df['break_down_score'] + df['resistant_score'] + df['candle_pattern_down_score'] + df['pattern_down_score']
+    # # 突破 + 支撑 + 正向蜡烛 + 正向模式
+    # df['proba_up'] = df['break_up_score'] + df['support_score'] + df['candle_pattern_up_score'] + df['pattern_up_score']
+    # # 跌落 + 阻挡 + 负向蜡烛 + 负向模式
+    # df['proba_down'] = df['break_down_score'] + df['resistant_score'] + df['candle_pattern_down_score'] + df['pattern_down_score']
  
-    # 相对candle位置
-    for col in ['candle_position_score']:
-      up_idx = df.query(f'{col} > 0').index
-      down_idx = df.query(f'{col} < 0').index
-      df.loc[up_idx, 'proba_up'] += df.loc[up_idx, col]
-      df.loc[down_idx, 'proba_down'] += df.loc[down_idx, col]
+    # # 相对candle位置
+    # for col in ['candle_position_score']:
+    #   up_idx = df.query(f'{col} > 0').index
+    #   down_idx = df.query(f'{col} < 0').index
+    #   df.loc[up_idx, 'proba_up'] += df.loc[up_idx, col]
+    #   df.loc[down_idx, 'proba_down'] += df.loc[down_idx, col]
 
     # 归一化
     score_max = (df['proba_up'].abs() + df['proba_down'].abs()).max()
     df['proba_up'] = df['proba_up'].abs() / score_max
     df['proba_down'] = df['proba_down'].abs() / score_max
     df['proba_neutral'] = 1 - df['proba_up'] - df['proba_down']
-    df['proba_score'] = df['proba_up'] - df['proba_down']
+    df['proba_score'] = df['proba_up'] + df['proba_down']
+
+  if 'action'  > '':
+    action_conditions = {
+      '上行持有':       f'(ichimoku_distance > 0 and (ichimoku_rate > 0 or ichimoku_distance_change > 0) and position == "up" and trend == "up" and trend_score > 0)',  
+      '反转观望':       f'(中期转向 == 1 and (短期转向 == 1 or potential in ["up", "up_1", "down_up"]))',  
+      '触发买入':       f'((potential in ["up", "up_1", "down_up"]) and trend_score > 0 and trigger_score > 0)',
+
+      '下行空仓':       f'(ichimoku_distance < 0 and (ichimoku_rate < 0 or ichimoku_distance_change < 0) and position == "down" and trend == "down" and trend_score < 0)',  
+      '反转注意':       f'(中期转向 == -1 and (短期转向 == -1 or potential in ["down", "down_1", "up_down"]))',  
+      '触发卖出':       f'((potential in ["down", "down_1", "up_down"]) and trend_score < 0 and (trigger_score < 0 or candle_position_score < 0 or pattern_score < 0))',
+    } 
+    for c in action_conditions.keys():
+      
+      if c not in df.columns:
+        df[c] = 0.0
+
+      # # get index which matches the condition
+      tmp_condition = action_conditions[c]
+      tmp_idx = df.query(tmp_condition).index
+      tmp_score = 1
+
+      df.loc[tmp_idx, c] += tmp_score
 
   # 机器学习概率分数
   # if 'ml'  > '':
@@ -5339,6 +5300,22 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     plt.annotate(f'{desc}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
   # patterns
+  if signal_x == 'score':
+
+    # pass
+    # pattern_score
+    tmp_col_v = f'proba_score'
+    tmp_col_a = f'proba_score_alpha'
+    outer_alpha = 0.5
+
+    # pattern score
+    df[tmp_col_a] = normalize(df[tmp_col_v].abs())
+    up_idx = df.query(f'{tmp_col_v} > 0').index
+    down_idx = df.query(f'{tmp_col_v} < 0').index
+    ax.scatter(up_idx, df.loc[up_idx, signal_y], marker='o', color='green', edgecolor='none', alpha=df.loc[up_idx, tmp_col_a].fillna(0))
+    ax.scatter(down_idx, df.loc[down_idx, signal_y], marker='o', color='red', edgecolor='none', alpha=df.loc[down_idx, tmp_col_a].fillna(0))
+
+  # patterns
   if signal_x == '模式':
 
     # pass
@@ -5658,8 +5635,8 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='red', edgecolor='none', alpha=tmp_data[tmp_col_a].fillna(0))
     
     # distance narrow down
-    green_down_idx = df.query(f'{tmp_col_v} >= 0 and (({tmp_col_c} < 0 and {tmp_col_flr} <= 0))').index
-    red_up_idx = df.query(f'{tmp_col_v} <= 0 and (({tmp_col_c} > 0 and {tmp_col_flr} >= 0))').index
+    green_down_idx = df.query(f'中期转向 == -1').index
+    red_up_idx = df.query(f'中期转向 == 1').index
     ax.scatter(green_down_idx, df.loc[green_down_idx, signal_y], marker='4', color='red', edgecolor='none', alpha=0.5)
     ax.scatter(red_up_idx, df.loc[red_up_idx, signal_y], marker='4', color='green', edgecolor='none', alpha=0.5)
 
@@ -5679,7 +5656,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     v_change = df.loc[max_idx, tmp_col_c]
     desc = f'上行' if v > 0 else '下行'
     if v_change == 0:
-      desc = desc + '波动'
+      desc = desc + '停滞'
     else:
       desc = ((desc + '增强') if v_change > 0 else (desc + '减弱')) if desc == '上行' else ((desc + '减弱') if v_change > 0 else (desc + '增强')) 
     y_signal = df.loc[max_idx, signal_y]
@@ -7309,26 +7286,16 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
       else:
         pass
 
-      plot_data['normalized_trend_score'] = plot_data['trend_score'] / plot_data['trend_score'].abs().max()      
-      up_idx = plot_data.query('trend_score > 0').index
-      axes[tmp_indicator].bar(up_idx, plot_data.loc[up_idx, 'normalized_trend_score'], bar_width, color='green', edgecolor='grey', alpha=0.3, label='up')
-      down_idx = plot_data.query('trend_score < 0').index
-      axes[tmp_indicator].bar(down_idx, plot_data.loc[down_idx, 'normalized_trend_score'], bar_width, color='red', edgecolor='grey', alpha=0.3, label='down')
+      axes[tmp_indicator].bar(plot_data.index, plot_data['proba_up'], bar_width, color='green', edgecolor='grey', alpha=0.25, label='up')
+      axes[tmp_indicator].bar(plot_data.index, plot_data['proba_down'], bar_width, color='red', edgecolor='grey', alpha=0.25, label='down')
 
-      # plot_data['ichimoku_distance_change'] = plot_data['ichimoku_distance'].diff()
-      plot_data['normalized_ichimoku_score_change'] = (plot_data['ichimoku_distance_change'] / plot_data['ichimoku_distance_change'].abs().max()) + (plot_data['tankan_rate'] / plot_data['tankan_rate'].abs().max())      
-      plot_data['normalized_ichimoku_score_change'] = plot_data['normalized_ichimoku_score_change'] / 2
-      up_idx = plot_data.query('normalized_ichimoku_score_change > 0').index
-      axes[tmp_indicator].bar(up_idx, plot_data.loc[up_idx, 'normalized_ichimoku_score_change'], bar_width, color='green', edgecolor='grey', alpha=0.2, label='up')
-      down_idx = plot_data.query('normalized_ichimoku_score_change < 0').index
-      axes[tmp_indicator].bar(down_idx, plot_data.loc[down_idx, 'normalized_ichimoku_score_change'], bar_width, color='red', edgecolor='grey', alpha=0.2, label='down')
-      # # 顺序必须是：先画底下 c → 再画中间 b → 最后顶上 a
-      # # 底部 c：绿色
-      # axes[tmp_indicator].bar(plot_data.index, plot_data['proba_up'], bar_width, color='green', edgecolor='grey', alpha=0.2, label='down')
+      # 顺序必须是：先画底下 c → 再画中间 b → 最后顶上 a
+      # 底部 c：绿色
+      # axes[tmp_indicator].bar(plot_data.index, plot_data['proba_up'], bar_width, color='green', edgecolor='grey', alpha=0.5, label='up')
       # # 中间 b：橙色（底部是 c）
-      # axes[tmp_indicator].bar(plot_data.index, plot_data['proba_neutral'], bar_width, bottom=plot_data['proba_up'], color='orange', edgecolor='grey', alpha=0.2, label='neutral')
+      # axes[tmp_indicator].bar(plot_data.index, plot_data['proba_neutral'], bar_width, bottom=plot_data['proba_up'], color='orange', edgecolor='grey', alpha=0.3, label='neutral')
       # # 顶部 a：红色（底部是 c + b）
-      # axes[tmp_indicator].bar(plot_data.index, plot_data['proba_down'], bar_width, bottom=plot_data['proba_up'] + plot_data['proba_neutral'], color='red', edgecolor='grey', alpha=0.2, label='up')
+      # axes[tmp_indicator].bar(plot_data.index, plot_data['proba_down'], bar_width, bottom=plot_data['proba_up'] + plot_data['proba_neutral'], color='red', edgecolor='grey', alpha=0.5, label='down')
 
       # # # 新增水平分割线
       # plot_data['neutral']= 0.5
@@ -7336,8 +7303,8 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
       # axes[tmp_indicator].yaxis.set_ticks_position(default_plot_args['yaxis_position'])
 
       # # plt.ylim(0, 1)
-      axes[tmp_indicator].set_ylim(-1, 1)
-
+      axes[tmp_indicator].yaxis.tick_right()
+      # axes[tmp_indicator].set_yticklabels([])
       # # annotate probability
       # v_up = round(plot_data.loc[max_idx, 'proba_up'], 2)
       # v_down = round(plot_data.loc[max_idx, 'proba_down'], 2)
@@ -7354,7 +7321,7 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
     elif tmp_indicator == 'renko':
       plot_renko(plot_data, use_ax=axes[tmp_indicator], title=tmp_indicator, plot_args=default_plot_args)
 
-    # plot ta signals or candle patterns
+    # plot signals
     elif tmp_indicator == 'signals':
       
       # get signal_list from ta_config
@@ -7458,6 +7425,41 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
             end_i = i
       axes[tmp_indicator].yaxis.tick_right()
       axes[tmp_indicator].set_yticklabels([])
+
+    # plot action
+    elif tmp_indicator == 'action':
+      
+      alpha = 0.5
+      signal_y = 'action_y'
+      plot_data[signal_y] = 0.5
+      
+      tmp_data = plot_data.query(f'(反转观望 == 1)')
+      if len(tmp_data) > 0:
+        axes[tmp_indicator].scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='green', edgecolor='green', alpha=alpha) # outer_alpha
+
+      tmp_data = plot_data.query(f'(触发买入 == 1)')
+      if len(tmp_data) > 0:
+        axes[tmp_indicator].scatter(tmp_data.index, tmp_data[signal_y], marker='^', color='none', edgecolor='green', alpha=alpha) # outer_alpha
+
+      tmp_data = plot_data.query(f'(上行持有 == 1)')
+      if len(tmp_data) > 0:
+        axes[tmp_indicator].scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='green', edgecolor='green', alpha=alpha) # outer_alpha
+
+      tmp_data = plot_data.query(f'(反转注意 == 1)')
+      if len(tmp_data) > 0:
+        axes[tmp_indicator].scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', edgecolor='red', alpha=alpha) # outer_alpha
+
+      tmp_data = plot_data.query(f'(触发卖出 == 1)')
+      if len(tmp_data) > 0:
+        axes[tmp_indicator].scatter(tmp_data.index, tmp_data[signal_y], marker='v', color='none', edgecolor='red', alpha=alpha) # outer_alpha
+
+      tmp_data = plot_data.query(f'(下行空仓 == 1)')
+      if len(tmp_data) > 0:
+        axes[tmp_indicator].scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='red', edgecolor='red', alpha=alpha) # outer_alpha  
+
+
+      axes[tmp_indicator].set_ylim(0, 1)
+      axes[tmp_indicator].yaxis.tick_right()
 
     # plot other indicators
     else:
