@@ -1197,14 +1197,14 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
       # adx(回升)
       '短期转向_up':          '''
                             (
-                              (trend_score < 0 and trend_score_change > 0)
+                              (trend in ['up', 'up_1'] and trend_score_change > 0)
                             )
                             '''.replace('\n', ''),
       
       # adx(回落)
       '短期转向_down':          '''
                             (
-                              (trend_score > 0 and trend_score_change < 0)
+                              (trend in ['down', 'down_1'] and trend_score_change < 0)
                             )
                             '''.replace('\n', ''), 
 
@@ -1472,6 +1472,7 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
     df['proba_neutral'] = 1 - df['proba_up'] - df['proba_down']
     df['proba_score'] = df['proba_up'] + df['proba_down']
 
+  # ================================ calculate action =======================
   if 'action'  > '':
     action_conditions = {
       '上行持有':       f'(ichimoku_distance > 0 and (ichimoku_rate > 0 or ichimoku_distance_change > 0) and position == "up" and trend == "up" and trend_score > 0)',  
@@ -1480,7 +1481,7 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
 
       '下行空仓':       f'(ichimoku_distance < 0 and (ichimoku_rate < 0 or ichimoku_distance_change < 0) and position == "down" and trend == "down" and trend_score < 0)',  
       '反转注意':       f'(中期转向 == -1 and (短期转向 == -1 or potential in ["down", "down_1", "up_down"]))',  
-      '触发卖出':       f'((potential in ["down", "down_1", "up_down"]) and trend_score < 0 and (trigger_score < 0 or candle_position_score < 0 or pattern_score < 0))',
+      '触发卖出':       f'((potential in ["down", "down_1"]) and trend_score < 0 and (trigger_score < 0 or candle_position_score < 0 or pattern_score < 0))',
     } 
     for c in action_conditions.keys():
       
@@ -1493,6 +1494,31 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
       tmp_score = 1
 
       df.loc[tmp_idx, c] += tmp_score
+
+     # mute-action
+    none_action_conditions = {
+      # 高位波动
+      '触发买入': f'''
+        (触发买入 == 1) and (position == "up") and \
+        ( \
+        (m_direction_day < 0) \
+        )
+      ''',
+
+      # 高位波动
+      '触发卖出':f'''
+        (触发卖出 == 1) and (position == "up") and  \
+        ( \
+        (candle_position_score > 0 and break_down_score == 0 and resistant_score == 0) \
+        )
+      ''',
+      
+    } 
+    # mute false-alarm
+    for nc in none_action_conditions.keys():
+      tmp_idx = df.query(none_action_conditions[nc]).index
+      if len(tmp_idx) > 0:
+        df.loc[tmp_idx, nc] = 0
 
   # 机器学习概率分数
   # if 'ml'  > '':
@@ -5411,18 +5437,18 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='green', alpha=alpha) # 'none', edgecolor=
 
     # break_up
-    tmp_data = df.query(f'(break_up_score > {threhold})')
+    tmp_data = df.query(f'(break_down_score < {threhold})')
     if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='^', color='none', edgecolor='green', alpha=alpha) # 'none', edgecolor=
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='v', color='none', edgecolor='red', alpha=alpha) # 'none', edgecolor=
   
     # annotate trigger 
-    v_break = df.loc[max_idx, 'break_up_score']
+    v_break = df.loc[max_idx, 'break_down_score']
     v_boundary = df.loc[max_idx, 'support_score']
     v_score = v_break + v_boundary
 
     desc_break = ''
-    if v_break > 0:
-      desc_break = f'突破'
+    if v_break < 0:
+      desc_break = f'跌落'
     
     desc_boundary = ''
     if v_boundary > 0:
@@ -5434,10 +5460,13 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     else:
       desc = desc_break + desc_boundary
 
+    text_color = 'green' if v_score > 0 else 'red'
+    text_color = 'black' if v_score == 0 else text_color
+
     desc = f'{desc}({v_score:.0f})' if desc != '' else desc
     y_signal = df.loc[max_idx, signal_y]    
-    text_color = 'none'
-    plt.annotate(f'{desc}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color='green', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+    facecolor = 'none'
+    plt.annotate(f'{desc}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color=text_color, va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=facecolor, edgecolor='none', alpha=0.1))
 
   # trigger_down
   if signal_x in ['trigger_down']:
@@ -5452,18 +5481,18 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', alpha=alpha) # 'none', edgecolor=
 
     # break_down
-    tmp_data = df.query(f'(break_down_score < {threhold})')
+    tmp_data = df.query(f'(break_up_score > {threhold})')
     if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='v', color='none', edgecolor='red', alpha=alpha) # 'none', edgecolor=
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='^', color='none', edgecolor='green', alpha=alpha) # 'none', edgecolor=
 
     # annotate trigger 
-    v_break = df.loc[max_idx, 'break_down_score']
+    v_break = df.loc[max_idx, 'break_up_score']
     v_boundary = df.loc[max_idx, 'resistant_score']
     v_score = v_break + v_boundary
     
     desc_break = ''
-    if v_break < 0:
-      desc_break = f'跌落'
+    if v_break > 0:
+      desc_break = f'突破'
     
     desc_boundary = ''
     if v_boundary < 0:
@@ -5474,11 +5503,14 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
       desc = desc_break + ' ' +desc_boundary
     else:
       desc = desc_break + desc_boundary
+    
+    text_color = 'green' if v_score > 0 else 'red'
+    text_color = 'black' if v_score == 0 else text_color
 
     desc = f'{desc}({v_score:.0f})' if desc != '' else desc
     y_signal = df.loc[max_idx, signal_y]    
-    text_color = 'none'
-    plt.annotate(f'{desc}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color='red', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+    facecolor = 'none'
+    plt.annotate(f'{desc}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color=text_color, va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=facecolor, edgecolor='none', alpha=0.1))
 
   # candle position and patterns
   if signal_x in ['candle']:
@@ -5565,11 +5597,13 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     # wave trend
     tmp_data = df.query(f'(trend == "wave" and potential in ["up", "up_1"])')
     if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='green', edgecolor='green', alpha=outer_alpha) # outer_alpha
+      # ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='green', edgecolor='none', alpha=outer_alpha) # outer_alpha
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='orange', alpha=outer_alpha/2)
 
     tmp_data = df.query(f'(trend == "wave" and potential in ["down", "down_1"])')
     if len(tmp_data) > 0:
-      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', edgecolor='red', alpha=outer_alpha)
+      # ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', edgecolor='none', alpha=outer_alpha)
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='orange', alpha=outer_alpha/2)
 
     # adx_distance
     df[tmp_col_a] = normalize(df['trend_score'].abs())
@@ -5578,8 +5612,8 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     ax.scatter(up_idx, df.loc[up_idx, signal_y], marker='s', color='green', edgecolor='none', alpha=df.loc[up_idx, tmp_col_a].fillna(0))
     ax.scatter(down_idx, df.loc[down_idx, signal_y], marker='s', color='red', edgecolor='none', alpha=df.loc[down_idx, tmp_col_a].fillna(0))
 
-    green_down_idx = df.query(f'(trend == "up" and {tmp_col_c} < 0)').index
-    red_up_idx = df.query(f'(trend == "down" and {tmp_col_c} > 0)').index
+    green_down_idx = df.query(f'(trend == "up" and {tmp_col_c} < 0) or (potential in ["up_down"])').index
+    red_up_idx = df.query(f'(trend == "down" and {tmp_col_c} > 0) or (potential in ["down_up"])').index
     ax.scatter(green_down_idx, df.loc[green_down_idx, signal_y], marker='4', color='red', edgecolor='none', alpha=0.5)
     ax.scatter(red_up_idx, df.loc[red_up_idx, signal_y], marker='4', color='green', edgecolor='none', alpha=0.5)
 
@@ -7328,7 +7362,7 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
       signals = tmp_args.get('signal_list')
 
       # plot one by one
-      labels = {' ': '信号', 'trigger': '触发(突破/边界)', 'trigger_up': '触发(支撑/突破)', 'trigger_down': '触发(阻挡/跌落)', '中期': '中期(ichimoku)', 'trend': '短期(adx)', 'candle': '蜡烛(位置/模式)', 'volume': '量价(变化/方向)', 'position': '位置(高低/超买超卖)'}
+      labels = {' ': '信号', 'trigger': '触发(突破/边界)', 'trigger_up': '触发(支撑/跌落)', 'trigger_down': '触发(阻挡/突破)', '中期': '中期(ichimoku)', 'trend': '短期(adx)', 'candle': '蜡烛(位置/模式)', 'volume': '量价(变化/方向)', 'position': '位置(高低/超买超卖)'}
       signal_bases = []
       signal_names = []
       if signals is not None:
@@ -7557,7 +7591,7 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
     desc = {'up':'上行', 'down':'下行', 'wave':'波动'}.get(v)
     desc = '/' if desc is None else desc
     if v == 'wave':
-      desc = '短期波动' + ('上行' if v_score > 0 else '下行')
+      desc = '短期' + ('上行' if v_score > 0 else '下行') + '波动'
     else:
       desc = '短期' + (((desc + '增强') if v_change > 0 else (desc + '减弱')) if desc == '上行' else ((desc + '减弱') if v_change > 0 else (desc + '增强')))
     trend_desc = (f' {desc}' if len(desc) > 0 else '') + f' | 趋势 {df.loc[idx, "trend_score"]:<6} ({change_desc:<6})'
@@ -7601,7 +7635,7 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
     change_desc = f'+{change}' if change >= 0 else f'{change}'
     signal_desc_title = f'{signal_score:<6} ({change_desc:<6})' +f'\n{signal_description}'
 
-    plt.figtext(0.973, 1.05, f'{position_desc}\n{candle_pattern_desc}\n{m_trend_desc}\n{trend_desc}\n{trigger_desc}\n{pattern_desc}', fontsize=13, color='black', ha='right', va='top', bbox=dict(boxstyle="round", fc=desc_color, ec="1.0", alpha=abs(signal_score*0.025)))
+    plt.figtext(0.973, 1.05, f'{position_desc}\n{m_trend_desc}\n{trend_desc}\n{candle_pattern_desc}\n{trigger_desc}\n{pattern_desc}', fontsize=13, color='black', ha='right', va='top', bbox=dict(boxstyle="round", fc=desc_color, ec="1.0", alpha=abs(signal_score*0.025)))
 
   # construct super title
   if new_title is None:
