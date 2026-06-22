@@ -29,12 +29,12 @@
     "plot_args": {
 
       "plot_ratio": {
-        "action": 0.5, "signals": 2.5, "main_indicators": 10, "adx": 1.25, "volume":0.75
+        "signals": 2.75, "adx": 1.25, "main_indicators": 10, "volume":0.75
       },
 
       "signals": {
         "signal_list": [  
-        "position", "candle", "-", "trigger_up", "trend", "中期", "trigger_down"
+        "position", "candle", "-", "trigger_up", "trend", "中期", "trigger_down", "-", "action"
         ]
       },   
 
@@ -55,7 +55,7 @@
       }, 
 
       "size": {
-        "unit_size": 1.9,
+        "unit_size": 2.4,
         "wspace": 0,
         "hspace": 0.015,
         "width_factor": 0.125,

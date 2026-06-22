@@ -5341,6 +5341,34 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     ax.scatter(up_idx, df.loc[up_idx, signal_y], marker='o', color='green', edgecolor='none', alpha=df.loc[up_idx, tmp_col_a].fillna(0))
     ax.scatter(down_idx, df.loc[down_idx, signal_y], marker='o', color='red', edgecolor='none', alpha=df.loc[down_idx, tmp_col_a].fillna(0))
 
+  if signal_x == 'action':
+
+    alpha = 0.5
+    
+    tmp_data = df.query(f'(反转观望 == 1)')
+    if len(tmp_data) > 0:
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='green', edgecolor='green', alpha=alpha) # outer_alpha
+
+    tmp_data = df.query(f'(触发买入 == 1)')
+    if len(tmp_data) > 0:
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='^', color='none', edgecolor='green', alpha=alpha) # outer_alpha
+
+    tmp_data = df.query(f'(上行持有 == 1)')
+    if len(tmp_data) > 0:
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='green', edgecolor='green', alpha=alpha) # outer_alpha
+
+    tmp_data = df.query(f'(反转注意 == 1)')
+    if len(tmp_data) > 0:
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', edgecolor='red', alpha=alpha) # outer_alpha
+
+    tmp_data = df.query(f'(触发卖出 == 1)')
+    if len(tmp_data) > 0:
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='v', color='none', edgecolor='red', alpha=alpha) # outer_alpha
+
+    tmp_data = df.query(f'(下行空仓 == 1)')
+    if len(tmp_data) > 0:
+      ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='red', edgecolor='red', alpha=alpha) # outer_alpha  
+
   # patterns
   if signal_x == '模式':
 
@@ -5612,10 +5640,10 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     ax.scatter(up_idx, df.loc[up_idx, signal_y], marker='s', color='green', edgecolor='none', alpha=df.loc[up_idx, tmp_col_a].fillna(0))
     ax.scatter(down_idx, df.loc[down_idx, signal_y], marker='s', color='red', edgecolor='none', alpha=df.loc[down_idx, tmp_col_a].fillna(0))
 
-    green_down_idx = df.query(f'(trend == "up" and {tmp_col_c} < 0) or (potential in ["up_down"])').index
-    red_up_idx = df.query(f'(trend == "down" and {tmp_col_c} > 0) or (potential in ["down_up"])').index
-    ax.scatter(green_down_idx, df.loc[green_down_idx, signal_y], marker='4', color='red', edgecolor='none', alpha=0.5)
-    ax.scatter(red_up_idx, df.loc[red_up_idx, signal_y], marker='4', color='green', edgecolor='none', alpha=0.5)
+    green_up_idx = df.query(f'(trend == "up" and {tmp_col_c} > 0)').index
+    red_down_idx = df.query(f'(trend == "down" and {tmp_col_c} < 0)').index
+    ax.scatter(green_up_idx, df.loc[green_up_idx, signal_y], marker='.', color='green', edgecolor='none', alpha=0.5)
+    ax.scatter(red_down_idx, df.loc[red_down_idx, signal_y], marker='.', color='red', edgecolor='none', alpha=0.5)
 
     # annotate trend
     v = df.loc[max_idx, 'trend'] # round(df.loc[max_idx, 'trend_score'], 1)
@@ -5751,7 +5779,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
   if signal_x == '-':
     min_idx = df.index.min()
     sy = df[signal_y].mean()
-    ax.hlines(y=sy,xmin=min_idx, xmax=max_idx, color="gray", lw=0.75, linestyle="-", alpha=0.5)
+    ax.hlines(y=sy,xmin=min_idx, xmax=max_idx, color="gray", lw=0.75, linestyle="-", alpha=0.25)
 
   # return ax
   if use_ax is not None:
@@ -5805,14 +5833,14 @@ def plot_adx(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str] =
 
   strong_trend_idx = df.query(f'adx_strength >= {adx_threshold}').index
   weak_trend_idx = df.query(f'adx_strength < {adx_threshold}').index
-  ax.scatter(strong_trend_idx, df.loc[strong_trend_idx, 'adx_strength'], color=df.loc[strong_trend_idx, 'adx_color'], label='adx strength', alpha=0.5, marker='s', zorder=3)
-  ax.scatter(weak_trend_idx, df.loc[weak_trend_idx, 'adx_strength'], color=df.loc[weak_trend_idx, 'adx_color'], alpha=0.5, marker='_', zorder=3)
+  ax.scatter(strong_trend_idx, df.loc[strong_trend_idx, 'adx_strength'], color=df.loc[strong_trend_idx, 'adx_color'], label='adx strength', alpha=0.25, marker='s', zorder=3)
+  ax.scatter(weak_trend_idx, df.loc[weak_trend_idx, 'adx_strength'], color=df.loc[weak_trend_idx, 'adx_color'], alpha=0.25, marker='_', zorder=3)
 
   # plot moving average value of adx_value
   ax.plot(df.index, df.adx_value_prediction, color='black', label='adx prediction',linestyle='-', alpha=0.5, zorder=3) # 
 
   target_col = 'adx_value'
-  plot_bar(df=df, target_col=target_col, alpha=0.4, width=bar_width, color_mode='up_down', edge_color=(0.5,0.5,0.5,0), benchmark=0, title='', use_ax=ax, plot_args=default_plot_args)
+  plot_bar(df=df, target_col=target_col, alpha=0.25, width=bar_width, color_mode='up_down', edge_color=(0.5,0.5,0.5,0), benchmark=0, title='', use_ax=ax, plot_args=default_plot_args)
 
   # annotate adx (adx_strength_change)
   interval_factor = {'day':2, 'week': 10, 'month': 45}
@@ -7502,7 +7530,7 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
     # set border color
     spine_alpha = 0.3
     for position in ['top', 'bottom']: # , 'left', 'right'
-      if (position in ['top'] and tmp_indicator in ['potential', 'adx', 'volume']) or (position in ['bottom'] and tmp_indicator in ['signals', 'potential']):
+      if (position in ['top'] and tmp_indicator in ['potential', 'adx', 'volume']) or (position in ['bottom'] and tmp_indicator in ['adx', 'potential']):
         axes[tmp_indicator].spines[position].set_alpha(0)
       else:
         axes[tmp_indicator].spines[position].set_alpha(spine_alpha)
