@@ -8,7 +8,8 @@ import os
 import math
 import sympy
 import datetime
-import ta
+import platform
+# import ta
 import numpy as np
 import pandas as pd
 import mplfinance as mpf
@@ -26,8 +27,12 @@ from pathlib import Path
 from quant import bc_util as util
 from quant import bc_data_io as io_util
 
-# set font for chinese characters 
-plt.rcParams['font.sans-serif'] = ['SimHei'] 
+# check platform and set font for chinese characters 
+p = platform.system()
+if p == 'Windows':
+  plt.rcParams['font.sans-serif'] = ['SimHei'] 
+else:
+  plt.rcParams['font.sans-serif'] = ['Noto Sans CJK SC'] 
 plt.rcParams['axes.unicode_minus'] = False
 
 # ================================================ default parameters =============================================== # 
@@ -4963,7 +4968,8 @@ def plot_bar(df: pd.DataFrame, target_col: str, start: Optional[str] = None, end
   ax = use_ax
   if ax is None:
     fig = mpf.figure(figsize=plot_args['figsize'])
-    s = mpf.make_mpf_style(base_mpf_style='yahoo', rc={'font.family': 'SimHei', 'axes.unicode_minus': 'False'})
+    # bug
+    s = mpf.make_mpf_style(base_mpf_style='yahoo')#, rc={'font.family': 'SimHei', 'axes.unicode_minus': 'False'})
     ax = fig.add_subplot(1,1,1, style=s)
 
   # plot bar
@@ -7543,8 +7549,9 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
   title_color = 'green' if close_rate > 0 else 'red'
   desc_color = 'green' if signal_score > 0 else 'red'
   title_symbol = up_down_symbol[close_rate > 0]
-  plt.rcParams['font.sans-serif'] = ['SimHei'] 
-  plt.rcParams['axes.unicode_minus'] = False
+  # # bug
+  # plt.rcParams['font.sans-serif'] = ['SimHei'] 
+  # plt.rcParams['axes.unicode_minus'] = False
 
   # plot trade info
   if trade_info is not None:
