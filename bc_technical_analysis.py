@@ -29,10 +29,12 @@ from quant import bc_data_io as io_util
 
 # check platform and set font for chinese characters 
 p = platform.system()
+BASE_FONTSIZE = 11
 if p == 'Windows':
   plt.rcParams['font.sans-serif'] = ['SimHei'] 
 else:
   plt.rcParams['font.sans-serif'] = ['Noto Sans CJK SC'] 
+  BASE_FONTSIZE -= 1
 plt.rcParams['axes.unicode_minus'] = False
 
 # ================================================ default parameters =============================================== # 
@@ -5162,7 +5164,7 @@ def plot_up_down(df: pd.DataFrame, col: str = 'trend_idx', start: Optional[str] 
   # y_signal = 0
   # text_signal = int(df.loc[max_idx, 'ichimoku_distance_day'])
   # text_color = 'red' if text_signal < 0 else 'green'
-  # plt.annotate(f'ich: {text_signal}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=12, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.05))
+  # plt.annotate(f'ich: {text_signal}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=BASE_FONTSIZE+1, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, alpha=0.05))
 
   # title and legend
   # ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
@@ -5329,7 +5331,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     v_change = round(df.loc[max_idx, 'signal_score_change'], 2)
     text_color = 'green' if signal in ['buy', 'to_buy'] else 'red' 
     text_color = 'grey' if signal == '' else text_color
-    plt.annotate(f'{desc}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+    plt.annotate(f'{desc}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=BASE_FONTSIZE, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
   # patterns
   if signal_x == 'score':
@@ -5456,7 +5458,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
 
     y_signal = df.loc[max_idx, signal_y]    
     text_color = 'none'
-    plt.annotate(f'{desc}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+    plt.annotate(f'{desc}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=BASE_FONTSIZE, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
   # trigger_up
   if signal_x in ['trigger_up']:
@@ -5500,7 +5502,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     desc = f'{desc}({v_score:.0f})' if desc != '' else desc
     y_signal = df.loc[max_idx, signal_y]    
     facecolor = 'none'
-    plt.annotate(f'{desc}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color=text_color, va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=facecolor, edgecolor='none', alpha=0.1))
+    plt.annotate(f'{desc}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=BASE_FONTSIZE, xycoords='data', textcoords='data', color=text_color, va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=facecolor, edgecolor='none', alpha=0.1))
 
   # trigger_down
   if signal_x in ['trigger_down']:
@@ -5544,7 +5546,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     desc = f'{desc}({v_score:.0f})' if desc != '' else desc
     y_signal = df.loc[max_idx, signal_y]    
     facecolor = 'none'
-    plt.annotate(f'{desc}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color=text_color, va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=facecolor, edgecolor='none', alpha=0.1))
+    plt.annotate(f'{desc}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=BASE_FONTSIZE, xycoords='data', textcoords='data', color=text_color, va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=facecolor, edgecolor='none', alpha=0.1))
 
   # candle position and patterns
   if signal_x in ['candle']:
@@ -5587,7 +5589,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     v_change = df.loc[max_idx, 'candle_pattern_up_description'] + df.loc[max_idx, 'candle_pattern_down_description']
     
     text_color = 'none'
-    plt.annotate(f'{candle_desc} {v_change}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+    plt.annotate(f'{candle_desc} {v_change}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=BASE_FONTSIZE, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
   # volume
   if signal_x in ['volume']:
@@ -5664,7 +5666,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     y_signal = df.loc[max_idx, signal_y]
     text_color = 'black'
     v_change = f'{v_change}' if v_change < 0 else f'+{v_change}'
-    plt.annotate(f'{desc}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color=text_color, va='center',  ha='left', bbox=dict(boxstyle="round", facecolor='white', edgecolor='none', alpha=0.1))
+    plt.annotate(f'{desc}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=BASE_FONTSIZE, xycoords='data', textcoords='data', color=text_color, va='center',  ha='left', bbox=dict(boxstyle="round", facecolor='white', edgecolor='none', alpha=0.1))
 
     # title and legend
     ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
@@ -5730,7 +5732,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     y_signal = df.loc[max_idx, signal_y]
     text_color = 'black'
     v_change = f'{v_change}' if v_change == 0 else f'{v_change * 1000:.2f}'
-    plt.annotate(f'{desc}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color=text_color, va='center',  ha='left', bbox=dict(boxstyle="round", facecolor='white', edgecolor='none', alpha=0.1))
+    plt.annotate(f'{desc}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=BASE_FONTSIZE, xycoords='data', textcoords='data', color=text_color, va='center',  ha='left', bbox=dict(boxstyle="round", facecolor='white', edgecolor='none', alpha=0.1))
 
     # title and legend
     ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
@@ -5773,7 +5775,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     obos_score = df.loc[max_idx, "超买超卖"]
     v_change = '' if obos_score == 0 else ('(超买)' if obos_score < 0 else '(超卖)')
     text_color = 'none'    
-    plt.annotate(f'{v}{v_change}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+    plt.annotate(f'{v}{v_change}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=BASE_FONTSIZE, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
     # title and legend
     ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
@@ -5867,7 +5869,7 @@ def plot_adx(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str] =
   y_signal = round(y_middle + y_range/3.3)
   text_color = 'green' if v_change > 0 else 'red'
   v_change = f'+{v_change}' if v_change > 0 else f'{v_change}'
-  plt.annotate(f'[S]{v:0<5}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+  plt.annotate(f'[S]{v:0<5}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=BASE_FONTSIZE, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
   # annotate adx_value(adx_value_change)
   x_signal = max_idx + datetime.timedelta(days=1 * interval_factor[interval])
@@ -5876,7 +5878,7 @@ def plot_adx(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str] =
   y_signal = round(y_middle)
   text_color = 'green' if v_change > 0 else 'red'
   v_change = f'+{v_change}' if v_change > 0 else f'{v_change}'
-  plt.annotate(f'[V]{v:0<5}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+  plt.annotate(f'[V]{v:0<5}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=BASE_FONTSIZE, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
   # annotate adx_value_prediction(adx_value_prediction - adx_value)
   x_signal = max_idx + datetime.timedelta(days=1 * interval_factor[interval])
@@ -5895,7 +5897,7 @@ def plot_adx(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str] =
   else:
     text_color = 'grey'
   v_change = f'+{v_change}' if v_change > 0 else f'{v_change}'
-  plt.annotate(f'[D]{v:0<5}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+  plt.annotate(f'[D]{v:0<5}({v_change})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=BASE_FONTSIZE, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
@@ -6015,7 +6017,7 @@ def plot_candlestick(df: pd.DataFrame, start: Optional[str] = None, end: Optiona
     y_close_padding = padding*5
     y_close = round(df.loc[max_idx, 'Close'], 3)
     y_text_close = y_close
-    plt.annotate(f'{y_close}', xy=(annotation_idx, y_text_close), xytext=(annotation_idx, y_text_close), fontsize=13, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", alpha=0.0))
+    plt.annotate(f'{y_close}', xy=(annotation_idx, y_text_close), xytext=(annotation_idx, y_text_close), fontsize=BASE_FONTSIZE+2, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", alpha=0.0))
 
     y_resistant = None
     y_text_resistant = None
@@ -6033,7 +6035,7 @@ def plot_candlestick(df: pd.DataFrame, start: Optional[str] = None, end: Optiona
       diff = y_text_resistant - y_text_close
       if diff < y_close_padding:
         y_text_resistant = y_text_close + y_close_padding
-      plt.annotate(f'{y_resistant}[{resistant_score}]', xy=(annotation_idx, y_text_resistant), xytext=(annotation_idx, y_text_resistant), fontsize=13, xycoords='data', textcoords='data', color='black', va='bottom',  ha='left', bbox=dict(boxstyle="round", facecolor='red', alpha=0.1*resistant_score)) # 
+      plt.annotate(f'{y_resistant}[{resistant_score}]', xy=(annotation_idx, y_text_resistant), xytext=(annotation_idx, y_text_resistant), fontsize=BASE_FONTSIZE+2, xycoords='data', textcoords='data', color='black', va='bottom',  ha='left', bbox=dict(boxstyle="round", facecolor='red', alpha=0.1*resistant_score)) # 
     
     # annotate support 
     if df.loc[max_idx, 'supporter'] is not None and df.loc[max_idx, 'supporter'] > '':
@@ -6046,7 +6048,7 @@ def plot_candlestick(df: pd.DataFrame, start: Optional[str] = None, end: Optiona
       diff = y_text_close - y_text_support
       if diff < y_close_padding:
         y_text_support = y_text_close - y_close_padding
-      plt.annotate(f'{y_support}[{support_score}]', xy=(annotation_idx, y_text_support), xytext=(annotation_idx, y_text_support), fontsize=13, xycoords='data', textcoords='data', color='black', va='top',  ha='left', bbox=dict(boxstyle="round", facecolor='green', alpha=0.1*support_score)) #
+      plt.annotate(f'{y_support}[{support_score}]', xy=(annotation_idx, y_text_support), xytext=(annotation_idx, y_text_support), fontsize=BASE_FONTSIZE+2, xycoords='data', textcoords='data', color='black', va='top',  ha='left', bbox=dict(boxstyle="round", facecolor='green', alpha=0.1*support_score)) #
 
   # annotate candle patterns
   if 'pattern' in add_on:
@@ -6093,8 +6095,8 @@ def plot_candlestick(df: pd.DataFrame, start: Optional[str] = None, end: Optiona
       # 'linear_break_trend': {'u': '突破', 'd': '跌落'}
     }
     settings = {
-      'normal': {'fontsize':12, 'fontcolor':'black', 'va':'center', 'ha':'center', 'up':'green', 'down':'red', 'alpha': 0.15, 'arrowstyle': '-'},
-      'emphasis': {'fontsize':12, 'fontcolor':'black', 'va':'center', 'ha':'center', 'up':'yellow', 'down':'purple', 'alpha': 0.15, 'arrowstyle': '-'},
+      'normal': {'fontsize':BASE_FONTSIZE+1, 'fontcolor':'black', 'va':'center', 'ha':'center', 'up':'green', 'down':'red', 'alpha': 0.15, 'arrowstyle': '-'},
+      'emphasis': {'fontsize':BASE_FONTSIZE+1, 'fontcolor':'black', 'va':'center', 'ha':'center', 'up':'yellow', 'down':'purple', 'alpha': 0.15, 'arrowstyle': '-'},
     }
 
     # plot other patterns
@@ -6604,7 +6606,7 @@ def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Opt
     plt.text(
       x=annotation_idx, y=y_mid, 
       s=price_info,
-      fontsize=11, color='black', va='center', ha='left', bbox=dict(boxstyle="round", facecolor='white', edgecolor='black', alpha=0.25)
+      fontsize=BASE_FONTSIZE, color='black', va='center', ha='left', bbox=dict(boxstyle="round", facecolor='white', edgecolor='black', alpha=0.25)
     )
 
   # title and legend
@@ -6978,7 +6980,7 @@ def plot_summary(data: dict, width: int = 20, unit_size: float = 0.3, wspace: fl
       num_down = len(down_idx)
       title_color = 'green' if num_total/2 > num_down else 'red'  
       rate_ax.scatter(tmp_data['rate'], tmp_data.index, color=tmp_data['rate_color'], label='rate', marker='$R$', alpha=0.5, zorder=10) #, edgecolor='k'
-      rate_ax.set_xlabel(f'[{t.replace("_day", "")}] Today ({num_total-num_down}/{num_total})', labelpad = 10, fontsize = 20) 
+      rate_ax.set_xlabel(f'[{t.replace("_day", "")}] Today ({num_total-num_down}/{num_total})', labelpad = 10, fontsize = BASE_FONTSIZE+9) 
       rate_ax.legend(loc='upper left', ncol=plot_args['ncol']) 
 
     # plot previous score
@@ -7021,7 +7023,7 @@ def plot_summary(data: dict, width: int = 20, unit_size: float = 0.3, wspace: fl
       # reverse X axis
       # score_ax.invert_xaxis()
       # score_ax.scatter(tmp_data['previous_rate'], tmp_data.index, color=tmp_data['rate_color'], label='rate', marker='o', alpha=0.5)
-      score_ax.set_xlabel(f'Previous Day', labelpad = 10, fontsize = 20) 
+      score_ax.set_xlabel(f'Previous Day', labelpad = 10, fontsize = BASE_FONTSIZE+9) 
 
     # borders
     rate_ax.spines['right'].set_alpha(0)
@@ -7116,7 +7118,7 @@ def plot_review(prefix: str, df: pd.DataFrame, sort_factors: list = ['signal_sco
     tmp_data.loc[down_idx, 'pattern_color'] = 'red'
     title_color = 'black' 
     rate_ax.barh(tmp_data.index, tmp_data[secondary_factor], color=tmp_data['pattern_color'], label=secondary_factor, alpha=0.5) #, edgecolor='k'
-    rate_ax.set_xlabel(f'{primary_factor} - {secondary_factor}', labelpad = 10, fontsize = 20) 
+    rate_ax.set_xlabel(f'{primary_factor} - {secondary_factor}', labelpad = 10, fontsize = BASE_FONTSIZE+9) 
     rate_ax.legend(loc='upper right', ncol=plot_args['ncol']) 
 
     # plot score
@@ -7124,7 +7126,7 @@ def plot_review(prefix: str, df: pd.DataFrame, sort_factors: list = ['signal_sco
     down_idx = tmp_data.query('验证 <= 0').index    
     tmp_data.loc[down_idx, 'score_color'] = 'red'
     score_ax.barh(tmp_data.index, tmp_data['验证'], color=tmp_data['score_color'], left=0,label='验证', alpha=0.5) #, edgecolor='k'  
-    score_ax.set_title(f'验证结果 - {validation_statistic}', fontsize=20)
+    score_ax.set_title(f'验证结果 - {validation_statistic}', fontsize=BASE_FONTSIZE+9)
     score_ax.legend(loc='upper left', ncol=plot_args['ncol']) 
 
     # borders
@@ -7337,7 +7339,7 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
       text_color = 'green' if v_change > 0 else 'red'
       desc = '量升' if v_change > 0 else '量跌'
       v_change = f'+{v_change}' if v_change > 0 else f'{v_change}'
-      plt.annotate(f'{desc}({v_day})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+      plt.annotate(f'{desc}({v_day})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=BASE_FONTSIZE, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
     # plot score
     elif tmp_indicator == 'score':
@@ -7383,7 +7385,7 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
       # colors = ['green', 'orange', 'red']
       # values = np.array([v_up, v_neutral, v_down])
       # text_color = colors[np.argmax(values)]
-      # plt.annotate(f'{v}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=11, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
+      # plt.annotate(f'{v}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=BASE_FONTSIZE, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
     # plot renko
     elif tmp_indicator == 'renko':
@@ -7670,7 +7672,7 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
     change_desc = f'+{change}' if change >= 0 else f'{change}'
     signal_desc_title = f'{signal_score:<6} ({change_desc:<6})' +f'\n{signal_description}'
 
-    plt.figtext(0.973, 1.05, f'{position_desc}\n{m_trend_desc}\n{trend_desc}\n{candle_pattern_desc}\n{trigger_desc}\n{pattern_desc}', fontsize=13, color='black', ha='right', va='top', bbox=dict(boxstyle="round", fc=desc_color, ec="1.0", alpha=abs(signal_score*0.025)))
+    plt.figtext(0.973, 1.05, f'{position_desc}\n{m_trend_desc}\n{trend_desc}\n{candle_pattern_desc}\n{trigger_desc}\n{pattern_desc}', fontsize=BASE_FONTSIZE+2, color='black', ha='right', va='top', bbox=dict(boxstyle="round", fc=desc_color, ec="1.0", alpha=abs(signal_score*0.025)))
 
   # construct super title
   if new_title is None:
@@ -7678,7 +7680,7 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
   super_title = f' {title}({new_title})  {close_rate}% {title_symbol}'
 
   # super title description
-  fig.suptitle(f'{super_title}\n{super_title_desc}', ha='center', va='top', x=0.5, y=1.05, fontsize=24, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.05), linespacing = 1.8)
+  fig.suptitle(f'{super_title}\n{super_title_desc}', ha='center', va='top', x=0.5, y=1.05, fontsize=BASE_FONTSIZE+13, bbox=dict(boxstyle="round", fc=title_color, ec="1.0", alpha=0.05), linespacing = 1.8)
   
   # save image
   if save_image and (save_path is not None):
