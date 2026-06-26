@@ -1047,6 +1047,7 @@ def download_eod_parallel(
   num_symbols = len(symbols)
   download_tasks = []
   skipped_up_to_date = []
+  local_data_cache = {}
   
   for market, market_symbols in markets.items():
     if len(market_symbols) == 0:
@@ -1060,17 +1061,17 @@ def download_eod_parallel(
       today = datetime.datetime.today().date()
       mkt_benchmark_date = util.time_2_string(today)
     
-    start_date = util.string_plus_day(mkt_benchmark_date, -window_days)
-    
     for symbol in market_symbols:
-      # 检查本地数据是否已是最新（仅在非refresh模式下检查）
+      # 检查本地数据（仅在非refresh模式下检查）
+      local_latest_date = None
+      local_data = None
       if update_mode != 'refresh':
         symbol_file_name = Path(stock_data_path) / f'{symbol}{file_format}'
         if os.path.exists(symbol_file_name):
           try:
-            existed_data = load_stock_data(file_path=stock_data_path, file_name=symbol, file_format=file_format)
-            if existed_data is not None and len(existed_data) > 0:
-              max_idx = existed_data.index.max()
+            local_data = load_stock_data(file_path=stock_data_path, file_name=symbol, file_format=file_format)
+            if local_data is not None and len(local_data) > 0:
+              max_idx = local_data.index.max()
               if max_idx > util.string_2_time('2020-01-01'):
                 local_latest_date = util.time_2_string(max_idx)
                 # 如果本地数据日期 >= benchmark日期，跳过
@@ -1079,6 +1080,16 @@ def download_eod_parallel(
                   continue
           except Exception:
             pass
+      
+      # 增量下载：从本地最新日期往前3天开始下载
+      if local_latest_date is not None:
+        start_date = util.string_plus_day(local_latest_date, -3)
+      else:
+        start_date = util.string_plus_day(mkt_benchmark_date, -window_days)
+      
+      # 缓存本地数据，用于后续拼接
+      if local_data is not None:
+        local_data_cache[symbol] = local_data
       
       download_tasks.append((
         symbol,
@@ -1114,7 +1125,17 @@ def download_eod_parallel(
         result_symbol, data, status, error_msg = future.result()
         
         if status == 'success' and data is not None:
-          results[result_symbol] = data
+          # 增量下载：将新数据拼接到本地数据上
+          if result_symbol in local_data_cache:
+            local_data = local_data_cache[result_symbol]
+            merged_data = pd.concat([local_data, data])
+            merged_data = util.remove_duplicated_index(df=merged_data, keep='last').dropna()
+            results[result_symbol] = merged_data
+            # 如果需要保存，保存合并后的数据
+            if is_save:
+              save_stock_data(df=merged_data, file_path=stock_data_path, file_name=result_symbol, file_format=file_format, reset_index=True, index=False)
+          else:
+            results[result_symbol] = data
         elif status == 'symbol_not_found':
           if error_msg:
             print(f'  [skip] {symbol}: {error_msg}')
