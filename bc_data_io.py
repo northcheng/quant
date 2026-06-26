@@ -1015,7 +1015,8 @@ def download_eod_parallel(
   add_dividend: bool = True,
   add_split: bool = True,
   adjust: str = 'qfq',
-  progress_callback=None
+  progress_callback=None,
+  update_mode: str = 'eod'
 ) -> Dict[str, pd.DataFrame]:
   """
   并行下载多个标的的EOD数据
@@ -1035,6 +1036,7 @@ def download_eod_parallel(
   :param add_split: 是否添加拆股数据
   :param adjust: 复权类型
   :param progress_callback: 进度回调函数
+  :param update_mode: 更新模式，'refresh'时跳过日期检查强制重新下载
   :returns: {symbol: dataframe}
   """
   if sources is None:
@@ -1042,7 +1044,9 @@ def download_eod_parallel(
   if api_keys is None:
     api_keys = {}
   
+  num_symbols = len(symbols)
   download_tasks = []
+  skipped_up_to_date = []
   
   for market, market_symbols in markets.items():
     if len(market_symbols) == 0:
@@ -1059,6 +1063,23 @@ def download_eod_parallel(
     start_date = util.string_plus_day(mkt_benchmark_date, -window_days)
     
     for symbol in market_symbols:
+      # 检查本地数据是否已是最新（仅在非refresh模式下检查）
+      if update_mode != 'refresh':
+        symbol_file_name = Path(stock_data_path) / f'{symbol}{file_format}'
+        if os.path.exists(symbol_file_name):
+          try:
+            existed_data = load_stock_data(file_path=stock_data_path, file_name=symbol, file_format=file_format)
+            if existed_data is not None and len(existed_data) > 0:
+              max_idx = existed_data.index.max()
+              if max_idx > util.string_2_time('2020-01-01'):
+                local_latest_date = util.time_2_string(max_idx)
+                # 如果本地数据日期 >= benchmark日期，跳过
+                if local_latest_date >= mkt_benchmark_date:
+                  skipped_up_to_date.append(symbol)
+                  continue
+          except Exception:
+            pass
+      
       download_tasks.append((
         symbol,
         market,
@@ -1077,7 +1098,12 @@ def download_eod_parallel(
   results = {}
   failed_symbols = []
   
-  # print(f'[parallel_download]: 开始下载 {len(download_tasks)} 个标的，使用 {max_workers} 个线程')
+  if skipped_up_to_date:
+    print(f'[{"downloading":^19}] : {len(skipped_up_to_date)}/{num_symbols} already up-to-date, skip')
+  
+  if not download_tasks:
+    # print('[parallel_download]: 所有标的均已更新，无需下载')
+    return results
   
   with ThreadPoolExecutor(max_workers=max_workers) as executor:
     futures = {executor.submit(download_single_symbol_eod, task): task[0] for task in download_tasks}
