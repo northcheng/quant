@@ -38,12 +38,16 @@ from pathlib import Path
 
 # self defined
 from quant import bc_util as util
+from tqdm import tqdm
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import List, Dict, Optional
 
 # global variables
 est_tz = pytz.timezone('US/Eastern')
 utc_tz = pytz.timezone('UTC')
 default_eod_key = 'OeAFFmMliFG5orCUuwAKQ8l4WWFQ67YX'
 headers = {'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.164 Safari/537.36'}
+tqdm_ncols = 91
 
 # standards
 # STANDARD_US_SYMBOL = 'AAPL'
@@ -941,6 +945,169 @@ def update_stock_data_new(symbols: list, stock_data_path: str, file_format: str 
   # return
   if is_return:
     return data
+
+# 下载单个标的的EOD数据（用于多线程并行）
+def download_single_symbol_eod(args) -> tuple:
+  """
+  下载单个标的的EOD数据（用于多线程并行）
+  
+  :param args: tuple of (symbol, market, start_date, end_date, source, api_key, stock_data_path, file_format, is_save, add_dividend, add_split, adjust)
+  :returns: tuple of (symbol, data, status, error_msg)
+  """
+  symbol, market, start_date, end_date, source, api_key, stock_data_path, file_format, is_save, add_dividend, add_split, adjust = args
+  
+  retry_count = 0
+  max_retries = 3
+  retry_delay = 2
+  
+  while retry_count < max_retries:
+    try:
+      tmp_symbol = preprocess_symbol(symbols=[symbol], style=source).get(symbol)
+      if tmp_symbol is None:
+        return (symbol, None, 'symbol_not_found', f'Symbol {symbol} not found from source {source}')
+      
+      data = get_data(
+        symbol=tmp_symbol,
+        start_date=start_date,
+        end_date=end_date,
+        interval='d',
+        is_print=False,
+        source=source,
+        api_key=api_key,
+        add_dividend=add_dividend,
+        add_split=add_split,
+        adjust=adjust
+      )
+      
+      if is_save and data is not None and len(data) > 0:
+        save_stock_data(
+          df=data,
+          file_path=stock_data_path,
+          file_name=symbol,
+          file_format=file_format,
+          reset_index=True,
+          index=False
+        )
+      
+      return (symbol, data, 'success', None)
+      
+    except Exception as e:
+      retry_count += 1
+      error_msg = f'{type(e).__name__}: {str(e)}'
+      if retry_count < max_retries:
+        time.sleep(retry_delay * retry_count)
+      
+  return (symbol, None, 'error', error_msg)
+
+# 并行下载EOD数据
+def download_eod_parallel(
+  symbols: List[str],
+  markets: Dict[str, list],
+  benchmark_dates: Dict[str, str],
+  stock_data_path: str,
+  file_format: str = '.csv',
+  window_days: int = 7,
+  is_save: bool = True,
+  sources: Dict[str, str] = None,
+  api_keys: Dict[str, str] = None,
+  max_workers: int = 5,
+  required_date: str = None,
+  add_dividend: bool = True,
+  add_split: bool = True,
+  adjust: str = 'qfq',
+  progress_callback=None
+) -> Dict[str, pd.DataFrame]:
+  """
+  并行下载多个标的的EOD数据
+  
+  :param symbols: 标的列表
+  :param markets: 市场分类 {'us': [...], 'cn': [...], 'hk': [...]}
+  :param benchmark_dates: 各市场的最新日期 {'us': '2026-06-24', ...}
+  :param stock_data_path: 本地存储路径
+  :param file_format: 文件格式
+  :param window_days: 向前回溯天数
+  :param is_save: 是否保存到本地
+  :param sources: 数据源配置
+  :param api_keys: API密钥配置
+  :param max_workers: 最大并行线程数
+  :param required_date: 要求的数据截止日期
+  :param add_dividend: 是否添加分红数据
+  :param add_split: 是否添加拆股数据
+  :param adjust: 复权类型
+  :param progress_callback: 进度回调函数
+  :returns: {symbol: dataframe}
+  """
+  if sources is None:
+    sources = default_data_sources
+  if api_keys is None:
+    api_keys = {}
+  
+  download_tasks = []
+  
+  for market, market_symbols in markets.items():
+    if len(market_symbols) == 0:
+      continue
+      
+    tmp_source = sources.get(f'{market}_eod')
+    tmp_api_key = api_keys.get(tmp_source, '')
+    
+    mkt_benchmark_date = benchmark_dates.get(market, required_date)
+    if mkt_benchmark_date is None:
+      today = datetime.datetime.today().date()
+      mkt_benchmark_date = util.time_2_string(today)
+    
+    start_date = util.string_plus_day(mkt_benchmark_date, -window_days)
+    
+    for symbol in market_symbols:
+      download_tasks.append((
+        symbol,
+        market,
+        start_date,
+        mkt_benchmark_date,
+        tmp_source,
+        tmp_api_key,
+        stock_data_path,
+        file_format,
+        is_save,
+        add_dividend,
+        add_split,
+        adjust
+      ))
+  
+  results = {}
+  failed_symbols = []
+  
+  # print(f'[parallel_download]: 开始下载 {len(download_tasks)} 个标的，使用 {max_workers} 个线程')
+  
+  with ThreadPoolExecutor(max_workers=max_workers) as executor:
+    futures = {executor.submit(download_single_symbol_eod, task): task[0] for task in download_tasks}
+    
+    for future in tqdm(as_completed(futures), total=len(futures), ncols=tqdm_ncols, ascii=True, desc=f'[{"downloading":^19}] '):
+      symbol = futures[future]
+      try:
+        result_symbol, data, status, error_msg = future.result()
+        
+        if status == 'success' and data is not None:
+          results[result_symbol] = data
+        elif status == 'symbol_not_found':
+          if error_msg:
+            print(f'  [skip] {symbol}: {error_msg}')
+        else:
+          failed_symbols.append((symbol, error_msg))
+          print(f'  [error] {symbol}: {error_msg}')
+          
+      except Exception as e:
+        failed_symbols.append((symbol, f'Future exception: {str(e)}'))
+        print(f'  [error] {symbol}: {str(e)}')
+      
+      if progress_callback:
+        progress_callback(len(results), len(failed_symbols), len(download_tasks))
+  
+  # print(f'[parallel_download]: 完成 - 成功 {len(results)}, 失败 {len(failed_symbols)}')
+  if failed_symbols:
+    print(f'[{"download failed":^19}]: {[s for s, _ in failed_symbols[:10]]}' + ('...' if len(failed_symbols) > 10 else ''))
+  
+  return results
 
 # update stock data from eod 
 def update_stock_data_from_eod(symbols: list, stock_data_path: str, file_format: str = '.csv', update_mode: str = 'eod', required_date: str = None, window_size: int = 3, is_print: bool = False, is_return: bool = False, is_save: bool = True, cn_stock: bool = False, api_key: str = default_eod_key, add_dividend: bool = True, add_split: bool = True, batch_size: int = 15) -> dict:
