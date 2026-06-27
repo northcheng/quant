@@ -34,7 +34,7 @@ if p == 'Windows':
   plt.rcParams['font.sans-serif'] = ['SimHei'] 
 else:
   plt.rcParams['font.sans-serif'] = ['Noto Sans CJK SC'] 
-  BASE_FONTSIZE -= 1
+  BASE_FONTSIZE -= 2
 plt.rcParams['axes.unicode_minus'] = False
 
 # ================================================ default parameters =============================================== # 
