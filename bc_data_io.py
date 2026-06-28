@@ -549,7 +549,7 @@ def get_real_time_data_from_eod(symbols: list, api_key: str = default_eod_key, i
     real_time = [real_time] if isinstance(real_time, dict) else real_time
     
     if is_print:
-      print(f'updating real-time for symbol: {batch_start+1:3} -{batch_end:3} - {response}')      
+      print(f'[{"realtime":^19}] - updating real-time for symbol: {batch_start+1:3} -{batch_end:3} - {response}')      
   
     # post process downloaded real-time data
     real_time_data = pd.DataFrame(real_time)
@@ -613,7 +613,7 @@ def get_real_time_data_from_easyquotation(symbols: list, source: str = 'sina') -
 
   # create quoataion entity
   quotation = eq.use(source)
-  print(f'updating real-time for symbols from easyquotation({source})')
+  print(f'[{"realtime":^19}] - updating real-time for symbols from easyquotation({source})')
 
   # get stock data from sina
   codes = [x.split('.')[0] for x in symbols]
@@ -835,7 +835,9 @@ def update_stock_data_new(symbols: list, stock_data_path: str, file_format: str 
 
     # retry 5 times
     retry_count = 0
-    while retry_count < 5:
+    max_retries = 5
+    retry_delay = 2
+    while retry_count < max_retries:
       try:
         time.sleep(1)
         retry_count += 1
@@ -914,7 +916,7 @@ def update_stock_data_new(symbols: list, stock_data_path: str, file_format: str 
           tmp_source = sources[f'{mkt}_realtime']
           tmp_sub_source = 'hkquote' if mkt == 'hk' else 'sina'
 
-          if sources[f'{mkt}_eod'] in ['ak'] and update_mode in 'both':
+          if sources[f'{mkt}_eod'] in ['ak'] and update_mode in ['both']:
             print(f'--------real-time data comes with eod data from ak--------')
 
           else:
@@ -937,7 +939,7 @@ def update_stock_data_new(symbols: list, stock_data_path: str, file_format: str 
         break
       except Exception as e:
         print(f'[erro]: updating data failed for [{mkt} market], try({retry_count}/5), {type(e)} - {e}')
-        time.sleep(5)
+        time.sleep(retry_delay)
         continue
     
     print()
@@ -951,25 +953,75 @@ def download_single_symbol_eod(args) -> tuple:
   """
   下载单个标的的EOD数据（用于多线程并行）
   
-  :param args: tuple of (symbol, market, start_date, end_date, source, api_key, stock_data_path, file_format, is_save, add_dividend, add_split, adjust)
+  :param args: tuple of (ssymbol, market, start_date, required_date, benchmark_date, update_mode, source, api_key, stock_data_path, file_format, is_save, add_dividend, add_split, adjust)
   :returns: tuple of (symbol, data, status, error_msg)
   """
-  symbol, market, start_date, end_date, source, api_key, stock_data_path, file_format, is_save, add_dividend, add_split, adjust = args
-  
+
+  # unpack args
+  symbol, market, start_date, required_date, benchmark_date, update_mode, source, api_key, stock_data_path, file_format, is_save, add_dividend, add_split, adjust = args
+  # initialize parameters
   retry_count = 0
-  max_retries = 3
+  max_retries = 5
   retry_delay = 2
-  
+
+  # try to download data, up to 5 times
+  data = None
   while retry_count < max_retries:
+
+    retry_count += 1
     try:
-      tmp_symbol = preprocess_symbol(symbols=[symbol], style=source).get(symbol)
-      if tmp_symbol is None:
-        return (symbol, None, 'symbol_not_found', f'Symbol {symbol} not found from source {source}')
-      
-      data = get_data(
-        symbol=tmp_symbol,
+
+      # preprocess symbol
+      query_symbol = preprocess_symbol(symbols=[symbol], style=source).get(symbol)
+      if query_symbol is None:
+        status = 'symbol_not_found'
+        messages = f'[erro]: Symbol {symbol} not found from source {source}'
+        break
+
+      # get local data
+      symbol_file_name = stock_data_path / f'{symbol}{file_format}'
+      tmp_data_date = None
+      if os.path.exists(symbol_file_name):
+
+        # delete local data if refresh mode
+        if update_mode == 'refresh':
+          os.remove(symbol_file_name)
+
+        # otherwise load local data and get its most recent date
+        else:
+          existed_data = load_stock_data(file_path=stock_data_path, file_name=symbol, file_format=file_format)
+          if existed_data is not None and len(existed_data) > 0:
+            
+            max_idx = existed_data.index.max()
+            if max_idx > util.string_2_time('2020-01-01'):
+              tmp_data_date = util.time_2_string(max_idx)
+              data = existed_data
+
+              if tmp_data_date >= benchmark_date:   
+                           
+                status = 'already_up_to_date'
+                messages = None
+                break
+
+            else:
+              print(f'max index of {symbol} is invalid({max_idx}), refreshing data')
+              os.remove(symbol_file_name)
+
+          else:
+            print(f'data {symbol} is empty, refreshing data')
+            os.remove(symbol_file_name)
+
+      # update eod data for those which local data date < benchmark date
+      if tmp_data_date is not None:
+        start_date = util.string_plus_day(tmp_data_date, -3)
+      else:
+        start_date = None
+
+      # get eod data
+      new_data = get_data(
+        symbol=query_symbol,
         start_date=start_date,
-        end_date=end_date,
+        end_date=required_date,
         interval='d',
         is_print=False,
         source=source,
@@ -979,6 +1031,13 @@ def download_single_symbol_eod(args) -> tuple:
         adjust=adjust
       )
       
+      # append new data to local data if not already updated
+      if data is not None:
+        data = pd.concat([existed_data, new_data])
+      else:
+        data = new_data
+      
+      # save data if specified
       if is_save and data is not None and len(data) > 0:
         save_stock_data(
           df=data,
@@ -989,172 +1048,269 @@ def download_single_symbol_eod(args) -> tuple:
           index=False
         )
       
-      return (symbol, data, 'success', None)
+      status = 'success'
+      messages = None
+      break
       
     except Exception as e:
-      retry_count += 1
-      error_msg = f'{type(e).__name__}: {str(e)}'
+      print(f'[erro]: failed updating eod data for [{symbol}](parallely), try({retry_count}/5), {type(e)} - {e}')
+      status = 'failed'
+      messages = f'{type(e).__name__}: {str(e)}'
       if retry_count < max_retries:
-        time.sleep(retry_delay * retry_count)
-      
-  return (symbol, None, 'error', error_msg)
+        time.sleep(retry_delay)
+  
+  return (symbol, query_symbol, data, status, messages)
 
 # 并行下载EOD数据
 def download_eod_parallel(
   symbols: List[str],
-  markets: Dict[str, list],
-  benchmark_dates: Dict[str, str],
   stock_data_path: str,
   file_format: str = '.csv',
-  window_days: int = 7,
-  is_save: bool = True,
   sources: Dict[str, str] = None,
   api_keys: Dict[str, str] = None,
-  max_workers: int = 5,
+  update_mode: str = 'eod',
   required_date: str = None,
+  is_print: bool = False,
+  is_save: bool = True,
   add_dividend: bool = True,
   add_split: bool = True,
   adjust: str = 'qfq',
   progress_callback=None,
-  update_mode: str = 'eod'
+  query_benchmark: bool = True,
+  max_workers: int = 5,
+  batch_size: int = 15
 ) -> Dict[str, pd.DataFrame]:
   """
-  并行下载多个标的的EOD数据
-  
+  并行下载多个标的的EOD数据和REALTIME数据
+
   :param symbols: 标的列表
-  :param markets: 市场分类 {'us': [...], 'cn': [...], 'hk': [...]}
-  :param benchmark_dates: 各市场的最新日期 {'us': '2026-06-24', ...}
   :param stock_data_path: 本地存储路径
-  :param file_format: 文件格式
-  :param window_days: 向前回溯天数
-  :param is_save: 是否保存到本地
-  :param sources: 数据源配置
+  :param file_format: 文件格式，默认为 '.csv'
+  :param sources: 数据源配置，默认为 default_data_sources
   :param api_keys: API密钥配置
-  :param max_workers: 最大并行线程数
+  :param update_mode: 更新模式，'eod' 时仅更新比本地新的数据，'refresh' 时强制重新下载
   :param required_date: 要求的数据截止日期
+  :param is_print: 是否打印详细信息
+  :param is_save: 是否保存到本地文件
   :param add_dividend: 是否添加分红数据
   :param add_split: 是否添加拆股数据
-  :param adjust: 复权类型
-  :param progress_callback: 进度回调函数
-  :param update_mode: 更新模式，'refresh'时跳过日期检查强制重新下载
-  :returns: {symbol: dataframe}
+  :param adjust: 复权类型，'qfq' 前复权 / 'hfq' 后复权 / 'none' 不复权
+  :param progress_callback: 进度回调函数，签名为 callback(success_count, failed_count, total_count)
+  :param query_benchmark: 是否查询各市场基准标的获取最新数据日期
+  :param max_workers: 最大并行线程数，默认为 5
+  :param batch_size: 批处理大小，默认为 15
+  :returns: dict，{symbol: dataframe}，包含所有标的的EOD数据（已与本地数据合并）
   """
-  if sources is None:
-    sources = default_data_sources
-  if api_keys is None:
-    api_keys = {}
-  
+
+  # get benchmark symbols
+  global BENCHMARK_SYMBOL
+
+  # default dates
+  today = datetime.datetime.today().date()
+  today = util.time_2_string(today)
+  start_date = util.string_plus_day(today, -7)
+
+  # verify symbols
   num_symbols = len(symbols)
-  download_tasks = []
-  skipped_up_to_date = []
-  local_data_cache = {}
+  if num_symbols == 0:
+    print('empty symbols list')
+    return None
   
-  for market, market_symbols in markets.items():
+  # verify stock_data_path
+  stock_data_path = Path(stock_data_path)
+  if not stock_data_path.exists():
+    print(f'stock_data_path {stock_data_path} not exist')
+    return None
+
+  # verify update_mode
+  if update_mode not in ['realtime', 'eod', 'both', 'refresh']:
+    print(f'unknown update mode: {update_mode}')
+    return None
+
+  # classify symbols by market
+  us_symbols = [x for x in symbols if x.isalpha()]
+  cn_symbols = [x for x in symbols if x.isdigit() and len(x) == 6]
+  hk_symbols = [x for x in symbols if x.isdigit() and len(x) == 5]
+  other_symbols = [x for x in symbols if (x not in us_symbols and x not in cn_symbols and x not in hk_symbols)]
+  
+  symbol_count = {'us': len(us_symbols), 'cn': len(cn_symbols), 'hk': len(hk_symbols), 'other': len(other_symbols)}
+  symbol_class = {'us': us_symbols, 'cn': cn_symbols, 'hk': hk_symbols, 'other': other_symbols}
+  print(f'US({symbol_count["us"]}), CN({symbol_count["cn"]}), HK({symbol_count["hk"]}), Other({symbol_count["other"]})')
+  if symbol_count['other'] > 0:
+    print(f'Unexpected symbols found: {other_symbols}')
+
+  # -------------------------------------------------- benchmark --------------------------------------------------#
+  # set benchmarks for different markets
+  benchmark_symbols = BENCHMARK_SYMBOL
+  benchmark_dates = {}
+  benchmark_api_keys = {}
+
+  # query benchmark dates for each market
+  for mkt in benchmark_symbols.keys():
+    benchmark_source = sources[f'{mkt}_eod']
+    benchmark_api_keys[mkt] = api_keys.get(benchmark_source)
+    mkt_symbol_count = symbol_count[mkt]
+    mkt_benchmark_symbol = preprocess_symbol([benchmark_symbols[mkt]], benchmark_source).get(benchmark_symbols[mkt])
+    # mkt_benchmark_symbol = '105.AAPL' if (mkt == 'us' and benchmark_source == 'ak') else mkt_benchmark_symbol
+    
+    # when query_benchmark required, there's symbol for this market and benchmark symbol is not None
+    if query_benchmark:
+      if mkt_symbol_count > 0 and mkt_benchmark_symbol is not None:
+        
+        # try to get benchmark data for current market, up to 5 times if failed, use today as default date
+        retry_count = 0
+        while retry_count < 5:
+          try:
+            retry_count += 1
+            print(f'[data]: querying benchmark({mkt_benchmark_symbol}) date for [{mkt.upper()}] from {benchmark_source} (try #{retry_count})')        
+
+            # get data for benchmark symbol of current market
+            tmp_data = get_data(mkt_benchmark_symbol, start_date=start_date, end_date=today, interval='d', is_print=False, source=benchmark_source, api_key=benchmark_api_keys[mkt], add_dividend=False, add_split=False, adjust='qfq')
+            if tmp_data is not None and len(tmp_data) > 0:
+              benchmark_dates[mkt] = util.time_2_string(tmp_data.index.max()) 
+            else:                 
+              benchmark_dates[mkt] = today
+              print(f'[-{mkt.upper()}-]: benchmark({mkt_benchmark_symbol}) data is empty, use today - {today}')
+            
+            # break when finish
+            break
+
+          except Exception as e:
+            
+            # if failed, sleep 5 seconds and try again
+            print(f'[erro]: querying benchmark failed for [{mkt} market], try({retry_count}/5), {type(e)} - {e}')        
+            time.sleep(5)
+            continue
+
+    # check whether got behchmart data successfully
+    tmp_benchmark_date = benchmark_dates.get(mkt)
+    if tmp_benchmark_date is None:
+      benchmark_dates[mkt] = today
+      print(f'[-{mkt.upper()}-]: symbols({mkt_symbol_count}), benchmark({mkt_benchmark_symbol}), date(skip benchmark query, use today - {today})') # 
+    else:
+      print(f'[-{mkt.upper()}-]: symbols({mkt_symbol_count}), benchmark({mkt_benchmark_symbol}), date({benchmark_dates[mkt]})')
+
+  print()
+  time.sleep(2)
+
+  # -------------------------------------------------- eod data ---------------------------------------------------#
+  # construct download tasks
+  download_tasks = []
+  for market, market_symbols in symbol_class.items():
+    
+    # skip market with an empty list
     if len(market_symbols) == 0:
       continue
-      
+
+    # get source and api key for current market
     tmp_source = sources.get(f'{market}_eod')
     tmp_api_key = api_keys.get(tmp_source, '')
     
-    mkt_benchmark_date = benchmark_dates.get(market, required_date)
+    # get benchmark date for current market
+    mkt_benchmark_date = benchmark_dates.get(market)
     if mkt_benchmark_date is None:
-      today = datetime.datetime.today().date()
-      mkt_benchmark_date = util.time_2_string(today)
+      mkt_benchmark_date = today
     
+    start_date = None
+
+    # construct download tasks for each symbol
     for symbol in market_symbols:
-      # 检查本地数据（仅在非refresh模式下检查）
-      local_latest_date = None
-      local_data = None
-      if update_mode != 'refresh':
-        symbol_file_name = Path(stock_data_path) / f'{symbol}{file_format}'
-        if os.path.exists(symbol_file_name):
-          try:
-            local_data = load_stock_data(file_path=stock_data_path, file_name=symbol, file_format=file_format)
-            if local_data is not None and len(local_data) > 0:
-              max_idx = local_data.index.max()
-              if max_idx > util.string_2_time('2020-01-01'):
-                local_latest_date = util.time_2_string(max_idx)
-                # 如果本地数据日期 >= benchmark日期，跳过
-                if local_latest_date >= mkt_benchmark_date:
-                  skipped_up_to_date.append(symbol)
-                  continue
-          except Exception:
-            pass
+
+      download_tasks.append(
+        (symbol, market, start_date, required_date, mkt_benchmark_date, update_mode, tmp_source, tmp_api_key, stock_data_path, file_format, is_save, add_dividend, add_split, adjust)
+      )
+  
+  # parallel download eod data
+  symbol_downloaded = []
+  symbol_up_to_date = []
+  symbol_not_found = []
+  symbol_download_failed = []
+  
+  # parallelly run download tasks
+  data = {}
+  if len(download_tasks) > 0:
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+      futures = {executor.submit(download_single_symbol_eod, task): task[0] for task in download_tasks}
       
-      # 增量下载：从本地最新日期往前3天开始下载
-      if local_latest_date is not None:
-        start_date = util.string_plus_day(local_latest_date, -3)
-      else:
-        start_date = util.string_plus_day(mkt_benchmark_date, -window_days)
-      
-      # 缓存本地数据，用于后续拼接
-      if local_data is not None:
-        local_data_cache[symbol] = local_data
-      
-      download_tasks.append((
-        symbol,
-        market,
-        start_date,
-        mkt_benchmark_date,
-        tmp_source,
-        tmp_api_key,
-        stock_data_path,
-        file_format,
-        is_save,
-        add_dividend,
-        add_split,
-        adjust
-      ))
-  
-  results = {}
-  failed_symbols = []
-  
-  if skipped_up_to_date:
-    print(f'[{"downloading":^19}] : {len(skipped_up_to_date)}/{num_symbols} already up-to-date, skip')
-  
-  if not download_tasks:
-    # print('[parallel_download]: 所有标的均已更新，无需下载')
-    return results
-  
-  with ThreadPoolExecutor(max_workers=max_workers) as executor:
-    futures = {executor.submit(download_single_symbol_eod, task): task[0] for task in download_tasks}
-    
-    for future in tqdm(as_completed(futures), total=len(futures), ncols=tqdm_ncols, ascii=True, desc=f'[{"downloading":^19}] '):
-      symbol = futures[future]
-      try:
-        result_symbol, data, status, error_msg = future.result()
+      for future in tqdm(as_completed(futures), total=len(futures), ncols=tqdm_ncols, ascii=True, desc=f'[{"downloading":^19}] '):
+        # symbol = futures[future]
         
-        if status == 'success' and data is not None:
-          # 增量下载：将新数据拼接到本地数据上
-          if result_symbol in local_data_cache:
-            local_data = local_data_cache[result_symbol]
-            merged_data = pd.concat([local_data, data])
-            merged_data = util.remove_duplicated_index(df=merged_data, keep='last').dropna()
-            results[result_symbol] = merged_data
-            # 如果需要保存，保存合并后的数据
-            if is_save:
-              save_stock_data(df=merged_data, file_path=stock_data_path, file_name=result_symbol, file_format=file_format, reset_index=True, index=False)
+        try:
+          # get thread result from future
+          result_symbol, query_symbol, result_data, status, error_msg = future.result()
+          if query_symbol is not None and result_symbol is not None and len(result_data) > 0:
+            data[result_symbol] = result_data
+
+          # if thread download successfully
+          if status == 'success' and result_data is not None:
+            symbol_downloaded.append(result_symbol)
+            
+          elif status == 'symbol_not_found':
+            symbol_not_found.append(result_symbol)
+
+          elif status == 'already_up_to_date':
+            symbol_up_to_date.append(result_symbol)
+
+          elif status == 'failed':
+            symbol_download_failed.append(result_symbol)
+
           else:
-            results[result_symbol] = data
-        elif status == 'symbol_not_found':
+            symbol_download_failed.append(result_symbol)
+
           if error_msg:
-            print(f'  [skip] {symbol}: {error_msg}')
-        else:
-          failed_symbols.append((symbol, error_msg))
-          print(f'  [error] {symbol}: {error_msg}')
+              print(f'[{"downloading failed":^19}] : {result_symbol}: {error_msg}')
+            
+        except Exception as e:
           
-      except Exception as e:
-        failed_symbols.append((symbol, f'Future exception: {str(e)}'))
-        print(f'  [error] {symbol}: {str(e)}')
+          print(f'[erro] : {result_symbol}: {str(e)}')
+        
+        if progress_callback:
+          progress_callback(len(symbol_downloaded)+len(symbol_up_to_date), len(symbol_download_failed) + len(symbol_not_found), len(download_tasks))
+  else:
+    pass
+
+  if is_print and len(symbol_up_to_date) > 0:
+    print(f'[{"eod":^19}] - [skip] : {len(symbol_up_to_date)}/{num_symbols} already up-to-date, skip')
+  
+  # -------------------------------------------------- realtime data ----------------------------------------------#
+  # download real-time data
+  if update_mode in ['realtime', 'both']:
+    for mkt in symbol_class.keys():
+
+      # skip market with an empty list
+      if len(symbol_class[mkt]) == 0:
+        continue
       
-      if progress_callback:
-        progress_callback(len(results), len(failed_symbols), len(download_tasks))
-  
-  # print(f'[parallel_download]: 完成 - 成功 {len(results)}, 失败 {len(failed_symbols)}')
-  if failed_symbols:
-    print(f'[{"download failed":^19}]: {[s for s, _ in failed_symbols[:10]]}' + ('...' if len(failed_symbols) > 10 else ''))
-  
-  return results
+      # print(f'[{"realtime data":^19}] - ')
+      tmp_source = sources[f'{mkt}_realtime']
+      tmp_sub_source = 'hkquote' if mkt == 'hk' else 'sina'
+
+      # with akshare, real-time data comes with eod data
+      if sources[f'{mkt}_eod'] in ['ak'] and update_mode in ['both']:
+        print(f'[{"realtime":^19}] - real-time data comes with eod data from ak')
+
+      else:
+        query_symbol_list = preprocess_symbol(symbols=symbol_class[mkt], style=tmp_source)
+        real_time_data = get_real_time_data(symbols=query_symbol_list, source=tmp_source, sub_source=tmp_sub_source, api_key=benchmark_api_keys[mkt], batch_size=batch_size, is_print=is_print)
+        if tmp_source == 'eod':
+          real_time_data = util.df_2_timeseries(df=real_time_data, time_col='Date')
+        
+        # append it corresponding eod data according to symbols
+        for symbol in symbol_class[mkt]:
+          tmp_data = real_time_data.query(f'symbol == "{symbol}"')[data[symbol].columns].copy()
+          
+          if len(tmp_data) == 0:
+            print(f'real-time data not found for {symbol}')
+            continue
+
+          else:
+            tmp_idx = tmp_data.index.max()
+            for col in data[symbol].columns:
+              data[symbol].loc[tmp_idx, col] = tmp_data.loc[tmp_idx, col]
+            data[symbol] = util.remove_duplicated_index(df=data[symbol], keep='last').dropna()
+
+  return data
 
 # update stock data from eod 
 def update_stock_data_from_eod(symbols: list, stock_data_path: str, file_format: str = '.csv', update_mode: str = 'eod', required_date: str = None, window_size: int = 3, is_print: bool = False, is_return: bool = False, is_save: bool = True, cn_stock: bool = False, api_key: str = default_eod_key, add_dividend: bool = True, add_split: bool = True, batch_size: int = 15) -> dict:

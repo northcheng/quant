@@ -1574,6 +1574,7 @@ def visualization(df: pd.DataFrame, start: str = None, end: str = None, interval
       df=df, title=title, args=plot_args, start=start, end=end, interval=interval,
       show_image=is_show, save_image=is_save, save_path=save_path, trade_info=trade_info)
   except Exception as e:
+    print(df['symbol'].values[0])
     print(phase, e)
 
 # postprocess
@@ -5251,7 +5252,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
   """
   # copy dataframe within the specific period
   df = df[start:end].copy()
-  
+
   # use existed figure or create figure
   ax = use_ax
   if ax is None:
@@ -5640,7 +5641,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     if len(tmp_data) > 0:
       # ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', edgecolor='none', alpha=outer_alpha)
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='none', edgecolor='orange', alpha=outer_alpha/2)
-
+    
     # adx_distance
     df[tmp_col_a] = normalize(df['trend_score'].abs())
     up_idx = df.query('trend_score > 0').index
@@ -5742,7 +5743,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
 
   # 位置(及波动标识)
   if signal_x in ['position']:
-    
+
     tmp_col_v = 'position'
     tmp_col_a = 'position_alpha'
     # df[tmp_col_a] = normalize(df['position_score'].abs()) * 0.8
@@ -5768,8 +5769,9 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     if len(tmp_data) > 0:
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='x', color='red', edgecolor='red', alpha=alpha) # 
 
+    
     # annotate position
-    position_dict = {'down': '低位', 'mid_down': '中低位', 'mid': '中位', 'mid_up': '中高位', 'up': '高位'}
+    position_dict = {'down': '低位', 'mid_down': '中低位', 'mid': '中位', 'mid_up': '中高位', 'up': '高位', '': '-'}
     v = position_dict[df.loc[max_idx, "position"]]
     y_signal = df.loc[max_idx, signal_y]
     obos_score = df.loc[max_idx, "超买超卖"]
@@ -5782,7 +5784,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
     ax.grid(True, axis='x', linestyle='-', linewidth=0.5, alpha=0.1)
     ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
-
+    
   # 分割线
   if signal_x == '-':
     min_idx = df.index.min()
@@ -7267,6 +7269,7 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
     tmp_indicator = indicators[i]
     tmp_args = args.get(tmp_indicator)
     
+
     # put the main_indicators at the bottom, share_x
     if i == 0:
       axes[tmp_indicator] = plt.subplot(gs[i]) 
