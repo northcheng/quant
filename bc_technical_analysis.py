@@ -246,6 +246,7 @@ def preprocess(df: pd.DataFrame, symbol: str, print_error: bool = True):
     
   # process 0 values
   if len(zero_cols) > 0:
+    error_info = error_info + ', ' if len(error_info) > 0 else error_info
     error_info += '0 values found in '
     for col in zero_cols:
       error_info += f'{col}'
@@ -253,7 +254,7 @@ def preprocess(df: pd.DataFrame, symbol: str, print_error: bool = True):
   
   # print error information
   if print_error and len(error_info) > 0:
-    error_info = f'[{symbol}]: on {max_idx.date()}, {error_info}'
+    error_info = f'\n[{symbol}]: on {max_idx.date()}, {error_info}'
     print(error_info)
 
   # add symbol and change rate of close price

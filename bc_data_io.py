@@ -759,9 +759,9 @@ def update_stock_data_new(symbols: list, stock_data_path: str, file_format: str 
   other_symbols = [x for x in symbols if (x not in us_symbols and x not in cn_symbols and x not in hk_symbols)]
   symbol_class = {'us': us_symbols, 'cn': cn_symbols, 'hk': hk_symbols, 'other': other_symbols}
   symbol_count = {'us': len(us_symbols), 'cn': len(cn_symbols), 'hk': len(hk_symbols), 'other': len(other_symbols)}
-  print(f'US({symbol_count["us"]}), CN({symbol_count["cn"]}), HK({symbol_count["hk"]}), Other({symbol_count["other"]})')
+  # print(f'US({symbol_count["us"]}), CN({symbol_count["cn"]}), HK({symbol_count["hk"]}), Other({symbol_count["other"]})')
   if symbol_count['other'] > 0:
-    print(f'Unexpected symbols found: {other_symbols}')
+    print(f'[{"pool":^19}] - [erro]: Unexpected symbols found: {other_symbols}')
 
   # default dates
   today = datetime.datetime.today().date()
@@ -791,14 +791,14 @@ def update_stock_data_new(symbols: list, stock_data_path: str, file_format: str 
         while retry_count < 5:
           try:
             retry_count += 1
-            print(f'[data]: querying benchmark({mkt_benchmark_symbol}) date for [{mkt.upper()}] from {benchmark_source} (try #{retry_count})')        
+            # print(f'[data]: querying benchmark({mkt_benchmark_symbol}) date for [{mkt.upper()}] from {benchmark_source} (try #{retry_count})')        
 
             # get data for benchmark symbol of current market
             tmp_data = get_data(mkt_benchmark_symbol, start_date=start_date, end_date=today, interval='d', is_print=False, source=benchmark_source, api_key=benchmark_api_keys[mkt], add_dividend=False, add_split=False, adjust='qfq')
             if len(tmp_data) > 0:
               benchmark_dates[mkt] = util.time_2_string(tmp_data.index.max()) 
             else:   
-              print(f'[-{mkt.upper()}-]: benchmark({mkt_benchmark_symbol}) data is empty, use today - {today}')
+              print(f'[-{mkt.upper()} - [{mkt.upper():^4}]: benchmark({mkt_benchmark_symbol}) data is empty, use today - {today}')
               benchmark_dates[mkt] = today
             
             # break when finish
@@ -807,19 +807,19 @@ def update_stock_data_new(symbols: list, stock_data_path: str, file_format: str 
           except Exception as e:
             
             # if failed, sleep 5 seconds and try again
-            print(f'[erro]: querying benchmark failed for [{mkt} market], try({retry_count}/5), {type(e)} - {e}')        
+            print(f'[{"benchmark":^19}] - [erro]: querying benchmark failed for [{mkt} market], try({retry_count}/5), {type(e)} - {e}')        
             time.sleep(5)
             continue
           
     # check whether got behchmart data successfully
-    tmp_benchmark_date = benchmark_dates.get(mkt)
-    if tmp_benchmark_date is None:
-      benchmark_dates[mkt] = today
-      print(f'[-{mkt.upper()}-]: symbols({mkt_symbol_count}), benchmark({mkt_benchmark_symbol}), date(skip benchmark query, use today - {today})') # 
-    else:
-      print(f'[-{mkt.upper()}-]: symbols({mkt_symbol_count}), benchmark({mkt_benchmark_symbol}), date({benchmark_dates[mkt]})')
+    if mkt_symbol_count > 0:
+      tmp_benchmark_date = benchmark_dates.get(mkt)
+      if tmp_benchmark_date is None:
+        benchmark_dates[mkt] = today
+        print(f'[{mkt.upper()+" market":^19}] - [pool]: symbols({mkt_symbol_count}), benchmark({mkt_benchmark_symbol}), date(skip benchmark query, use today - {today})') # 
+      else:
+        print(f'[{mkt.upper()+" market":^19}] - [pool]: symbols({mkt_symbol_count}), benchmark({mkt_benchmark_symbol}), date({benchmark_dates[mkt]})')
 
-  print()
   time.sleep(2)
 
   # for different markets
@@ -841,7 +841,7 @@ def update_stock_data_new(symbols: list, stock_data_path: str, file_format: str 
       try:
         time.sleep(1)
         retry_count += 1
-        print(f'[data]: updating data for [{mkt.upper()}] from {tmp_source} (try #{retry_count})')
+        # print(f'[data]: updating data for [{mkt.upper()}] from {tmp_source} (try #{retry_count})')
 
         # get the existed data and its latest date for each symbols
         process_counter = 0
@@ -908,16 +908,16 @@ def update_stock_data_new(symbols: list, stock_data_path: str, file_format: str 
         num_symbol_up_to_date = len(up_to_date_symbols)
         if num_symbol_up_to_date > 0:
           if is_print:
-            print(f'[{num_symbol_up_to_date:04}]from {tmp_data_date} ***** - [skip]: <already up-to-date {num_symbol_up_to_date}/{len(symbol_class[mkt])} >')
+            print(f'[{"eod":^19}] - [skip] : {num_symbol_up_to_date}/{len(symbol_class[mkt])} already up-to-date')
 
         # add real-time data when requiring data return and data will NOT be saved
         if update_mode in ['realtime', 'both']:
-          print('***************** querying real-time data *****************')
+          # print('***************** querying real-time data *****************')
           tmp_source = sources[f'{mkt}_realtime']
           tmp_sub_source = 'hkquote' if mkt == 'hk' else 'sina'
 
           if sources[f'{mkt}_eod'] in ['ak'] and update_mode in ['both']:
-            print(f'--------real-time data comes with eod data from ak--------')
+            print(f'[{"realtime":^19}] - real-time data comes with eod data from ak')
 
           else:
             real_time_data = get_real_time_data(symbols=symbol_class[mkt], source=tmp_source, sub_source=tmp_sub_source, api_key=benchmark_api_keys[mkt], is_print=is_print, batch_size=batch_size)
@@ -941,8 +941,6 @@ def update_stock_data_new(symbols: list, stock_data_path: str, file_format: str 
         print(f'[erro]: updating data failed for [{mkt} market], try({retry_count}/5), {type(e)} - {e}')
         time.sleep(retry_delay)
         continue
-    
-    print()
   
   # return
   if is_return:
@@ -1062,24 +1060,7 @@ def download_single_symbol_eod(args) -> tuple:
   return (symbol, query_symbol, data, status, messages)
 
 # 并行下载EOD数据
-def download_eod_parallel(
-  symbols: List[str],
-  stock_data_path: str,
-  file_format: str = '.csv',
-  sources: Dict[str, str] = None,
-  api_keys: Dict[str, str] = None,
-  update_mode: str = 'eod',
-  required_date: str = None,
-  is_print: bool = False,
-  is_save: bool = True,
-  add_dividend: bool = True,
-  add_split: bool = True,
-  adjust: str = 'qfq',
-  progress_callback=None,
-  query_benchmark: bool = True,
-  max_workers: int = 5,
-  batch_size: int = 15
-) -> Dict[str, pd.DataFrame]:
+def download_eod_parallel(symbols: List[str], stock_data_path: str, file_format: str = '.csv', sources: Dict[str, str] = None, api_keys: Dict[str, str] = None, update_mode: str = 'eod', required_date: str = None, is_print: bool = False, is_save: bool = True, add_dividend: bool = True, add_split: bool = True, adjust: str = 'qfq', progress_callback=None, query_benchmark: bool = True, max_workers: int = 5, batch_size: int = 15) -> Dict[str, pd.DataFrame]:
   """
   并行下载多个标的的EOD数据和REALTIME数据
 
@@ -1135,9 +1116,9 @@ def download_eod_parallel(
   
   symbol_count = {'us': len(us_symbols), 'cn': len(cn_symbols), 'hk': len(hk_symbols), 'other': len(other_symbols)}
   symbol_class = {'us': us_symbols, 'cn': cn_symbols, 'hk': hk_symbols, 'other': other_symbols}
-  print(f'US({symbol_count["us"]}), CN({symbol_count["cn"]}), HK({symbol_count["hk"]}), Other({symbol_count["other"]})')
+  # print(f'[{"pool":^19}] - US({symbol_count["us"]}), CN({symbol_count["cn"]}), HK({symbol_count["hk"]}), Other({symbol_count["other"]})')
   if symbol_count['other'] > 0:
-    print(f'Unexpected symbols found: {other_symbols}')
+    print(f'[{"pool":^19}] - [erro]: Unexpected symbols found: {other_symbols}')
 
   # -------------------------------------------------- benchmark --------------------------------------------------#
   # set benchmarks for different markets
@@ -1162,15 +1143,14 @@ def download_eod_parallel(
         while retry_count < 5:
           try:
             retry_count += 1
-            print(f'[data]: querying benchmark({mkt_benchmark_symbol}) date for [{mkt.upper()}] from {benchmark_source} (try #{retry_count})')        
-
+            
             # get data for benchmark symbol of current market
             tmp_data = get_data(mkt_benchmark_symbol, start_date=start_date, end_date=today, interval='d', is_print=False, source=benchmark_source, api_key=benchmark_api_keys[mkt], add_dividend=False, add_split=False, adjust='qfq')
             if tmp_data is not None and len(tmp_data) > 0:
               benchmark_dates[mkt] = util.time_2_string(tmp_data.index.max()) 
             else:                 
               benchmark_dates[mkt] = today
-              print(f'[-{mkt.upper()}-]: benchmark({mkt_benchmark_symbol}) data is empty, use today - {today}')
+              print(f'[{"benchmark":^19}] - [{mkt.upper():^4}]: benchmark({mkt_benchmark_symbol}) data is empty, use today - {today}')
             
             # break when finish
             break
@@ -1178,19 +1158,20 @@ def download_eod_parallel(
           except Exception as e:
             
             # if failed, sleep 5 seconds and try again
-            print(f'[erro]: querying benchmark failed for [{mkt} market], try({retry_count}/5), {type(e)} - {e}')        
+            print(f'[{"benchmark":^19}] - [erro]: failed querying benchmark for [{mkt} market], try({retry_count}/5), {type(e)} - {e}')        
             time.sleep(5)
             continue
 
     # check whether got behchmart data successfully
-    tmp_benchmark_date = benchmark_dates.get(mkt)
-    if tmp_benchmark_date is None:
-      benchmark_dates[mkt] = today
-      print(f'[-{mkt.upper()}-]: symbols({mkt_symbol_count}), benchmark({mkt_benchmark_symbol}), date(skip benchmark query, use today - {today})') # 
+    if mkt_symbol_count > 0:
+      tmp_benchmark_date = benchmark_dates.get(mkt)
+      if tmp_benchmark_date is None:
+        benchmark_dates[mkt] = today
+        print(f'[{mkt.upper()+" market":^19}] - [pool]: symbols({mkt_symbol_count}), benchmark({mkt_benchmark_symbol}), date(skip benchmark query, use today - {today})') # 
+      else:
+        print(f'[{mkt.upper()+" market":^19}] - [pool]: symbols({mkt_symbol_count}), benchmark({mkt_benchmark_symbol}), date({benchmark_dates[mkt]})')
     else:
-      print(f'[-{mkt.upper()}-]: symbols({mkt_symbol_count}), benchmark({mkt_benchmark_symbol}), date({benchmark_dates[mkt]})')
-
-  print()
+      continue
   time.sleep(2)
 
   # -------------------------------------------------- eod data ---------------------------------------------------#
@@ -1233,7 +1214,7 @@ def download_eod_parallel(
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
       futures = {executor.submit(download_single_symbol_eod, task): task[0] for task in download_tasks}
       
-      for future in tqdm(as_completed(futures), total=len(futures), ncols=tqdm_ncols, ascii=True, desc=f'[{"downloading":^19}] '):
+      for future in tqdm(as_completed(futures), total=len(futures), ncols=tqdm_ncols, desc=f'[{"downloading":^19}] '):
         # symbol = futures[future]
         
         try:
@@ -1271,7 +1252,7 @@ def download_eod_parallel(
     pass
 
   if is_print and len(symbol_up_to_date) > 0:
-    print(f'[{"eod":^19}] - [skip] : {len(symbol_up_to_date)}/{num_symbols} already up-to-date, skip')
+    print(f'[{"eod":^19}] - [skip] : {len(symbol_up_to_date)}/{num_symbols} already up-to-date')
   
   # -------------------------------------------------- realtime data ----------------------------------------------#
   # download real-time data
