@@ -273,7 +273,7 @@ def get_data_from_ak(symbol: str, start_date: str = None, end_date: str = None, 
   return result
 
 # get ohlcv data from eod(US/CN/HK)
-def get_data_from_eod(symbol: str, start_date: Optional[str] = None, end_date: Optional[str] = None, interval: Literal['d', 'w', 'm'] = 'd', is_print: bool = False, api_key: str = default_eod_key, add_dividend: bool = True, add_split: bool = True) -> Optional[pd.DataFrame]:
+def get_data_from_eod(symbol: str, start_date: Optional[str] = None, end_date: Optional[str] = None, interval: Literal['d', 'w', 'm'] = 'd', is_print: bool = False, api_key: str = default_eod_key, add_dividend: bool = False, add_split: bool = False) -> Optional[pd.DataFrame]:
   """
   Download stock data from EOD
 
@@ -343,6 +343,10 @@ def get_data_from_eod(symbol: str, start_date: Optional[str] = None, end_date: O
         
         except Exception as e:
           print(f'failed to get dividend({e}), filled with 0')
+      else:
+        if is_print:
+          print(f'dividend(-)', end=', ' )
+        pass
 
       # add split data
       if add_split:
@@ -370,7 +374,11 @@ def get_data_from_eod(symbol: str, start_date: Optional[str] = None, end_date: O
         
         except Exception as e:
           print(f'failed to get split({e}), filled with 1')
-
+      else:
+        if is_print:
+          print(f'split(-)')
+        pass
+        
       # fill na values for dividend and split    
       if 'dividend' not in data.columns:
         data['dividend'] = 0.0
@@ -459,7 +467,7 @@ def post_process_download_data(df: pd.DataFrame, source: str) -> pd.DataFrame:
   return df
 
 # get data from specific datasource
-def get_data(symbol: str, start_date: str = None, end_date: str = None, interval: str = 'd', is_print: bool = False, source: str = 'eod', api_key: str = default_eod_key, add_dividend: bool = True, add_split: bool = True, adjust: str = 'qfq') -> pd.DataFrame:
+def get_data(symbol: str, start_date: str = None, end_date: str = None, interval: str = 'd', is_print: bool = False, source: str = 'eod', api_key: str = default_eod_key, add_dividend: bool = False, add_split: bool = False, adjust: str = 'qfq') -> pd.DataFrame:
   """
   Download stock data from web sources
 
@@ -724,7 +732,7 @@ def get_stock_briefs(symbols: list, source: str = 'eod', api_key: str = default_
   return briefs
 
 # update stock data (eod and/or realtime)
-def update_stock_data_new(symbols: list, stock_data_path: str, file_format: str = '.csv', update_mode: str = 'eod', required_date: str = None, window_size: int = 3, is_print: bool = False, is_return: bool = False, is_save: bool = True, sources: dict = default_data_sources, api_keys: dict = {}, add_dividend: bool = True, add_split: bool = True, batch_size: int = 15, adjust: str = 'qfq', query_benchmark: bool = True) -> dict:
+def update_stock_data_new(symbols: list, stock_data_path: str, file_format: str = '.csv', update_mode: str = 'eod', required_date: str = None, window_size: int = 3, is_print: bool = False, is_return: bool = False, is_save: bool = True, sources: dict = default_data_sources, api_keys: dict = {}, add_dividend: bool = False, add_split: bool = False, batch_size: int = 15, adjust: str = 'qfq', query_benchmark: bool = True) -> dict:
   """
   update local stock data from eod
 
@@ -1060,7 +1068,7 @@ def download_single_symbol_eod(args) -> tuple:
   return (symbol, query_symbol, data, status, messages)
 
 # 并行下载EOD数据
-def download_eod_parallel(symbols: List[str], stock_data_path: str, file_format: str = '.csv', sources: Dict[str, str] = None, api_keys: Dict[str, str] = None, update_mode: str = 'eod', required_date: str = None, is_print: bool = False, is_save: bool = True, add_dividend: bool = True, add_split: bool = True, adjust: str = 'qfq', progress_callback=None, query_benchmark: bool = True, max_workers: int = 5, batch_size: int = 15) -> Dict[str, pd.DataFrame]:
+def download_eod_parallel(symbols: List[str], stock_data_path: str, file_format: str = '.csv', sources: Dict[str, str] = None, api_keys: Dict[str, str] = None, update_mode: str = 'eod', required_date: str = None, is_print: bool = False, is_save: bool = True, add_dividend: bool = False, add_split: bool = False, adjust: str = 'qfq', progress_callback=None, query_benchmark: bool = True, max_workers: int = 5, batch_size: int = 15) -> Dict[str, pd.DataFrame]:
   """
   并行下载多个标的的EOD数据和REALTIME数据
 
@@ -1294,7 +1302,7 @@ def download_eod_parallel(symbols: List[str], stock_data_path: str, file_format:
   return data
 
 # update stock data from eod 
-def update_stock_data_from_eod(symbols: list, stock_data_path: str, file_format: str = '.csv', update_mode: str = 'eod', required_date: str = None, window_size: int = 3, is_print: bool = False, is_return: bool = False, is_save: bool = True, cn_stock: bool = False, api_key: str = default_eod_key, add_dividend: bool = True, add_split: bool = True, batch_size: int = 15) -> dict:
+def update_stock_data_from_eod(symbols: list, stock_data_path: str, file_format: str = '.csv', update_mode: str = 'eod', required_date: str = None, window_size: int = 3, is_print: bool = False, is_return: bool = False, is_save: bool = True, cn_stock: bool = False, api_key: str = default_eod_key, add_dividend: bool = False, add_split: bool = False, batch_size: int = 15) -> dict:
   """
   update local stock data from eod
 
@@ -1529,7 +1537,7 @@ def update_stock_data_from_ak(symbols: list, stock_data_path: str, file_format: 
     return data
 
 # update stock data (old, aborted)
-def update_stock_data(symbols: list, stock_data_path: str, file_format: str = '.csv', update_mode: str = 'eod', cn_stock: bool = False, required_date: str = None, is_print: bool = False, is_return: bool = False, is_save: bool = True, source: str = 'eod', api_key: str = default_eod_key, add_dividend: bool = True, add_split: bool = True, batch_size: int = 15) -> dict:
+def update_stock_data(symbols: list, stock_data_path: str, file_format: str = '.csv', update_mode: str = 'eod', cn_stock: bool = False, required_date: str = None, is_print: bool = False, is_return: bool = False, is_save: bool = True, source: str = 'eod', api_key: str = default_eod_key, add_dividend: bool = False, add_split: bool = False, batch_size: int = 15) -> dict:
   """
   update local stock data
 
