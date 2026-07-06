@@ -521,6 +521,12 @@ def calculate_ta_static(df: pd.DataFrame, indicators: dict = default_indicators)
       #   'none': 0}
       # df = assign_condition_value(df=df, column='adx_wave_day', condition_dict=conditions, value_dict=values, default_value=0)
       # df['adx_wave_day'] = sda(series=df['adx_wave_day'], zero_as=None)
+      
+      # adx value waves among [-10, 10]
+      df['adx_wave_day'] = 0
+      wave_idx = df.query('adx_value >= -10 and adx_value <= 10').index.tolist()
+      df.loc[wave_idx, 'adx_wave_day'] = 1
+      df['adx_wave_day'] = sda(series=df['adx_wave_day'], zero_as=None)
 
       # adx_trend
       # adx_distance: (实际值 - 预测值与), adx_status: ± of adx_distance
@@ -1120,10 +1126,15 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
       '长线边界_up':            '''
                             (
                               (ki_distance in ["gr", "gn", "gg"] or position in ['up', 'mid_up', 'mid_down', 'mid']) and
-                              十字星_trend == "n" and
-                              (candle_color == 1 or candle_lower_shadow_pct > 0.25) and
+                              十字星_trend == "n" and (candle_upper_shadow_pct < candle_lower_shadow_pct) and
                               (
-                                (kama_slow_support > 0 or kijun_support > 0 or candle_gap_top_support > 0 or candle_gap_bottom_support > 0) or 
+                                candle_color == 1 or 
+                                candle_lower_shadow_pct > 0.25 or 
+                                (tankan > High and kijun < Low and kijun_support > 0) or 
+                                (kama_fast > High and kama_slow < Low and kama_slow_support > 0)) and
+                              (
+                                (kama_slow_support > 0 or kijun_support > 0) or
+                                ((candle_gap_top_support > 0 or candle_gap_bottom_support > 0) and (candle_entity_top < candle_gap_top and candle_entity_bottom > candle_gap_bottom)) or 
                                 (candle_color == 1 and 长影线_trend == "u" and (kama_slow_break_down < 0 or kijun_break_down < 0 or candle_gap_top_break_down < 0 or candle_gap_top_break_down < 0)) or
                                 ((candle_position_score > 0 or candle_color == 1) and (kama_slow_break_up > 0 or kijun_break_up > 0 or candle_gap_top_break_up > 0 or candle_gap_bottom_break_up > 0))
                               )
@@ -1184,7 +1195,8 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
       # 区间波动
       '区间波动_down':          '''
                             (
-                              (adx_strong_day < 0 and -20 < adx_value < 20 and ((-10 < adx_direction_start < 15) or (adx_strength_change < 1 and -1 < adx_value_change < 1)))                                                  
+                              (adx_strong_day < 0 and -20 < adx_value < 20 and ((-10 < adx_direction_start < 15) or (adx_strength_change < 1 and -1 < adx_value_change < 1))) or
+                              ((adx_strong_day < 0) and (adx_wave_day >= 3) and (-15 < adx_direction_start < 15))                                             
                             )
                             '''.replace('\n', ''),
 
@@ -1538,6 +1550,12 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
     #   df['proba_down'] = df['ml_proba_down']
     # except Exception as e:
     #   print(f'[calculate_ta_signal] ML attach failed: {e!r}; attaching empty ML columns')
+
+  df['trigger_score_symbol'] = 0
+  pos_idx = df.query('trigger_score > 0').index
+  df.loc[pos_idx, 'trigger_score_symbol'] = 1
+  neg_idx = df.query('trigger_score < 0').index
+  df.loc[neg_idx, 'trigger_score_symbol'] = -1
 
   # drop redundant columns
   for col in col_to_drop:
@@ -2381,7 +2399,7 @@ def add_candlestick_patterns(df: pd.DataFrame) -> pd.DataFrame:
       df[f'{col}_ma'] = sm(series=df[f'candle_{col}'], periods=ma_period).mean()
       # df[f'{col}_std'] = sm(series=df[f'candle_{col}'], periods=ma_period).std()
       df[f'{col}_diff'] = (df[f'candle_{col}'] - df[f'{col}_ma'])/df[f'{col}_ma'] # df[f'{col}_std']
-      col_to_drop += [f'{col}_ma' , f'{col}_diff'] # , f'{col}_std'
+      # col_to_drop += [f'{col}_ma' , f'{col}_diff'] # , f'{col}_std'
 
     # long/short shadow
     conditions = {
@@ -2828,7 +2846,7 @@ def add_support_resistance(df: pd.DataFrame, target_col: list = default_support_
       distance_col = f'{col_1}_to_{col_2}'
       col_to_drop.append(distance_col)
 
-      tmp_distance = abs(df[col_1] - df[col_2]) / df[col_1]
+      tmp_distance = abs(df[col_1] - df[col_2]) / df['kama_slow']
       df[distance_col] = tmp_distance
       generated_cols[col_1].append(distance_col)
 
@@ -2883,17 +2901,26 @@ def add_support_resistance(df: pd.DataFrame, target_col: list = default_support_
 
   # ================================ intra-day support and resistant ===================
   # calculate support
-  distance_threshold = 0.01
-  distance_threshold_strict = 0.0075
+  distance_threshold = 0.02
+  distance_threshold_strict = 0.01
   shadow_pct_threhold = 0.2
+  distance_ratio_threshold = 0.1
   for col in generated_cols['Low']:
 
     tmp_col = col.split('_to_')[-1]
+    tmp_indicator = 'ichimoku' if tmp_col in ['tankan', 'kijun'] else 'kama'
+    tmp_col_ratio = f'{col}_ratio'
+    df[tmp_col_ratio] = abs(df[col] / df[f'{tmp_indicator}_distance'])
+    col_to_drop.append(tmp_col_ratio)
+
     df[f'{tmp_col}_support'] = 0.0
     support_query = f'''
     (
       (candle_entity_bottom > {tmp_col}) and
       ({tmp_col}_break_up == 0)
+    ) and
+    (
+      ({tmp_col_ratio} < {distance_ratio_threshold})
     ) and
     (
       (
@@ -2927,11 +2954,19 @@ def add_support_resistance(df: pd.DataFrame, target_col: list = default_support_
   for col in generated_cols['High']:
 
     tmp_col = col.split('_to_')[-1]
+    tmp_indicator = 'ichimoku' if tmp_col in ['tankan', 'kijun'] else 'kama'
+    tmp_col_ratio = f'{col}_ratio'
+    df[tmp_col_ratio] = abs(df[col] / df[f'{tmp_indicator}_distance'])
+    col_to_drop.append(tmp_col_ratio)
+    
     df[f'{tmp_col}_resistant'] = 0.0
     resistant_query = f'''
     (
       (candle_entity_top < {tmp_col}) and
       ({tmp_col}_break_down == 0)
+    ) and
+    (
+      ({tmp_col_ratio} < {distance_ratio_threshold})
     ) and
     (
       (
@@ -4305,8 +4340,8 @@ def cal_kama(df: pd.DataFrame, n1: int = 10, n2: int = 2, n3: int = 30, ohlcv_co
 
   return df
 
-# Kaufman's Adaptive Moving Average (KAMA: short [10, 2, 30], long: [10, 5, 30])
-def add_kama_features(df: pd.DataFrame, n_param: dict = {'kama_fast': [10, 2, 30], 'kama_slow': [15, 5, 42]}, ohlcv_col: dict = default_ohlcv_col, fillna: bool = False) -> pd.DataFrame:
+# Kaufman's Adaptive Moving Average (KAMA: short [10, 2, 30], long: [15, 5, 42])
+def add_kama_features(df: pd.DataFrame, n_param: dict = {'kama_fast': [10, 2, 30], 'kama_slow': [20, 4, 60]}, ohlcv_col: dict = default_ohlcv_col, fillna: bool = False) -> pd.DataFrame:
   """
   Calculate Kaufman's Adaptive Moving Average Signal
 
