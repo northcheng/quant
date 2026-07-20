@@ -6,6 +6,7 @@ Technical Analysis Calculation and Visualization functions
 """
 import os
 import math
+import json
 import sympy
 import datetime
 import platform
@@ -38,29 +39,46 @@ else:
 plt.rcParams['axes.unicode_minus'] = False
 
 # ================================================ default parameters =============================================== # 
+DEFAULT_CONFIG_FILE = 'ta_config.json'
+def _load_defaults():
+  """模块导入时从 ta_config.json 读取默认参数，读取失败则回退到硬编码默认值"""
+  config_file = Path(__file__).parent / DEFAULT_CONFIG_FILE
+  try:
+    with open(config_file, 'r', encoding='utf-8') as f:
+      cfg = json.load(f)
+  except Exception:
+      cfg = {}
 
-# default values
-default_ohlcv_col = {'close':'Close', 'open':'Open', 'high':'High', 'low':'Low', 'volume':'Volume'}
-default_trend_val = {'pos_trend':'u', 'neg_trend':'d', 'none_trend':'', 'wave_trend':'n'}
-default_signal_val = {'pos_signal':'b', 'neg_signal':'s', 'none_signal':'', 'wave_signal': 'n'}
+  data_source_config = cfg.get('data_source', {})
+  calculation_config = cfg.get('calculation', {})
+  visualization_config = cfg.get('visualization', {}).get('plot_args', {})
+  visualization_config_main = visualization_config.get('main_indicators', {})
 
-# default indicators and dynamic trend for calculation
-default_indicators = {'trend': ['ichimoku', 'kama', 'adx'], 'volume': ['adi'], 'momentum':['rsi'], 'volatility': [], 'other': []}
-default_perspectives = ['candle', 'support_resistant']
-default_support_resistant_col = ['kama_fast', 'kama_slow', 'tankan', 'kijun', 'candle_gap_top', 'candle_gap_bottom']
+  default_parameters = {
+    'ohlcv_col': data_source_config.get('default_columns', {'close':'Close', 'open':'Open', 'high':'High', 'low':'Low', 'volume':'Volume'}),
+    
+    'indicators': calculation_config.get('indicators', {'trend': ['ichimoku', 'kama', 'adx'], 'volume': ['adi'], 'momentum':['rsi'], 'volatility': [], 'other': []}),
+    'perspectives': calculation_config.get('perspectives', ['candle', 'support_resistant']),
+    'support_resistant': calculation_config.get('support_resistant', ['kama_fast', 'kama_slow', 'tankan', 'kijun', 'candle_gap_top', 'candle_gap_bottom']),
+    
+    'main_indicator':  visualization_config_main.get('target_indicator', ['candlestick']),
+    'candlestick_color': visualization_config_main.get('candlestick_color', {'color_up':'green', 'color_down':'red', 'shadow_color':'black', 'entity_edge_color':'black', 'alpha':1}),
+    'candlestick_addon': visualization_config_main.get('add_on', ['split', 'gap', 'support_resistant', 'pattern']),
+    'unit_plot_args': visualization_config.get('unit', {'figsize':(30,3), 'title_rotation':'vertical', 'xaxis_position':'bottom', 'yaxis_position':'right', 'title_x':-0.01, 'title_y':0, 'bbox_to_anchor':(1.02, 0.), 'loc':3, 'ncol':1, 'borderaxespad':0.0}),
+    'zorders': visualization_config.get('zorders', {"default": 1, "trend": 2, "renko": 3, "gap": 4, "extended": 5, "ichimoku": 6, "kama": 7, "candle_shadow": 8, "candle_entity": 9, "price": 10, "candle_pattern": 11}),
+  }
+  return default_parameters
 
-# default arguments for visualization
-default_candlestick_color = {'color_up':'green', 'color_down':'red', 'shadow_color':'black', 'entity_edge_color':'black', 'alpha':1}
-default_candlestict_add_on = ['split', 'gap', 'support_resistant', 'pattern']
-default_main_indicator = {'candlestick'}
-default_plot_args = {'figsize':(30, 3), 'title_rotation':'vertical', 'xaxis_position': 'bottom', 'yaxis_position': 'right', 'title_x':-0.01, 'title_y':0, 'bbox_to_anchor':(1.02, 0.), 'loc':3, 'ncol':1, 'borderaxespad':0.0}
-
-# zorders
-default_zorders = {}
-counter = 1
-for item in [ 'default', 'trend', 'renko', 'gap', 'extended', 'ichimoku', 'kama', 'candle_shadow', 'candle_entity', 'price', 'candle_pattern',]:
-  default_zorders[item] = counter
-  counter += 1
+_defaults = _load_defaults()
+default_ohlcv_col = _defaults['ohlcv_col']
+default_indicators = _defaults['indicators']
+default_perspectives = _defaults['perspectives']
+default_support_resistant_col = _defaults['support_resistant']
+default_main_indicator = _defaults['main_indicator']
+default_candlestick_color = _defaults['candlestick_color']
+default_candlestict_add_on = _defaults['candlestick_addon']
+default_unit_plot_args = _defaults['unit_plot_args']
+default_zorders = _defaults['zorders']
 
 # ================================================ Load configuration =============================================== # 
 # load configuration
@@ -99,6 +117,10 @@ def load_config(root_paths: dict):
   # load calculation and visulization parameters
   ta_config = io_util.read_config(file_path=config['config_path'], file_name='ta_config.json')
   config.update(ta_config)
+
+  # load default columns
+  global default_ohlcv_col 
+  default_ohlcv_col = config.get('data_source', {}).get('default_columns', {})
 
   return config
 
@@ -828,48 +850,6 @@ def calculate_ta_dynamic(df: pd.DataFrame, perspective: list = default_perspecti
       
       # add linear features
       df = add_linear_features(df=df)
-
-    #   # crossover signals between Close and linear_fit_high/linear_fit_low, # , 'support', 'resistant'
-    #   for col in ['linear_fit_high', 'linear_fit_low']:
-    #     signal_col = None
-
-    #     if col in df.columns:
-    #       signal_col = f'{col}_signal'
-    #       df[signal_col] = cal_crossover_signal(df=df, fast_line='Close', slow_line=col, pos_signal=1, neg_signal=-1, none_signal=0)
-
-    #       if signal_col in df.columns:
-    #         df[signal_col] = sda(series=df[signal_col], zero_as=1)
-    #     else:
-    #       print(f'{col} not in df.columns')
-      
-    #   # trends from linear fit 
-    #   # hitpeak or rebound
-    #   conditions = {
-    #     'up': '((linear_fit_low_stop >= 1 and linear_fit_support < candle_entity_bottom) and (Close > linear_fit_low_stop_price))', 
-    #     'down': '((linear_fit_high_stop >= 1 and linear_fit_resistant > candle_entity_top) and (Close < linear_fit_high_stop_price))',
-    #     'wave': '(linear_fit_high_slope == 0 and linear_fit_low_slope == 0)'} 
-    #   values = {
-    #     'up': 'u', 
-    #     'down': 'd',
-    #     'wave': 'n'}
-    #   df = assign_condition_value(df=df, column='linear_bounce_trend', condition_dict=conditions, value_dict=values)
-    #   df['linear_bounce_trend'] = df['linear_bounce_trend'].ffill().fillna('')
-    #   df['linear_bounce_day'] = sda(series=df['linear_bounce_trend'].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
-      
-    #   # break through up or down
-    #   conditions = {
-    #     'up': '((linear_fit_high_stop >= 5 or linear_fit_high_slope == 0) and linear_fit_high_signal >= 1 and ((candle_color == 1 and candle_entity_top > linear_fit_resistant) or (candle_entity_bottom > linear_fit_resistant)))', 
-    #     'down': '((linear_fit_low_stop >= 5 or linear_fit_low_slope == 0) and linear_fit_low_signal <= -1 and ((candle_color == -1 and candle_entity_bottom < linear_fit_support) or (candle_entity_top < linear_fit_support)))'} 
-    #   values = {
-    #     'up': 'u', 
-    #     'down': 'd'}
-    #   df = assign_condition_value(df=df, column='linear_break_trend', condition_dict=conditions, value_dict=values)
-    #   df['linear_break_trend'] = df['linear_break_trend'].ffill().fillna('')
-    #   df['linear_break_day'] = sda(series=df['linear_break_trend'].replace({'': 0, 'n':0, 'u':1, 'd':-1}).fillna(0), zero_as=1)
-
-    #   # focus on the last row only
-    #   max_idx = df.index.max()
-    #   valid_idxs = df.query('linear_slope == linear_slope').index
 
     # ================================ support & resistant =======================
     phase = 'support and resistant'
@@ -4980,7 +4960,7 @@ def add_ui_features(df: pd.DataFrame, n: int = 14, ohlcv_col: dict = default_ohl
 
 # ================================================ Indicator visualization  ========================================= #
 # plot bar
-def plot_bar(df: pd.DataFrame, target_col: str, start: Optional[str] = None, end: Optional[str] = None, width: float = 0.8, alpha: float = 1, color_mode: Literal['up_down', 'benchmark'] = 'up_down', edge_color: tuple = (0,0,0,0.1), benchmark: Optional[float] = None, add_line: bool = False, title: Optional[str] = None, use_ax: Optional[plt.Axes] = None, ytick_roration: int = 0, plot_args: dict = default_plot_args) -> Optional[plt.Axes]:
+def plot_bar(df: pd.DataFrame, target_col: str, start: Optional[str] = None, end: Optional[str] = None, width: float = 0.8, alpha: float = 1, color_mode: Literal['up_down', 'benchmark'] = 'up_down', edge_color: tuple = (0,0,0,0.1), benchmark: Optional[float] = None, add_line: bool = False, title: Optional[str] = None, use_ax: Optional[plt.Axes] = None, ytick_roration: int = 0, plot_args: dict = default_unit_plot_args) -> Optional[plt.Axes]:
   """
   Plot a series in bar
   :param df: time-series dataframe which contains target columns
@@ -5007,8 +4987,7 @@ def plot_bar(df: pd.DataFrame, target_col: str, start: Optional[str] = None, end
   ax = use_ax
   if ax is None:
     fig = mpf.figure(figsize=plot_args['figsize'])
-    # bug
-    s = mpf.make_mpf_style(base_mpf_style='yahoo')#, rc={'font.family': 'SimHei', 'axes.unicode_minus': 'False'})
+    s = mpf.make_mpf_style(base_mpf_style='yahoo')
     ax = fig.add_subplot(1,1,1, style=s)
 
   # plot bar
@@ -5048,14 +5027,14 @@ def plot_bar(df: pd.DataFrame, target_col: str, start: Optional[str] = None, end
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
   ax.grid(True, axis='both', linestyle='-', linewidth=0.5, alpha=0.3)
-  ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
+  ax.yaxis.set_ticks_position(default_unit_plot_args['yaxis_position'])
 
   # return ax
   if use_ax is not None:
     return ax
 
 # plot volume
-def plot_scatter(df: pd.DataFrame, target_col: str, start: Optional[str] = None, end: Optional[str] = None, marker: str = '.', alpha: float = 1, color_mode: Literal['up_down', 'benchmark'] = 'up_down', benchmark: Optional[float] = None, add_line: bool = False, title: Optional[str] = None, use_ax: Optional[plt.Axes] = None, plot_args: dict = default_plot_args) -> Optional[plt.Axes]:
+def plot_scatter(df: pd.DataFrame, target_col: str, start: Optional[str] = None, end: Optional[str] = None, marker: str = '.', alpha: float = 1, color_mode: Literal['up_down', 'benchmark'] = 'up_down', benchmark: Optional[float] = None, add_line: bool = False, title: Optional[str] = None, use_ax: Optional[plt.Axes] = None, plot_args: dict = default_unit_plot_args) -> Optional[plt.Axes]:
   """
   Plot a series in scatters
   :param df: time-series dataframe which contains target columns
@@ -5114,14 +5093,14 @@ def plot_scatter(df: pd.DataFrame, target_col: str, start: Optional[str] = None,
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
   # ax.grid(True, axis='both', linestyle='-', linewidth=0.5, alpha=0.3)
 
-  ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
+  ax.yaxis.set_ticks_position(default_unit_plot_args['yaxis_position'])
 
   # return ax
   if use_ax is not None:
     return ax
 
 # plot trend index
-def plot_up_down(df: pd.DataFrame, col: str = 'trend_idx', start: Optional[str] = None, end: Optional[str] = None, use_ax: Optional[plt.Axes] = None, title: Optional[str] = None, plot_args: dict = default_plot_args) -> Optional[plt.Axes]:
+def plot_up_down(df: pd.DataFrame, col: str = 'trend_idx', start: Optional[str] = None, end: Optional[str] = None, use_ax: Optional[plt.Axes] = None, title: Optional[str] = None, plot_args: dict = default_unit_plot_args) -> Optional[plt.Axes]:
   """
   Plot indicators around a benchmark
 
@@ -5207,14 +5186,14 @@ def plot_up_down(df: pd.DataFrame, col: str = 'trend_idx', start: Optional[str] 
   # ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
   # ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
   ax.grid(True, axis='y', linestyle='--', linewidth=0.5, alpha=0.3)
-  ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
+  ax.yaxis.set_ticks_position(default_unit_plot_args['yaxis_position'])
 
   # return ax
   if use_ax is not None:
     return ax
 
 # plot score and trigger score
-def plot_score(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str] = None, width: float = 0.8, use_ax: Optional[plt.Axes] = None, title: Optional[str] = None, plot_args: dict = default_plot_args) -> Optional[plt.Axes]:
+def plot_score(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str] = None, width: float = 0.8, use_ax: Optional[plt.Axes] = None, title: Optional[str] = None, plot_args: dict = default_unit_plot_args) -> Optional[plt.Axes]:
   """
   Plot scores
 
@@ -5262,14 +5241,14 @@ def plot_score(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str]
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
   # ax.grid(True, axis='y', linestyle='--', linewidth=0.5, alpha=0.3)
-  ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
+  ax.yaxis.set_ticks_position(default_unit_plot_args['yaxis_position'])
 
   # return ax
   if use_ax is not None:
     return ax
 
 # plot signals on price line
-def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str] = None, signal_x: str = 'signal', signal_y: str = 'Close', use_ax: Optional[plt.Axes] = None, title: Optional[str] = None, interval: str = 'day', trend_val: dict = default_trend_val, signal_val: dict = default_signal_val, plot_args: dict = default_plot_args) -> Optional[plt.Axes]:
+def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str] = None, signal_x: str = 'signal', signal_y: str = 'Close', use_ax: Optional[plt.Axes] = None, title: Optional[str] = None, interval: str = 'day', plot_args: dict = default_unit_plot_args) -> Optional[plt.Axes]:
   """
   Plot signals along with the price
 
@@ -5280,8 +5259,6 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
   :param signal_y: columnname of the signal y values (default 'Close')
   :param use_ax: the already-created ax to draw on
   :param title: plot title
-  :param trend_val: value of different kind of trends (e.g. 'u'/'d'/'n')
-  :param signal_val: value of different kind of signals (e.g. 'b'/'s'/'n')
   :param plot_args: other plot arguments
   :returns: a signal plotted price chart
   :raises: none
@@ -5304,17 +5281,6 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
   # plot signal base line
   signal_label = signal_y
   ax.plot(df.index, df[signal_y], label=signal_label, alpha=0)
-
-  # plot trend
-  trend_col = signal_x.replace('signal', 'trend')
-  if trend_col in df.columns:
-    if signal_x not in ['signal']:
-      for i in ['pos', 'neg', 'wave']:
-        tmp_trend_value = trend_val[f'{i}_trend']
-        tmp_data = df.query(f'{trend_col} == "{tmp_trend_value}"')
-        ax.scatter(tmp_data.index, tmp_data[signal_y], marker=style[f'{i}_trend_marker'], color=style[f'{i}_color'], alpha=style['trend_alpha'])
-    else:
-      pass
 
   # annotation setting
   interval_factor = {'day':2, 'week': 10, 'month': 45}
@@ -5709,7 +5675,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
     ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
     ax.grid(True, axis='x', linestyle='-', linewidth=0.5, alpha=0.1)
-    ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
+    ax.yaxis.set_ticks_position(default_unit_plot_args['yaxis_position'])
 
   # trend
   if signal_x in ["中期", "长期"]:
@@ -5775,7 +5741,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
     ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
     ax.grid(True, axis='x', linestyle='-', linewidth=0.5, alpha=0.1)
-    ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
+    ax.yaxis.set_ticks_position(default_unit_plot_args['yaxis_position'])
 
   # 位置(及波动标识)
   if signal_x in ['position']:
@@ -5819,7 +5785,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
     ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
     ax.grid(True, axis='x', linestyle='-', linewidth=0.5, alpha=0.1)
-    ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
+    ax.yaxis.set_ticks_position(default_unit_plot_args['yaxis_position'])
     
   # 分割线
   if signal_x == '-':
@@ -5832,7 +5798,7 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     return ax
 
 # plot adx chart
-def plot_adx(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str] = None, use_ax: Optional[plt.Axes] = None, title: Optional[str] = None, plot_args: dict = default_plot_args, interval: Literal['day', 'week', 'month', 'year'] = 'day') -> Optional[plt.Axes]:
+def plot_adx(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str] = None, use_ax: Optional[plt.Axes] = None, title: Optional[str] = None, plot_args: dict = default_unit_plot_args, interval: Literal['day', 'week', 'month', 'year'] = 'day') -> Optional[plt.Axes]:
   """
   Plot adx chart
 
@@ -5886,7 +5852,7 @@ def plot_adx(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str] =
   ax.plot(df.index, df.adx_value_prediction, color='black', label='adx prediction',linestyle='-', alpha=0.5, zorder=3) # 
 
   target_col = 'adx_value'
-  plot_bar(df=df, target_col=target_col, alpha=0.25, width=bar_width, color_mode='up_down', edge_color=(0.5,0.5,0.5,0), benchmark=0, title='', use_ax=ax, plot_args=default_plot_args)
+  plot_bar(df=df, target_col=target_col, alpha=0.25, width=bar_width, color_mode='up_down', edge_color=(0.5,0.5,0.5,0), benchmark=0, title='', use_ax=ax, plot_args=default_unit_plot_args)
 
   # annotate adx (adx_strength_change)
   interval_factor = {'day':2, 'week': 10, 'month': 45}
@@ -5940,14 +5906,14 @@ def plot_adx(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str] =
   # title and legend
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
-  ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
+  ax.yaxis.set_ticks_position(default_unit_plot_args['yaxis_position'])
 
   # return ax
   if use_ax is not None:
     return ax
 
 # plot candlestick chart
-def plot_candlestick(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str] = None, date_col: str = 'Date', add_on: list = default_candlestict_add_on, use_ax: Optional[plt.Axes] = None, ohlcv_col: dict = default_ohlcv_col, color: dict = default_candlestick_color, plot_args: dict = default_plot_args, interval: Literal['day', 'week', 'month', 'year'] = 'day') -> Optional[plt.Axes]:
+def plot_candlestick(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str] = None, date_col: str = 'Date', add_on: list = default_candlestict_add_on, use_ax: Optional[plt.Axes] = None, ohlcv_col: dict = default_ohlcv_col, color: dict = default_candlestick_color, plot_args: dict = default_unit_plot_args, interval: Literal['day', 'week', 'month', 'year'] = 'day') -> Optional[plt.Axes]:
   """
   Plot candlestick chart
 
@@ -6265,14 +6231,14 @@ def plot_candlestick(df: pd.DataFrame, start: Optional[str] = None, end: Optiona
     mpf.plot(ohlcv_data, type='candle', ax=ax, style='yahoo', datetime_format='%Y-%m', show_nontrading=True, tight_layout=True, warn_too_much_data=10000)
     
   ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
-  ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
+  ax.yaxis.set_ticks_position(default_unit_plot_args['yaxis_position'])
 
   # return ax
   if use_ax is not None:
     return ax
 
 # plot ichimoku chart
-def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str] = None, date_col: str = 'Date', add_on: list = default_candlestict_add_on, target_indicator: list = ['price', 'ichimoku', 'kama', 'candlestick', 'bb', 'psar', 'renko', 'linear'], interval: Literal['day', 'week', 'month', 'year'] = 'day', use_ax: Optional[plt.Axes] = None, title: Optional[str] = None, candlestick_color: dict = default_candlestick_color, ohlcv_col: dict = default_ohlcv_col, plot_args: dict = default_plot_args) -> Optional[plt.Axes]:
+def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str] = None, date_col: str = 'Date', add_on: list = default_candlestict_add_on, target_indicator: list = ['price', 'ichimoku', 'kama', 'candlestick', 'bb', 'psar', 'renko', 'linear'], interval: Literal['day', 'week', 'month', 'year'] = 'day', use_ax: Optional[plt.Axes] = None, title: Optional[str] = None, candlestick_color: dict = default_candlestick_color, ohlcv_col: dict = default_ohlcv_col, plot_args: dict = default_unit_plot_args) -> Optional[plt.Axes]:
   """
   Plot ichimoku chart
 
@@ -6341,7 +6307,7 @@ def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Opt
   
   # plot renko bricks
   if 'renko' in target_indicator:
-    ax = plot_renko(df, use_ax=ax, plot_args=default_plot_args, close_alpha=0.0)
+    ax = plot_renko(df, use_ax=ax, plot_args=default_unit_plot_args, close_alpha=0.0)
 
   # plot close price
   if 'price' in target_indicator:
@@ -6368,15 +6334,6 @@ def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Opt
     # ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a > df.senkou_b, facecolor='green', interpolate=True, alpha=alpha, zorder=default_zorders['ichimoku'])
     # ax.fill_between(df.index, df.senkou_a, df.senkou_b, where=df.senkou_a <= df.senkou_b, facecolor='red', interpolate=True, alpha=alpha, zorder=default_zorders['ichimoku'])
 
-
-    if extended is not None:
-      alpha = 0.6
-      extended_idx = df.index[-extended:]
-      tmp_df = df.loc[extended_idx].copy()
-      tmp_hatch = None
-      ax.fill_between(tmp_df.index, tmp_df.tankan, tmp_df.kijun, where=tmp_df.tankan > tmp_df.kijun, hatch=tmp_hatch, facecolor='white', edgecolor='grey', interpolate=True, alpha=alpha, zorder=default_zorders['ichimoku'])
-      ax.fill_between(tmp_df.index, tmp_df.tankan, tmp_df.kijun, where=tmp_df.tankan <= tmp_df.kijun, hatch=tmp_hatch, facecolor='white', edgecolor='grey', interpolate=True, alpha=alpha, zorder=default_zorders['ichimoku'])
-  
   # plot kama_fast/slow lines 
   if 'kama' in target_indicator:
     alpha = 0.8
@@ -6391,11 +6348,11 @@ def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Opt
   if 'bb' in target_indicator:
     alpha = 0.2
     alpha_fill = 0.02
-    ax.plot(df.index, df.bb_high_band, label='bb_high_band', color='black', linestyle='-', alpha=alpha, zorder=default_zorders['default'])
-    ax.plot(df.index, df.bb_low_band, label='bb_low_band', color='black', linestyle='-', alpha=alpha, zorder=default_zorders['default'])
+    ax.plot(df.index, df.bb_high_band, label='bb_high_band', color='green', linestyle='--', alpha=alpha, zorder=default_zorders['default'])
+    ax.plot(df.index, df.bb_low_band, label='bb_low_band', color='red', linestyle='--', alpha=alpha, zorder=default_zorders['default'])
     ax.plot(df.index, df.mavg, label='mavg', color='black', linestyle=':', alpha=alpha*3, zorder=default_zorders['default'])
-    ax.fill_between(df.index, df.mavg, df.bb_high_band, facecolor='green', interpolate=True, alpha=alpha_fill, zorder=default_zorders['default'])
-    ax.fill_between(df.index, df.mavg, df.bb_low_band, facecolor='red', interpolate=True, alpha=alpha_fill, zorder=default_zorders['default'])
+    # ax.fill_between(df.index, df.mavg, df.bb_high_band, facecolor='green', interpolate=True, alpha=alpha_fill, zorder=default_zorders['default'])
+    # ax.fill_between(df.index, df.mavg, df.bb_low_band, facecolor='red', interpolate=True, alpha=alpha_fill, zorder=default_zorders['default'])
   
   # plot average true range
   if 'atr' in target_indicator:
@@ -6475,7 +6432,7 @@ def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Opt
   # plot candlestick
   if 'candlestick' in target_indicator:
     ax = plot_candlestick(df=df, start=start, end=end, date_col=date_col, add_on=add_on, ohlcv_col=ohlcv_col, color=candlestick_color, use_ax=ax, plot_args=plot_args, interval=interval)
-  
+
   # annotate trend
   if False: #'trend' in target_indicator:
     
@@ -6579,8 +6536,16 @@ def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Opt
 
   # plot mask for extended
   if extended is not None:
-    extended_data = df[ext_columns].tail(extended).copy()
-    ax.plot(extended_data, linestyle=':', color='white', zorder=default_zorders['extended'])
+    # extended_data = df[ext_columns].tail(extended).copy()
+    # ax.plot(extended_data, linestyle=':', color='white', zorder=default_zorders['extended'])
+
+    alpha = 0.5
+    extended_idx = df.index[-extended:]
+    tmp_df = df.loc[extended_idx].copy()
+    tmp_hatch = None
+    bottom, top = ax.get_ybound()
+    ax.fill_between(tmp_df.index, bottom, top, hatch=tmp_hatch, facecolor='white', edgecolor='white', interpolate=True, alpha=alpha, zorder=default_zorders['kama'])
+    # ax.fill_between(tmp_df.index, tmp_df.tankan, tmp_df.kijun, where=tmp_df.tankan <= tmp_df.kijun, hatch=tmp_hatch, facecolor='white', edgecolor='grey', interpolate=True, alpha=alpha, zorder=default_zorders['ichimoku'])
 
   # plot key line prices
   if 'add_line_value' > '':
@@ -6651,14 +6616,14 @@ def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Opt
   ax.legend(bbox_to_anchor=(1.02, 0.075), loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
   ax.grid(True, axis='x', linestyle=':', linewidth=0.5)
-  ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
+  ax.yaxis.set_ticks_position(default_unit_plot_args['yaxis_position'])
 
   # return ax
   if use_ax is not None:
     return ax
 
 # plot aroon chart
-def plot_aroon(df: pd.DataFrame, start: Optional[int] = None, end: Optional[int] = None, use_ax: Optional[plt.Axes] = None, title: Optional[str] = None, plot_args: dict = default_plot_args) -> Optional[plt.Axes]:
+def plot_aroon(df: pd.DataFrame, start: Optional[int] = None, end: Optional[int] = None, use_ax: Optional[plt.Axes] = None, title: Optional[str] = None, plot_args: dict = default_unit_plot_args) -> Optional[plt.Axes]:
   """
   Plot aroon chart
 
@@ -6704,14 +6669,14 @@ def plot_aroon(df: pd.DataFrame, start: Optional[int] = None, end: Optional[int]
   ax.legend(bbox_to_anchor=plot_args['bbox_to_anchor'], loc=plot_args['loc'], ncol=plot_args['ncol'], borderaxespad=plot_args['borderaxespad']) 
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
   ax.grid(True, axis='both', linestyle='--', linewidth=0.5)
-  ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
+  ax.yaxis.set_ticks_position(default_unit_plot_args['yaxis_position'])
 
   # return ax
   if use_ax is not None:
     return ax
 
 # plot renko chart
-def plot_renko(df: pd.DataFrame, start: Optional[int] = None, end: Optional[int] = None, use_ax: Optional[plt.Axes] = None, title: Optional[str] = None, close_alpha: float = 0.5, save_path: Optional[str] = None, save_image: bool = False, show_image: bool = False, plot_args: dict = default_plot_args) -> Optional[plt.Axes]:
+def plot_renko(df: pd.DataFrame, start: Optional[int] = None, end: Optional[int] = None, use_ax: Optional[plt.Axes] = None, title: Optional[str] = None, close_alpha: float = 0.5, save_path: Optional[str] = None, save_image: bool = False, show_image: bool = False, plot_args: dict = default_unit_plot_args) -> Optional[plt.Axes]:
   """
   Plot renko chart
 
@@ -6768,7 +6733,7 @@ def plot_renko(df: pd.DataFrame, start: Optional[int] = None, end: Optional[int]
   ax.set_title(title, rotation=plot_args['title_rotation'], x=plot_args['title_x'], y=plot_args['title_y'])
   # ax.grid(True, axis='x', linestyle='--', linewidth=0.5)
 
-  ax.yaxis.set_ticks_position(default_plot_args['yaxis_position'])
+  ax.yaxis.set_ticks_position(default_unit_plot_args['yaxis_position'])
   
   # return ax
   if use_ax is not None:
@@ -6783,7 +6748,7 @@ def plot_renko(df: pd.DataFrame, start: Optional[int] = None, end: Optional[int]
       plt.show()
 
 # plot rsi chart
-def plot_rsi(df: pd.DataFrame, start: Optional[int] = None, end: Optional[int] = None, use_ax: Optional[plt.Axes] = None, title: Optional[str] = None, plot_args: dict = default_plot_args) -> Optional[plt.Axes]:
+def plot_rsi(df: pd.DataFrame, start: Optional[int] = None, end: Optional[int] = None, use_ax: Optional[plt.Axes] = None, title: Optional[str] = None, plot_args: dict = default_unit_plot_args) -> Optional[plt.Axes]:
   """
   Plot aroon chart
 
@@ -6868,7 +6833,7 @@ def plot_rsi(df: pd.DataFrame, start: Optional[int] = None, end: Optional[int] =
     return ax
 
 # plot rate and indicators for each target list
-def plot_summary(data: dict, width: int = 20, unit_size: float = 0.3, wspace: float = 0.2, hspace: float = 0.1, plot_args: dict = default_plot_args, config: Optional[dict] = None, save_path: Optional[str] = None) -> plt.Axes:
+def plot_summary(data: dict, width: int = 20, unit_size: float = 0.3, wspace: float = 0.2, hspace: float = 0.1, plot_args: dict = default_unit_plot_args, config: Optional[dict] = None, save_path: Optional[str] = None) -> plt.Axes:
   """
   Plot rate and major indicator scores for each target list
   :param data: dict of dataframes including 'result'
@@ -7095,8 +7060,8 @@ def plot_summary(data: dict, width: int = 20, unit_size: float = 0.3, wspace: fl
   return score_ax
 
 # plot review of signal's price
-# def plot_review(prefix: str, df: pd.DataFrame, sort_factors: list = ['信号分数', "模式分数", 'ADX天数', 'ADX起始'], sort_orders: list = [False, True, False, False], width: int = 20, unit_size: float = 0.3, wspace: float = 0.2, hspace: float = 0.1, plot_args: dict = default_plot_args, config: Optional[dict] = None, save_path: Optional[str] = None) -> plt.Axes:
-def plot_review(prefix: str, df: pd.DataFrame, sort_factors: list = ['signal_score', "pattern_score", 'adx_direction_day', 'adx_direction_start'], sort_orders: list = [False, True, False, False], width: int = 20, unit_size: float = 0.3, wspace: float = 0.2, hspace: float = 0.1, plot_args: dict = default_plot_args, config: Optional[dict] = None, save_path: Optional[str] = None) -> plt.Axes:
+# def plot_review(prefix: str, df: pd.DataFrame, sort_factors: list = ['信号分数', "模式分数", 'ADX天数', 'ADX起始'], sort_orders: list = [False, True, False, False], width: int = 20, unit_size: float = 0.3, wspace: float = 0.2, hspace: float = 0.1, plot_args: dict = default_unit_plot_args, config: Optional[dict] = None, save_path: Optional[str] = None) -> plt.Axes:
+def plot_review(prefix: str, df: pd.DataFrame, sort_factors: list = ['signal_score', "pattern_score", 'adx_direction_day', 'adx_direction_start'], sort_orders: list = [False, True, False, False], width: int = 20, unit_size: float = 0.3, wspace: float = 0.2, hspace: float = 0.1, plot_args: dict = default_unit_plot_args, config: Optional[dict] = None, save_path: Optional[str] = None) -> plt.Axes:
 
   """
   Plot rate and signal indicators for signal
@@ -7243,7 +7208,7 @@ def plot_selected(data: dict, config: dict, make_pdf: bool = False, dst_path: Op
   return selected_data
 
 # plot multiple indicators on a same chart
-def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[str] = None, end: Optional[str] = None, interval: Literal['day', 'week', 'month', 'year'] = 'day', trade_info: Optional[pd.DataFrame] = None, save_path: Optional[str] = None, save_image: bool = False, show_image: bool = False, title: Optional[str] = None, subplot_args: dict = default_plot_args) -> Optional[plt.Axes]:
+def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[str] = None, end: Optional[str] = None, interval: Literal['day', 'week', 'month', 'year'] = 'day', trade_info: Optional[pd.DataFrame] = None, save_path: Optional[str] = None, save_image: bool = False, show_image: bool = False, title: Optional[str] = None, subplot_args: dict = default_unit_plot_args) -> Optional[plt.Axes]:
   """
   Plot Ichimoku and mean reversion in a same plot
   :param df: dataframe with ichimoku and mean reversion columns
@@ -7253,7 +7218,6 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
   :param save_path: path where the figure will be saved to, if set to None, then image will not be saved
   :param show_image: whether to display image
   :param title: title of the figure
-  :param unit_size: height of each subplot
   :param ws: wide space 
   :param hs: heighe space between subplots
   :param subplot_args: plot args for subplots
@@ -7265,7 +7229,7 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
   plot_data = df[start:end].copy()
   
   # get indicator names and plot ratio
-  plot_ratio = args.get('plot_ratio')
+  plot_ratio = args.get('blocks')
   if plot_ratio is None :
     print('No indicator to plot')
     return None
@@ -7364,8 +7328,8 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
       else:
         pass
 
-      # plot_bar(df=plot_data, target_col='Volume', width=bar_width, alpha=0.5, color_mode="up_down", benchmark=None, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
-      plot_bar(df=plot_data, target_col='Volume', width=bar_width, alpha=0.4, color_mode="up_down", benchmark=None, edge_color='grey', title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_plot_args)
+      # plot_bar(df=plot_data, target_col='Volume', width=bar_width, alpha=0.5, color_mode="up_down", benchmark=None, title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_unit_plot_args)
+      plot_bar(df=plot_data, target_col='Volume', width=bar_width, alpha=0.4, color_mode="up_down", benchmark=None, edge_color='grey', title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=default_unit_plot_args)
       
       # annotate volume
       ylim = axes[tmp_indicator].get_ylim()
@@ -7380,55 +7344,9 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
       v_change = f'+{v_change}' if v_change > 0 else f'{v_change}'
       plt.annotate(f'{desc}({v_day})', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=BASE_FONTSIZE, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
 
-    # plot score
-    elif tmp_indicator == 'score':
-      # set bar_width according to data interval
-      bar_width = datetime.timedelta(days=1)
-      if interval == 'day':
-        bar_width = datetime.timedelta(days=1)
-      elif interval == 'week':
-        bar_width = datetime.timedelta(days=7)
-      elif interval == 'month':
-        bar_width = datetime.timedelta(days=30)
-      elif interval == 'year':
-        bar_width = datetime.timedelta(days=365)
-      else:
-        pass
-
-      axes[tmp_indicator].bar(plot_data.index, plot_data['proba_up'], bar_width, color='green', edgecolor='grey', alpha=0.25, label='up')
-      axes[tmp_indicator].bar(plot_data.index, plot_data['proba_down'], bar_width, color='red', edgecolor='grey', alpha=0.25, label='down')
-
-      # 顺序必须是：先画底下 c → 再画中间 b → 最后顶上 a
-      # 底部 c：绿色
-      # axes[tmp_indicator].bar(plot_data.index, plot_data['proba_up'], bar_width, color='green', edgecolor='grey', alpha=0.5, label='up')
-      # # 中间 b：橙色（底部是 c）
-      # axes[tmp_indicator].bar(plot_data.index, plot_data['proba_neutral'], bar_width, bottom=plot_data['proba_up'], color='orange', edgecolor='grey', alpha=0.3, label='neutral')
-      # # 顶部 a：红色（底部是 c + b）
-      # axes[tmp_indicator].bar(plot_data.index, plot_data['proba_down'], bar_width, bottom=plot_data['proba_up'] + plot_data['proba_neutral'], color='red', edgecolor='grey', alpha=0.5, label='down')
-
-      # # # 新增水平分割线
-      # plot_data['neutral']= 0.5
-      # axes[tmp_indicator].plot(plot_data.index, plot_data['neutral'], color='grey', ls='--', lw=0.5)
-      # axes[tmp_indicator].yaxis.set_ticks_position(default_plot_args['yaxis_position'])
-
-      # # plt.ylim(0, 1)
-      axes[tmp_indicator].yaxis.tick_right()
-      # axes[tmp_indicator].set_yticklabels([])
-      # # annotate probability
-      # v_up = round(plot_data.loc[max_idx, 'proba_up'], 2)
-      # v_down = round(plot_data.loc[max_idx, 'proba_down'], 2)
-      # v_neutral = round(plot_data.loc[max_idx, 'proba_neutral'], 2)
-      # v = f'{v_down:.0%}↓ {v_neutral:.0%} ↑{v_up:.0%}'
-           
-      # y_signal = 0.5
-      # colors = ['green', 'orange', 'red']
-      # values = np.array([v_up, v_neutral, v_down])
-      # text_color = colors[np.argmax(values)]
-      # plt.annotate(f'{v}', xy=(x_signal, y_signal), xytext=(x_signal, y_signal), fontsize=BASE_FONTSIZE, xycoords='data', textcoords='data', color='black', va='center',  ha='left', bbox=dict(boxstyle="round", facecolor=text_color, edgecolor='none', alpha=0.1))
-
     # plot renko
     elif tmp_indicator == 'renko':
-      plot_renko(plot_data, use_ax=axes[tmp_indicator], title=tmp_indicator, plot_args=default_plot_args)
+      plot_renko(plot_data, use_ax=axes[tmp_indicator], title=tmp_indicator, plot_args=default_unit_plot_args)
 
     # plot signals
     elif tmp_indicator == 'signals':
@@ -7464,112 +7382,6 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
       plt.yticks(signal_bases, signal_names)
       axes[tmp_indicator].legend().set_visible(False)
 
-    # plot potential
-    elif tmp_indicator == 'potential':
-      
-      y_min = 0
-      y_max = 1
-      idx_list = plot_data.index.tolist()
-      extend_days = 5
-      for i in range(extend_days):
-        idx_list.append(max_idx + datetime.timedelta(days=i+1))
-      prev_trend_day = plot_data['trend_day'].shift(1)
-      potential_list = {
-        'up': (plot_data['trend_day'] > prev_trend_day).to_list(),
-        'down': (plot_data['trend_day'] < prev_trend_day).to_list(),
-        'wave_up': ((plot_data['potential'] == "down_up")).to_list(),
-        'wave_down': ((plot_data['potential'] == "up_down")).to_list(),
-      }
-
-      hatches = {'up': None, 'down': None, 'wave_up': '////', 'wave_down': '\\\\\\\\'}
-      colors = {'up': 'green', 'down': 'red', 'wave_up': 'white', 'wave_down': 'white'}
-      alphas = {'up': 0.25, 'down': 0.25, 'wave_up': 0.25, 'wave_down': 0.25}
-
-      # 遍历三个列表
-      for t in potential_list.keys():
-        tmp_potential = potential_list[t]
-          
-        # 遍历每种趋势
-        start_i = 0
-        end_i = start_i
-        for i in range(len(tmp_potential)):
-          
-          # 当前趋势延续，且未到尽头：更新end_i
-          if tmp_potential[i] and i <len(tmp_potential)-1:
-            end_i = i
-
-          # 当前趋势变更，或到尽头：画图
-          else:            
-            
-            # 到尽头：更新end_i = i
-            if i == len(tmp_potential)-1:
-              if tmp_potential[i]:
-                end_i = i
-              else:
-                pass
-            
-            # 填充 start_i - end_i 之间的区域
-            if start_i < end_i:
-              start_idx = idx_list[start_i]
-              end_idx = idx_list[end_i] 
-
-              diff_days = (idx_list[start_i+1] - idx_list[start_i]).days
-              if diff_days > 1: 
-                start_idx = idx_list[start_i+1] - datetime.timedelta(days=diff_days/2)
-              
-              diff_days = (idx_list[end_i+1] - idx_list[end_i]).days
-              if diff_days > 1: 
-                end_idx = idx_list[end_i+1] - datetime.timedelta(days=diff_days/2)
-
-              x = (plot_data[idx_list[start_i]:idx_list[end_i]].index).tolist()
-              potential_start = start_idx + datetime.timedelta(days=0.5)
-              potential_end = end_idx + datetime.timedelta(days=0.5)
-
-              x[0] = potential_start
-              x[-1] = potential_end
-
-              axes[tmp_indicator].fill_between(x, y_max, y_min, hatch=hatches[t], facecolor=colors[t], interpolate=True, alpha=alphas[t], edgecolor=None, linewidth=0.05, zorder=default_zorders['trend']) #,  
-
-            start_i = i
-            end_i = i
-      axes[tmp_indicator].yaxis.tick_right()
-      axes[tmp_indicator].set_yticklabels([])
-
-    # plot action
-    elif tmp_indicator == 'action':
-      
-      alpha = 0.5
-      signal_y = 'action_y'
-      plot_data[signal_y] = 0.5
-      
-      tmp_data = plot_data.query(f'(反转观望 == 1)')
-      if len(tmp_data) > 0:
-        axes[tmp_indicator].scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='green', edgecolor='green', alpha=alpha) # outer_alpha
-
-      tmp_data = plot_data.query(f'(触发买入 == 1)')
-      if len(tmp_data) > 0:
-        axes[tmp_indicator].scatter(tmp_data.index, tmp_data[signal_y], marker='^', color='none', edgecolor='green', alpha=alpha) # outer_alpha
-
-      tmp_data = plot_data.query(f'(上行持有 == 1)')
-      if len(tmp_data) > 0:
-        axes[tmp_indicator].scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='green', edgecolor='green', alpha=alpha) # outer_alpha
-
-      tmp_data = plot_data.query(f'(反转注意 == 1)')
-      if len(tmp_data) > 0:
-        axes[tmp_indicator].scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', edgecolor='red', alpha=alpha) # outer_alpha
-
-      tmp_data = plot_data.query(f'(触发卖出 == 1)')
-      if len(tmp_data) > 0:
-        axes[tmp_indicator].scatter(tmp_data.index, tmp_data[signal_y], marker='v', color='none', edgecolor='red', alpha=alpha) # outer_alpha
-
-      tmp_data = plot_data.query(f'(下行空仓 == 1)')
-      if len(tmp_data) > 0:
-        axes[tmp_indicator].scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='red', edgecolor='red', alpha=alpha) # outer_alpha  
-
-
-      axes[tmp_indicator].set_ylim(0, 1)
-      axes[tmp_indicator].yaxis.tick_right()
-
     # plot other indicators
     else:
       print(f'method for indicator ({tmp_indicator}) not defined')
@@ -7590,9 +7402,6 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
   title_color = 'green' if close_rate > 0 else 'red'
   desc_color = 'green' if signal_score > 0 else 'red'
   title_symbol = up_down_symbol[close_rate > 0]
-  # # bug
-  # plt.rcParams['font.sans-serif'] = ['SimHei'] 
-  # plt.rcParams['axes.unicode_minus'] = False
 
   # plot trade info
   if trade_info is not None:
