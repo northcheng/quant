@@ -21,7 +21,7 @@
       "trend": ["ichimoku", "kama", "adx"], 
       "volume": ["adi"], 
       "momentum": ["rsi"], 
-      "volatility": [], 
+      "volatility": ["bb"], 
       "other": []
     },
     "perspectives": ["candle", "support_resistant"],
@@ -56,7 +56,7 @@
       },   
 
       "main_indicators": {
-        "target_indicator": ["ichimoku", "kama", "trend", "candlestick"],
+        "target_indicator": ["ichimoku", "kama", "trend", "candlestick", "bb"],
         "candlestick_color": {"color_up": "limegreen", "color_down": "orangered", "shadow_color": "black", "entity_edge_color": "black", "alpha": 1},
         "add_on": ["split", "gap", "support_resistant", "pattern"]
       }, 

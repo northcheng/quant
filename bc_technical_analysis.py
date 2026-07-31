@@ -3718,7 +3718,7 @@ def add_renko_features(df: pd.DataFrame, brick_size_factor: float = 0.077, dynam
   if dynamic_brick:
     # use dynamic brick size: brick_size_factor * Close price
     df['bsz'] = round(df['Close'] * brick_size_factor, 3)
-    # df['bsz'] = round(df['atr'].bfill(), 3)
+    df['bsz'] = round(df['atr'].bfill(), 3)
   
   else:
     # use static brick size: brick_size_factor * Close price
@@ -6346,11 +6346,12 @@ def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Opt
   
   # plot bollinger bands
   if 'bb' in target_indicator:
-    alpha = 0.2
-    alpha_fill = 0.02
-    ax.plot(df.index, df.bb_high_band, label='bb_high_band', color='green', linestyle='--', alpha=alpha, zorder=default_zorders['default'])
-    ax.plot(df.index, df.bb_low_band, label='bb_low_band', color='red', linestyle='--', alpha=alpha, zorder=default_zorders['default'])
-    ax.plot(df.index, df.mavg, label='mavg', color='black', linestyle=':', alpha=alpha*3, zorder=default_zorders['default'])
+    alpha = 0.05
+    ax.plot(df.index, df.bb_high_band, color='k', linestyle='-', alpha=alpha, zorder=default_zorders['default']) #label='bb_high_band', 
+    ax.plot(df.index, df.bb_low_band, color='k', linestyle='-', alpha=alpha, zorder=default_zorders['default']) #label='bb_low_band', 
+    ax.plot(df.index, df.mavg, color='black', linestyle=':', alpha=alpha*3, zorder=default_zorders['default']) # label='mavg', 
+
+    # alpha_fill = 0.02
     # ax.fill_between(df.index, df.mavg, df.bb_high_band, facecolor='green', interpolate=True, alpha=alpha_fill, zorder=default_zorders['default'])
     # ax.fill_between(df.index, df.mavg, df.bb_low_band, facecolor='red', interpolate=True, alpha=alpha_fill, zorder=default_zorders['default'])
   
@@ -6560,7 +6561,7 @@ def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Opt
     up_key_col = {}
     down_key_col = {}
     close_price = df.loc[max_idx, 'Close']
-    col_names = {'tankan':'tankan', 'kijun':'kijun ', 'kama_fast':'km_fst', 'kama_slow':'km_slw', 'renko_h':'renk_h', 'renko_l':'renk_l', 'candle_gap_top':'gp_top', 'candle_gap_bottom':'gp_btm', 'linear_fit_high': 'lnr_hi', 'linear_fit_low': 'lnr_lo'}
+    col_names = {'tankan':'tankan', 'kijun':'kijun ', 'kama_fast':'km_fst', 'kama_slow':'km_slw', 'renko_h':'renk_h', 'renko_l':'renk_l', 'bb_high_band':'bb_h', 'bb_low_band':'bb_l', 'candle_gap_top':'gp_top', 'candle_gap_bottom':'gp_btm', 'linear_fit_high': 'lnr_hi', 'linear_fit_low': 'lnr_lo'}
     for col in col_names.keys():
       if col in df.columns:
         tmp_col_value = df.loc[max_idx, col]
@@ -6603,6 +6604,7 @@ def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Opt
     upper_shadow = round(df.loc[max_idx, "candle_upper_shadow_pct"], 3) * 100
     entity = round(df.loc[max_idx, "candle_entity_pct"], 3) * 100
     lower_shadow = round(df.loc[max_idx, "candle_lower_shadow_pct"], 3) * 100
+
     price_info = f'{up_price}\n\n' + f'    [{high_price:05.3f}]    \n----{upper_shadow:5.1f}%----' + f'\n----{entity:5.1f}%----\n' + f'----{lower_shadow:5.1f}%----\n    [{low_price:05.3f}]    ' + f'\n\n{down_price}'
     
     # add the string to the chart
@@ -6721,10 +6723,10 @@ def plot_renko(df: pd.DataFrame, start: Optional[int] = None, end: Optional[int]
   for index, row in df.iterrows():
     
     brick_length = (row['renko_end'] - row['renko_start'])
-    hatch = '----' # '//' if row['renko_color'] == 'green' else '\\\\'# 
-    facecolor = mcolors.to_rgba('green' if row['renko_color'] == 'green' else 'red', alpha=0.1) # 'yellow' # 'grey' if row['renko_color'] == 'green' else 'red'
-    edgecolor = mcolors.to_rgba('black', alpha=0.15)# if row['renko_color'] == 'green' else mcolors.to_rgba('red', alpha=0.3)
-    renko = Rectangle((index, row['renko_o']), brick_length, row['renko_distance'], facecolor=facecolor, edgecolor=edgecolor, hatch=hatch, linewidth=1, fill=True, label=legends[row['renko_real']], zorder=default_zorders['renko']) #  edgecolor=row['renko_color'], linestyle='-', linewidth=5, 
+    hatch = None # '----' # '//' if row['renko_color'] == 'green' else '\\\\'# 
+    facecolor = mcolors.to_rgba('purple' if row['renko_color'] == 'green' else 'purple', alpha=0.2) # 'yellow' # 'grey' if row['renko_color'] == 'green' else 'red'
+    edgecolor = mcolors.to_rgba('black', alpha=0.3)# if row['renko_color'] == 'green' else mcolors.to_rgba('red', alpha=0.3)
+    renko = Rectangle((index, row['renko_o']), brick_length, row['renko_distance'], facecolor=facecolor, edgecolor=edgecolor, hatch=hatch, linewidth=1, fill=True, zorder=default_zorders['renko']) #  edgecolor=row['renko_color'], linestyle='-', linewidth=5, label=legends[row['renko_real']], 
     legends[row['renko_real']] = "_nolegend_"
     ax.add_patch(renko)
   
