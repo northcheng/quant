@@ -52,7 +52,7 @@
       },
 
       "signals": {
-        "signal_list": ["position", "candle", "-", "trigger_up", "trend", "中期", "trigger_down", "-", "action"]
+        "signal_list": ["candle", "position", "-", "trigger_up", "trend", "中期", "trigger_down", "-", "action"]
       },   
 
       "main_indicators": {
