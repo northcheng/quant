@@ -1486,11 +1486,11 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
     # except Exception as e:
     #   print(f'[calculate_ta_signal] ML attach failed: {e!r}; attaching empty ML columns')
 
-  # df['trigger_score_symbol'] = 0
-  # pos_idx = df.query('trigger_score > 0').index
-  # df.loc[pos_idx, 'trigger_score_symbol'] = 1
-  # neg_idx = df.query('trigger_score < 0').index
-  # df.loc[neg_idx, 'trigger_score_symbol'] = -1
+  df['trigger_score_symbol'] = 0
+  pos_idx = df.query('trigger_score > 0').index
+  df.loc[pos_idx, 'trigger_score_symbol'] = 1
+  neg_idx = df.query('trigger_score < 0').index
+  df.loc[neg_idx, 'trigger_score_symbol'] = -1
 
   # drop redundant columns
   for col in col_to_drop:
