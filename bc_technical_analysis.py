@@ -34,7 +34,7 @@ BASE_FONTSIZE = 11
 if p == 'Windows':
   plt.rcParams['font.sans-serif'] = ['SimHei'] 
 else:
-  plt.rcParams['font.sans-serif'] = ['Noto Sans CJK SC'] 
+  plt.rcParams['font.sans-serif'] = ['WenQuanYi Micro Hei'] 
   BASE_FONTSIZE -= 2
 plt.rcParams['axes.unicode_minus'] = False
 
