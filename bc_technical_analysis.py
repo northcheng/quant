@@ -6269,7 +6269,7 @@ def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Opt
 
     ax.plot(df.index, df.bb_high_band, color='green', linestyle=':', alpha=alpha, zorder=default_zorders['default']) #label='bb_high_band', 
     ax.plot(df.index, df.bb_low_band, color='red', linestyle=':', alpha=alpha, zorder=default_zorders['default']) #label='bb_low_band', 
-    ax.plot(df.index, df.mavg, color='black', linestyle=':', alpha=alpha*3, zorder=default_zorders['default']) # label='mavg', 
+    ax.plot(df.index, df.mavg, color='black', linestyle=':', alpha=alpha, zorder=default_zorders['default']) # label='mavg', 
     
     # # 计算mavg每天的变化，根据变化方向决定mavg的颜色，增长则画绿点，否则画红点
     # df['mavg_diff'] = df['mavg'].diff()
