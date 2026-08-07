@@ -6269,7 +6269,7 @@ def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Opt
 
     ax.plot(df.index, df.bb_high_band, color='green', linestyle=':', alpha=alpha, zorder=default_zorders['default']) #label='bb_high_band', 
     ax.plot(df.index, df.bb_low_band, color='red', linestyle=':', alpha=alpha, zorder=default_zorders['default']) #label='bb_low_band', 
-    ax.plot(df.index, df.mavg, color='black', linestyle=':', alpha=alpha, zorder=default_zorders['default']) # label='mavg', 
+    # ax.plot(df.index, df.mavg, color='black', linestyle=':', alpha=alpha, zorder=default_zorders['default']) # label='mavg', 
     
     # # 计算mavg每天的变化，根据变化方向决定mavg的颜色，增长则画绿点，否则画红点
     # df['mavg_diff'] = df['mavg'].diff()
@@ -6498,7 +6498,7 @@ def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Opt
     up_key_col = {}
     down_key_col = {}
     close_price = df.loc[max_idx, 'Close']
-    col_names = {'tankan':'tankan', 'kijun':'kijun ', 'kama_fast':'km_fst', 'kama_slow':'km_slw', 'renko_h':'renk_h', 'renko_l':'renk_l', 'bb_high_band':'bb_h', 'bb_low_band':'bb_l', 'candle_gap_top':'gp_top', 'candle_gap_bottom':'gp_btm', 'linear_fit_high': 'lnr_hi', 'linear_fit_low': 'lnr_lo'}
+    col_names = {'tankan':'tankan', 'kijun':'kijun ', 'kama_fast':'km_fst', 'kama_slow':'km_slw', 'renko_h':'renk_h', 'renko_l':'renk_l', 'bb_high_band':'bb_hbd', 'bb_low_band':'bb_lbd', 'mavg': 'bb_mid','candle_gap_top':'gp_top', 'candle_gap_bottom':'gp_btm', 'linear_fit_high': 'lnr_hi', 'linear_fit_low': 'lnr_lo'}
     for col in col_names.keys():
       if col in df.columns:
         tmp_col_value = df.loc[max_idx, col]
