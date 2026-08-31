@@ -1160,13 +1160,11 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
                               (
                                 candle_color == 1 or 
                                 candle_lower_shadow_pct > 0.25 or 
-                                (tankan > High and kijun < Low and kijun_support > 0) or 
                                 (kama_fast > High and kama_slow < Low and kama_slow_support > 0)) and
                               (
-                                (kama_slow_support > 0 or kijun_support > 0) or
+                                (kama_slow_support > 0) or
                                 ((candle_gap_top_support > 0 or candle_gap_bottom_support > 0) and (candle_entity_top < candle_gap_top and candle_entity_bottom > candle_gap_bottom)) or 
-                                (candle_color == 1 and 长影线_trend == "u" and (kama_slow_break_down < 0 or kijun_break_down < 0 or candle_gap_top_break_down < 0 or candle_gap_top_break_down < 0)) or
-                                ((candle_position_score > 0 or candle_color == 1) and (kama_slow_break_up > 0 or kijun_break_up > 0 or candle_gap_top_break_up > 0 or candle_gap_bottom_break_up > 0))
+                                (candle_color == 1 and 长影线_trend == "u" and (kama_slow_break_down < 0 or candle_gap_top_break_down < 0 or candle_gap_top_break_down < 0))
                               )
                             )
                             '''.replace('\n', ''),
@@ -1176,9 +1174,9 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
                             (
                               (ki_distance in ["rg", "rn", "rr"] or position in ['down', 'mid_up', 'mid_down', 'mid']) and
                               (
-                                (kama_slow_resistant < 0 or kijun_resistant < 0 or candle_gap_top_resistant < 0 or candle_gap_bottom_resistant < 0) or 
-                                ((candle_color == -1 or 长影线_trend == "d" or resistant_score < 0) and (kama_slow_break_up > 0 or kijun_break_up > 0 or candle_gap_top_break_up > 0 or candle_gap_bottom_break_up > 0)) or
-                                ((candle_position_score < 0 or candle_color == -1) and (kama_slow_break_down < 0 or kijun_break_down < 0 or candle_gap_top_break_down < 0 or candle_gap_bottom_break_down < 0))
+                                (kama_slow_resistant < 0 or candle_gap_top_resistant < 0 or candle_gap_bottom_resistant < 0) or 
+                                ((candle_color == -1 or 长影线_trend == "d" or resistant_score < 0) and (kama_slow_break_up > 0 or candle_gap_top_break_up > 0 or candle_gap_bottom_break_up > 0)) or
+                                ((candle_position_score < 0 or candle_color == -1) and (kama_slow_break_down < 0 or candle_gap_top_break_down < 0 or candle_gap_bottom_break_down < 0))
                               ) 
                             )
                             '''.replace('\n', ''),        
@@ -2364,7 +2362,7 @@ def add_candlestick_patterns(df: pd.DataFrame) -> pd.DataFrame:
       df[f'{col}_ma'] = sm(series=df[f'candle_{col}'], periods=ma_period).mean()
       # df[f'{col}_std'] = sm(series=df[f'candle_{col}'], periods=ma_period).std()
       df[f'{col}_diff'] = (df[f'candle_{col}'] - df[f'{col}_ma'])/df[f'{col}_ma'] # df[f'{col}_std']
-      col_to_drop += [f'{col}_ma' , f'{col}_diff'] # , f'{col}_std'
+      col_to_drop += [f'{col}_ma'] # , f'{col}_std', f'{col}_diff'
 
     # long/short shadow
     conditions = {
@@ -2782,6 +2780,11 @@ def add_support_resistance(df: pd.DataFrame, target_col: list = default_support_
   # copy dataframe
   df = df.copy()
   col_to_drop = []
+
+  # initialization
+  for col in ['support', 'resistant', 'break_up', 'break_down']:
+    df[col + '_score'] = 0.0
+    df[col + '_description'] = ''
   
   # remove columns that not exists
   target_col = [x for x in target_col if x in df.columns]
@@ -2802,27 +2805,17 @@ def add_support_resistance(df: pd.DataFrame, target_col: list = default_support_
   df['mid_price'] = (df['High'] + df['Low']) / 2
   col_to_drop.append('mid_price')
 
-  generated_cols = {'High': [], 'Low': []}
   # calculate support and resistance
+  generated_cols = {'High': [], 'Low': []}
   for col_1 in ['High', 'Low']:
     for col_2 in target_col:
       
       # calculate mutual distnace
       distance_col = f'{col_1}_to_{col_2}'
-      col_to_drop.append(distance_col)
-
       tmp_distance = abs(df[col_1] - df[col_2]) / df['kama_slow']
       df[distance_col] = tmp_distance
       generated_cols[col_1].append(distance_col)
-
-  df['support_score'] = 0.0
-  df['support_description'] = ''
-  df['resistant_score'] = 0.0
-  df['resistant_description'] = ''
-  df['break_up_score'] = 0.0
-  df['break_up_description'] = ''
-  df['break_down_score'] = 0.0
-  df['break_down_description'] = ''
+      # col_to_drop.append(distance_col)
 
   # ================================ breakthorough =====================================
   break_weight = {}
@@ -2866,17 +2859,13 @@ def add_support_resistance(df: pd.DataFrame, target_col: list = default_support_
 
   # ================================ intra-day support and resistant ===================
   # calculate support
-  distance_threshold = 0.02
+  distance_threshold = 0.015
   distance_threshold_strict = 0.01
   shadow_pct_threhold = 0.2
-  distance_ratio_threshold = 0.1
   for col in generated_cols['Low']:
 
     tmp_col = col.split('_to_')[-1]
     tmp_indicator = 'ichimoku' if tmp_col in ['tankan', 'kijun'] else 'kama'
-    # tmp_col_ratio = f'{col}_ratio'
-    # df[tmp_col_ratio] = abs(df[col] / df[f'{tmp_indicator}_distance'])
-    # col_to_drop.append(tmp_col_ratio)
 
     df[f'{tmp_col}_support'] = 0.0
     support_query = f'''
@@ -2890,6 +2879,10 @@ def add_support_resistance(df: pd.DataFrame, target_col: list = default_support_
           (candle_color == 1 and mid_price > {tmp_col}) or 
           (candle_color == -1 and Close > {tmp_col})
         ) and 
+        (
+          (Low < {tmp_col} and Close > {tmp_col}) or
+          (entity_diff > -0.5 or shadow_diff > -0.5)
+        ) and
         (
           (candle_lower_shadow_pct > {shadow_pct_threhold}) or 
           (candle_lower_shadow_pct > candle_upper_shadow_pct)
@@ -3024,7 +3017,7 @@ def add_support_resistance(df: pd.DataFrame, target_col: list = default_support_
       else:
         print(f'error: {idx} not defined')
 
-      if col not in ['kijun', 'kama_slow', 'candle_gap_top', 'candle_gap_bottom']:
+      if col not in ['kama_slow', 'candle_gap_top', 'candle_gap_bottom']:
         col_to_drop.append(tmp_col)
 
   # drop unnecessary columns
@@ -6584,7 +6577,7 @@ def plot_main_indicators(df: pd.DataFrame, start: Optional[str] = None, end: Opt
     entity = round(df.loc[max_idx, "candle_entity_pct"], 3) * 100
     lower_shadow = round(df.loc[max_idx, "candle_lower_shadow_pct"], 3) * 100
 
-    price_info = f'{up_price}\n\n' + f'    [{high_price:05.3f}]    \n----{upper_shadow:5.1f}%----' + f'\n----{entity:5.1f}%----\n' + f'----{lower_shadow:5.1f}%----\n    [{low_price:05.3f}]    ' + f'\n\n{down_price}'
+    price_info = f'{up_price}\n\n' + f'{high_price:05.3f}    \n   |{upper_shadow:5.1f}% |' + f'\n----{entity:5.1f}% ----\n' + f'   |{lower_shadow:5.1f}% |\n{low_price:05.3f}    ' + f'\n\n{down_price}'
     
     # add the string to the chart
     plt.text(
