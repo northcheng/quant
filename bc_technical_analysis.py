@@ -34,8 +34,8 @@ BASE_FONTSIZE = 11
 if p == 'Windows':
   plt.rcParams['font.sans-serif'] = ['SimHei'] 
 else:
-  plt.rcParams['font.sans-serif'] = ['WenQuanYi Micro Hei'] 
-  BASE_FONTSIZE -= 2
+  plt.rcParams['font.sans-serif'] = ['Noto Sans Mono CJK SC']# ['WenQuanYi Micro Hei'] 
+  BASE_FONTSIZE -= 1
 plt.rcParams['axes.unicode_minus'] = False
 
 # ================================================ default parameters =============================================== # 
@@ -1245,14 +1245,14 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
       # adx(回升)
       '短期转向_up':          '''
                             (
-                              (trend in ['up'] and trend_score_change > 0)
+                              (trend in ['down'] and trend_score_change > 0)
                             )
                             '''.replace('\n', ''),
       
       # adx(回落)
       '短期转向_down':          '''
                             (
-                              (trend in ['down'] and trend_score_change < 0)
+                              (trend in ['up'] and trend_score_change < 0)
                             )
                             '''.replace('\n', ''), 
 
@@ -7386,7 +7386,7 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
             title=tmp_indicator, use_ax=axes[tmp_indicator], plot_args=subplot_args)
       
       plt.ylim(ymin=min(signal_bases)-1 , ymax=max(signal_bases)+1)
-      plt.yticks(signal_bases, signal_names)
+      plt.yticks(signal_bases, signal_names, fontsize=BASE_FONTSIZE-1)
       axes[tmp_indicator].legend().set_visible(False)
 
     # plot other indicators
@@ -7517,7 +7517,7 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
     change_desc = f'+{change}' if change >= 0 else f'{change}'
     trigger_desc = (f' {desc}' if len(desc) > 0 else '') + f' | 触发 {df.loc[idx, "trigger_score"]:<6} ({change_desc:<6})'
 
-    plt.figtext(0.973, 1.05, f'{position_desc}\n{candle_pattern_desc}\n{trigger_desc}\n{pattern_desc}', fontsize=BASE_FONTSIZE+2, color='black', ha='right', va='top', bbox=dict(boxstyle="round", fc=desc_color, ec="1.0", alpha=1))
+    plt.figtext(0.973, 1.05, f'{position_desc}\n{candle_pattern_desc}\n{trigger_desc}\n{pattern_desc}', fontsize=BASE_FONTSIZE+4, color='black', ha='right', va='top', bbox=dict(boxstyle="round", fc=desc_color, ec="1.0", alpha=1))
 
   # construct super title
   if new_title is None:
