@@ -1346,37 +1346,6 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
     df['pattern_description'] = df['pattern_description'].apply(lambda x: x[:-1] if (len(x) > 2 and x[-2] == ']') else x)
     df['pattern_score_change'] = df['pattern_score'] - df['pattern_score'].shift(1)
 
-  # ================================ calculate label ======================
-  if 'label' > '':
-    df['label'] = ''
-    df['label_score'] = 0
-    # df['ichimoku_distance_symbol'] = (df['ichimoku_distance'] > 0).replace({True: 1, False: -1})
-
-    # 中期/短期趋势均向下增强，且无kama_slow支撑
-    tmp_idx = df.query('(ichimoku_distance < 0 and ichimoku_distance_change < 0) and (trend_score < 0 and trend_score_change < 0) and (长线边界 <= 0 and kama_slow_support == 0 and kama_slow_break_up ==0)').index
-    df.loc[tmp_idx, 'label_score'] = -1
-    df.loc[tmp_idx, 'label'] += '2降, '
-
-    # 中期趋势上行减弱，短期趋势向下增强，且无kama_slow支撑
-    tmp_idx = df.query('(label_score == 0) and (ichimoku_distance > 0 and ichimoku_distance_change < 0) and  (trend_score < 0 and trend_score_change < 0) and (长线边界 <= 0 and kama_slow_support == 0 and kama_slow_break_up ==0 and ki_distance in ["gg", "gr"])').index
-    df.loc[tmp_idx, 'label_score'] = -2
-    df.loc[tmp_idx, 'label'] += '1.5降, '
-
-    # 中期趋势上行减弱/下行增强，短期趋势波动，且无kama_slow支撑
-    tmp_idx = df.query('(label_score == 0) and (ichimoku_distance_change <= 0) and (trend == "wave" and (trend_day >= 0 or trend_score < 0 or trend_score_change <= 0 or candle_position_score < 0)) and (长线边界 <= 0 and kama_slow_support == 0 and kama_slow_break_up ==0)').index
-    df.loc[tmp_idx, 'label_score'] = -3
-    df.loc[tmp_idx, 'label'] += '波动降, '
-
-    # 中期趋势上行减弱/下行增强，短期趋势波动，且无kama_slow支撑
-    tmp_idx = df.query('(label_score == 0) and (ichimoku_distance <= 0 and ichimoku_distance_change <= 0) and ((trend_score_change < 0 or (trend_score < 0 and candle_position_score < 0)) and (candle_position_score <= 0.33 or 十字星_trend != "n")) and (长线边界 <= 0 and kama_slow_support == 0 and kama_slow_break_up ==0)').index
-    df.loc[tmp_idx, 'label_score'] = -4
-    df.loc[tmp_idx, 'label'] += '停滞降, '
-
-    # 中期趋势上行减弱/下行增强，短期趋势波动，且无kama_slow支撑
-    tmp_idx = df.query('(label_score == 0) and (长线边界 < 0 or kama_slow_resistant < 0 or kama_slow_break_down < 0) and (trigger_score <= 0)').index
-    df.loc[tmp_idx, 'label_score'] = -5
-    df.loc[tmp_idx, 'label'] += '长线阻挡, '
-
   # ================================ calculate signal =======================
   if 'signal'  > '':
 
@@ -1457,6 +1426,10 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
 
   # ================================ calculate action =======================
   if 'action'  > '':
+    action_score_weights = {
+      '上行持有': 1, '反转观望': 1, '触发买入': 1,
+      '下行空仓': -1, '反转注意': -1, '触发卖出': -1,
+    }
     action_conditions = {
       '上行持有':       f'(ichimoku_distance > 0 and (ichimoku_rate > 0 or ichimoku_distance_change > 0) and position == "up" and trend == "up" and trend_score > 0)',  
       '反转观望':       f'(中期转向 == 1 and (短期转向 == 1 or potential in ["up", "up_1", "down_up"]))',  
@@ -1474,11 +1447,9 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
       # # get index which matches the condition
       tmp_condition = action_conditions[c]
       tmp_idx = df.query(tmp_condition).index
-      tmp_score = 1
+      df.loc[tmp_idx, c] += action_score_weights[c]
 
-      df.loc[tmp_idx, c] += tmp_score
-
-     # mute-action
+    # mute-action
     none_action_conditions = {
       # 高位波动
       '触发买入': f'''
@@ -1497,11 +1468,69 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
       ''',
       
     } 
+    
     # mute false-alarm
     for nc in none_action_conditions.keys():
       tmp_idx = df.query(none_action_conditions[nc]).index
       if len(tmp_idx) > 0:
         df.loc[tmp_idx, nc] = 0
+
+    df['action_score'] = df[action_conditions.keys()].sum(axis=1)
+    df['action_day'] = sda(df['action_score'], zero_as=1)
+
+  # ================================ calculate label ======================
+  if 'label' > '':
+    df['label'] = ''
+    df['pos_label_score'] = 0
+    df['neg_label_score'] = 0
+    # df['ichimoku_distance_symbol'] = (df['ichimoku_distance'] > 0).replace({True: 1, False: -1})
+
+    # 向上起始
+    tmp_idx = df.query('触发买入== 1 or action_day == 1').index
+    df.loc[tmp_idx, 'pos_label_score'] = 1
+    df.loc[tmp_idx, 'label'] += '触发买入, '
+
+    # 超卖
+    tmp_idx = df.query('Low < bb_low_band').index
+    df.loc[tmp_idx, 'pos_label_score'] = 2
+    df.loc[tmp_idx, 'label'] += '超卖, '
+
+    # 可能反弹
+    tmp_idx = df.query('ki_distance in ["gr", "gg"] and supporter == "kama_slow"').index
+    df.loc[tmp_idx, 'pos_label_score'] = 2
+    df.loc[tmp_idx, 'label'] += 'KAMA反弹, '
+
+    # 可能反转
+    tmp_idx = df.query('trend not in ["down"] and trend_score > 0 and action_day < 0 and adx_value < 0').index
+    df.loc[tmp_idx, 'pos_label_score'] = 3
+    df.loc[tmp_idx, 'label'] += '可能反转, '
+
+    # ---------------------------------------------------------------------
+
+    # 中期/短期趋势均向下增强，且无kama_slow支撑
+    tmp_idx = df.query('(ichimoku_distance < 0 and ichimoku_distance_change < 0) and (trend_score < 0 and trend_score_change < 0) and (长线边界 <= 0 and kama_slow_support == 0 and kama_slow_break_up ==0)').index
+    df.loc[tmp_idx, 'neg_label_score'] = -1
+    df.loc[tmp_idx, 'label'] += '2降, '
+
+    # 中期趋势上行减弱，短期趋势向下增强，且无kama_slow支撑
+    tmp_idx = df.query('(neg_label_score == 0) and (ichimoku_distance > 0 and ichimoku_distance_change < 0) and  (trend_score < 0 and trend_score_change < 0) and (长线边界 <= 0 and kama_slow_support == 0 and kama_slow_break_up ==0 and ki_distance in ["gg", "gr"])').index
+    df.loc[tmp_idx, 'neg_label_score'] = -2
+    df.loc[tmp_idx, 'label'] += '1.5降, '
+
+    # 中期趋势上行减弱/下行增强，短期趋势波动，且无kama_slow支撑
+    tmp_idx = df.query('(neg_label_score == 0) and (ichimoku_distance_change <= 0) and (trend == "wave" and (trend_day >= 0 or trend_score < 0 or trend_score_change <= 0 or candle_position_score < 0)) and (长线边界 <= 0 and kama_slow_support == 0 and kama_slow_break_up ==0)').index
+    df.loc[tmp_idx, 'neg_label_score'] = -3
+    df.loc[tmp_idx, 'label'] += '波动降, '
+
+    # 中期趋势上行减弱/下行增强，短期趋势波动，且无kama_slow支撑
+    tmp_idx = df.query('(neg_label_score == 0) and (ichimoku_distance <= 0 and ichimoku_distance_change <= 0) and ((trend_score_change < 0 or (trend_score < 0 and candle_position_score < 0)) and (candle_position_score <= 0.33 or 十字星_trend != "n")) and (长线边界 <= 0 and kama_slow_support == 0 and kama_slow_break_up ==0)').index
+    df.loc[tmp_idx, 'neg_label_score'] = -4
+    df.loc[tmp_idx, 'label'] += '停滞降, '
+
+    # 中期趋势上行减弱/下行增强，短期趋势波动，且无kama_slow支撑
+    tmp_idx = df.query('(neg_label_score == 0) and (长线边界 < 0 or kama_slow_resistant < 0 or kama_slow_break_down < 0) and (trigger_score <= 0)').index
+    df.loc[tmp_idx, 'neg_label_score'] = -5
+    df.loc[tmp_idx, 'label'] += '长线阻挡, '
 
   # 机器学习概率分数
   # if 'ml'  > '':
@@ -2812,7 +2841,7 @@ def add_support_resistance(df: pd.DataFrame, target_col: list = default_support_
       
       # calculate mutual distnace
       distance_col = f'{col_1}_to_{col_2}'
-      tmp_distance = abs(df[col_1] - df[col_2]) / df['kama_slow']
+      tmp_distance = df[col_1] - df[col_2]
       df[distance_col] = tmp_distance
       generated_cols[col_1].append(distance_col)
       # col_to_drop.append(distance_col)
@@ -2864,6 +2893,8 @@ def add_support_resistance(df: pd.DataFrame, target_col: list = default_support_
   shadow_pct_threhold = 0.2
   for col in generated_cols['Low']:
 
+    df[col] = abs(df[col]) / df['kama_slow']
+
     tmp_col = col.split('_to_')[-1]
     tmp_indicator = 'ichimoku' if tmp_col in ['tankan', 'kijun'] else 'kama'
 
@@ -2907,7 +2938,9 @@ def add_support_resistance(df: pd.DataFrame, target_col: list = default_support_
 
   # calculate resistance
   for col in generated_cols['High']:
-
+    
+    df[col] = abs(df[col]) / df['kama_slow']
+    
     tmp_col = col.split('_to_')[-1]
     tmp_indicator = 'ichimoku' if tmp_col in ['tankan', 'kijun'] else 'kama'
     tmp_col_ratio = f'{col}_ratio'
@@ -5281,15 +5314,15 @@ def plot_signal(df: pd.DataFrame, start: Optional[str] = None, end: Optional[str
     if len(tmp_data) > 0:
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='green', edgecolor='green', alpha=alpha) # outer_alpha
 
-    tmp_data = df.query(f'(反转注意 == 1)')
+    tmp_data = df.query(f'(反转注意 == -1)')
     if len(tmp_data) > 0:
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='_', color='red', edgecolor='red', alpha=alpha) # outer_alpha
 
-    tmp_data = df.query(f'(触发卖出 == 1)')
+    tmp_data = df.query(f'(触发卖出 == -1)')
     if len(tmp_data) > 0:
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='v', color='none', edgecolor='red', alpha=alpha) # outer_alpha
 
-    tmp_data = df.query(f'(下行空仓 == 1)')
+    tmp_data = df.query(f'(下行空仓 == -1)')
     if len(tmp_data) > 0:
       ax.scatter(tmp_data.index, tmp_data[signal_y], marker='s', color='red', edgecolor='red', alpha=alpha) # outer_alpha  
 
@@ -7329,7 +7362,7 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
       signals = tmp_args.get('signal_list')
 
       # plot one by one
-      labels = {' ': '信号', 'trigger': '触发(突破/边界)', 'trigger_up': '触发(支撑/跌落)', 'trigger_down': '触发(阻挡/突破)', '中期': '中期(ichimoku)', 'trend': '短期(adx)', 'candle': '蜡烛(位置/模式)', 'volume': '量价(变化/方向)', 'position': '位置(高低/超买超卖)'}
+      labels = {' ': '信号', 'trigger': '触发(突破/边界)', 'trigger_up': '触发(支撑/跌落)', 'trigger_down': '触发(阻挡/突破)', '中期': '中期(ichimoku)', 'trend': '短期(trend/_score)', 'candle': '蜡烛(位置/模式)', 'volume': '量价(变化/方向)', 'position': '位置(高低/超买超卖)'}
       signal_bases = []
       signal_names = []
       if signals is not None:
