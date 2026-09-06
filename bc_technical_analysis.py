@@ -1481,8 +1481,8 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
   # ================================ calculate label ======================
   if 'label' > '':
     df['label'] = ''
-    df['pos_label_score'] = 0
-    df['neg_label_score'] = 0
+    df['pos_label_score'] = 0.0
+    df['neg_label_score'] = 0.0
     # df['ichimoku_distance_symbol'] = (df['ichimoku_distance'] > 0).replace({True: 1, False: -1})
 
     # 向上起始
@@ -1501,7 +1501,7 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
     df.loc[tmp_idx, 'label'] += 'KAMA反弹, '
 
     # 可能反转
-    tmp_idx = df.query('trend not in ["down"] and trend_score > 0 and action_day < 0 and adx_value < 0').index
+    tmp_idx = df.query('trend not in ["down"] and trend_score > 0 and action_day < 0 and adx_value < 0 and (下行空仓 == 0 and 反转注意 == 0 and 触发卖出 == 0)').index
     df.loc[tmp_idx, 'pos_label_score'] = 3
     df.loc[tmp_idx, 'label'] += '可能反转, '
 
@@ -1531,6 +1531,12 @@ def calculate_ta_signal(df: pd.DataFrame, market: str = 'us', pool: str = 'us', 
     tmp_idx = df.query('(neg_label_score == 0) and (长线边界 < 0 or kama_slow_resistant < 0 or kama_slow_break_down < 0) and (trigger_score <= 0)').index
     df.loc[tmp_idx, 'neg_label_score'] = -5
     df.loc[tmp_idx, 'label'] += '长线阻挡, '
+
+    pos_wave_idx = df.query('(pos_label_score > 0) and ((adx_strong_day < -3) or ((-10 < adx_value < 10) and (-10 < adx_direction_start < 10)))').index
+    df.loc[pos_wave_idx, 'pos_label_score'] -= 0.1
+
+    neg_wave_idx = df.query('(neg_label_score < 0) and ((adx_strong_day < -3) or ((-10 < adx_value < 10) and (-10 < adx_direction_start < 10)))').index
+    df.loc[neg_wave_idx, 'neg_label_score'] -= 0.1
 
   # 机器学习概率分数
   # if 'ml'  > '':
@@ -7439,6 +7445,7 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
     # super_title desc
     super_title_desc = df.loc[idx, "label"]
     super_title_desc = super_title_desc[:-2] if len(super_title_desc) > 0 else '-'
+    super_title_desc = f'{df.loc[idx, "pos_label_score"]} | {df.loc[idx, "neg_label_score"]} : {super_title_desc}'
 
     # position desc (position)
     position_dict = {'down': '低位', 'mid_down': '中低位', 'mid': '中位', 'mid_up': '中高位', 'up': '高位'}
