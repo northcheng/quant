@@ -24,6 +24,7 @@ from matplotlib import gridspec
 from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
 from pathlib import Path
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from quant import bc_util as util
 from quant import bc_data_io as io_util
@@ -6114,7 +6115,7 @@ def plot_candlestick(df: pd.DataFrame, start: Optional[str] = None, end: Optiona
           for i in tmp_up_idx:
             k = util.time_2_string(i.date())
             if k not in up_pattern_annotations: 
-              up_pattern_annotations[k] = {'x': k, 'y': df.loc[i, 'Low'] - padding, 'text': tmp_up_info, 'style': style}
+              up_pattern_annotations[k] = {'x': i, 'y': df.loc[i, 'Low'] - padding, 'text': tmp_up_info, 'style': style}
             else:
               up_pattern_annotations[k]['text'] = up_pattern_annotations[k]['text']  + f'/{tmp_up_info}'
               if up_pattern_annotations[k]['style'] == 'normal':
@@ -6126,7 +6127,7 @@ def plot_candlestick(df: pd.DataFrame, start: Optional[str] = None, end: Optiona
           for i in tmp_down_idx:
             k = util.time_2_string(i.date())
             if k not in down_pattern_annotations:
-              down_pattern_annotations[k] = {'x': k, 'y': df.loc[i, 'High'] + padding, 'text': tmp_down_info, 'style': style}
+              down_pattern_annotations[k] = {'x': i, 'y': df.loc[i, 'High'] + padding, 'text': tmp_down_info, 'style': style}
             else:
               down_pattern_annotations[k]['text'] = down_pattern_annotations[k]['text']  + f'/{tmp_down_info}'
               if down_pattern_annotations[k]['style'] == 'normal':
@@ -7547,6 +7548,214 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
   plt.cla()
   plt.clf()
   plt.close()
+
+# worker function for parallel historical evolution: calculate one day's dynamic features/signals and plot
+def _plot_historical_day_task(df_slice: pd.DataFrame, symbol: str, ed: str, plot_start_date: str, plot_save_path: Optional[str], visualization_args: dict, do_visualize: bool) -> pd.DataFrame:
+  """
+  Calculate dynamic features/score/signal for a single day and optionally save the day's plot.
+  Module-level worker function for ProcessPoolExecutor (must be picklable).
+
+  :param df_slice: static ta data slice for [sd:ed]
+  :param symbol: symbol of the data
+  :param ed: end date of the day
+  :param plot_start_date: plot start date
+  :param plot_save_path: path to save plots
+  :param visualization_args: arguments for plotting
+  :param do_visualize: whether to save the plot for this day
+  :returns: dataframe (last row) with dynamic features/score/signal for this day
+  :raises: Exception
+  """
+  ta_data = calculate_ta_dynamic(df=df_slice)
+  ta_data = calculate_ta_score(df=ta_data)
+  ta_data = calculate_ta_signal(df=ta_data)
+
+  # create image for gif
+  if do_visualize:
+    visualization(df=ta_data, start=plot_start_date, title=f'{symbol}({ed})', save_path=plot_save_path, visualization_args=visualization_args)
+
+  return ta_data.tail(1)
+
+# calculate ta indicators, trend and derivatives for historical data (parallel version)
+def plot_historical_evolution_parallel(df: pd.DataFrame, symbol: str, interval: Literal['day', 'week', 'month', 'year'], config: dict, his_start_date: Optional[str] = None, his_end_date: Optional[str] = None, indicators: list = default_indicators, is_print: bool = False, create_gif: bool = False, plot_final: bool = False, remove_origin: bool = True, plot_save_path: Optional[str] = None, max_workers: Optional[int] = None) -> pd.DataFrame:
+  """
+  Parallel version of plot_historical_evolution.
+
+  Differences from the serial version:
+  - calculate_ta_static is executed once on the full data (the serial version repeats
+    the same calculation for each day, which is the biggest time-consuming point)
+  - the day-by-day loop (dynamic features/score/signal + daily image) runs in parallel
+    with ProcessPoolExecutor (pyplot is not thread-safe, so processes instead of threads)
+  - a failed day only skips that day (the serial version aborts the whole loop)
+  - note: when running as a script on Windows, guard the entry with `if __name__ == '__main__':`
+
+  :param df: original dataframe with hlocv features
+  :param symbol: symbol of the data
+  :param interval: interval of the data
+  :param config: config dict
+  :param his_start_date: start date
+  :param his_end_date: end_date
+  :param indicators: indicators to calculate
+  :param is_print: whether to print current progress
+  :param create_gif: whether to create gif from images
+  :param plot_final: whether to combine all images to a final one
+  :param remove_origin: whether to remove original images for each day
+  :param plot_save_path: path to save plots
+  :param max_workers: number of parallel worker processes, defaults to cpu count
+  :returns: dataframe with ta features, derivatives, signals
+  :raises: None
+  """
+  # copy dataframe
+  df = df.copy()
+
+  # check the data date
+  df_max_idx = util.time_2_string(df.index.max())
+  if df_max_idx < his_end_date:
+    print(f'can only evolve to {df_max_idx}')
+    his_end_date = df_max_idx
+
+  if df is None or len(df) == 0:
+    print(f'{symbol}: No data for calculation')
+    return None
+  else:
+    data_start_date = util.string_plus_day(string=his_start_date, diff_days=-config['calculation']['look_back_window'][interval])
+    df = df[data_start_date:]
+    plot_start_date = data_start_date
+
+  # summary setting
+  if create_gif or plot_final:
+    if plot_save_path is None:
+      print('Please specify plot save path in parameters, create_gif disable for this time')
+      create_gif = False
+    else:
+      config['visualization']['show_image'] = False
+      config['visualization']['save_image'] = True
+  images = []
+
+  # calculate static data at once
+  # calculate dynamic data and signal day by day (in parallel)
+  phase = 'init'
+  try:
+
+    # preprocess sec_data
+    phase = 'preprocess'
+    df = preprocess(df=df, symbol=symbol)
+
+    # calculate TA indicators
+    phase = 'cal_ta_basic_features'
+    df = calculate_ta_basic(df=df, indicators=indicators)
+
+    # calculate static ta data once (same result as calling it per day in the serial version)
+    phase = 'cal_ta_static_features'
+    ta_static = calculate_ta_static(df=df, indicators=indicators)
+
+    # plan the day tasks first (same skip logic as the serial version, mainly for weekends)
+    phase = 'plan_day_tasks'
+    ed = his_start_date
+    current_max_idx = None
+    day_tasks = []
+    while ed <= his_end_date:
+
+      # calculate sd = ed - interval, get max_idx in ta_static[sd:ed]
+      sd = util.string_plus_day(string=ed, diff_days=-config['visualization']['plot_window'][interval])
+      tmp_max_idx = ta_static[sd:ed].index.max()
+
+      # decide whether to skip current loop (mainly for weekends)
+      skip = (current_max_idx is not None) and (tmp_max_idx <= current_max_idx)
+
+      # update current_max_idx
+      if (current_max_idx is None) or (tmp_max_idx > current_max_idx):
+        current_max_idx = tmp_max_idx
+
+      # collect task or skip
+      if skip:
+        if is_print:
+          print(f'{ed} - ({sd} ~ {util.time_2_string(tmp_max_idx)}) - skip')
+      else:
+        if is_print:
+          print(f'{ed} - ({sd} ~ {util.time_2_string(tmp_max_idx)})')
+        day_tasks.append((ed, sd, tmp_max_idx))
+
+      # update ed
+      ed = util.string_plus_day(string=ed, diff_days=1)
+
+    # calculate dynamic data and signals day by day in parallel
+    phase = 'cal_ta_dynamic_features_and_signals'
+    historical_rows = {}
+
+    if len(day_tasks) > 0:
+
+      # workers have no interactive need, default to Agg backend (does not affect the already loaded backend of parent process)
+      os.environ.setdefault('MPLBACKEND', 'Agg')
+
+      # number of worker processes
+      if max_workers is None:
+        max_workers = os.cpu_count()-2
+      max_workers = max(1, min(max_workers, len(day_tasks)))
+
+      visualization_args = config['visualization']
+      do_visualize = create_gif
+
+      with ProcessPoolExecutor(max_workers=max_workers) as pool:
+        futures = {
+          pool.submit(_plot_historical_day_task, ta_static[sd:ed], symbol, ed, plot_start_date, plot_save_path, visualization_args, do_visualize): (ed, sd, tmp_max_idx)
+          for (ed, sd, tmp_max_idx) in day_tasks
+        }
+        done_count = 0
+        for future in as_completed(futures):
+          ed, sd, tmp_max_idx = futures[future]
+          try:
+            historical_rows[ed] = future.result()
+          except Exception as e:
+            print(symbol, f'{ed} - ({sd} ~ {util.time_2_string(tmp_max_idx)})', e)
+          done_count += 1
+          if is_print:
+            print(f'{symbol}: {done_count}/{len(futures)} days done ({ed})')
+
+    # collect images of successful days
+    if create_gif:
+      images = [Path(plot_save_path) / f'{symbol}({ed}).png' for ed in sorted(historical_rows.keys())]
+      images = [img for img in images if img.exists()]
+
+    # append data
+    phase = 'final_data_construction'
+    historical_ta_data = pd.DataFrame()
+
+    # full ta_data of the last calculated day (same as the last loop round of the serial version)
+    if len(day_tasks) > 0:
+      last_ed, last_sd, _ = day_tasks[-1]
+      ta_data = calculate_ta_dynamic(df=ta_static[last_sd:last_ed])
+      ta_data = calculate_ta_score(df=ta_data)
+      ta_data = calculate_ta_signal(df=ta_data)
+      historical_ta_data = pd.concat([historical_ta_data, ta_data])
+
+    # append the tail row of each day in date order (same row order as the serial version)
+    for ed in sorted(historical_rows.keys()):
+      historical_ta_data = pd.concat([historical_ta_data, historical_rows[ed]])
+
+    df = util.remove_duplicated_index(df=historical_ta_data, keep='last')
+
+    # create gif
+    phase = 'plot_gif'
+    if create_gif:
+      util.image_2_gif(image_list=images, save_name=f'{plot_save_path}{symbol}({his_start_date}-{his_end_date}).gif')
+
+    # remove original images
+    phase = 'remove_origin_images'
+    if remove_origin:
+      for img in images:
+        if os.path.exists(img):
+          os.remove(img)
+
+    # if plot final data
+    phase = 'final_plot_visualization'
+    if plot_final:
+      visualization(df=df, start=plot_start_date, title=f'{symbol}(final)', save_path=plot_save_path, visualization_args=config['visualization'])
+
+  except Exception as e:
+    print(symbol, phase, e)
+
+  return df
+
 
 # calculate ta indicators, trend and derivatives for historical data
 def plot_historical_evolution(df: pd.DataFrame, symbol: str, interval: Literal['day', 'week', 'month', 'year'], config: dict, his_start_date: Optional[str] = None, his_end_date: Optional[str] = None, indicators: list = default_indicators, is_print: bool = False, create_gif: bool = False, plot_final: bool = False, remove_origin: bool = True, plot_save_path: Optional[str] = None) -> pd.DataFrame:
