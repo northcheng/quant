@@ -48,11 +48,11 @@
     "plot_args": {
 
       "blocks": {
-        "signals": 2.75, "adx": 1.25, "main_indicators": 10, "volume":0.75
+        "signals": 3, "adx": 1, "main_indicators": 10, "volume":0.75
       },
 
       "signals": {
-        "signal_list": ["candle", "position", "-", "trigger_up", "trend", "中期", "trigger_down", "-", "action"]
+        "signal_list": ["candle", "position", "-", "trigger_up", "trend", "中期", "trigger_down", "-", "signal"]
       },   
 
       "main_indicators": {
