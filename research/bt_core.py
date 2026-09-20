@@ -219,6 +219,12 @@ class BacktestKit:
         cw = self.panel_full['Close'].unstack('symbol').sort_index()
         self.open_wide = ow.loc[self.start:self.end]
         self.close_wide = cw.loc[self.start:self.end]
+        # ATR 宽表(价格单位, 供动态止损 stop_atr/trail_atr); pkl 缺列时为 None(引擎自动跳过)
+        if 'atr' in self.panel_full.columns:
+            self.atr_wide = (self.panel_full['atr'].unstack('symbol').sort_index()
+                             .loc[self.start:self.end])
+        else:
+            self.atr_wide = None
         if len(self.open_wide) < 2:
             raise ValueError(f'交易窗口不足 2 个交易日: '
                              f'{self.open_wide.index.min()}~{self.open_wide.index.max()}')
@@ -376,7 +382,8 @@ class BacktestKit:
         g = self._resolve_gate(gate, comp)
         p = engine_params or self.engine_params
         payload = run_config(name or self._auto_name(spec, mode),
-                             self.open_wide, self.close_wide, comp, g, p)
+                             self.open_wide, self.close_wide, comp, g, p,
+                             atr_wide=self.atr_wide)
         return BacktestResult(payload, comp=comp, gate=g, p=p)
 
     def run_many(self, specs: list, mode: str = 'rank', gate=None,
@@ -402,7 +409,8 @@ class BacktestKit:
         p = engine_params or (base._p if isinstance(base, BacktestResult) else self.engine_params)
         payload = run_config(name, self.open_wide, self.close_wide,
                              comp_shuf.reindex(index=self.open_wide.index,
-                                               columns=self.open_wide.columns), g, p)
+                                               columns=self.open_wide.columns), g, p,
+                             atr_wide=self.atr_wide)
         return BacktestResult(payload, comp=comp, gate=g, p=p)
 
     def _const_comp(self) -> pd.DataFrame:
@@ -414,7 +422,8 @@ class BacktestKit:
         comp = self._const_comp()
         g = pd.DataFrame(True, index=comp.index, columns=comp.columns)
         p_ge = (engine_params or self.engine_params).copy(top_k=9999, exit_rank=99999, sizing='equal')
-        payload = run_config(name, self.open_wide, self.close_wide, comp, g, p_ge)
+        payload = run_config(name, self.open_wide, self.close_wide, comp, g, p_ge,
+                             atr_wide=self.atr_wide)
         return BacktestResult(payload, comp=comp, gate=g, p=p_ge)
 
     def gate_equal(self, name: str = 'gate_equal(门内等权)',
@@ -423,7 +432,8 @@ class BacktestKit:
         comp = self._const_comp()
         g = self._resolve_gate(None, comp)
         p_ge = (engine_params or self.engine_params).copy(top_k=9999, exit_rank=99999, sizing='equal')
-        payload = run_config(name, self.open_wide, self.close_wide, comp, g, p_ge)
+        payload = run_config(name, self.open_wide, self.close_wide, comp, g, p_ge,
+                             atr_wide=self.atr_wide)
         return BacktestResult(payload, comp=comp, gate=g, p=p_ge)
 
     def buyhold_symbol(self, sym: str, name: str = None,
@@ -436,7 +446,10 @@ class BacktestKit:
         g = pd.DataFrame(True, index=comp.index, columns=[sym])
         p1 = (engine_params or self.engine_params).copy(top_k=1, exit_rank=2,
                                                         sizing='equal', per_symbol_cap=1.0)
-        payload = run_config(name or f'buyhold_{sym}', ob, cb, comp, g, p1)
+        aw = self.atr_wide[[sym]] if (self.atr_wide is not None
+                                      and sym in self.atr_wide.columns) else None
+        payload = run_config(name or f'buyhold_{sym}', ob, cb, comp, g, p1,
+                             atr_wide=aw)
         return BacktestResult(payload, comp=comp, gate=g, p=p1)
 
     # ---------------- 汇总 ---------------- #

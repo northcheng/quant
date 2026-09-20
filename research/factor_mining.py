@@ -62,8 +62,10 @@ def _roll_reg_stats(log_close: pd.DataFrame, n: int) -> dict:
     Sxx = tser.pow(2).rolling(n).sum()
     Syy = (y * y).rolling(n).sum()
     Sx = tser.rolling(n).sum()
-    num = n * Sxy - Sx * Sy
-    den = np.sqrt((n * Sxx - Sx ** 2) * (n * Syy - Sy ** 2))
+    # 注意: Sx/Sxx 是按日期索引的 Series, 与 (日期×symbol) DataFrame 相乘必须 axis=0 按行广播,
+    # 否则 Series 日期索引会去对齐 DataFrame 的 symbol 列名, 产出全 NaN 的并集列矩阵.
+    num = n * Sxy - Sy.mul(Sx, axis=0)
+    den = np.sqrt((n * Syy - Sy ** 2).mul(n * Sxx - Sx ** 2, axis=0))
     r = (num / den).clip(-1.0, 1.0)
     r2 = r ** 2
     with np.errstate(divide='ignore', invalid='ignore'):

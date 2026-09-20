@@ -159,7 +159,9 @@ def shuffled_composite(comp: pd.DataFrame, seed: int = 42) -> pd.DataFrame:
 # ================================================================ 回测引擎 ================================================================ #
 class EngineParams:
     def __init__(self, top_k=5, exit_rank=12, sizing='tier', max_exposure=1.0,
-                 per_symbol_cap=0.30, cost_bps=10.0, band=0.05):
+                 per_symbol_cap=0.30, cost_bps=10.0, band=0.05,
+                 stop_loss=None, take_profit=None, trail_stop=None,
+                 stop_atr=None, trail_atr=None):
         self.top_k = top_k
         self.exit_rank = exit_rank
         self.sizing = sizing
@@ -167,10 +169,25 @@ class EngineParams:
         self.per_symbol_cap = per_symbol_cap
         self.cost_rate = cost_bps / 10000.0  # 单边
         self.band = band
+        # 价格止盈止损(默认关闭). 触发时间线与 rank 退出一致(防前视):
+        # 信号日 s 收盘价较 entry_px 判定 -> 执行日 d=s+1 开盘卖出.
+        # stop_loss  如 0.08: s 收盘较 entry 跌幅 >= 8% 触发
+        # take_profit 如 0.15: 涨幅 >= 15% 触发
+        # trail_stop  如 0.20: 自持仓以来最高收盘回落 >= 20% 触发(先更新高点再判定)
+        self.stop_loss = stop_loss
+        self.take_profit = take_profit
+        self.trail_stop = trail_stop
+        # ATR 动态止损(波动自适应, k 为 ATR 倍数; 需引擎传入 atr_wide, 缺失则该股不判):
+        # stop_atr  如 2.0: s 收盘 <= entry_px - 2*ATR(s) 触发(高波动股自动放宽)
+        # trail_atr 如 3.0: 吊灯止损, s 收盘 <= 持仓最高收盘 - 3*ATR(s) 触发
+        self.stop_atr = stop_atr
+        self.trail_atr = trail_atr
 
     def copy(self, **kw):
         p = EngineParams(self.top_k, self.exit_rank, self.sizing, self.max_exposure,
-                         self.per_symbol_cap, self.cost_rate * 10000.0, self.band)
+                         self.per_symbol_cap, self.cost_rate * 10000.0, self.band,
+                         self.stop_loss, self.take_profit, self.trail_stop,
+                         self.stop_atr, self.trail_atr)
         for k, v in kw.items():
             if k == 'cost_bps':  # 引擎读 cost_rate, 需换算而非 setattr 新属性
                 p.cost_rate = float(v) / 10000.0
@@ -179,9 +196,21 @@ class EngineParams:
         return p
 
     def brief(self):
+        stops = []
+        if self.stop_loss is not None:
+            stops.append(f'SL={self.stop_loss:.0%}')
+        if self.take_profit is not None:
+            stops.append(f'TP={self.take_profit:.0%}')
+        if self.trail_stop is not None:
+            stops.append(f'TR={self.trail_stop:.0%}')
+        if self.stop_atr is not None:
+            stops.append(f'SLA={self.stop_atr:g}xATR')
+        if self.trail_atr is not None:
+            stops.append(f'CH={self.trail_atr:g}xATR')
         return (f'K={self.top_k}, exit_rank={self.exit_rank}, sizing={self.sizing}, '
                 f'exposure={self.max_exposure}, cap={self.per_symbol_cap}, '
-                f'cost={self.cost_rate * 10000:.0f}bps(单边), band={self.band}')
+                f'cost={self.cost_rate * 10000:.0f}bps(单边), band={self.band}'
+                + (f', stops[{",".join(stops)}]' if stops else ''))
 
 
 def _sizing_coef(sub: pd.Series, sizing: str) -> pd.Series:
@@ -201,7 +230,8 @@ def _sizing_coef(sub: pd.Series, sizing: str) -> pd.Series:
 
 
 def run_engine(open_wide: pd.DataFrame, close_wide: pd.DataFrame,
-               composite: pd.DataFrame, gate: pd.DataFrame, p: EngineParams):
+               composite: pd.DataFrame, gate: pd.DataFrame, p: EngineParams,
+               atr_wide: pd.DataFrame = None):
     """逐日事件引擎. 返回 (daily_df, positions_df, trades_df, equity_series).
 
     时间线(防前视核心):
@@ -234,13 +264,45 @@ def run_engine(open_wide: pd.DataFrame, close_wide: pd.DataFrame,
         gate_on = gate.loc[s] if s in gate.index else None
         held = list(weights.keys())
         order = comp.rank(ascending=False, method='first') if len(comp) else pd.Series(dtype=float)
-        exit_set = []
+        exit_set, exit_reason = [], {}
         for sym in held:
             r = order.get(sym, np.nan)
             gate_off = (gate_on is not None) and (not bool(gate_on.get(sym, False)))
             rank_bad = pd.isna(r) or (r > p.exit_rank)
-            if gate_off or rank_bad:
+            reason = 'gate' if gate_off else ('rank' if rank_bad else None)
+            # 价格止损/止盈: s 收盘价较 entry_px 判定 -> d 开盘执行(与 rank 退出同一时间线, 防前视)
+            t = open_trades.get(sym)
+            if reason is None and t is not None and t['entry_px'] > 0:
+                px_s = close_wide.at[s, sym] if sym in close_wide.columns else np.nan
+                if pd.notna(px_s):
+                    px_s = float(px_s)
+                    t['peak_px'] = max(t['peak_px'], px_s)
+                    chg = px_s / t['entry_px'] - 1.0
+                    # ATR(信号日 s, 价格单位) 供动态止损; 缺失则该股当日不判 ATR 类止损
+                    atr_s = np.nan
+                    if atr_wide is not None and s in atr_wide.index and sym in atr_wide.columns:
+                        _v = atr_wide.at[s, sym]
+                        if pd.notna(_v):
+                            atr_s = float(_v)
+                    if p.stop_loss is not None and chg <= -p.stop_loss:
+                        reason = 'stop'
+                    elif p.take_profit is not None and chg >= p.take_profit:
+                        reason = 'take'
+                    elif (p.trail_stop is not None
+                          and t['peak_px'] > 0
+                          and px_s <= t['peak_px'] * (1.0 - p.trail_stop)):
+                        reason = 'trail'
+                    # ATR 固定止损(波动自适应): s 收盘 <= entry_px - k*ATR
+                    elif (p.stop_atr is not None and atr_s > 0
+                          and px_s <= t['entry_px'] - p.stop_atr * atr_s):
+                        reason = 'stopatr'
+                    # 吊灯止损: s 收盘自持仓最高收盘回落 k*ATR
+                    elif (p.trail_atr is not None and atr_s > 0
+                          and px_s <= t['peak_px'] - p.trail_atr * atr_s):
+                        reason = 'chand'
+            if reason is not None:
                 exit_set.append(sym)
+                exit_reason[sym] = reason
         for sym in exit_set:  # 平仓(出场开盘价缺失时退回当日收盘价)
             px = open_wide.at[d, sym]
             if pd.isna(px) and sym in close_wide.columns:
@@ -251,7 +313,7 @@ def run_engine(open_wide: pd.DataFrame, close_wide: pd.DataFrame,
                                'entry_px': t['entry_px'], 'exit_px': float(px),
                                'entry_w': t['entry_w'], 'peak_w': t['peak_w'],
                                'days': i - t['entry_i'], 'ret': float(px) / t['entry_px'] - 1.0,
-                               'completed': True})
+                               'exit_reason': exit_reason.get(sym, 'rank'), 'completed': True})
             elif t is not None:
                 open_trades[sym] = t  # 价格缺失, 留待下一日再平
         # 进入候选: 门开 & rank<=top_k & 未持有(含刚退出者) & 执行日有开盘价
@@ -294,7 +356,8 @@ def run_engine(open_wide: pd.DataFrame, close_wide: pd.DataFrame,
         for sym in entries:
             if sym in weights:
                 open_trades[sym] = {'entry_exec': d, 'entry_px': float(open_wide.at[d, sym]),
-                                    'entry_w': weights[sym], 'peak_w': weights[sym], 'entry_i': i}
+                                    'entry_w': weights[sym], 'peak_w': weights[sym],
+                                    'peak_px': float(open_wide.at[d, sym]), 'entry_i': i}
         for sym, t in open_trades.items():
             t['peak_w'] = max(t['peak_w'], weights.get(sym, 0.0))
         daily.append({'date': d, 'equity': equity, 'gross_ret': gross, 'cost_drag': cost_drag,
@@ -312,7 +375,8 @@ def run_engine(open_wide: pd.DataFrame, close_wide: pd.DataFrame,
                            'entry_px': t['entry_px'], 'exit_px': float(px),
                            'entry_w': t['entry_w'], 'peak_w': t['peak_w'],
                            'days': len(dates) - 1 - t['entry_i'],
-                           'ret': float(px) / t['entry_px'] - 1.0, 'completed': False})
+                           'ret': float(px) / t['entry_px'] - 1.0,
+                           'exit_reason': 'open', 'completed': False})
     if weights and daily:
         final = sum(w * (close_wide.at[last_d, sym] / open_wide.at[last_d, sym] - 1.0)
                     for sym, w in weights.items()
@@ -364,9 +428,11 @@ def yearly_returns(equity: pd.Series) -> pd.Series:
 
 
 # ================================================================ 配置运行 ================================================================ #
-def run_config(name: str, open_wide, close_wide, composite, gate, p: EngineParams) -> dict:
+def run_config(name: str, open_wide, close_wide, composite, gate, p: EngineParams,
+               atr_wide=None) -> dict:
     daily_df, pos_df, trades_df, equity, ann_to = run_engine(open_wide, close_wide,
-                                                             composite, gate, p)
+                                                             composite, gate, p,
+                                                             atr_wide=atr_wide)
     stats = perf_stats(equity, ann_to, trades_df)
     stats['config'] = name
     return {'name': name, 'stats': stats, 'daily': daily_df, 'pos': pos_df,

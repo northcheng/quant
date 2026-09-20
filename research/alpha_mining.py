@@ -62,12 +62,14 @@ except Exception:
 
 # ================================================================ 参数 ================================================================ #
 _PKL_DIR = os.path.join(os.path.expanduser('~'), 'quant')   # 本地数据目录(跨机器: 家目录下 quant)
+# 研究一律优先 research 全史 pkl(生产 pkl 截短或滞后重建; 见 research_summary_20260918.md 数据规则).
+# 生产桥 signal_bridge.py 不走本表默认值, 显式优先生产版 pkl(每日更新, research 快照滞后 1~2 天).
 POOLS = {
     'etf_3x':      os.path.join(_PKL_DIR, 'etf_3x_day_ta_data_research.pkl'),  # 生产 pkl 截短 2025+, 用 research 全史
-    'company_300': os.path.join(_PKL_DIR, 'company_300_day_ta_data.pkl'),
+    'company_300': os.path.join(_PKL_DIR, 'company_300_day_ta_data_research.pkl'),  # 全史; 生产版仅保留约近 2 年
     'company_1000': os.path.join(_PKL_DIR, 'company_1000_day_ta_data_research.pkl'),  # 2020+ 全史(无生产版)
-    'hs300':       os.path.join(_PKL_DIR, 'hs300_day_ta_data.pkl'),
-    'a_etf_all':   os.path.join(_PKL_DIR, 'a_etf_all_day_ta_data.pkl'),
+    'hs300':       os.path.join(_PKL_DIR, 'hs300_day_ta_data_research.pkl'),  # 2020+ 全史
+    'a_etf_all':   os.path.join(_PKL_DIR, 'a_etf_all_day_ta_data_research.pkl'),  # 全史
 }
 START = '2021-01-01'
 HORIZONS = [5, 20, 60]
@@ -161,8 +163,12 @@ def build_alpha_cands(panel: pd.DataFrame) -> dict:
     out['C_tmqmom'] = rk(mined['F_mom121']) + rk(mined['F_er20'])          # 12-1 动量 + 趋势效率
 
     # ---- 锚: pkl 原列 alpha(交叉验证本工具复刻口径) + 上轮单池 Top 因子跨池复验 ----
-    out['P_trend_magnitude_alpha'] = w('trend_magnitude_alpha')
-    out['P_pattern_net_alpha'] = w('pattern_net_alpha')
+    # 旧版列结构 research pkl 可能缺 *_alpha 锚列: 缺列时静默跳过(对照 build_alpha_synths 容错模式,
+    # 不影响实验信号 H_/C_/F_ —— 它们依赖的基础 TA 列在两版 pkl 均存在).
+    if 'trend_magnitude_alpha' in panel.columns:
+        out['P_trend_magnitude_alpha'] = w('trend_magnitude_alpha')
+    if 'pattern_net_alpha' in panel.columns:
+        out['P_pattern_net_alpha'] = w('pattern_net_alpha')
     for f in F_ANCHORS:
         out[f] = mined[f]
 
