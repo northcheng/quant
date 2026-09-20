@@ -61,12 +61,13 @@ except Exception:
     pass
 
 # ================================================================ 参数 ================================================================ #
+_PKL_DIR = os.path.join(os.path.expanduser('~'), 'quant')   # 本地数据目录(跨机器: 家目录下 quant)
 POOLS = {
-    'etf_3x':      r'C:\Users\northcheng\quant\etf_3x_day_ta_data_research.pkl',  # 生产 pkl 截短 2025+, 用 research 全史
-    'company_300': r'C:\Users\northcheng\quant\company_300_day_ta_data.pkl',
-    'company_1000': r'C:\Users\northcheng\quant\company_1000_day_ta_data_research.pkl',  # 2020+ 全史(无生产版)
-    'hs300':       r'C:\Users\northcheng\quant\hs300_day_ta_data.pkl',
-    'a_etf_all':   r'C:\Users\northcheng\quant\a_etf_all_day_ta_data.pkl',
+    'etf_3x':      os.path.join(_PKL_DIR, 'etf_3x_day_ta_data_research.pkl'),  # 生产 pkl 截短 2025+, 用 research 全史
+    'company_300': os.path.join(_PKL_DIR, 'company_300_day_ta_data.pkl'),
+    'company_1000': os.path.join(_PKL_DIR, 'company_1000_day_ta_data_research.pkl'),  # 2020+ 全史(无生产版)
+    'hs300':       os.path.join(_PKL_DIR, 'hs300_day_ta_data.pkl'),
+    'a_etf_all':   os.path.join(_PKL_DIR, 'a_etf_all_day_ta_data.pkl'),
 }
 START = '2021-01-01'
 HORIZONS = [5, 20, 60]

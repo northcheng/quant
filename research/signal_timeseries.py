@@ -177,7 +177,7 @@ def main():
     pkl = a.pkl_path or POOLS.get(a.pool)
     if not pkl or not os.path.exists(pkl):
         raise SystemExit(f'pkl 不存在: {pkl}(pool={a.pool}); 用 --pkl-path 指定, '
-                         f'建议 research 版: C:\\Users\\northcheng\\quant\\{a.pool}_day_ta_data_research.pkl')
+                         f'建议 research 版: {os.path.join(os.path.expanduser("~"), "quant", a.pool + "_day_ta_data_research.pkl")}')
     signals = [s.strip() for s in a.signals.split(',') if s.strip()]
 
     print(f'加载数据: {pkl}')

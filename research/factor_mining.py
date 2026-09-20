@@ -171,7 +171,7 @@ def main():
     ap = argparse.ArgumentParser(description='独立只读研究: 新因子挖矿(多 horizon 可交易口径筛查)')
     ap.add_argument('--pool', default='etf_3x')
     ap.add_argument('--interval', default='day')
-    ap.add_argument('--pkl-dir', default=r'C:\Users\northcheng\quant')
+    ap.add_argument('--pkl-dir', default=os.path.join(os.path.expanduser('~'), 'quant'))
     ap.add_argument('--pkl-path', default=None, help='直接指定 pkl 路径(优先)')
     ap.add_argument('--start', default='2021-01-01')
     ap.add_argument('--end', default=None)

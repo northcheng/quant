@@ -389,7 +389,7 @@ def main():
     ap = argparse.ArgumentParser(description='独立只读研究: 组合分数 + 动态仓位组合回测')
     ap.add_argument('--pool', default='etf_3x', help='池名, 默认 etf_3x')
     ap.add_argument('--interval', default='day', help='数据频率, 默认 day')
-    ap.add_argument('--pkl-dir', default=r'C:\Users\northcheng\quant', help='pkl 所在目录')
+    ap.add_argument('--pkl-dir', default=os.path.join(os.path.expanduser('~'), 'quant'), help='pkl 所在目录')
     ap.add_argument('--pkl-path', default=None, help='直接指定 pkl 路径(优先, 用于读取带后缀的 pkl)')
     ap.add_argument('--start', default='2021-01-01', help='回测起始(信号)日, 默认 2021-01-01(避开252日warmup)')
     ap.add_argument('--end', default=None, help='回测结束日')

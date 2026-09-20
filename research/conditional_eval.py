@@ -62,11 +62,12 @@ except Exception:
     pass
 
 # ================================================================ 参数 ================================================================ #
+_PKL_DIR = os.path.join(os.path.expanduser('~'), 'quant')   # 本地数据目录(跨机器: 家目录下 quant)
 POOLS = {
-    'etf_3x':      r'C:\Users\northcheng\quant\etf_3x_day_ta_data.pkl',
-    'company_300': r'C:\Users\northcheng\quant\company_300_day_ta_data.pkl',
-    'hs300':       r'C:\Users\northcheng\quant\hs300_day_ta_data.pkl',
-    'a_etf_all':   r'C:\Users\northcheng\quant\a_etf_all_day_ta_data.pkl',
+    'etf_3x':      os.path.join(_PKL_DIR, 'etf_3x_day_ta_data.pkl'),
+    'company_300': os.path.join(_PKL_DIR, 'company_300_day_ta_data.pkl'),
+    'hs300':       os.path.join(_PKL_DIR, 'hs300_day_ta_data.pkl'),
+    'a_etf_all':   os.path.join(_PKL_DIR, 'a_etf_all_day_ta_data.pkl'),
 }
 START = '2021-01-01'
 HORIZONS = [5, 20]

@@ -506,7 +506,7 @@ def main():
     ap = argparse.ArgumentParser(description='独立只读研究: 指标审计 + 条件IC + 事件研究')
     ap.add_argument('--pool', default='etf_3x', help='池名, 默认 etf_3x')
     ap.add_argument('--interval', default='day', help='数据频率, 默认 day')
-    ap.add_argument('--pkl-dir', default=r'C:\Users\northcheng\quant', help='pkl 所在目录')
+    ap.add_argument('--pkl-dir', default=os.path.join(os.path.expanduser('~'), 'quant'), help='pkl 所在目录')
     ap.add_argument('--start', default=None, help='分析起始日(仅截取研究窗口, 不影响审计)')
     ap.add_argument('--end', default=None, help='分析结束日')
     ap.add_argument('--gate-col', default='trend_magnitude_day', help='门/状态列, >0 视为开')
