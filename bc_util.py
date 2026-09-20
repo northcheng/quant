@@ -8,6 +8,7 @@ import os
 import time
 import pytz
 import shutil
+import logging
 import datetime
 import subprocess
 from typing import List, Optional, Union, Any, Dict, Tuple
@@ -22,6 +23,66 @@ from pathlib import Path
 
 # default arguments
 default_date_format = '%Y-%m-%d'
+
+# module logger: 库层只发日志不配 handler, handler 配置权交给入口脚本(调用 setup_logging)
+logger = logging.getLogger(__name__)
+
+
+def setup_logging(name: str = None, log_path: Union[str, Path] = None, log_file_prefix: str = 'log', level: int = logging.INFO) -> logging.Logger:
+  """
+  Configure the root logger (file + console handlers) and return a logger by name.
+
+  Entry scripts call this instead of wiring handlers by hand. Handlers are attached
+  to the ROOT logger so that library loggers (quant.*) propagate here as well.
+  Log formats are identical to the historical entry-script formats.
+
+  :param name: name of the logger to return, e.g. __name__; root logger when None
+  :param log_path: directory for the log file, no file handler when None
+  :param log_file_prefix: prefix of the log file name, date is appended automatically
+  :param level: log level applied to the root logger and all handlers
+  :returns: the requested logger
+  :raises: none
+  """
+  root = logging.getLogger()
+  root.setLevel(level)
+  if len(root.handlers) == 0:
+    file_format = logging.Formatter('[%(asctime)s]- [%(levelname)s] - [%(name)s] - %(message)s ')
+    console_format = logging.Formatter('[%(asctime)s] - %(message)s ', '%Y-%m-%d %H:%M:%S')
+    if log_path is not None:
+      file_handler = logging.FileHandler(Path(log_path) / f'{log_file_prefix}_{datetime.datetime.now().date()}.txt')
+      file_handler.setLevel(level)
+      file_handler.setFormatter(file_format)
+      root.addHandler(file_handler)
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(level)
+    console_handler.setFormatter(console_format)
+    root.addHandler(console_handler)
+  return logging.getLogger(name) if name is not None else root
+
+
+def rotate_log_file(log_path: Union[str, Path], log_file_prefix: str = 'log', new_date: datetime.date = None, level: int = logging.INFO) -> None:
+  """
+  Replace the root logger's file handler with a new one for the given date.
+  For long-running entry processes that need to switch to a fresh log file
+  (e.g. automatic_trader rolling over to the next trading day).
+
+  :param log_path: directory of the log file
+  :param log_file_prefix: prefix of the log file name, date is appended automatically
+  :param new_date: date used in the new file name, today when None
+  :param level: log level of the new file handler
+  :returns: none
+  :raises: none
+  """
+  root = logging.getLogger()
+  for h in [h for h in root.handlers if isinstance(h, logging.FileHandler)]:
+    h.close()
+    root.removeHandler(h)
+  if new_date is None:
+    new_date = datetime.datetime.now().date()
+  file_handler = logging.FileHandler(Path(log_path) / f'{log_file_prefix}_{new_date.strftime("%Y-%m-%d")}.txt')
+  file_handler.setLevel(level)
+  file_handler.setFormatter(logging.Formatter('[%(asctime)s]- [%(levelname)s] - [%(name)s] - %(message)s '))
+  root.addHandler(file_handler)
 
 
 #----------------------- Date manipulation -----------------------#
@@ -181,13 +242,13 @@ def synchronize_file(local_folder: str, remote_folder: str, newer_only: bool = F
           # skip if file_type is not None
           if file_type is not None and type(file_type) == list:
             if rf.split('.')[-1] not in file_type:
-              print(f'skip {remote_folder} (not in {file_type})')
+              logger.warning(f'skip {remote_folder} (not in {file_type})')
               continue
 
           # skip if newer_only and local file is newer
           if newer_only and os.path.exists(lf_abs_path):
             if os.path.getmtime(rf_abs_path) < os.path.getmtime(lf_abs_path):
-              print(f'skip {lf_abs_path} (newer)')
+              logger.warning(f'skip {lf_abs_path} (newer)')
               continue
           
           # check file existence
@@ -200,10 +261,10 @@ def synchronize_file(local_folder: str, remote_folder: str, newer_only: bool = F
 
             # copy remote file
             shutil.copyfile(rf_abs_path, lf_abs_path)
-            print(f'copy {rf_abs_path}')
+            logger.info(f'copy {rf_abs_path}')
 
         except Exception as e:
-          print(e, rf_abs_path, lf_abs_path)
+          logger.exception(f'{e} {rf_abs_path} {lf_abs_path}')
           continue
       
     # for folders
@@ -221,13 +282,13 @@ def synchronize_file(local_folder: str, remote_folder: str, newer_only: bool = F
           # skip if folder_name is not None
           if folder_name is not None and type(folder_name) == list:
             if fd not in folder_name:
-              print(f'skip {rfd_abs_path} (not in {folder_name})')
+              logger.warning(f'skip {rfd_abs_path} (not in {folder_name})')
               continue
 
           # skip if newer_only and local folder is newer
           if newer_only:
             if os.path.getmtime(rfd_abs_path) < os.path.getmtime(lfd_abs_path):
-              print(f'skip {lfd_abs_path} (newer)')
+              logger.warning(f'skip {lfd_abs_path} (newer)')
               continue
 
           # check folder existence
@@ -240,14 +301,14 @@ def synchronize_file(local_folder: str, remote_folder: str, newer_only: bool = F
 
             # copy remote folder
             shutil.copytree(rfd_abs_path, lfd_abs_path)
-            print(f'copy {rfd_abs_path}')
+            logger.info(f'copy {rfd_abs_path}')
       
         except Exception as e:
-          print(e, rfd_abs_path, lfd_abs_path)
+          logger.exception(f'{e} {rfd_abs_path} {lfd_abs_path}')
           continue
       
   else:
-    print('please check existence of path')
+    logger.error('please check existence of path')
 
 
 def print_folder_tree(path: str, parent_is_last: int = 1, depth_limit: int = -1, tab_width: int = 1) -> List[str]:
@@ -279,11 +340,11 @@ def print_folder_tree(path: str, parent_is_last: int = 1, depth_limit: int = -1,
     else:
       print("├── ", end="")
     if os.path.isdir(i_path):
-      print(i)
+      logger.info(i)
       files.extend(print_folder_tree(
         path=i_path, depth_limit=depth_limit, parent_is_last=(parent_is_last * 10 + 1) if is_last else (parent_is_last * 10)))
     else:
-      print(i_path.name)
+      logger.info(i_path.name)
       files.append(i_path)
   return files
 
@@ -316,7 +377,7 @@ def remove_duplicated_index(df: pd.DataFrame, keep: str = 'first') -> pd.DataFra
   try:
     df = df[~df.index.duplicated(keep=keep)].copy()
   except Exception as e:
-    print(e)
+    logger.exception(e)
 
   return df
 
@@ -339,7 +400,7 @@ def response_2_json(response: Any, print_status: bool = False) -> Optional[Dict[
 
     # print status
     if print_status:
-      print(f'Response status: {status}')
+      logger.info(f'Response status: {status}')
   
     # if the response is valid, get its json content
     if status == 200:
@@ -348,11 +409,11 @@ def response_2_json(response: Any, print_status: bool = False) -> Optional[Dict[
       # if json content is empty
       if len(json_content) == 0:
         json_content = None
-        print(f'Empty json in response')
+        logger.warning(f'Empty json in response')
         
     # otherwise print error code of the response
     else:
-      print(f'Error with code: {status}')
+      logger.error(f'Error with code: {status}')
       
   return json_content
 
@@ -408,11 +469,11 @@ def print_when(condition: bool, true_content: str = '', false_content: Optional[
   """
   if condition:
     if true_content is not None:
-      print(true_content)
+      logger.info(true_content)
 
   else:
     if false_content is not None:
-      print(false_content)
+      logger.info(false_content)
 
 
 #----------------------- Process control -------------------------#
@@ -438,13 +499,13 @@ def sleep_until(target_time: datetime.datetime, description: Optional[str] = Non
 
     # print information then sleep
     description = '' if description is None else f'({description})'
-    print(f'{now}: sleep for {sleep_time} seconds {description}')
+    logger.info(f'{now}: sleep for {sleep_time} seconds {description}')
     time.sleep(sleep_time)
 
     # update current time
     now = datetime.datetime.now()
 
-  print(f'{now}: exceed target time({target_time})')
+  logger.info(f'{now}: exceed target time({target_time})')
 
 
 #----------------------- Image manipulation ----------------------#
@@ -491,7 +552,7 @@ def concate_image(image_list: List[str], adjust_size: bool = False, save_name: O
       save_name = 'concated_image.png'
     result.save(save_name)
   else:
-    print(f'{save_name}: No image to concate')
+    logger.warning(f'{save_name}: No image to concate')
 
 
 def image_2_pdf(image_list: List[str], save_name: Optional[str] = None, remove_old_pdf: bool = True, is_print: bool = False) -> None:
@@ -534,7 +595,7 @@ def image_2_pdf(image_list: List[str], save_name: Optional[str] = None, remove_o
     images[0].save(save_name, save_all=True, append_images=images[1:])
   else:
     if is_print:
-      print('no images to save to pdf')
+      logger.warning('no images to save to pdf')
 
 
 def image_2_gif(image_list: List[str], save_name: Optional[str] = None, remove_old_gif: bool = True, fps: int = 3) -> None:
@@ -572,7 +633,7 @@ def image_2_gif(image_list: List[str], save_name: Optional[str] = None, remove_o
     images[0].save(save_name, save_all=True, append_images=images[1:], duration=1000, loop=0)
 
   else:
-    print('no images to convert to pdf')
+    logger.warning('no images to convert to pdf')
 
 
 #----------------------- Script runner ---------------------------#
@@ -590,13 +651,13 @@ def run_script(cmd: Union[List[str], str], cwd=None, retry: int = 1, timeout: in
       if cwd is None:
         return_code = subprocess.check_call(cmd, timeout=timeout)
       else:
-        print(cwd)
+        logger.info(cwd)
         return_code = subprocess.check_call(cmd, cwd=cwd, timeout=timeout)
       
       if return_code == 0:
         break              
     except Exception as e:
-      print(f'[erro]: {type(e)}, {e}, retry({retry_count}/{retry})')
+      logger.exception(f'[erro]: {type(e)}, {e}, retry({retry_count}/{retry})')
       continue
 
   return return_code

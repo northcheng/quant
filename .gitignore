@@ -3,3 +3,7 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+
+# 研究脚本的运行产物(本机生成, 不入库)
+research/output/
+.ipynb_checkpoints/

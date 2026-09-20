@@ -10,6 +10,7 @@ import pandas as pd
 import numpy as np
 import requests
 import datetime
+import logging
 import time
 import pytz
 import zipfile
@@ -49,11 +50,22 @@ default_eod_key = 'OeAFFmMliFG5orCUuwAKQ8l4WWFQ67YX'
 headers = {'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.164 Safari/537.36'}
 tqdm_ncols = 91
 
+# module logger: 库层只发日志不配 handler, handler 配置权交给入口脚本(见 bc_util.setup_logging)
+logger = logging.getLogger(__name__)
+
 # standards
 # STANDARD_US_SYMBOL = 'AAPL'
 # STANDARD_CN_SYMBOL = '000001' # 00700
 # STANDARD_INTERVAL = 'd' # /w/m
 BENCHMARK_SYMBOL = {'us': 'SPY', 'cn': '000001', 'hk': '00700'}
+
+# internal standard dataframe schema (single source of truth of the data contract):
+# all stock dataframes converge to this shape no matter where they come from or go to.
+#   - output boundary: post_process_download_data() produces it, validate_standard_dataframe() guards it
+#   - input boundary:  load_stock_data(standard_columns=True) selects it, guarded by the same validator
+STANDARD_COLUMNS = ['Date', 'Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume', 'Dividend', 'Split']
+# same as above without the time column ('Date' becomes the DatetimeIndex after df_2_timeseries)
+STANDARD_DATA_COLUMNS = [col for col in STANDARD_COLUMNS if col != 'Date']
 
 # EOD is mainly used for US stock eod and realtime(15min-delayed) price:  AAPL
 # EOD is able to access CN stock eod price, but the price is un-adjusted: 000001.SHE
@@ -100,13 +112,13 @@ def add_postfix_for_cn_symbol(symbol: str) -> str:
       postfix = '.HK'
 
     else:
-      print(f'{symbol}: cn symbol should be 5(hk) or 6(mainland) digits')
+      logger.warning(f'{symbol}: cn symbol should be 5(hk) or 6(mainland) digits')
       postfix = ''
 
     symbol = symbol + postfix
 
   else:
-    print(f'{symbol} is not all digit')
+    logger.warning(f'{symbol} is not all digit')
 
   return symbol
 
@@ -128,7 +140,7 @@ def preprocess_symbol(symbols: list, style: Literal['eod', 'ak', 'easyquotation'
   cn_symbols = [x for x in symbols if x.isdigit()]
   other_symbols = [x for x in symbols if x not in us_symbols and x not in cn_symbols]
   if len(other_symbols) > 0:
-    print(f'other symbols found: {other_symbols}')
+    logger.info(f'other symbols found: {other_symbols}')
 
   # e.g. 'AAPL', '000001.SHE'/'600001.SHG/'0700.HK'
   if style == 'eod':
@@ -144,6 +156,10 @@ def preprocess_symbol(symbols: list, style: Literal['eod', 'ak', 'easyquotation'
   elif style == 'ak':
     # us symbols add prefix
     us_symbol_list = get_code_map_from_ak() # ak.stock_us_spot_em()
+    # guard None code map(ak download failed and no local cache) to avoid TypeError
+    if us_symbol_list is None:
+      logger.error(f'[erro]: failed getting us code map from ak, us symbols will not be preprocessed: {us_symbols}')
+      us_symbol_list = pd.DataFrame(columns=['代码', 'symbol'])
     us_symbol_list['symbol'] = us_symbol_list['代码'].apply(lambda x: x.split('.')[1])
     us_symbol_list = us_symbol_list.set_index('symbol')    
     for s in us_symbols:
@@ -163,7 +179,7 @@ def preprocess_symbol(symbols: list, style: Literal['eod', 'ak', 'easyquotation'
       result[s] = s
 
   else:
-    print(f'Unknown symbol style {style}')
+    logger.error(f'Unknown symbol style {style}')
   
   return result
 
@@ -199,14 +215,14 @@ def get_code_map_from_ak() -> pd.DataFrame:
           pass
         break
       except Exception as e:
-        print(f'When calling ak.stock_us_spot(): {e}')
+        logger.exception(f'When calling ak.stock_us_spot(): {e}')
         continue
   
   # read old file if update failed
   if us_spot_em is None:
     if os.path.exists(local_file_name):
       us_spot_em = pd.read_csv(local_file_name)
-      print(f'Using existed us_spot_em.csv')
+      logger.info(f'Using existed us_spot_em.csv')
 
   return us_spot_em
 
@@ -245,7 +261,7 @@ def get_data_from_ak(symbol: str, start_date: str = None, end_date: str = None, 
     elif len(symbol) == 5:
       market = 'hk'
     else:
-      print(f'symbol for unknown market: {symbol}')
+      logger.error(f'symbol for unknown market: {symbol}')
 
   # get data
   if market == 'us':
@@ -267,8 +283,8 @@ def get_data_from_ak(symbol: str, start_date: str = None, end_date: str = None, 
   # postprocess: rename columns, add extra columns
   result = post_process_download_data(result, 'ak')
 
-  if is_print:
-    print(f'{symbol:8}: {result.index.min()} - {result.index.max()}, 下载记录 {len(result)} from ak')
+  if is_print and result is not None and len(result) > 0:
+    logger.info(f'{symbol:8}: {result.index.min()} - {result.index.max()}, 下载记录 {len(result)} from ak')
   
   return result
 
@@ -342,7 +358,7 @@ def get_data_from_eod(symbol: str, start_date: Optional[str] = None, end_date: O
             data['dividend'] = data['dividend'].fillna(0.0)
         
         except Exception as e:
-          print(f'failed to get dividend({e}), filled with 0')
+          logger.exception(f'failed to get dividend({e}), filled with 0')
       else:
         if is_print:
           print(f'dividend(-)', end=', ' )
@@ -363,7 +379,7 @@ def get_data_from_eod(symbol: str, start_date: Optional[str] = None, end_date: O
             response_status = 'x' 
 
           if is_print:
-            print(f'split({response_status})')
+            logger.info(f'split({response_status})')
           
           # post process dividend data
           if len(split) > 0:
@@ -373,10 +389,10 @@ def get_data_from_eod(symbol: str, start_date: Optional[str] = None, end_date: O
             data['split'] = data['split'].fillna(1.0)
         
         except Exception as e:
-          print(f'failed to get split({e}), filled with 1')
+          logger.exception(f'failed to get split({e}), filled with 1')
       else:
         if is_print:
-          print(f'split(-)')
+          logger.info(f'split(-)')
         pass
         
       # fill na values for dividend and split    
@@ -393,7 +409,7 @@ def get_data_from_eod(symbol: str, start_date: Optional[str] = None, end_date: O
     data = post_process_download_data(df=data, source='eod')
 
   except Exception as e:
-    print(symbol, e)
+    logger.exception(f'{symbol} {e}')
 
   return data
 
@@ -417,9 +433,33 @@ def get_data_from_easyquotation(symbol: str, is_print: bool = False) -> pd.DataF
   df = post_process_download_data(df=df, source='easyquotation_daykline')
 
   if is_print:
-    print(f'{symbol:5}: {df.index.min()} - {df.index.max()}, 下载记录 {len(df)} from easyquotation_daykline')
+    logger.info(f'{symbol:5}: {df.index.min()} - {df.index.max()}, 下载记录 {len(df)} from easyquotation_daykline')
 
   return df
+
+# validate a dataframe against the standard schema (data contract guard, ~20 lines on purpose)
+def validate_standard_dataframe(df: pd.DataFrame, source: str = '') -> bool:
+  """
+  Check whether a dataframe conforms to the internal standard schema:
+  DatetimeIndex + all STANDARD_DATA_COLUMNS present.
+
+  :param df: dataframe to check
+  :param source: hint of where the dataframe comes from, used in diagnostics
+  :returns: True if valid, False otherwise
+  :raises: none
+  """
+  prefix = f'[data contract] {source}: ' if source else '[data contract]: '
+  if not isinstance(df, pd.DataFrame) or len(df) == 0:
+    logger.warning(f'{prefix}dataframe is empty or not a dataframe')
+    return False
+  if not isinstance(df.index, pd.DatetimeIndex):
+    logger.warning(f'{prefix}index is not DatetimeIndex but {type(df.index).__name__}')
+    return False
+  missing = [col for col in STANDARD_DATA_COLUMNS if col not in df.columns]
+  if len(missing) > 0:
+    logger.warning(f'{prefix}missing standard columns: {missing}')
+    return False
+  return True
 
 # postprocess downloaded data
 def post_process_download_data(df: pd.DataFrame, source: str) -> pd.DataFrame:
@@ -448,7 +488,7 @@ def post_process_download_data(df: pd.DataFrame, source: str) -> pd.DataFrame:
       df['Dividend'] = 0.0
       df['Split'] = 1.0
           
-      df = df[['Date', 'Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume', 'Dividend', 'Split']].copy()
+      df = df[STANDARD_COLUMNS].copy()
       df = util.df_2_timeseries(df, time_col='Date')
     
     # data from easyquotation
@@ -457,12 +497,16 @@ def post_process_download_data(df: pd.DataFrame, source: str) -> pd.DataFrame:
       df['Dividend'] = 0.0
       df['Split'] = 1.0
           
-      df = df[['Date', 'Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume', 'Dividend', 'Split']].copy()
+      df = df[STANDARD_COLUMNS].copy()
       df = util.df_2_timeseries(df, time_col='Date')
     
     # remove duplicated index and sort data by index
     df = util.remove_duplicated_index(df, keep='last')
     df.sort_index(ascending=True, inplace=True)
+
+    # guard the standard schema at the output boundary
+    if source in ('eod', 'ak', 'easyquotation_daykline'):
+      validate_standard_dataframe(df=df, source=f'post_process_download_data({source})')
 
   return df
 
@@ -503,10 +547,10 @@ def get_data(symbol: str, start_date: str = None, end_date: str = None, interval
 
     # otherwise
     else:
-      print(f'data source {source} not found')
+      logger.error(f'data source {source} not found')
 
   except Exception as e:
-    print(symbol, e)
+    logger.exception(f'{symbol} {e}')
 
   return data
 
@@ -551,13 +595,13 @@ def get_real_time_data_from_eod(symbols: list, api_key: str = default_eod_key, i
     try:
       real_time = [] if response.status_code!=200 else response.json()
     except Exception as e:
-      print(e, response.status_code, response)
+      logger.exception(f'{e} {response.status_code} {response}')
       real_time = []
 
     real_time = [real_time] if isinstance(real_time, dict) else real_time
     
     if is_print:
-      print(f'[{"realtime":^19}] - updating real-time for symbol: {batch_start+1:3} -{batch_end:3} - {response}')      
+      logger.info(f'[{"realtime":^19}] - updating real-time for symbol: {batch_start+1:3} -{batch_end:3} - {response}')      
   
     # post process downloaded real-time data
     real_time_data = pd.DataFrame(real_time)
@@ -569,8 +613,8 @@ def get_real_time_data_from_eod(symbols: list, api_key: str = default_eod_key, i
           real_time_data.loc[idx, 'latest_time'] = util.timestamp_2_time(real_time_data.loc[idx, 'timestamp'], unit='s').astimezone(est_tz).replace(tzinfo=None)
           real_time_data.loc[idx, 'code'] = real_time_data.loc[idx, 'code'].split('.')[0]
         except Exception as e:
-          print(e)
-          print(row)
+          logger.exception(e)
+          logger.exception(row)
           to_drop.append(idx)
           continue
 
@@ -586,7 +630,7 @@ def get_real_time_data_from_eod(symbols: list, api_key: str = default_eod_key, i
 
     else:
 
-      print('get empty response for realtime data')
+      logger.warning('get empty response for realtime data')
       
     # concate batches of real-time data 
     result = pd.concat([result, real_time_data]) 
@@ -600,7 +644,7 @@ def get_real_time_data_from_eod(symbols: list, api_key: str = default_eod_key, i
       if col in result.columns:
         result.drop([col], axis=1, inplace=True)
   else:
-    print('real time data from eod is empty')
+    logger.warning('real time data from eod is empty')
 
   return result
 
@@ -621,7 +665,7 @@ def get_real_time_data_from_easyquotation(symbols: list, source: str = 'sina') -
 
   # create quoataion entity
   quotation = eq.use(source)
-  print(f'[{"realtime":^19}] - updating real-time for symbols from easyquotation({source})')
+  logger.info(f'[{"realtime":^19}] - updating real-time for symbols from easyquotation({source})')
 
   # get stock data from sina
   codes = [x.split('.')[0] for x in symbols]
@@ -635,7 +679,7 @@ def get_real_time_data_from_easyquotation(symbols: list, source: str = 'sina') -
     columns_to_keep = {'index':'symbol', 'openPrice':'Open', 'high':'High', 'low':'Low', 'price':'Close', 'amount':'Volume', 'time':'Date'}
 
   else:
-    print(f'unknown source {source}')
+    logger.error(f'unknown source {source}')
 
   # turn into dataframe
   df = pd.DataFrame(qt).T if len(qt) > 0 else df
@@ -678,10 +722,10 @@ def get_real_time_data(symbols: list, source: str = 'eod', sub_source: str = 'si
 
     # otherwise
     else:
-      print(f'data source {source} not found')
+      logger.error(f'data source {source} not found')
 
   except Exception as e:
-    print(symbols, e)
+    logger.exception(f'{symbols} {e}')
 
   return data
 
@@ -703,7 +747,7 @@ def get_stock_briefs_from_eod(symbols: list, api_key: str = default_eod_key, bat
     latest_data = latest_data[['latest_time', 'Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume', 'symbol', 'latest_price', 'Date']]
   else:
     latest_data = pd.DataFrame(columns=['latest_time', 'Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume', 'symbol', 'latest_price', 'Date'])
-    print('real time data from eod is empty')
+    logger.warning('real time data from eod is empty')
 
   return latest_data
 
@@ -727,7 +771,7 @@ def get_stock_briefs(symbols: list, source: str = 'eod', api_key: str = default_
     briefs = get_stock_briefs_from_eod(symbols=symbols, api_key=api_key, batch_size=batch_size)
 
   else:
-    print(f'Unknown source {source}')
+    logger.error(f'Unknown source {source}')
 
   return briefs
 
@@ -757,7 +801,7 @@ def update_stock_data_new(symbols: list, stock_data_path: str, file_format: str 
 
   # verify update_mode
   if update_mode not in ['realtime', 'eod', 'both', 'refresh']:
-    print(f'unknown update mode: {update_mode}')
+    logger.error(f'unknown update mode: {update_mode}')
     return None
 
   # classify symbols
@@ -769,7 +813,7 @@ def update_stock_data_new(symbols: list, stock_data_path: str, file_format: str 
   symbol_count = {'us': len(us_symbols), 'cn': len(cn_symbols), 'hk': len(hk_symbols), 'other': len(other_symbols)}
   # print(f'US({symbol_count["us"]}), CN({symbol_count["cn"]}), HK({symbol_count["hk"]}), Other({symbol_count["other"]})')
   if symbol_count['other'] > 0:
-    print(f'[{"pool":^19}] - [erro]: Unexpected symbols found: {other_symbols}')
+    logger.error(f'[{"pool":^19}] - [erro]: Unexpected symbols found: {other_symbols}')
 
   # default dates
   today = datetime.datetime.today().date()
@@ -806,7 +850,7 @@ def update_stock_data_new(symbols: list, stock_data_path: str, file_format: str 
             if len(tmp_data) > 0:
               benchmark_dates[mkt] = util.time_2_string(tmp_data.index.max()) 
             else:   
-              print(f'[-{mkt.upper()} - [{mkt.upper():^4}]: benchmark({mkt_benchmark_symbol}) data is empty, use today - {today}')
+              logger.warning(f'[-{mkt.upper()} - [{mkt.upper():^4}]: benchmark({mkt_benchmark_symbol}) data is empty, use today - {today}')
               benchmark_dates[mkt] = today
             
             # break when finish
@@ -815,7 +859,7 @@ def update_stock_data_new(symbols: list, stock_data_path: str, file_format: str 
           except Exception as e:
             
             # if failed, sleep 5 seconds and try again
-            print(f'[{"benchmark":^19}] - [erro]: querying benchmark failed for [{mkt} market], try({retry_count}/5), {type(e)} - {e}')        
+            logger.exception(f'[{"benchmark":^19}] - [erro]: querying benchmark failed for [{mkt} market], try({retry_count}/5), {type(e)} - {e}')        
             time.sleep(5)
             continue
           
@@ -824,9 +868,9 @@ def update_stock_data_new(symbols: list, stock_data_path: str, file_format: str 
       tmp_benchmark_date = benchmark_dates.get(mkt)
       if tmp_benchmark_date is None:
         benchmark_dates[mkt] = today
-        print(f'[{mkt.upper()+" market":^19}] - [pool]: symbols({mkt_symbol_count}), benchmark({mkt_benchmark_symbol}), date(skip benchmark query, use today - {today})') # 
+        logger.info(f'[{mkt.upper()+" market":^19}] - [pool]: symbols({mkt_symbol_count}), benchmark({mkt_benchmark_symbol}), date(skip benchmark query, use today - {today})') # 
       else:
-        print(f'[{mkt.upper()+" market":^19}] - [pool]: symbols({mkt_symbol_count}), benchmark({mkt_benchmark_symbol}), date({benchmark_dates[mkt]})')
+        logger.info(f'[{mkt.upper()+" market":^19}] - [pool]: symbols({mkt_symbol_count}), benchmark({mkt_benchmark_symbol}), date({benchmark_dates[mkt]})')
 
   time.sleep(2)
 
@@ -877,10 +921,10 @@ def update_stock_data_new(symbols: list, stock_data_path: str, file_format: str 
                   data[symbol] = existed_data
                   tmp_data_date = util.time_2_string(max_idx)
                 else:
-                  print(f'max index of {symbol} is invalid({max_idx}), refreshing data')
+                  logger.warning(f'max index of {symbol} is invalid({max_idx}), refreshing data')
                   os.remove(symbol_file_name)
               else:
-                print(f'data {symbol} is empty, refreshing data')
+                logger.warning(f'data {symbol} is empty, refreshing data')
                 os.remove(symbol_file_name)
 
           # update eod data, print updating info
@@ -907,7 +951,7 @@ def update_stock_data_new(symbols: list, stock_data_path: str, file_format: str 
             
             else:
               new_data = None
-              print(f'{symbol:5}: symbol not found from source {tmp_source}')
+              logger.warning(f'{symbol:5}: symbol not found from source {tmp_source}')
             
           else:
             if symbol not in up_to_date_symbols:
@@ -916,7 +960,7 @@ def update_stock_data_new(symbols: list, stock_data_path: str, file_format: str 
         num_symbol_up_to_date = len(up_to_date_symbols)
         if num_symbol_up_to_date > 0:
           if is_print:
-            print(f'[{"eod":^19}] - [skip] : {num_symbol_up_to_date}/{len(symbol_class[mkt])} already up-to-date')
+            logger.warning(f'[{"eod":^19}] - [skip] : {num_symbol_up_to_date}/{len(symbol_class[mkt])} already up-to-date')
 
         # add real-time data when requiring data return and data will NOT be saved
         if update_mode in ['realtime', 'both']:
@@ -925,7 +969,7 @@ def update_stock_data_new(symbols: list, stock_data_path: str, file_format: str 
           tmp_sub_source = 'hkquote' if mkt == 'hk' else 'sina'
 
           if sources[f'{mkt}_eod'] in ['ak'] and update_mode in ['both']:
-            print(f'[{"realtime":^19}] - real-time data comes with eod data from ak')
+            logger.info(f'[{"realtime":^19}] - real-time data comes with eod data from ak')
 
           else:
             real_time_data = get_real_time_data(symbols=symbol_class[mkt], source=tmp_source, sub_source=tmp_sub_source, api_key=benchmark_api_keys[mkt], is_print=is_print, batch_size=batch_size)
@@ -936,7 +980,7 @@ def update_stock_data_new(symbols: list, stock_data_path: str, file_format: str 
             for symbol in symbol_class[mkt]:
               tmp_data = real_time_data.query(f'symbol == "{symbol}"')[data[symbol].columns].copy()
               if len(tmp_data) == 0:
-                print(f'real-time data not found for {symbol}')
+                logger.warning(f'real-time data not found for {symbol}')
                 continue
               else:
                 tmp_idx = tmp_data.index.max()
@@ -946,7 +990,7 @@ def update_stock_data_new(symbols: list, stock_data_path: str, file_format: str 
 
         break
       except Exception as e:
-        print(f'[erro]: updating data failed for [{mkt} market], try({retry_count}/5), {type(e)} - {e}')
+        logger.exception(f'[erro]: updating data failed for [{mkt} market], try({retry_count}/5), {type(e)} - {e}')
         time.sleep(retry_delay)
         continue
   
@@ -972,6 +1016,8 @@ def download_single_symbol_eod(args) -> tuple:
 
   # try to download data, up to 5 times
   data = None
+  # initialize query_symbol to avoid NameError in the return statement when the first try fails before assignment
+  query_symbol = None
   while retry_count < max_retries:
 
     retry_count += 1
@@ -1010,11 +1056,11 @@ def download_single_symbol_eod(args) -> tuple:
                 break
 
             else:
-              print(f'max index of {symbol} is invalid({max_idx}), refreshing data')
+              logger.warning(f'max index of {symbol} is invalid({max_idx}), refreshing data')
               os.remove(symbol_file_name)
 
           else:
-            print(f'data {symbol} is empty, refreshing data')
+            logger.warning(f'data {symbol} is empty, refreshing data')
             os.remove(symbol_file_name)
 
       # update eod data for those which local data date < benchmark date
@@ -1040,6 +1086,8 @@ def download_single_symbol_eod(args) -> tuple:
       # append new data to local data if not already updated
       if data is not None:
         data = pd.concat([existed_data, new_data])
+        # remove duplicated dates from the overlapping download window(-3 days), keep the newly downloaded rows
+        data = util.remove_duplicated_index(df=data, keep='last').sort_index()
       else:
         data = new_data
       
@@ -1059,7 +1107,7 @@ def download_single_symbol_eod(args) -> tuple:
       break
       
     except Exception as e:
-      print(f'[erro]: failed updating eod data for [{symbol}](parallely), try({retry_count}/5), {type(e)} - {e}')
+      logger.exception(f'[erro]: failed updating eod data for [{symbol}](parallely), try({retry_count}/5), {type(e)} - {e}')
       status = 'failed'
       messages = f'{type(e).__name__}: {str(e)}'
       if retry_count < max_retries:
@@ -1094,6 +1142,10 @@ def download_eod_parallel(symbols: List[str], stock_data_path: str, file_format:
   # get benchmark symbols
   global BENCHMARK_SYMBOL
 
+  # guard None api_keys so .get() calls below won't crash
+  if api_keys is None:
+    api_keys = {}
+
   # default dates
   today = datetime.datetime.today().date()
   today = util.time_2_string(today)
@@ -1102,18 +1154,18 @@ def download_eod_parallel(symbols: List[str], stock_data_path: str, file_format:
   # verify symbols
   num_symbols = len(symbols)
   if num_symbols == 0:
-    print('empty symbols list')
+    logger.warning('empty symbols list')
     return None
   
   # verify stock_data_path
   stock_data_path = Path(stock_data_path)
   if not stock_data_path.exists():
-    print(f'stock_data_path {stock_data_path} not exist')
+    logger.warning(f'stock_data_path {stock_data_path} not exist')
     return None
 
   # verify update_mode
   if update_mode not in ['realtime', 'eod', 'both', 'refresh']:
-    print(f'unknown update mode: {update_mode}')
+    logger.error(f'unknown update mode: {update_mode}')
     return None
 
   # classify symbols by market
@@ -1126,7 +1178,7 @@ def download_eod_parallel(symbols: List[str], stock_data_path: str, file_format:
   symbol_class = {'us': us_symbols, 'cn': cn_symbols, 'hk': hk_symbols, 'other': other_symbols}
   # print(f'[{"pool":^19}] - US({symbol_count["us"]}), CN({symbol_count["cn"]}), HK({symbol_count["hk"]}), Other({symbol_count["other"]})')
   if symbol_count['other'] > 0:
-    print(f'[{"pool":^19}] - [erro]: Unexpected symbols found: {other_symbols}')
+    logger.error(f'[{"pool":^19}] - [erro]: Unexpected symbols found: {other_symbols}')
 
   # -------------------------------------------------- benchmark --------------------------------------------------#
   # set benchmarks for different markets
@@ -1158,7 +1210,7 @@ def download_eod_parallel(symbols: List[str], stock_data_path: str, file_format:
               benchmark_dates[mkt] = util.time_2_string(tmp_data.index.max()) 
             else:                 
               benchmark_dates[mkt] = today
-              print(f'[{"benchmark":^19}] - [{mkt.upper():^4}]: benchmark({mkt_benchmark_symbol}) data is empty, use today - {today}')
+              logger.warning(f'[{"benchmark":^19}] - [{mkt.upper():^4}]: benchmark({mkt_benchmark_symbol}) data is empty, use today - {today}')
             
             # break when finish
             break
@@ -1166,7 +1218,7 @@ def download_eod_parallel(symbols: List[str], stock_data_path: str, file_format:
           except Exception as e:
             
             # if failed, sleep 5 seconds and try again
-            print(f'[{"benchmark":^19}] - [erro]: failed querying benchmark for [{mkt} market], try({retry_count}/5), {type(e)} - {e}')        
+            logger.exception(f'[{"benchmark":^19}] - [erro]: failed querying benchmark for [{mkt} market], try({retry_count}/5), {type(e)} - {e}')        
             time.sleep(5)
             continue
 
@@ -1175,9 +1227,9 @@ def download_eod_parallel(symbols: List[str], stock_data_path: str, file_format:
       tmp_benchmark_date = benchmark_dates.get(mkt)
       if tmp_benchmark_date is None:
         benchmark_dates[mkt] = today
-        print(f'[{mkt.upper()+" market":^19}] - [pool]: symbols({mkt_symbol_count}), benchmark({mkt_benchmark_symbol}), date(skip benchmark query, use today - {today})') # 
+        logger.info(f'[{mkt.upper()+" market":^19}] - [pool]: symbols({mkt_symbol_count}), benchmark({mkt_benchmark_symbol}), date(skip benchmark query, use today - {today})') # 
       else:
-        print(f'[{mkt.upper()+" market":^19}] - [pool]: symbols({mkt_symbol_count}), benchmark({mkt_benchmark_symbol}), date({benchmark_dates[mkt]})')
+        logger.info(f'[{mkt.upper()+" market":^19}] - [pool]: symbols({mkt_symbol_count}), benchmark({mkt_benchmark_symbol}), date({benchmark_dates[mkt]})')
     else:
       continue
   time.sleep(2)
@@ -1228,7 +1280,7 @@ def download_eod_parallel(symbols: List[str], stock_data_path: str, file_format:
         try:
           # get thread result from future
           result_symbol, query_symbol, result_data, status, error_msg = future.result()
-          if query_symbol is not None and result_symbol is not None and len(result_data) > 0:
+          if query_symbol is not None and result_symbol is not None and result_data is not None and len(result_data) > 0:
             data[result_symbol] = result_data
 
           # if thread download successfully
@@ -1248,11 +1300,11 @@ def download_eod_parallel(symbols: List[str], stock_data_path: str, file_format:
             symbol_download_failed.append(result_symbol)
 
           if error_msg:
-              print(f'[{"downloading failed":^19}] : {result_symbol}: {error_msg}')
+              logger.error(f'[{"downloading failed":^19}] : {result_symbol}: {error_msg}')
             
         except Exception as e:
           
-          print(f'[erro] : {result_symbol}: {str(e)}')
+          logger.exception(f'[erro] : {futures[future]}: {str(e)}')
         
         if progress_callback:
           progress_callback(len(symbol_downloaded)+len(symbol_up_to_date), len(symbol_download_failed) + len(symbol_not_found), len(download_tasks))
@@ -1260,7 +1312,7 @@ def download_eod_parallel(symbols: List[str], stock_data_path: str, file_format:
     pass
 
   if is_print and len(symbol_up_to_date) > 0:
-    print(f'[{"eod":^19}] - [skip] : {len(symbol_up_to_date)}/{num_symbols} already up-to-date')
+    logger.warning(f'[{"eod":^19}] - [skip] : {len(symbol_up_to_date)}/{num_symbols} already up-to-date')
   
   # -------------------------------------------------- realtime data ----------------------------------------------#
   # download real-time data
@@ -1277,20 +1329,29 @@ def download_eod_parallel(symbols: List[str], stock_data_path: str, file_format:
 
       # with akshare, real-time data comes with eod data
       if sources[f'{mkt}_eod'] in ['ak'] and update_mode in ['both']:
-        print(f'[{"realtime":^19}] - real-time data comes with eod data from ak')
+        logger.info(f'[{"realtime":^19}] - real-time data comes with eod data from ak')
 
       else:
         query_symbol_list = preprocess_symbol(symbols=symbol_class[mkt], style=tmp_source)
         real_time_data = get_real_time_data(symbols=query_symbol_list, source=tmp_source, sub_source=tmp_sub_source, api_key=benchmark_api_keys[mkt], batch_size=batch_size, is_print=is_print)
+
+        # skip current market when real-time data is not available
+        if real_time_data is None or len(real_time_data) == 0:
+          logger.error(f'[{"realtime":^19}] - [erro]: real-time data is empty for {mkt} market, skip')
+          continue
         if tmp_source == 'eod':
           real_time_data = util.df_2_timeseries(df=real_time_data, time_col='Date')
         
         # append it corresponding eod data according to symbols
         for symbol in symbol_class[mkt]:
+          # skip symbols whose eod data failed to download
+          if symbol not in data:
+            logger.error(f'[{"realtime":^19}] - [erro]: eod data not found for {symbol}, skip real-time update')
+            continue
           tmp_data = real_time_data.query(f'symbol == "{symbol}"')[data[symbol].columns].copy()
           
           if len(tmp_data) == 0:
-            print(f'real-time data not found for {symbol}')
+            logger.warning(f'real-time data not found for {symbol}')
             continue
 
           else:
@@ -1325,7 +1386,7 @@ def update_stock_data_from_eod(symbols: list, stock_data_path: str, file_format:
 
   # verify update_mode
   if update_mode not in ['realtime', 'eod', 'both', 'refresh']:
-    print(f'unknown update mode: {update_mode}')
+    logger.error(f'unknown update mode: {update_mode}')
     return None
 
   # get the benchmark of eod data
@@ -1368,7 +1429,7 @@ def update_stock_data_from_eod(symbols: list, stock_data_path: str, file_format:
         data[symbol] = existed_data
         tmp_data_date = util.time_2_string(max_idx)
       else:
-        print(f'max index of {symbol} is invalid({max_idx}), refreshing data')
+        logger.warning(f'max index of {symbol} is invalid({max_idx}), refreshing data')
         os.remove(symbol_file_name)
 
     # update eod data, print updating info
@@ -1394,11 +1455,11 @@ def update_stock_data_from_eod(symbols: list, stock_data_path: str, file_format:
   num_symbol_up_to_date = len(up_to_date_symbols)
   if num_symbol_up_to_date > 0:
     if is_print:
-      print(f'from {tmp_data_date} ***** - [skip]: <already up-to-date {num_symbol_up_to_date}/{len(symbols)} >')
+      logger.warning(f'from {tmp_data_date} ***** - [skip]: <already up-to-date {num_symbol_up_to_date}/{len(symbols)} >')
 
   # add real-time data when requiring data return and data will NOT be saved
   if update_mode in ['realtime', 'both']:
-    print('***************** querying real-time data *****************')
+    logger.info('***************** querying real-time data *****************')
 
     if not cn_stock:
       # get real-time data from EOD, convert it into time-series data
@@ -1411,7 +1472,7 @@ def update_stock_data_from_eod(symbols: list, stock_data_path: str, file_format:
     for symbol in symbols:
       tmp_data = real_time_data.query(f'symbol == "{symbol}"')[data[symbol].columns].copy()
       if len(tmp_data) == 0:
-        print(f'real-time data not found for {symbol}')
+        logger.warning(f'real-time data not found for {symbol}')
         continue
       else:
         tmp_idx = tmp_data.index.max()
@@ -1428,7 +1489,7 @@ def update_stock_data_from_ak(symbols: list, stock_data_path: str, file_format: 
 
   # verify update_mode
   if update_mode not in ['eod', 'refresh', 'both', 'realtime']:
-    print(f'unknown update mode: {update_mode}')
+    logger.error(f'unknown update mode: {update_mode}')
     return None
 
   # get the benchmark of eod data
@@ -1437,8 +1498,18 @@ def update_stock_data_from_ak(symbols: list, stock_data_path: str, file_format: 
   today = util.time_2_string(datetime.datetime.today().date())
   start_date = util.string_plus_day(today, -7)
   benchmark_symbol = '105.AAPL' if not cn_stock else '000001'
-  benchmark_data = get_data_from_ak(symbol=benchmark_symbol, start_date=start_date, end_date=today, interval='daily')
-  benchmark_date = util.time_2_string(benchmark_data.index.max())
+
+  # benchmark download may fail(ak raises on network errors), fall back to today
+  benchmark_data = None
+  try:
+    benchmark_data = get_data_from_ak(symbol=benchmark_symbol, start_date=start_date, end_date=today, interval='daily')
+  except Exception as e:
+    logger.exception(f'[erro]: failed downloading benchmark data from ak: {e}')
+  if benchmark_data is None or len(benchmark_data) == 0:
+    logger.error(f'[erro]: benchmark data from ak is empty, fallback to today({today}) as benchmark date')
+    benchmark_date = today
+  else:
+    benchmark_date = util.time_2_string(benchmark_data.index.max())
   start_date = util.string_plus_day(benchmark_date, -window_size)
 
   # get the existed data and its latest date for each symbols
@@ -1448,6 +1519,10 @@ def update_stock_data_from_ak(symbols: list, stock_data_path: str, file_format: 
   # for us stocks
   if not cn_stock:
     symbol_list = get_code_map_from_ak() # ak.stock_us_spot_em()
+    # guard None code map(ak download failed and no local cache), us symbols can not be mapped without it
+    if symbol_list is None:
+      logger.error(f'[erro]: failed getting us code map from ak, aborting update for {symbols}')
+      return None
     symbol_list['symbol'] = symbol_list['代码'].apply(lambda x: x.split('.')[1])
     symbol_list = symbol_list.set_index('symbol')
     symbols = symbol_list.loc[symbols, '代码'].to_list()
@@ -1479,7 +1554,7 @@ def update_stock_data_from_ak(symbols: list, stock_data_path: str, file_format: 
         data[symbol] = existed_data
         tmp_data_date = util.time_2_string(max_idx)
       else:
-        print(f'max index of {symbol} is invalid({max_idx}), refreshing data')
+        logger.warning(f'max index of {symbol} is invalid({max_idx}), refreshing data')
         os.remove(symbol_file_name)
        
     # update eod data, print updating info
@@ -1487,23 +1562,30 @@ def update_stock_data_from_ak(symbols: list, stock_data_path: str, file_format: 
       if is_print:
         print(f'from ', end='0000-00-00 ' if tmp_data_date is None else f'{tmp_data_date} ')
       
-      # download latest data for current symbol
-      print(file_name)
-      new_data = get_data_from_ak(file_name, start_date=tmp_data_date, end_date=required_date, interval='daily', is_print=is_print)
+      # download latest data for current symbol, guard download failure so one symbol won't abort the whole update
+      logger.info(file_name)
+      new_data = None
+      try:
+        new_data = get_data_from_ak(file_name, start_date=tmp_data_date, end_date=required_date, interval='daily', is_print=is_print)
+      except Exception as e:
+        logger.exception(f'[erro]: failed downloading {file_name} from ak: {e}')
 
       # append new data to the origin
-      data[symbol] = pd.concat([data[symbol], new_data])
-      data[symbol] = util.remove_duplicated_index(df=data[symbol], keep='last').dropna()
+      if new_data is not None and len(new_data) > 0:
+        data[symbol] = pd.concat([data[symbol], new_data])
+        data[symbol] = util.remove_duplicated_index(df=data[symbol], keep='last').dropna()
 
-      # save data to local csv files
-      # as ak data contains the real-time data
-      if is_save:
-        if cn_stock:
-          if current_weekday in [5, 6] or current_hour >= 15:
-            data_to_save = data[symbol]
+        # save data to local csv files
+        # as ak data contains the real-time data
+        if is_save:
+          if cn_stock:
+            if current_weekday in [5, 6] or current_hour >= 15:
+              data_to_save = data[symbol]
+            else:
+              data_to_save = data[symbol][:-1]
           else:
-            data_to_save = data[symbol][:-1]
-        save_stock_data(df=data_to_save, file_path=stock_data_path, file_name=symbol, file_format=file_format, reset_index=True, index=False)
+            data_to_save = data[symbol]
+          save_stock_data(df=data_to_save, file_path=stock_data_path, file_name=symbol, file_format=file_format, reset_index=True, index=False)
     
     else:
       if symbol not in up_to_date_symbols:
@@ -1512,11 +1594,11 @@ def update_stock_data_from_ak(symbols: list, stock_data_path: str, file_format: 
   num_symbol_up_to_date = len(up_to_date_symbols)
   if num_symbol_up_to_date > 0:
     if is_print:
-      print(f'from {tmp_data_date} ***** - [skip]: <already up-to-date {num_symbol_up_to_date}/{len(symbols)} >')
+      logger.warning(f'from {tmp_data_date} ***** - [skip]: <already up-to-date {num_symbol_up_to_date}/{len(symbols)} >')
       
   # add real-time data when requiring data return and data will NOT be saved
   if update_mode in ['realtime', 'both']:
-    print('***************** querying real-time data *****************')
+    logger.info('***************** querying real-time data *****************')
 
     # get real-time data from easyquotation, convert it into time-series data
     real_time_data = get_real_time_data_from_easyquotation(symbols=symbols)
@@ -1524,7 +1606,7 @@ def update_stock_data_from_ak(symbols: list, stock_data_path: str, file_format: 
     for symbol in symbols:
       tmp_data = real_time_data.query(f'symbol == "{symbol}"')[data[symbol].columns].copy()
       if len(tmp_data) == 0:
-        print(f'real-time data not found for {symbol}')
+        logger.warning(f'real-time data not found for {symbol}')
         continue
       else:
         tmp_idx = tmp_data.index.max()
@@ -1562,7 +1644,7 @@ def update_stock_data(symbols: list, stock_data_path: str, file_format: str = '.
   elif source == 'ak':
     result = update_stock_data_from_ak(symbols=symbols, stock_data_path=stock_data_path, file_format=file_format, required_date=required_date, is_print=is_print, is_return=is_return, is_save=is_save, update_mode=update_mode, cn_stock=cn_stock)
   else:
-    print(f'unknown source: {source}')
+    logger.error(f'unknown source: {source}')
 
   if is_return:
     return result
@@ -1597,9 +1679,9 @@ def save_stock_data(df: pd.DataFrame, file_path: str, file_name: str, file_forma
     if file_format == '.csv':
       df.to_csv(file_name, index=index)
     else:
-      print(f'Unknown format {file_format}')
+      logger.error(f'Unknown format {file_format}')
   else:
-    print('Empty dataframe to save, skipped')
+    logger.warning('Empty dataframe to save, skipped')
   
 # load data from stock data file (csv file)
 def load_stock_data(file_path: str, file_name: str, file_format: str = '.csv', time_col: str = 'Date', standard_columns: bool = False, sort_index: bool = True) -> pd.DataFrame:
@@ -1630,28 +1712,42 @@ def load_stock_data(file_path: str, file_name: str, file_format: str = '.csv', t
   try:
     # if the file not exists, print information
     if not os.path.exists(file_name):
-      print(f'{file_name} not exists')
+      logger.warning(f'{file_name} not exists')
 
     else:
-      # load file
-      df = pd.read_csv(file_name, encoding='utf8')
-      
-      # transform dataframe to timeseries
-      df = util.df_2_timeseries(df=df, time_col=time_col)
-      
-      # select standard columns
-      if standard_columns:
-        df = df[['Open', 'High', 'Low', 'Close', 'Volume', 'Adj Close', 'Dividend', 'Split']].copy()
-      
-      # sort index
-      if sort_index:
-        df.sort_index(inplace=True)
+      # load file, a failure here means the file itself is unreadable(corrupted),
+      # remove it so it can be re-downloaded later
+      try:
+        df = pd.read_csv(file_name, encoding='utf8')
+      except Exception as e:
+        logger.exception(f'{file_name} {e}')
+        logger.exception(f'remove unreadable file: {file_name}')
+        os.remove(file_name)
+        return df
+
+      # process the loaded data, a failure here is a column/format issue,
+      # keep the original file and only report the error
+      try:
+        # transform dataframe to timeseries
+        df = util.df_2_timeseries(df=df, time_col=time_col)
+        
+        # select standard columns, guarded by the standard schema validator at the input boundary
+        if standard_columns:
+          if validate_standard_dataframe(df=df, source=f'load_stock_data: {file_name}'):
+            df = df[STANDARD_DATA_COLUMNS].copy()
+          else:
+            df = None
+        
+        # sort index
+        if sort_index:
+          df.sort_index(inplace=True)
+
+      except Exception as e:
+        logger.exception(f'{file_name} {e}')
+        df = None
 
   except Exception as e:
-    if os.path.exists(file_name):
-      os.remove(file_name)
-    print(file_name, e)
-    print(f'remove file: {file_name}')
+    logger.exception(f'{file_name} {e}')
 
   return df
 
@@ -1674,10 +1770,10 @@ def remove_stock_data(symbol: str, file_path: str, file_format: str = '.csv') ->
     if os.path.exists(file_name):
       os.remove(file_name)
     else:
-      print(f'{file_name} not exists')
+      logger.warning(f'{file_name} not exists')
       
   except Exception as e:
-    print(symbol, e) 
+    logger.exception(f'{symbol} {e}') 
 
 # create weekly data from daily data
 def create_week_data(df: pd.DataFrame) -> pd.DataFrame:
@@ -1839,7 +1935,7 @@ def switch_data_interval(df: pd.DataFrame, interval: str) -> pd.DataFrame:
       result = create_month_data(result)
 
     else:
-      print(f'unknown interval {interval}')
+      logger.error(f'unknown interval {interval}')
       
   return result
 
@@ -1899,13 +1995,13 @@ def download_nytimes(year: int, month: int, api_key: str, file_path: str, file_f
         json.dump(data, f)
         
   except Exception as e:
-    print(e)
-    print(data)
+    logger.exception(e)
+    logger.exception(data)
     pass
 
   # print info
   if is_print:
-    print(f"Finished downloading {year}/{month} ({len(docs)}hints)")
+    logger.info(f"Finished downloading {year}/{month} ({len(docs)}hints)")
 
   # return data
   if is_return:
@@ -1934,7 +2030,7 @@ def read_nytimes(year: int, month: int, file_path: str, file_format: str = '.jso
   df = pd.DataFrame()  
   df['News'] = None
   num_hits = NYTimes_data['response']['meta']['hits']
-  print(f'读取 {year}/{month} 新闻, {num_hits}条')
+  logger.info(f'读取 {year}/{month} 新闻, {num_hits}条')
 
   # original columns
   columns = [
@@ -2117,7 +2213,7 @@ def filter_futu_exported(df: pd.DataFrame, condition: dict = None, q: float = 0.
         to_drop.append(index)
     
   else:
-    print(f'market "{market}" not defined')
+    logger.error(f'market "{market}" not defined')
   
   filtered_df = filtered_df.drop(to_drop)
 
@@ -2155,6 +2251,22 @@ def import_futu_exported(df: pd.DataFrame, num: int = 100) -> dict:
 
 
 #----------------------------- Json File Processing---- -------------------------#
+# write json file atomically: dump into a temp file first, then replace the target file,
+# so a concurrent reader never sees a half-written(potentially unparsable) file
+def _save_json_file(config_dict: dict, file_path: str, file_name: str, ensure_ascii: bool = True) -> None:
+  target_file = Path(file_path) / file_name
+  tmp_file = Path(file_path) / f'{file_name}.tmp'
+  try:
+    with open(tmp_file, 'w', encoding='UTF-8') as f:
+      json.dump(config_dict, f, ensure_ascii=ensure_ascii)
+    os.replace(tmp_file, target_file)
+  except Exception:
+    # remove the leftover temp file if anything failed before the replace
+    if os.path.exists(tmp_file):
+      os.remove(tmp_file)
+    raise
+
+
 def create_config_file(config_dict: dict, file_path: str, file_name: str, print: bool = False, ensure_ascii: bool = True) -> None:
   """
   Create a config file and save global parameters into the file
@@ -2168,14 +2280,13 @@ def create_config_file(config_dict: dict, file_path: str, file_name: str, print:
   :raises: save error
   """
   try:
-    with open(Path(file_path) / file_name, 'w') as f:
-      json.dump(config_dict, f, ensure_ascii=ensure_ascii)
+    _save_json_file(config_dict=config_dict, file_path=file_path, file_name=file_name, ensure_ascii=ensure_ascii)
     
     if print:
-      print('Config saved successfully')
+      logger.info('Config saved successfully')
 
   except Exception as e:
-    print(e)
+    logger.exception(e)
 
 
 def read_config(file_path: str, file_name: str) -> dict:
@@ -2194,7 +2305,7 @@ def read_config(file_path: str, file_name: str) -> dict:
 
   except Exception as e:
     config_dict = {}
-    print(e)
+    logger.exception(e)
 
   return config_dict
 
@@ -2215,15 +2326,20 @@ def add_config(config_key: str, config_value: any, file_path: str, file_name: st
   try:
     # read existing config
     new_config = read_config(file_path, file_name)
-    new_config[config_key] = config_value
 
-    with open(Path(file_path) / file_name, 'w', encoding='UTF-8') as f:
-      json.dump(new_config, f)
-      if is_print:
-        print('Config added successfully')
+    # if the file exists but is unreadable(read returns {}), skip to avoid clobbering it with a partial record
+    target_file = Path(file_path) / file_name
+    if not new_config and os.path.exists(target_file) and os.path.getsize(target_file) > 0:
+      logger.warning(f'skip adding config: {target_file} exists but is unreadable')
+      return
+
+    new_config[config_key] = config_value
+    _save_json_file(config_dict=new_config, file_path=file_path, file_name=file_name)
+    if is_print:
+      logger.info('Config added successfully')
 
   except Exception as e:
-    print(e)
+    logger.exception(e)
 
 
 def remove_config(config_key: str, file_path: str, file_name: str, is_print: bool = False) -> None:
@@ -2240,15 +2356,20 @@ def remove_config(config_key: str, file_path: str, file_name: str, is_print: boo
   try:
     # read existing config
     new_config = read_config(file_path, file_name)
-    new_config.pop(config_key)
 
-    with open(Path(file_path) / file_name, 'w', encoding='UTF-8') as f:
-      json.dump(new_config, f)
-      if is_print:
-        print('Config removed successfully')
+    # if the file exists but is unreadable(read returns {}), skip to avoid clobbering it with a partial record
+    target_file = Path(file_path) / file_name
+    if not new_config and os.path.exists(target_file) and os.path.getsize(target_file) > 0:
+      logger.warning(f'skip removing config: {target_file} exists but is unreadable')
+      return
+
+    new_config.pop(config_key)
+    _save_json_file(config_dict=new_config, file_path=file_path, file_name=file_name)
+    if is_print:
+      logger.info('Config removed successfully')
 
   except Exception as e:
-    print(e)
+    logger.exception(e)
 
 
 def modify_config(config_key: str, config_value: any, file_path: str, file_name: str, is_print: bool = False) -> None:
@@ -2266,15 +2387,20 @@ def modify_config(config_key: str, config_value: any, file_path: str, file_name:
   try:
     # read existing config
     new_config = read_config(file_path, file_name)
-    new_config[config_key] = config_value
 
-    with open(Path(file_path) / file_name, 'w', encoding='UTF-8') as f:
-      json.dump(new_config, f)
-      if is_print:
-        print('Config modified successfully')
+    # if the file exists but is unreadable(read returns {}), skip to avoid clobbering it with a partial record
+    target_file = Path(file_path) / file_name
+    if not new_config and os.path.exists(target_file) and os.path.getsize(target_file) > 0:
+      logger.warning(f'skip modifying config: {target_file} exists but is unreadable')
+      return
+
+    new_config[config_key] = config_value
+    _save_json_file(config_dict=new_config, file_path=file_path, file_name=file_name)
+    if is_print:
+      logger.info('Config modified successfully')
 
   except Exception as e:
-    print(e)
+    logger.exception(e)
 
 
 #----------------------------- Solidify data ------------------------------------# 
@@ -2391,7 +2517,7 @@ def update_portfolio_support_resistant(config: dict, data: dict, portfolio_file_
             
       # if portfolio not exists, continue for next account
       if tmp_portfolio is None:
-        print(f'portfolio for {account} not exists')
+        logger.warning(f'portfolio for {account} not exists')
         continue
 
       else:  
@@ -2427,7 +2553,7 @@ def update_portfolio_support_resistant(config: dict, data: dict, portfolio_file_
                   cn_stock['rate'][symbol] = round((cn_stock['latest_price'][symbol] - cn_stock['average_cost'][symbol]) / cn_stock['average_cost'][symbol], 2)
                   
                 else:
-                  print(f'please update average_cost for {symbol}')
+                  logger.warning(f'please update average_cost for {symbol}')
                   cn_stock['average_cost'][symbol] = None
                   cn_stock['rate'][symbol] = None
 
@@ -2539,19 +2665,19 @@ def send_result_by_email(config: dict, to_addr: str, from_addr: str = 'northchen
   if os.path.exists(Path(config['config_path']) / 'portfolio.json'):
     portfolio_record = read_config(file_path=config['config_path'], file_name='portfolio.json')
 
-    # for us_stock
+    # for us_stock, guard None platform records so chained .get() won't crash
     if 'tiger' in platform:
-      pr = portfolio_record.get('tiger')
+      pr = portfolio_record.get('tiger') or {}
       assets['glob'] = pr.get('global_account')
       # assets['simu'] = pr.get('simulation_account') 
 
     if 'futu' in platform:
-      pr = portfolio_record.get('futu')
+      pr = portfolio_record.get('futu') or {}
       assets['REAL'] = pr.get('REAL')
       # assets['SIMU'] = pr.get('SIMULATE')
     
     # for cn_stock
-    pr = portfolio_record.get('pingan')
+    pr = portfolio_record.get('pingan') or {}
     assets['snowball'] = pr.get('snowball')
 
   # construct asset summary
@@ -2596,6 +2722,9 @@ def send_result_by_email(config: dict, to_addr: str, from_addr: str = 'northchen
       position = ''
 
     # mark update-time if not not match with current time
+    # guard None updated so slicing won't crash
+    if updated is None:
+      updated = ''
     if updated[:16] == current_time[:16]:
       updated = ''
     else:
@@ -2717,7 +2846,7 @@ def send_result_by_email(config: dict, to_addr: str, from_addr: str = 'northchen
   # if test, print info parts, else send the email with attachments
   try:
     if test:
-      print(full_info)
+      logger.info(full_info)
       ret = 'test'
     else:
       # start SMTP service, send email, stop SMTP service
@@ -2729,7 +2858,7 @@ def send_result_by_email(config: dict, to_addr: str, from_addr: str = 'northchen
       server.sendmail(from_addr, to_addr, m.as_string())
       ret = server.quit()
   except Exception as e:
-    print(f"Error sending email: {str(e)}")
+    logger.exception(f"Error sending email: {str(e)}")
     ret = f"Error: {str(e)}"
 
   return ret

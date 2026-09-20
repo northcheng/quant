@@ -4,31 +4,42 @@ Generally Utilities
 
 :author: Beichen Chen
 """
+import copy
 import math
 import logging
+import os
 import pytz
 import time
 import datetime
+from pathlib import Path
 import pandas as pd
 
 from quant import bc_data_io as io_util
 from quant import bc_util as util
-from pathlib import Path
 
-from futu import (OrderType, OrderStatus, TrdSide, RET_OK, RET_ERROR)
+from futu import (OrderType, OrderStatus, TrdSide, RET_OK)
 from futu import (OpenQuoteContext, OpenSecTradeContext, TrdMarket, SecurityFirm, Currency)
 from tigeropen.quote.quote_client import QuoteClient
 from tigeropen.trade.trade_client import TradeClient
 from tigeropen.tiger_open_config import TigerOpenClientConfig
 from tigeropen.common.util.signature_utils import read_private_key
-from tigeropen.common.consts import (Language,  Market, BarPeriod, QuoteRight) # 语言, 市场, k线周期, 复权类型
-from tigeropen.common.util.contract_utils import (stock_contract, option_contract, future_contract) # 股票合约, 期权合约, 期货合约
-from tigeropen.common.util.order_utils import (market_order, limit_order, stop_order, stop_limit_order, trail_order, order_leg) # 市价单, 限价单, 止损单, 限价止损单, 移动止损单, 附加订单
+from tigeropen.common.consts import (Language, Market) # 语言, 市场
+from tigeropen.common.util.contract_utils import stock_contract # 股票合约
+from tigeropen.common.util.order_utils import (market_order, limit_order, order_leg) # 市价单, 限价单, 附加订单
 
-# 用于与ta_config中的止盈止损设定对应
+# 账户分组契约 (single source of truth): platform -> {user_info 中的账户键 -> 账户分组}
+# 三方约定全部锚定在这张表上, 新增平台/账户/分组时必须同步维护, 任何一侧改键名都会在这里报 KeyError:
+#   1. 内层键   = trader/user_info.json 中该平台下的账户键名, Trader 用它取 self.account
+#   2. 内层值   = 账户分组, 只有 'real'(实盘) / 'simu'(模拟) 两种:
+#       - ta_config.json: trade.init_cash[platform][分组] 与 trade.pool[platform][分组] 按此索引
+#       - automatic_trader.py: 命令行 --tiger/--futu 的取值 (simu/real/both) 与此对齐
+#   3. 消费方   = bc_trader.Trader.update_position_record / synchronize_position_record,
+#                automatic_trader.py 的交易器创建循环
+# 注意: tiger 的 standard_account 纸面账户存在于 user_info.json 但故意不在此表中,
+# 它不参与 init_cash/pool 分组, 若要启用需先在此登记并补齐 ta_config 对应配置
 ACCOUNT_GROUPS = {
-  'tiger': {'global_account': 'real', 'simulation_account':'simu'},
-  'futu': {'REAL': 'real', 'SIMULATE':'simu'}}
+  'tiger': {'global_account': 'real', 'simulation_account': 'simu'},
+  'futu': {'REAL': 'real', 'SIMULATE': 'simu'}}
 
 class Trader(object):
   
@@ -54,7 +65,7 @@ class Trader(object):
     # read user info, position record from local files
     self.user_info = io_util.read_config(file_path=config['trader_path'], file_name='user_info.json').get(platform)
     self.position_record = io_util.read_config(file_path=config['config_path'], file_name=f'position.json')[platform]
-    self.record = self.position_record[account_type].copy()
+    self.record = copy.deepcopy(self.position_record[account_type])
     self.eod_api_key = config['api_key']['eod']
 
     # set account, account type
@@ -81,7 +92,7 @@ class Trader(object):
   def open_quote_client(self) -> None:
     self.quote_client = None
   
-  # close quote client
+  # close trade client
   def close_trade_client(self) -> None:
     pass
   
@@ -89,7 +100,7 @@ class Trader(object):
   def open_trade_client(self) -> None:
     self.trade_client = None
   
-  # close trade client
+  # close quote client
   def close_quote_client(self) -> None:
     pass
   
@@ -114,10 +125,10 @@ class Trader(object):
       pass
     else:
       self.update_asset()
-      if len(self.asset) > 0:
+      if self.asset is not None and len(self.asset) > 0:
         available_cash = self.asset.loc[0, 'cash']
       else:
-        print('Not able to get available cash')
+        self.logger.error('Not able to get available cash')
         
     return available_cash
   
@@ -154,7 +165,7 @@ class Trader(object):
     return quantity
 
   # update position for an account
-  def update_position_record(self, config: dict, init_cash: float = None, init_position: int = None, start_time: str = None, end_time: str = None, is_print: bool = True) -> None:
+  def update_position_record(self, config: dict, init_cash: float = None, init_position: int = None, start_time: str = None, end_time: str = None, commission: float = 3, is_print: bool = True) -> None:
     
     # set default values
     account_group = ACCOUNT_GROUPS[self.platform][self.account_type]
@@ -170,7 +181,6 @@ class Trader(object):
         symbol = row['code'] # order.contract.symbol
         action = row['trd_side'] # order.action
         quantity = row['dealt_qty'] # order.quantity - order.remaining
-        commission = 3 # order.commission
         avg_fill_price = row['dealt_avg_price']
 
         # init record if not exist
@@ -184,25 +194,27 @@ class Trader(object):
           cost = avg_fill_price * quantity + commission
           new_cash = record_cash - cost
           new_position = record_position + quantity
-          print(action, symbol, cost, new_cash, new_position)
+          self.logger.info(f'{action} {symbol} {cost} {new_cash} {new_position}')
         
         elif action == 'SELL':
           acquire = avg_fill_price * quantity - commission
           new_cash = record_cash + acquire
           new_position = record_position - quantity
-          print(action, symbol, acquire, new_cash, new_position)
+          self.logger.info(f'{action} {symbol} {acquire} {new_cash} {new_position}')
 
         else:
           new_cash = record_cash
           new_position = record_position
-          print(action, symbol, new_cash, new_position)
+          self.logger.info(f'{action} {symbol} {new_cash} {new_position}')
 
         # update record
-        # if new_cash >= 0 and new_position >= 0:
-        self.record[symbol]['cash'] = new_cash
-        self.record[symbol]['position'] = new_position
-        if is_print:
-          self.logger.info(f'[{self.account_type[:4]}]: updating position record for {symbol} {record_cash, record_position} -> {new_cash, new_position}')
+        if new_cash >= 0 and new_position >= 0:
+          self.record[symbol]['cash'] = new_cash
+          self.record[symbol]['position'] = new_position
+          if is_print:
+            self.logger.info(f'[{self.account_type[:4]}]: updating position record for {symbol} {record_cash, record_position} -> {new_cash, new_position}')
+        else:
+          self.logger.error(f'[{self.account_type[:4]}]: skip updating record for {symbol}, negative cash/position {new_cash}/{new_position}')
 
       # update position_record
       self.position_record = io_util.read_config(file_path=config['config_path'], file_name='position.json')[self.platform]
@@ -289,20 +301,30 @@ class Trader(object):
     market_value = 0
     self.update_asset()
     asset = self.asset
-    if len(asset) > 0:
-      net_value = asset.loc[0, 'net_value']
-      market_value = asset.loc[0, 'holding_value']
-      cash = asset.loc[0, 'cash']
+    if asset is None or len(asset) == 0:
+      self.logger.error(f'[{self.account_type[:4]}]: not able to get asset summary, skip updating portfolio record')
+      return
+    net_value = asset.loc[0, 'net_value']
+    market_value = asset.loc[0, 'holding_value']
+    cash = asset.loc[0, 'cash']
 
     # post process
     if market_value == float('inf'):
       market_value = position['market_value'].sum().round(2)
 
-    # load portfolio record
+    # load portfolio record, guard missing keys(read failure returns {}) so chained access won't crash
     portfolio_record = io_util.read_config(file_path=config['config_path'], file_name='portfolio.json')
-    old_net_value = portfolio_record[self.platform][self.account_type].get('net_value')
-    support = portfolio_record[self.platform][self.account_type].get('portfolio').get('support')
-    resistant = portfolio_record[self.platform][self.account_type].get('portfolio').get('resistant')
+
+    # if the file exists but is unreadable, skip updating rather than overwriting it with a partial record
+    portfolio_file = Path(config['config_path']) / 'portfolio.json'
+    if not portfolio_record and os.path.exists(portfolio_file) and os.path.getsize(portfolio_file) > 0:
+      self.logger.error(f'[{self.account_type[:4]}]: portfolio.json exists but unreadable, skip updating portfolio record')
+      return
+
+    account_record = portfolio_record.setdefault(self.platform, {}).setdefault(self.account_type, {})
+    old_net_value = account_record.get('net_value')
+    support = (account_record.get('portfolio') or {}).get('support')
+    resistant = (account_record.get('portfolio') or {}).get('resistant')
 
     # update portfolio record for current account
     portfolio_record[self.platform][self.account_type]['portfolio'] = position.to_dict()
@@ -343,14 +365,6 @@ class Trader(object):
     # if signal list is not empty
     if len(signal) > 0:
 
-      # # 若为futu实盘先解锁交易
-      # if self.platform == 'futu' and self.account == 'REAL':
-      #   ret, msg = self.trade_client.unlock_trade(password_md5=self.user_info['unlock_pwd'], is_unlock=True)
-      #   if ret != RET_OK:
-      #     self.logger.exception(f'[erro]: can not unlock trade:{ret} - {msg}')
-      #   else:
-      #     self.logger.info(f'[futu]: unlock trade')
-
       # get latest price for signals
       signal_brief = io_util.get_stock_briefs(symbols=signal.index.tolist(), source='eod', api_key=self.eod_api_key).set_index('symbol')
       if 'latest_price' in signal.columns:
@@ -365,7 +379,7 @@ class Trader(object):
       else:
         position = position[['symbol', 'quantity']].copy()
       position = position.set_index('symbol')
-      signal = pd.merge(signal, position[['quantity']], how='left', left_index=True, right_index=True).fillna(0)
+      signal = pd.merge(signal, position[['quantity']], how='left', left_index=True, right_index=True).fillna({'quantity': 0})
 
       # sell
       # get sell signals
@@ -378,6 +392,9 @@ class Trader(object):
           if in_position_quantity > 0:
             if order_type == 'limit':
               price = signal.loc[symbol, 'latest_price']
+              if pd.isna(price) or price <= 0:
+                self.logger.error(f'[SELL]: {symbol} skipped (invalid latest price: {price})')
+                continue
             else:
               price = None
             trade_summary = self.trade(symbol=symbol, action='SELL', quantity=in_position_quantity, price=price, print_summary=False)
@@ -408,6 +425,12 @@ class Trader(object):
           # check whether symbol is already in position
           in_position_quantity = signal.loc[symbol, 'quantity']
           if in_position_quantity == 0:
+            # skip when latest price is missing or invalid
+            latest_price = signal.loc[symbol, 'latest_price']
+            if pd.isna(latest_price) or latest_price <= 0:
+              self.logger.error(f'[BUY]: {symbol} skipped (invalid latest price: {latest_price})')
+              continue
+
             # set money used to establish a new position
             if according_to_record:
               if (symbol in self.record.keys()) and (self.record[symbol]['position']==0):
@@ -450,14 +473,6 @@ class Trader(object):
     # trade
     if len(condition_df) > 0:
 
-      # # 若为futu实盘先解锁交易
-      # if self.platform == 'futu' and self.account == 'REAL':
-      #   ret, msg = self.trade_client.unlock_trade(password_md5=self.user_info['unlock_pwd'], is_unlock=True)
-      #   if ret != RET_OK:
-      #     self.logger.exception(f'[erro]: can not unlock trade:{ret} - {msg}')
-      #   else:
-      #     self.logger.info(f'[futu]: unlock trade')
-
       for symbol, row in condition_df.iterrows():
         try:
 
@@ -478,7 +493,7 @@ class Trader(object):
             trade_summary.append(tmp_trade_summary)
               
         except Exception as e:
-          self.logger.error(f'Error when placing condition order for {symbol}:\n{row}', e)
+          self.logger.error(f'Error when placing condition order for {symbol}:\n{row}\n{e}')
           continue
       
     return trade_summary
@@ -486,14 +501,6 @@ class Trader(object):
   # stop loss or stop profit or clear all position
   def cash_out(self, stop_loss_rate: float = None, stop_profit_rate: float = None, stop_loss_rate_inday: float = None, stop_profit_rate_inday: float = None, clear_all: bool = False, get_briefs: bool = True, print_summary: bool = True) -> None:
     
-    # # 若为实盘先解锁交易
-    # if self.platform == 'futu' and self.account == 'REAL':
-    #   ret, msg = self.trade_client.unlock_trade(password_md5=self.user_info['unlock_pwd'], is_unlock=True)
-    #   if ret != RET_OK:
-    #     self.logger.exception(f'[erro]: can not unlock trade:{ret} - {msg}')
-    #   else:
-    #     self.logger.info(f'[futu]: unlock trade')
-
     # get current position with summary
     self.update_position(get_briefs=get_briefs)
     position = self.position.copy()
@@ -503,6 +510,10 @@ class Trader(object):
       # set symbol as index
       position = position.set_index('symbol')
       cash_out_list = []
+      stop_loss_list = []
+      stop_profit_list = []
+      stop_loss_list_inday = []
+      stop_profit_list_inday = []
 
       # if clear all position
       if clear_all:
@@ -512,7 +523,7 @@ class Trader(object):
         stop_profit_list = [] if stop_profit_rate is None else position.query(f'rate > {stop_profit_rate}').index.tolist() 
         stop_loss_list_inday = [] if stop_loss_rate_inday is None else position.query(f'rate_inday < {stop_loss_rate_inday}').index.tolist() 
         stop_profit_list_inday = [] if stop_profit_rate_inday is None else position.query(f'rate_inday > {stop_profit_rate_inday}').index.tolist() 
-        cash_out_list = list(set(stop_loss_list + stop_profit_list + stop_loss_list_inday + stop_profit_list_inday))
+        cash_out_list = list(dict.fromkeys(stop_loss_list + stop_profit_list + stop_loss_list_inday + stop_profit_list_inday))
         
       # cash out
       if len(cash_out_list) > 0:
@@ -565,7 +576,7 @@ class Futu(Trader):
         # self.trade_client = OpenHKTradeContext(host=host, port=port, is_encrypt=is_encrypt)
         self.trade_client = OpenSecTradeContext(filter_trdmarket=TrdMarket.HK, host=host, port=port, is_encrypt=is_encrypt, security_firm=SecurityFirm.FUTUSECURITIES)
       else:
-        print(f'Unknown market {market}')
+        self.logger.error(f'Unknown market {market}')
         self.trade_client = None
       # 综合账户不再区分市场
       
@@ -598,14 +609,6 @@ class Futu(Trader):
   def update_position(self, get_briefs: bool = False) -> None:
     result = pd.DataFrame({'symbol':[], 'quantity':[], 'average_cost':[], 'latest_price':[], 'rate':[], 'rate_inday':[], 'market_value':[], 'latest_time':[]})
     
-    # # 若为实盘先解锁交易
-    # if self.platform == 'futu' and self.account == 'REAL':
-    #   ret, msg = self.trade_client.unlock_trade(password_md5=self.user_info['unlock_pwd'], is_unlock=True)
-    #   if ret != RET_OK:
-    #     self.logger.exception(f'[erro]: can not unlock trade:{ret} - {msg}')
-    #   else:
-    #     self.logger.info(f'[futu]: unlock trade')
-
     # 失败重试
     retry_count = 0
     while retry_count < 3:
@@ -660,14 +663,6 @@ class Futu(Trader):
   # get summary of asset
   def update_asset(self) -> None:
 
-    # # 若为实盘先解锁交易
-    # if self.platform == 'futu' and self.account == 'REAL':
-    #   ret, msg = self.trade_client.unlock_trade(password_md5=self.user_info['unlock_pwd'], is_unlock=True)
-    #   if ret != RET_OK:
-    #     self.logger.exception(f'[erro]: can not unlock trade:{ret} - {msg}')
-    #   else:
-    #     self.logger.info(f'[futu]: unlock trade')
-      
     try:
       ret_acc_list, acc_list = self.trade_client.get_acc_list()
       acc_idx = acc_list.query(f'trd_env == "{self.account_type}"').index
@@ -682,6 +677,7 @@ class Futu(Trader):
         self.asset = asset[['account', 'total_assets', 'market_val',  'cash', 'avl_withdrawal_cash', 'realized_pl', 'unrealized_pl']].rename(columns={'total_assets':'net_value', 'market_val': 'holding_value', 'avl_withdrawal_cash':'available_cash', 'realized_pl':'pnl', 'unrealized_pl':'holding_pnl'})
       else:
         self.logger.error(f'[erro]: get asset - {asset}')      
+        self.asset = None
     except Exception as e:
       self.asset = None
       self.logger.exception(f'[erro]: can not get asset summary: {e}')
@@ -689,18 +685,13 @@ class Futu(Trader):
   # get orders
   def get_orders(self, start_time: str = None, end_time: str = None) -> pd.DataFrame:
 
-    # # 若为实盘先解锁交易
-    # if self.platform == 'futu' and self.account == 'REAL':
-    #   ret, msg = self.trade_client.unlock_trade(password_md5=self.user_info['unlock_pwd'], is_unlock=True)
-    #   if ret != RET_OK:
-    #     self.logger.exception(f'[erro]: can not unlock trade:{ret} - {msg}')
-    #   else:
-    #     self.logger.info(f'[futu]: unlock trade')
-    
     start_time = datetime.datetime.now().strftime(format="%Y-%m-%d") if (start_time is None) else start_time
     end_time = start_time if (end_time is None) else end_time
     
     ret, orders = self.trade_client.history_order_list_query(trd_env=self.account_type, status_filter_list=[OrderStatus.FILLED_PART, OrderStatus.FILLED_ALL], start=start_time, end=end_time)
+    if ret != RET_OK:
+      self.logger.error(f'[erro]: get orders - {orders}')
+      return pd.DataFrame()
     orders = orders[['code', 'trd_side', 'order_type', 'order_status', 'qty', 'price', 'dealt_qty', 'dealt_avg_price', 'order_id', 'create_time', 'updated_time']].copy()
     orders['code'] = orders['code'].apply(lambda x: x.split('.')[1]) 
     return orders
@@ -708,14 +699,6 @@ class Futu(Trader):
   # buy or sell stocks
   def trade(self, symbol: str, action: str, quantity: int, price: float = None, print_summary: bool = True) -> str:
 
-    # # 若为实盘先解锁交易
-    # if self.platform == 'futu' and self.account == 'REAL':
-    #   ret, msg = self.trade_client.unlock_trade(password_md5=self.user_info['unlock_pwd'], is_unlock=True)
-    #   if ret != RET_OK:
-    #     self.logger.exception(f'[erro]: can not unlock trade:{ret} - {msg}')
-    #   else:
-    #     self.logger.info(f'[futu]: unlock trade')
-        
     trade_summary = ''
     try:
 
@@ -866,25 +849,42 @@ class Tiger(Trader):
   # get summary of asset
   def update_asset(self) -> None:
 
-    # update asset
-    asset = self.trade_client.get_assets(account=self.client_config.account)
-    asset = asset[0]
-    result = {
-      'account': [asset.account],
-      'net_value': [asset.summary.net_liquidation],
-      'holding_value': [asset.summary.gross_position_value],
-      'cash': [asset.summary.cash],
-      'available_cash': [asset.summary.available_funds],
-      'pnl': [asset.summary.realized_pnl],
-      'holding_pnl': [asset.summary.unrealized_pnl]
-    }
-    self.asset = pd.DataFrame(result)
+    try:
+      # update asset
+      asset = self.trade_client.get_assets(account=self.client_config.account)
+      asset = asset[0]
+      result = {
+        'account': [asset.account],
+        'net_value': [asset.summary.net_liquidation],
+        'holding_value': [asset.summary.gross_position_value],
+        'cash': [asset.summary.cash],
+        'available_cash': [asset.summary.available_funds],
+        'pnl': [asset.summary.realized_pnl],
+        'holding_pnl': [asset.summary.unrealized_pnl]
+      }
+      self.asset = pd.DataFrame(result)
+    except Exception as e:
+      self.asset = None
+      self.logger.exception(f'[erro]: can not get asset summary: {e}')
 
   # get orders
   def get_orders(self, start_time: str = None, end_time: str = None) -> pd.DataFrame:
     
-    start_time = self.trade_time['pre_open_time'].strftime(format="%Y-%m-%d %H:%M:%S") if (start_time is None) else start_time
-    end_time = self.trade_time['post_close_time'].strftime(format="%Y-%m-%d %H:%M:%S") if (end_time is None) else end_time
+    # fall back to today when trade time is not available (e.g. market status request failed)
+    pre_open_time = self.trade_time.get('pre_open_time')
+    post_close_time = self.trade_time.get('post_close_time')
+    # keep start_time/end_time in '%Y-%m-%d' format, so that util.num_days_between/string_plus_day can parse them
+    if start_time is None:
+      if pre_open_time is None:
+        self.logger.error(f'[erro]: trade time is not ready, fall back to today for order query')
+        start_time = datetime.datetime.now().strftime(format='%Y-%m-%d')
+      else:
+        start_time = pre_open_time.strftime(format='%Y-%m-%d')
+    if end_time is None:
+      if post_close_time is None:
+        end_time = datetime.datetime.now().strftime(format='%Y-%m-%d')
+      else:
+        end_time = post_close_time.strftime(format='%Y-%m-%d')
 
     # result initialization
     orders = []
@@ -909,11 +909,12 @@ class Tiger(Trader):
       while tmp_start < end_time:
         tmp_end = util.string_plus_day(tmp_start, 90) 
         self.logger.info(f'[tiger]: getting orders from {tmp_start} to {tmp_end}')
-        orders = orders + self.trade_client.get_filled_orders(start_time=tmp_start, end_time=tmp_end)
+        orders = orders + self.trade_client.get_filled_orders(start_time=tmp_start, end_time=tmp_end + ' 23:59:59')
         tmp_start = tmp_end
         time.sleep(6)
     else:
-      orders = self.trade_client.get_filled_orders(start_time=start_time, end_time=end_time)
+      # append time suffix so the end date itself is fully covered by the query
+      orders = self.trade_client.get_filled_orders(start_time=start_time, end_time=end_time + ' 23:59:59')
     
     for ord in orders:
       result['code'].append(ord.contract.symbol)
@@ -968,8 +969,12 @@ class Tiger(Trader):
       if action == 'BUY':
         affordable_quantity = self.get_affordable_quantity(symbol=symbol)
         if quantity <= affordable_quantity:
-          self.trade_client.place_order(order)
-          trade_summary += f'SUCCEED: {order.id}'
+          # place_order returns None instead of raising when the request fails silently
+          order_id = self.trade_client.place_order(order)
+          if order_id is not None:
+            trade_summary += f'SUCCEED: {order_id}'
+          else:
+            trade_summary += 'FAILED: no response from server, order status unknown'
         else:
           trade_summary += f'FAILED: Not affordable({affordable_quantity}/{quantity})'
 
@@ -977,8 +982,12 @@ class Tiger(Trader):
       elif action == 'SELL':    
         in_position_quantity = self.get_in_position_quantity(symbol)
         if in_position_quantity >= quantity:
-          self.trade_client.place_order(order)
-          trade_summary += f'SUCCEED: {order.id}'
+          # place_order returns None instead of raising when the request fails silently
+          order_id = self.trade_client.place_order(order)
+          if order_id is not None:
+            trade_summary += f'SUCCEED: {order_id}'
+          else:
+            trade_summary += 'FAILED: no response from server, order status unknown'
         else:
           trade_summary += f'FAILED: Not enough stock to sell({in_position_quantity}/{quantity})'
 
@@ -1024,8 +1033,16 @@ class Tiger(Trader):
           open_time = open_time - datetime.timedelta(days=3)
         else:
           open_time = open_time - datetime.timedelta(days=1)
-      elif status.status in ['Pre-Market Trading', 'Pre-Mkt', 'Closed', 'Not Yet Opened', 'Early Closed']:
+      elif status.status in ['Pre-Market Trading', 'Pre-Mkt', 'Not Yet Opened']:
+        # open_time from api is the next opening time, which is the current day's open
         pass
+      elif status.status in ['Closed', 'Early Closed']:
+        # open_time from api is the next opening time; on non-trading days
+        # fall back to the most recent completed trading day, same as post-market
+        if open_time.weekday() == 0:
+          open_time = open_time - datetime.timedelta(days=3)
+        else:
+          open_time = open_time - datetime.timedelta(days=1)
       else:
         self.logger.error(f'No method for status [{status.status}]')
 
