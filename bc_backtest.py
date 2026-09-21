@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-"""bc_backtest.py — 合并自 research 平铺模块(6 个: score_backtest, bt_core, signal_timeseries, signal_backtest, stop_loss_eval, exec_price_ab_test).
+"""
+bc_backtest.py — 合并自 research 平铺模块(6 个: score_backtest, bt_core, signal_timeseries, signal_backtest, stop_loss_eval, exec_price_ab_test).
 
 生成: _dbg_build_bc.py 自动拼接 + AST 精确改名(同名冲突加模块前缀, 未经人工改动).
 规则:
@@ -38,11 +39,9 @@ BASE = HERE  # combo_search/a_combo_search/exec_price_ab_test 输出路径
 # ==== 源自 score_backtest.py ====  改名: main->sb_main
 # ==========================================================================
 WEIGHT_PRESETS = {
-    'default': {'position_score': 0.25, 'rsi': 0.20, 'pattern_score_alpha': 0.20,
-                'trigger_score': -0.15, 'boundary_score': -0.10, 'candle_position_score': -0.10},
+    'default': {'position_score': 0.25, 'rsi': 0.20, 'pattern_score_alpha': 0.20, 'trigger_score': -0.15, 'boundary_score': -0.10, 'candle_position_score': -0.10},
     'rank_only': {'position_score': 0.45, 'rsi': 0.35, 'pattern_score_alpha': 0.20},
-    'flip_only': {'pattern_score_alpha': 0.20, 'trigger_score': -0.30,
-                  'boundary_score': -0.25, 'candle_position_score': -0.25},
+    'flip_only': {'pattern_score_alpha': 0.20, 'trigger_score': -0.30, 'boundary_score': -0.25, 'candle_position_score': -0.25},
 }
 
 MOMENTUM_SETS = {
@@ -51,8 +50,7 @@ MOMENTUM_SETS = {
     'M3_ma200dist': {'D_ma200_dist': 1.0},
     'M4_adxstrength': {'adx_strength': 1.0},
     'M5_mom250+ma200': {'D_mom250': 0.6, 'D_ma200_dist': 0.4},
-    'M6_mix': {'D_mom250': 0.4, 'D_mom120': 0.2, 'D_ma200_dist': 0.2,
-               'D_sharpe120': 0.1, 'adx_strength': 0.1},
+    'M6_mix': {'D_mom250': 0.4, 'D_mom120': 0.2, 'D_ma200_dist': 0.2, 'D_sharpe120': 0.1, 'adx_strength': 0.1},
     # 方向性对照(不是候选策略): 反向动量=买过去一年最弱者. 若 mom250 含真实 alpha,
     # 此配置须显著劣于 M1_mom250, 用于排除"任意排序都能赚"的伪信号解释.
     'M1_neg_mom250': {'D_mom250': -1.0},
@@ -1058,19 +1056,15 @@ class BacktestKit:
 matplotlib.use('Agg')
 
 plt.rcParams['font.sans-serif'] = ['Microsoft YaHei', 'SimHei', 'DejaVu Sans']
-
 plt.rcParams['axes.unicode_minus'] = False
 
 DEFAULT_SIGNALS = ['H_ichimoku_alpha', 'H_trendmag_alpha', 'C_tmqmom', 'F_er20']
-
 A_POOL_PRESETS = {
-    'hs300':     {'weights': {'N_range20': -1.0, 'D_ma20_dist': -1.0,
-                              'C_tmqmom': 0.5},                                'top_k': 5},
-    'a_etf_all': {'weights': {'N_range20': 1.0, 'G_oviv20': 0.5},              'top_k': 5},
+    'hs300':     {'weights': {'N_range20': -1.0, 'D_ma20_dist': -1.0, 'C_tmqmom': 0.5}, 'top_k': 5},
+    'a_etf_all': {'weights': {'N_range20': 1.0, 'G_oviv20': 0.5}, 'top_k': 5},
 }
 
 STATE_CN = {'buy': '买入', 'hold': '持有', 'sell': '卖出'}
-
 STATE_COLOR = {'buy': 'green', 'hold': 'orange', 'sell': 'red'}
 
 def parse_weights(text: str) -> dict:
@@ -1488,8 +1482,7 @@ def sbt_main():
 # ==========================================================================
 # ==== 源自 stop_loss_eval.py ====  改名: main->sle_main
 # ==========================================================================
-SPEC = {'H_ichimoku_alpha': 0.25, 'H_trendmag_alpha': 0.25,
-        'C_tmqmom': 0.25, 'F_er20': 0.25}
+SPEC = {'H_ichimoku_alpha': 0.25, 'H_trendmag_alpha': 0.25, 'C_tmqmom': 0.25, 'F_er20': 0.25}
 
 VARIANTS = [
     ('baseline', {}),

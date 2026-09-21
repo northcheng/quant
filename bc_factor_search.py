@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-"""bc_factor_search.py — 合并自 research 平铺模块(11 个: factor_research, signal_search, factor_mining, conditional_eval, indicator_eval, alpha_mining, factor_mining2, conditional_mining, a_stat_mining, factor_signal, export_pool_context).
+"""
+bc_factor_search.py — 合并自 research 平铺模块(11 个: factor_research, signal_search, factor_mining, conditional_eval, indicator_eval, alpha_mining, factor_mining2, conditional_mining, a_stat_mining, factor_signal, export_pool_context).
 
 生成: _dbg_build_bc.py 自动拼接 + AST 精确改名(同名冲突加模块前缀, 未经人工改动).
 规则:
@@ -33,30 +34,17 @@ HERE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'research')
 # ==========================================================================
 # ==== 源自 factor_research.py ====  改名: main->fr_main
 # ==========================================================================
-ADX_N = 12              # add_adx_features(n=12, method='wilder')
-
-RSI_N = 14              # add_rsi_features(n=14)
-
-BB_N, BB_NDEV = 20, 2   # add_bb_features(n=20, ndev=2)
-
-ICH_N = (9, 26, 52)     # add_ichimoku_features(n_short=9, n_medium=26, n_long=52, method='ta', is_shift=True)
-
+ADX_N = 12               # add_adx_features(n=12, method='wilder')
+RSI_N = 14               # add_rsi_features(n=14)
+BB_N, BB_NDEV = 20, 2    # add_bb_features(n=20, ndev=2)
+ICH_N = (9, 26, 52)      # add_ichimoku_features(n_short=9, n_medium=26, n_long=52, method='ta', is_shift=True)
 KAMA_FAST = (10, 2, 30)  # cal_kama(n1=10, n2=2, n3=30)
-
 KAMA_SLOW = (20, 4, 60)  # cal_kama(n1=20, n2=4, n3=60)
-
 NORM_WINDOW, NORM_MINP = 252, 60  # normalize_causal, day interval
-
-TREND_WEIGHTS = {'ichimoku_distance': 0.2, 'ichimoku_distance_change': 0.3,
-                 'trend_score': 0.3, 'trend_score_change': 0.2}
-
-PATTERN_FLAGS = ['超买超卖', '关键突破', '长线边界', '趋势转换', '趋势启动',
-                 '区间波动', '触顶触底', '短期转向', '中期转向']
-
+TREND_WEIGHTS = {'ichimoku_distance': 0.2, 'ichimoku_distance_change': 0.3, 'trend_score': 0.3, 'trend_score_change': 0.2}
+PATTERN_FLAGS = ['超买超卖', '关键突破', '长线边界', '趋势转换', '趋势启动', '区间波动', '触顶触底', '短期转向', '中期转向']
 OBJECT_COLS = ['trend_score', 'trend_score_change']  # pkl 中为 object dtype, 需数值化
-
 ROUND3_COLS = {'kama_fast', 'kama_slow', 'tankan', 'kijun', 'candle_gap_top', 'candle_gap_bottom'}
-
 DEFAULT_FACTOR_COLS = [
     'trend_magnitude', 'trend_magnitude_alpha', 'trend_magnitude_change',
     'pattern_score', 'pattern_score_alpha', 'pattern_score_change',
@@ -1219,9 +1207,7 @@ ce_POOLS = {
 }
 
 START = '2021-01-01'
-
 ce_HORIZONS = [5, 20]
-
 MIN_DAYS = 60          # 触发日数低于此 => low_n=1, t 值解读需谨慎
 
 EXPR_EVENTS = {
@@ -1570,27 +1556,20 @@ ie_POOLS = {
 ie_HORIZONS = [5, 20]
 
 TOP_K = 5
-
 MIN_CS = 10
-
 ie_SUSPECT_PAT = ('pos_label', 'neg_label', 'label', 'action')
-
 SKIP_PAT = ('_description', 'description')
-
 SKIP_EXACT = ('pattern_up', 'pattern_down')
 
 SYNTH_WEIGHTS = {
-    'trigger_net': {'break_up_score': 1.0, 'break_down_score': 1.0,
-                    'support_score': 0.5, 'resistant_score': 0.5},
+    'trigger_net': {'break_up_score': 1.0, 'break_down_score': 1.0, 'support_score': 0.5, 'resistant_score': 0.5},
     'pattern_net': {'pattern_up_score': 1.0, 'pattern_down_score': 1.0},
 }
 
 GRADE_POOLS = ['etf_3x', 'company_300', 'hs300', 'a_etf_all']
 
 STATIC_AC1 = 0.99          # 信号截面排序几乎不随时间变化 => 事实上的固定选票
-
 TURN_LOW = 0.05
-
 THRESH = 0.90              # redund: |corr| 高共线阈值
 
 FOCUS = ['Low_to_kijun', 'High_to_kijun', 'ichimoku_distance_alpha', 'adx_power',
@@ -2046,11 +2025,8 @@ POOLS = {
 
 am_HORIZONS = [5, 20, 60]
 
-F_ANCHORS = ['F_mom121', 'F_er20', 'F_updnvol20', 'F_volstab20',
-             'F_obv20', 'F_alpha60', 'F_beta60']
-
-F_NEG = ['F_idiovol60', 'F_cvcorr20', 'F_ulcer60', 'F_range20',
-         'F_kurt60', 'F_dnvol20']
+F_ANCHORS = ['F_mom121', 'F_er20', 'F_updnvol20', 'F_volstab20', 'F_obv20', 'F_alpha60', 'F_beta60']
+F_NEG = ['F_idiovol60', 'F_cvcorr20', 'F_ulcer60', 'F_range20', 'F_kurt60', 'F_dnvol20']
 
 def _alphaize(x: pd.DataFrame, window: int = NORM_WINDOW, min_periods: int = NORM_MINP) -> pd.DataFrame:
     """normalize_causal 但 NaN 不被 fillna(0) 污染: 先记录有效位, 事后 mask 回 NaN."""

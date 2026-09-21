@@ -33,25 +33,16 @@ BASE = HERE  # combo_search/a_combo_search/exec_price_ab_test 输出路径
 # ==========================================================================
 # ==== 源自 combo_search.py ====  改名: main->cs_main, CAND_SIGNALS->cs_CAND_SIGNALS, COMBO_COLS->cs_COMBO_COLS, RED_NAMES->cs_RED_NAMES, PoolRunner->cs_PoolRunner, run_pool->cs_run_pool, _weight_grid->cs_weight_grid
 # ==========================================================================
-cs_CAND_SIGNALS = ['H_trendmag_alpha', 'H_ichimoku_alpha', 'C_tmqmom',
-                'K_tmqr', 'F_er20', 'D_mom250']     # 6 个可上线信号(6.1 节)
+cs_CAND_SIGNALS = ['H_trendmag_alpha', 'H_ichimoku_alpha', 'C_tmqmom', 'K_tmqr', 'F_er20', 'D_mom250']     # 6 个可上线信号(6.1 节)
 
 FILTER_CAND = 'G_vr20'                              # 过滤器候选(允许负权)
-
 cs_RED_NAMES = cs_CAND_SIGNALS + [FILTER_CAND]            # 冗余检查/单信号评估集合(7)
-
 GOLD4 = {'F_mom121': 0.5, 'F_er20': 0.3, 'F_idiovol60': -0.2, 'F_obv20': 0.1}
-
 GOLD4_EXTRA = ['F_mom121', 'F_idiovol60', 'F_obv20']
-
 cs_COMBO_COLS = cs_RED_NAMES + GOLD4_EXTRA                # 需注入 panel 的全部成分列
-
 TOPK_GRID = [5, 8, 12]                             # 门槛(top_k)搜索网格
-
 MIN_CS = 10                                        # 日截面 Spearman 最少有效数
-
-STAT_KEYS = ['total_ret', 'cagr', 'sharpe', 'max_dd', 'calmar', 'vol',
-             'ann_turnover', 'n_trades', 'win_rate', 'avg_ret', 'avg_days', 'n_days']
+STAT_KEYS = ['total_ret', 'cagr', 'sharpe', 'max_dd', 'calmar', 'vol', 'ann_turnover', 'n_trades', 'win_rate', 'avg_ret', 'avg_days', 'n_days']
 
 def log(msg: str):
     print(msg, flush=True)
@@ -456,12 +447,8 @@ a_CAND_SIGNALS = [
 ]
 
 FILTER_CANDS = ['G_vr20', 'G_chop20']              # 过滤器候选(方向不确定)
-
 a_RED_NAMES = a_CAND_SIGNALS + FILTER_CANDS            # 冗余检查/单信号评估集合(14)
-
-GOLD_A4 = {'N_range20': 1.0, 'F_er20': 1.0,
-           'H_ichimoku_alpha': 1.0, 'G_amiasym20': 1.0}   # A 股参照(两池同号 4 因子)
-
+GOLD_A4 = {'N_range20': 1.0, 'F_er20': 1.0, 'H_ichimoku_alpha': 1.0, 'G_amiasym20': 1.0}   # A 股参照(两池同号 4 因子)
 a_COMBO_COLS = a_RED_NAMES                              # 需注入 panel 的全部成分列
 
 def build_a_combo_cands(panel: pd.DataFrame) -> dict:
