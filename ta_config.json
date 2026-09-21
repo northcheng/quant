@@ -134,7 +134,7 @@
       },
       "futu": {
         "real": "futu_pool",
-        "simu": "company_300"
+        "simu": "futu_pool"
       }
     },
     "stop_profit": {

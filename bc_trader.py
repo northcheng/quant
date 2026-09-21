@@ -286,7 +286,7 @@ class Trader(object):
         # io_util.create_config_file(config_dict=self.position_record, file_path=config['config_path'], file_name='_position_record.json')
 
   # update portfolio for an account
-  def update_portfolio_record(self, config: dict, position: pd.DataFrame = None, get_briefs: bool = True, is_print: bool = True) -> None:
+  def update_portfolio_record(self, config: dict, position: pd.DataFrame = None, get_briefs: bool = False, is_print: bool = True) -> None:
 
     # get position summary
     if position is None:
@@ -365,11 +365,16 @@ class Trader(object):
     # if signal list is not empty
     if len(signal) > 0:
 
-      # get latest price for signals
-      signal_brief = io_util.get_stock_briefs(symbols=signal.index.tolist(), source='eod', api_key=self.eod_api_key).set_index('symbol')
-      if 'latest_price' in signal.columns:
-        signal = signal.drop(columns=['latest_price'])
-      signal = pd.merge(signal, signal_brief[['latest_price']], how='left', left_index=True, right_index=True)
+      # get latest price for signals if not market order
+      if order_type != 'market':
+        signal_brief = io_util.get_stock_briefs(symbols=signal.index.tolist(), source='eod', api_key=self.eod_api_key).set_index('symbol')
+        if 'latest_price' in signal.columns:
+          signal = signal.drop(columns=['latest_price'])
+        signal = pd.merge(signal, signal_brief[['latest_price']], how='left', left_index=True, right_index=True)
+      # if market order and the latest price is empty, set latest price to 0.00001
+      else:
+        if 'latest_price' not in signal.columns:
+          signal['latest_price'] = 0.00001
 
       # get in-position quantity and latest price for signals
       self.update_position(get_briefs=False)
@@ -499,7 +504,7 @@ class Trader(object):
     return trade_summary
   
   # stop loss or stop profit or clear all position
-  def cash_out(self, stop_loss_rate: float = None, stop_profit_rate: float = None, stop_loss_rate_inday: float = None, stop_profit_rate_inday: float = None, clear_all: bool = False, get_briefs: bool = True, print_summary: bool = True) -> None:
+  def cash_out(self, stop_loss_rate: float = None, stop_profit_rate: float = None, stop_loss_rate_inday: float = None, stop_profit_rate_inday: float = None, clear_all: bool = False, get_briefs: bool = False, print_summary: bool = True) -> None:
     
     # get current position with summary
     self.update_position(get_briefs=get_briefs)
