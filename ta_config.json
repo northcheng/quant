@@ -134,7 +134,7 @@
       },
       "futu": {
         "real": "futu_pool",
-        "simu": "etf_3x_all"
+        "simu": "company_300"
       }
     },
     "stop_profit": {
