@@ -29,11 +29,24 @@ except Exception:
 
 # 原 research 模块目录(合并文件位于 git/quant/, 输出路径保持与源模块一致)
 HERE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'research')
+_PKL_DIR = os.path.join(os.path.expanduser('~'), 'quant')   # 本地数据目录(跨机器: 家目录下 quant)
+POOLS = {
+    'etf_3x':      os.path.join(_PKL_DIR, 'etf_3x_day_ta_data_research.pkl'),  # 全史
+    'company_300': os.path.join(_PKL_DIR, 'company_300_day_ta_data_research.pkl'),  # 全史
+    'company_1000': os.path.join(_PKL_DIR, 'company_1000_day_ta_data_research.pkl'),  # 全史
+    'hs300':       os.path.join(_PKL_DIR, 'hs300_day_ta_data_research.pkl'),  # 全史
+    'a_etf_all':   os.path.join(_PKL_DIR, 'a_etf_all_day_ta_data_research.pkl'),  # 全史
+}
 
+# 用于将 panel 中的列转换为 (symbol, date) 多索引
+def get_w(panel: pd.DataFrame, col: str):
+    return panel[col].unstack('symbol').sort_index()
 
 # ==========================================================================
-# ==== 源自 factor_research.py ====  改名: main->fr_main
+# ==== 源自 factor_research.py ====  
+# ==== 改名: main->fr_main
 # ==========================================================================
+EPS = 1e-12
 ADX_N = 12               # add_adx_features(n=12, method='wilder')
 RSI_N = 14               # add_rsi_features(n=14)
 BB_N, BB_NDEV = 20, 2    # add_bb_features(n=20, ndev=2)
@@ -44,7 +57,7 @@ NORM_WINDOW, NORM_MINP = 252, 60  # normalize_causal, day interval
 TREND_WEIGHTS = {'ichimoku_distance': 0.2, 'ichimoku_distance_change': 0.3, 'trend_score': 0.3, 'trend_score_change': 0.2}
 PATTERN_FLAGS = ['超买超卖', '关键突破', '长线边界', '趋势转换', '趋势启动', '区间波动', '触顶触底', '短期转向', '中期转向']
 OBJECT_COLS = ['trend_score', 'trend_score_change']  # pkl 中为 object dtype, 需数值化
-ROUND3_COLS = {'kama_fast', 'kama_slow', 'tankan', 'kijun', 'candle_gap_top', 'candle_gap_bottom'}
+ROUND3_COLS = ['kama_fast', 'kama_slow', 'tankan', 'kijun', 'candle_gap_top', 'candle_gap_bottom']
 DEFAULT_FACTOR_COLS = [
     'trend_magnitude', 'trend_magnitude_alpha', 'trend_magnitude_change',
     'pattern_score', 'pattern_score_alpha', 'pattern_score_change',
@@ -425,14 +438,27 @@ def event_ic(trades: pd.DataFrame, score_col: str, min_events: int = 5) -> dict:
             'pos_rate': round((s > 0).mean(), 3)}
 
 def load_panel(pkl_path: str, interval: str) -> tuple:
+    """
+    从研究 pkl 加载 panel, 并数值化对象列.
+
+    :param pkl_path: 研究 pkl 路径({symbol}_{interval} -> df)
+    :param interval: 数据频率, 'day' 为默认
+    :return: (raw, panel)
+    """
+    if not os.path.exists(pkl_path):
+        raise FileNotFoundError(f'pkl 文件不存在: {pkl_path}')    
     with open(pkl_path, 'rb') as f:
         raw = pickle.load(f)
     if not isinstance(raw, dict):
         raise ValueError(f'pkl 内容不是 dict: {type(raw)}')
+    
+    # 遍历读取到的dict
     frames = []
     for key, df in raw.items():
+        # 过滤空数据
         if df is None or len(df) == 0:
             continue
+        
         symbol = key[:-len(f'_{interval}')] if key.endswith(f'_{interval}') else key
         tmp = df.copy()
         for c in OBJECT_COLS:
@@ -440,6 +466,8 @@ def load_panel(pkl_path: str, interval: str) -> tuple:
                 tmp[c] = pd.to_numeric(tmp[c], errors='coerce')
         tmp['symbol'] = symbol
         frames.append(tmp)
+
+    # 合并所有 df 到 panel
     panel = pd.concat(frames).set_index('symbol', append=True).swaplevel(0, 1).sort_index()
     panel.index.names = ['symbol', 'date']
     return raw, panel
@@ -448,7 +476,7 @@ def fr_main():
     ap = argparse.ArgumentParser(description='独立只读研究: 指标审计 + 条件IC + 事件研究')
     ap.add_argument('--pool', default='etf_3x', help='池名, 默认 etf_3x')
     ap.add_argument('--interval', default='day', help='数据频率, 默认 day')
-    ap.add_argument('--pkl-dir', default=os.path.join(os.path.expanduser('~'), 'quant'), help='pkl 所在目录')
+    ap.add_argument('--pkl-dir', default=_PKL_DIR, help='pkl 所在目录')
     ap.add_argument('--start', default=None, help='分析起始日(仅截取研究窗口, 不影响审计)')
     ap.add_argument('--end', default=None, help='分析结束日')
     ap.add_argument('--gate-col', default='trend_magnitude_day', help='门/状态列, >0 视为开')
@@ -618,16 +646,19 @@ def fr_main():
 
 
 # ==========================================================================
-# ==== 源自 signal_search.py ====  改名: main->ss_main, SUSPECT_PAT->ss_SUSPECT_PAT
+# ==== 源自 signal_search.py ====  
+# ==== 改名: main->ss_main, SUSPECT_PAT->ss_SUSPECT_PAT
 # ==========================================================================
 ss_SUSPECT_PAT = ('label', 'action', 'signal', 'pos_label', 'neg_label', '_day')
 
 def build_derived(panel: pd.DataFrame) -> dict:
-    """构造项目 panel 中不存在的经典截面信号(全部只用 t 及之前的数据, 无前视)."""
-    close = panel['Close'].unstack('symbol').sort_index()
-    volume = panel['Volume'].unstack('symbol').sort_index()
-    high = panel['High'].unstack('symbol').sort_index()
-    low = panel['Low'].unstack('symbol').sort_index()
+    """
+    构造项目 panel 中不存在的经典截面信号(全部只用 t 及之前的数据, 无前视).
+    """
+    close = get_w(panel, 'Close')
+    volume = get_w(panel, 'Volume')
+    high = get_w(panel, 'High')
+    low = get_w(panel, 'Low')
     ret1 = close.pct_change()
     out = {}
 
@@ -664,14 +695,17 @@ def build_derived(panel: pd.DataFrame) -> dict:
     return {k: v for k, v in out.items() if isinstance(v, pd.DataFrame)}
 
 def tradable_fwd(open_wide: pd.DataFrame, h: int) -> pd.DataFrame:
-    """可交易前瞻收益: 信号日 t 收盘 -> t+1 开盘入场 -> t+1+h 开盘出场."""
+    """
+    可交易前瞻收益: 信号日 t 收盘 -> t+1 开盘入场 -> t+1+h 开盘出场.
+    作为ground truth, 用于评估信号的收益能力.
+    """
     entry = open_wide.shift(-1)
     exit_ = open_wide.shift(-(1 + h))
     return exit_ / entry - 1.0
 
 def screen_one(sig: pd.DataFrame, fwd: pd.DataFrame, top_k: int = 5, min_cs: int = 10) -> dict:
-    """单信号筛查(全向量化): 截面 Spearman IC / top-k 收益 / 超额(相对等权池) / 多空价差 / top-k 换手.
-
+    """
+    单信号筛查(全向量化): 截面 Spearman IC / top-k 收益 / 超额(相对等权池) / 多空价差 / top-k 换手.
     与逐日循环等价, 但按整行做秩相关: IC_row = cov(rank_s, rank_f) / (std_s * std_f), NaN 成对剔除.
     """
     idx = sig.index.intersection(fwd.index)
@@ -809,7 +843,7 @@ def ss_main():
     ap = argparse.ArgumentParser(description='独立只读研究: 全列信号筛查(可交易口径)')
     ap.add_argument('--pool', default='etf_3x')
     ap.add_argument('--interval', default='day')
-    ap.add_argument('--pkl-dir', default=os.path.join(os.path.expanduser('~'), 'quant'))
+    ap.add_argument('--pkl-dir', default=_PKL_DIR)
     ap.add_argument('--pkl-path', default=None, help='直接指定 pkl 路径(优先, 用于读取带后缀的 pkl)')
     ap.add_argument('--start', default='2021-01-01')
     ap.add_argument('--end', default=None)
@@ -948,28 +982,28 @@ def ss_main():
 
 
 # ==========================================================================
-# ==== 源自 factor_mining.py ====  改名: main->fm_main
+# ==== 源自 factor_mining.py ====  
+# ==== 改名: main->fm_main
 # ==========================================================================
-EPS = 1e-12
 
 def _roll_reg_stats(log_close: pd.DataFrame, n: int) -> dict:
-    """对 log(close) 做 n 日滚动线性回归(对时间轴), 返回 R² 与斜率的 t 统计量.
-
+    """
+    对 log(close) 做 n 日滚动线性回归(对时间轴), 返回 R² 与斜率的 t 统计量.
     窗口内 x 为连续整数, 可用滚动和精确展开:
       r = (n*Sxy - Sx*Sy) / sqrt((n*Sxx - Sx²)(n*Syy - Sy²))
       t_stat = r * sqrt(n-2) / sqrt(1-r²)   (符号与斜率方向一致)
     """
     T = len(log_close)
     tser = pd.Series(np.arange(T, dtype=float), index=log_close.index)
-    y = log_close
-    Sy = y.rolling(n).sum()
-    Sxy = y.mul(tser, axis=0).rolling(n).sum()
-    Sxx = tser.pow(2).rolling(n).sum()
-    Syy = (y * y).rolling(n).sum()
-    Sx = tser.rolling(n).sum()
+    y = log_close   
+    Sy = y.rolling(n).sum() # Σy
+    Sxy = y.mul(tser, axis=0).rolling(n).sum() # Σ(x·y)
+    Sxx = tser.pow(2).rolling(n).sum() # Σx²
+    Syy = (y * y).rolling(n).sum() # Σy²
+    Sx = tser.rolling(n).sum() # Σx
     # 注意: Sx/Sxx 是按日期索引的 Series, 与 (日期×symbol) DataFrame 相乘必须 axis=0 按行广播,
     # 否则 Series 日期索引会去对齐 DataFrame 的 symbol 列名, 产出全 NaN 的并集列矩阵.
-    num = n * Sxy - Sy.mul(Sx, axis=0)
+    num = n * Sxy - Sy.mul(Sx, axis=0) 
     den = np.sqrt((n * Syy - Sy ** 2).mul(n * Sxx - Sx ** 2, axis=0))
     r = (num / den).clip(-1.0, 1.0)
     r2 = r ** 2
@@ -979,11 +1013,11 @@ def _roll_reg_stats(log_close: pd.DataFrame, n: int) -> dict:
 
 def build_mined(panel: pd.DataFrame) -> dict:
     """构造 38 个挖矿候选因子(全部只用 t 及之前数据, 无前视)."""
-    close = panel['Close'].unstack('symbol').sort_index()
-    open_ = panel['Open'].unstack('symbol').sort_index()
-    high = panel['High'].unstack('symbol').sort_index()
-    low = panel['Low'].unstack('symbol').sort_index()
-    volume = panel['Volume'].unstack('symbol').sort_index()
+    close = get_w(panel, 'Close')
+    open_ = get_w(panel, 'Open')
+    high = get_w(panel, 'High')
+    low = get_w(panel, 'Low')
+    volume = get_w(panel, 'Volume')
     ret1 = close.pct_change()
     log_close = np.log(close.where(close > 0))
     out = {}
@@ -1042,6 +1076,7 @@ def build_mined(panel: pd.DataFrame) -> dict:
     dnshad = pd.DataFrame(np.minimum(close.values, open_.values), index=close.index, columns=close.columns) - low
     out['F_upshad20'] = (upshad / rng).rolling(20).mean()
     out['F_dnshad20'] = (dnshad / rng).rolling(20).mean()
+   
     # 连续同向天数(带符号: 上行连涨为正, 下行连跌为负; 缺口/停牌处归零)
     sign = np.where(np.isnan(ret1.values), 0, np.where(ret1.values > 0, 1, -1)).astype(np.int8)
     sdf = pd.DataFrame(sign, index=close.index, columns=close.columns)
@@ -1075,7 +1110,7 @@ def fm_main():
     ap = argparse.ArgumentParser(description='独立只读研究: 新因子挖矿(多 horizon 可交易口径筛查)')
     ap.add_argument('--pool', default='etf_3x')
     ap.add_argument('--interval', default='day')
-    ap.add_argument('--pkl-dir', default=os.path.join(os.path.expanduser('~'), 'quant'))
+    ap.add_argument('--pkl-dir', default=_PKL_DIR)
     ap.add_argument('--pkl-path', default=None, help='直接指定 pkl 路径(优先)')
     ap.add_argument('--start', default='2021-01-01')
     ap.add_argument('--end', default=None)
@@ -1195,9 +1230,12 @@ def fm_main():
 
 
 # ==========================================================================
-# ==== 源自 conditional_eval.py ====  改名: main->ce_main, eval_pool->ce_eval_pool, POOLS->ce_POOLS, HORIZONS->ce_HORIZONS
+# ==== 源自 conditional_eval.py ====  
+# ==== 改名: main->ce_main, eval_pool->ce_eval_pool, POOLS->ce_POOLS, HORIZONS->ce_HORIZONS
 # ==========================================================================
-_PKL_DIR = os.path.join(os.path.expanduser('~'), 'quant')   # 本地数据目录(跨机器: 家目录下 quant)
+START = '2021-01-01'
+ce_HORIZONS = [5, 20]
+MIN_DAYS = 60          # 触发日数低于此 => low_n=1, t 值解读需谨慎
 
 ce_POOLS = {
     'etf_3x':      os.path.join(_PKL_DIR, 'etf_3x_day_ta_data.pkl'),
@@ -1205,10 +1243,6 @@ ce_POOLS = {
     'hs300':       os.path.join(_PKL_DIR, 'hs300_day_ta_data.pkl'),
     'a_etf_all':   os.path.join(_PKL_DIR, 'a_etf_all_day_ta_data.pkl'),
 }
-
-START = '2021-01-01'
-ce_HORIZONS = [5, 20]
-MIN_DAYS = 60          # 触发日数低于此 => low_n=1, t 值解读需谨慎
 
 EXPR_EVENTS = {
     'trig_up':      'trigger_up_score > 0',
@@ -1230,17 +1264,28 @@ FLIP_EVENTS = {
     'm_flip_down': ('m_trend', 'down'),
 }
 
-DEFAULT_EVENTS = ['trig_up', 'trig_down', 'break_up', 'break_down',
-                  'pattern_up', 'pattern_down',
-                  's_flip_up', 's_flip_down', 'm_flip_up', 'm_flip_down']
+DEFAULT_EVENTS = [
+    'trig_up', 'trig_down', 'break_up', 'break_down',
+    'pattern_up', 'pattern_down',
+    's_flip_up', 's_flip_down', 'm_flip_up', 'm_flip_down'
+]
 
 TREND_DIMS = {
     's': ('s_trend', ('up', 'down', 'wave')),
     'm': ('m_trend', ('up', 'down', 'wave')),
 }
 
+def _align(w, open_wide):
+    return w.reindex(index=open_wide.index, columns=open_wide.columns).fillna(False).astype(bool)
+
+def _out(fname: str) -> str:
+    d = os.path.join(HERE, 'output')
+    os.makedirs(d, exist_ok=True)
+    return os.path.join(d, fname)
+    
 def nw_tstat(x, lag):
-    """日级序列均值的 Newey-West HAC t 检验(Bartlett 权重), 返回 (t, p, n)。
+    """
+    日级序列均值的 Newey-West HAC t 检验(Bartlett 权重), 返回 (t, p, n)。
 
     lag 取 h-1: h 日 fwd 窗口相邻重叠 h-1 天, 是序列相关的最长阶数。
     n < 30 或长方差 <= 0 时返回 NaN。
@@ -1265,7 +1310,9 @@ def nw_tstat(x, lag):
     return t, p, n
 
 def bh_qvals(p):
-    """Benjamini-Hochberg FDR q 值(NaN 剔除后回填)。"""
+    """
+    Benjamini-Hochberg FDR q 值(NaN 剔除后回填)。
+    """
     p = np.asarray(p, dtype=float)
     q = np.full(p.shape, np.nan)
     ok = ~np.isnan(p)
@@ -1282,7 +1329,8 @@ def bh_qvals(p):
     return q
 
 def cond_stats(cond_w, event_w, state_w, fwd, h, min_days=MIN_DAYS):
-    """单个 (事件×状态×h) 的条件收益统计。
+    """
+    单个 (事件×状态×h) 的条件收益统计。
 
     cond_w / event_w / state_w / fwd 均为对齐的 (date × symbol) 宽表。
     event_w/state_w 为 None 时对应基线不计算(事件自身行/状态自身行)。
@@ -1360,9 +1408,6 @@ def apply_cooldown(mask, n):
                 keep.append(k)
         res[keep, j] = True
     return pd.DataFrame(res, index=mask.index, columns=mask.columns)
-
-def _align(w, open_wide):
-    return w.reindex(index=open_wide.index, columns=open_wide.columns).fillna(False).astype(bool)
 
 def expr_mask(panel, open_wide, expr):
     try:
@@ -1499,11 +1544,6 @@ def ce_eval_pool(pool, pkl_path, args):
             print(sig.sort_values('t_exc_pool', ascending=False)[cols].to_string(index=False))
     return df
 
-def _out(fname: str) -> str:
-    d = os.path.join(HERE, 'output')
-    os.makedirs(d, exist_ok=True)
-    return os.path.join(d, fname)
-
 def ce_main():
     ap = argparse.ArgumentParser(description='条件层评估工具: 事件×状态 条件收益矩阵(只读)')
     ap.add_argument('--pool', default='etf_3x', help='池名, 逗号分隔多个, 或 all')
@@ -1544,8 +1584,19 @@ def ce_main():
 
 
 # ==========================================================================
-# ==== 源自 indicator_eval.py ====  改名: main->ie_main, eval_pool->ie_eval_pool, group_of->ie_group_of, build_summary->ie_build_summary, POOLS->ie_POOLS, HORIZONS->ie_HORIZONS, SUSPECT_PAT->ie_SUSPECT_PAT
+# ==== 源自 indicator_eval.py ====  
+# ==== 改名: main->ie_main, eval_pool->ie_eval_pool, group_of->ie_group_of, build_summary->ie_build_summary, POOLS->ie_POOLS, HORIZONS->ie_HORIZONS, SUSPECT_PAT->ie_SUSPECT_PAT
 # ==========================================================================
+ie_HORIZONS = [5, 20]
+TOP_K = 5
+MIN_CS = 10
+STATIC_AC1 = 0.99          # 信号截面排序几乎不随时间变化 => 事实上的固定选票
+TURN_LOW = 0.05
+THRESH = 0.90              # redund: |corr| 高共线阈值
+ie_SUSPECT_PAT = ('pos_label', 'neg_label', 'label', 'action')
+SKIP_PAT = ('_description', 'description')
+SKIP_EXACT = ('pattern_up', 'pattern_down')
+
 ie_POOLS = {
     'etf_3x':      os.path.join(_PKL_DIR, 'etf_3x_day_ta_data.pkl'),
     'company_300': os.path.join(_PKL_DIR, 'company_300_day_ta_data.pkl'),
@@ -1553,34 +1604,28 @@ ie_POOLS = {
     'a_etf_all':   os.path.join(_PKL_DIR, 'a_etf_all_day_ta_data.pkl'),
 }
 
-ie_HORIZONS = [5, 20]
-
-TOP_K = 5
-MIN_CS = 10
-ie_SUSPECT_PAT = ('pos_label', 'neg_label', 'label', 'action')
-SKIP_PAT = ('_description', 'description')
-SKIP_EXACT = ('pattern_up', 'pattern_down')
-
 SYNTH_WEIGHTS = {
     'trigger_net': {'break_up_score': 1.0, 'break_down_score': 1.0, 'support_score': 0.5, 'resistant_score': 0.5},
     'pattern_net': {'pattern_up_score': 1.0, 'pattern_down_score': 1.0},
 }
 
-GRADE_POOLS = ['etf_3x', 'company_300', 'hs300', 'a_etf_all']
+GRADE_POOLS = [
+    'etf_3x', 'company_300', 'hs300', 'a_etf_all'
+]
 
-STATIC_AC1 = 0.99          # 信号截面排序几乎不随时间变化 => 事实上的固定选票
-TURN_LOW = 0.05
-THRESH = 0.90              # redund: |corr| 高共线阈值
-
-FOCUS = ['Low_to_kijun', 'High_to_kijun', 'ichimoku_distance_alpha', 'adx_power',
-         'adx_strength_change', 'kama_slow_rate', 'candle_gap_distance',
-         'ichimoku_distance_day', 'kijun_day', 'trend_magnitude',
-         'trend_score_alpha', 'trend_magnitude_alpha', 'kama_rate',
-         'Low_to_kama_slow', 'Low_to_tankan', 'kijun', 'Close',
-         'trigger_score', 'trigger_net', 'pattern_net']
+FOCUS = [
+    'Low_to_kijun', 'High_to_kijun', 'ichimoku_distance_alpha', 'adx_power',
+    'adx_strength_change', 'kama_slow_rate', 'candle_gap_distance',
+    'ichimoku_distance_day', 'kijun_day', 'trend_magnitude',
+    'trend_score_alpha', 'trend_magnitude_alpha', 'kama_rate',
+    'Low_to_kama_slow', 'Low_to_tankan', 'kijun', 'Close',
+    'trigger_score', 'trigger_net', 'pattern_net'
+]
 
 def ie_group_of(name: str) -> str:
-    """按产出函数给指标分组, 便于报告分类。"""
+    """
+    按产出函数给指标分组, 便于报告分类。
+    """
     n = name.lower()
     if name.startswith('D_'):
         return '衍生基准'
@@ -1613,7 +1658,9 @@ def ie_group_of(name: str) -> str:
     return '其他'
 
 def sig_ac1(sig: pd.DataFrame, min_cs: int = MIN_CS) -> float:
-    """信号自身前后日截面秩自相关(平均): 越高 => 信号越稳 => 换手越低。"""
+    """
+    信号自身前后日截面秩自相关(平均): 越高 => 信号越稳 => 换手越低。
+    """
     s = sig.replace([np.inf, -np.inf], np.nan)
     r = s.rank(axis=1, pct=True)
     a = r.shift(1)
@@ -1643,7 +1690,8 @@ def sig_ac1(sig: pd.DataFrame, min_cs: int = MIN_CS) -> float:
     return round(float(np.mean(c)), 4) if len(c) >= 60 else np.nan
 
 def add_synth(cands: dict, window: int = NORM_WINDOW, min_periods: int = NORM_MINP):
-    """注入修复后的合成净分 trigger_net / pattern_net 及其 *_alpha。
+    """
+    注入修复后的合成净分 trigger_net / pattern_net 及其 *_alpha。
 
     口径与生产代码一致: 每个分量先做因果归一化(|x| -> [0,1])再带符号加权求和
     (bc_technical_analysis.calculate_ta_score / calculate_ta_signal)。
@@ -1666,15 +1714,17 @@ def add_synth(cands: dict, window: int = NORM_WINDOW, min_periods: int = NORM_MI
                                                       min_periods=min_periods)
 
 def build_cands(panel: pd.DataFrame, with_derived: bool = False):
-    """把 panel 的数值列转为 (date × symbol) 宽表, 并注入合成净分。"""
-    open_wide = panel['Open'].unstack('symbol').sort_index()
+    """
+    把 panel 的数值列转为 (date × symbol) 宽表, 并注入合成净分。
+    """
+    open_wide = get_w(panel, 'Open')
     num_cols = panel.select_dtypes(include=[np.number]).columns.tolist()
     cands = {}
     for c in num_cols:
         if any(p in c.lower() for p in SKIP_PAT) or c in SKIP_EXACT:
             continue
         try:
-            w = panel[c].unstack('symbol').sort_index()
+            w = get_w(panel, c)
         except Exception:
             continue
         if isinstance(w, pd.DataFrame) and w.shape[1] >= 2:
@@ -1813,7 +1863,8 @@ def ie_build_summary(base):
     return pd.DataFrame(rows)
 
 def classify(r):
-    """规则分级:
+    """
+    规则分级:
        T0不可用    覆盖太低 / 取值太少
        L疑似标签  可能是未来标签/动作列, 不可当信号
        S静态身份  截面排序几乎不随时间变化 = 事实上的固定选票(非轮动信号)
@@ -2013,70 +2064,64 @@ def ie_main():
 
 
 # ==========================================================================
-# ==== 源自 alpha_mining.py ====  改名: main->am_main, eval_pool->am_eval_pool, group_of->am_group_of, HORIZONS->am_HORIZONS
+# ==== 源自 alpha_mining.py ====  
+# ==== 改名: main->am_main, eval_pool->am_eval_pool, group_of->am_group_of, HORIZONS->am_HORIZONS
 # ==========================================================================
-POOLS = {
-    'etf_3x':      os.path.join(_PKL_DIR, 'etf_3x_day_ta_data_research.pkl'),  # 生产 pkl 截短 2025+, 用 research 全史
-    'company_300': os.path.join(_PKL_DIR, 'company_300_day_ta_data_research.pkl'),  # 全史; 生产版仅保留约近 2 年
-    'company_1000': os.path.join(_PKL_DIR, 'company_1000_day_ta_data_research.pkl'),  # 2020+ 全史(无生产版)
-    'hs300':       os.path.join(_PKL_DIR, 'hs300_day_ta_data_research.pkl'),  # 2020+ 全史
-    'a_etf_all':   os.path.join(_PKL_DIR, 'a_etf_all_day_ta_data_research.pkl'),  # 全史
-}
-
 am_HORIZONS = [5, 20, 60]
-
 F_ANCHORS = ['F_mom121', 'F_er20', 'F_updnvol20', 'F_volstab20', 'F_obv20', 'F_alpha60', 'F_beta60']
 F_NEG = ['F_idiovol60', 'F_cvcorr20', 'F_ulcer60', 'F_range20', 'F_kurt60', 'F_dnvol20']
 
 def _alphaize(x: pd.DataFrame, window: int = NORM_WINDOW, min_periods: int = NORM_MINP) -> pd.DataFrame:
-    """normalize_causal 但 NaN 不被 fillna(0) 污染: 先记录有效位, 事后 mask 回 NaN."""
+    """
+    normalize_causal 但 NaN 不被 fillna(0) 污染: 先记录有效位, 事后 mask 回 NaN.
+    """
     ok = x.notna()
     v = normalize_causal(x.abs(), window=window, min_periods=min_periods)
     return v.where(ok)
 
 def build_alpha_cands(panel: pd.DataFrame) -> dict:
-    """构建全部候选(在全历史 panel 上计算, 因果安全; 评估窗口截取在主流程做)."""
-    def w(col):
-        return panel[col].unstack('symbol').sort_index()
+    """
+    构建全部候选(在全历史 panel 上计算, 因果安全; 评估窗口截取在主流程做).
+    """
 
-    close = w('Close')
-    open_ = w('Open')
-    high = w('High')
-    low = w('Low')
-    volume = w('Volume')
+    close = get_w(panel, 'Close')
+    open_ = get_w(panel, 'Open')
+    high = get_w(panel, 'High')
+    low = get_w(panel, 'Low')
+    volume = get_w(panel, 'Volume')
     ret1 = close.pct_change()
     mined = build_mined(panel)          # F_ 族(全历史构建)
     out = {}
 
     # ---- H. alpha 化族(原型: m_trend_score_alpha) ----
-    out['H_ichimoku_alpha'] = _alphaize(w('ichimoku_distance'))    # = m_trend_score_alpha 精确重建(锚)
-    out['H_trendmag_alpha'] = _alphaize(w('trend_magnitude'))      # = trend_magnitude_alpha 重建(锚)
-    out['H_adxval_alpha'] = _alphaize(w('adx_value'))
-    out['H_adxstr_alpha'] = _alphaize(w('adx_strength'))           # 真实 ADX(非负, abs 无损)
-    out['H_adxdist_alpha'] = _alphaize(w('adx_distance'))
-    out['H_adxpow_alpha'] = _alphaize(w('adx_power'))
-    out['H_atr_alpha'] = _alphaize(w('atr'))
-    out['H_trpct_alpha'] = _alphaize(w('tr') / close)              # 真实波幅占比(短周期波动爆发度)
-    mavg = w('mavg')
-    bb_width = (w('bb_high_band') - w('bb_low_band')) / mavg.replace(0, np.nan)
+    out['H_ichimoku_alpha'] = _alphaize(get_w(panel, 'ichimoku_distance'))    # = m_trend_score_alpha 精确重建(锚)
+    out['H_trendmag_alpha'] = _alphaize(get_w(panel, 'trend_magnitude'))      # = trend_magnitude_alpha 重建(锚)
+    out['H_adxval_alpha'] = _alphaize(get_w(panel, 'adx_value'))
+    out['H_adxstr_alpha'] = _alphaize(get_w(panel, 'adx_strength'))           # 真实 ADX(非负, abs 无损)
+    out['H_adxdist_alpha'] = _alphaize(get_w(panel, 'adx_distance'))
+    out['H_adxpow_alpha'] = _alphaize(get_w(panel, 'adx_power'))
+    out['H_atr_alpha'] = _alphaize(get_w(panel, 'atr'))
+    out['H_trpct_alpha'] = _alphaize(get_w(panel, 'tr') / close)              # 真实波幅占比(短周期波动爆发度)
+    mavg = get_w(panel, 'mavg')
+    bb_width = (get_w(panel, 'bb_high_band') - get_w(panel, 'bb_low_band')) / mavg.replace(0, np.nan)
     out['H_bbw_alpha'] = _alphaize(bb_width)                       # 布林带宽分位
-    rsi = w('rsi')
+    rsi = get_w(panel, 'rsi')
     out['H_rsidev_alpha'] = _alphaize(rsi - 50.0)                  # RSI 偏离强度
-    out['H_kamadist_alpha'] = _alphaize(w('kama_distance'))
-    out['H_gapdist_alpha'] = _alphaize(w('candle_gap_distance'))   # 对照 eval B中 candle_gap_distance
-    out['H_body_alpha'] = _alphaize(w('candle_entity_pct'))
-    out['H_shadow_alpha'] = _alphaize(w('candle_upper_shadow_pct') + w('candle_lower_shadow_pct'))
+    out['H_kamadist_alpha'] = _alphaize(get_w(panel, 'kama_distance'))
+    out['H_gapdist_alpha'] = _alphaize(get_w(panel, 'candle_gap_distance'))   # 对照 eval B中 candle_gap_distance
+    out['H_body_alpha'] = _alphaize(get_w(panel, 'candle_entity_pct'))
+    out['H_shadow_alpha'] = _alphaize(get_w(panel, 'candle_upper_shadow_pct') + get_w(panel, 'candle_lower_shadow_pct'))
     out['H_volratio_alpha'] = _alphaize(volume / volume.rolling(20).mean().replace(0, np.nan))
-    out['H_volchg_alpha'] = _alphaize(w('volume_change'))
-    out['H_entitydiff_alpha'] = _alphaize(w('entity_diff'))
-    out['H_pos_alpha'] = _alphaize(w('candle_position_score'))
-    out['H_trigger_alpha'] = _alphaize(w('trigger_score'))
-    out['H_pattern_alpha'] = _alphaize(w('pattern_score'))
+    out['H_volchg_alpha'] = _alphaize(get_w(panel, 'volume_change'))
+    out['H_entitydiff_alpha'] = _alphaize(get_w(panel, 'entity_diff'))
+    out['H_pos_alpha'] = _alphaize(get_w(panel, 'candle_position_score'))
+    out['H_trigger_alpha'] = _alphaize(get_w(panel, 'trigger_score'))
+    out['H_pattern_alpha'] = _alphaize(get_w(panel, 'pattern_score'))
     out['H_er_alpha'] = _alphaize(mined['F_er20'])                 # 趋势质量处于自身历史分位
 
     # ---- S. 方向 score 族(sign * alpha, m_trend_score 模板) ----
     out['S_rsi'] = np.sign(rsi - 50.0) * out['H_rsidev_alpha']
-    out['S_kama'] = np.sign(w('kama_distance')) * out['H_kamadist_alpha']
+    out['S_kama'] = np.sign(get_w(panel, 'kama_distance')) * out['H_kamadist_alpha']
 
     # ---- X. 新异象族 ----
     out['X_maxret_neg20'] = -ret1.rolling(20).max()                # MAX 效应: 近期极端单日涨幅(彩票型)未来跑输
@@ -2106,9 +2151,9 @@ def build_alpha_cands(panel: pd.DataFrame) -> dict:
     # 旧版列结构 research pkl 可能缺 *_alpha 锚列: 缺列时静默跳过(对照 build_alpha_synths 容错模式,
     # 不影响实验信号 H_/C_/F_ —— 它们依赖的基础 TA 列在两版 pkl 均存在).
     if 'trend_magnitude_alpha' in panel.columns:
-        out['P_trend_magnitude_alpha'] = w('trend_magnitude_alpha')
+        out['P_trend_magnitude_alpha'] = get_w(panel, 'trend_magnitude_alpha')
     if 'pattern_net_alpha' in panel.columns:
-        out['P_pattern_net_alpha'] = w('pattern_net_alpha')
+        out['P_pattern_net_alpha'] = get_w(panel, 'pattern_net_alpha')
     for f in F_ANCHORS:
         out[f] = mined[f]
 
@@ -2133,7 +2178,9 @@ def am_group_of(name: str) -> str:
     return '其他'
 
 def daily_excess(sig: pd.DataFrame, fwd: pd.DataFrame, top_k: int = TOP_K, min_cs: int = MIN_CS):
-    """日级超额序列(top-k 均值 - 池等权均值), 口径与 screen_one 完全一致, 供 NW-HAC 检验."""
+    """
+    日级超额序列(top-k 均值 - 池等权均值), 口径与 screen_one 完全一致, 供 NW-HAC 检验.
+    """
     idx = sig.index.intersection(fwd.index)
     cols = sig.columns.intersection(fwd.columns)
     if len(idx) < 60:
@@ -2242,7 +2289,9 @@ def am_eval_pool(pool: str, pkl: str, out_dir: str, horizons, start) -> pd.DataF
     return pd.DataFrame(long_rows)
 
 def build_summary(longs: dict) -> pd.DataFrame:
-    """四池汇总: 方向对齐(多数符号) -> 同号性 / exc_min / FDR q_max / 分半 / 分级."""
+    """
+    四池汇总: 方向对齐(多数符号) -> 同号性 / exc_min / FDR q_max / 分半 / 分级.
+    """
     all_df = pd.concat(longs.values(), ignore_index=True)
     rows = []
     for (sig, h), sub in all_df.groupby(['signal', 'h']):
@@ -2286,7 +2335,8 @@ def build_summary(longs: dict) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 def classify_alpha(r):
-    """分级(参照 indicator_eval.classify 阈值 + FDR q_max):
+    """
+    分级(参照 indicator_eval.classify 阈值 + FDR q_max):
        S静态身份  sig_ac1 >= 0.99
        A强  四池全同号 且 exc_min>=0.005 且 exc_mean>=0.015 且 q_max<=0.10
             且分半全同号 且 dyn_mean>0
@@ -2411,15 +2461,16 @@ def am_main():
 
 
 # ==========================================================================
-# ==== 源自 factor_mining2.py ====  改名: main->fm2_main, GROUPS->fm2_GROUPS, POOLS->fm2_POOLS, HORIZONS->fm2_HORIZONS, eval_pool->fm2_eval_pool, group_of->fm2_group_of
+# ==== 源自 factor_mining2.py ====  
+# ==== 改名: main->fm2_main, GROUPS->fm2_GROUPS, POOLS->fm2_POOLS, HORIZONS->fm2_HORIZONS, eval_pool->fm2_eval_pool, group_of->fm2_group_of
 # ==========================================================================
+fm2_HORIZONS = [5, 20, 60]
+
 fm2_POOLS = {
     'etf_3x':      os.path.join(_PKL_DIR, 'etf_3x_day_ta_data_research.pkl'),
     'company_300': os.path.join(_PKL_DIR, 'company_300_day_ta_data_research.pkl'),
     'company_1000': os.path.join(_PKL_DIR, 'company_1000_day_ta_data_research.pkl'),
 }
-
-fm2_HORIZONS = [5, 20, 60]
 
 fm2_GROUPS = {  # 前缀 -> 分族
     'G_park': '波动微观结构', 'G_oviv': '波动微观结构', 'G_semi': '波动微观结构', 'G_ext': '波动微观结构',
@@ -2439,15 +2490,17 @@ def fm2_group_of(name: str) -> str:
     return '其他'
 
 def build_g_cands(panel: pd.DataFrame) -> dict:
-    """构建全部 G_ 候选(全历史构建, 因果安全; 评估窗截取在主流程做)."""
-    def w(col):
-        return panel[col].unstack('symbol').sort_index()
+    """
+    构建全部 G_ 候选(全历史构建, 因果安全; 评估窗截取在主流程做).
+    """
+    # def get_w(col):
+    #     return panel[col].unstack('symbol').sort_index()
 
-    close = w('Close')
-    open_ = w('Open')
-    high = w('High')
-    low = w('Low')
-    volume = w('Volume')
+    close = get_w(panel, 'Close')
+    open_ = get_w(panel, 'Open')
+    high = get_w(panel, 'High')
+    low = get_w(panel, 'Low')
+    volume = get_w(panel, 'Volume')
     ret1 = close.pct_change()
     out = {}
 
@@ -2733,15 +2786,16 @@ def fm2_main():
 
 
 # ==========================================================================
-# ==== 源自 conditional_mining.py ====  改名: main->cm_main, GROUPS->cm_GROUPS, POOLS->cm_POOLS, HORIZONS->cm_HORIZONS, eval_pool->cm_eval_pool, group_of->cm_group_of
+# ==== 源自 conditional_mining.py ====  
+# ==== 改名: main->cm_main, GROUPS->cm_GROUPS, POOLS->cm_POOLS, HORIZONS->cm_HORIZONS, eval_pool->cm_eval_pool, group_of->cm_group_of
 # ==========================================================================
+cm_HORIZONS = [5, 20, 60]
+
 cm_POOLS = {
     'etf_3x':      os.path.join(_PKL_DIR, 'etf_3x_day_ta_data_research.pkl'),
     'company_300': os.path.join(_PKL_DIR, 'company_300_day_ta_data_research.pkl'),
     'company_1000': os.path.join(_PKL_DIR, 'company_1000_day_ta_data_research.pkl'),
 }
-
-cm_HORIZONS = [5, 20, 60]
 
 cm_GROUPS = {  # 前缀 -> 分族(注意 startswith 匹配顺序: 更长前缀在前)
     'K_mom_pool': '池regime门控', 'K_121_pool': '池regime门控',
@@ -2757,7 +2811,9 @@ def cm_group_of(name: str) -> str:
     return '其他'
 
 def build_k_cands(panel: pd.DataFrame) -> dict:
-    """构建全部 K_ 候选(全历史构建, 因果安全; 评估窗截取在主流程做)."""
+    """
+    构建全部 K_ 候选(全历史构建, 因果安全; 评估窗截取在主流程做).
+    """
     close = panel['Close'].unstack('symbol').sort_index()
     volume = panel['Volume'].unstack('symbol').sort_index()
     ret1 = close.pct_change()
@@ -3020,15 +3076,16 @@ def cm_main():
 
 
 # ==========================================================================
-# ==== 源自 a_stat_mining.py ====  改名: main->asm_main, GROUPS->asm_GROUPS, POOLS->asm_POOLS, HORIZONS->asm_HORIZONS, eval_pool->asm_eval_pool, group_of->asm_group_of
+# ==== 源自 a_stat_mining.py ====  
+# ==== 改名: main->asm_main, GROUPS->asm_GROUPS, POOLS->asm_POOLS, HORIZONS->asm_HORIZONS, eval_pool->asm_eval_pool, group_of->asm_group_of
 # ==========================================================================
+asm_HORIZONS = [5, 20, 60]
+
 asm_POOLS = {
     'etf_3x':      os.path.join(_PKL_DIR, 'etf_3x_day_ta_data_research.pkl'),
     'company_300': os.path.join(_PKL_DIR, 'company_300_day_ta_data_research.pkl'),
     'company_1000': os.path.join(_PKL_DIR, 'company_1000_day_ta_data_research.pkl'),
 }
-
-asm_HORIZONS = [5, 20, 60]
 
 asm_GROUPS = {  # 前缀 -> 分族
     'R_res': '残差动量',
@@ -3043,11 +3100,13 @@ def asm_group_of(name: str) -> str:
     return '其他'
 
 def build_a_cands(panel: pd.DataFrame) -> dict:
-    """构建全部 R_/I_/W_ 候选(全历史构建, 因果安全; 评估窗截取在主流程做)."""
-    def w(col):
-        return panel[col].unstack('symbol').sort_index()
+    """
+    构建全部 R_/I_/W_ 候选(全历史构建, 因果安全; 评估窗截取在主流程做).
+    """
+    # def get_w(col):
+    #     return panel[col].unstack('symbol').sort_index()
 
-    close = w('Close')
+    close = get_w(panel, 'Close')
     ret1 = close.pct_change()
     out = {}
 
@@ -3284,9 +3343,11 @@ WEIGHT_PRESETS = {
 }
 
 def compute_composite(study: pd.DataFrame, weights: dict) -> pd.DataFrame:
-    """组合分数 = Σ w_i * 成分当日截面百分位排名(rank pct, 0~1).
+    """
+    组合分数 = Σ w_i * 成分当日截面百分位排名(rank pct, 0~1).
     与 score_backtest.compute_composite 逐行同口径: 缺失(NaN)以中性 0.5 参与;
-    单一成分整列缺失时该成分退化为常数, 无排序贡献."""
+    单一成分整列缺失时该成分退化为常数, 无排序贡献.
+    """
     total = float(sum(abs(w) for w in weights.values()))
     if total <= 0:
         raise ValueError('权重绝对值和为 0')
@@ -3301,7 +3362,8 @@ def compute_composite(study: pd.DataFrame, weights: dict) -> pd.DataFrame:
     return comp.fillna(0.5)
 
 def build_factor_signal(pkl_path: str, interval: str, weights: dict):
-    """读 pkl 计算因子与 composite.
+    """
+    读 pkl 计算因子与 composite.
 
     :returns: (close, factors, comp_wide)
       close: (date, symbol) 收盘宽表;
@@ -3324,13 +3386,16 @@ def build_factor_signal(pkl_path: str, interval: str, weights: dict):
     return close, factors, comp_wide
 
 def first_valid(wide: pd.DataFrame):
-    """该因子首个非全 NaN 的日期; 全 NaN 返回 None."""
+    """
+    该因子首个非全 NaN 的日期; 全 NaN 返回 None.
+    """
     ok = wide.notna().any(axis=1)
     return ok.idxmax() if bool(ok.any()) else None
 
-def snapshot(close: pd.DataFrame, factors: dict, comp_wide: pd.DataFrame,
-             weights: dict, as_of: pd.Timestamp, top_k: int, exit_rank: int) -> pd.DataFrame:
-    """as_of 截面快照: 因子值 + composite + rank + zone 分区."""
+def snapshot(close: pd.DataFrame, factors: dict, comp_wide: pd.DataFrame, weights: dict, as_of: pd.Timestamp, top_k: int, exit_rank: int) -> pd.DataFrame:
+    """
+    as_of 截面快照: 因子值 + composite + rank + zone 分区.
+    """
     row = comp_wide.loc[as_of]
     order = row.rank(ascending=False, method='first')  # 与 run_engine 排名口径一致
     snap = pd.DataFrame({'composite': row, 'rank': order.astype(int)})
@@ -3443,7 +3508,8 @@ def fsg_main():
 CONTEXT_FACTORS = ['F_mom121', 'F_er20', 'F_obv20', 'F_idiovol60']
 
 def export_pool_context(pkl_path: str, interval: str = 'day', out_path: str = None) -> str:
-    """从研究 pkl 计算全池 4 因子 + 等权池收益, 导出池上下文 csv.
+    """
+    从研究 pkl 计算全池 4 因子 + 等权池收益, 导出池上下文 csv.
 
     :param pkl_path: 研究 pkl 路径({symbol}_{interval} -> df)
     :param interval: 数据频率, 'day' 为默认

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-"""bc_combo_search.py — 合并自 research 平铺模块(2 个: combo_search, a_combo_search).
+"""
+bc_combo_search.py — 合并自 research 平铺模块(2 个: combo_search, a_combo_search).
 
 生成: _dbg_build_bc.py 自动拼接 + AST 精确改名(同名冲突加模块前缀, 未经人工改动).
 规则:
@@ -25,21 +26,22 @@ except Exception:
 
 from quant.bc_factor_search import _alphaize, build_mined
 from quant.bc_backtest import BacktestKit, BacktestResult, EngineParams, run_config, shuffled_composite
+
 # 原 research 模块目录(合并文件位于 git/quant/, 输出路径保持与源模块一致)
 HERE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'research')
 BASE = HERE  # combo_search/a_combo_search/exec_price_ab_test 输出路径
 
 
 # ==========================================================================
-# ==== 源自 combo_search.py ====  改名: main->cs_main, CAND_SIGNALS->cs_CAND_SIGNALS, COMBO_COLS->cs_COMBO_COLS, RED_NAMES->cs_RED_NAMES, PoolRunner->cs_PoolRunner, run_pool->cs_run_pool, _weight_grid->cs_weight_grid
+# ==== 源自 combo_search.py ====  
+# ==== 改名: main->cs_main, CAND_SIGNALS->cs_CAND_SIGNALS, COMBO_COLS->cs_COMBO_COLS, RED_NAMES->cs_RED_NAMES, PoolRunner->cs_PoolRunner, run_pool->cs_run_pool, _weight_grid->cs_weight_grid
 # ==========================================================================
 cs_CAND_SIGNALS = ['H_trendmag_alpha', 'H_ichimoku_alpha', 'C_tmqmom', 'K_tmqr', 'F_er20', 'D_mom250']     # 6 个可上线信号(6.1 节)
-
-FILTER_CAND = 'G_vr20'                              # 过滤器候选(允许负权)
-cs_RED_NAMES = cs_CAND_SIGNALS + [FILTER_CAND]            # 冗余检查/单信号评估集合(7)
+FILTER_CAND = 'G_vr20'                             # 过滤器候选(允许负权)
+cs_RED_NAMES = cs_CAND_SIGNALS + [FILTER_CAND]     # 冗余检查/单信号评估集合(7)
 GOLD4 = {'F_mom121': 0.5, 'F_er20': 0.3, 'F_idiovol60': -0.2, 'F_obv20': 0.1}
 GOLD4_EXTRA = ['F_mom121', 'F_idiovol60', 'F_obv20']
-cs_COMBO_COLS = cs_RED_NAMES + GOLD4_EXTRA                # 需注入 panel 的全部成分列
+cs_COMBO_COLS = cs_RED_NAMES + GOLD4_EXTRA         # 需注入 panel 的全部成分列
 TOPK_GRID = [5, 8, 12]                             # 门槛(top_k)搜索网格
 MIN_CS = 10                                        # 日截面 Spearman 最少有效数
 STAT_KEYS = ['total_ret', 'cagr', 'sharpe', 'max_dd', 'calmar', 'vol', 'ann_turnover', 'n_trades', 'win_rate', 'avg_ret', 'avg_days', 'n_days']
@@ -48,12 +50,16 @@ def log(msg: str):
     print(msg, flush=True)
 
 def _sh(stats: dict) -> float:
-    """sharpe 取值, NaN/缺失 → -1e9(比较安全)."""
+    """
+    sharpe 取值, NaN/缺失 → -1e9(比较安全).
+    """
     v = stats.get('sharpe')
     return -1e9 if v is None or (isinstance(v, float) and np.isnan(v)) else float(v)
 
 def wdesc(weights: dict) -> str:
-    """权重描述: 按 |w| 降序, 如 'K_tmqr:1,H_trendmag_alpha:0.5'."""
+    """
+    权重描述: 按 |w| 降序, 如 'K_tmqr:1,H_trendmag_alpha:0.5'.
+    """
     items = sorted(weights.items(), key=lambda kv: -abs(kv[1]))
     return ','.join(f'{k}:{v:g}' for k, v in items)
 
@@ -73,7 +79,9 @@ def make_row(pool: str, window: str, payload, weights: str) -> dict:
     return s
 
 def build_combo_cands(panel: pd.DataFrame) -> dict:
-    """B3 全部候选(全历史构建, 因果安全; 公式逐行核对自源模块, 见模块 docstring)."""
+    """
+    B3 全部候选(全历史构建, 因果安全; 公式逐行核对自源模块, 见模块 docstring).
+    """
     close = panel['Close'].unstack('symbol').sort_index()
     ret1 = close.pct_change()
     mined = build_mined(panel)          # F_ 族底料(整块复用, 无口径漂移)
@@ -97,10 +105,11 @@ def build_combo_cands(panel: pd.DataFrame) -> dict:
         out[f] = mined[f]
     return out
 
-def daily_spearman(ranks_a: pd.DataFrame, ranks_b: pd.DataFrame,
-                   min_cs: int) -> pd.Series:
-    """逐日截面 Spearman = 对两列已按行 rank 的矩阵做按行 Pearson(成对完备).
-    有效数 < min_cs 的日子 → NaN."""
+def daily_spearman(ranks_a: pd.DataFrame, ranks_b: pd.DataFrame, min_cs: int) -> pd.Series:
+    """
+    逐日截面 Spearman = 对两列已按行 rank 的矩阵做按行 Pearson(成对完备).
+    有效数 < min_cs 的日子 → NaN.
+    """
     ok = ranks_a.notna() & ranks_b.notna()
     n = ok.sum(axis=1)
     va, vb = ranks_a.where(ok), ranks_b.where(ok)
@@ -127,8 +136,10 @@ def redundancy_report(cands: dict, names: list, start: str, min_cs: int) -> pd.D
                                           ascending=False)
 
 class cs_PoolRunner:
-    """一个池的快速执行器: 预缓存各成分当日截面 rank_pct, 组合分数 = Σ(w/Σ|w|)·pct
-    再 fillna(0.5) —— 与 compute_composite 逐位一致(构造时断言校验)."""
+    """
+    一个池的快速执行器: 预缓存各成分当日截面 rank_pct, 组合分数 = Σ(w/Σ|w|)·pct
+    再 fillna(0.5) —— 与 compute_composite 逐位一致(构造时断言校验).
+    """
 
     def __init__(self, kit: BacktestKit):
         self.kit = kit
@@ -182,13 +193,16 @@ class cs_PoolRunner:
         return run_config(name, ow, cw, comp, g, p, atr_wide=aw)
 
 def cs_weight_grid(cand: str) -> list:
-    """普通候选正权网格; G_vr20 方向不确定 → 正负都试."""
+    """
+    普通候选正权网格; G_vr20 方向不确定 → 正负都试.
+    """
     return [-1.0, -0.5, 0.5, 1.0] if cand == FILTER_CAND else [0.5, 1.0]
 
-def cs_run_pool(pool: str, start: str, is_end: str, oos_start: str, min_rho: float,
-             margin: float, max_add: int, shuffle_seed: int, out_dir: str):
-    """一个池的完整 B3 流程: 冗余 → 单信号基线 → 贪心 → 精修 → 门槛 → OOS/终验/对照.
-    返回 (rows, greedy_log, report_lines, final_info)."""
+def cs_run_pool(pool: str, start: str, is_end: str, oos_start: str, min_rho: float, margin: float, max_add: int, shuffle_seed: int, out_dir: str):
+    """
+    一个池的完整 B3 流程: 冗余 → 单信号基线 → 贪心 → 精修 → 门槛 → OOS/终验/对照.
+    返回 (rows, greedy_log, report_lines, final_info).
+    """
     log(f'\n{"=" * 70}\n===== pool={pool} =====')
     t0 = time.time()
     kit = BacktestKit(pool=pool, start=None)          # 全历史构建信号, 交易窗口逐次截
@@ -429,7 +443,8 @@ def cs_main():
 
 
 # ==========================================================================
-# ==== 源自 a_combo_search.py ====  改名: main->a_main, CAND_SIGNALS->a_CAND_SIGNALS, COMBO_COLS->a_COMBO_COLS, RED_NAMES->a_RED_NAMES, PoolRunner->a_PoolRunner, run_pool->a_run_pool, _weight_grid->a_weight_grid
+# ==== 源自 a_combo_search.py ====  
+# ==== 改名: main->a_main, CAND_SIGNALS->a_CAND_SIGNALS, COMBO_COLS->a_COMBO_COLS, RED_NAMES->a_RED_NAMES, PoolRunner->a_PoolRunner, run_pool->a_run_pool, _weight_grid->a_weight_grid
 # ==========================================================================
 a_CAND_SIGNALS = [
     'F_er20',            # 两池同号 C 弱(alpha 轨)
@@ -452,7 +467,9 @@ GOLD_A4 = {'N_range20': 1.0, 'F_er20': 1.0, 'H_ichimoku_alpha': 1.0, 'G_amiasym2
 a_COMBO_COLS = a_RED_NAMES                              # 需注入 panel 的全部成分列
 
 def build_a_combo_cands(panel: pd.DataFrame) -> dict:
-    """A 股版全部候选(全历史构建, 因果安全; 公式逐行核对自源模块, 见模块 docstring)."""
+    """
+    A 股版全部候选(全历史构建, 因果安全; 公式逐行核对自源模块, 见模块 docstring).
+    """
     close = panel['Close'].unstack('symbol').sort_index()
     open_ = panel['Open'].unstack('symbol').sort_index()
     high = panel['High'].unstack('symbol').sort_index()
@@ -510,8 +527,10 @@ def build_a_combo_cands(panel: pd.DataFrame) -> dict:
     return out
 
 class a_PoolRunner:
-    """一个池的快速执行器: 预缓存各成分当日截面 rank_pct, 组合分数 = Σ(w/Σ|w|)·pct
-    再 fillna(0.5) —— 与 compute_composite 逐位一致(构造时断言校验)."""
+    """
+    一个池的快速执行器: 预缓存各成分当日截面 rank_pct, 组合分数 = Σ(w/Σ|w|)·pct
+    再 fillna(0.5) —— 与 compute_composite 逐位一致(构造时断言校验).
+    """
 
     def __init__(self, kit: BacktestKit):
         self.kit = kit
@@ -565,13 +584,16 @@ class a_PoolRunner:
         return run_config(name, ow, cw, comp, g, p, atr_wide=aw)
 
 def a_weight_grid(cand: str) -> list:
-    """A 股版: 全部候选双向(方向未经组合层确认, 数据自选向)."""
+    """
+    A 股版: 全部候选双向(方向未经组合层确认, 数据自选向).
+    """
     return [-1.0, -0.5, 0.5, 1.0]
 
-def a_run_pool(pool: str, start: str, is_end: str, oos_start: str, min_rho: float,
-             margin: float, max_add: int, shuffle_seed: int, out_dir: str):
-    """一个池的完整流程: 冗余 → 单信号基线 → 贪心 → 精修 → 门槛 → OOS/终验/对照.
-    返回 (rows, greedy_log, report_lines, final_info)."""
+def a_run_pool(pool: str, start: str, is_end: str, oos_start: str, min_rho: float, margin: float, max_add: int, shuffle_seed: int, out_dir: str):
+    """
+    一个池的完整流程: 冗余 → 单信号基线 → 贪心 → 精修 → 门槛 → OOS/终验/对照.
+    返回 (rows, greedy_log, report_lines, final_info).
+    """
     log(f'\n{"=" * 70}\n===== pool={pool} =====')
     t0 = time.time()
     kit = BacktestKit(pool=pool, start=None)          # 全历史构建信号, 交易窗口逐次截
@@ -757,8 +779,7 @@ def a_run_pool(pool: str, start: str, is_end: str, oos_start: str, min_rho: floa
     return rows, greedy_log, lines, final_info
 
 def a_main():
-    ap = argparse.ArgumentParser(
-        description='A 股组合层搜索: 冗余检查 + 贪心权重搜索 + 门槛 top_k, IS/OOS 分窗')
+    ap = argparse.ArgumentParser(description='A 股组合层搜索: 冗余检查 + 贪心权重搜索 + 门槛 top_k, IS/OOS 分窗')
     ap.add_argument('--pool', default=None, help='单池名(默认两池 hs300/a_etf_all)')
     ap.add_argument('--start', default='2021-01-01', help='交易窗口起点')
     ap.add_argument('--is-end', default='2024-12-31', help='IS 窗终点(选参)')

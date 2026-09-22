@@ -7001,7 +7001,6 @@ def plot_multiple_indicators(df: pd.DataFrame, args: dict = {}, start: Optional[
     tmp_indicator = indicators[i]
     tmp_args = args.get(tmp_indicator)
     
-
     # put the main_indicators at the bottom, share_x
     if i == 0:
       axes[tmp_indicator] = plt.subplot(gs[i]) 

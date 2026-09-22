@@ -30,13 +30,15 @@ except Exception:
     pass
 
 from quant.bc_factor_search import POOLS, build_alpha_cands, build_derived, load_panel, normalize_causal
+
 # 原 research 模块目录(合并文件位于 git/quant/, 输出路径保持与源模块一致)
 HERE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'research')
 BASE = HERE  # combo_search/a_combo_search/exec_price_ab_test 输出路径
 
 
 # ==========================================================================
-# ==== 源自 score_backtest.py ====  改名: main->sb_main
+# ==== 源自 score_backtest.py ====  
+# ==== 改名: main->sb_main
 # ==========================================================================
 WEIGHT_PRESETS = {
     'default': {'position_score': 0.25, 'rsi': 0.20, 'pattern_score_alpha': 0.20, 'trigger_score': -0.15, 'boundary_score': -0.10, 'candle_position_score': -0.10},
@@ -669,7 +671,8 @@ def monthly_returns(equity: pd.Series) -> pd.Series:
     return out
 
 class BacktestResult:
-    """统一回测结果对象.
+    """
+    统一回测结果对象.
 
     属性访问 + dict 兼容(__getitem__ 委托内部 payload), 可直接传 summary_table
     等既有接收 run_config dict 的函数。
@@ -761,7 +764,8 @@ class BacktestResult:
         return out_dir
 
 class BacktestKit:
-    """通用回测套件: 一个池一个窗口一套引擎参数, 注册任意信号源后 run/compare/run_many.
+    """
+    通用回测套件: 一个池一个窗口一套引擎参数, 注册任意信号源后 run/compare/run_many.
 
     窗口语义(与 signal_backtest 一致): 价格宽表在全历史上 unstack 后截行,
     信号在全历史构建后截行; 窗口内无数据的标的以 NaN 列参与, 不占截面名次。
@@ -1051,7 +1055,8 @@ class BacktestKit:
 
 
 # ==========================================================================
-# ==== 源自 signal_timeseries.py ====  改名: main->sts_main
+# ==== 源自 signal_timeseries.py ====  
+# ==== 改名: main->sts_main
 # ==========================================================================
 matplotlib.use('Agg')
 
@@ -1068,7 +1073,9 @@ STATE_CN = {'buy': '买入', 'hold': '持有', 'sell': '卖出'}
 STATE_COLOR = {'buy': 'green', 'hold': 'orange', 'sell': 'red'}
 
 def parse_weights(text: str) -> dict:
-    """解析 "sig:w,sig:w" 组合权重(与 signal_bridge.parse_weights 同格式, 负权如 N_range20:-1)."""
+    """
+    解析 "sig:w,sig:w" 组合权重(与 signal_bridge.parse_weights 同格式, 负权如 N_range20:-1).
+    """
     out = {}
     for tok in text.split(','):
         tok = tok.strip()
@@ -1081,7 +1088,8 @@ def parse_weights(text: str) -> dict:
     return out
 
 def build_symbol_view(pool: str, pkl: str, signals: list, weights: dict = None):
-    """返回: open 宽表, close 宽表, {信号: 宽表}, 汇总信号宽表, 截面排名宽表, 权重 dict.
+    """
+    返回: open 宽表, close 宽表, {信号: 宽表}, 汇总信号宽表, 截面排名宽表, 权重 dict.
 
     weights 非空 → A 股池口径(build_a_combo_cands + 桥的 rank_pct 加权合成, 与
     signal_bridge/compute_composite 逐位一致); 否则美股口径(等权均值)。
@@ -1121,17 +1129,17 @@ def build_symbol_view(pool: str, pkl: str, signals: list, weights: dict = None):
     return open_w, close, comps, agg, rank, None
 
 def classify_state(rank_row: pd.Series, top_k: int, exit_rank: int) -> pd.Series:
-    """三态: rank<=top_k 买入 / rank<=exit_rank 持有 / 其余 卖出."""
+    """
+    三态: rank<=top_k 买入 / rank<=exit_rank 持有 / 其余 卖出.
+    """
     s = pd.Series('sell', index=rank_row.index, dtype=object)
     s[rank_row.notna() & (rank_row <= top_k)] = 'buy'
     s[rank_row.notna() & (rank_row > top_k) & (rank_row <= exit_rank)] = 'hold'
     s[rank_row.isna()] = np.nan
     return s
 
-def plot_symbol(sym: str, pool: str, out_png: str,
-                close: pd.DataFrame, comps: dict, agg: pd.DataFrame, rank: pd.DataFrame,
-                top_k: int, exit_rank: int, box_size: int, weights: dict = None,
-                trades: pd.DataFrame = None):
+def plot_symbol(sym: str, pool: str, out_png: str, close: pd.DataFrame, comps: dict, agg: pd.DataFrame, rank: pd.DataFrame, top_k: int, exit_rank: int, box_size: int, weights: dict = None,  trades: pd.DataFrame = None):
+    
     # 显示窗口取整个截取后 close 的首尾(而非逐标的 dropna): 数据滞后标的的价格止于中途,
     # 但其信号/排名(含桥的 0.5 中性幻影)仍持续到窗口末, 必须在同一窗口下才能显形
     start, end = close.index[0], close.index[-1]
@@ -1386,8 +1394,7 @@ def sts_main():
 # ==== 源自 signal_backtest.py ====  改名: main->sbt_main
 # ==========================================================================
 def sbt_main():
-    ap = argparse.ArgumentParser(
-        description='汇总信号组合回测(与 signal_timeseries 可视化同口径): 交易明细+回报率')
+    ap = argparse.ArgumentParser(description='汇总信号组合回测(与 signal_timeseries 可视化同口径): 交易明细+回报率')
     ap.add_argument('--pool', default='etf_3x', help='池名, 默认 etf_3x')
     ap.add_argument('--pkl-path', default=None, help='直接指定 pkl(默认取 alpha_mining.POOLS)')
     ap.add_argument('--signals', default=','.join(DEFAULT_SIGNALS), help='逗号分隔的分量信号')
@@ -1480,9 +1487,15 @@ def sbt_main():
 
 
 # ==========================================================================
-# ==== 源自 stop_loss_eval.py ====  改名: main->sle_main
+# ==== 源自 stop_loss_eval.py ====  
+# ==== 改名: main->sle_main
 # ==========================================================================
-SPEC = {'H_ichimoku_alpha': 0.25, 'H_trendmag_alpha': 0.25, 'C_tmqmom': 0.25, 'F_er20': 0.25}
+SPEC = {
+    'H_ichimoku_alpha': 0.25, 
+    'H_trendmag_alpha': 0.25, 
+    'C_tmqmom': 0.25, 
+    'F_er20': 0.25
+}
 
 VARIANTS = [
     ('baseline', {}),
@@ -1557,7 +1570,8 @@ def sle_main():
 
 
 # ==========================================================================
-# ==== 源自 exec_price_ab_test.py ====  改名: main->ept_main, PoolRunner->cs_PoolRunner, POOLS->ept_POOLS
+# ==== 源自 exec_price_ab_test.py ====  
+# ==== 改名: main->ept_main, PoolRunner->cs_PoolRunner, POOLS->ept_POOLS
 # ==========================================================================
 ept_POOLS = [
     ('company_300', {'C_tmqmom': 1.0, 'F_er20': 1.0}, 12),
@@ -1565,12 +1579,16 @@ ept_POOLS = [
     ('company_1000', {'G_vr20': 1.0, 'H_ichimoku_alpha': 1.0}, 8),
 ]
 
-WINDOWS = [('full', '2021-01-01', None),
-           ('is', '2021-01-01', '2024-12-31'),
-           ('oos', '2025-01-01', None)]
+WINDOWS = [
+    ('full', '2021-01-01', None),
+    ('is', '2021-01-01', '2024-12-31'),
+    ('oos', '2025-01-01', None)
+]
 
-STAT_KEYS = ['total_ret', 'cagr', 'sharpe', 'max_dd', 'ann_turnover',
-             'n_trades', 'win_rate', 'avg_days', 'n_days']
+STAT_KEYS = [
+    'total_ret', 'cagr', 'sharpe', 'max_dd', 'ann_turnover',
+    'n_trades', 'win_rate', 'avg_days', 'n_days'
+]
 
 def wdesc(weights: dict) -> str:
     return ','.join(f'{k}:{v:g}' for k, v in weights.items())
