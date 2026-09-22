@@ -389,6 +389,7 @@ class Trader(object):
       # sell
       # get sell signals
       sell_signal = signal.query('action == "s"')
+      skip_sell = []
       if len(sell_signal) > 0:
         # go through sell signals
         for symbol in sell_signal.index:
@@ -405,7 +406,9 @@ class Trader(object):
             trade_summary = self.trade(symbol=symbol, action='SELL', quantity=in_position_quantity, price=price, print_summary=False)
             self.logger.info(trade_summary)
           else:
-            self.logger.info(f'[SELL]: {symbol} skipped (not in position)')
+            skip_sell.append(symbol)
+            
+        self.logger.info(f'[SELL]: {len(skip_sell)} symbols skipped (not in position)')
       else:
         self.logger.info(f'[SELL]: no signal')
 
@@ -418,6 +421,7 @@ class Trader(object):
       # get buy signals which not in positions yet
       default_money_per_sec = money_per_sec
       buy_signal = signal.query('action == "b"')
+      skip_buy = []
       if len(buy_signal) > 0:
         # go through buy signals
         for symbol in buy_signal.index:
@@ -462,8 +466,9 @@ class Trader(object):
               self.logger.info(f'[BUY]: not enough money')
               continue
           else:
-            self.logger.info(f'[BUY]: {symbol} skipped (already in position:{in_position_quantity})')
+            skip_buy.append(symbol)                      
             continue
+        self.logger.info(f'[BUY]: {len(skip_buy)} symbols skipped (already in position)')
       else:
        self.logger.info(f'[BUY]: no signal')
     else:
