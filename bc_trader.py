@@ -150,16 +150,19 @@ class Trader(object):
     return quantity
 
   # check whether it is affordable to buy certain amount of a stock
-  def get_affordable_quantity(self, symbol: str, cash: float = None, trading_fee: float = 3) -> int:
+  def get_affordable_quantity(self, symbol: str, price: float = None, cash: float = None, trading_fee: float = 3) -> int:
 
     # initialize affordable quantity and available cash
     quantity = 0
     available_cash = self.get_available_cash() if (cash is None) else cash
 
     # get latest price of stock
-    stock_brief = io_util.get_stock_briefs(symbols=[symbol], source='eod', api_key=self.eod_api_key).set_index('symbol')
-    latest_price = stock_brief.loc[symbol, 'latest_price']
-
+    if price is None:
+      stock_brief = io_util.get_stock_briefs(symbols=[symbol], source='eod', api_key=self.eod_api_key).set_index('symbol')
+      latest_price = stock_brief.loc[symbol, 'latest_price']
+    else:
+      latest_price = price
+    
     # check if it is affordable
     quantity = math.floor((available_cash-trading_fee)/latest_price)
 
@@ -730,7 +733,8 @@ class Futu(Trader):
       # place buy order if possible
       if action == 'BUY':
         trade_side = TrdSide.BUY
-        affordable_quantity = self.get_affordable_quantity(symbol=symbol)
+        affordable_quantity = self.get_affordable_quantity(symbol=symbol, price=price)
+
         if quantity <= affordable_quantity:
           ret_place_order, order_info = self.trade_client.place_order(price=price, qty=quantity, code=f'{self.market}.{symbol}', trd_side=trade_side, order_type=order_type, trd_env=self.account_type, remark=None)
           if ret_place_order == RET_OK:
@@ -979,7 +983,7 @@ class Tiger(Trader):
 
       # place buy order if affordable
       if action == 'BUY':
-        affordable_quantity = self.get_affordable_quantity(symbol=symbol)
+        affordable_quantity = self.get_affordable_quantity(symbol=symbol, price=price)
         if quantity <= affordable_quantity:
           # place_order returns None instead of raising when the request fails silently
           order_id = self.trade_client.place_order(order)
