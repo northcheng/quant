@@ -13,6 +13,7 @@ import time
 import datetime
 from pathlib import Path
 import pandas as pd
+import numpy as np
 
 from quant import bc_data_io as io_util
 from quant import bc_util as util
