@@ -353,7 +353,7 @@ class Trader(object):
 
     # print
     if is_print:
-      self.logger.info(f'[{self.account_type[:4]}]: net value {old_net_value} --> {net_value}')
+      self.logger.info(f'[{self.account_type[:4]}]: net value {old_net_value:.2f} --> {net_value:.2f}')
 
   # buy stock by amount
   def buy_with_amount(self, symbol: str, amount: float, print_summary: bool = True) -> str:
