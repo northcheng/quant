@@ -361,7 +361,7 @@ class Trader(object):
     return None
 
   # auto trade according to signals
-  def signal_trade(self, signal: pd.DataFrame, money_per_sec: float, order_type: str = 'market', trading_fee: float = 5, pool: list = None, according_to_record: bool = True, minimum_position: float = None) -> None:    
+  def signal_trade(self, signal: pd.DataFrame, money_per_sec: float, order_type: str = 'market', trading_fee: float = 5, pool: list = None, minimum_position: float = None) -> None:    
     
     # set symbol to index
     if len(signal) > 0:
@@ -444,13 +444,6 @@ class Trader(object):
             if pd.isna(latest_price) or latest_price <= 0:
               self.logger.error(f'[BUY]: {symbol} skipped (invalid latest price: {latest_price})')
               continue
-
-            # set money used to establish a new position
-            if according_to_record:
-              if (symbol in self.record.keys()) and (self.record[symbol]['position']==0):
-                money_per_sec = self.record[symbol]['cash']
-              else:
-                money_per_sec = default_money_per_sec
 
             # check whether there is enough available money 
             money_per_sec = available_cash if (money_per_sec > available_cash) else money_per_sec
