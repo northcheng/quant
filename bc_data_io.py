@@ -2627,7 +2627,7 @@ def update_portfolio_support_resistant(config: dict, data: dict, portfolio_file_
 
 
 #----------------------------- Email sending ------------------------------------#
-def send_result_by_email(config: dict, to_addr: str, from_addr: str = 'northcheng@qq.com', smtp_server: str = 'smtp.qq.com', subject: str = None, platform: list = ['tiger'], signal_file_date: str = None, log_file_date: str = None, test: bool = False, pool: str = None) -> any:
+def send_result_by_email(config: dict, to_addr: str, from_addr: str = 'northcheng@qq.com', smtp_server: str = 'smtp.qq.com', subject: str = None, platform: list = ['tiger'], signal_file_date: str = None, log_file_date: str = None, test: bool = False, market: str = 'us') -> any:
   """
   send automatic_trader's trading result and technical_analyst's calculation result by email
 
@@ -2640,13 +2640,18 @@ def send_result_by_email(config: dict, to_addr: str, from_addr: str = 'northchen
   :param signal_file_date: date of signal file which will be attached on email
   :param log_file_date: date of log file which will be attached on email
   :param test: whether on test mode(print message rather than send the email)
-  :param pool: pool name
+  :param market: market type, 'us' or 'cn'
   :return: smtp ret code
   :raise: none
   """
 
-  # default pool
-  pool = '' if pool is None else pool
+  # pools for each market
+  if market == 'us':
+    pools = ['etf_3x', 'company_300'] 
+  elif market == 'cn':
+    pools = ['a_etf_all', 'hs300']
+  else:
+    pools = []
 
   # get current time
   current_time = datetime.datetime.now().strftime(format="%Y-%m-%d %H:%M:%S")
@@ -2737,36 +2742,22 @@ def send_result_by_email(config: dict, to_addr: str, from_addr: str = 'northchen
   # get signal and summary
   signal_info = '<h3>Signals</h3><ul>'
   summary_info = '<h3>Summary</h3><ul>'
-  signal_color = {'b':'green', 's':'red', 'n':'grey'}
-  
-  if signal_file_date is not None:
-    
-    prefix = '' if pool in ['us', ''] else f'{pool}_' # 'a_' if cn_stock else ''
-    signal_file = Path(config["result_path"]) / f'{prefix}{signal_file_date}.xlsx'
-    
-    if os.path.exists(signal_file):
+  signal_color = {'b':'green', 'h':'grey'} # , 's':'red'
 
-      signal_file_content = pd.read_excel(signal_file, sheet_name=None, dtype={'symbol': str})
-      for s in signal_file_content.keys():
-        if s == 'signal':
-          signals = signal_file_content.get('signal') 
-          if signals is not None:
-            # if len(signals) > 0:
-            for s in ['b', 's', 'n']:
-              font_color = signal_color[s]
-              tmp_signals = signals.query(f'signal == "{s}"')['symbol'].astype(str).tolist()
-              signal_info += f'<li>[ <b>{s}</b> ]: <font color="{font_color}">{", ".join(tmp_signals)}</font></li>'
-        
-        else:
-          tmp_sheet = signal_file_content.get(s)
-          if tmp_sheet is not None and len(tmp_sheet) > 0:
-            num_up = len(tmp_sheet.query('rate > 0'))
-            num_total = len(tmp_sheet)
-            font_color = 'green' if num_up > num_total/2 else 'red'
-            summary_info += f'<li>[ <b>{s}</b> ]: <font color="{font_color}">{num_up} / {num_total}</font></li>'
+  if signal_file_date is not None:    
+    for p in pools:
+      signal_info += f'<li><p>{p}</p></li>'
+      tmp_signal_file = Path(config["result_path"]) / f'signal_bridge_{p}_{signal_file_date}.xlsx'
+      if os.path.exists(tmp_signal_file):
+        tmp_signal_list = pd.read_excel(tmp_signal_file, sheet_name='signal', dtype={'symbol': str})
+        if len(tmp_signal_list) > 0:
+          for s in signal_color.keys():
+            font_color = signal_color[s]
+            tmp_signals = tmp_signal_list.query(f'signal == "{s}"')['symbol'].astype(str).tolist()            
+            signal_info += f'<li>[ <b>{s}</b> ]: <font color="{font_color}">{", ".join(tmp_signals)}</font></li>'
 
-    else:
-      signal_info += f'<li><p>[Not Found]: {prefix}{signal_file_date}.xlsx</p></li>'
+      else:
+        signal_info += f'<li><p>[Not Found]: {prefix}{signal_file_date}.xlsx</p></li>'
   
   else:
     signal_info += '<li><p>[Not Required]</p></li>'
@@ -2801,31 +2792,33 @@ def send_result_by_email(config: dict, to_addr: str, from_addr: str = 'northchen
 
     # initialize header, attach pdfs
     image_info += f'<li>[Requested]: {signal_file_date}</li>'
-    pdf_names = ['portfolio', 'signal', 'index', 'global'] if pool in ['us', ''] else [f'{pool}_portfolio', f'{pool}_signal', f'{pool}_index', f'{pool}_global']
-    for p in pdf_names:
+    pdf_names = [f'{p}_signal' for p in pools]
+    pdf_names.append('portfolio')
+    
+    for pdf in pdf_names:
 
       # consstruct pdf file path
-      tmp_pdf = config["result_path"] / f'{p}.pdf'
+      tmp_pdf = config["result_path"] / f'{pdf}.pdf'
 
       # if pdf file exists, check its create date and attach its content
       if os.path.exists(tmp_pdf):
-        tmp_pdf_create_date = util.timestamp_2_time(timestamp=os.path.getmtime(tmp_pdf), unit='s').date().strftime(format='%Y-%m-%d')
+        tmp_pdf_modify_date = util.timestamp_2_time(timestamp=os.path.getmtime(tmp_pdf), unit='s').date().strftime(format='%Y-%m-%d')
         
         # if it is not up-to-date, notify in image_info
-        if tmp_pdf_create_date < signal_file_date:
-          image_info += f'<li>[{p}.pdf]: {tmp_pdf_create_date}</li>'
+        if tmp_pdf_modify_date < signal_file_date:
+          image_info += f'<li>[{pdf}.pdf]: {tmp_pdf_modify_date}</li>'
         
         # other wise attach it
         else:
           with open(tmp_pdf, 'rb') as fp:
             tmp_pdf_content = MIMEBase('application', "octet-stream")
             tmp_pdf_content.set_payload(fp.read())
-            tmp_pdf_content.add_header('Content-Disposition', 'attachment', filename=f'{p}_{tmp_pdf_create_date}.pdf')
+            tmp_pdf_content.add_header('Content-Disposition', 'attachment', filename=f'{pdf}_{tmp_pdf_modify_date}.pdf')
             encoders.encode_base64(tmp_pdf_content)
           pdfs.append(tmp_pdf_content)
 
       else:        
-        image_info += f'<li><p>[{p}.pdf]: Not Found</p></li>'
+        image_info += f'<li><p>[{pdf}.pdf]: Not Found</p></li>'
   else:
     image_info += '<li><p>[Not Required]</p></li>'
   image_info += '</ul>'
