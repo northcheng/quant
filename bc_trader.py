@@ -371,16 +371,11 @@ class Trader(object):
     # if signal list is not empty
     if len(signal) > 0:
 
-      # get latest price for signals if not market order
-      if order_type != 'market':
+      if 'latest_price' not in signal.columns:
+        signal['latest_price'] = np.nan
+
         signal_brief = io_util.get_stock_briefs(symbols=signal.index.tolist(), source='eod', api_key=self.eod_api_key).set_index('symbol')
-        if 'latest_price' in signal.columns:
-          signal = signal.drop(columns=['latest_price'])
         signal = pd.merge(signal, signal_brief[['latest_price']], how='left', left_index=True, right_index=True)
-      # if market order and the latest price is empty, set latest price to 0.00001
-      else:
-        if 'latest_price' not in signal.columns:
-          signal['latest_price'] = np.nan
 
       # get in-position quantity and latest price for signals
       self.update_position(get_briefs=False)
@@ -440,45 +435,38 @@ class Trader(object):
           # check whether symbol is already in position
           in_position_quantity = signal.loc[symbol, 'quantity']
           if in_position_quantity == 0:
-            
-            if order_type == 'market':
 
-              trade_summary = self.buy_with_amount(symbol, money_per_sec, print_summary=False)
+            # skip when latest price is missing or invalid
+            latest_price = signal.loc[symbol, 'latest_price']
+            if pd.isna(latest_price) or latest_price <= 0:
+              self.logger.error(f'[BUY]: {symbol} skipped (invalid latest price: {latest_price})')
+              continue
+
+            # set money used to establish a new position
+            if according_to_record:
+              if (symbol in self.record.keys()) and (self.record[symbol]['position']==0):
+                money_per_sec = self.record[symbol]['cash']
+              else:
+                money_per_sec = default_money_per_sec
+
+            # check whether there is enough available money 
+            money_per_sec = available_cash if (money_per_sec > available_cash) else money_per_sec
+
+            # calculate quantity to buy
+            quantity = math.floor((money_per_sec-trading_fee)/signal.loc[symbol, 'latest_price'])
+            if quantity > 0:
+              if order_type == 'limit':
+                price = signal.loc[symbol, 'latest_price']
+              else:
+                price = None
+              trade_summary = self.trade(symbol=symbol, action='BUY', quantity=quantity, price=price, print_summary=False)
               self.logger.info(trade_summary)
 
+              # update available cash
+              available_cash -= quantity * signal.loc[symbol, 'latest_price']
             else:
-
-              # skip when latest price is missing or invalid
-              latest_price = signal.loc[symbol, 'latest_price']
-              if pd.isna(latest_price) or latest_price <= 0:
-                self.logger.error(f'[BUY]: {symbol} skipped (invalid latest price: {latest_price})')
-                continue
-
-              # set money used to establish a new position
-              if according_to_record:
-                if (symbol in self.record.keys()) and (self.record[symbol]['position']==0):
-                  money_per_sec = self.record[symbol]['cash']
-                else:
-                  money_per_sec = default_money_per_sec
-
-              # check whether there is enough available money 
-              money_per_sec = available_cash if (money_per_sec > available_cash) else money_per_sec
-
-              # calculate quantity to buy
-              quantity = math.floor((money_per_sec-trading_fee)/signal.loc[symbol, 'latest_price'])
-              if quantity > 0:
-                if order_type == 'limit':
-                  price = signal.loc[symbol, 'latest_price']
-                else:
-                  price = None
-                trade_summary = self.trade(symbol=symbol, action='BUY', quantity=quantity, price=price, print_summary=False)
-                self.logger.info(trade_summary)
-
-                # update available cash
-                available_cash -= quantity * signal.loc[symbol, 'latest_price']
-              else:
-                self.logger.info(f'[BUY]: not enough money')
-                continue
+              self.logger.info(f'[BUY]: not enough money')
+              continue
           else:
             skip_buy.append(symbol)                      
             continue
