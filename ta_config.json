@@ -112,19 +112,19 @@
     "drop_columns": [],
     "save_result": true,
     "save_data": true,
-    "save_pdf": true
-    
+    "save_pdf": true,
+    "archive_old_xlsx": true
   },
   
   "trade": {
     "init_cash": {
       "tiger": {
-        "real": 2000,
-        "simu": 2000
+        "real": 3000,
+        "simu": 100000
       },
       "futu": {
-        "real": 2000,
-        "simu": 2000
+        "real": 3000,
+        "simu": 100000
       }
     },
     "pool": {
