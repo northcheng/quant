@@ -25,7 +25,7 @@ from tigeropen.tiger_open_config import TigerOpenClientConfig
 from tigeropen.common.util.signature_utils import read_private_key
 from tigeropen.common.consts import (Language, Market) # 语言, 市场
 from tigeropen.common.util.contract_utils import stock_contract # 股票合约
-from tigeropen.common.util.order_utils import (market_order, limit_order, order_leg) # 市价单, 限价单, 附加订单
+from tigeropen.common.util.order_utils import (market_order_by_amount, market_order, limit_order, order_leg) # 市价单, 限价单, 附加订单
 
 # 账户分组契约 (single source of truth): platform -> {user_info 中的账户键 -> 账户分组}
 # 三方约定全部锚定在这张表上, 新增平台/账户/分组时必须同步维护, 任何一侧改键名都会在这里报 KeyError:
@@ -351,6 +351,11 @@ class Trader(object):
     if is_print:
       self.logger.info(f'[{self.account_type[:4]}]: net value {old_net_value} --> {net_value}')
 
+  # buy stock by amount
+  def buy_with_amount(self, symbol: str, amount: float, print_summary: bool = True) -> str:
+    print('method not yet implemented')
+    return None
+
   # auto trade according to signals
   def signal_trade(self, signal: pd.DataFrame, money_per_sec: float, order_type: str = 'market', trading_fee: float = 5, pool: list = None, according_to_record: bool = True, minimum_position: float = None) -> None:    
     
@@ -374,7 +379,7 @@ class Trader(object):
       # if market order and the latest price is empty, set latest price to 0.00001
       else:
         if 'latest_price' not in signal.columns:
-          signal['latest_price'] = 0.00001
+          signal['latest_price'] = np.nan
 
       # get in-position quantity and latest price for signals
       self.update_position(get_briefs=False)
@@ -434,37 +439,45 @@ class Trader(object):
           # check whether symbol is already in position
           in_position_quantity = signal.loc[symbol, 'quantity']
           if in_position_quantity == 0:
-            # skip when latest price is missing or invalid
-            latest_price = signal.loc[symbol, 'latest_price']
-            if pd.isna(latest_price) or latest_price <= 0:
-              self.logger.error(f'[BUY]: {symbol} skipped (invalid latest price: {latest_price})')
-              continue
+            
+            if order_type == 'market':
 
-            # set money used to establish a new position
-            if according_to_record:
-              if (symbol in self.record.keys()) and (self.record[symbol]['position']==0):
-                money_per_sec = self.record[symbol]['cash']
-              else:
-                money_per_sec = default_money_per_sec
-
-            # check whether there is enough available money 
-            money_per_sec = available_cash if (money_per_sec > available_cash) else money_per_sec
-
-            # calculate quantity to buy
-            quantity = math.floor((money_per_sec-trading_fee)/signal.loc[symbol, 'latest_price'])
-            if quantity > 0:
-              if order_type == 'limit':
-                price = signal.loc[symbol, 'latest_price']
-              else:
-                price = None
-              trade_summary = self.trade(symbol=symbol, action='BUY', quantity=quantity, price=price, print_summary=False)
+              trade_summary = self.buy_with_amount(symbol, money_per_sec, print_summary=False)
               self.logger.info(trade_summary)
 
-              # update available cash
-              available_cash -= quantity * signal.loc[symbol, 'latest_price']
             else:
-              self.logger.info(f'[BUY]: not enough money')
-              continue
+
+              # skip when latest price is missing or invalid
+              latest_price = signal.loc[symbol, 'latest_price']
+              if pd.isna(latest_price) or latest_price <= 0:
+                self.logger.error(f'[BUY]: {symbol} skipped (invalid latest price: {latest_price})')
+                continue
+
+              # set money used to establish a new position
+              if according_to_record:
+                if (symbol in self.record.keys()) and (self.record[symbol]['position']==0):
+                  money_per_sec = self.record[symbol]['cash']
+                else:
+                  money_per_sec = default_money_per_sec
+
+              # check whether there is enough available money 
+              money_per_sec = available_cash if (money_per_sec > available_cash) else money_per_sec
+
+              # calculate quantity to buy
+              quantity = math.floor((money_per_sec-trading_fee)/signal.loc[symbol, 'latest_price'])
+              if quantity > 0:
+                if order_type == 'limit':
+                  price = signal.loc[symbol, 'latest_price']
+                else:
+                  price = None
+                trade_summary = self.trade(symbol=symbol, action='BUY', quantity=quantity, price=price, print_summary=False)
+                self.logger.info(trade_summary)
+
+                # update available cash
+                available_cash -= quantity * signal.loc[symbol, 'latest_price']
+              else:
+                self.logger.info(f'[BUY]: not enough money')
+                continue
           else:
             skip_buy.append(symbol)                      
             continue
@@ -1005,6 +1018,52 @@ class Tiger(Trader):
       else:
         trade_summary += f'FAILED: Unknown action({action})'
       
+    except Exception as e:
+      trade_summary += f'FAILED: {e}'
+      
+    # print trade summary
+    if print_summary: 
+      self.logger.info(trade_summary)
+
+    return trade_summary
+
+  # buy stock by amount
+  def buy_with_amount(self, symbol: str, amount: float, stop_loss: float = None, stop_profit: float = None, print_summary: bool = True) -> str:
+    trade_summary = ''
+    try:
+
+      # construct contract
+      contract = stock_contract(symbol=symbol, currency='USD')
+
+      available_cash = self.get_available_cash()
+      if amount > available_cash:
+        trade_summary += f'FAILED: Not enough cash({available_cash}/{amount})'
+        return trade_summary
+      else:
+        
+        order = market_order_by_amount(account=self.client_config.account, contract=contract, action='BUY', amount=amount)
+
+        # construct trade summary
+        trade_summary += f'[BUY]: {symbol} x ${amount} | '
+
+        # attach order legs
+        order_legs = []
+        if stop_loss is not None:
+          stop_loss_order_leg = order_leg('LOSS', stop_loss, time_in_force='GTC') # 附加止损单
+          order_legs.append(stop_loss_order_leg)
+        if stop_profit is not None:
+          stop_profit_order_leg = order_leg('PROFIT', stop_profit, time_in_force='GTC') # 附加止盈单
+          order_legs.append(stop_profit_order_leg)
+        if len(order_legs)>0:
+          order.order_legs = order_legs
+
+        # place buy order if affordable
+        order_id = self.trade_client.place_order(order)
+        if order_id is not None:
+          trade_summary += f'SUCCEED: {order_id}'
+        else:
+          trade_summary += 'FAILED: no response from server, order status unknown'
+
     except Exception as e:
       trade_summary += f'FAILED: {e}'
       
