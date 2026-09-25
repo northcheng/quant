@@ -1092,12 +1092,13 @@ class Tiger(Trader):
         # open_time from api is the next opening time, which is the current day's open
         pass
       elif status.status in ['Closed', 'Early Closed']:
-        # open_time from api is the next opening time; on non-trading days
-        # fall back to the most recent completed trading day, same as post-market
-        if open_time.weekday() == 0:
-          open_time = open_time - datetime.timedelta(days=3)
-        else:
-          open_time = open_time - datetime.timedelta(days=1)
+        pass
+        # # open_time from api is the next opening time; on non-trading days
+        # # fall back to the most recent completed trading day, same as post-market
+        # if open_time.weekday() == 0:
+        #   open_time = open_time - datetime.timedelta(days=3)
+        # else:
+        #   open_time = open_time - datetime.timedelta(days=1)
       else:
         self.logger.error(f'No method for status [{status.status}]')
 
