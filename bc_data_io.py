@@ -2747,7 +2747,7 @@ def send_result_by_email(config: dict, to_addr: str, from_addr: str = 'northchen
   if signal_file_date is not None:    
     for p in pools:
       signal_info += f'<li><p>{p}</p></li>'
-      tmp_signal_file = Path(config["result_path"]) / f'signal_bridge_{p}_{signal_file_date}.xlsx'
+      tmp_signal_file = Path(config["result_path"]) / f'signal_{p}_{signal_file_date}.xlsx'
       if os.path.exists(tmp_signal_file):
         tmp_signal_list = pd.read_excel(tmp_signal_file, sheet_name='signal', dtype={'symbol': str})
         if len(tmp_signal_list) > 0:

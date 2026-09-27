@@ -1,0 +1,78 @@
+========================================================================
+因子研究报告  |  池 company_300  |  预处理 rank  |  前向 h=1
+窗口: IS 2021-01-01~2024-12-31 / OOS 2025-01-01~至今  (权重只在 IS 期估计)
+========================================================================
+
+[数据质量声明]
+         check                               value                       note
+        池 / 规模      company_300: 297 标的 × 1692 交易日    2020-01-02 ~ 2026-09-25
+  close NaN 占比                              11.15% 停牌/未上市为 NaN, 上层按截面屏蔽(不填 0)
+       上市起点一致性                            88 个不同起点             起点分散 -> 生存偏差较小
+        复权价一致性 max|AdjClose - Close| = 1.13687e-13          相同 -> 数据未做分红/拆股调整
+  分红列 Dividend                        Σ|value| = 0              全为 0 -> 无分红事件
+     拆股列 Split                          非1占比 0.00%              全为 1 -> 无拆股事件
+疑似空列 resistant                       NaN 占比 100.0%        几乎全空 -> 垃圾列, 因子层已避开
+  疑似空列 support                       NaN 占比 100.0%        几乎全空 -> 垃圾列, 因子层已避开
+
+[冗余去重] 56 个因子 -> 保留 39 个
+  保留: ['vol_60', 'hi_252', 'mom_12_1', 'mom_sharpe_120', 'H_volratio_alpha', 'hihits_60', 'G_oviv20', 'rev_5', 'H_atr_alpha', 'streak', 'rsi_dev_14', 'G_parkcc20', 'K_mom_er', 'H_rsidev_alpha', 'G_dnbeta60', 'slope_20', 'H_entitydiff_alpha', 'H_adxval_alpha', 'H_trendmag_alpha', 'H_adxpow_alpha', 'H_volchg_alpha', 'H_trigger_alpha', 'H_er_alpha', 'H_body_alpha', 'obv_20', 'vratio_60', 'H_adxdist_alpha', 'K_mom_poolvolq', 'H_pattern_alpha', 'R_resmom121', 'I_id60', 'kurt_60', 'G_vr20', 'H_trpct_alpha', 'H_kamadist_alpha', 'H_bbw_alpha', 'H_pos_alpha', 'H_gapdist_alpha', 'H_ichimoku_alpha']
+  剔除: ['vol_20', 'downside_vol_60', 'max_ret_20', 'bbw_20', 'dd_60', 'mom_120', 'martin_60', 'bias_60', 'mom_60', 'rel_mom_60', 'vratio_20', 'mom_20', 'H_adxstr_alpha', 'er_20', 'H_shadow_alpha', 'bias_20', 'rev_10']
+
+[评估诚实性(IS 窗)]
+  BH-FDR(alpha=0.1): 17/56 个因子通过多重检验校正 (fdr_q < 0.1); 只看 nw_p 会高估显著个数
+  静态选票(sig_ac1 >= 0.99, 几乎不换仓 = 静态身份): ['mom_12_1', 'hihits_60', 'slope_20', 'G_vr20', 'downside_vol_60', 'vol_20', 'vol_60']
+  dyn_minus_static <= 0 = 该因子的动态选股没有跑赢"前半段静态选票"
+  多重检验后仍显著(IS) 的因子:
+            factor  rank_ic  nw_t   nw_p    fdr_q  sig_ac1  dyn_minus_static
+            hi_252   0.0333  3.92 0.0001 0.000933   0.9833          -0.00228
+             dd_60   0.0256  3.28 0.0010 0.007000   0.9535          -0.00138
+          mom_12_1   0.0181  2.66 0.0077 0.039200   0.9929           0.00094
+    mom_sharpe_120   0.0158  2.64 0.0084 0.039200   0.9889          -0.00118
+  H_volratio_alpha   0.0155  4.29 0.0000 0.000000   0.6954           0.00115
+         hihits_60   0.0143  2.60 0.0094 0.040492   0.9943          -0.00092
+          G_oviv20   0.0111  2.92 0.0035 0.021778   0.9614          -0.00060
+    H_rsidev_alpha   0.0079  2.29 0.0222 0.077700   0.7815          -0.00081
+H_entitydiff_alpha   0.0065  2.53 0.0116 0.046400   0.1724          -0.00347
+    H_adxpow_alpha   0.0059  2.45 0.0145 0.054133   0.7374          -0.00208
+        G_parkcc20  -0.0086 -2.68 0.0074 0.039200   0.9494          -0.00495
+            streak  -0.0091 -2.21 0.0269 0.088612   0.4606           0.00032
+            bbw_20  -0.0303 -3.69 0.0002 0.001600   0.9895           0.00467
+        max_ret_20  -0.0318 -3.92 0.0001 0.000933   0.9760           0.00356
+   downside_vol_60  -0.0356 -3.86 0.0001 0.000933   0.9967           0.00032
+            vol_20  -0.0361 -3.94 0.0001 0.000933   0.9902           0.00154
+            vol_60  -0.0366 -3.87 0.0001 0.000933   0.9981           0.00045
+
+[各方案权重(IS 期估计, sum|w|=1)]
+  equal  (n=39): vol_60=+0.026, hi_252=+0.026, mom_12_1=+0.026, mom_sharpe_120=+0.026, H_volratio_alpha=+0.026, hihits_60=+0.026, G_oviv20=+0.026, rev_5=+0.026, H_atr_alpha=+0.026, streak=+0.026, rsi_dev_14=+0.026, G_parkcc20=+0.026, K_mom_er=+0.026, H_rsidev_alpha=+0.026, G_dnbeta60=+0.026, slope_20=+0.026, H_entitydiff_alpha=+0.026, H_adxval_alpha=+0.026, H_trendmag_alpha=+0.026, H_adxpow_alpha=+0.026, H_volchg_alpha=+0.026, H_trigger_alpha=+0.026, H_er_alpha=+0.026, H_body_alpha=+0.026, obv_20=+0.026, vratio_60=+0.026, H_adxdist_alpha=+0.026, K_mom_poolvolq=+0.026, H_pattern_alpha=+0.026, R_resmom121=+0.026, I_id60=+0.026, kurt_60=+0.026, G_vr20=+0.026, H_trpct_alpha=+0.026, H_kamadist_alpha=+0.026, H_bbw_alpha=+0.026, H_pos_alpha=+0.026, H_gapdist_alpha=+0.026, H_ichimoku_alpha=+0.026
+  dir    (n=39): vol_60=-0.026, hi_252=+0.026, mom_12_1=+0.026, mom_sharpe_120=+0.026, H_volratio_alpha=+0.026, hihits_60=+0.026, G_oviv20=+0.026, rev_5=+0.026, H_atr_alpha=+0.026, streak=+0.026, rsi_dev_14=+0.026, G_parkcc20=+0.026, K_mom_er=+0.026, H_rsidev_alpha=+0.026, G_dnbeta60=-0.026, slope_20=+0.026, H_entitydiff_alpha=+0.026, H_adxval_alpha=+0.026, H_trendmag_alpha=+0.026, H_adxpow_alpha=+0.026, H_volchg_alpha=+0.026, H_trigger_alpha=+0.026, H_er_alpha=+0.026, H_body_alpha=+0.026, obv_20=+0.026, vratio_60=+0.026, H_adxdist_alpha=+0.026, K_mom_poolvolq=+0.026, H_pattern_alpha=+0.026, R_resmom121=+0.026, I_id60=+0.026, kurt_60=-0.026, G_vr20=+0.026, H_trpct_alpha=+0.026, H_kamadist_alpha=+0.026, H_bbw_alpha=+0.026, H_pos_alpha=+0.026, H_gapdist_alpha=+0.026, H_ichimoku_alpha=+0.026
+  ic     (n=39): vol_60=-0.124, hi_252=+0.113, mom_12_1=+0.061, mom_sharpe_120=+0.054, H_volratio_alpha=+0.053, hihits_60=+0.049, G_oviv20=+0.038, rev_5=+0.035, H_atr_alpha=+0.034, streak=-0.031, rsi_dev_14=+0.029, G_parkcc20=-0.029, K_mom_er=+0.027, H_rsidev_alpha=+0.027, G_dnbeta60=+0.026, slope_20=+0.024, H_entitydiff_alpha=+0.022, H_adxval_alpha=+0.021, H_trendmag_alpha=+0.020, H_adxpow_alpha=+0.020, H_volchg_alpha=+0.018, H_trigger_alpha=+0.018, H_er_alpha=+0.018, H_body_alpha=+0.015, obv_20=+0.014, vratio_60=+0.014, H_adxdist_alpha=+0.011, K_mom_poolvolq=-0.010, H_pattern_alpha=+0.010, R_resmom121=-0.009, I_id60=-0.009, kurt_60=-0.008, G_vr20=+0.004, H_trpct_alpha=+0.002, H_kamadist_alpha=+0.002, H_bbw_alpha=+0.001, H_pos_alpha=-0.001, H_gapdist_alpha=+0.000, H_ichimoku_alpha=+0.000
+  greedy (n=1): hi_252=+1.000
+
+[回测汇总] 同一引擎核算; 各窗独立推进(各自空仓起跑, 净值 1.0)
+          kind window  n_fac  n_days  total_ret   cagr   vol  sharpe  max_dd  calmar  ann_turnover  n_trades  win_rate  avg_ret  avg_days
+         equal     IS     39    1005      4.393  0.526 0.761    0.92  -0.702    0.75         154.5      1469     0.478   0.0063       3.4
+         equal    OOS     39     434      1.129  0.549 0.775    0.95  -0.388    1.41         168.0       695     0.494   0.0093       3.1
+           dir     IS     39    1005      2.251  0.344 0.676    0.76  -0.651    0.53         171.1      1643     0.474   0.0048       3.0
+           dir    OOS     39     434      0.417  0.224 0.654    0.64  -0.456    0.49         167.4       698     0.476   0.0067       3.1
+            ic     IS     39    1005      0.849  0.167 0.296    0.67  -0.403    0.41          94.9       915     0.489   0.0065       5.5
+            ic    OOS     39     434      0.227  0.126 0.294    0.55  -0.246    0.51          85.8       358     0.517   0.0056       5.9
+        greedy     IS      1    1005     -0.575 -0.193 0.290   -0.60  -0.692   -0.28         166.0      1641     0.447  -0.0002       3.0
+        greedy    OOS      1     434      0.251  0.138 0.435    0.51  -0.327    0.42         192.7       819     0.454   0.0036       2.6
+ single:vol_60     IS      1    1005      0.836  0.165 0.873    0.60  -0.765    0.22          13.8        78     0.372  -0.0020      61.6
+ single:vol_60    OOS      1     434      0.362  0.196 1.147    0.71  -0.721    0.27          15.4        30     0.333   1.5406      57.4
+shuffle(equal)     IS     39    1005     -0.686 -0.252 0.445   -0.43  -0.736   -0.34         474.4      4500     0.499   0.0014       1.1
+shuffle(equal)    OOS     39     434      0.195  0.109 0.628    0.45  -0.461    0.24         479.2      2053     0.516   0.0032       1.1
+       buyhold     IS    297    1005      1.651  0.277 0.278    1.02  -0.389    0.71           1.5         0       NaN      NaN       NaN
+       buyhold    OOS    297     434      1.757  0.799 0.380    1.74  -0.273    2.92           1.6         0       NaN      NaN       NaN
+
+[主方案 equal 全交易窗(2021-01-01 起)分年收益]
+date
+2021    1.245
+2022    0.035
+2023   -0.267
+2024    2.431
+2025    1.081
+2026    0.094
+
+[产物] quality=C:\Users\northcheng\git\quant\factor\output\company_300\data_quality.csv; eval_is=C:\Users\northcheng\git\quant\factor\output\company_300\factor_eval_IS.csv; eval_oos=C:\Users\northcheng\git\quant\factor\output\company_300\factor_eval_OOS.csv; corr=C:\Users\northcheng\git\quant\factor\output\company_300\factor_corr.csv; backtest=C:\Users\northcheng\git\quant\factor\output\company_300\backtest_summary.csv; yearly=C:\Users\northcheng\git\quant\factor\output\company_300\yearly_returns.csv; dropped=C:\Users\northcheng\git\quant\factor\output\company_300\dropped_factors.csv; fig_ic_decay=C:\Users\northcheng\git\quant\factor\output\company_300\fig1_ic_decay.png; fig_quantile=C:\Users\northcheng\git\quant\factor\output\company_300\fig2_quantile.png; fig_equity=C:\Users\northcheng\git\quant\factor\output\company_300\fig3_equity.png
+========================================================================

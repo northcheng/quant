@@ -1,0 +1,12 @@
+﻿factor,rank_ic,conflict_with,rho
+vol_20,-0.0186,max_ret_20,0.828
+vratio_20,-0.0126,H_volratio_alpha,0.73
+bias_20,-0.0064,rev_5,-0.702
+H_er_alpha,-0.0039,er_20,0.937
+mom_120,0.0033,mom_sharpe_120,0.942
+bias_60,-0.0026,martin_60,0.748
+K_mom_er,0.002,martin_60,0.815
+rsi_dev_14,-0.0012,rev_10,-0.764
+mom_60,-0.0002,martin_60,0.889
+rel_mom_60,-0.0002,martin_60,0.889
+H_shadow_alpha,0.0,H_body_alpha,-0.994

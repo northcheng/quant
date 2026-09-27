@@ -1,0 +1,5 @@
+[2026-09-27 16:56:14,933] - [INFO] - [tmp_sizing_cmp] - [etf_3x] scheme=dir top_k=5 exit_rank=12 因子 16 个, 数据 2020-01-02~2026-09-25
+[2026-09-27 16:56:22,837] - [INFO] - [tmp_sizing_cmp] - [company_300] scheme=equal top_k=5 exit_rank=12 因子 14 个, 数据 2020-01-02~2026-09-25
+[2026-09-27 16:56:32,106] - [INFO] - [tmp_sizing_cmp] - [hs300] scheme=equal top_k=5 exit_rank=12 因子 14 个, 数据 2020-01-02~2026-09-24
+[2026-09-27 16:56:38,245] - [INFO] - [tmp_sizing_cmp] - [a_etf_all] scheme=dir top_k=5 exit_rank=12 因子 18 个, 数据 2020-01-02~2026-09-24
+[2026-09-27 16:56:42,705] - [INFO] - [tmp_sizing_cmp] - 结果已写入: quant/factor/output/_tmp_sizing_cmp.csv

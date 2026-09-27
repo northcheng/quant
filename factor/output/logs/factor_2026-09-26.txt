@@ -1,0 +1,92 @@
+[2026-09-26 23:38:56,826]- [INFO] - [factor.data] - 
+Dataset(pool=etf_3x, interval=day)
+  pkl    : C:\Users\northcheng\quant\etf_3x_day_ta_data_research.pkl
+  标的数 : 28
+  交易日 : 1692 (2020-01-02 ~ 2026-09-25)
+  列数   : 206
+  面板   : 47,376 行 (symbol × date) 
+[2026-09-26 23:38:56,833]- [INFO] - [factor.data] - [wide]: close 宽表 shape=(1692, 28) (date × symbol), NaN 占比=0.0% 
+[2026-09-26 23:38:56,833]- [INFO] - [factor.data] - [wide]: index.name='date', columns.name='symbol' 
+[2026-09-26 23:38:56,834]- [INFO] - [factor.data] - [wide]: 最后一个交易日截面(前5):
+symbol
+AGQ     76.45
+BOIL    22.66
+CHAU    19.92
+DRN      8.70
+DUSL    78.98 
+[2026-09-26 23:38:56,834]- [INFO] - [factor.data] - [cols]: 面板可用列(前25): ['Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume', 'Dividend', 'Split', 'rate', 'volume_change', 'volume_day', 'candle_color', 'candle_shadow', 'candle_entity', 'candle_entity_top', 'candle_entity_bottom', 'candle_upper_shadow_pct', 'candle_lower_shadow_pct', 'candle_entity_pct', '相对candle位置', 'candle_position_score', 'candle_gap', 'candle_gap_color', 'candle_gap_top', 'candle_gap_bottom'] 
+[2026-09-26 23:44:49,871] - [INFO] - [factor.data] - 
+Dataset(pool=etf_3x, interval=day)
+  pkl    : C:\Users\northcheng\quant\etf_3x_day_ta_data_research.pkl
+  标的数 : 28
+  交易日 : 1692 (2020-01-02 ~ 2026-09-25)
+  列数   : 206
+  面板   : 47,376 行 (symbol × date)
+[2026-09-26 23:44:49,872] - [INFO] - [factor.data] - [pools]: 可用池 ['a_etf_all', 'company_1000', 'company_300', 'etf_3x', 'hs300']
+[2026-09-26 23:44:49,878] - [INFO] - [factor.data] - [wide]: close 宽表 shape=(1692, 28) (date × symbol), NaN 占比=0.0%
+[2026-09-26 23:44:49,878] - [INFO] - [factor.data] - [wide]: index.name='date', columns.name='symbol'
+[2026-09-26 23:44:49,878] - [INFO] - [factor.data] - [wide]: 最后一个交易日截面(前5):
+symbol
+AGQ     76.45
+BOIL    22.66
+CHAU    19.92
+DRN      8.70
+DUSL    78.98
+[2026-09-26 23:44:49,878] - [INFO] - [factor.data] - [cols]: 面板可用列(前25): ['Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume', 'Dividend', 'Split', 'rate', 'volume_change', 'volume_day', 'candle_color', 'candle_shadow', 'candle_entity', 'candle_entity_top', 'candle_entity_bottom', 'candle_upper_shadow_pct', 'candle_lower_shadow_pct', 'candle_entity_pct', '相对candle位置', 'candle_position_score', 'candle_gap', 'candle_gap_color', 'candle_gap_top', 'candle_gap_bottom']
+[2026-09-26 23:57:37,293] - [INFO] - [factor.factor] - 池 etf_3x: 28 标的 × 1692 交易日, 区间 2020-01-02 ~ 2026-09-25
+[2026-09-26 23:57:37,294] - [INFO] - [factor.factor] - 
+[因子总览] 共 14 个
+[2026-09-26 23:57:37,323] - [INFO] - [factor.factor] - 
+   factor group  window  direction  warmup  coverage  cs_median                            formula
+   mom_20    动量      20          1      20    0.9882         28         close[t] / close[t-20] - 1
+   mom_60    动量      60          1      60    0.9645         28         close[t] / close[t-60] - 1
+  mom_120    动量     120          1     120    0.9291         28        close[t] / close[t-120] - 1
+ mom_12_1    动量     252          1     252    0.8511         28     close[t-20] / close[t-252] - 1
+    rev_5    反转       5          1       5    0.9970         28       -(close[t] / close[t-5] - 1)
+   rev_10    反转      10          1      10    0.9941         28      -(close[t] / close[t-10] - 1)
+   vol_20    波动      20         -1      20    0.9882         28         std(ret_1, 20) * sqrt(252)
+   vol_60    波动      60         -1      60    0.9645         28         std(ret_1, 60) * sqrt(252)
+vratio_20    量能      20          1      19    0.9888         28  volume[t] / mean(volume[t-19..t])
+vratio_60    量能      60          1      59    0.9651         28  volume[t] / mean(volume[t-59..t])
+  bias_20    趋势      20          1      19    0.9888         28             close[t] / MA20[t] - 1
+  bias_60    趋势      60          1      59    0.9651         28             close[t] / MA60[t] - 1
+ slope_20    趋势      40          1      39    0.9770         28           MA20[t] / MA20[t-20] - 1
+    dd_60    趋势      60          1      59    0.9651         28 close[t] / max(close[t-59..t]) - 1
+[2026-09-26 23:57:40,867] - [INFO] - [factor.factor] - 池 etf_3x: 28 标的 × 1692 交易日, 区间 2020-01-02 ~ 2026-09-25
+[2026-09-26 23:57:40,867] - [INFO] - [factor.factor] - 
+[因子总览] 共 14 个
+[2026-09-26 23:57:40,896] - [INFO] - [factor.factor] - 
+   factor group  window  direction  warmup  coverage  cs_median                            formula
+   mom_20    动量      20          1      20    0.9882         28         close[t] / close[t-20] - 1
+   mom_60    动量      60          1      60    0.9645         28         close[t] / close[t-60] - 1
+  mom_120    动量     120          1     120    0.9291         28        close[t] / close[t-120] - 1
+ mom_12_1    动量     252          1     252    0.8511         28     close[t-20] / close[t-252] - 1
+    rev_5    反转       5          1       5    0.9970         28       -(close[t] / close[t-5] - 1)
+   rev_10    反转      10          1      10    0.9941         28      -(close[t] / close[t-10] - 1)
+   vol_20    波动      20         -1      20    0.9882         28         std(ret_1, 20) * sqrt(252)
+   vol_60    波动      60         -1      60    0.9645         28         std(ret_1, 60) * sqrt(252)
+vratio_20    量能      20          1      19    0.9888         28  volume[t] / mean(volume[t-19..t])
+vratio_60    量能      60          1      59    0.9651         28  volume[t] / mean(volume[t-59..t])
+  bias_20    趋势      20          1      19    0.9888         28             close[t] / MA20[t] - 1
+  bias_60    趋势      60          1      59    0.9651         28             close[t] / MA60[t] - 1
+ slope_20    趋势      40          1      39    0.9770         28           MA20[t] / MA20[t-20] - 1
+    dd_60    趋势      60          1      59    0.9651         28 close[t] / max(close[t-59..t]) - 1
+[2026-09-26 23:57:40,954] - [INFO] - [factor.factor] - 
+[截断一致性检验] 全历史算 vs 只喂到 2024-06-28
+[2026-09-26 23:57:40,956] - [INFO] - [factor.factor] - 
+   factor group  cells  max_diff  nan_same  causal
+   mom_20    动量  31640       0.0      True    True
+   mom_60    动量  31640       0.0      True    True
+  mom_120    动量  31640       0.0      True    True
+ mom_12_1    动量  31640       0.0      True    True
+    rev_5    反转  31640       0.0      True    True
+   rev_10    反转  31640       0.0      True    True
+   vol_20    波动  31640       0.0      True    True
+   vol_60    波动  31640       0.0      True    True
+vratio_20    量能  31640       0.0      True    True
+vratio_60    量能  31640       0.0      True    True
+  bias_20    趋势  31640       0.0      True    True
+  bias_60    趋势  31640       0.0      True    True
+ slope_20    趋势  31640       0.0      True    True
+    dd_60    趋势  31640       0.0      True    True
+[2026-09-26 23:57:40,957] - [INFO] - [factor.factor] - [结论] 全部因子因果

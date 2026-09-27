@@ -1,0 +1,68 @@
+========================================================================
+因子研究报告  |  池 a_etf_all  |  预处理 rank  |  前向 h=1  [已剔除静态票]
+窗口: IS 2021-01-01~2024-12-31 / OOS 2025-01-01~至今  (权重只在 IS 期估计)
+========================================================================
+
+[数据质量声明]
+         check                               value                       note
+        池 / 规模         a_etf_all: 98 标的 × 1633 交易日    2020-01-02 ~ 2026-09-24
+  close NaN 占比                              34.01% 停牌/未上市为 NaN, 上层按截面屏蔽(不填 0)
+       上市起点一致性                            82 个不同起点             起点分散 -> 生存偏差较小
+        复权价一致性 max|AdjClose - Close| = 4.44089e-16          相同 -> 数据未做分红/拆股调整
+  分红列 Dividend                        Σ|value| = 0              全为 0 -> 无分红事件
+     拆股列 Split                          非1占比 0.00%              全为 1 -> 无拆股事件
+疑似空列 resistant                        NaN 占比 99.9%        几乎全空 -> 垃圾列, 因子层已避开
+  疑似空列 support                       NaN 占比 100.0%        几乎全空 -> 垃圾列, 因子层已避开
+
+[冗余去重] 52 个因子 -> 保留 41 个
+  保留: ['streak', 'G_oviv20', 'max_ret_20', 'rev_5', 'G_parkcc20', 'H_volratio_alpha', 'mom_12_1', 'H_volchg_alpha', 'H_trendmag_alpha', 'kurt_60', 'H_rsidev_alpha', 'vratio_60', 'bbw_20', 'H_adxdist_alpha', 'hi_252', 'H_trpct_alpha', 'hihits_60', 'H_kamadist_alpha', 'H_ichimoku_alpha', 'H_adxpow_alpha', 'G_dnbeta60', 'I_id60', 'rev_10', 'H_adxstr_alpha', 'mom_sharpe_120', 'K_mom_poolvolq', 'H_pos_alpha', 'er_20', 'H_trigger_alpha', 'H_pattern_alpha', 'martin_60', 'dd_60', 'H_body_alpha', 'H_entitydiff_alpha', 'H_atr_alpha', 'H_adxval_alpha', 'mom_20', 'H_gapdist_alpha', 'R_resmom121', 'H_bbw_alpha', 'obv_20']
+  剔除: ['vol_20', 'vratio_20', 'bias_20', 'H_er_alpha', 'mom_120', 'bias_60', 'K_mom_er', 'rsi_dev_14', 'mom_60', 'rel_mom_60', 'H_shadow_alpha']
+
+[评估诚实性(IS 窗)]
+  BH-FDR(alpha=0.1): 5/56 个因子通过多重检验校正 (fdr_q < 0.1); 只看 nw_p 会高估显著个数
+  静态选票(sig_ac1 >= 0.99, 几乎不换仓 = 静态身份): ['slope_20', 'G_vr20', 'downside_vol_60', 'vol_60']
+  dyn_minus_static <= 0 = 该因子的动态选股没有跑赢"前半段静态选票"
+  多重检验后仍显著(IS) 的因子:
+          factor  rank_ic  nw_t   nw_p   fdr_q  sig_ac1  dyn_minus_static
+        G_oviv20   0.0222  2.73 0.0064 0.07168   0.9667           0.00019
+  H_volchg_alpha  -0.0165 -3.11 0.0018 0.03360   0.4762          -0.00021
+H_volratio_alpha  -0.0196 -3.76 0.0002 0.00560   0.6021          -0.00030
+      G_parkcc20  -0.0212 -2.79 0.0052 0.07168   0.9430           0.00045
+          streak  -0.0291 -3.96 0.0001 0.00560   0.4312          -0.00103
+
+[组合剔除] 静态选票 ['slope_20', 'G_vr20', 'downside_vol_60', 'vol_60'] 已剔出组合 (仍列在评估表中以便审计)
+
+[各方案权重(IS 期估计, sum|w|=1)]
+  equal  (n=41): streak=+0.024, G_oviv20=+0.024, max_ret_20=+0.024, rev_5=+0.024, G_parkcc20=+0.024, H_volratio_alpha=+0.024, mom_12_1=+0.024, H_volchg_alpha=+0.024, H_trendmag_alpha=+0.024, kurt_60=+0.024, H_rsidev_alpha=+0.024, vratio_60=+0.024, bbw_20=+0.024, H_adxdist_alpha=+0.024, hi_252=+0.024, H_trpct_alpha=+0.024, hihits_60=+0.024, H_kamadist_alpha=+0.024, H_ichimoku_alpha=+0.024, H_adxpow_alpha=+0.024, G_dnbeta60=+0.024, I_id60=+0.024, rev_10=+0.024, H_adxstr_alpha=+0.024, mom_sharpe_120=+0.024, K_mom_poolvolq=+0.024, H_pos_alpha=+0.024, er_20=+0.024, H_trigger_alpha=+0.024, H_pattern_alpha=+0.024, martin_60=+0.024, dd_60=+0.024, H_body_alpha=+0.024, H_entitydiff_alpha=+0.024, H_atr_alpha=+0.024, H_adxval_alpha=+0.024, mom_20=+0.024, H_gapdist_alpha=+0.024, R_resmom121=+0.024, H_bbw_alpha=+0.024, obv_20=+0.024
+  dir    (n=41): streak=+0.024, G_oviv20=+0.024, max_ret_20=-0.024, rev_5=+0.024, G_parkcc20=+0.024, H_volratio_alpha=+0.024, mom_12_1=+0.024, H_volchg_alpha=+0.024, H_trendmag_alpha=+0.024, kurt_60=-0.024, H_rsidev_alpha=+0.024, vratio_60=+0.024, bbw_20=-0.024, H_adxdist_alpha=+0.024, hi_252=+0.024, H_trpct_alpha=+0.024, hihits_60=+0.024, H_kamadist_alpha=+0.024, H_ichimoku_alpha=+0.024, H_adxpow_alpha=+0.024, G_dnbeta60=-0.024, I_id60=+0.024, rev_10=+0.024, H_adxstr_alpha=+0.024, mom_sharpe_120=+0.024, K_mom_poolvolq=+0.024, H_pos_alpha=+0.024, er_20=+0.024, H_trigger_alpha=+0.024, H_pattern_alpha=+0.024, martin_60=+0.024, dd_60=+0.024, H_body_alpha=+0.024, H_entitydiff_alpha=+0.024, H_atr_alpha=+0.024, H_adxval_alpha=+0.024, mom_20=+0.024, H_gapdist_alpha=+0.024, R_resmom121=+0.024, H_bbw_alpha=+0.024, obv_20=+0.024
+  ic     (n=41): streak=-0.076, G_oviv20=+0.058, max_ret_20=-0.058, rev_5=+0.057, G_parkcc20=-0.056, H_volratio_alpha=-0.051, mom_12_1=+0.051, H_volchg_alpha=-0.043, H_trendmag_alpha=+0.040, kurt_60=+0.039, H_rsidev_alpha=-0.038, vratio_60=-0.036, bbw_20=-0.035, H_adxdist_alpha=+0.030, hi_252=+0.030, H_trpct_alpha=-0.029, hihits_60=+0.024, H_kamadist_alpha=-0.023, H_ichimoku_alpha=+0.022, H_adxpow_alpha=+0.021, G_dnbeta60=+0.020, I_id60=+0.019, rev_10=+0.017, H_adxstr_alpha=+0.015, mom_sharpe_120=+0.015, K_mom_poolvolq=+0.014, H_pos_alpha=+0.013, er_20=-0.012, H_trigger_alpha=+0.011, H_pattern_alpha=+0.010, martin_60=+0.007, dd_60=+0.006, H_body_alpha=+0.005, H_entitydiff_alpha=+0.004, H_atr_alpha=+0.003, H_adxval_alpha=+0.003, mom_20=-0.003, H_gapdist_alpha=+0.002, R_resmom121=+0.001, H_bbw_alpha=-0.001, obv_20=+0.000
+  greedy (n=5): G_oviv20=+0.200, rev_5=+0.200, H_trendmag_alpha=+0.200, kurt_60=+0.200, hi_252=+0.200
+
+[回测汇总] 同一引擎核算; 各窗独立推进(各自空仓起跑, 净值 1.0)
+          kind window  n_fac  n_days  total_ret   cagr   vol  sharpe  max_dd  calmar  ann_turnover  n_trades  win_rate  avg_ret  avg_days
+         equal     IS     41     969     -0.128 -0.034 0.286    0.02  -0.397   -0.08          71.3       670     0.454   0.0014       7.2
+         equal    OOS     41     421     -0.163 -0.098 0.399   -0.07  -0.528   -0.19          68.8       276     0.482   0.0008       7.5
+           dir     IS     41     969     -0.354 -0.104 0.260   -0.31  -0.461   -0.22          83.4       785     0.437  -0.0004       6.1
+           dir    OOS     41     421      0.139  0.079 0.348    0.40  -0.488    0.16          92.5       376     0.521   0.0048       5.5
+            ic     IS     41     969      0.487  0.105 0.338    0.44  -0.259    0.40          80.2       754     0.554   0.0027       6.4
+            ic    OOS     41     421      0.272  0.150 0.230    0.74  -0.192    0.78         115.2       472     0.621   0.0042       4.3
+        greedy     IS      5     969     -0.036 -0.009 0.212    0.06  -0.325   -0.03         114.1      1078     0.555   0.0021       4.5
+        greedy    OOS      5     421      0.244  0.135 0.401    0.51  -0.285    0.47         141.2       576     0.516   0.0024       3.6
+ single:streak     IS      1     969     -0.818 -0.348 0.243   -1.70  -0.823   -0.42         245.0      2343     0.388  -0.0014       2.1
+ single:streak    OOS      1     421     -0.545 -0.366 0.279   -1.55  -0.596   -0.61         252.4      1046     0.412  -0.0016       2.0
+shuffle(equal)     IS     41     969     -0.703 -0.262 0.237   -1.22  -0.772   -0.34         377.8      3265     0.471   0.0004       1.2
+shuffle(equal)    OOS     41     421     -0.511 -0.340 0.231   -1.74  -0.519   -0.66         418.2      1724     0.500   0.0002       1.2
+       buyhold     IS     98     969     -0.148 -0.039 0.206   -0.10  -0.393   -0.10           1.1         0       NaN      NaN       NaN
+       buyhold    OOS     98     421      0.238  0.132 0.177    0.81  -0.143    0.92           1.1         0       NaN      NaN       NaN
+
+[主方案 equal 全交易窗(2021-01-01 起)分年收益]
+date
+2021   -0.136
+2022   -0.043
+2023   -0.070
+2024    0.145
+2025    0.236
+2026   -0.353
+
+[产物] quality=C:\Users\northcheng\git\quant\factor\output\a_etf_all_excl_static\data_quality.csv; eval_is=C:\Users\northcheng\git\quant\factor\output\a_etf_all_excl_static\factor_eval_IS.csv; eval_oos=C:\Users\northcheng\git\quant\factor\output\a_etf_all_excl_static\factor_eval_OOS.csv; corr=C:\Users\northcheng\git\quant\factor\output\a_etf_all_excl_static\factor_corr.csv; backtest=C:\Users\northcheng\git\quant\factor\output\a_etf_all_excl_static\backtest_summary.csv; yearly=C:\Users\northcheng\git\quant\factor\output\a_etf_all_excl_static\yearly_returns.csv; dropped=C:\Users\northcheng\git\quant\factor\output\a_etf_all_excl_static\dropped_factors.csv; fig_ic_decay=C:\Users\northcheng\git\quant\factor\output\a_etf_all_excl_static\fig1_ic_decay.png; fig_quantile=C:\Users\northcheng\git\quant\factor\output\a_etf_all_excl_static\fig2_quantile.png; fig_equity=C:\Users\northcheng\git\quant\factor\output\a_etf_all_excl_static\fig3_equity.png
+========================================================================

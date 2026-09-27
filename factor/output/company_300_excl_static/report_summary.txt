@@ -1,0 +1,80 @@
+========================================================================
+因子研究报告  |  池 company_300  |  预处理 rank  |  前向 h=1  [已剔除静态票]
+窗口: IS 2021-01-01~2024-12-31 / OOS 2025-01-01~至今  (权重只在 IS 期估计)
+========================================================================
+
+[数据质量声明]
+         check                               value                       note
+        池 / 规模      company_300: 297 标的 × 1692 交易日    2020-01-02 ~ 2026-09-25
+  close NaN 占比                              11.15% 停牌/未上市为 NaN, 上层按截面屏蔽(不填 0)
+       上市起点一致性                            88 个不同起点             起点分散 -> 生存偏差较小
+        复权价一致性 max|AdjClose - Close| = 1.13687e-13          相同 -> 数据未做分红/拆股调整
+  分红列 Dividend                        Σ|value| = 0              全为 0 -> 无分红事件
+     拆股列 Split                          非1占比 0.00%              全为 1 -> 无拆股事件
+疑似空列 resistant                       NaN 占比 100.0%        几乎全空 -> 垃圾列, 因子层已避开
+  疑似空列 support                       NaN 占比 100.0%        几乎全空 -> 垃圾列, 因子层已避开
+
+[冗余去重] 49 个因子 -> 保留 35 个
+  保留: ['hi_252', 'max_ret_20', 'mom_sharpe_120', 'H_volratio_alpha', 'G_oviv20', 'rev_5', 'H_atr_alpha', 'streak', 'rsi_dev_14', 'G_parkcc20', 'K_mom_er', 'H_rsidev_alpha', 'G_dnbeta60', 'H_entitydiff_alpha', 'H_adxval_alpha', 'H_trendmag_alpha', 'H_adxpow_alpha', 'H_volchg_alpha', 'H_trigger_alpha', 'H_er_alpha', 'H_body_alpha', 'obv_20', 'vratio_60', 'H_adxdist_alpha', 'K_mom_poolvolq', 'H_pattern_alpha', 'R_resmom121', 'I_id60', 'kurt_60', 'H_trpct_alpha', 'H_kamadist_alpha', 'H_bbw_alpha', 'H_pos_alpha', 'H_gapdist_alpha', 'H_ichimoku_alpha']
+  剔除: ['bbw_20', 'dd_60', 'mom_120', 'martin_60', 'bias_60', 'mom_60', 'rel_mom_60', 'vratio_20', 'mom_20', 'H_adxstr_alpha', 'er_20', 'H_shadow_alpha', 'bias_20', 'rev_10']
+
+[评估诚实性(IS 窗)]
+  BH-FDR(alpha=0.1): 17/56 个因子通过多重检验校正 (fdr_q < 0.1); 只看 nw_p 会高估显著个数
+  静态选票(sig_ac1 >= 0.99, 几乎不换仓 = 静态身份): ['mom_12_1', 'hihits_60', 'slope_20', 'G_vr20', 'downside_vol_60', 'vol_20', 'vol_60']
+  dyn_minus_static <= 0 = 该因子的动态选股没有跑赢"前半段静态选票"
+  多重检验后仍显著(IS) 的因子:
+            factor  rank_ic  nw_t   nw_p    fdr_q  sig_ac1  dyn_minus_static
+            hi_252   0.0333  3.92 0.0001 0.000933   0.9833          -0.00228
+             dd_60   0.0256  3.28 0.0010 0.007000   0.9535          -0.00138
+          mom_12_1   0.0181  2.66 0.0077 0.039200   0.9929           0.00094
+    mom_sharpe_120   0.0158  2.64 0.0084 0.039200   0.9889          -0.00118
+  H_volratio_alpha   0.0155  4.29 0.0000 0.000000   0.6954           0.00115
+         hihits_60   0.0143  2.60 0.0094 0.040492   0.9943          -0.00092
+          G_oviv20   0.0111  2.92 0.0035 0.021778   0.9614          -0.00060
+    H_rsidev_alpha   0.0079  2.29 0.0222 0.077700   0.7815          -0.00081
+H_entitydiff_alpha   0.0065  2.53 0.0116 0.046400   0.1724          -0.00347
+    H_adxpow_alpha   0.0059  2.45 0.0145 0.054133   0.7374          -0.00208
+        G_parkcc20  -0.0086 -2.68 0.0074 0.039200   0.9494          -0.00495
+            streak  -0.0091 -2.21 0.0269 0.088612   0.4606           0.00032
+            bbw_20  -0.0303 -3.69 0.0002 0.001600   0.9895           0.00467
+        max_ret_20  -0.0318 -3.92 0.0001 0.000933   0.9760           0.00356
+   downside_vol_60  -0.0356 -3.86 0.0001 0.000933   0.9967           0.00032
+            vol_20  -0.0361 -3.94 0.0001 0.000933   0.9902           0.00154
+            vol_60  -0.0366 -3.87 0.0001 0.000933   0.9981           0.00045
+
+[组合剔除] 静态选票 ['mom_12_1', 'hihits_60', 'slope_20', 'G_vr20', 'downside_vol_60', 'vol_20', 'vol_60'] 已剔出组合 (仍列在评估表中以便审计)
+
+[各方案权重(IS 期估计, sum|w|=1)]
+  equal  (n=35): hi_252=+0.029, max_ret_20=+0.029, mom_sharpe_120=+0.029, H_volratio_alpha=+0.029, G_oviv20=+0.029, rev_5=+0.029, H_atr_alpha=+0.029, streak=+0.029, rsi_dev_14=+0.029, G_parkcc20=+0.029, K_mom_er=+0.029, H_rsidev_alpha=+0.029, G_dnbeta60=+0.029, H_entitydiff_alpha=+0.029, H_adxval_alpha=+0.029, H_trendmag_alpha=+0.029, H_adxpow_alpha=+0.029, H_volchg_alpha=+0.029, H_trigger_alpha=+0.029, H_er_alpha=+0.029, H_body_alpha=+0.029, obv_20=+0.029, vratio_60=+0.029, H_adxdist_alpha=+0.029, K_mom_poolvolq=+0.029, H_pattern_alpha=+0.029, R_resmom121=+0.029, I_id60=+0.029, kurt_60=+0.029, H_trpct_alpha=+0.029, H_kamadist_alpha=+0.029, H_bbw_alpha=+0.029, H_pos_alpha=+0.029, H_gapdist_alpha=+0.029, H_ichimoku_alpha=+0.029
+  dir    (n=35): hi_252=+0.029, max_ret_20=-0.029, mom_sharpe_120=+0.029, H_volratio_alpha=+0.029, G_oviv20=+0.029, rev_5=+0.029, H_atr_alpha=+0.029, streak=+0.029, rsi_dev_14=+0.029, G_parkcc20=+0.029, K_mom_er=+0.029, H_rsidev_alpha=+0.029, G_dnbeta60=-0.029, H_entitydiff_alpha=+0.029, H_adxval_alpha=+0.029, H_trendmag_alpha=+0.029, H_adxpow_alpha=+0.029, H_volchg_alpha=+0.029, H_trigger_alpha=+0.029, H_er_alpha=+0.029, H_body_alpha=+0.029, obv_20=+0.029, vratio_60=+0.029, H_adxdist_alpha=+0.029, K_mom_poolvolq=+0.029, H_pattern_alpha=+0.029, R_resmom121=+0.029, I_id60=+0.029, kurt_60=-0.029, H_trpct_alpha=+0.029, H_kamadist_alpha=+0.029, H_bbw_alpha=+0.029, H_pos_alpha=+0.029, H_gapdist_alpha=+0.029, H_ichimoku_alpha=+0.029
+  ic     (n=35): hi_252=+0.134, max_ret_20=-0.128, mom_sharpe_120=+0.064, H_volratio_alpha=+0.062, G_oviv20=+0.044, rev_5=+0.042, H_atr_alpha=+0.040, streak=-0.037, rsi_dev_14=+0.035, G_parkcc20=-0.035, K_mom_er=+0.032, H_rsidev_alpha=+0.032, G_dnbeta60=+0.031, H_entitydiff_alpha=+0.026, H_adxval_alpha=+0.024, H_trendmag_alpha=+0.024, H_adxpow_alpha=+0.024, H_volchg_alpha=+0.022, H_trigger_alpha=+0.021, H_er_alpha=+0.021, H_body_alpha=+0.017, obv_20=+0.017, vratio_60=+0.016, H_adxdist_alpha=+0.013, K_mom_poolvolq=-0.012, H_pattern_alpha=+0.011, R_resmom121=-0.011, I_id60=-0.010, kurt_60=-0.009, H_trpct_alpha=+0.002, H_kamadist_alpha=+0.002, H_bbw_alpha=+0.001, H_pos_alpha=-0.001, H_gapdist_alpha=+0.001, H_ichimoku_alpha=+0.000
+  greedy (n=1): hi_252=+1.000
+
+[回测汇总] 同一引擎核算; 各窗独立推进(各自空仓起跑, 净值 1.0)
+          kind window  n_fac  n_days  total_ret   cagr   vol  sharpe  max_dd  calmar  ann_turnover  n_trades  win_rate  avg_ret  avg_days
+         equal     IS     35    1005      3.816  0.483 0.799    0.87  -0.765    0.63         184.1      1753     0.477   0.0061       2.8
+         equal    OOS     35     434      1.635  0.752 0.747    1.12  -0.411    1.83         194.1       810     0.496   0.0099       2.6
+           dir     IS     35    1005      2.367  0.356 0.698    0.77  -0.626    0.57         201.7      1937     0.472   0.0055       2.6
+           dir    OOS     35     434      0.152  0.085 0.698    0.45  -0.528    0.16         198.6       830     0.483   0.0038       2.6
+            ic     IS     35    1005      1.293  0.231 0.433    0.67  -0.393    0.59         130.4      1258     0.511   0.0063       4.0
+            ic    OOS     35     434      0.042  0.024 0.289    0.23  -0.334    0.07         118.1       497     0.543   0.0033       4.3
+        greedy     IS      1    1005     -0.575 -0.193 0.290   -0.60  -0.692   -0.28         166.0      1641     0.447  -0.0002       3.0
+        greedy    OOS      1     434      0.251  0.138 0.435    0.51  -0.327    0.42         192.7       819     0.454   0.0036       2.6
+ single:hi_252     IS      1    1005     -0.575 -0.193 0.290   -0.60  -0.692   -0.28         166.0      1641     0.447  -0.0002       3.0
+ single:hi_252    OOS      1     434      0.251  0.138 0.435    0.51  -0.327    0.42         192.7       819     0.454   0.0036       2.6
+shuffle(equal)     IS     35    1005     -0.755 -0.297 0.435   -0.59  -0.781   -0.38         475.5      4515     0.503   0.0012       1.1
+shuffle(equal)    OOS     35     434     -0.001 -0.001 0.645    0.30  -0.547   -0.00         479.0      2048     0.514   0.0029       1.1
+       buyhold     IS    297    1005      1.651  0.277 0.278    1.02  -0.389    0.71           1.5         0       NaN      NaN       NaN
+       buyhold    OOS    297     434      1.757  0.799 0.380    1.74  -0.273    2.92           1.6         0       NaN      NaN       NaN
+
+[主方案 equal 全交易窗(2021-01-01 起)分年收益]
+date
+2021    1.158
+2022    0.058
+2023   -0.376
+2024    2.739
+2025    1.091
+2026    0.356
+
+[产物] quality=C:\Users\northcheng\git\quant\factor\output\company_300_excl_static\data_quality.csv; eval_is=C:\Users\northcheng\git\quant\factor\output\company_300_excl_static\factor_eval_IS.csv; eval_oos=C:\Users\northcheng\git\quant\factor\output\company_300_excl_static\factor_eval_OOS.csv; corr=C:\Users\northcheng\git\quant\factor\output\company_300_excl_static\factor_corr.csv; backtest=C:\Users\northcheng\git\quant\factor\output\company_300_excl_static\backtest_summary.csv; yearly=C:\Users\northcheng\git\quant\factor\output\company_300_excl_static\yearly_returns.csv; dropped=C:\Users\northcheng\git\quant\factor\output\company_300_excl_static\dropped_factors.csv; fig_ic_decay=C:\Users\northcheng\git\quant\factor\output\company_300_excl_static\fig1_ic_decay.png; fig_quantile=C:\Users\northcheng\git\quant\factor\output\company_300_excl_static\fig2_quantile.png; fig_equity=C:\Users\northcheng\git\quant\factor\output\company_300_excl_static\fig3_equity.png
+========================================================================
