@@ -24,6 +24,7 @@ from quant.factor import config as cfg
 from quant.factor import evaluate as ev
 from quant.factor import repro_old_presets as repro
 from quant.factor.data import load_pool
+from quant.factor.report import _jsonable          # NaN/inf -> None, 保证写出合法 JSON
 
 BASE_SHRINK = 0.5           # cd_ic 初值的 IC 收缩比例(与 Step3 冻结口径一致)
 BASE_THRESH = 0.7           # 去重冗余阈值
@@ -48,15 +49,16 @@ def run_pool(pool: str, cd_passes: int = 3) -> dict:
   preset_w, preset_k = repro.PRESETS[pool]
   p = repro.engine_params(preset_k)
   fwd = ev.forward_return(ds, h=1)
-  fwd_is = bt._win(fwd, cfg.TRADE_START, cfg.IS_END)
+  is_s, is_e = cfg.resolve_windows(pool)['is']               # 窗口真源(该池 config 优先)
+  fwd_is = bt._win(fwd, is_s, is_e)
 
   scores = cmb.rank_ic_scores(sigs, fwd_is, min_cs=cfg.MIN_CS)
   kept, dropped = cmb.dedupe(sigs, scores, thresh=BASE_THRESH, min_cs=cfg.MIN_CS)
   cands = kept or list(sigs.keys())
   w0 = _ic_weights(sigs, fwd_is, cands, BASE_SHRINK)
 
-  folds = cmb.split_folds(ds.dates, cfg.TRADE_START, cfg.IS_END, NF)
-  obj = bt.make_fold_objective(open_w, close_w, p, folds, metric='sharpe', agg=AGG)
+  folds = cmb.split_folds(ds.dates, is_s, is_e, NF)
+  obj = bt.cached_fold_objective(open_w, close_w, p, folds, metric='sharpe', agg=AGG)
   w_cd, hist = cmb.coord_descent_weights(sigs, w0, obj, min_cs=cfg.MIN_CS,
                                          max_passes=cd_passes)
 
@@ -106,7 +108,9 @@ def main():
 
   if a.out:
     with open(a.out, 'w', encoding='utf-8') as f:
-      json.dump(res, f, ensure_ascii=False, indent=2)
+      # 与 report.write_config 同口径: NaN/inf 必须转成 null, 否则会写出裸 NaN 字面量,
+      # 那不是合法 JSON, 下游任何严格解析都会失败(权重量化时出现 NaN 并不罕见).
+      json.dump(_jsonable(res), f, ensure_ascii=False, indent=2, allow_nan=False)
     print(f"\n结果已写入: {a.out}")
 
 

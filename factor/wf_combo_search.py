@@ -104,12 +104,13 @@ def run_pool(pool: str, signed: bool, max_n: int, min_gain: float,
   open_w, close_w = ds.wide('open'), ds.wide('close')
   sigs = repro.native_signals(ds)                            # 10 个信号(键名对齐旧预设)
   preset_w, preset_k = repro.PRESETS[pool]
-  windows = repro.WINDOWS
-  folds = cmb.split_folds(ds.dates, cfg.TRADE_START, cfg.IS_END, n_folds)
+  windows = repro.windows_for(pool)                          # 窗口真源(含 OOS 终点)
+  is_s, is_e = cfg.resolve_windows(pool)['is']
+  folds = cmb.split_folds(ds.dates, is_s, is_e, n_folds)
 
   # --- 只依赖 IS 的定参材料 ---
   fwd = ev.forward_return(ds, h=1)
-  fwd_is = bt._win(fwd, cfg.TRADE_START, cfg.IS_END)
+  fwd_is = bt._win(fwd, is_s, is_e)
   scores = cmb.rank_ic_scores(sigs, fwd_is, min_cs=cfg.MIN_CS)
   kept, dropped = cmb.dedupe(sigs, scores, thresh=cmb.DEDUPE_RHO, min_cs=cfg.MIN_CS)
   cands = kept or list(sigs.keys())                          # 冗余去重后的候选

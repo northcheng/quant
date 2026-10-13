@@ -42,6 +42,56 @@ ACCOUNT_GROUPS = {
   'tiger': {'global_account': 'real', 'simulation_account': 'simu'},
   'futu': {'REAL': 'real', 'SIMULATE': 'simu'}}
 
+
+# ============================ 下单结果契约 ============================
+# trade()/buy_with_amount() 传统上只返回一段"给人看的字符串", 失败时**不抛异常**,
+# 于是调用方无法判断成功与否 —— 曾经的后果是 signal_trade 无条件扣减 available_cash,
+# 一次下单失败就吃掉一笔预算, 后续买单被系统性少买甚至直接 break.
+#
+# 这里统一成功标记的判定方式(见 trade_ok):
+#   * 状态标记位于**最后一个 '|' 之后**的那一段 —— trade() 的构造顺序是
+#     `trade_summary += f'[{action}]: {symbol} x {quantity} (...)| '` 然后 `+= 'SUCCEED: {id}'`
+#     或 `+= 'FAILED: ...'`, 所以状态永远是最后一段;
+#   * 判定顺序必须是**先看 FAILED** —— 失败详情里可能包含 'SUCCEED'(例如券商返回的报错
+#     文本), 先匹配 SUCCEED 会把失败误判成成功;
+#   * signal_trade 等调用方必须用 trade_ok(), 不要自己写 substring 判断.
+_TRADE_SEP = '|'
+_TRADE_OK_MARK = 'SUCCEED:'
+_TRADE_FAIL_MARK = 'FAILED:'
+
+
+def trade_ok(trade_summary) -> bool:
+  """
+  判断 trade()/buy_with_amount() 的返回串是否代表**下单成功**.
+
+  返回串的形态是 `'[BUY]: AAPL x 10 (market) | SUCCEED: 12345'` —— 状态在**最后一段**
+  (分隔符之后). 判定规则:
+    1. 取最后一个 '|' 之后的那一段作为状态段(没有分隔符时取整串);
+    2. 状态段含 'FAILED:' -> False(**优先判断**, 因为失败详情可能含有 'SUCCEED' 字样);
+    3. 否则含 'SUCCEED:' -> True;
+    4. 两者都没有 -> False(保守: 无法确认成功就不算成功).
+
+  ⚠ 历史教训(2026-09): 本函数第一版把"状态段"取成了**第一个 '|' 之前**的前缀, 方向反了
+  —— 于是它对**所有**返回串都返回 False, `signal_trade` 从此永不扣减预算(会把失败当成
+  成功记账的反面: 成功也不记账), 下一单会超买. 是 tests 里那两条断言把它抓出来的.
+
+  :param trade_summary: trade() 的返回值(字符串); None/其它类型一律视为失败
+  :returns: True = 成功
+  :raises: none
+  """
+  if not isinstance(trade_summary, str):
+    return False
+  status = trade_summary.rsplit(_TRADE_SEP, 1)[-1]
+  if _TRADE_FAIL_MARK in status:
+    return False
+  return _TRADE_OK_MARK in status
+
+
+# 幂等键开关: 打开后每笔订单的 remark 会带上 account+symbol+date+action 键,
+# 便于在券商端/流水里去重(同一 bar 重跑不会重复下单的**基础**, 但仍需券商支持或本地台账配合).
+# 默认关闭 —— 打开前请先确认所用券商对 remark 的语义, 不要盲目上线.
+USE_IDEMPOTENT_REMARK = False
+
 class Trader(object):
   
   # init
@@ -112,6 +162,31 @@ class Trader(object):
   # get position
   def update_position(self) -> None:
     self.position = None
+
+  # whether the last update_position() actually got a usable answer from the broker.
+  # 关键语义: "查询失败" 与 "确实无持仓" 必须能区分 —— 两者都可能是空 DataFrame,
+  # 但前者绝不能被当成后者(否则止损单被静默跳过、本地台账被抹平).
+  @property
+  def position_known(self) -> bool:
+    """:returns: True = 最近一次 update_position() 从券商拿到了有效答复(空表也算), False = 查询失败."""
+    return bool(getattr(self, '_position_known', False))
+
+  def idempotent_remark(self, symbol: str, action: str) -> str:
+    """
+    构造幂等键: `{platform}-{account_type}-{symbol}-{action}-{YYYYMMDD}`.
+
+    用途: 传给券商的 remark 字段, 让"同一 bar 内重跑"(cron 重试/手工补跑)产生的重复订单
+    在流水/对账时可以识别. 受模块级 `USE_IDEMPOTENT_REMARK` 控制(默认关闭).
+
+    :param symbol: 标的
+    :param action: BUY / SELL
+    :returns: 幂等键字符串; 开关关闭时返回 None
+    :raises: none
+    """
+    if not USE_IDEMPOTENT_REMARK:
+      return None
+    day = datetime.datetime.now().strftime('%Y%m%d')
+    return f'{self.platform}-{self.account_type}-{symbol}-{action}-{day}'
   
   # get asset
   def update_asset(self) -> None:
@@ -119,28 +194,70 @@ class Trader(object):
     
   # get available cash
   def get_available_cash(self) -> float:
-    
-    available_cash = 0
-    
+    """
+    Return the cash actually usable for new orders.
+
+    Why `available_cash` and not `cash`: both adapters put the broker's *usable*
+    figure into an `available_cash` column (Futu: `avl_withdrawal_cash`,
+    Tiger: `asset.summary.available_funds`, see update_asset), while `cash` is the
+    gross cash balance. Sizing orders off the gross balance counts unsettled funds
+    as spendable, so orders get rejected (or the account over-commits).
+
+    :returns: usable cash; 0.0 when the broker query fails (and logs an error)
+    :raises: none
+    """
+
+    available_cash = 0.0
+
     if self.trade_client is None:
       pass
     else:
       self.update_asset()
       if self.asset is not None and len(self.asset) > 0:
-        available_cash = self.asset.loc[0, 'cash']
+        if 'available_cash' in self.asset.columns:
+          available_cash = self.asset.loc[0, 'available_cash']
+        elif 'cash' in self.asset.columns:               # 兜底: adapter 未提供可用资金列
+          available_cash = self.asset.loc[0, 'cash']
+          self.logger.warning('[cash]: asset 无 available_cash 列, 回退用 cash(总现金) 估算')
+        else:
+          self.logger.error('Not able to get available cash (asset 无可用资金列)')
       else:
         self.logger.error('Not able to get available cash')
-        
+
+    # NaN / 负数一律视为不可用, 避免把 NaN 传进 sizing 计算
+    try:
+      available_cash = float(available_cash)
+    except (TypeError, ValueError):
+      self.logger.error(f'[cash]: available cash 非法({available_cash!r}), 视为 0')
+      return 0.0
+    if not np.isfinite(available_cash) or available_cash < 0:
+      self.logger.error(f'[cash]: available cash 非法({available_cash!r}), 视为 0')
+      return 0.0
+
     return available_cash
   
   # get quantity of symbol currently in the position
   def get_in_position_quantity(self, symbol: str, get_briefs: bool = False) -> int:
+    """
+    Quantity of `symbol` currently held.
+
+    注意语义: 持仓查询失败时 `self.position` 是空表, 直接读会返回 0 —— 调用方若把它
+    当成"确实没持仓", 止损/清仓单就会被静默跳过. 因此查询失败时这里记一条 error
+    (由调用方自行决定是否下单), 而不是伪装成 0 而不留痕迹.
+
+    :param symbol: target symbol
+    :param get_briefs: 是否顺带刷新最新价(传给 update_position)
+    :returns: holding quantity; 0 = 无持仓或查询失败
+    :raises: none
+    """
 
     # initialize affordable quantity
     quantity = 0
 
     # get position summary
     self.update_position(get_briefs=get_briefs)
+    if not self.position_known:
+      self.logger.error(f'[pos]: {symbol} 持仓查询失败, 数量按 0 处理(不可信)')
     position = self.position.copy()
     if len(position) > 0:
       position = position.set_index('symbol')
@@ -151,10 +268,25 @@ class Trader(object):
 
   # check whether it is affordable to buy certain amount of a stock
   def get_affordable_quantity(self, symbol: str, price: float = None, cash: float = None, trading_fee: float = 3) -> int:
+    """
+    Compute the maximum whole-share quantity affordable with available cash.
 
-    # initialize affordable quantity and available cash
-    quantity = 0
-    available_cash = self.get_available_cash() if (cash is None) else cash
+    Guard rails (why this matters):
+      * `price` must be a *real* price. Callers that use market orders used to pass
+        sentinel values (0.1 for BUY / 1e6 for SELL) as a placeholder, which made
+        (cash - fee) / price explode to ~10x cash shares and defeated the check
+        entirely. A non-positive or absurd price now returns 0 instead.
+      * `trading_fee` is a per-order absolute amount, so quantity is floored after
+        subtracting it. Available cash must be positive.
+      * No lot-size (board lot) handling here yet -- see `min_lot` note below.
+
+    :param symbol: target symbol
+    :param price: real reference price; None = fetch the latest price
+    :param cash: available cash override; None = query the broker
+    :param trading_fee: per-order fee allowance (absolute amount)
+    :returns: affordable whole-share quantity (0 when not affordable / bad inputs)
+    :raises: none
+    """
 
     # get latest price of stock
     if price is None:
@@ -162,11 +294,26 @@ class Trader(object):
       latest_price = stock_brief.loc[symbol, 'latest_price']
     else:
       latest_price = price
-    
+
+    # get available cash
+    available_cash = self.get_available_cash() if (cash is None) else cash
+
+    # bad price (NaN / <=0 / placeholder sentinel) -> not affordable, never "infinite"
+    try:
+      latest_price = float(latest_price)
+    except (TypeError, ValueError):
+      self.logger.error(f'[afford]: {symbol} invalid price {latest_price!r}, treat as not affordable')
+      return 0
+    if not np.isfinite(latest_price) or latest_price <= 0:
+      self.logger.error(f'[afford]: {symbol} invalid price {latest_price!r}, treat as not affordable')
+      return 0
+    if available_cash is None or not np.isfinite(available_cash) or available_cash <= trading_fee:
+      return 0
+
     # check if it is affordable
     quantity = math.floor((available_cash-trading_fee)/latest_price)
 
-    return quantity
+    return max(int(quantity), 0)
 
   # update position for an account
   def update_position_record(self, config: dict, init_cash: float = None, init_position: int = None, start_time: str = None, end_time: str = None, commission: float = 3, is_print: bool = True) -> None:
@@ -175,6 +322,8 @@ class Trader(object):
     account_group = ACCOUNT_GROUPS[self.platform][self.account_type]
     init_cash = config['trade']['init_cash'][self.platform][account_group] if (init_cash is None) else init_cash
     init_position = 0 if (init_position is None) else init_position
+
+    dropped = []                                 # 未被入账的成交(负现金/负持仓), 结尾统一告警
 
     try:      
       # get today filled orders
@@ -218,9 +367,15 @@ class Trader(object):
           if is_print:
             self.logger.info(f'[{self.account_type[:4]}]: updating position record for {symbol} {record_cash, record_position} -> {new_cash, new_position}')
         else:
+          # 静默丢弃成交会让台账与真实持仓单向漂移且永不自愈 —— 必须显式记账并告警,
+          # 让调用方能在本轮结束时发现"有成交没入账".
+          dropped.append((symbol, action, new_cash, new_position))
           self.logger.error(f'[{self.account_type[:4]}]: skip updating record for {symbol}, negative cash/position {new_cash}/{new_position}')
 
       # update position_record
+      if dropped:
+        self.logger.error(f'[{self.account_type[:4]}]: {len(dropped)} 笔成交未入账(负现金/持仓), '
+                          f'台账与真实持仓已不一致, 需人工对账: {dropped}')
       self.position_record = io_util.read_config(file_path=config['config_path'], file_name='position.json')[self.platform]
       self.position_record[self.account_type] = self.record.copy()
       self.position_record['updated'][self.account_type] = datetime.datetime.now().strftime(format="%Y-%m-%d %H:%M:%S")
@@ -251,6 +406,14 @@ class Trader(object):
       
       position_dict = {}
       self.update_position()
+
+      # 红线: 持仓查询失败时 position 是不可信的空表. 若照常往下走, "券商说没持仓"
+      # 与 "我们没查到" 无法区分 —— 结果是每个池内标的都被判为 current_position(0) !=
+      # record_position, 台账被改成 {'cash': init_cash, 'position': 0}: 一次瞬时 API
+      # 抖动就抹掉本地持仓台账并把现金还原成初始值. 因此这里必须直接返回.
+      if not self.position_known:
+        self.logger.error(f'[{self.account_type[:4]}]: 持仓查询失败, 跳过台账同步(保留既有记录, 避免误清仓)')
+        return
       if len(self.position) > 0:
         position_dict = dict(self.position[['symbol', 'quantity']].values)
 
@@ -295,9 +458,13 @@ class Trader(object):
     # get position summary
     if position is None:
       self.update_position(get_briefs=get_briefs)
+      # 持仓未知时不要把"空表"写进 portfolio.json(会覆盖真实持仓快照)
+      if not self.position_known:
+        self.logger.error('[pf]: 持仓查询失败, 跳过 portfolio 更新(避免用空持仓覆盖真实快照)')
+        return
       position = self.position
-    position.set_index('symbol', inplace=True)
-    position = position.round(2)
+    # 不要用 inplace=True: position is self.position 时, 就地改 index 会污染调用方的对象
+    position = position.set_index('symbol').round(2)
 
     # get asset summary
     cash = 0
@@ -382,6 +549,12 @@ class Trader(object):
 
       # get in-position quantity and latest price for signals
       self.update_position(get_briefs=False)
+      # 红线: 持仓未知时"不买"是安全的, "不卖"是危险的 —— 反之, 持仓未知时若继续,
+      # signal 里的 quantity 会被填成 0, 所有卖出信号都被判"不在持仓"而跳过.
+      # 因此这里直接中止本轮, 让人能看到并处理, 而不是静默只做一半.
+      if not self.position_known:
+        self.logger.error('[sgnl]: 持仓查询失败, 本轮不执行任何下单(持仓未知时买卖都不可信)')
+        return
       position = self.position
       if len(position) == 0:
         position = pd.DataFrame({'symbol':[], 'quantity':[]})
@@ -422,15 +595,18 @@ class Trader(object):
       if minimum_position is None:
         minimum_position = money_per_sec
 
+      # 每票预算: 全程不变 —— 之前把它写回 money_per_sec(在循环里被改小且不恢复),
+      # 会让第 2 只之后的标的预算被前一只的余额永久压小.
+      per_symbol_budget = money_per_sec
+
       # get buy signals which not in positions yet
-      default_money_per_sec = money_per_sec
       buy_signal = signal.query('action == "b"')
       skip_buy = []
       if len(buy_signal) > 0:
         # go through buy signals
         for symbol in buy_signal.index:
 
-          # break when available cash is below 200
+          # stop when available cash is below one symbol's budget
           if available_cash <= minimum_position:
             self.logger.info(f'[BUY]: Available cash is too low({available_cash}/{minimum_position}), stop buying')
             break
@@ -445,23 +621,28 @@ class Trader(object):
               self.logger.error(f'[BUY]: {symbol} skipped (invalid latest price: {latest_price})')
               continue
 
-            # check whether there is enough available money 
-            money_per_sec = available_cash if (money_per_sec > available_cash) else money_per_sec
+            # 本票可用预算 = min(每票预算, 当前可用资金)
+            budget = min(per_symbol_budget, available_cash)
 
             # calculate quantity to buy
-            quantity = math.floor((money_per_sec-trading_fee)/signal.loc[symbol, 'latest_price'])
+            quantity = math.floor((budget-trading_fee)/latest_price)
             if quantity > 0:
               if order_type == 'limit':
-                price = signal.loc[symbol, 'latest_price']
+                price = latest_price
               else:
                 price = None
               trade_summary = self.trade(symbol=symbol, action='BUY', quantity=quantity, price=price, print_summary=False)
               self.logger.info(trade_summary)
 
-              # update available cash
-              available_cash -= quantity * signal.loc[symbol, 'latest_price']
+              # 只有**确认成功**才扣减本地可用资金. 之前无条件扣减, 于是一次下单失败
+              # 也会吃掉一笔预算 -> 本轮后续买单被系统性少买, 甚至因余额判定直接 break.
+              # 判定统一走 trade_ok()(只看第一个分隔符前的前缀段, 避免误判).
+              if trade_ok(trade_summary):
+                available_cash -= quantity * latest_price
+              else:
+                self.logger.error(f'[BUY]: {symbol} 下单未成功, 不扣减预算: {trade_summary}')
             else:
-              self.logger.info(f'[BUY]: not enough money')
+              self.logger.info(f'[BUY]: {symbol} not enough money (budget {budget}, price {latest_price})')
               continue
           else:
             skip_buy.append(symbol)                      
@@ -507,12 +688,58 @@ class Trader(object):
     return trade_summary
   
   # stop loss or stop profit or clear all position
+  @staticmethod
+  def _norm_rate(value, name: str, logger) -> float:
+    """
+    Normalize a profit/loss threshold to a **decimal fraction** (e.g. -0.3 = -30%).
+
+    Why: position['rate'] is round((price-cost)/cost, 2), i.e. a decimal fraction.
+    ta_config.json historically mixed units -- stop_loss was -0.8 (decimal) while
+    stop_profit was 10, which in decimal terms means "+1000%" and silently disabled
+    take-profit. Values with |value| > 1 are therefore treated as percentages and
+    divided by 100, with a warning, instead of being compared as-is.
+
+    :param value: raw threshold from config
+    :param name: field name, for the warning message
+    :param logger: logger
+    :returns: decimal-fraction threshold; None stays None (disabled)
+    """
+    if value is None:
+      return None
+    try:
+      v = float(value)
+    except (TypeError, ValueError):
+      logger.error(f'[STOP]: {name}={value!r} 非法, 该保护条件已禁用')
+      return None
+    if abs(v) > 1.0:
+      logger.warning(f'[STOP]: {name}={v} 疑似百分比写法, 已按 /100 归一为 {v/100.0:+g}')
+      v = v / 100.0
+    return v
+
   def cash_out(self, stop_loss_rate: float = None, stop_profit_rate: float = None, stop_loss_rate_inday: float = None, stop_profit_rate_inday: float = None, clear_all: bool = False, get_briefs: bool = False, print_summary: bool = True) -> None:
-    
+    """
+    止盈/止损/日内止损统一出口.
+
+    量纲约定: 所有 rate_* 阈值都是**小数比例**(rate 本身 = (price-cost)/cost).
+    传入 |值|>1 的会被 `_norm_rate` 当百分比自动归一, 避免"stop_profit=10 等于不止盈"
+    这类静默失效. 生效阈值每次都会打印, 便于确认保护是否真的开着.
+    """
+
+    # 量纲归一(见 _norm_rate 说明)
+    stop_loss_rate = self._norm_rate(stop_loss_rate, 'stop_loss', self.logger)
+    stop_profit_rate = self._norm_rate(stop_profit_rate, 'stop_profit', self.logger)
+    stop_loss_rate_inday = self._norm_rate(stop_loss_rate_inday, 'stop_loss_inday', self.logger)
+    stop_profit_rate_inday = self._norm_rate(stop_profit_rate_inday, 'stop_profit_inday', self.logger)
+
     # get current position with summary
     self.update_position(get_briefs=get_briefs)
     position = self.position.copy()
-    
+
+    # 持仓未知时绝不能把"空表"当成"没持仓"(同 synchronize_position_record 的理由)
+    if not self.position_known:
+      self.logger.error('[STOP]: 持仓查询失败, 本轮跳过止盈/止损判断')
+      return
+
     if len(position) > 0:
 
       # set symbol as index
@@ -532,7 +759,18 @@ class Trader(object):
         stop_loss_list_inday = [] if stop_loss_rate_inday is None else position.query(f'rate_inday < {stop_loss_rate_inday}').index.tolist() 
         stop_profit_list_inday = [] if stop_profit_rate_inday is None else position.query(f'rate_inday > {stop_profit_rate_inday}').index.tolist() 
         cash_out_list = list(dict.fromkeys(stop_loss_list + stop_profit_list + stop_loss_list_inday + stop_profit_list_inday))
-        
+
+        # 生效阈值显式打印: 之前配置写错(量纲)时"保护静默失效", 日志里看不出来.
+        self.logger.info(f'[STOP]: 生效阈值 止损={stop_loss_rate} 止盈={stop_profit_rate} '
+                         f'日内止损={stop_loss_rate_inday} 日内止盈={stop_profit_rate_inday}')
+
+        # 日内阈值已设但 rate_inday 恒为 0 -> 日内保护实际不生效, 必须点出来.
+        if (stop_loss_rate_inday is not None or stop_profit_rate_inday is not None) \
+                and 'rate_inday' in position.columns \
+                and float(position['rate_inday'].abs().max()) == 0.0:
+          self.logger.warning('[STOP]: rate_inday 全为 0(需 get_briefs=True 才会计算), '
+                              '日内止盈/止损本轮不会触发')
+
       # cash out
       if len(cash_out_list) > 0:
         cash_out_position =  position.loc[cash_out_list, ].copy()
@@ -616,7 +854,10 @@ class Futu(Trader):
   # get summary of position
   def update_position(self, get_briefs: bool = False) -> None:
     result = pd.DataFrame({'symbol':[], 'quantity':[], 'average_cost':[], 'latest_price':[], 'rate':[], 'rate_inday':[], 'market_value':[], 'latest_time':[]})
-    
+    # 只要券商**返回了合法 DataFrame**(哪怕 0 行 = 确实无持仓), 就算查询成功.
+    # 全部重试都异常才算失败 -> position_known=False, 上层不得据此做清仓/台账决策.
+    answered = False
+
     # 失败重试
     retry_count = 0
     while retry_count < 3:
@@ -626,6 +867,8 @@ class Futu(Trader):
         
         # get positions
         _, position = self.trade_client.position_list_query(trd_env=self.account_type)
+        if type(position) == pd.DataFrame:
+          answered = True
         if type(position) == pd.DataFrame and len(position) > 0:
 
           # remove duplicated columns
@@ -666,6 +909,9 @@ class Futu(Trader):
         time.sleep(5)
         continue
 
+    self._position_known = answered
+    if not answered:
+      self.logger.error('[erro]: 持仓查询失败(全部重试异常) —— 本次 position 不可信, 禁止据此清仓/同步台账')
     self.position = result
     
   # get summary of asset
@@ -711,6 +957,10 @@ class Futu(Trader):
     try:
 
       # set price according to order type
+      # Futu 要求市价单也带一个 price: BUY 用极低价 / SELL 用极高价, 否则它会当成限价单.
+      # 这两个哨兵值**只能用于下单**, 绝不能再拿去算可买数量 —— 否则
+      # (cash-fee)/0.1 会得到 ~10 倍现金的股数, 资金校验被彻底绕过 (见 ref_price).
+      ref_price = price                                       # 用于资金校验的真实参考价
       if price is None:
         order_type = OrderType.MARKET
         if action == 'BUY':
@@ -720,29 +970,51 @@ class Futu(Trader):
       else:
         order_type = OrderType.NORMAL
 
+      # 市价单 / 未给参考价时, 现查一个真实最新价用于资金校验; 查不到则拒绝下单(宁可不买)
+      if ref_price is None:
+        try:
+          brief = io_util.get_stock_briefs(symbols=[symbol], source='eod',
+                                           api_key=self.eod_api_key).set_index('symbol')
+          ref_price = float(brief.loc[symbol, 'latest_price'])
+        except Exception as e:
+          ref_price = None
+          self.logger.warning(f'[order]: {symbol} 未取得参考价({e}), 将按未校验处理')
+
       # construct trade summary
       trade_summary += f'[{action}]: {symbol} x {quantity} ({order_type}:{price}) | '
+
+      # 幂等键(默认关闭, 见 USE_IDEMPOTENT_REMARK); 打开后同一 bar 重跑可用流水去重
+      remark = self.idempotent_remark(symbol=symbol, action=action)
 
       # place buy order if possible
       if action == 'BUY':
         trade_side = TrdSide.BUY
-        affordable_quantity = self.get_affordable_quantity(symbol=symbol, price=price)
+        if ref_price is None or not np.isfinite(ref_price) or ref_price <= 0:
+          trade_summary += 'FAILED: no valid reference price for cash check'
+          if print_summary:
+            self.logger.info(trade_summary)
+          return trade_summary
+        affordable_quantity = self.get_affordable_quantity(symbol=symbol, price=ref_price)
 
         if quantity <= affordable_quantity:
-          ret_place_order, order_info = self.trade_client.place_order(price=price, qty=quantity, code=f'{self.market}.{symbol}', trd_side=trade_side, order_type=order_type, trd_env=self.account_type, remark=None)
+          ret_place_order, order_info = self.trade_client.place_order(price=price, qty=quantity, code=f'{self.market}.{symbol}', trd_side=trade_side, order_type=order_type, trd_env=self.account_type, remark=remark)
           if ret_place_order == RET_OK:
             trade_summary += f'SUCCEED: {order_info.loc[0, "order_id"]}'
           else:
             trade_summary += f'FAILED: {order_info}'
         else:
-          trade_summary += f'FAILED: Not affordable({affordable_quantity}/{quantity})'
+          trade_summary += f'FAILED: Not affordable({affordable_quantity}/{quantity} @ {ref_price})'
 
       # place sell order if holding enough stocks
       elif action == 'SELL':
         trade_side = TrdSide.SELL
         in_position_quantity = self.get_in_position_quantity(symbol)
-        if in_position_quantity >= quantity:
-          ret_place_order, order_info = self.trade_client.place_order(price=price, qty=quantity, code=f'{self.market}.{symbol}', trd_side=trade_side, order_type=order_type, trd_env=self.account_type, remark=None)
+        if not self.position_known:
+          # 持仓未知时返回的 0 不是"真的没有持仓". 若照常判 in_position >= quantity 为假,
+          # 止损/清仓单会**静默跳过** —— 那是资金风险最大的失败模式, 必须显式失败.
+          trade_summary += 'FAILED: position unknown (query failed), refuse to sell'
+        elif in_position_quantity >= quantity:
+          ret_place_order, order_info = self.trade_client.place_order(price=price, qty=quantity, code=f'{self.market}.{symbol}', trd_side=trade_side, order_type=order_type, trd_env=self.account_type, remark=remark)
           if ret_place_order == RET_OK:
             trade_summary += f'SUCCEED: {order_info.loc[0, "order_id"]}'
           else:
@@ -805,15 +1077,18 @@ class Tiger(Trader):
   def update_position(self, get_briefs: bool = False) -> None:
     
     result = pd.DataFrame({'symbol':[], 'quantity':[], 'average_cost':[], 'latest_price':[], 'rate':[], 'rate_inday':[], 'market_value':[], 'latest_time':[]})
+    # 同 Futu: get_positions 正常返回(含空列表)才算查询成功; 异常 -> position_known=False
+    answered = False
 
     # 失败重试
     retry_count = 0
-    while retry_count < 1:
+    while retry_count < 3:                       # 原为 <1, 注释却写"失败重试", 等于不重试
       
       retry_count += 1
       try:
         # get positions and convert to dataframe
         position = self.trade_client.get_positions(account=self.client_config.account)
+        answered = True
         if len(position) > 0:
           result = {'symbol': [], 'quantity': [], 'average_cost': [], 'latest_price': []}
           for pos in position:
@@ -853,6 +1128,9 @@ class Tiger(Trader):
         time.sleep(5)
         continue
 
+    self._position_known = answered
+    if not answered:
+      self.logger.error('[erro]: 持仓查询失败(全部重试异常) —— 本次 position 不可信, 禁止据此清仓/同步台账')
     self.position = result
   
   # get summary of asset
@@ -919,13 +1197,29 @@ class Tiger(Trader):
         tmp_end = util.string_plus_day(tmp_start, 90) 
         self.logger.info(f'[tiger]: getting orders from {tmp_start} to {tmp_end}')
         orders = orders + self.trade_client.get_filled_orders(start_time=tmp_start, end_time=tmp_end + ' 23:59:59')
-        tmp_start = tmp_end
+        # 下一片必须从 tmp_end **次日**开始, 否则与上一片重叠一天(区间两端都是含端),
+        # 那一天的成交会被查两次 -> 重复计入 update_position_record 的 cash/position.
+        # 同时 tmp_end >= end_time 时已是最后一片, 直接结束, 避免末尾多查一次重复窗口.
+        if tmp_end >= end_time:
+          break
+        tmp_start = util.string_plus_day(tmp_end, 1)
         time.sleep(6)
     else:
       # append time suffix so the end date itself is fully covered by the query
       orders = self.trade_client.get_filled_orders(start_time=start_time, end_time=end_time + ' 23:59:59')
     
+    # 去重: 分片查询/券商重试都可能让同一笔订单出现多次, 而 update_position_record 会
+    # 逐行累加 cash/position —— 重复一次就是台账被多记一次(双向偏差, 且不会自愈).
+    # 这里按 order_id 去重(保留首现)。
+    _seen_order_ids = set()
+    _dup = 0
     for ord in orders:
+      _oid = getattr(ord, 'id', None)
+      if _oid is not None:
+        if _oid in _seen_order_ids:
+          _dup += 1
+          continue
+        _seen_order_ids.add(_oid)
       result['code'].append(ord.contract.symbol)
       result['trd_side'].append(ord.action)
       result['order_type'].append(ord.order_type)
@@ -937,6 +1231,9 @@ class Tiger(Trader):
       result['order_id'].append(ord.id)
       result['create_time'].append(ord.order_time)
       result['updated_time'].append(ord.trade_time)
+    if _dup:
+      self.logger.warning(f'[tiger]: 订单查询返回 {_dup} 条重复 order_id, 已去重'
+                          f'(避免台账重复记账)')
     
     result_df = pd.DataFrame(result)
     for col in ['create_time', 'updated_time']:
@@ -962,6 +1259,15 @@ class Tiger(Trader):
 
       # construct trade summary
       trade_summary += f'[{action}]: {symbol} x {quantity} ({order_price}) | '
+
+      # 幂等键(默认关闭, 见 USE_IDEMPOTENT_REMARK)
+      remark = self.idempotent_remark(symbol=symbol, action=action)
+      if remark is not None:
+        # tigeropen 的 order 对象支持 remark 字段(订单备注), 用于流水去重识别
+        try:
+          order.remark = remark
+        except Exception as e:
+          self.logger.warning(f'[order]: 设置幂等 remark 失败({e}), 该笔订单不带去重键')
 
       # attach order legs
       order_legs = []
@@ -990,7 +1296,10 @@ class Tiger(Trader):
       # place sell order if holding enough stocks
       elif action == 'SELL':    
         in_position_quantity = self.get_in_position_quantity(symbol)
-        if in_position_quantity >= quantity:
+        if not self.position_known:
+          # 同 Futu: 持仓未知时返回的 0 不能当成"确实没持仓", 否则止损/清仓单静默跳过
+          trade_summary += 'FAILED: position unknown (query failed), refuse to sell'
+        elif in_position_quantity >= quantity:
           # place_order returns None instead of raising when the request fails silently
           order_id = self.trade_client.place_order(order)
           if order_id is not None:
@@ -1031,6 +1340,14 @@ class Tiger(Trader):
 
         # construct trade summary
         trade_summary += f'[BUY]: {symbol} x ${amount} | '
+
+        # 幂等键(默认关闭, 见 USE_IDEMPOTENT_REMARK)
+        remark = self.idempotent_remark(symbol=symbol, action='BUY')
+        if remark is not None:
+          try:
+            order.remark = remark
+          except Exception as e:
+            self.logger.warning(f'[order]: 设置幂等 remark 失败({e}), 该笔订单不带去重键')
 
         # attach order legs
         order_legs = []

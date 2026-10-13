@@ -111,31 +111,23 @@ def run_pool(pool: str, shrink: float, exclude=None, n_folds: int = N_FOLDS) -> 
   open_w, close_w = ds.wide('open'), ds.wide('close')
   sigs = repro.native_signals(ds)                            # 10 个信号(键名对齐旧预设)
   preset_w, preset_k = repro.PRESETS[pool]
-  windows = repro.WINDOWS
-  folds = cmb.split_folds(ds.dates, cfg.TRADE_START, cfg.IS_END, n_folds)
+  windows = repro.windows_for(pool)                          # 窗口真源(含 OOS 终点)
+  is_s, is_e = cfg.resolve_windows(pool)['is']
+  folds = cmb.split_folds(ds.dates, is_s, is_e, n_folds)
   p = repro.engine_params(preset_k)                          # top_k 固定在预设值
 
   # --- 只依赖 IS 的定权材料 ---
   fwd = ev.forward_return(ds, h=1)
-  fwd_is = bt._win(fwd, cfg.TRADE_START, cfg.IS_END)
+  fwd_is = bt._win(fwd, is_s, is_e)
   scores = cmb.rank_ic_scores(sigs, fwd_is, min_cs=cfg.MIN_CS)
   kept, dropped = cmb.dedupe(sigs, scores, thresh=cmb.DEDUPE_RHO, min_cs=cfg.MIN_CS)
   cands = kept or list(sigs.keys())
 
-  # --- 折外目标(带缓存; cd_ic 用它当接受判据) ---
-  cache = {}
-
-  def obj(weights, comp):
-    key = tuple(sorted((n, round(float(w), 6)) for n, w in weights.items()))
-    if key not in cache:
-      cache[key] = bt.make_fold_objective(open_w, close_w, p, folds,
-                                          metric='sharpe')(weights, comp)
-    return cache[key]
-
-  schemes = build_schemes(sigs, fwd_is, cands, preset_w, shrink, obj)
+  # --- 折外目标: 用 backtest 的统一带记忆实现, cd_ic 搜索与逐方案复评共用同一 memo ---
+  fold_obj = bt.cached_fold_objective(open_w, close_w, p, folds, metric='sharpe')
+  schemes = build_schemes(sigs, fwd_is, cands, preset_w, shrink, fold_obj)
 
   # --- 逐方案逐窗口回测 ---
-  fold_obj = bt.make_fold_objective(open_w, close_w, p, folds, metric='sharpe')
   rows = []
   for name, w in schemes.items():
     comp = cmb.combine_signals(sigs, w, min_cs=cfg.MIN_CS)

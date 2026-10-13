@@ -286,7 +286,10 @@ def synchronize_file(local_folder: str, remote_folder: str, newer_only: bool = F
               continue
 
           # skip if newer_only and local folder is newer
-          if newer_only:
+          # 注意: 本地目录可能**还不存在**(首次同步), 此时 getmtime 会抛 FileNotFoundError,
+          # 异常被外层 except 吞掉 -> 整个目录被静默跳过, 看起来"同步成功"其实没同步.
+          # 必须先确认本地路径存在再比时间.
+          if newer_only and os.path.exists(lfd_abs_path):
             if os.path.getmtime(rfd_abs_path) < os.path.getmtime(lfd_abs_path):
               logger.warning(f'skip {lfd_abs_path} (newer)')
               continue
@@ -638,8 +641,28 @@ def image_2_gif(image_list: List[str], save_name: Optional[str] = None, remove_o
 
 #----------------------- Script runner ---------------------------#
 def run_script(cmd: Union[List[str], str], cwd=None, retry: int = 1, timeout: int = 1800) -> Optional[int]:
-  
-  # try to run non_visual script, if failed, retry(10 times)
+  """
+  运行外部脚本, 失败按 `retry` 次数重试; 返回最后一次的退出码(None = 每次都在异常里结束).
+
+  关于 `retry` 的默认值(2026-09 澄清):
+    原注释写"retry(10 times)"而默认值是 **1**, 两者矛盾. 核查了所有生产调用点
+    (automatic_trader.py): `signal_bridge` 显式 `retry=1`(幂等设计: 靠 xlsx 是否
+    存在来跳过, 不希望自动重跑), 各数据更新显式 `retry=5`. 也就是说**默认值在生产中
+    从不生效**.
+    这里保留 **默认 1**(保守: 不自动重跑) 而不是改成 10 —— 因为把默认值调大意味着
+    未来某个"不幂等"的调用方(例如下单类脚本)漏传 retry 时会被自动执行多次, 那是资金
+    风险; 而漏传时"只跑一次"最坏只是不重试, 可以人工再跑. 同时把注释改成与实现一致,
+    并在此写明: **需要重试请显式传 retry=N**.
+
+  :param cmd: 命令(list)或字符串
+  :param cwd: 工作目录(None = 当前进程目录)
+  :param retry: 最多尝试次数(默认 1 = 不重试; 需要重试请显式传, 如 retry=5)
+  :param timeout: 单次超时(秒)
+  :returns: 最后一次的退出码; 若每次都在异常里结束则为 None
+  :raises: none
+  """
+
+  # 尝试运行; 失败则按 retry 重试(默认 1 = 只跑一次)
   retry_count = 0
   while retry_count < retry:
 

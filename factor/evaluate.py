@@ -63,7 +63,7 @@ import pandas as pd
 from quant.factor import config as cfg
 from quant.factor import factor as fct
 from quant.factor import prepare as prep
-from quant.factor.data import Dataset, load_pool
+from quant.factor.data import Dataset, load_pool, window as _window
 
 STATIC_AC1 = 0.99                              # sig_ac1 >= 此值 -> 判"静态选票"
 FDR_ALPHA = 0.10                               # BH-FDR 显著性水平(报告层用)
@@ -101,7 +101,7 @@ def forward_return(ds: Dataset, h: int = 1) -> pd.DataFrame:
 # ============================ 2. IC / RankIC / ICIR ============================
 
 def ic_series(factor: pd.DataFrame, fwd: pd.DataFrame, method: str = 'spearman',
-              min_cs: int = cfg.MIN_CS) -> pd.Series:
+              min_cs: int = cfg.MIN_CS, ranked: bool = False) -> pd.Series:
   """
   逐日截面 IC 序列(因子值 t 日 vs 前向收益).
 
@@ -112,27 +112,42 @@ def ic_series(factor: pd.DataFrame, fwd: pd.DataFrame, method: str = 'spearman',
   :param fwd: 前向收益宽表
   :param method: 'spearman'(=RankIC) 或 'pearson'(=IC)
   :param min_cs: 每日最少配对数
+  :param ranked: 若 True, 表示 factor/fwd 已按行预先排过秩, 跳过在此重复的
+    rank; 仅对 method='spearman' 有效(pearson 不做秩变换, 该参数无意义).
+    调用方(combine.factor_corr / rank_ic_scores)在循环里复用同一面板时用它
+    避免每对/每个因子重复 rank 整面板. 数值等价前提: 预 rank 与 在此 rank
+    作用于同一 index/columns 集合(预 rank 后再取子集会与子集内 rank 不同).
   :returns: pd.Series(index=交易日), 值 = 当日 IC
   """
   idx = factor.index.intersection(fwd.index)
   col = factor.columns.intersection(fwd.columns)
   f, r = factor.loc[idx, col], fwd.loc[idx, col]
   if method == 'spearman':                        # 秩相关: 先各自按行排名
-    f, r = f.rank(axis=1), r.rank(axis=1)
+    if not ranked:
+      f, r = f.rank(axis=1), r.rank(axis=1)
   elif method != 'pearson':
     raise KeyError(f'未知相关方法: {method} (可选 spearman / pearson)')
 
-  both = f.notna() & r.notna()                    # 成对有效
+  # --- 逐日截面相关: numpy kernel + 成对剔除(NaN 不参与) ---
+  # 数值等价性说明: 掩码外的位置填 0(对协方差/方差贡献 0, 与 "NaN 不参与求和"
+  # 一致), 均值按有效数 n 归一. 与 pandas 逐行归约相比存在末尾若干 ULP 的
+  # 浮点求和顺序差异(rank_ic 一致, pos_rate 可能有一天 0.001 级翻转), 属已知取舍.
+  fv = f.to_numpy(dtype=float)
+  rv = r.to_numpy(dtype=float)
+  both = np.isfinite(fv) & np.isfinite(rv)
   n = both.sum(axis=1)
-  fm, rm = f.where(both), r.where(both)           # 屏蔽非配对格, mean 自动跳过 NaN
-  fd = fm.sub(fm.mean(axis=1), axis=0)
-  rd = rm.sub(rm.mean(axis=1), axis=0)
+  nz = np.maximum(n, 1)
+  fm = np.where(both, fv, 0.0).sum(axis=1) / nz
+  rm = np.where(both, rv, 0.0).sum(axis=1) / nz
+  fd = np.where(both, fv - fm[:, None], 0.0)
+  rd = np.where(both, rv - rm[:, None], 0.0)
   cov = (fd * rd).sum(axis=1)
-  vf = np.sqrt((fd ** 2).sum(axis=1))
-  vr = np.sqrt((rd ** 2).sum(axis=1))
+  vf = np.sqrt((fd * fd).sum(axis=1))
+  vr = np.sqrt((rd * rd).sum(axis=1))
   with np.errstate(divide='ignore', invalid='ignore'):
     ic = cov / (vf * vr)                          # 某日因子或收益无差异 -> NaN
-  ic = ic.where(n >= min_cs).dropna()
+  ic = pd.Series(np.where(n >= min_cs, ic, np.nan), index=f.index)
+  ic = ic.dropna()                                # 有效标的数不足 -> 不产出
   ic.name = 'ic'
   return ic
 
@@ -270,16 +285,16 @@ def topk_turnover(factor: pd.DataFrame, top_k: int = cfg.TOP_K,
   ok = cnt >= max(min_cs, top_k)
   rank = factor.where(ok, other=np.nan).rank(axis=1, ascending=False)   # 1 = 最大
   memb = (rank <= top_k)
-  cols = np.asarray(factor.columns)
-  turns, prev = [], None
-  for dt in factor.index:
-    if not bool(ok.loc[dt]):
-      continue
-    cur = set(cols[memb.loc[dt].to_numpy()])
-    if prev is not None and cur:
-      turns.append(1.0 - len(cur & prev) / len(cur))
-    prev = cur
-  return round(float(np.mean(turns)), 3) if turns else np.nan
+  ok_idx = np.flatnonzero(ok.to_numpy())          # 有效日的行号(按时间序)
+  if ok_idx.size < 2:
+    return np.nan
+  cur = memb.to_numpy()[ok_idx]                   # (m, N) bool: 各有效日的成员
+  size = cur.sum(axis=1)
+  inter = (cur[1:] & cur[:-1]).sum(axis=1)        # 相邻有效日的交集大小
+  denom = size[1:]                                # 用当日成员数做分母(原语义)
+  keep = denom > 0
+  turns = 1.0 - inter[keep] / denom[keep]
+  return round(float(turns.mean()), 3) if turns.size else np.nan
 
 
 # ============================ 5. 信号自相关衰减 ============================
@@ -545,37 +560,60 @@ def evaluate_one(spec: fct.FactorSpec, sig: pd.DataFrame, fwd: pd.DataFrame,
 
 # ============================ 汇总: 批量 + 窗口 ============================
 
-def window_bounds(window: str = 'full', start: str = None, end: str = None) -> tuple:
+# "该池无独立 recent 窗"的空区间哨兵: 末值用 9999 以便不匹配任何真实交易日。
+# 若用 (None, None) 表示, 调用方会误当成"不限起点"= 全窗(见 window_bounds 的说明)。
+EMPTY_START = '9999-12-31'
+
+
+def window_bounds(window: str = 'full', start: str = None, end: str = None,
+                  pool: str = None) -> tuple:
   """
   研究窗口 -> (start, end). 显式传入的 start/end 优先.
 
-  :param window: 'full'(全交易窗) / 'is'(样本内) / 'oos'(样本外)
+  **窗口真源**: 给了 `pool` 就按该池的窗口解析(cfg.resolve_windows: 优先读
+  factor_config.json 里该池的 meta.is_window / meta.oos_window, 没有才回退全局默认);
+  不给 pool 则用全局默认(向后兼容旧调用点).
+
+  为什么要这一步: 历史上 etf_3x/hs300/a_etf_all 的 config 声称 IS=2021-2024 / OOS=2025+,
+  而流水线按全局常量实际用 2011-2019/2020-2023 —— 于是"报告的样本外"对线上冻结权重
+  其实落在样本内. 统一走本函数后, 报告窗口与冻结权重的窗口来自同一处.
+
+  :param window: 'full'(全交易窗) / 'is'(样本内) / 'oos'(样本外) / 'recent'(近期)
+  :param start/end: 显式窗口(优先)
+  :param pool: 池名; None = 用全局默认窗口
   :returns: (start, end); None 表示不限
   """
   if start is not None or end is not None:
     return start, end
+  win = cfg.resolve_windows(pool) if pool else None
   if window == 'is':
-    return cfg.TRADE_START, cfg.IS_END
+    return win['is'] if win else (cfg.TRADE_START, cfg.IS_END)
   if window == 'oos':
-    return cfg.OOS_START, None
-  return cfg.TRADE_START, None
-
-
-def _window(df: pd.DataFrame, start: str = None, end: str = None) -> pd.DataFrame:
-  """按交易日截取宽表的行(不改内容, 只选时间窗)."""
-  idx = df.index
-  if start is not None:
-    idx = idx[idx >= pd.Timestamp(start)]
-  if end is not None:
-    idx = idx[idx <= pd.Timestamp(end)]
-  return df.loc[idx]
+    return win['oos'] if win else (cfg.OOS_START, getattr(cfg, 'OOS_END', None))
+  if window == 'recent':
+    # ⚠️ (None, None) 有两种含义, 必须区分(2026-09-30 修复):
+    #    a) "不限" —— 调用方应把它当成**全窗**(旧默认行为, 无 pool / 无配置时);
+    #    b) "本池没有独立的 recent 窗" —— 例如 etf_3x 的 OOS 是 2025-01-01~None,
+    #       OOS 已覆盖到数据末尾, 此时 recent 应当**为空**, 绝不能当全窗。
+    #    旧实现两种都返回 (None, None), 于是 (b) 被当成全窗 -> "recent 表现"实际算成
+    #    全历史, 而且数字看起来正常、不报错。
+    #    现在用 cfg.resolve_windows 里的 'recent_note' 区分: 只有该池的**配置确实声明了
+    #    开放 OOS 窗口**时才判为空(不会有歧义); 其余一律保持原有返回, 兼容旧行为。
+    if win:
+      note = str(win.get('recent_note') or '')
+      if '无独立 recent 窗' in note:
+        return (EMPTY_START, EMPTY_START)          # 显式空区间(末日用 9999, 不匹配任何日期)
+      return win['recent']
+    return getattr(cfg, 'RECENT_START', None), None
+  return (win['is'][0] if win else cfg.TRADE_START), None
 
 
 def evaluate_factors(ds: Dataset, names: list = None, method: str = prep.DEFAULT_PREP,
                      h: int = 1, top_k: int = cfg.TOP_K, q: int = 5,
                      min_cs: int = cfg.MIN_CS, window: str = 'full',
                      start: str = None, end: str = None,
-                     ac_lags: tuple = (1, 5, 20)) -> pd.DataFrame:
+                     ac_lags: tuple = (1, 5, 20),
+                     sigs: dict = None, fwd: pd.DataFrame = None) -> pd.DataFrame:
   """
   批量评估一批因子 -> 每行一个因子.
 
@@ -593,15 +631,21 @@ def evaluate_factors(ds: Dataset, names: list = None, method: str = prep.DEFAULT
   :param window: 'full' / 'is' / 'oos'
   :param start/end: 显式窗口(覆盖 window)
   :param ac_lags: 自相关滞后阶
+  :param sigs: 可选, 已算好的 {因子名: 预处理后宽表}(如 combine.build_signals 的输出).
+    提供时直接复用, 跳过 spec.compute + 预处理 —— 多次调用不同窗口时避免重复计算
+    同一批因子. 必须与 method / min_cs 一致(调用方保证).
+  :param fwd: 可选, 已算好的**全历史**前向收益宽表(forward_return(ds, h)).
+    提供时复用, 免去每次调用重算(同一份 fwd 可喂给 is/oos/recent 多次调用).
+    必须与 h 一致(调用方保证).
   :returns: DataFrame(评估表), 按 rank_ic 降序; 另含 fdr_q / fdr_sig(BH-FDR 校正)
   """
-  start, end = window_bounds(window, start, end)
-  fwd_full = forward_return(ds, h)
-  prep_fn = prep._make_prep(method, min_cs)
+  start, end = window_bounds(window, start, end, pool=ds.pool)
+  fwd_full = forward_return(ds, h) if fwd is None else fwd
+  prep_fn = prep._make_prep(method, min_cs) if sigs is None else None
   rows = []
   for name in (names or fct.list_factors()):
     spec = fct.get_factor(name)
-    sig = prep_fn(spec.compute(ds))
+    sig = sigs[name] if sigs is not None else prep_fn(spec.compute(ds))
     rows.append(evaluate_one(spec, _window(sig, start, end),
                              _window(fwd_full, start, end),
                              top_k, q, min_cs, nw_lag=max(h - 1, 1), ac_lags=ac_lags))
@@ -714,7 +758,7 @@ def main():
   for wname, ws, we in windows:
     df = evaluate_factors(ds, names, a.method, a.h, a.top_k, a.q, a.min_cs,
                           wname, ws, we)
-    lo, hi = window_bounds(wname, ws, we)
+    lo, hi = window_bounds(wname, ws, we, pool=ds.pool)
     log.info(f'\n===== 窗口 {wname}  ({lo or "数据起点"} ~ {hi or "至今"}), '
              f'按 RankIC 降序, {len(df)} 个因子 =====')
     log.info('\n' + df[PRED_COLS].to_string(index=False))
@@ -735,7 +779,7 @@ def main():
              .to_string(index=False))
 
   if a.show:
-    start, end = window_bounds(a.window, a.start, a.end)
+    start, end = window_bounds(a.window, a.start, a.end, pool=ds.pool)
     _show_one(ds, a.show, a.method, a.h, a.q, a.min_cs, start, end, (1, 5, 20))
 
 

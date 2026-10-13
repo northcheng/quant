@@ -82,11 +82,13 @@ def run_pool(pool: str, parts: tuple, exclude=None, cd_passes: int = 3) -> list:
   open_w, close_w = ds.wide('open'), ds.wide('close')
   sigs = repro.native_signals(ds)
   preset_w, preset_k = repro.PRESETS[pool]
-  windows = repro.WINDOWS
+  windows = repro.windows_for(pool)          # 窗口真源(含 OOS 终点), 不再用模块级 WINDOWS
   p = repro.engine_params(preset_k)
   fwd = ev.forward_return(ds, h=1)
-  fwd_is = bt._win(fwd, cfg.TRADE_START, cfg.IS_END)
-  folds4 = cmb.split_folds(ds.dates, cfg.TRADE_START, cfg.IS_END, BASE_FOLDS)
+  # IS 也按该池口径取(原来硬编码全局常量, 与本脚本的 windows 可能不是同一套)
+  is_s, is_e = cfg.resolve_windows(pool)['is']
+  fwd_is = bt._win(fwd, is_s, is_e)
+  folds4 = cmb.split_folds(ds.dates, is_s, is_e, BASE_FOLDS)
 
   rows = []
 
@@ -131,18 +133,10 @@ def run_pool(pool: str, parts: tuple, exclude=None, cd_passes: int = 3) -> list:
     w0 = _ic_weights(sigs, fwd_is, cands, BASE_SHRINK)
     if w0:
       for nf in FOLDS_GRID:
-        folds = cmb.split_folds(ds.dates, cfg.TRADE_START, cfg.IS_END, nf)
+        folds = cmb.split_folds(ds.dates, is_s, is_e, nf)
         for agg in AGG_GRID:
-          cache = {}
-
-          def obj(ww, comp, folds=folds, agg=agg):
-            key = tuple(sorted((n, round(float(x), 6)) for n, x in ww.items()))
-            if key not in cache:
-              f = bt.make_fold_objective(open_w, close_w, p, folds,
+          obj = bt.cached_fold_objective(open_w, close_w, p, folds,
                                          metric='sharpe', agg=agg)
-              cache[key] = f(ww, comp)
-            return cache[key]
-
           w_cd, _ = cmb.coord_descent_weights(sigs, w0, obj, min_cs=cfg.MIN_CS,
                                               max_passes=cd_passes)
           if w_cd:

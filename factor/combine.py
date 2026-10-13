@@ -56,7 +56,7 @@ from quant.factor import config as cfg
 from quant.factor import evaluate as ev
 from quant.factor import factor as fct
 from quant.factor import prepare as prep
-from quant.factor.data import Dataset, load_pool
+from quant.factor.data import Dataset, load_pool, window as _win
 
 DEDUPE_RHO = 0.7                                # 冗余阈值: |rho| >= 该值视为"说同一件事"
 MIN_GAIN = 0.001                                # 贪心增量下限: 低于此值视为噪声, 停止加入
@@ -68,27 +68,38 @@ WEIGHT_GRID = (0.5, 1.0)                        # 离散权重档位(贪心权�
 
 # ============================ 小工具 ============================
 
-def _rank_ic(sig: pd.DataFrame, other: pd.DataFrame, min_cs: int) -> float:
+def _rank_ic(sig: pd.DataFrame, other: pd.DataFrame, min_cs: int,
+             ranked: bool = False) -> float:
   """
   两张宽表的平均截面秩相关(按交易日取均值); 无有效交易日返回 NaN.
 
   :param sig: 因子宽表
   :param other: 另一张宽表(因子或前向收益)
   :param min_cs: 每日最少有效标的数
+  :param ranked: 若 True, 表示两张表均已按行预排秩(见 rank_panels), 跳过重复 rank
   :returns: 时间均值
   """
-  ic = ev.ic_series(sig, other, 'spearman', min_cs)
+  ic = ev.ic_series(sig, other, 'spearman', min_cs, ranked=ranked)
   return float(ic.mean()) if len(ic) else np.nan
 
 
-def _win(df: pd.DataFrame, start: str = None, end: str = None) -> pd.DataFrame:
-  """按交易日截取宽表的行(只选时间窗, 不改内容)."""
-  idx = df.index
-  if start is not None:
-    idx = idx[idx >= pd.Timestamp(start)]
-  if end is not None:
-    idx = idx[idx <= pd.Timestamp(end)]
-  return df.loc[idx]
+def rank_panels(panels: dict, names: list = None) -> dict:
+  """
+  对一批宽表按行(截面)预排秩 -> {name: 秩表}.
+
+  用途: factor_corr / rank_ic_scores 在双层循环里对同一面板反复 rank(整面板),
+  是 O(n^2) 级的重复开销. 预先 rank 一次, 之后以 ic_series(..., ranked=True)
+  复用, 把秩变换次数从 O(n^2) 降到 O(n), 数值不变.
+
+  等价性: DataFrame.rank(axis=1) 逐行独立; 只要预 rank 与调用时的**列集合一致**
+  (此处所有面板同源, 列集合相同), 且仅做行(日期)子集(不影响各行秩), 结果一致.
+
+  :param panels: {name: 宽表}
+  :param names: 需要排秩的子集(None = 全部)
+  :returns: {name: 秩表}
+  """
+  keys = list(names or panels.keys())
+  return {n: panels[n].rank(axis=1) for n in keys}
 
 
 def rank_ic_scores(sigs: dict, fwd: pd.DataFrame, names: list = None,
@@ -106,7 +117,9 @@ def rank_ic_scores(sigs: dict, fwd: pd.DataFrame, names: list = None,
   :returns: {因子名: rank_ic}
   """
   names = list(names or sigs.keys())
-  return {n: _rank_ic(sigs[n], fwd, min_cs) for n in names}
+  fwd_r = fwd.rank(axis=1)                        # 预排秩: 只 1 次(原先每因子各 1 次)
+  sigs_r = rank_panels(sigs, names)               # 各因子各 1 次(原先每因子 2 次)
+  return {n: _rank_ic(sigs_r[n], fwd_r, min_cs, ranked=True) for n in names}
 
 
 def build_signals(ds: Dataset, method: str = prep.DEFAULT_PREP, names: list = None,
@@ -148,10 +161,11 @@ def factor_corr(sigs: dict, names: list = None,
   names = list(names or sigs.keys())
   if not names:
     return pd.DataFrame()
+  sigs_r = rank_panels(sigs, names)               # 预排秩: 每个因子 1 次(原先每对 2 次)
   m = pd.DataFrame(np.eye(len(names)), index=names, columns=names)
   for i, a in enumerate(names):
     for b in names[i + 1:]:
-      r = _rank_ic(sigs[a], sigs[b], min_cs)
+      r = _rank_ic(sigs_r[a], sigs_r[b], min_cs, ranked=True)
       m.loc[a, b] = m.loc[b, a] = round(r, 3) if pd.notna(r) else np.nan
   return m
 
@@ -202,6 +216,7 @@ def dedupe(sigs: dict, scores: dict, thresh: float = DEDUPE_RHO,
 # ============================ 3. 加权方案 ============================
 
 def combine_signals(sigs: dict, weights: dict, min_cs: int = cfg.MIN_CS,
+                    min_factors: int = cfg.MIN_FACTORS,
                     require_all: bool = False) -> pd.DataFrame:
   """
   加权合成 -> 组合信号宽表.
@@ -210,11 +225,16 @@ def combine_signals(sigs: dict, weights: dict, min_cs: int = cfg.MIN_CS,
   **有效**因子的权重. 两者相除得到"可用因子的加权平均", 这样不同标的的有效因子
   数不同也不会造成尺度漂移; 权重带符号, 分母取 |w| 以保证结果仍在 [-1, 1].
 
+  min_factors: 每格最少有效因子数. 有效因子数 < min_factors 的格子置 NaN —— 否则
+  新上市/停牌复牌等"只有个别因子有值"的标的会被上面的**缺失感知归一化**顶到满量程,
+  产生虚假极值信号(实质是拿单因子当整组用). 阈值自动钳到实际入池因子数, 故不会把
+  "因子本就少于 min_factors"的方案清零.
   require_all=True 时改为"所有因子都有效才给值"(更严格, 但覆盖率会降).
 
   :param sigs: {因子名: 预处理后宽表}
   :param weights: {因子名: 权重}; 权重为 0 或不在 sigs 里的因子被跳过
   :param min_cs: 每日最少有效标的数(截面太薄的行整行作废)
+  :param min_factors: 每格最少有效因子数(默认 cfg.MIN_FACTORS=1, 即不额外限制)
   :param require_all: True = 要求所有入池因子在该格都有效
   :returns: 组合信号宽表(已 guard 薄截面)
   """
@@ -224,12 +244,19 @@ def combine_signals(sigs: dict, weights: dict, min_cs: int = cfg.MIN_CS,
   base = sigs[names[0]]
   num = pd.DataFrame(0.0, index=base.index, columns=base.columns)
   den = pd.DataFrame(0.0, index=base.index, columns=base.columns)
+  thr = min(int(min_factors), len(names))                        # 阈值不超过入池因子数
+  cnt = None if thr <= 1 else pd.DataFrame(0.0, index=base.index, columns=base.columns)
   for n in names:
     s = sigs[n].reindex(index=base.index, columns=base.columns)   # 对齐到同一网格
     w = float(weights[n])
+    v = s.notna().astype(float)
     num = num + s.fillna(0.0) * w
-    den = den + s.notna().astype(float) * abs(w)
+    den = den + v * abs(w)
+    if cnt is not None:
+      cnt = cnt + v
   combo = num.div(den.where(den > 0))                            # den=0 -> NaN
+  if cnt is not None:
+    combo = combo.where(cnt >= thr)                              # 有效因子数不足 -> NaN
   if require_all:
     total = sum(abs(float(weights[n])) for n in names)
     combo = combo.where(den >= total - 1e-9)
@@ -447,7 +474,8 @@ def risk_parity_weights(sigs: dict, fwd: pd.DataFrame, names: list = None,
 
 def greedy_forward(sigs: dict, fwd: pd.DataFrame, names: list = None,
                    max_n: int = 8, min_gain: float = MIN_GAIN,
-                   min_cs: int = cfg.MIN_CS) -> tuple:
+                   min_cs: int = cfg.MIN_CS,
+                   min_factors: int = cfg.MIN_FACTORS) -> tuple:
   """
   贪心前向选择: 每步在剩余候选里挑"加入后组合 RankIC 提升最大"的一个.
 
@@ -469,7 +497,7 @@ def greedy_forward(sigs: dict, fwd: pd.DataFrame, names: list = None,
   while pool and len(chosen) < max_n:
     trial = None
     for n in pool:
-      combo = combine_signals(sigs, {k: 1.0 for k in chosen + [n]}, min_cs)
+      combo = combine_signals(sigs, {k: 1.0 for k in chosen + [n]}, min_cs, min_factors)
       v = _rank_ic(combo, fwd, min_cs)
       v = v if pd.notna(v) else -np.inf
       if trial is None or v > trial[1]:
@@ -523,7 +551,8 @@ def _search_grid(weight_grid, signed: bool) -> list:
 def greedy_weight_search(sigs: dict, candidates: list, objective,
                          min_cs: int = cfg.MIN_CS, weight_grid=WEIGHT_GRID,
                          max_n: int = 4, min_gain: float = 0.05,
-                         signed: bool = False, first_min: float = 0.0) -> tuple:
+                         signed: bool = False, first_min: float = 0.0,
+                         min_factors: int = cfg.MIN_FACTORS) -> tuple:
   """
   贪心**离散权重**搜索: 每步在剩余候选里搜"因子 × 权重档位"的最佳加入.
 
@@ -558,7 +587,7 @@ def greedy_weight_search(sigs: dict, candidates: list, objective,
         cand = dict(weights)
         cand[n] = w
         try:
-          comp = combine_signals(sigs, cand, min_cs)
+          comp = combine_signals(sigs, cand, min_cs, min_factors)
         except ValueError:
           continue
         v = objective(cand, comp)
@@ -582,7 +611,8 @@ def greedy_weight_search(sigs: dict, candidates: list, objective,
 
 
 def refine_weights(sigs: dict, weights: dict, objective,
-                   min_cs: int = cfg.MIN_CS, scales=(0.5, 2.0)) -> tuple:
+                   min_cs: int = cfg.MIN_CS, scales=(0.5, 2.0),
+                   min_factors: int = cfg.MIN_FACTORS) -> tuple:
   """
   权重精修一遍: 对每个成分依次试 "×scale / 剔除", 只要 objective 变好就采纳.
 
@@ -600,7 +630,7 @@ def refine_weights(sigs: dict, weights: dict, objective,
 
   def _obj(w):
     try:
-      return objective(w, combine_signals(sigs, w, min_cs))
+      return objective(w, combine_signals(sigs, w, min_cs, min_factors))
     except ValueError:
       return -np.inf
 
@@ -634,7 +664,8 @@ def refine_weights(sigs: dict, weights: dict, objective,
 def coord_descent_weights(sigs: dict, init_weights: dict, objective,
                           min_cs: int = cfg.MIN_CS,
                           scales=(0.5, 2.0), allow_sign: bool = True,
-                          max_passes: int = 3, min_gain: float = 1e-4) -> tuple:
+                          max_passes: int = 3, min_gain: float = 1e-4,
+                          min_factors: int = cfg.MIN_FACTORS) -> tuple:
   """
   连续权重**坐标下降**: 轮流固定其余因子, 只对当前因子的权重试几种改动.
 
@@ -663,7 +694,7 @@ def coord_descent_weights(sigs: dict, init_weights: dict, objective,
 
   def _obj(w):
     try:
-      return objective(w, combine_signals(sigs, w, min_cs))
+      return objective(w, combine_signals(sigs, w, min_cs, min_factors))
     except ValueError:
       return -np.inf
 
@@ -706,7 +737,8 @@ def coord_descent_weights(sigs: dict, init_weights: dict, objective,
 def evaluate_combo(sigs: dict, weights: dict, fwd: pd.DataFrame,
                    start: str = None, end: str = None, top_k: int = cfg.TOP_K,
                    q: int = 5, min_cs: int = cfg.MIN_CS, h: int = 1,
-                   label: str = 'combo', ac_lags: tuple = (1, 5, 20)) -> dict:
+                   label: str = 'combo', ac_lags: tuple = (1, 5, 20),
+                   min_factors: int = cfg.MIN_FACTORS) -> dict:
   """
   评估一个组合 -> 一行指标(直接复用第3步的 evaluate_one, 口径完全一致).
 
@@ -725,7 +757,7 @@ def evaluate_combo(sigs: dict, weights: dict, fwd: pd.DataFrame,
   :param ac_lags: 自相关滞后阶
   :returns: dict(评估指标)
   """
-  combo = combine_signals(sigs, weights, min_cs)
+  combo = combine_signals(sigs, weights, min_cs, min_factors)
   spec = fct.FactorSpec(name=label, group='组合', formula='加权平均',
                         window=0, direction=1, fn=None)          # fn 不会被调用
   return ev.evaluate_one(spec, _win(combo, start, end), _win(fwd, start, end),
@@ -773,7 +805,8 @@ def _wf_folds(index, start: str = None, end: str = None, n_folds: int = 4,
 
 def _weights_for(scheme: str, sigs: dict, fwd: pd.DataFrame, kept: list,
                  min_cs: int, min_ic: float, shrink: float, soft_thresh: float,
-                 max_n: int, min_gain: float) -> dict:
+                 max_n: int, min_gain: float,
+                 min_factors: int = cfg.MIN_FACTORS) -> dict:
   """按方案名拟合权重(只用传入的 fwd = 该折训练窗); 拟合失败返回 {}."""
   if scheme == 'equal':
     return equal_weights(kept)
@@ -795,7 +828,7 @@ def _weights_for(scheme: str, sigs: dict, fwd: pd.DataFrame, kept: list,
     except ValueError:
       return {}
   if scheme == 'greedy':
-    chosen, _ = greedy_forward(sigs, fwd, kept, max_n, min_gain, min_cs)
+    chosen, _ = greedy_forward(sigs, fwd, kept, max_n, min_gain, min_cs, min_factors)
     return equal_weights(chosen)
   raise ValueError(f'未知方案: {scheme} (可选 {COMBO_SCHEMES})')
 
@@ -803,7 +836,8 @@ def _weights_for(scheme: str, sigs: dict, fwd: pd.DataFrame, kept: list,
 def _wf_records(sigs: dict, fwd: pd.DataFrame, names: list, folds: list,
                 schemes: tuple, thresh: float, min_cs: int, h: int,
                 min_ic: float, shrink: float, soft_thresh: float,
-                max_n: int, min_gain: float) -> pd.DataFrame:
+                max_n: int, min_gain: float,
+                min_factors: int = cfg.MIN_FACTORS) -> pd.DataFrame:
   """
   逐折拟合 + 折外评估 -> 明细表[fold, scheme, n_fac, train_rank_ic, test_rank_ic, gap].
 
@@ -823,18 +857,22 @@ def _wf_records(sigs: dict, fwd: pd.DataFrame, names: list, folds: list,
     tr_e_safe = idx[safe_pos]
     fwd_tr = _win(fwd, f['train_start'], tr_e_safe)
     fwd_te = _win(fwd, f['test_start'], f['test_end'])
-    sc_tr = rank_ic_scores(sigs, fwd_tr, names, min_cs)
-    kept, _ = dedupe(sigs, sc_tr, thresh, min_cs, corr)
+    # 因子宽表只切到"本折训练+测试"这一段: combine_signals / rank_ic_scores 都是
+    # 逐行(截面)运算, 行子集不改变这些行上的取值, 与在全历史上算再取交集数值等价,
+    # 但省去每折每方案把整条历史重新合成的开销.
+    fold_sigs = {n: _win(v, f['train_start'], f['test_end']) for n, v in sigs.items()}
+    sc_tr = rank_ic_scores(fold_sigs, fwd_tr, names, min_cs)
+    kept, _ = dedupe(fold_sigs, sc_tr, thresh, min_cs, corr)
     for scheme in schemes:
-      w = _weights_for(scheme, sigs, fwd_tr, kept, min_cs, min_ic, shrink,
-                       soft_thresh, max_n, min_gain)
+      w = _weights_for(scheme, fold_sigs, fwd_tr, kept, min_cs, min_ic, shrink,
+                       soft_thresh, max_n, min_gain, min_factors)
       if not w:
         rows.append({'fold': f['fold'], 'scheme': scheme, 'n_fac': 0,
                      'train_start': f['train_start'].date(),
                      'test_start': f['test_start'].date(),
                      'train_rank_ic': np.nan, 'test_rank_ic': np.nan})
         continue
-      combo = combine_signals(sigs, w, min_cs)
+      combo = combine_signals(fold_sigs, w, min_cs, min_factors)
       tr_ic = _rank_ic(combo, fwd_tr, min_cs)        # ic_series 自动对齐窗口
       te_ic = _rank_ic(combo, fwd_te, min_cs)
       rows.append({'fold': f['fold'], 'scheme': scheme, 'n_fac': len(w),
@@ -874,7 +912,8 @@ def walk_forward(sigs: dict, fwd: pd.DataFrame, names: list = None,
                  min_cs: int = cfg.MIN_CS, h: int = 1, min_ic: float = 0.0,
                  shrink: float = IC_SHRINK, soft_thresh: float = 0.0,
                  max_n: int = 8, min_gain: float = MIN_GAIN,
-                 min_train_days: int = 120) -> tuple:
+                 min_train_days: int = 120,
+                 min_factors: int = cfg.MIN_FACTORS) -> tuple:
   """
   单方案的 IS 折内 walk-forward -> (逐折明细, 汇总结论).
 
@@ -893,7 +932,7 @@ def walk_forward(sigs: dict, fwd: pd.DataFrame, names: list = None,
   """
   folds = _wf_folds(fwd.index, start, end, n_folds, min_train_days)
   per = _wf_records(sigs, fwd, names, folds, (scheme,), thresh, min_cs, h,
-                    min_ic, shrink, soft_thresh, max_n, min_gain)
+                    min_ic, shrink, soft_thresh, max_n, min_gain, min_factors)
   return per, _wf_summary(per)
 
 
@@ -904,7 +943,8 @@ def consistency_table(sigs: dict, fwd: pd.DataFrame, names: list = None,
                       h: int = 1, min_ic: float = 0.0,
                       shrink: float = IC_SHRINK, soft_thresh: float = 0.0,
                       max_n: int = 8, min_gain: float = MIN_GAIN,
-                      min_train_days: int = 120) -> tuple:
+                      min_train_days: int = 120,
+                      min_factors: int = cfg.MIN_FACTORS) -> tuple:
   """
   多方案 IS 折内 walk-forward 对照 -> (逐折明细, 每方案一行汇总).
 
@@ -912,7 +952,7 @@ def consistency_table(sigs: dict, fwd: pd.DataFrame, names: list = None,
   """
   folds = _wf_folds(fwd.index, start, end, n_folds, min_train_days)
   per = _wf_records(sigs, fwd, names, folds, tuple(schemes), thresh, min_cs, h,
-                    min_ic, shrink, soft_thresh, max_n, min_gain)
+                    min_ic, shrink, soft_thresh, max_n, min_gain, min_factors)
   return per, _wf_summary(per)
 
 
@@ -959,8 +999,8 @@ def verify_combine(ds: Dataset, method: str = prep.DEFAULT_PREP, h: int = 1,
 
   # --- 3) 前视定权对照(IS 定权 vs 全样本定权, 都看 OOS 表现) ---
   sigs = build_signals(ds, method, names, min_cs)
-  is_s, is_e = ev.window_bounds('is')
-  oos_s, oos_e = ev.window_bounds('oos')
+  is_s, is_e = ev.window_bounds('is', pool=ds.pool)
+  oos_s, oos_e = ev.window_bounds('oos', pool=ds.pool)
   fwd_is = _win(fwd, is_s, is_e)
   w_is = ic_weights(sigs, fwd_is, names, min_cs)          # 只用 IS 期 -> 诚实
   w_leak = ic_weights(sigs, fwd, names, min_cs)           # 用了全样本 -> 前视
@@ -1012,8 +1052,8 @@ def main():
   names = fct.list_factors(a.group)
   sigs = build_signals(ds, a.method, names, a.min_cs)
   fwd = ev.forward_return(ds, a.h)                        # 全历史标签
-  is_s, is_e = ev.window_bounds('is')
-  oos_s, oos_e = ev.window_bounds('oos')
+  is_s, is_e = ev.window_bounds('is', pool=ds.pool)
+  oos_s, oos_e = ev.window_bounds('oos', pool=ds.pool)
   fwd_is, fwd_oos = _win(fwd, is_s, is_e), _win(fwd, oos_s, oos_e)
 
   # ---- 1. 相关性诊断 ----

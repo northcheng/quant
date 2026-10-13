@@ -22,6 +22,7 @@ factor.repro_old_presets — 用当前系统引擎复现旧系统 5 组预设权
   cd ~/git && python -m quant.factor.repro_old_presets --pools etf_3x --variant legacy
 """
 import argparse
+import datetime
 
 import numpy as np
 import pandas as pd
@@ -87,12 +88,35 @@ OLD_BUYHOLD = {
 }
 
 # 四窗口(与旧报告一致: IS / OOS / FULL / 2026 年初独立窗)
-WINDOWS = (
-    ('is', cfg.TRADE_START, cfg.IS_END),
-    ('oos', cfg.OOS_START, None),
-    ('full', cfg.TRADE_START, None),
-    ('ytd26', '2026-01-01', None),
-)
+#
+# ⚠ 修正(2026-09): 原来 'oos' 用 (cfg.OOS_START, None) —— **没有用 OOS_END**,
+# 于是 "OOS" 窗实际一直延到数据末尾(把 recent 也吃进来了), 与
+# factor_config.json 里各池的 oos_window 语义完全不同; 而 wf_step3_sens 又直接引用了
+# 这里的 WINDOWS, 导致它的四窗报表建立在错误的 OOS 定义上.
+# 现在 windows_for(pool) 由 cfg.resolve_windows(pool) 提供(含 OOS 终点), 本常量仅作
+# 未指定池时的兜底(也不再把 OOS 拉到最后一天).
+def windows_for(pool: str) -> tuple:
+  """
+  取某池的四窗定义(IS / OOS / FULL / ytd26).
+
+  :param pool: 池名
+  :returns: ((name, start, end), ...); ytd26 以数据末为界(end=None)
+  :raises: none
+  """
+  w = cfg.resolve_windows(pool)
+  is_s, is_e = w['is']
+  oos_s, oos_e = w['oos']
+  ytd = f'{datetime.date.today().year}-01-01'
+  return (('is', is_s, is_e),
+          ('oos', oos_s, oos_e),
+          ('full', is_s, None),
+          ('ytd26', ytd, None))
+
+
+WINDOWS = (('is', cfg.TRADE_START, cfg.IS_END),
+           ('oos', cfg.OOS_START, getattr(cfg, 'OOS_END', None)),
+           ('full', cfg.TRADE_START, None),
+           ('ytd26', '2026-01-01', None))
 
 
 # ============================ 旧因子(逐字照抄 git HEAD 公式) ============================
@@ -179,7 +203,6 @@ def legacy_composite(facs: dict, weights: dict) -> pd.DataFrame:
 def native_signals(ds, min_cs: int = cfg.MIN_CS) -> dict:
   """当前系统信号: 键名沿用旧预设名, 以便与旧权重直接对齐同权合成."""
   pf = prep._make_prep(prep.DEFAULT_PREP, min_cs)
-  c, h, l = ds.wide('close'), ds.wide('high'), ds.wide('low')
   reg = lambda n: fct.get_factor(n).compute(ds)                 # noqa: E731
   mom, er = reg('mom_12_1'), reg('er_20')
   raw = {
@@ -191,8 +214,8 @@ def native_signals(ds, min_cs: int = cfg.MIN_CS) -> dict:
       'H_ichimoku_alpha': reg('H_ichimoku_alpha'),
       'G_oviv20': reg('G_oviv20'),
       'C_tmqmom': _rk(mom) + _rk(er),                           # 由注册表动量/效率合成
-      'N_range20': -_range20(h, l, c),                          # 注册表无 range20, 同式内联
-      'N_idiovol60': -_idiovol60(c),                            # 注册表无 idiovol60, 同式内联
+      'N_range20': reg('N_range20'),                            # 复用注册表, 免与 legacy 内联式漂移
+      'N_idiovol60': reg('N_idiovol60'),                        # 同上(两式已核对逐值等价)
   }
   return {k: pf(v) for k, v in raw.items()}
 
@@ -219,7 +242,7 @@ def run_pool(pool: str, variants: list, exclude: list = None) -> tuple:
     comps['native'] = cmb.combine_signals(native_signals(ds), weights, min_cs=cfg.MIN_CS)
 
   rows = []
-  for win, ws, we in WINDOWS:
+  for win, ws, we in windows_for(pool):
     ow, cw = bt._win(open_w, ws, we), bt._win(close_w, ws, we)
     for name, comp in comps.items():
       res = bt.run_engine(ow, cw, bt._win(comp, ws, we), p)

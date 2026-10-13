@@ -24,6 +24,7 @@ Dataset 提供两种视角(这是后面所有步骤的数据基础):
   cd ~/git && python -m quant.factor.data --pool etf_3x
 """
 import argparse
+import os
 import pickle
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -33,6 +34,11 @@ from quant.factor import config as cfg
 
 # 统一小写列名 -> pkl 里的真实列名(宽表访问用; 其余列按原样直查)
 OHLCV_COLS = {'open': 'Open', 'high': 'High', 'low': 'Low', 'close': 'Close', 'volume': 'Volume'}
+
+# 同进程内重复 load_pool 同一 pkl 时, 免去再次 pickle.load(pkl 很大, 反序列化很贵).
+# 键 = pkl 路径, 值 = (文件签名(mtime_ns, size), panel). panel 只读使用, 不原地修改.
+_PANEL_CACHE: dict = {}
+_PANEL_CACHE_MAX = 4                             # 最多缓存几个面板(每个面板可达数百 MB)
 
 
 def load_panel(pkl_path: str, interval: str = 'day') -> pd.DataFrame:
@@ -48,6 +54,19 @@ def load_panel(pkl_path: str, interval: str = 'day') -> pd.DataFrame:
   :raises FileNotFoundError: pkl 不存在
   :raises ValueError: pkl 内容不是 dict
   """
+  # 注意: 变量名不能用 `key` —— 下面的 `for key, df in raw.items()` 会把它覆盖成
+  # 最后一个标的的名字, 导致缓存写入用错键、读取永不命中(缓存形同虚设).
+  cache_key = str(pkl_path)
+  try:
+    st = os.stat(cache_key)
+    sig = (st.st_mtime_ns, st.st_size)           # 文件签名, 变了说明 pkl 被重写
+  except OSError:
+    sig = None
+  if sig is not None:
+    hit = _PANEL_CACHE.get(cache_key)
+    if hit is not None and hit[0] == sig:
+      return hit[1]                              # 同进程同名同签名 -> 复用只读 panel
+
   with open(pkl_path, 'rb') as f:
     raw = pickle.load(f)
   if not isinstance(raw, dict):
@@ -55,8 +74,8 @@ def load_panel(pkl_path: str, interval: str = 'day') -> pd.DataFrame:
 
   tail = f'_{interval}'
   frames = []
-  for key, df in raw.items():
-    if df is None or len(df) == 0:                 # 个别标的可能没数据
+  for key, df in raw.items():                    # 局部变量名保持 `key`(pkl 原始键名),
+    if df is None or len(df) == 0:               # 但绝不能再叫 `cache_key`, 见函数开头注释
       continue
     symbol = key[:-len(tail)] if key.endswith(tail) else key
     tmp = df.copy()
@@ -74,6 +93,10 @@ def load_panel(pkl_path: str, interval: str = 'day') -> pd.DataFrame:
              .swaplevel(0, 1)                      # (date, symbol) -> (symbol, date)
              .sort_index())
   panel.index.names = ['symbol', 'date']
+  if sig is not None:
+    if len(_PANEL_CACHE) >= _PANEL_CACHE_MAX:    # 简单上限: 面板很大, 不能无限攒
+      _PANEL_CACHE.pop(next(iter(_PANEL_CACHE)))
+    _PANEL_CACHE[cache_key] = (sig, panel)       # 用 pkl 路径作键(不是循环变量 key)
   return panel
 
 
@@ -86,6 +109,25 @@ def get_w(panel: pd.DataFrame, col: str) -> pd.DataFrame:
   :returns: DataFrame, index=date, columns=symbol
   """
   return panel[col].unstack('symbol').sort_index()
+
+
+def window(df: pd.DataFrame, start=None, end=None) -> pd.DataFrame:
+  """
+  按交易日截取宽表的行(只选时间窗, 不改内容).
+
+  evaluate / combine / backtest / report / ml 各层都需要"把宽表截到评估窗口"这一
+  动作, 之前各自抄了一份 `_win`/`_window`. 统一放这里, 各层 `import ... as _win` 复用.
+
+  :param df: (date × symbol) 宽表
+  :param start/end: 'YYYY-MM-DD' 或 Timestamp, None 表示不限
+  :returns: 行子集(索引与列不变)
+  """
+  idx = df.index
+  if start is not None:
+    idx = idx[idx >= pd.Timestamp(start)]
+  if end is not None:
+    idx = idx[idx <= pd.Timestamp(end)]
+  return df.loc[idx]
 
 
 @dataclass
@@ -138,7 +180,10 @@ class Dataset:
     if end is not None:
       d = d[d <= pd.Timestamp(end)]
     mask = self.panel.index.get_level_values('date').isin(d)
-    return Dataset(self.pool, self.interval, self.path, self.panel.loc[mask])
+    sub = self.panel.loc[mask]
+    # 缓存下推: 宽表按新交易日取行(只选时间窗, 不改内容), 免去子 Dataset 重做 unstack
+    cache = {col: w.loc[w.index.isin(d)] for col, w in self._wide_cache.items()}
+    return Dataset(self.pool, self.interval, self.path, sub, cache)
 
   def summary(self) -> str:
     """多行概况字符串(自检/日志用)."""

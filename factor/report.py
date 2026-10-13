@@ -36,7 +36,7 @@ factor.report — 报告层(第6步)
 --- 红线: 报告的每个数字都必须可复现 ---
   权重只在 IS 期估计(第4步红线); 图与表都直接调用前五层的函数, 不另写口径.
   verify_report() 端到端跑一遍精简流水线, 检查关键不变量(表完整 / 净值有限 /
-  前视对照 direction 正确), 确保"能出报告"本身不是靠运气.
+  定权窗口不变量), 确保"能出报告"本身不是靠运气.
 
 自检:
   cd ~/git && python -m quant.factor.report --pool etf_3x
@@ -47,6 +47,7 @@ factor.report — 报告层(第6步)
 import argparse
 import datetime
 import json
+import os
 from math import ceil
 from pathlib import Path
 
@@ -63,7 +64,7 @@ from quant.factor import combine as cmb
 from quant.factor import evaluate as ev
 from quant.factor import factor as fct
 from quant.factor import prepare as prep
-from quant.factor.data import Dataset, load_pool
+from quant.factor.data import Dataset, load_pool, window as _win
 
 # 汇总表展示列(预测力 + 组合表现 + 评估诚实性, 与第3步 evaluate 的三组列一致)
 FACTOR_COLS = ['factor', 'group', 'dir', 'dir_ok', 'n_days', 'ic', 'rank_ic',
@@ -82,16 +83,6 @@ FIG_EXTRA = ['dd_60']                            # hi_252 的冗余对照
 
 
 # ============================ 小工具 ============================
-
-def _win(df: pd.DataFrame, start: str = None, end: str = None) -> pd.DataFrame:
-  """按交易日截取宽表的行(只选时间窗, 不改内容)."""
-  idx = df.index
-  if start is not None:
-    idx = idx[idx >= pd.Timestamp(start)]
-  if end is not None:
-    idx = idx[idx <= pd.Timestamp(end)]
-  return df.loc[idx]
-
 
 def _setup_matplotlib() -> None:
   """matplotlib 中文字体 + 负号配置(避免图上中文变方框、负号变乱码)."""
@@ -199,11 +190,14 @@ def plot_ic_decay(ds: Dataset, sigs: dict, names: list,
   :returns: 图片路径
   """
   fig, ax = plt.subplots(figsize=(8.4, 4.8))
-  for name in names:                              # fwd 按 h 预计算, 避免重复
+  # fwd 只与 h 有关、与因子无关: 先按 h 各算一次并截窗; 因子宽表也只截一次.
+  # 否则在 name×h 双层循环里会重复算 forward_return(len(names)×len(hs) 遍).
+  fwd_by_h = {h: _win(ev.forward_return(ds, h), start, end) for h in hs}
+  sigs_win = {name: _win(sigs[name], start, end) for name in names}
+  for name in names:
     ys = []
     for h in hs:
-      fwd_h = _win(ev.forward_return(ds, h), start, end)
-      ic = ev.ic_series(_win(sigs[name], start, end), fwd_h, 'spearman', min_cs)
+      ic = ev.ic_series(sigs_win[name], fwd_by_h[h], 'spearman', min_cs)
       ys.append(float(ic.mean()) if len(ic) else np.nan)
     ax.plot(list(hs), ys, marker='o', ms=4, lw=1.4, label=name)
   ax.axhline(0.0, color='#999', lw=0.8, ls='--')
@@ -258,7 +252,7 @@ def plot_quantile(sigs: dict, fwd: pd.DataFrame, names: list, q: int = 5,
   return _save_fig(fig, 'fig2_quantile', out_dir)
 
 
-def plot_equity(curves: dict, split: str = cfg.IS_END, title: str = None,
+def plot_equity(curves: dict, split: str = None, title: str = None,
                 name: str = 'fig3_equity', out_dir: Path = None) -> str:
   """
   图3: 净值曲线对照 —— 各方案 + 全池基准, 并标出 IS/OOS 分隔线.
@@ -365,7 +359,8 @@ def run_report(ds: Dataset, method: str = prep.DEFAULT_PREP, h: int = 1,
                top_n: int = 6, p: bt.EngineParams = None,
                figures: bool = True, win_start: str = None, win_end: str = None,
                win_name: str = 'YTD', cost_ladder: bool = False,
-               exclude_static: bool = False) -> dict:
+               exclude_static: bool = False,
+               min_factors: int = cfg.MIN_FACTORS) -> dict:
   """
   全流程: data -> factor -> prepare -> evaluate -> combine -> backtest -> 出表出图.
 
@@ -406,14 +401,28 @@ def run_report(ds: Dataset, method: str = prep.DEFAULT_PREP, h: int = 1,
   names = fct.list_factors(group)
   sigs = cmb.build_signals(ds, method, names, min_cs)
   fwd = ev.forward_return(ds, h)                  # 全历史标签(截窗只筛评估日)
-  is_s, is_e = ev.window_bounds('is')
-  oos_s, oos_e = ev.window_bounds('oos')
+  is_s, is_e = ev.window_bounds('is', pool=ds.pool)
+  oos_s, oos_e = ev.window_bounds('oos', pool=ds.pool)
   fwd_is = _win(fwd, is_s, is_e)
   open_w, close_w = ds.wide('open'), ds.wide('close')
 
-  # ---- 评估: 单因子 IS / OOS ----
-  eval_is = ev.evaluate_factors(ds, names, method, h, top_k, q, min_cs, 'is')
-  eval_oos = ev.evaluate_factors(ds, names, method, h, top_k, q, min_cs, 'oos')
+  # ---- 评估: 单因子 IS / OOS / recent (复用上面已算好的 sigs, 免去 3 次重算) ----
+  eval_is = ev.evaluate_factors(ds, names, method, h, top_k, q, min_cs, 'is',
+                               sigs=sigs, fwd=fwd)
+  eval_oos = ev.evaluate_factors(ds, names, method, h, top_k, q, min_cs, 'oos',
+                                sigs=sigs, fwd=fwd)
+  # recent 必须走**同一真源**(该池 config 的 oos_window): 
+  #   * 若该池 OOS 是开放式的(如 etf_3x 的 2025-01-01~None), 则**没有独立 recent 窗** ——
+  #     OOS 已覆盖到数据末尾, 此时 recent 应为空;
+  #   * 旧代码硬用全局常量 cfg.RECENT_START(=2024-01-01), 于是对 etf_3x 会算出一个
+  #     落在 **OOS 区间内部** 的 "recent"(686 天), 与配置声明的窗口口径矛盾 ——
+  #     而且它会照着 cfg 全局值出现, 看起来完全正常。
+  # window_bounds 已把"无独立 recent 窗"用空区间(9999-12-31)表达, 这里据此跳过评估。
+  recent_b = ev.window_bounds('recent', pool=ds.pool)
+  has_recent = not (recent_b[0] == '9999-12-31')
+  eval_recent = (ev.evaluate_factors(ds, names, method, h, top_k, q, min_cs, 'recent',
+                                     sigs=sigs, fwd=fwd)
+                 if has_recent else None)
 
   # 剔除静态选票(可选): sig_ac1 >= STATIC_AC1 说明信号几乎逐日不变(静态身份,
   # 而非动态 alpha). 只从"组合输入"里摘掉, eval 表仍保留全部因子以便审计.
@@ -440,26 +449,34 @@ def run_report(ds: Dataset, method: str = prep.DEFAULT_PREP, h: int = 1,
     weights['ic'] = cmb.ic_weights(sigs, fwd_is, kept, min_cs, min_ic,
                                    shrink, soft_thresh)
   if 'greedy' in want:
-    chosen, _ = cmb.greedy_forward(sigs, fwd_is, kept, max_n, min_gain, min_cs)
+    chosen, _ = cmb.greedy_forward(sigs, fwd_is, kept, max_n, min_gain, min_cs,
+                                   min_factors)
     if chosen:
       weights['greedy'] = cmb.equal_weights(chosen)
 
   best = max(sc_is, key=lambda n: abs(sc_is[n]) if pd.notna(sc_is[n]) else -1.0)
-  combos = {k: cmb.combine_signals(sigs, w, min_cs) for k, w in weights.items()}
-  combos[f'single:{best}'] = cmb.combine_signals(sigs, {best: 1.0}, min_cs)
+  combos = {k: cmb.combine_signals(sigs, w, min_cs, min_factors) for k, w in weights.items()}
+  combos[f'single:{best}'] = cmb.combine_signals(sigs, {best: 1.0}, min_cs, min_factors)
   if 'equal' in weights:
     combos['shuffle(equal)'] = bt.shuffle_composite(combos['equal'], seed=42)
 
   # ---- IS 折内 walk-forward 一致性: 切 IS 期成折, 逐折只用折内训练窗定权 -> 折外测试 ----
   wf_per, consistency = cmb.consistency_table(
       sigs, fwd, names, tuple(want), is_s, is_e, wf_folds, thresh, min_cs, h,
-      min_ic, shrink, soft_thresh, max_n, min_gain)
+      min_ic, shrink, soft_thresh, max_n, min_gain, min_factors=min_factors)
 
   # ---- 回测: 每方案 x 每窗独立推进引擎 ----
+  # recent 窗与上面的 eval_recent 走同一真源: 该池若无独立 recent 窗(OOS 开放到数据末尾),
+  # 就不开这一段回测 —— 否则会用全局常量 2024-01-01 造出一段落在 OOS 内部的"recent"。
   windows = [('IS', is_s, is_e), ('OOS', oos_s, oos_e)]
+  if has_recent:
+    windows.append(('recent', recent_b[0], None))
   if win_start or win_end:
     windows.append((win_name, win_start, win_end))
   rows = []
+  # 每个窗口的 open/close 只切一次(方案循环里复用), 避免 方案数×窗口数 次重复切片.
+  ow_win = {win: _win(open_w, ws, we) for win, ws, we in windows}
+  cw_win = {win: _win(close_w, ws, we) for win, ws, we in windows}
   for kind, comp in combos.items():
     if kind in weights:
       nf = len(weights[kind])
@@ -468,13 +485,12 @@ def run_report(ds: Dataset, method: str = prep.DEFAULT_PREP, h: int = 1,
     else:
       nf = 1
     for win, ws, we in windows:
-      res = bt.run_engine(_win(open_w, ws, we), _win(close_w, ws, we),
-                          _win(comp, ws, we), p)
+      res = bt.run_engine(ow_win[win], cw_win[win], _win(comp, ws, we), p)
       s = bt.perf_stats(res['equity'], res['ann_turnover'], res['trades'])
       rows.append({'kind': kind, 'window': win, 'n_fac': nf,
                    **{k: s.get(k) for k in bt.STAT_KEYS}})
   for win, ws, we in windows:
-    res = bt.buyhold(_win(open_w, ws, we), _win(close_w, ws, we))
+    res = bt.buyhold(ow_win[win], cw_win[win])
     s = bt.perf_stats(res['equity'], res['ann_turnover'], res['trades'])
     rows.append({'kind': 'buyhold', 'window': win, 'n_fac': len(open_w.columns),
                  **{k: s.get(k) for k in bt.STAT_KEYS}})
@@ -490,14 +506,14 @@ def run_report(ds: Dataset, method: str = prep.DEFAULT_PREP, h: int = 1,
   plot_kinds = [k for k in ('equal', 'dir', 'ic', 'greedy', f'single:{best}',
                             'shuffle(equal)') if k in combos]
   curves = {}
+  # 全交易窗起点 = 该池 IS 起点
+  trade_start = ev.window_bounds('is', pool=ds.pool)[0]
+  full_ow, full_cw = _win(open_w, trade_start, None), _win(close_w, trade_start, None)
   for kind in plot_kinds + ['buyhold']:
     if kind == 'buyhold':
-      res = bt.buyhold(_win(open_w, cfg.TRADE_START, None),
-                       _win(close_w, cfg.TRADE_START, None))
+      res = bt.buyhold(full_ow, full_cw)
     else:
-      res = bt.run_engine(_win(open_w, cfg.TRADE_START, None),
-                          _win(close_w, cfg.TRADE_START, None),
-                          _win(combos[kind], cfg.TRADE_START, None), p)
+      res = bt.run_engine(full_ow, full_cw, _win(combos[kind], trade_start, None), p)
     curves[kind] = res['equity']
   yearly = bt.yearly_returns(curves[main_kind])
 
@@ -505,13 +521,11 @@ def run_report(ds: Dataset, method: str = prep.DEFAULT_PREP, h: int = 1,
   curves_win = None
   if win_start or win_end:
     curves_win = {}
+    wow, wcw = _win(open_w, win_start, win_end), _win(close_w, win_start, win_end)
     for kind in plot_kinds:
-      res = bt.run_engine(_win(open_w, win_start, win_end),
-                          _win(close_w, win_start, win_end),
-                          _win(combos[kind], win_start, win_end), p)
+      res = bt.run_engine(wow, wcw, _win(combos[kind], win_start, win_end), p)
       curves_win[kind] = res['equity']
-    res = bt.buyhold(_win(open_w, win_start, win_end),
-                     _win(close_w, win_start, win_end))
+    res = bt.buyhold(wow, wcw)
     curves_win['buyhold'] = res['equity']
 
   # ---- 出表(按池分子目录, 避免多个池互相覆盖) ----
@@ -528,6 +542,9 @@ def run_report(ds: Dataset, method: str = prep.DEFAULT_PREP, h: int = 1,
                            .rename(columns={'index': 'year'}), 'yearly_returns',
                            out_dir=out_dir),
   }
+  if eval_recent is not None:
+    paths['eval_recent'] = save_table(eval_recent[FACTOR_COLS], 'factor_eval_RECENT',
+                                      out_dir=out_dir)
   if dropped:
     paths['dropped'] = save_table(pd.DataFrame(dropped), 'dropped_factors',
                                   out_dir=out_dir)
@@ -556,7 +573,7 @@ def run_report(ds: Dataset, method: str = prep.DEFAULT_PREP, h: int = 1,
                                           min_cs=min_cs, out_dir=out_dir)
     paths['fig_quantile'] = plot_quantile(sigs, fwd, top_names, q, is_s, is_e, min_cs,
                                           out_dir=out_dir)
-    paths['fig_equity'] = plot_equity(curves, split=cfg.IS_END, out_dir=out_dir)
+    paths['fig_equity'] = plot_equity(curves, split=is_e, out_dir=out_dir)
     if curves_win is not None:
       paths[f'fig_equity_{win_name}'] = plot_equity(
           curves_win, split=None, name=f'fig4_equity_{win_name}',
@@ -564,6 +581,7 @@ def run_report(ds: Dataset, method: str = prep.DEFAULT_PREP, h: int = 1,
                  f'{cfg.COST_BPS:.0f}bps 单边成本)'), out_dir=out_dir)
 
   return {'quality': quality, 'eval_is': eval_is, 'eval_oos': eval_oos,
+          'eval_recent': eval_recent,
           'corr': corr, 'backtest': backtest, 'yearly': yearly,
           'kept': kept, 'dropped': dropped, 'scores_is': sc_is, 'weights': weights,
           'consistency': consistency,
@@ -593,7 +611,8 @@ def _jsonable(obj):
 
 def export_config(rep: dict, ds: Dataset, pool: str, interval: str, method: str,
                   min_cs: int, top_k: int, exit_rank: int,
-                  default_scheme: str = 'greedy') -> dict:
+                  default_scheme: str | None = None,
+                  min_factors: int = cfg.MIN_FACTORS) -> dict:
   """
   把研究结论打包成 factor_config.json 的结构, 供生产端(signal_generator)直接读取.
 
@@ -608,8 +627,10 @@ def export_config(rep: dict, ds: Dataset, pool: str, interval: str, method: str,
   :param pool/interval: 池与频率
   :param method: 预处理方法
   :param min_cs: 每日最少有效标的数
+  :param min_factors: 每格最少有效因子数(生产端与定权必须用同一掩码)
   :param top_k/exit_rank: 三态门槛
-  :param default_scheme: 生产端默认使用的方案
+  :param default_scheme: 生产端默认使用的方案; None = 不指定, 由 write_config
+                         保留既有 default_scheme(避免重跑 report 把已冻结的默认方案冲掉)
   :returns: dict(meta / params / kept / dropped / scores_is / best_single / schemes)
   """
   sc = rep['scores_is']
@@ -618,8 +639,11 @@ def export_config(rep: dict, ds: Dataset, pool: str, interval: str, method: str,
   schemes = {k: {n: float(w) for n, w in v.items()} for k, v in rep['weights'].items()}
   if best is not None:
     schemes['single'] = {best: 1.0}
-  is_s, is_e = ev.window_bounds('is')
-  oos_s, oos_e = ev.window_bounds('oos')
+  # 导出的窗口必须与本次流水线**实际使用**的窗口一致 —— 否则 config 里写的窗口会
+  # 与冻结权重所用的窗口不符, 而复现/复核时又会按 config 去截, 形成"口径漂移"(见
+  # cfg.resolve_windows 的说明). 这里显式带上 pool。
+  is_s, is_e = ev.window_bounds('is', pool=pool)
+  oos_s, oos_e = ev.window_bounds('oos', pool=pool)
   return {
       'meta': {
           'generated_at': datetime.datetime.now().isoformat(timespec='seconds'),
@@ -628,7 +652,8 @@ def export_config(rep: dict, ds: Dataset, pool: str, interval: str, method: str,
           'data_end': ds.dates.max().strftime('%Y-%m-%d'),
           'is_window': [is_s, is_e], 'oos_window': [oos_s, oos_e],
       },
-      'params': {'prep': method, 'min_cs': int(min_cs), 'top_k': int(top_k),
+      'params': {'prep': method, 'min_cs': int(min_cs),
+                 'min_factors': int(min_factors), 'top_k': int(top_k),
                  'exit_rank': int(exit_rank), 'default_scheme': default_scheme},
       'kept': list(rep['kept']),
       'dropped': rep['dropped'],
@@ -644,14 +669,20 @@ def _load_config_doc(path: Path) -> dict:
 
   兼容旧版(单池扁平结构): 旧的 {meta/params/kept/schemes...} 会被收进
   pools[meta.pool], 因此升级到多池结构时不会丢结论.
+
+  **解析失败必须抛异常, 不能返回空结构**: 调用方 write_config 会拿返回的 doc 重写文件,
+  一旦这里静默吞掉解析错误, 一次读取失败就会把整个配置(所有池)覆盖成只剩当前池 ——
+  "毁库"路径. 因此不存在文件才算空, 存在但读不出来一律上报.
   """
   doc = {}
   if path.exists():
     try:
       with open(path, 'r', encoding='utf-8') as f:
         doc = json.load(f)
-    except Exception:
-      doc = {}
+    except Exception as e:
+      raise ValueError(
+          f'{path} 存在但无法解析({type(e).__name__}: {e}) —— 拒绝以空配置重写, '
+          f'请先修复或删除该文件后重试') from e
   pools = doc.get('pools') if isinstance(doc, dict) else None
   if not isinstance(pools, dict):
     pools = {}
@@ -662,15 +693,19 @@ def _load_config_doc(path: Path) -> dict:
   return {'default_pool': default_pool, 'pools': pools}
 
 
-def write_config(conf: dict, path=None) -> Path:
+def write_config(conf: dict, path=None, log=None) -> Path:
   """
   把 export_config 的产物写入 factor_config.json(多池: {default_pool, pools{pool:conf}}).
 
-  **按池合并**: 只更新本次 conf.meta.pool 对应的一节, 其它池的既有条目原样保留,
-  因此可以逐池跑 report --write-config, 彼此不覆盖. 旧版单池文件会自动迁移.
+  **按池按键合并**(P0-4: 不再整节静默覆盖):
+    - schemes: 逐方案**并集** —— 同名以本次为准(日志告警变动), 本次未重算的方案保留;
+    - params: 按键合并 —— 本次为 None 的键(如未显式指定 default_scheme)保留既有值;
+    - 其余键(meta/kept/dropped/scores_is/best_single): 本次重算 -> 以本次为准;
+    - 未知键一律保留, 因此逐池跑 report --write-config 不会丢掉其它池或自定义字段.
 
   :param conf: export_config 的返回(须含 meta.pool)
   :param path: 输出路径(None 用默认 cfg.FACTOR_CONFIG)
+  :param log: 可选 logger(把覆盖/新增/保留项都显式打印, 变"静默"为"响亮")
   :returns: 实际写入的 Path
   """
   path = Path(path or cfg.FACTOR_CONFIG)
@@ -679,11 +714,79 @@ def write_config(conf: dict, path=None) -> Path:
   if not pool:
     raise ValueError('conf.meta.pool 缺失, 无法写入多池配置')
   doc = _load_config_doc(path)
-  doc['pools'][pool] = conf
+  old = doc['pools'].get(pool)
+  if old is None:
+    doc['pools'][pool] = conf
+    if log is not None:
+      log.info(f'[write-config] {pool}: 新建池配置, schemes={list(conf.get("schemes") or {})}')
+  else:
+    doc['pools'][pool] = _merge_pool_conf(old, conf, pool, log)
   doc['default_pool'] = doc.get('default_pool') or pool
-  with open(path, 'w', encoding='utf-8') as f:
-    json.dump(_jsonable(doc), f, ensure_ascii=False, indent=2)
+
+  # 原子写: 先写同目录临时文件再 os.replace —— 直接覆盖写一旦中途失败(磁盘满/进程被杀),
+  # 会把"研究结论 -> 生产"的唯一接口留成半截 JSON, 而生产端读不出来就再也拿不到正确口径.
+  path.parent.mkdir(parents=True, exist_ok=True)
+  tmp = path.with_name(path.name + '.tmp')
+  try:
+    with open(tmp, 'w', encoding='utf-8') as f:
+      json.dump(_jsonable(doc), f, ensure_ascii=False, indent=2)
+      f.flush()
+      os.fsync(f.fileno())
+    os.replace(tmp, path)
+  except Exception:
+    if tmp.exists():
+      try:
+        tmp.unlink()
+      except OSError:
+        pass
+    raise
   return path
+
+
+def _merge_pool_conf(old: dict, new: dict, pool: str, log=None) -> dict:
+  """
+  把本次 conf 合并进既有池配置: schemes 逐方案并集 / params 按键合并 / 未知键保留.
+  """
+  merged = dict(old)                                    # 先保留既有全部键(含本次未重算的自定义字段)
+  old_sch = dict(merged.get('schemes') or {})
+  new_sch = dict(new.get('schemes') or {})
+  added, overridden = [], []
+  for name, w in new_sch.items():
+    if name in old_sch:
+      if old_sch[name] != w:
+        overridden.append(name)
+    else:
+      added.append(name)
+    old_sch[name] = w
+  merged['schemes'] = old_sch
+
+  old_p = dict(merged.get('params') or {})
+  changed = []
+  for k, v in (new.get('params') or {}).items():
+    if v is None:                                       # 本次未定 -> 保留既有(如 default_scheme)
+      continue
+    if k in old_p and old_p[k] != v:
+      changed.append(f'{k}:{old_p[k]}->{v}')
+    old_p[k] = v
+  if old_p.get('default_scheme') is None:               # 全新且未指定 -> 沿用旧默认 'greedy'
+    old_p['default_scheme'] = 'greedy'
+  merged['params'] = old_p
+
+  for k, v in new.items():                              # 其余键以本次为准
+    if k not in ('schemes', 'params'):
+      merged[k] = v
+
+  if log is not None:
+    if added:
+      log.info(f'[write-config] {pool}: 新增方案 {sorted(added)}')
+    if overridden:
+      log.info(f'[write-config] {pool}: 覆盖同名方案 {sorted(overridden)}(权重已更新)')
+    if changed:
+      log.info(f'[write-config] {pool}: params 变更 {changed}')
+    kept = sorted(set(old_sch) - set(new_sch))
+    if kept:
+      log.info(f'[write-config] {pool}: 保留既有未重算方案 {kept}')
+  return merged
 
 
 # ============================ 4. 报告文本 ============================
@@ -716,8 +819,10 @@ def _honest_section(tab: pd.DataFrame) -> list:
 
 def build_summary(rep: dict, ds: Dataset, method: str, h: int) -> str:
   """把关键结论拼成一段可读文本(同时写入 OUT_DIR/{pool}/report_summary.txt)."""
-  wins = rep.get('windows') or [('IS', cfg.TRADE_START, cfg.IS_END),
-                                ('OOS', cfg.OOS_START, None)]
+  # 兜底窗口也按该池口径取(与 run_report 实际使用的一致), 不再用全局常量
+  _is = ev.window_bounds('is', pool=ds.pool)
+  _oos = ev.window_bounds('oos', pool=ds.pool)
+  wins = rep.get('windows') or [('IS', _is[0], _is[1]), ('OOS', _oos[0], _oos[1])]
   win_desc = ' / '.join(f'{w} {s or "-"}~{e or "至今"}' for w, s, e in wins)
   tag = '  [已剔除静态票]' if rep.get('excluded_static') else ''
   lines = [
@@ -735,6 +840,14 @@ def build_summary(rep: dict, ds: Dataset, method: str, h: int) -> str:
       '',
   ]
   lines += _honest_section(rep['eval_is'])
+  if rep.get('eval_recent') is not None:
+    rt = rep['eval_recent']
+    rsig = int(rt['fdr_sig'].sum())
+    lines += [
+        f'[近期窗因子有效性] {rsig}/{len(rt)} 个因子 BH-FDR(alpha={ev.FDR_ALPHA}) 显著 '
+        '(仅事后汇报, 不参与定参)',
+        '',
+    ]
   if rep.get('excluded_static'):
     lines += [f'[组合剔除] 静态选票 {rep["excluded_static"]} 已剔出组合'
               ' (仍列在评估表中以便审计)', '']
@@ -749,7 +862,7 @@ def build_summary(rep: dict, ds: Dataset, method: str, h: int) -> str:
       '[回测汇总] 同一引擎核算; 各窗独立推进(各自空仓起跑, 净值 1.0)',
       rep['backtest'].to_string(index=False),
       '',
-      f'[主方案 {rep["main_kind"]} 全交易窗({cfg.TRADE_START} 起)分年收益]',
+      f'[主方案 {rep["main_kind"]} 全交易窗({_is[0]} 起)分年收益]',
       rep['yearly'].to_string(),
       '',
   ]
@@ -784,7 +897,7 @@ def build_summary(rep: dict, ds: Dataset, method: str, h: int) -> str:
 
 def verify_report(ds: Dataset, method: str = prep.DEFAULT_PREP, h: int = 1,
                   top_k: int = cfg.TOP_K, min_cs: int = cfg.MIN_CS,
-                  seed: int = 42) -> pd.DataFrame:
+                  min_factors: int = cfg.MIN_FACTORS, seed: int = 42) -> pd.DataFrame:
   """
   报告层标定: 端到端跑一遍精简流水线, 检查关键不变量(只在内存里, 不落盘).
 
@@ -795,8 +908,13 @@ def verify_report(ds: Dataset, method: str = prep.DEFAULT_PREP, h: int = 1,
     3. 引擎标定: oracle RankIC ≈ 1, random ≈ 0(报告引用的口径没被改坏);
     4. 静态检测器: "常量选票"应被判静态(sig_ac1 >= STATIC_AC1 且 dyn_minus_static <= 0),
        确保"静态身份"不会被当成动态 alpha 展示;
-    5. 前视对照: honest(IS 定权) OOS 收益 <= lookahead(全样本定权), 方向正确 ——
-       若反过来, 说明"报告在偷看未来", 必须排查.
+    5. 前视防线(定权窗口不变量, 取自 verify_backtest):
+       (a) IS 窗外投毒后 honest 权重应逐值不变(定权链路只读 IS 标签);
+       (b) 全样本定权 != IS 定权(前视对照真实生效).
+       honest vs lookahead 的 OOS 净值差只作描述性"前视代价"附在 detail 里,
+       不作判据 —— ic_weights 拟合 RankIC 而引擎净值是非线性 top-k + 换手成本
+       的函数, "偷看"不保证净值更高, 旧的 honest <= lookahead 判据测的是不成
+       立的命题(实测多因子集随机误报), 已废除; 防线反而直接锁死泄露通道本身.
 
   :returns: DataFrame(check, detail, pass)
   """
@@ -810,7 +928,7 @@ def verify_report(ds: Dataset, method: str = prep.DEFAULT_PREP, h: int = 1,
                'pass': len(ev_tab) == len(names) and not missing})
 
   sigs = cmb.build_signals(ds, method, names, min_cs)
-  comp = cmb.combine_signals(sigs, cmb.equal_weights(names), min_cs)
+  comp = cmb.combine_signals(sigs, cmb.equal_weights(names), min_cs, min_factors)
   cov = float(comp.notna().to_numpy().mean())
   rows.append({'check': '组合信号有效值占比', 'detail': f'{cov:.1%}', 'pass': cov > 0.3})
 
@@ -831,13 +949,15 @@ def verify_report(ds: Dataset, method: str = prep.DEFAULT_PREP, h: int = 1,
                'pass': bool(pd.notna(sta) and sta >= ev.STATIC_AC1
                             and pd.notna(dms) and dms <= 1e-9)})
 
-  _, leak = bt.verify_backtest(ds, method, h, top_k, min_cs, seed)
+  _, leak, wchk = bt.verify_backtest(ds, method, h, top_k, min_cs, min_factors, seed)
+  wrows = wchk.to_dict('records')
   oos = dict(zip(leak['case'], leak['total_ret']))
   honest = float(oos.get('honest(IS定权)', np.nan))
   leaky = float(oos.get('lookahead(全样本定权)', np.nan))
-  rows.append({'check': '前视对照方向(honest <= lookahead)',
-               'detail': f'honest={honest:.3f}, lookahead={leaky:.3f}',
-               'pass': bool(pd.notna(honest) and pd.notna(leaky) and honest <= leaky + 1e-9)})
+  if wrows and pd.notna(honest) and pd.notna(leaky):
+    wrows[0]['detail'] = (f"{wrows[0]['detail']}; OOS 前视代价(描述, 不判定): "
+                          f'honest={honest:.3f}, lookahead={leaky:.3f}')
+  rows.extend(wrows)
   return pd.DataFrame(rows)
 
 
@@ -858,6 +978,8 @@ def main():
   ap.add_argument('--band', type=float, default=0.05)
   ap.add_argument('--q', type=int, default=5, help='分层桶数')
   ap.add_argument('--min-cs', type=int, default=cfg.MIN_CS)
+  ap.add_argument('--min-factors', type=int, default=cfg.MIN_FACTORS,
+                  help='每格最少有效因子数(缺失感知归一化下, 太少会让单因子被顶到满量程产生伪信号)')
   ap.add_argument('--group', default=None, help='只用某类因子')
   ap.add_argument('--scheme', default='all', choices=('all',) + cmb.COMBO_SCHEMES)
   ap.add_argument('--thresh', type=float, default=cmb.DEDUPE_RHO)
@@ -885,9 +1007,10 @@ def main():
                   default=None, metavar='PATH',
                   help='把因子名单+权重写成 JSON 供生产脚本(signal_generator)读取; '
                        '不带值则写默认 %s' % cfg.FACTOR_CONFIG)
-  ap.add_argument('--default-scheme', default='greedy',
-                  choices=('equal', 'dir', 'ic', 'greedy', 'single'),
-                  help='写入 config 的默认方案(供 signal_generator 使用)')
+  ap.add_argument('--default-scheme', default=None,
+                  choices=(None, 'equal', 'dir', 'ic', 'greedy', 'single'),
+                  help='写入 config 的默认方案(供 signal_generator 使用); '
+                       '不指定则保留 factor_config.json 里既有的 default_scheme')
   a = ap.parse_args()
 
   log = cfg.get_logger('factor.report')
@@ -895,7 +1018,7 @@ def main():
   log.info(ds.summary())
 
   if a.check:
-    ck = verify_report(ds, a.method, a.h, a.top_k, a.min_cs)
+    ck = verify_report(ds, a.method, a.h, a.top_k, a.min_cs, a.min_factors)
     print('\n[报告层标定] 端到端精简流水线, 检查关键不变量:')
     print(ck.to_string(index=False))
     print('[结论] 全部通过' if bool(ck['pass'].all())
@@ -911,7 +1034,7 @@ def main():
                    wf_folds=a.wf_folds, top_n=a.top_n, p=p,
                    figures=not a.no_fig, win_start=a.start, win_end=a.end,
                    win_name=a.win_name, cost_ladder=a.cost_ladder,
-                   exclude_static=a.exclude_static)
+                   exclude_static=a.exclude_static, min_factors=a.min_factors)
 
   text = build_summary(rep, ds, a.method, a.h)
   out_dir = rep['out_dir']
@@ -923,10 +1046,11 @@ def main():
 
   if a.write_config:                              # 研究结论 -> 生产接口(因子名单+权重)
     conf = export_config(rep, ds, a.pool, a.interval, a.method, a.min_cs,
-                         a.top_k, a.exit_rank, a.default_scheme)
-    cpath = write_config(conf, a.write_config)
+                         a.top_k, a.exit_rank, a.default_scheme, a.min_factors)
+    cpath = write_config(conf, a.write_config, log=log)
     log.info(f'[config] 因子配置已写出: {cpath} (kept={len(conf["kept"])}, '
-             f'schemes={list(conf["schemes"])}, default={a.default_scheme})')
+             f'schemes={list(conf["schemes"])}, '
+             f'default={a.default_scheme or "(保留既有)"})')
     print(f'[落盘] 因子配置: {cpath}')
 
 

@@ -237,7 +237,7 @@ def _compare(a: pd.DataFrame, b: pd.DataFrame):
   return int(a.size), max_diff, nan_same
 
 
-def truncation_check(ds: Dataset, prep_fn: PrepFn, cut: str = '2024-06-28',
+def truncation_check(ds: Dataset, prep_fn: PrepFn, cut: str = cfg.VERIFY_CUT,
                      tol: float = 1e-9, group: str = None) -> pd.DataFrame:
   """
   预处理层的截断一致性检验(与第1步 factor.verify_causal 同一原理, 但检验的是 prep).
@@ -272,7 +272,7 @@ def truncation_check(ds: Dataset, prep_fn: PrepFn, cut: str = '2024-06-28',
   return pd.DataFrame(rows)
 
 
-def verify_prepare(ds: Dataset, method: str = DEFAULT_PREP, cut: str = '2024-06-28',
+def verify_prepare(ds: Dataset, method: str = DEFAULT_PREP, cut: str = cfg.VERIFY_CUT,
                    tol: float = 1e-9, min_cs: int = cfg.MIN_CS,
                    group: str = None) -> pd.DataFrame:
   """对某个预处理方法做截断一致性检验(truncation_check 的便捷封装)."""
@@ -294,7 +294,7 @@ def main():
   ap.add_argument('--min-cs', type=int, default=cfg.MIN_CS)
   ap.add_argument('--check', action='store_true', help='做截断一致性检验')
   ap.add_argument('--demo', action='store_true', help='注入前视反例, 验证检验有效')
-  ap.add_argument('--cut', default='2024-06-28')
+  ap.add_argument('--cut', default=cfg.VERIFY_CUT)
   ap.add_argument('--show', default=None, help='打印某因子预处理后最近 5 行')
   a = ap.parse_args()
 

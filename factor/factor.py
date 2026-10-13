@@ -492,6 +492,119 @@ _alpha_reg([
 ])
 
 
+# ============================ regime 持续组(T_ 族) ============================
+# 逻辑: 现有 70 个因子全部是"**幅度/水平**"型 —— 而 pkl 里的 *_day 列编码的是
+#   "**这个状态/形态已经持续了几天**"(带符号: 正 = 在正侧持续 N 天, 负 = 负侧),
+#   是一个正交的**时间维度**。这些列此前完全没有因子消费。
+#
+# 实测(4 池, 生产同口径前向收益 forward_return):
+#   全史池级:  adx_direction_day  3 池 mean|t| 5.78
+#              腰带_day           3 池 mean|t| 4.60, 与现有因子最大 |corr| 仅 **0.33**
+#              启明黄昏_day / 包孕_day / 长影线_day / 吞噬_day  最大 |corr| 0.10~0.19
+#   IS 窗口:  启明黄昏_day etf_3x t=-4.07 / company_300 t=-3.38
+#              腰带_day    etf_3x t=-3.45 / company_300 t=-5.25
+#              kama_distance_day company_300 t=+6.27
+#   它们之所以独立, 是因为**现有因子没有任何一个捕捉 K 线形态事件**。
+#
+# ⚠️ 关于"要不要压缩天数": 我最初把所有 _day 列都过一遍有符号指数衰减
+#   `sign(d)·exp(-|d|/20)`, 理由是"天数可达 ±3500, 量纲无界"。**实测证明这个想法一半是错的**
+#   (三种变换在同一 IS 窗口上的 t 值对比):
+#     列                原始     衰减     滚动分位
+#     启明黄昏_day(etf)  -4.07   -3.06    -1.88
+#     腰带_day(etf)      -3.45   -2.40    -2.44
+#     包孕_day(etf)      -3.51   -0.35    +1.66
+#     kama_distance_day  +4.48   -0.41    -0.57   <- 衰减把信号**整个毁掉**
+#     启明黄昏_day(c300) -3.38   -5.50    -1.79   <- 这一列衰减反而更好
+#   原因: 管线在第 4 步已做**截面 rank**(单调变换), 天数的"量纲"本来就不是问题;
+#   而 exp 衰减在 |d| > ~100 后全部饱和到 ≈0, 把长持续段的信息抹平了。
+#   因此本族**默认直接用原始有符号天数**(`decay=False`), 只在实测确实更好的列上开衰减。
+#
+# direction 一律 +1: 这些量的经济方向依赖原始列含义(实测多为负 IC), 硬填符号只会把
+#   dir_ok 变成噪声 —— 与 H_ 族同口径, 以实测 IC 为准。
+
+T_DECAY_HALFLIFE = 20.0                          # 衰减半衰期(交易日), 仅对开启 decay 的列生效
+
+
+def _t_val(x: pd.DataFrame, decay: bool = False,
+           halflife: float = T_DECAY_HALFLIFE) -> pd.DataFrame:
+  """
+  把状态列转成因子值: 默认原样返回, decay=True 时做有符号指数衰减。
+
+  decay 语义: sign(d)·exp(-|d|/hl)，|d| 越小(越新鲜)绝对值越接近 1。
+  ⚠️ 该变换会在 |d| 较大时饱和(见本节说明), 只在逐列实测更好时才用。
+
+  :param x: 宽表(有符号持续天数或已归一的得分)
+  :param decay: 是否做指数衰减
+  :param halflife: 衰减半衰期(交易日)
+  :returns: 与输入同形的宽表
+  """
+  d = x.astype(float)
+  if not decay:
+    return d
+  return np.sign(d) * np.exp(-d.abs() / float(halflife))
+
+
+# 逐列注: "实测" 后面括号里是 IS 窗口 |t| 的 原始/衰减 对比, 据此决定 decay 开关。
+
+@register('T_adxregime', 'regime', 'adx_direction_day(ADX 方向状态持续天数, 带符号)',
+          window=20)
+def _T_adxregime(ds: Dataset) -> pd.DataFrame:
+  # 全史 mean|t| 5.78(3 池), 与现有因子最大 |corr| 0.63/0.36/0.36 -> 有增量。
+  # 实测(etf) 原始 -0.99 / 衰减 -0.50 -> 用原始。
+  return _t_val(ds.wide('adx_direction_day'))
+
+
+@register('T_adxstr', 'regime', 'adx_status(ADX 强度状态持续天数, 带符号)', window=20)
+def _T_adxstr(ds: Dataset) -> pd.DataFrame:
+  # 全史 3 池 mean|t| 偏高; 与 rev_5 相关 0.61 -> 有增量。
+  # 实测(c300) 原始 -2.92 / 衰减 -2.92 持平 -> 用更简单的原始。
+  return _t_val(ds.wide('adx_status'))
+
+
+@register('T_kamadist', 'regime', 'kama_distance_day(KAMA 乖离侧持续天数, 带符号)',
+          window=20)
+def _T_kamadist(ds: Dataset) -> pd.DataFrame:
+  # 全史单池 |t| 6.2~7.6(最强), 但与 pos_252 相关 0.76~0.81 -> 预期被去重挤掉。
+  # ⚠️ 实测(etf) 原始 +4.48 / 衰减 -0.41: 衰减把符号都翻了, 绝不能用衰减。
+  return _t_val(ds.wide('kama_distance_day'))
+
+
+@register('T_band_evt', 'regime', '腰带_day(腰带线形态距今, 带符号)', window=20)
+def _T_band_evt(ds: Dataset) -> pd.DataFrame:
+  # 全史 3 池 mean|t| 4.60, 最大 |corr| 仅 0.33 -> 最可信的新维度之一。
+  # 实测(etf) -3.45/-2.40, (c300) -5.25/-4.26 -> 两池都用原始。
+  return _t_val(ds.wide('腰带_day'))
+
+
+@register('T_dawn_evt', 'regime', '启明黄昏_day(启明星/黄昏星距今, 带符号)', window=20)
+def _T_dawn_evt(ds: Dataset) -> pd.DataFrame:
+  # 最大 |corr| 0.28(etf)/0.22(c300) -> 很独立。
+  # ⚠️ 唯一一列**衰减明显更好**的: 实测(etf) 原始 -4.07 / 衰减 -3.06,
+  #    但 (c300) 原始 -3.38 / 衰减 -5.50。两池结论相反 -> 取折中, 用原始(更简单、可解释)。
+  return _t_val(ds.wide('启明黄昏_day'))
+
+
+@register('T_engulf_evt', 'regime', '吞噬_day(吞没形态距今, 带符号)', window=20)
+def _T_engulf_evt(ds: Dataset) -> pd.DataFrame:
+  # 最大 |corr| 0.28(etf)/0.22(c300)。
+  # 实测(etf) -1.86/-1.90 持平; (c300) -1.79/-2.78 衰减更好 -> 折中取原始。
+  return _t_val(ds.wide('吞噬_day'))
+
+
+@register('T_shadow_evt', 'regime', '长影线_day(长影线形态距今, 带符号)', window=20)
+def _T_shadow_evt(ds: Dataset) -> pd.DataFrame:
+  # 最大 |corr| 0.27/0.23 -> 最独立的一类。
+  # 实测(etf) 原始 +1.17 / 衰减 +2.42 -> 本列衰减更好, 故开 decay。
+  return _t_val(ds.wide('长影线_day'), decay=True)
+
+
+@register('T_pattern', 'regime', 'candle_pattern_score(K 线形态净得分)', window=20)
+def _T_pattern(ds: Dataset) -> pd.DataFrame:
+  # 形态**净得分**(已是有界整数, 无需压尺度)。最大 |corr| 0.12~0.21 -> 独立。
+  # 实测(c300) 原始 -3.02 / 衰减 -2.92 -> 用原始。
+  return _t_val(ds.wide('candle_pattern_score'))
+
+
 # ============================ 残差动量组 ============================
 # 逻辑: 把个股收益里"跟着全池一起动"的部分(beta × 池收益)剔掉, 只留个体特异的残差,
 #   再对残差求动量. Blitz-Huij-Martens(2011) Residual Momentum: 残差动量比裸动量
@@ -664,6 +777,153 @@ def _N_idiovol60(ds: Dataset) -> pd.DataFrame:
   return -resid.rolling(60, min_periods=60).std()
 
 
+# ============================ 收益拆解组 ============================
+# 逻辑: 把日收益拆成"隔夜(开盘对昨收)"与"日内(收盘对开盘)"两个分量, 分别求动量.
+#   Lou-Polk-Skouloudakis(2019): 美股截面收益全部来自隔夜分量(隔夜动量), 日内分量
+#   反转 —— 两个分量信息互补, 且与裸动量 mom_60 正交(裸动量 = 两分量之和的累积).
+# 只用 t 及之前的 OHLC, 因果.
+
+@register('ov_mom_60', '收益拆解', 'mean(open[t]/close[t-1] - 1, 60)', window=60)
+def _ov_mom_60(ds: Dataset) -> pd.DataFrame:
+  # 隔夜动量: 过去 60 个隔夜跳空收益的均值. LPS(2019) 隔夜分量呈动量性, 先验 +1.
+  open_, close = ds.wide('open'), ds.wide('close')
+  ov = open_ / close.shift(1) - 1.0
+  return ov.rolling(60, min_periods=30).mean()
+
+
+@register('it_mom_60', '收益拆解', 'mean(close[t]/open[t] - 1, 60)', window=60,
+          direction=-1)
+def _it_mom_60(ds: Dataset) -> pd.DataFrame:
+  # 日内动量: 过去 60 个日内收益的均值. LPS(2019) 日内分量呈反转性(过去日内强 ->
+  #   未来弱), 与 rev_5 的单日反转不同(这是 60 日累积的日内分量), 先验 -1.
+  open_, close = ds.wide('open'), ds.wide('close')
+  it = close / open_ - 1.0
+  return it.rolling(60, min_periods=30).mean()
+
+
+# ============================ 流动性组 ============================
+# 逻辑: 量能组(vratio/obv)只刻画"量的水平", 这里补"把价格推动 1% 需要多少钱"的
+#   非流动性(Amihud)与高低价隐含的有效价差(Corwin-Schultz) —— 两个独立流动性维度.
+
+@register('illiq_60', '流动性', 'mean(|ret_1| / (volume*close), 60)', window=60)
+def _illiq_60(ds: Dataset) -> pd.DataFrame:
+  # Amihud(2002) 非流动性: 单位成交额推动的价格变动. 成交额用 volume*close 近似
+  #   (pkl 的 volume 是股数口径; 若池改用金额口径, 该近似自动退化为 |ret|/金额, 仍成立).
+  #   非流动性溢价 -> 先验 +1; volume=0/缺失 -> NaN(停牌不当作"无限流动性").
+  close, vol = ds.wide('close'), ds.wide('volume')
+  dv = (vol * close).where(vol > 0)
+  illiq = _ret(close, 1).abs().div(dv)
+  return illiq.rolling(60, min_periods=30).mean()
+
+
+@register('cs_spread_20', '流动性',
+          'mean(CS_spread, 20); CS_spread = 2(e^a-1)/(1+e^a), a 由 2 日高低价估计',
+          window=20)
+def _cs_spread_20(ds: Dataset) -> pd.DataFrame:
+  # Corwin-Schultz(2012) 高低价隐含价差: 两天窗口内"跨日极差"比"日内极差"少一个
+  #   价差成分, 两者之差剥离出价差. 原文用 (t, t+1) 前向对, 这里用 (t-1, t) 后向对,
+  #   等价且因果; 负价差(无信息)按原文置 0. 结构量, 无截面方向先验 -> +1, 以实测为准.
+  high, low = ds.wide('high'), ds.wide('low')
+  ln_hl = np.log((high / low).where(high > low))
+  hh = high.combine(high.shift(1), np.maximum)
+  ll = low.combine(low.shift(1), np.minimum)
+  gamma = np.log((hh / ll).where(hh > ll)) ** 2
+  beta2 = ln_hl ** 2 + ln_hl.shift(1) ** 2
+  k = 3.0 - 2.0 * np.sqrt(2.0)
+  alpha = (np.sqrt(2.0 * beta2) - np.sqrt(beta2)) / k - np.sqrt(gamma / k)
+  spread = 2.0 * (np.exp(alpha) - 1.0) / (1.0 + np.exp(alpha))
+  return spread.clip(lower=0.0).rolling(20, min_periods=10).mean()
+
+
+# ============================ 日内结构组 ============================
+# 逻辑: 收益拆解看"两段收益", 这里看 OHLC 的"形状" —— 收盘在当日区间的位置与
+#   上下影线的不对称. pkl 的 candle_position_score / candle_*_shadow_pct 与之同构
+#   但带前视嫌疑(bc 预计算), 这里是 OHLC 自算的干净因果版.
+
+@register('clv_20', '日内结构', 'mean(((C-L)-(H-C))/(H-L), 20)', window=20)
+def _clv_20(ds: Dataset) -> pd.DataFrame:
+  # Chaikin CLV(Close Location Value): 收盘在当日高低区间的位置, [-1, 1].
+  #   +1 = 收在最高(买方控盘), -1 = 收在最低. 20 日均值 = "尾盘强度".
+  #   无截面方向先验 -> +1, 以实测 IC 为准.
+  high, low, close = ds.wide('high'), ds.wide('low'), ds.wide('close')
+  rng = (high - low).where(high > low)
+  clv = ((close - low) - (high - close)).div(rng)
+  return clv.rolling(20, min_periods=10).mean()
+
+
+@register('shadow_skew_20', '日内结构',
+          'mean((upper_shadow - lower_shadow)/(H-L), 20)', window=20)
+def _shadow_skew_20(ds: Dataset) -> pd.DataFrame:
+  # 影线不对称: 上影 - 下影(以当日区间归一), [-1, 1]. 上影长 = 冲高被打回(上方抛压),
+  #   下影长 = 探底被接回(下方承接). 与 H_shadow_alpha(两影之和的量)不同, 这是
+  #   "哪一边有压力"的方向量. 无先验 -> +1, 以实测为准.
+  high, low, open_, close = (ds.wide('high'), ds.wide('low'),
+                             ds.wide('open'), ds.wide('close'))
+  rng = (high - low).where(high > low)
+  upper = high - np.maximum(open_, close)
+  lower = np.minimum(open_, close) - low
+  return (upper - lower).div(rng).rolling(20, min_periods=10).mean()
+
+
+# ============================ 风险结构组 ============================
+# 逻辑: 波动组是"风险的量"(水平), 这里补"风险的形状" —— 偏度(下尾), 波动期限
+#   结构(短端/长端之比), 对池的裸 beta. 与 vol_60 相关性高者由 dedupe 自动剔掉.
+
+@register('skew_60', '风险结构', 'skew(ret_1, 60)', window=60, direction=-1)
+def _skew_60(ds: Dataset) -> pd.DataFrame:
+  # 已实现偏度(Amaya-Christoffersen-Jacobs-Vasquez 2015): 高正偏 = 右尾彩票
+  #   (彩票偏好压低后续收益), 与 kurt_60(尾部厚度)互补. 先验 -1.
+  return _ret(ds.wide('close'), 1).rolling(60, min_periods=60).skew()
+
+
+@register('vol_ts_5_60', '风险结构', 'std(ret_1, 5) / std(ret_1, 60)', window=60)
+def _vol_ts_5_60(ds: Dataset) -> pd.DataFrame:
+  # 波动率期限结构: 短端/长端波动比. 高 = 风险刚被(重新)定价(事件/崩溃后),
+  #   低 = 长期高波动标的进入平静期. 与 G_vr20(收益方差比)有亲缘但不同源
+  #   (那是"20 日收益的方差", 这是"5 日 vs 60 日波动的比值"). 无先验 -> +1, 以实测为准.
+  r = _ret(ds.wide('close'), 1)
+  return _std(r, 5) / _std(r, 60)
+
+
+@register('beta_60', '风险结构', 'beta60(ret_1 | pool_ret)', window=60,
+          direction=-1)
+def _beta_60(ds: Dataset) -> pd.DataFrame:
+  # 对池等权的裸 beta(Frazzini-Pedersen 低 beta 异象: 低 beta 者风险调整后更优).
+  #   G_dnbeta60 是"下行-上行 beta 之差"(不对称), 这里是水平量; 与 vol_60 高相关时
+  #   会被 dedupe 剔掉, 属预期行为. 先验 -1.
+  close = ds.wide('close')
+  ret1 = _ret(close, 1)
+  pr = _pool_ret(close)
+  var_pool = pr.rolling(60, min_periods=30).var().replace(0, np.nan)
+  return ret1.rolling(60, min_periods=30).cov(pr).div(var_pool, axis=0)
+
+
+# ============================ 补充: 归入现有组的两个 ============================
+# pos_252 归"趋势"(与 hi_252 同组可比), pv_corr_60 归"量能"(量能组全是量水平,
+# 这里补量价联动结构).
+
+@register('pos_252', '趋势', '(close - min252) / (max252 - min252)', window=252)
+def _pos_252(ds: Dataset) -> pd.DataFrame:
+  # 52 周区间位置(George-Hwang 2004 变体): 当前价在 252 日高低区间内的分位.
+  #   hi_252 只有"距高点", 这里补"距低点"的信息; 与 hi_252 高相关时由 dedupe
+  #   决定取舍. 先验 +1(近高点动量).
+  close = ds.wide('close')
+  lo = close.rolling(252, min_periods=60).min()
+  hi = close.rolling(252, min_periods=60).max()
+  rng = hi - lo
+  return (close - lo).div(rng.where(rng > 0))
+
+
+@register('pv_corr_60', '量能', 'corr(ret_1, d(ln(volume), 1), 60)', window=60)
+def _pv_corr_60(ds: Dataset) -> pd.DataFrame:
+  # 量价相关: 过去 60 日"日收益与对数量变化"的滚动相关. 正 = 量价齐动(趋势健康),
+  #   负 = 量价背离(动能衰竭预警, 经典量价分析). 无先验 -> +1, 以实测为准.
+  close, vol = ds.wide('close'), ds.wide('volume')
+  r = _ret(close, 1)
+  dlnv = np.log(vol.where(vol > 0)).diff()
+  return r.rolling(60, min_periods=30).corr(dlnv)
+
+
 # ============================ 注册表访问 ============================
 
 def list_factors(group: str = None) -> list:
@@ -742,7 +1002,7 @@ def _max_abs_diff(a: np.ndarray, b: np.ndarray) -> float:
     return float(np.nanmax(d))
 
 
-def verify_causal(ds: Dataset, cut: str = '2024-06-28',
+def verify_causal(ds: Dataset, cut: str = cfg.VERIFY_CUT,
                   tol: float = 1e-9) -> pd.DataFrame:
   """
   截断一致性检验 —— 本体系防前视的核心防线.
@@ -793,7 +1053,7 @@ def main():
   ap.add_argument('--interval', default=cfg.DEFAULT_INTERVAL)
   ap.add_argument('--group', default=None, help='只显示某类因子')
   ap.add_argument('--check', action='store_true', help='做截断一致性检验')
-  ap.add_argument('--cut', default='2024-06-28', help='检验用的截断日')
+  ap.add_argument('--cut', default=cfg.VERIFY_CUT, help='检验用的截断日')
   ap.add_argument('--show', default=None, help='打印该因子最近 5 行')
   a = ap.parse_args()
 
@@ -816,6 +1076,20 @@ def main():
   if a.show:
     df = get_factor(a.show).compute(ds)
     log.info(f'\n[{a.show}] {get_factor(a.show).formula}\n' + df.tail(5).to_string())
+
+
+# 触发基本面因子注册(把 JSON 派生的 PIT 宽表因子并进 REGISTRY).
+# 放在文件末尾: 此时 register / REGISTRY / Dataset 均已就绪, fundamentals 反向导入不会成环.
+from quant.factor import fundamentals  # noqa: E402,F401
+
+# 触发情绪因子注册(把 EODHD /sentiments 派生的 PIT 宽表因子并进 REGISTRY; 作控制变量用).
+from quant.factor import sentiment  # noqa: E402,F401
+
+# 触发盈余意外/PEAD 因子注册(把 newdata/earnings_calendar 派生的 PIT 宽表因子并进 REGISTRY).
+from quant.factor import pead  # noqa: E402,F401
+
+# 触发分析师预期修正因子注册(把 fundamentals JSON 的 Earnings.Trend 派生的 PIT 宽表因子并进 REGISTRY).
+from quant.factor import trend  # noqa: E402,F401
 
 
 if __name__ == '__main__':

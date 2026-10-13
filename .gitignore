@@ -6,4 +6,20 @@ __pycache__/
 
 # 研究脚本的运行产物(本机生成, 不入库)
 research/output/
+factor/output/
+ml/output_*
 .ipynb_checkpoints/
+
+# 一次性研究脚本与临时产物(_tmp_* 前缀; 本机保留, 不入库)
+_tmp_*
+*_tmp_*.txt
+*_tmp_*.csv
+*_tmp_*.json
+*_tmp_*.log
+pool/futu_exported_*.csv
+
+# 配置备份
+factor_config.backup_*.json
+
+# IDE / 编辑器配置
+.trae/

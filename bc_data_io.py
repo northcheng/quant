@@ -53,11 +53,27 @@ tqdm_ncols = 91
 # module logger: 库层只发日志不配 handler, handler 配置权交给入口脚本(见 bc_util.setup_logging)
 logger = logging.getLogger(__name__)
 
+# eod api token: 优先读取本地 ~/quant/api_key/api_key.json 的 'eod'(正式 token),
+# 读取失败则回退 demo/test token(仅白名单标的 AAPL/MSFT/AMZN/TSLA/MCD 可用).
+# 入口脚本仍可通过 api_key 参数显式覆盖. 此处只记日志不打印 token 本身.
+_eod_key_file = Path.home() / 'quant' / 'api_key' / 'api_key.json'
+try:
+  with open(_eod_key_file, 'r', encoding='utf-8') as f:
+    _eod_cfg = json.loads(f.read())
+  if _eod_cfg.get('eod'):
+    default_eod_key = _eod_cfg['eod']
+    logger.info(f'default_eod_key: loaded from {_eod_key_file}')
+  else:
+    logger.warning(f"default_eod_key: no 'eod' entry in {_eod_key_file}, fallback to demo/test token")
+except Exception as e:
+  logger.warning(f'default_eod_key: fallback to demo/test token ({_eod_key_file} unavailable): {e}')
+
 # standards
 # STANDARD_US_SYMBOL = 'AAPL'
 # STANDARD_CN_SYMBOL = '000001' # 00700
 # STANDARD_INTERVAL = 'd' # /w/m
 BENCHMARK_SYMBOL = {'us': 'SPY', 'cn': '000001', 'hk': '00700'}
+REFRESH_START_DATE = '2010-01-01'
 
 # internal standard dataframe schema (single source of truth of the data contract):
 # all stock dataframes converge to this shape no matter where they come from or go to.
@@ -96,16 +112,29 @@ def add_postfix_for_cn_symbol(symbol: str) -> str:
   """
   Add postfix for chinese stock symbols
 
+  交易所后缀判定(修正): 原实现用 `int(symbol) < 600000` 一刀切, 把上交所 ETF
+  (510300/560000/588000...)、科创板(688xxx)、北交所(430047/830799/870xxx) 全判成
+  .SHE —— 它们在上交所/北交所, eod 源会**静默返回空数据**, 且从日志里看不出原因.
+  现在按代码段显式判定, 并把无法归类的代码告警出来.
+
   :param symbol: cn symbol in STANDARD_CN_SYMBOL format
   :returns: symbol with postfix added
   :raises: none
   """
   # cn symbol should be all digit
   if symbol.isdigit():
-    
-    # mainland market
+
+    # mainland market (6 digits)
     if len(symbol) == 6:
-      postfix = '.SHE' if int(symbol) < 600000 else '.SHG'
+      if symbol.startswith(('60', '68', '51', '56', '58', '50', '11', '90')):
+        postfix = '.SHG'                                  # 沪市: 主板/科创板/沪 ETF/沪转债/B股
+      elif symbol.startswith(('00', '30', '15', '16', '12', '20')):
+        postfix = '.SHE'                                  # 深市: 主板/创业板/深 ETF/深转债/B股
+      elif symbol.startswith(('43', '83', '87', '88', '92')):
+        postfix = '.BSE'                                  # 北交所(原新三板精选层)
+      else:
+        logger.warning(f'{symbol}: 无法判定交易所前缀, 默认按深市 .SHE 处理')
+        postfix = '.SHE'
 
     # hongkong market
     elif len(symbol) < 6:
@@ -676,7 +705,11 @@ def get_real_time_data_from_easyquotation(symbols: list, source: str = 'sina') -
 
   elif source == 'hkquote':
     qt = quotation.real(codes) 
-    columns_to_keep = {'index':'symbol', 'openPrice':'Open', 'high':'High', 'low':'Low', 'price':'Close', 'amount':'Volume', 'time':'Date'}
+    # hkquote 同时返回 `date`('YYYY-MM-DD')与 `time`('HH:MM:SS'). 原来把 `time` 映射到
+    # `Date`, 再 `x[:10]`(对 8 字符的时间串是空操作) —— pandas 会把它解析成"今天+该时刻",
+    # 于是 realtime 模式插入**幻影 bar**(同日两根), 且时间戳与历史行不匹配会让 .loc 变成新增行.
+    # 用 `date` 才是正确语义(上行 sina 分支用的就是 date).
+    columns_to_keep = {'index':'symbol', 'openPrice':'Open', 'high':'High', 'low':'Low', 'price':'Close', 'amount':'Volume', 'date':'Date'}
 
   else:
     logger.error(f'unknown source {source}')
@@ -684,7 +717,12 @@ def get_real_time_data_from_easyquotation(symbols: list, source: str = 'sina') -
   # turn into dataframe
   df = pd.DataFrame(qt).T if len(qt) > 0 else df
   if source == 'hkquote':
-    df['time'] = df['time'].apply(lambda x: x[:10])
+    if 'Date' in df.columns:
+      # 只取日期部分(个别源可能带时间后缀)
+      df['Date'] = df['Date'].astype(str).str.slice(0, 10)
+    else:
+      logger.error('[realtime]: hkquote 返回缺少 date 字段, Date 列不可用; '
+                   '请检查 easyquotation 版本(字段契约可能已变)')
 
   idxs = df.index.tolist()
   idx_symbols = [x for x in symbols if x.split('.')[0] in idxs]
@@ -921,11 +959,14 @@ def update_stock_data_new(symbols: list, stock_data_path: str, file_format: str 
                   data[symbol] = existed_data
                   tmp_data_date = util.time_2_string(max_idx)
                 else:
-                  logger.warning(f'max index of {symbol} is invalid({max_idx}), refreshing data')
-                  os.remove(symbol_file_name)
+                  # 不删文件: load_stock_data 已负责"确实不可读才删". 这里删掉再下载,
+                  # 一旦下载失败就是**永久丢历史**. 改为原地重下(全量窗口).
+                  logger.warning(f'max index of {symbol} is invalid({max_idx}), 将全量重下(保留原文件)')
+                  tmp_data_date = None
               else:
-                logger.warning(f'data {symbol} is empty, refreshing data')
-                os.remove(symbol_file_name)
+                # 同上: 返回 None 可能是"列格式问题"(文件仍有效), 不能一律删掉
+                logger.warning(f'data {symbol} 未能加载(空/格式问题), 将全量重下(保留原文件)')
+                tmp_data_date = None
 
           # update eod data, print updating info
           if (update_mode in ['eod', 'both', 'refresh']) and (tmp_data_date is None or tmp_data_date < benchmark_dates[mkt] or (tmp_data_date <= benchmark_dates[mkt] and tmp_source == 'ak')):
@@ -941,13 +982,23 @@ def update_stock_data_new(symbols: list, stock_data_path: str, file_format: str 
 
               # get new data
               new_data = get_data(symbol=tmp_symbol, start_date=start_date, end_date=required_date, interval='d', is_print=is_print, source=tmp_source, api_key=benchmark_api_keys[mkt], add_dividend=add_dividend, add_split=add_split, adjust=adjust)
-              # append new data to the origin
-              data[symbol] = pd.concat([data[symbol], new_data])
-              data[symbol] = util.remove_duplicated_index(df=data[symbol], keep='last').dropna()
+              # 空返回(= get_data 吞掉异常)不得当成"已更新": 否则旧数据被保留却被视为
+              # 下载成功, 下游按"已是最新"跳过该标的, universe 静默缩小.
+              if new_data is None or len(new_data) == 0:
+                logger.error(f'{symbol:5}: 下载返回空({tmp_source}), 视为更新失败, 保留本地旧数据')
+                new_data = None
+              else:
+                # 增量拼接一致性校验(复权基准变化会让历史留下人为台阶)
+                _check_overlap_consistency(data[symbol], new_data, symbol)
+                # 保留本地已知的分红/拆股真值(新窗口若是未知占位 0/1 则不得覆盖)
+                new_data = _merge_dividend_split(data[symbol], new_data)
+                # append new data to the origin
+                data[symbol] = pd.concat([data[symbol], new_data])
+                data[symbol] = util.remove_duplicated_index(df=data[symbol], keep='last').dropna()
 
-              # save data to local csv files
-              if is_save:
-                save_stock_data(df=data[symbol], file_path=stock_data_path, file_name=symbol, file_format=file_format, reset_index=True, index=False)
+                # save data to local csv files
+                if is_save:
+                  save_stock_data(df=data[symbol], file_path=stock_data_path, file_name=symbol, file_format=file_format, reset_index=True, index=False)
             
             else:
               new_data = None
@@ -997,6 +1048,142 @@ def update_stock_data_new(symbols: list, stock_data_path: str, file_format: str 
   # return
   if is_return:
     return data
+
+# 增量拼接一致性校验的重叠列(只比价格, 不比 Volume/派生列)
+_OVERLAP_PRICE_COLS = ['Open', 'High', 'Low', 'Close', 'Adj Close']
+
+
+def _is_missing(value) -> bool:
+  """
+  安全判空(对 None / NaN / 字符串占位都成立, 且不抛异常).
+
+  用途: 从 portfolio.json 或 ta_result 取出的值**可能是字符串**(例如占位 '--' 或 ''),
+  这时 `np.isnan(value)` 会抛 TypeError, 让整条告警链路崩掉. 本函数统一处理:
+    * None -> True
+    * 字符串 -> 空串 / '-' / '--' / 'nan' / 'none' / 'null' 视为缺失
+    * 数值(含 numpy 标量) -> NaN/±inf 视为缺失
+    * 其它类型(如 list/dict) -> True(无法当价格用)
+
+  :param value: 待判定的值
+  :returns: True = 缺失/不可用
+  :raises: none
+  """
+  if value is None:
+    return True
+  if isinstance(value, str):
+    return value.strip().lower() in ('', '-', '--', 'nan', 'none', 'null')
+  try:
+    return bool(pd.isna(value)) or not np.isfinite(float(value))
+  except (TypeError, ValueError):
+    return True
+
+
+# 除权除息列的"未知"占位值: add_dividend/add_split 关闭时, 各数据源会把这些列写成 0.0/1.0.
+# 0.0/1.0 本身是合法取值, 所以"未知"与"确实为 0/1"无法区分 —— 一旦覆盖到已有真值, 就是
+# 把真实分红/拆股记录抹掉(Dividend 会影响 /1 复权与周月聚合, Split 会影响复权).
+_UNKNOWN_DIVIDEND = 0.0
+_UNKNOWN_SPLIT = 1.0
+
+
+def _merge_dividend_split(old: pd.DataFrame, new: pd.DataFrame) -> pd.DataFrame:
+  """
+  Merge a freshly downloaded window over the stored data **without clobbering known
+  dividend/split values with "unknown" placeholders**.
+
+  Default is `add_dividend=False` / `add_split=False`, in which case every source writes
+  `Dividend = 0.0` and `Split = 1.0`. Combined with `keep='last'` in the caller, running
+  once with `add_dividend=True` and then once without would silently overwrite the real
+  values in the newly downloaded window back to 0.0/1.0.
+
+  Rule: keep the incoming value unless it is exactly the placeholder **and** the stored
+  value is different (i.e. we actually knew something better before).
+
+  :param old: stored data (already reindexed/sorted, may be empty)
+  :param new: freshly downloaded window
+  :returns: `new` with Dividend/Split restored where the new window only has placeholders
+  :raises: none
+  """
+  if old is None or len(old) == 0:
+    return new
+  new = new.copy()
+  for col, placeholder in (('Dividend', _UNKNOWN_DIVIDEND), ('Split', _UNKNOWN_SPLIT)):
+    if col not in new.columns or col not in old.columns:
+      continue
+    common = new.index.intersection(old.index)
+    if len(common) == 0:
+      continue
+    old_vals = pd.to_numeric(old.loc[common, col], errors='coerce')
+    new_vals = pd.to_numeric(new.loc[common, col], errors='coerce')
+    # 新值是占位 且 老值是"已知且不是占位" -> 用老值
+    restore = (new_vals == placeholder) & old_vals.notna() & (old_vals != placeholder)
+    if bool(restore.any()):
+      idx = restore.index[restore.to_numpy()]
+      logger.info(f'[merge]: {col} 保留本地已知值 {len(idx)} 处'
+                  f'(新数据为未知占位 {placeholder})')
+      new.loc[idx, col] = old_vals.loc[idx].to_numpy()
+  return new
+
+
+def _check_overlap_consistency(existed: pd.DataFrame, new: pd.DataFrame, symbol: str,
+                                rtol: float = 1e-3) -> bool:
+  """
+  Compare the overlapping dates of the locally stored data and a freshly downloaded
+  window, and report a mismatch.
+
+  Why this matters: akshare returns **front-adjusted (qfq)** prices normalised to the
+  latest trading day *at request time*. Every dividend/split shifts the whole history.
+  Incremental updates only re-download the last few days (`last_date - 3`), so after an
+  ex-dividend event the stored older rows keep the OLD adjustment basis while the newly
+  appended rows use the NEW one -- an artificial step (1~3%, up to 20%+ for large
+  splits) that the factor pipeline reads as a real return. A large enough step is
+  invisible to `_sanitize_prices` in factor.backtest (its threshold is |ret| > 100%).
+
+  This check cannot repair the history by itself (it only sees the overlap); it makes
+  the problem **visible** so the caller can force a full re-download / adjustment.
+
+  :param existed: locally stored data (may be None)
+  :param new: freshly downloaded window
+  :param symbol: symbol, for the log message
+  :param rtol: relative tolerance for price equality
+  :returns: True if consistent (or nothing to compare), False if a mismatch was found
+  :raises: none
+  """
+  if existed is None or len(existed) == 0 or new is None or len(new) == 0:
+    return True
+  try:
+    common = existed.index.intersection(new.index)
+    if len(common) == 0:
+      return True
+    cols = [c for c in _OVERLAP_PRICE_COLS if (c in existed.columns and c in new.columns)]
+    if not cols:
+      return True
+    old = existed.loc[common, cols].astype(float)
+    fresh = new.loc[common, cols].astype(float)
+    # 两侧都有效的格子才比; 相对误差按 |old| 归一(老价为 0 时退化为绝对比较)
+    both = old.notna() & fresh.notna()
+    if not bool(both.to_numpy().any()):
+      return True
+    diff = (fresh - old).abs()
+    tol = old.abs() * rtol
+    tol = tol.where(tol > 0, rtol)                    # old == 0 -> 绝对容差
+    bad = both & (diff > tol)
+    if not bool(bad.to_numpy().any()):
+      return True
+
+    n_bad = int(bad.to_numpy().sum())
+    bad_dates = sorted(set(bad.index[bad.any(axis=1)]))
+    worst = float((diff.where(both)).max().max())
+    logger.error(
+        f'[overlap]: {symbol} 重叠窗口 {len(common)} 行中有 {n_bad} 个价格格不一致'
+        f'(最大绝对差 {worst:.6g}, 容差 {rtol:g}); 疑似复权基准变化 —— '
+        f'受影响的日期 {[util.time_2_string(d) for d in bad_dates[:5]]}'
+        f'{"..." if len(bad_dates) > 5 else ""}; '
+        f'增量拼接会在历史里留下人为台阶, 建议对该标的全量重下(refresh)')
+    return False
+  except Exception as e:
+    logger.exception(f'[overlap]: {symbol} 一致性校验本身失败({e}), 跳过校验')
+    return True
+
 
 # 下载单个标的的EOD数据（用于多线程并行）
 def download_single_symbol_eod(args) -> tuple:
@@ -1056,12 +1243,13 @@ def download_single_symbol_eod(args) -> tuple:
                 break
 
             else:
-              logger.warning(f'max index of {symbol} is invalid({max_idx}), refreshing data')
-              os.remove(symbol_file_name)
+              # 不删文件(删除+下载失败 = 永久丢历史); 置 tmp_data_date=None 即走全量重下
+              logger.warning(f'max index of {symbol} is invalid({max_idx}), 将全量重下(保留原文件)')
+              tmp_data_date = None
 
           else:
-            logger.warning(f'data {symbol} is empty, refreshing data')
-            os.remove(symbol_file_name)
+            logger.warning(f'data {symbol} 未能加载(空/格式问题), 将全量重下(保留原文件)')
+            tmp_data_date = None
 
       # update eod data for those which local data date < benchmark date
       if tmp_data_date is not None:
@@ -1082,9 +1270,26 @@ def download_single_symbol_eod(args) -> tuple:
         add_split=add_split,
         adjust=adjust
       )
-      
+
+      # 红线: get_data 失败时返回 None(它自己吞掉异常). 若把 None 算作"已更新",
+      # pd.concat([旧, None]) 会静默返回旧数据, 而下面 status='success' 无条件执行 ——
+      # 结果是**陈旧数据被计入"下载成功"**, 5 次重试永不因网络错误触发, 下游还会
+      # 按"已是最新"跳过这些标的(universe 静默缩小). 必须显式判空并按失败处理.
+      if new_data is None or len(new_data) == 0:
+        status = 'failed'
+        messages = f'get_data 返回空({source})'
+        if retry_count < max_retries:
+          time.sleep(retry_delay)
+        continue
+
       # append new data to local data if not already updated
       if data is not None:
+        # 增量拼接一致性校验: 重叠窗口(-3 天)里新旧价格必须吻合. 不吻合说明数据源
+        # 复权基准变了(除权除息会整体平移前复权价), 此时只刷新最近几行会在历史里
+        # 留一个人为台阶, 且新因子含未来分红信息(前视). 发现不一致即报出来.
+        _check_overlap_consistency(existed_data, new_data, symbol)
+        # 保留本地已知的分红/拆股真值(新窗口若是未知占位 0/1 则不得覆盖)
+        new_data = _merge_dividend_split(existed_data, new_data)
         data = pd.concat([existed_data, new_data])
         # remove duplicated dates from the overlapping download window(-3 days), keep the newly downloaded rows
         data = util.remove_duplicated_index(df=data, keep='last').sort_index()
@@ -1166,6 +1371,16 @@ def download_eod_parallel(symbols: List[str], stock_data_path: str, file_format:
   # verify update_mode
   if update_mode not in ['realtime', 'eod', 'both', 'refresh']:
     logger.error(f'unknown update mode: {update_mode}')
+    return None
+
+  # verify sources: api_keys 已有 None 守卫(见下), sources 没有 —— None 会在
+  # sources[f'{mkt}_eod'] 处抛 TypeError, 而函数签名允许 None 默认值. 补齐同一层守卫.
+  if sources is None:
+    logger.error('sources is None: 需要 {market}_eod / {market}_realtime 映射, 无法继续')
+    return None
+  missing_sources = [k for k in ('us_eod', 'cn_eod', 'hk_eod') if k not in sources]
+  if missing_sources:
+    logger.error(f'sources 缺少必需的键 {missing_sources}')
     return None
 
   # classify symbols by market
@@ -1394,7 +1609,13 @@ def update_stock_data_from_eod(symbols: list, stock_data_path: str, file_format:
   start_date = util.string_plus_day(today, -7)
   benchmark_symbol = 'AAPL' if not cn_stock else '000001.SHE'
   benchmark_data = get_data_from_eod(symbol=benchmark_symbol, start_date=start_date, end_date=today, interval='d', is_print=False, api_key=api_key, add_dividend=False, add_split=False)
-  benchmark_date = util.time_2_string(benchmark_data.index.max())
+  # 基准下载失败时 get_data_from_eod 返回 None/空表 -> 原来直接 .index.max() 会 AttributeError,
+  # 让整个更新函数崩掉(ak 分支已有兜底, 这里补齐). 回退到今天 = 尽量去下最新数据.
+  if benchmark_data is None or len(benchmark_data) == 0:
+    logger.warning(f'[-{benchmark_symbol}]: benchmark data is empty, use today - {today}')
+    benchmark_date = today
+  else:
+    benchmark_date = util.time_2_string(benchmark_data.index.max())
   start_date = util.string_plus_day(benchmark_date, -window_size)
 
   # get the existed data and its latest date for each symbols
@@ -1429,8 +1650,9 @@ def update_stock_data_from_eod(symbols: list, stock_data_path: str, file_format:
         data[symbol] = existed_data
         tmp_data_date = util.time_2_string(max_idx)
       else:
-        logger.warning(f'max index of {symbol} is invalid({max_idx}), refreshing data')
-        os.remove(symbol_file_name)
+        # 不删文件(删除+下载失败 = 永久丢历史); tmp_data_date=None -> 全量重下
+        logger.warning(f'max index of {symbol} is invalid({max_idx}), 将全量重下(保留原文件)')
+        tmp_data_date = None
 
     # update eod data, print updating info
     if (update_mode in ['eod', 'both', 'refresh']) and (tmp_data_date is None or tmp_data_date < benchmark_date):
@@ -1438,15 +1660,32 @@ def update_stock_data_from_eod(symbols: list, stock_data_path: str, file_format:
         print(f'from ', end='0000-00-00 ' if tmp_data_date is None else f'{tmp_data_date} ')
       
       # download latest data for current symbol
-      new_data = get_data_from_eod(symbol, start_date=tmp_data_date, end_date=required_date, interval='d', is_print=is_print, api_key=api_key, add_dividend=add_dividend, add_split=add_split)
+      # 取数窗口: 原实现传的是 `tmp_data_date`(本地最后日期), 而上面用 window_size
+      # 算出的 `start_date` **从未被使用** —— 两个后果:
+      #   1) 首次下载/本地数据无效(tmp_data_date is None)时会从 2000-01-01 拉全史;
+      #   2) 本地已最新时下载窗口**没有重叠**, 于是 _check_overlap_consistency 永远
+      #      无从比较(它需要至少一个重叠交易日才能发现复权基准漂移).
+      # 现在改成取"本地最后日期"与"benchmark_date - window_size"中**更早**的那个,
+      # 保证既有足够重叠可供校验, 又不会无谓地拉全史.
+      _cands = [d for d in (tmp_data_date, start_date) if d]
+      dl_start = min(_cands) if _cands else start_date
+      new_data = get_data_from_eod(symbol, start_date=dl_start, end_date=required_date, interval='d', is_print=is_print, api_key=api_key, add_dividend=add_dividend, add_split=add_split)
     
-      # append new data to the origin
-      data[symbol] = pd.concat([data[symbol], new_data])
-      data[symbol] = util.remove_duplicated_index(df=data[symbol], keep='last').dropna()
+      # 空返回不得当成"已更新"(否则旧数据被保留却被视为下载成功, universe 静默缩小)
+      if new_data is None or len(new_data) == 0:
+        logger.error(f'{symbol:5}: eod 下载返回空, 视为更新失败, 保留本地旧数据')
+      else:
+        # 增量拼接一致性校验(复权基准变化会让历史留下人为台阶)
+        _check_overlap_consistency(data[symbol], new_data, symbol)
+        # 保留本地已知的分红/拆股真值
+        new_data = _merge_dividend_split(data[symbol], new_data)
+        # append new data to the origin
+        data[symbol] = pd.concat([data[symbol], new_data])
+        data[symbol] = util.remove_duplicated_index(df=data[symbol], keep='last').dropna()
 
-      # save data to local csv files
-      if is_save:
-        save_stock_data(df=data[symbol], file_path=stock_data_path, file_name=symbol, file_format=file_format, reset_index=True, index=False)
+        # save data to local csv files
+        if is_save:
+          save_stock_data(df=data[symbol], file_path=stock_data_path, file_name=symbol, file_format=file_format, reset_index=True, index=False)
     
     else:
       if symbol not in up_to_date_symbols:
@@ -1554,8 +1793,9 @@ def update_stock_data_from_ak(symbols: list, stock_data_path: str, file_format: 
         data[symbol] = existed_data
         tmp_data_date = util.time_2_string(max_idx)
       else:
-        logger.warning(f'max index of {symbol} is invalid({max_idx}), refreshing data')
-        os.remove(symbol_file_name)
+        # 不删文件(删除+下载失败 = 永久丢历史); tmp_data_date=None -> 全量重下
+        logger.warning(f'max index of {symbol} is invalid({max_idx}), 将全量重下(保留原文件)')
+        tmp_data_date = None
        
     # update eod data, print updating info
     if (update_mode in ['eod', 'both', 'refresh']) and (tmp_data_date is None or tmp_data_date < benchmark_date):
@@ -1565,13 +1805,22 @@ def update_stock_data_from_ak(symbols: list, stock_data_path: str, file_format: 
       # download latest data for current symbol, guard download failure so one symbol won't abort the whole update
       logger.info(file_name)
       new_data = None
+      # 同 update_stock_data_from_eod: 取"本地最后日期"与"benchmark_date - window_size"
+      # 中更早的那个, 保证有重叠可用于复权基准校验(原实现只用 tmp_data_date, 而上面算出的
+      # start_date 从未被使用, 于是本地已最新时没有任何重叠窗口).
+      _cands = [d for d in (tmp_data_date, start_date) if d]
+      ak_start = min(_cands) if _cands else start_date
       try:
-        new_data = get_data_from_ak(file_name, start_date=tmp_data_date, end_date=required_date, interval='daily', is_print=is_print)
+        new_data = get_data_from_ak(file_name, start_date=ak_start, end_date=required_date, interval='daily', is_print=is_print)
       except Exception as e:
         logger.exception(f'[erro]: failed downloading {file_name} from ak: {e}')
 
       # append new data to the origin
       if new_data is not None and len(new_data) > 0:
+        # 增量拼接一致性校验(复权基准变化会让历史留下人为台阶)
+        _check_overlap_consistency(data[symbol], new_data, symbol)
+        # 保留本地已知的分红/拆股真值
+        new_data = _merge_dividend_split(data[symbol], new_data)
         data[symbol] = pd.concat([data[symbol], new_data])
         data[symbol] = util.remove_duplicated_index(df=data[symbol], keep='last').dropna()
 
@@ -1677,7 +1926,21 @@ def save_stock_data(df: pd.DataFrame, file_path: str, file_name: str, file_forma
       df = df.sort_index().reset_index()
     # save file
     if file_format == '.csv':
-      df.to_csv(file_name, index=index)
+      # 原子写: 先写同目录临时文件再 os.replace.
+      # 直接 to_csv 覆盖时, 进程被杀/磁盘满/并发同写会留下**截断的 CSV**, 而截断文件
+      # 往往仍能被 pandas 正常解析成"更少行" -> 静默丢历史; 或者抛 ParserError 被
+      # 读取端当"文件损坏"删掉 -> 触发全量重下.
+      tmp_name = file_name.with_name(f'{file_name.name}.tmp')
+      try:
+        df.to_csv(tmp_name, index=index)
+        os.replace(tmp_name, file_name)
+      except Exception:
+        if tmp_name.exists():
+          try:
+            tmp_name.unlink()
+          except OSError:
+            pass
+        raise
     else:
       logger.error(f'Unknown format {file_format}')
   else:
@@ -2253,12 +2516,46 @@ def import_futu_exported(df: pd.DataFrame, num: int = 100) -> dict:
 #----------------------------- Json File Processing---- -------------------------#
 # write json file atomically: dump into a temp file first, then replace the target file,
 # so a concurrent reader never sees a half-written(potentially unparsable) file
+def _jsonable(obj):
+  """
+  把 numpy 标量 / NaN / ±inf 递归转成**严格合法 JSON** 的值(NaN/inf -> None).
+
+  为什么必须做: `json.dump` 默认 `allow_nan=True`, 会把 NaN / Infinity **原样写成裸字面量**
+  `NaN` / `Infinity` —— 那**不是合法 JSON**(RFC 8259), 严格解析器一律拒绝, 连 Python 自己的
+  `json.loads` 之外的工具链(以及任何 `parse_constant` 未放宽的调用)都会失败.
+  而真实场景里 NaN 很容易出现: 例如 `position['market_value'].sum()` 在含 NaN 时是 NaN,
+  被写进 portfolio.json 后就留下一个"文件看起来在、但读出来是空"的坑
+  (read_config 解析失败 -> 调用方回退默认值 -> 持仓/净值快照静默失真).
+
+  :param obj: 任意可 JSON 化结构(dict/list/tuple/标量)
+  :returns: 同构结构, 其中 NaN/±inf -> None, numpy 标量 -> Python 标量
+  :raises: none
+  """
+  if isinstance(obj, dict):
+    return {k: _jsonable(v) for k, v in obj.items()}
+  if isinstance(obj, (list, tuple)):
+    return [_jsonable(v) for v in obj]
+  if isinstance(obj, (np.floating, float)):
+    f = float(obj)
+    return f if np.isfinite(f) else None
+  if isinstance(obj, (np.integer,)):
+    return int(obj)
+  if isinstance(obj, (np.bool_,)):
+    return bool(obj)
+  # 其它 numpy 标量(如 np.str_)统一转成 Python 原生类型
+  if isinstance(obj, np.generic):
+    return _jsonable(obj.item())
+  return obj
+
+
 def _save_json_file(config_dict: dict, file_path: str, file_name: str, ensure_ascii: bool = True) -> None:
   target_file = Path(file_path) / file_name
   tmp_file = Path(file_path) / f'{file_name}.tmp'
   try:
     with open(tmp_file, 'w', encoding='UTF-8') as f:
-      json.dump(config_dict, f, ensure_ascii=ensure_ascii)
+      # allow_nan=False: 万一 _jsonable 漏了什么, 宁可在这里显式报错(文件保持旧的有效版本),
+      # 也不要写出一个"看起来写了、其实解析不了"的非法 JSON.
+      json.dump(_jsonable(config_dict), f, ensure_ascii=ensure_ascii, allow_nan=False)
     os.replace(tmp_file, target_file)
   except Exception:
     # remove the leftover temp file if anything failed before the replace
@@ -2483,6 +2780,1450 @@ def pickle_load_data(file_path: str, file_name: str) -> any:
   return data
 
 
+#----------------------------- EOD Fundamentals --------------------------------#
+# 优先级1新数据源: 基本面(fundamentals: 财务三表/估值/盈利) + 机构持仓(Holders) +
+# 历史市值(historical-market-cap), REST 直连 eodhd, 无需 MCP.
+#   - 原始基本面是多层嵌套 JSON, 以 {symbol}.json **原样落盘**(权威副本, 不做有损裁剪);
+#     需要用的整洁表(财务三表/持仓/估值快照)由 extract_* 函数**按需**展开, 避免重复存储.
+#   - 历史市值是周频时间序列, 复用 save_stock_data/load_stock_data 以 .csv 落盘.
+FUNDAMENTAL_DIRNAME = 'fundamental_data'   # 默认落盘根目录(挂在 quant_path 下, 与 stock_data 同级)
+
+
+def _normalize_us_symbol(symbol: str) -> str:
+  """
+  Normalize a US ticker to the exchange-suffixed form eod expects.
+
+  eod 的 fundamentals / historical-market-cap 端点: 裸码('AAPL')与带后缀('AAPL.US')都返回 200,
+  但带后缀是官方推荐写法. 已带任意交易所后缀(如 '.US'/'.SHE')的原样返回.
+
+  :param symbol: us ticker, e.g. 'AAPL' or 'AAPL.US'
+  :returns: exchange-suffixed ticker, e.g. 'AAPL.US'
+  :raises: none
+  """
+  return symbol if '.' in symbol else f'{symbol}.US'
+
+
+def get_fundamentals_from_eod(symbol: str, api_key: str = default_eod_key, section: str = None, is_print: bool = False) -> dict:
+  """
+  Download fundamentals(financial statements + valuation + earnings + holders ...) from EOD.
+
+  endpoint: /fundamentals/{symbol}  (full)  or  ?filter={section}  (single section)
+
+  :param symbol: target symbol, e.g. 'AAPL' or 'AAPL.US'
+  :param api_key: api token to access eod data
+  :param section: None = full payload; otherwise a section name, e.g. 'Holders'/'General'/
+                  'Highlights'/'Valuation'/'SharesStats'/'Earnings'/'Financials'
+  :param is_print: whether to log download information
+  :returns: dict of fundamentals (empty dict on failure)
+  :raises: none
+  """
+  data = {}
+
+  try:
+    symbol = _normalize_us_symbol(symbol)
+    url = f'https://eodhd.com/api/fundamentals/{symbol}?api_token={api_key}&fmt=json'
+    if section:
+      url += f'&filter={section}'
+
+    response = requests.get(url, headers=headers, timeout=60)
+    if response.status_code == 200:
+      data = response.json()
+      if is_print:
+        keys = list(data.keys()) if isinstance(data, dict) else type(data).__name__
+        logger.info(f'{symbol}: fundamentals({section or "full"}) 下载成功, sections={keys}')
+    elif response.status_code == 403:
+      # eodhd 对 demo/test token 只开放极少数标的白名单(如 AAPL/MSFT/AMZN/TSLA/MCD),
+      # 其余一律 403 'Forbidden'; 同时超额/越权也返回 403. 这里点明, 免得被误当限速重试.
+      logger.warning(f'{symbol}: fundamentals({section or "full"}) HTTP 403 Forbidden '
+                     f'(token 无该标的权限: demo/test token 仅开放白名单标的, 或额度用尽)')
+    else:
+      logger.warning(f'{symbol}: fundamentals({section or "full"}) HTTP {response.status_code}')
+
+  except Exception as e:
+    logger.exception(f'{symbol} fundamentals: {e}')
+
+  return data
+
+
+def get_historical_market_cap_from_eod(symbol: str, start_date: Optional[str] = None, end_date: Optional[str] = None, api_key: str = default_eod_key, is_print: bool = False) -> pd.DataFrame:
+  """
+  Download historical market capitalization(历史市值) as a weekly timeseries.
+
+  endpoint: /historical-market-cap/{symbol}
+  响应是 **以数字字符串为键的 dict**({'0': {'date':..., 'value':...}}), 这里归一化为
+  以 Date 为索引、含 'Market Cap' 列的 DataFrame. 该端点仅覆盖 NYSE/NASDAQ 且自 2020 年起.
+
+  :param symbol: target symbol, e.g. 'AAPL' or 'AAPL.US'
+  :param start_date: start date of the data, e.g. '2020-01-01'
+  :param end_date: end date of the data
+  :param api_key: api token to access eod data
+  :param is_print: whether to log download information
+  :returns: dataframe(DatetimeIndex + 'Market Cap') or empty dataframe
+  :raises: none
+  """
+  df = pd.DataFrame()
+
+  try:
+    symbol = _normalize_us_symbol(symbol)
+    from_to = ''
+    if start_date is not None:
+      from_to += f'&from={start_date}'
+    if end_date is not None:
+      from_to += f'&to={end_date}'
+
+    url = f'https://eodhd.com/api/historical-market-cap/{symbol}?api_token={api_key}&fmt=json{from_to}'
+    response = requests.get(url, headers=headers, timeout=60)
+    if response.status_code == 200:
+      raw = response.json()
+      # normalize the digit-string-keyed dict into a list of rows
+      if isinstance(raw, dict):
+        if len(raw) > 0 and all(str(k).isdigit() for k in raw.keys()):
+          rows = [raw[k] for k in sorted(raw.keys(), key=lambda x: int(x))]
+        else:
+          rows = list(raw.values())
+      elif isinstance(raw, list):
+        rows = raw
+      else:
+        rows = []
+
+      if len(rows) > 0:
+        df = pd.DataFrame(rows)
+        df = df.rename(columns={'date': 'Date', 'value': 'Market Cap'})
+        df = util.df_2_timeseries(df=df, time_col='Date')
+        df = util.remove_duplicated_index(df, keep='last')
+        df.sort_index(inplace=True)
+        if is_print:
+          logger.info(f'{symbol}: historical-market-cap {df.index.min()} - {df.index.max()}, 下载记录 {len(df)}')
+      else:
+        logger.warning(f'{symbol}: historical-market-cap 空数据')
+    elif response.status_code == 403:
+      # 与 fundamentals 一致: demo/test token 仅开放白名单标的, 其余 403 'Forbidden'.
+      logger.warning(f'{symbol}: historical-market-cap HTTP 403 Forbidden '
+                     f'(token 无该标的权限: demo/test token 仅开放白名单标的, 或额度用尽)')
+    else:
+      logger.warning(f'{symbol}: historical-market-cap HTTP {response.status_code}')
+
+  except Exception as e:
+    logger.exception(f'{symbol} historical-market-cap: {e}')
+
+  return df
+
+
+def save_fundamental_data(data: dict, file_path: str, file_name: str) -> None:
+  """
+  Save fundamentals / holders JSON(dict) to disk (atomic write).
+
+  :param data: fundamentals dict to save
+  :param file_path: destination directory
+  :param file_name: destination file name, e.g. 'AAPL.json'
+  :returns: none
+  :raises: none
+  """
+  if data is None or len(data) == 0:
+    logger.warning('Empty fundamental data to save, skipped')
+    return
+
+  try:
+    Path(file_path).mkdir(parents=True, exist_ok=True)
+    _save_json_file(config_dict=data, file_path=file_path, file_name=file_name, ensure_ascii=False)
+  except Exception as e:
+    logger.exception(f'{file_path}/{file_name} {e}')
+
+
+def load_fundamental_data(file_path: str, file_name: str) -> dict:
+  """
+  Load fundamentals / holders JSON(dict) from disk.
+
+  :param file_path: source directory
+  :param file_name: source file name, e.g. 'AAPL.json'
+  :returns: fundamentals dict (empty dict when missing / unreadable)
+  :raises: none
+  """
+  data = {}
+
+  try:
+    file_name = Path(file_path) / file_name
+    if not os.path.exists(file_name):
+      logger.warning(f'{file_name} not exists')
+    else:
+      with open(file_name, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+
+  except Exception as e:
+    logger.exception(f'{file_name} {e}')
+
+  return data
+
+
+def extract_financial_statements(data: dict) -> dict:
+  """
+  Flatten the nested Financials(in 三表: Income_Statement/Balance_Sheet/Cash_Flow) into tidy frames.
+
+  每个报表的 yearly/quarterly 是 {报告期日期: {字段...}} 的 dict, 这里转成
+  以报告期日期为索引的 DataFrame, 供因子/研究直接使用.
+
+  :param data: full fundamentals dict (as returned by get_fundamentals_from_eod)
+  :returns: dict of {f'{statement}_{freq}': DataFrame}, 缺失的报表/频率不出现在结果里
+  :raises: none
+  """
+  fin = (data or {}).get('Financials', {}) or {}
+  result = {}
+
+  for statement in ('Income_Statement', 'Balance_Sheet', 'Cash_Flow'):
+    block = fin.get(statement, {}) or {}
+    for freq in ('yearly', 'quarterly'):
+      period = block.get(freq, {}) or {}
+      if isinstance(period, dict) and len(period) > 0:
+        df = pd.DataFrame.from_dict(period, orient='index')
+        if 'date' in df.columns:
+          df = df.set_index('date')
+        df = df[~df.index.duplicated(keep='last')].sort_index()
+        result[f'{statement}_{freq}'] = df
+
+  return result
+
+
+def extract_fundamental_snapshot(data: dict) -> pd.Series:
+  """
+  Flatten scalar fields of General/Highlights/Valuation/SharesStats into a single Series.
+
+  用于截面估值/质量因子(如 PERatio / PriceBookMRQ / ReturnOnEquityTTM / MarketCapitalization).
+  只保留标量字段, 嵌套结构(如 Address/Listings)一律跳过.
+
+  :param data: full fundamentals dict
+  :returns: Series, index 形如 'Highlights.PERatio'
+  :raises: none
+  """
+  snapshot = {}
+
+  for section in ('General', 'Highlights', 'Valuation', 'SharesStats'):
+    block = (data or {}).get(section, {}) or {}
+    if isinstance(block, dict):
+      for key, value in block.items():
+        if value is None or isinstance(value, (str, int, float, bool)):
+          snapshot[f'{section}.{key}'] = value
+
+  return pd.Series(snapshot)
+
+
+def extract_holders(data: dict) -> pd.DataFrame:
+  """
+  Flatten institutional holders(Holders.Institutions) into a tidy frame.
+
+  Holders.Institutions 是 {数字字符串: {持仓字段...}} 的 dict(不是 list), 这里取 value 组成行.
+
+  :param data: full fundamentals dict (or a filtered {'Institutions':...} dict)
+  :returns: DataFrame of holders (empty when unavailable)
+  :raises: none
+  """
+  institutions = ((data or {}).get('Holders', {}) or {}).get('Institutions', {}) or {}
+  rows = list(institutions.values()) if isinstance(institutions, dict) else list(institutions)
+  return pd.DataFrame(rows)
+
+
+def download_fundamental_data(symbols: list, data_path: str, api_key: str = default_eod_key, with_market_cap: bool = True, overwrite: bool = False, max_workers: int = 5, is_print: bool = False) -> dict:
+  """
+  Batch download fundamentals(full) + historical market cap and persist them.
+
+  落盘结构(默认 data_path 建议取 quant_path/'fundamental_data'):
+    {data_path}/fundamentals/{symbol}.json   # 原始 full fundamentals(含 Financials/Holders/Earnings)
+    {data_path}/market_cap/{symbol}.csv      # Date + Market Cap 周频序列(with_market_cap=True)
+
+  已有文件默认跳过(增量); 单只失败只记状态不中断整体.
+
+  :param symbols: list of us tickers, e.g. ['AAPL', 'MSFT']
+  :param data_path: destination root directory
+  :param api_key: api token to access eod data
+  :param with_market_cap: whether to download historical market cap as well
+  :param overwrite: whether to re-download symbols whose files already exist
+  :param max_workers: thread pool size (mind the 1000 req/min rate limit)
+  :param is_print: whether to show progress bar and summary
+  :returns: dict of {symbol: {'fundamentals': 'ok'/'skip'/'fail', 'market_cap': ...}}
+  :raises: none
+  """
+  fund_dir = Path(data_path) / 'fundamentals'
+  mc_dir = Path(data_path) / 'market_cap'
+  fund_dir.mkdir(parents=True, exist_ok=True)
+  if with_market_cap:
+    mc_dir.mkdir(parents=True, exist_ok=True)
+
+  def _download_one(symbol: str) -> dict:
+    result = {'symbol': symbol, 'fundamentals': 'skip', 'market_cap': 'skip'}
+    code = _normalize_us_symbol(symbol)
+
+    # fundamentals(full -> includes Financials/Earnings/Holders)
+    if overwrite or not (fund_dir / f'{symbol}.json').exists():
+      data = get_fundamentals_from_eod(code, api_key=api_key)
+      if len(data) > 0:
+        save_fundamental_data(data, str(fund_dir), f'{symbol}.json')
+        result['fundamentals'] = 'ok'
+      else:
+        result['fundamentals'] = 'fail'
+
+    # historical market cap(reuse the stock-data csv save/load contract)
+    if with_market_cap and (overwrite or not (mc_dir / f'{symbol}.csv').exists()):
+      market_cap = get_historical_market_cap_from_eod(code, api_key=api_key)
+      if len(market_cap) > 0:
+        save_stock_data(market_cap, str(mc_dir), symbol, file_format='.csv')
+        result['market_cap'] = 'ok'
+      else:
+        result['market_cap'] = 'fail'
+
+    return result
+
+  summary = {}
+  with ThreadPoolExecutor(max_workers=max_workers) as executor:
+    futures = {executor.submit(_download_one, s): s for s in symbols}
+    for future in tqdm(as_completed(futures), total=len(symbols), ncols=tqdm_ncols, disable=not is_print):
+      try:
+        result = future.result()
+        summary[result['symbol']] = result
+      except Exception as e:
+        symbol = futures[future]
+        summary[symbol] = {'symbol': symbol, 'error': str(e)}
+        logger.exception(f'{symbol} {e}')
+
+  if is_print:
+    ok_f = sum(1 for r in summary.values() if r.get('fundamentals') == 'ok')
+    ok_m = sum(1 for r in summary.values() if r.get('market_cap') == 'ok')
+    logger.info(f'download_fundamental_data: {len(symbols)} 只, fundamentals ok={ok_f}, market_cap ok={ok_m}')
+
+  return summary
+
+
+#-- EOD New Data --#
+# 说明: 本区段对应 eodhd_new_data_sources.md 中列出的"新数据"端点(EODHD 45 feeds 中的增量部分),
+# 风格与 get_real_time_data_from_eod() / get_fundamentals_from_eod() 保持一致.
+# 统一约定:
+#   * 参数 api_key=default_eod_key, is_print=False, 批量类额外 batch_size/page_size;
+#   * URL 统一 f'https://eodhd.com/api{path}' + params(api_token & fmt=json + from_to/filter);
+#   * requests.get(url, headers=headers, params=..., timeout=...);
+#   * status_code==200 正常解析, 403 记 warning(无权限/需 All-in-One), 其它记 warning, 异常 logger.exception;
+#   * 返回 pd.DataFrame / dict, 空结果返回 pd.DataFrame() / {}, 绝不返回 None;
+#   * 多序列数据集(rates/credit/sanctions/macro/calendar/news/events/lists)返回扁平 DataFrame(仅解析日期列, 不设索引,
+#     避免多序列同日塌缩); 真正单标的时序(intraday)才用 util.df_2_timeseries 设索引.
+_DATE_COLUMNS = ['date', 'Date', 'as_of', 'as_of_date', 'release_date', 'filing_date',
+                 'reportDate', 'report_date', 'disclosure_date', 'transaction_date',
+                 'transactionDate', 'declarationDate', 'recordDate', 'paymentDate',
+                 'datetime', 'timestamp', 'effective_date', 'last_updated']
+
+
+def _envelope_to_rows(raw) -> list:
+  """
+  把 eodhd 各种响应 envelope 统一展平为 list of dict
+  :param raw: 原始 json(可能为 list / {'data': [...]} / 单键 section / 普通 dict)
+  :returns: list of dict
+  """
+  if raw is None:
+    return []
+  if isinstance(raw, list):
+    return [x for x in raw if isinstance(x, dict)]
+  if isinstance(raw, dict):
+    data = raw.get('data')
+    if isinstance(data, list):
+      return [x for x in data if isinstance(x, dict)]
+    # {meta, data: {SYMBOL/KEY: {...}}} 形态(如 /us-quote-delayed), 取每个 value 为一行
+    if isinstance(data, dict):
+      values = list(data.values())
+      if values and all(isinstance(v, dict) for v in values):
+        return values
+    # 单键 section: 如 {type, description, from, to, earnings:[...]} / {..., splits:[...]} / {..., trends:[...]}
+    for value in raw.values():
+      if isinstance(value, list):
+        return value
+    # 单标的时间序列 dict(如 {date: value} 或 {symbol: {...}}), 包成单行
+    return [raw]
+  return []
+
+
+def _to_unix_seconds(value):
+  """
+  把日期串/时间戳统一转成 Unix 秒(供 /intraday 等需要数字时间戳的端点使用)
+  :param value: None / int / float / 数字串 / 日期串
+  :returns: int 或 None
+  """
+  if value is None:
+    return None
+  if isinstance(value, (int, float)):
+    return int(value)
+  text = str(value)
+  if text.isdigit():
+    return int(text)
+  try:
+    return int(pd.Timestamp(text, tz='UTC').timestamp())
+  except Exception as e:
+    logger.exception(f'_to_unix_seconds {value} {e}')
+    return None
+
+
+def _flatten_nested_rows(rows: list) -> list:
+  """
+  把形如 {'member': {...}, 'asset': {...}, 'transaction': {...}} 的嵌套行展平为单层 dict
+  :param rows: list of dict
+  :returns: list of dict
+  """
+  flat = []
+  for row in rows:
+    if not isinstance(row, dict):
+      continue
+    item = {}
+    for key, value in row.items():
+      if isinstance(value, dict):
+        item.update(value)
+      else:
+        item[key] = value
+    flat.append(item)
+  return flat
+
+
+def _parse_date_columns(df: pd.DataFrame, columns: list = None) -> pd.DataFrame:
+  """
+  把常见日期字符串列转成 datetime(不设索引, 避免多序列同日塌缩)
+  :param df: 原始 DataFrame
+  :param columns: 需要转换的列名, 默认 _DATE_COLUMNS
+  :returns: 转换后的 DataFrame
+  """
+  if df is None or len(df) == 0:
+    return df
+  cols = columns if columns is not None else _DATE_COLUMNS
+  for col in cols:
+    if col in df.columns:
+      df[col] = pd.to_datetime(df[col], errors='coerce')
+  return df
+
+
+def _get_json_from_eod(path: str, api_key: str = default_eod_key, params: dict = None,
+                       timeout: int = 60, is_print: bool = False):
+  """
+  底层单次 GET: 统一 api_token/fmt=json 拼接与 403/404/异常日志
+  :param path: 如 '/ust/yield-rates'(不含域名)
+  :param api_key: eod api token
+  :param params: 额外 query 参数(dict, 值为 None 的键会被丢弃)
+  :param timeout: 超时秒数
+  :param is_print: 是否打印
+  :returns: 原始 json(list/dict) 或 None
+  """
+  query = {'api_token': api_key, 'fmt': 'json'}
+  if params:
+    query.update({k: v for k, v in params.items() if v is not None})
+  url = f'https://eodhd.com/api{path}'
+  try:
+    response = requests.get(url, headers=headers, params=query, timeout=timeout)
+  except Exception as e:
+    logger.exception(f'{url} {e}')
+    return None
+  if response.status_code == 200:
+    try:
+      raw = response.json()
+    except Exception as e:
+      logger.exception(f'{url} {e}')
+      return None
+    if is_print:
+      logger.info(f'get {path} success')
+    return raw
+  elif response.status_code == 403:
+    logger.warning(f'get {path} failed: 403 forbidden(no permission or require All-in-One subscription)')
+    return None
+  elif response.status_code == 404:
+    logger.warning(f'get {path} failed: 404 not found')
+    return None
+  else:
+    logger.warning(f'get {path} failed: status_code={response.status_code}, text={response.text[:200]}')
+    return None
+
+
+def _get_rows_from_eod(path: str, api_key: str = default_eod_key, params: dict = None,
+                       timeout: int = 60, is_print: bool = False) -> list:
+  """
+  GET 后把响应 envelope 展平为 list of dict
+  :returns: list of dict
+  """
+  return _envelope_to_rows(_get_json_from_eod(path, api_key=api_key, params=params, timeout=timeout, is_print=is_print))
+
+
+def _get_paged_rows_from_eod(path: str, api_key: str = default_eod_key, params: dict = None,
+                             page_size: int = 100, max_pages: int = 500, timeout: int = 60,
+                             is_print: bool = False) -> list:
+  """
+  按 page[offset]/page[limit] 分页拉取
+  (实测 eodhd 的 rates/sanctions/credit/real-estate/congressional 统一使用该分页参数;
+   offset/limit 会被忽略. 若服务端忽略分页(相邻两页完全相同)则提前停止, 防止死循环)
+  :param page_size: 每页条数(一般 max 100, real-estate max 500)
+  :param max_pages: 最大页数保护
+  :returns: list of dict
+  """
+  rows = []
+  base_params = dict(params) if params else {}
+  offset = 0
+  last_page = None
+  for _ in range(max_pages):
+    page_params = dict(base_params)
+    page_params['page[offset]'] = offset
+    page_params['page[limit]'] = page_size
+    page = _get_rows_from_eod(path, api_key=api_key, params=page_params, timeout=timeout, is_print=is_print)
+    if not page:
+      break
+    if page == last_page:
+      break
+    rows.extend(page)
+    if len(page) < page_size:
+      break
+    last_page = page
+    offset += page_size
+  if is_print:
+    logger.info(f'get {path} total rows={len(rows)}')
+  return rows
+
+
+def _get_ust_rates_from_eod(dataset: str, api_key: str = default_eod_key, start_date: str = None,
+                            end_date: str = None, year=None, is_print: bool = False) -> pd.DataFrame:
+  """
+  美国国债利率家族私有助手
+  :param dataset: 'yield-rates' | 'bill-rates' | 'long-term-rates' | 'real-yield-rates'
+  :param start_date: 起始日期 YYYY-MM-DD
+  :param end_date: 结束日期 YYYY-MM-DD
+  :param year: 按年过滤(1900+)
+  :returns: pd.DataFrame
+  """
+  path = f'/ust/{dataset}'
+  params = {}
+  if year is not None:
+    params['filter[year]'] = year
+  if start_date:
+    params['filter[date_from]'] = start_date
+  if end_date:
+    params['filter[date_to]'] = end_date
+  rows = _get_paged_rows_from_eod(path, api_key=api_key, params=params, page_size=100, is_print=is_print)
+  if not rows:
+    return pd.DataFrame()
+  return _parse_date_columns(pd.DataFrame(rows))
+
+
+def _get_calendar_from_eod(dataset: str, start_date: str = None, end_date: str = None,
+                           symbols=None, api_key: str = default_eod_key, is_print: bool = False) -> pd.DataFrame:
+  """
+  通用公司日历私有助手
+  :param dataset: 'earnings' | 'splits' | 'ipos'
+  :param start_date: 起始日期(from)
+  :param end_date: 结束日期(to)
+  :param symbols: 标的列表或逗号串(部分日历支持)
+  :returns: pd.DataFrame
+  """
+  path = f'/calendar/{dataset}'
+  params = {}
+  if start_date:
+    params['from'] = start_date
+  if end_date:
+    params['to'] = end_date
+  if symbols:
+    params['symbols'] = ','.join(symbols) if isinstance(symbols, (list, tuple)) else symbols
+  rows = _get_rows_from_eod(path, api_key=api_key, params=params, is_print=is_print)
+  if not rows:
+    return pd.DataFrame()
+  return _parse_date_columns(pd.DataFrame(rows))
+
+
+# --- Universe / Bulk ---
+def get_exchanges_list_from_eod(api_key: str = default_eod_key, is_print: bool = False) -> pd.DataFrame:
+  """
+  get the list of supported exchanges(direct REST /exchanges-list, 1 call)
+  :param api_key: eod api token
+  :param is_print: whether to print
+  :returns: pd.DataFrame with columns [Name, Code, OperatingMIC, Country, Currency, CountryISO2, CountryISO3]
+  """
+  rows = _get_rows_from_eod('/exchanges-list', api_key=api_key, is_print=is_print)
+  if not rows:
+    return pd.DataFrame()
+  return pd.DataFrame(rows)
+
+
+def get_exchange_symbol_list_from_eod(exchange: str = 'US', delisted: bool = False, type: str = None,
+                                      symbols=None, api_key: str = default_eod_key, is_print: bool = False) -> pd.DataFrame:
+  """
+  get the tickers of one exchange(direct REST /exchange-symbol-list/{exchange}, 1 call)
+  :param exchange: exchange code, default 'US'
+  :param delisted: whether to include delisted symbols
+  :param type: 'common_stock' or 'etf'
+  :param symbols: list or comma string, filter by symbols
+  :param api_key: eod api token
+  :param is_print: whether to print
+  :returns: pd.DataFrame with columns [Code, Name, Country, Exchange, Currency, Type, Isin]
+  """
+  path = f'/exchange-symbol-list/{exchange}'
+  params = {}
+  if delisted:
+    params['delisted'] = 1
+  if type:
+    params['type'] = type
+  if symbols:
+    params['symbols'] = ','.join(symbols) if isinstance(symbols, (list, tuple)) else symbols
+  rows = _get_rows_from_eod(path, api_key=api_key, params=params, is_print=is_print)
+  if not rows:
+    return pd.DataFrame()
+  return pd.DataFrame(rows)
+
+
+def get_bulk_fundamentals_from_eod(exchange: str = 'US', symbols=None, offset: int = 0, limit: int = 100,
+                                   api_key: str = default_eod_key, is_print: bool = False) -> dict:
+  """
+  get the whole exchange fundamentals snapshot(direct REST /bulk-fundamentals/{exchange}, 100+N calls)
+  note: 需要 bulk 权限, 无权限时服务端返回 403, 会记 warning 并返回 {}
+  :param exchange: exchange code, default 'US'
+  :param symbols: list or comma string, filter by symbols
+  :param offset: pagination offset
+  :param limit: pagination limit
+  :param api_key: eod api token
+  :param is_print: whether to print
+  :returns: dict {SYMBOL: fundamentals dict}
+  """
+  path = f'/bulk-fundamentals/{exchange}'
+  params = {'offset': offset, 'limit': limit}
+  if symbols:
+    params['symbols'] = ','.join(symbols) if isinstance(symbols, (list, tuple)) else symbols
+  raw = _get_json_from_eod(path, api_key=api_key, params=params, timeout=90, is_print=is_print)
+  if not isinstance(raw, dict):
+    return {}
+  if 'data' in raw and isinstance(raw['data'], dict):
+    return raw['data']
+  return raw
+
+
+# --- News / Sentiment ---
+def get_news_from_eod(symbols=None, tag: str = None, start_date: str = None, end_date: str = None,
+                      limit: int = 50, offset: int = 0, api_key: str = default_eod_key,
+                      is_print: bool = False) -> pd.DataFrame:
+  """
+  get financial news(direct REST /news, 5+5*N calls)
+  :param symbols: list or comma string of tickers(s= param)
+  :param tag: news tag(t= param)
+  :param start_date: from date YYYY-MM-DD
+  :param end_date: to date YYYY-MM-DD
+  :param limit: page size
+  :param offset: pagination offset
+  :param api_key: eod api token
+  :param is_print: whether to print
+  :returns: pd.DataFrame with columns [date, title, content, link, symbols]
+  """
+  params = {'limit': limit, 'offset': offset}
+  if symbols:
+    params['s'] = ','.join(symbols) if isinstance(symbols, (list, tuple)) else symbols
+  if tag:
+    params['t'] = tag
+  if start_date:
+    params['from'] = start_date
+  if end_date:
+    params['to'] = end_date
+  rows = _get_rows_from_eod('/news', api_key=api_key, params=params, is_print=is_print)
+  if not rows:
+    return pd.DataFrame()
+  return _parse_date_columns(pd.DataFrame(rows))
+
+
+def get_sentiments_from_eod(symbols=None, start_date: str = None, end_date: str = None,
+                            api_key: str = default_eod_key, is_print: bool = False) -> pd.DataFrame:
+  """
+  get aggregated sentiment time series(direct REST /sentiments, 5+5*N calls)
+  :param symbols: list or comma string of tickers(s= param, required by api)
+  :param start_date: from date YYYY-MM-DD
+  :param end_date: to date YYYY-MM-DD
+  :param api_key: eod api token
+  :param is_print: whether to print
+  :returns: pd.DataFrame with columns [symbol, date, count, normalized]
+  """
+  params = {}
+  if symbols:
+    params['s'] = ','.join(symbols) if isinstance(symbols, (list, tuple)) else symbols
+  if start_date:
+    params['from'] = start_date
+  if end_date:
+    params['to'] = end_date
+  raw = _get_json_from_eod('/sentiments', api_key=api_key, params=params, is_print=is_print)
+  # 响应为 {symbol: [{date, count, normalized}, ...]}
+  if not isinstance(raw, dict):
+    return pd.DataFrame()
+  rows = []
+  for symbol, items in raw.items():
+    if not isinstance(items, list):
+      continue
+    for item in items:
+      if isinstance(item, dict):
+        row = dict(item)
+        row['symbol'] = symbol
+        rows.append(row)
+  if not rows:
+    return pd.DataFrame()
+  return _parse_date_columns(pd.DataFrame(rows))
+
+
+def get_news_word_weights_from_eod(symbols, start_date: str = None, end_date: str = None,
+                                   api_key: str = default_eod_key, is_print: bool = False) -> dict:
+  """
+  get news word weights(direct REST /news-word-weights, 5+5*N calls)
+  :param symbols: list or comma string of tickers(s= param, required by api)
+  :param start_date: from date YYYY-MM-DD
+  :param end_date: to date YYYY-MM-DD
+  :param api_key: eod api token
+  :param is_print: whether to print
+  :returns: dict {symbol: {date: {word: weight}}}
+  """
+  params = {}
+  if symbols:
+    params['s'] = ','.join(symbols) if isinstance(symbols, (list, tuple)) else symbols
+  if start_date:
+    params['filter[date_from]'] = start_date
+  if end_date:
+    params['filter[date_to]'] = end_date
+  raw = _get_json_from_eod('/news-word-weights', api_key=api_key, params=params, timeout=120, is_print=is_print)
+  return raw if isinstance(raw, dict) else {}
+
+
+# --- Smart money / Corporate events ---
+def get_insider_transactions_from_eod(code: str = 'US', start_date: str = None, end_date: str = None,
+                                      limit: int = 1000, api_key: str = default_eod_key,
+                                      is_print: bool = False) -> pd.DataFrame:
+  """
+  get insider transactions(direct REST /insider-transactions, 1 call)
+  :param code: exchange code, default 'US'
+  :param start_date: from date YYYY-MM-DD
+  :param end_date: to date YYYY-MM-DD
+  :param limit: max records(api max 1000)
+  :param api_key: eod api token
+  :param is_print: whether to print
+  :returns: pd.DataFrame (PIT 请用 reportDate 作为 avail_date)
+  """
+  params = {'code': code, 'limit': limit}
+  if start_date:
+    params['from'] = start_date
+  if end_date:
+    params['to'] = end_date
+  rows = _get_rows_from_eod('/insider-transactions', api_key=api_key, params=params, is_print=is_print)
+  if not rows:
+    return pd.DataFrame()
+  return _parse_date_columns(pd.DataFrame(rows))
+
+
+def get_congressional_trades_from_eod(page_size: int = 100, max_pages: int = 500,
+                                      api_key: str = default_eod_key, is_print: bool = False) -> pd.DataFrame:
+  """
+  get congressional trades(direct REST /congressional-trades, 1 call/page)
+  note: 分页 page[offset]/page[limit](limit<=100); 展平 member/asset/transaction 嵌套
+  :param page_size: records per page(<=100)
+  :param max_pages: max pages guard
+  :param api_key: eod api token
+  :param is_print: whether to print
+  :returns: pd.DataFrame (PIT 请用 disclosure_date; transaction_date 年份有污染)
+  """
+  rows = _get_paged_rows_from_eod('/congressional-trades', api_key=api_key, params=None,
+                                  page_size=min(page_size, 100), max_pages=max_pages, is_print=is_print)
+  if not rows:
+    return pd.DataFrame()
+  return _parse_date_columns(pd.DataFrame(_flatten_nested_rows(rows)))
+
+
+def get_sec_filings_from_eod(symbol: str, form: str = None, limit: int = 20, offset: int = 0,
+                             api_key: str = default_eod_key, is_print: bool = False) -> pd.DataFrame:
+  """
+  get SEC filings(direct REST /sec-filings/{symbol}, 10 calls/req, 需 All-in-One 订阅)
+  note: form 走 path(/sec-filings/{symbol}/{form}); 省略 form 返回 overview(data.filings dict)
+  :param symbol: ticker(自动补 .US)
+  :param form: '10k' | '10q' | '8k' | 'form4' 等, 省略则返回 overview 汇总
+  :param limit: records per page(1..100)
+  :param offset: pagination offset
+  :param api_key: eod api token
+  :param is_print: whether to print
+  :returns: pd.DataFrame; overview 返回 [ticker, name, cik, form, count, latest, url]; 指定 form 返回明细
+  """
+  symbol = _normalize_us_symbol(symbol)
+  if form:
+    path = f'/sec-filings/{symbol}/{form}'
+    rows = _get_rows_from_eod(path, api_key=api_key, params={'limit': limit, 'offset': offset}, is_print=is_print)
+    if not rows:
+      return pd.DataFrame()
+    return _parse_date_columns(pd.DataFrame(rows))
+  raw = _get_json_from_eod(f'/sec-filings/{symbol}', api_key=api_key, is_print=is_print)
+  data = raw.get('data') if isinstance(raw, dict) else None
+  if not isinstance(data, dict) or not isinstance(data.get('filings'), dict):
+    return pd.DataFrame()
+  rows = []
+  for form_key, info in data['filings'].items():
+    info = info if isinstance(info, dict) else {}
+    rows.append({'ticker': data.get('ticker'), 'name': data.get('name'), 'cik': data.get('cik'),
+                 'form': form_key, 'count': info.get('count'), 'latest': info.get('latest'),
+                 'url': info.get('url')})
+  return pd.DataFrame(rows)
+
+
+def get_earnings_calendar_from_eod(start_date: str = None, end_date: str = None, symbols=None,
+                                   api_key: str = default_eod_key, is_print: bool = False) -> pd.DataFrame:
+  """
+  get earnings calendar(direct REST /calendar/earnings, 1 call)
+  :param start_date: from date YYYY-MM-DD
+  :param end_date: to date YYYY-MM-DD
+  :param symbols: list or comma string(symbols= param)
+  :param api_key: eod api token
+  :param is_print: whether to print
+  :returns: pd.DataFrame
+  """
+  return _get_calendar_from_eod('earnings', start_date=start_date, end_date=end_date,
+                                symbols=symbols, api_key=api_key, is_print=is_print)
+
+
+def get_earnings_trends_from_eod(symbols, api_key: str = default_eod_key, is_print: bool = False) -> dict:
+  """
+  get earnings trends(direct REST /calendar/trends, 1 call)
+  :param symbols: list or comma string of tickers(symbols= param)
+  :param api_key: eod api token
+  :param is_print: whether to print
+  :returns: dict {type, description, symbols, trends: [...]}
+  """
+  params = {}
+  if symbols:
+    params['symbols'] = ','.join(symbols) if isinstance(symbols, (list, tuple)) else symbols
+  raw = _get_json_from_eod('/calendar/trends', api_key=api_key, params=params, is_print=is_print)
+  return raw if isinstance(raw, dict) else {}
+
+
+def get_upcoming_dividends_from_eod(symbol: str = None, date_eq: str = None, start_date: str = None,
+                                    end_date: str = None, api_key: str = default_eod_key,
+                                    is_print: bool = False) -> pd.DataFrame:
+  """
+  get dividends calendar(direct REST /calendar/dividends, 1 call)
+  note: api 要求至少提供 symbol 或 date_eq, 否则返回 422
+  :param symbol: ticker(自动补 .US)
+  :param date_eq: exact date YYYY-MM-DD
+  :param start_date: range start(filter[date_from])
+  :param end_date: range end(filter[date_to])
+  :param api_key: eod api token
+  :param is_print: whether to print
+  :returns: pd.DataFrame
+  """
+  params = {}
+  if symbol:
+    params['filter[symbol]'] = _normalize_us_symbol(symbol)
+  if date_eq:
+    params['filter[date_eq]'] = date_eq
+  if start_date:
+    params['filter[date_from]'] = start_date
+  if end_date:
+    params['filter[date_to]'] = end_date
+  rows = _get_rows_from_eod('/calendar/dividends', api_key=api_key, params=params, is_print=is_print)
+  if not rows:
+    return pd.DataFrame()
+  return _parse_date_columns(pd.DataFrame(rows))
+
+
+def get_upcoming_splits_from_eod(start_date: str = None, end_date: str = None,
+                                 api_key: str = default_eod_key, is_print: bool = False) -> pd.DataFrame:
+  """
+  get splits calendar(direct REST /calendar/splits, 1 call)
+  :param start_date: from date YYYY-MM-DD(default api: 未来 7 天)
+  :param end_date: to date YYYY-MM-DD
+  :param api_key: eod api token
+  :param is_print: whether to print
+  :returns: pd.DataFrame
+  """
+  return _get_calendar_from_eod('splits', start_date=start_date, end_date=end_date,
+                                api_key=api_key, is_print=is_print)
+
+
+def get_upcoming_ipos_from_eod(start_date: str = None, end_date: str = None,
+                               api_key: str = default_eod_key, is_print: bool = False) -> pd.DataFrame:
+  """
+  get ipos calendar(direct REST /calendar/ipos, 1 call)
+  :param start_date: from date YYYY-MM-DD
+  :param end_date: to date YYYY-MM-DD
+  :param api_key: eod api token
+  :param is_print: whether to print
+  :returns: pd.DataFrame
+  """
+  return _get_calendar_from_eod('ipos', start_date=start_date, end_date=end_date,
+                                api_key=api_key, is_print=is_print)
+
+
+# --- Macro / Rates / Credit ---
+def get_macro_indicator_from_eod(country: str, indicator: str = 'gdp_current_usd',
+                                 api_key: str = default_eod_key, is_print: bool = False) -> pd.DataFrame:
+  """
+  get country macro indicator(direct REST /macro-indicator/{country}, 1 call)
+  :param country: ISO-3 alpha code, e.g. 'USA', 'FRA', 'DEU'
+  :param indicator: indicator name, default 'gdp_current_usd'
+  :param api_key: eod api token
+  :param is_print: whether to print
+  :returns: pd.DataFrame with columns [CountryCode, CountryName, Indicator, Date, Period, Value]
+  """
+  rows = _get_rows_from_eod(f'/macro-indicator/{country}', api_key=api_key,
+                            params={'indicator': indicator}, is_print=is_print)
+  if not rows:
+    return pd.DataFrame()
+  return _parse_date_columns(pd.DataFrame(rows))
+
+
+def get_ust_yield_rates_from_eod(start_date: str = None, end_date: str = None, year=None,
+                                 api_key: str = default_eod_key, is_print: bool = False) -> pd.DataFrame:
+  """
+  get US Treasury par yield curve rates(direct REST /ust/yield-rates, 1 call)
+  :returns: pd.DataFrame (tenors: 1M..30Y)
+  """
+  return _get_ust_rates_from_eod('yield-rates', api_key=api_key, start_date=start_date,
+                                 end_date=end_date, year=year, is_print=is_print)
+
+
+def get_ust_bill_rates_from_eod(start_date: str = None, end_date: str = None, year=None,
+                                api_key: str = default_eod_key, is_print: bool = False) -> pd.DataFrame:
+  """
+  get US Treasury bill discount/coupon rates(direct REST /ust/bill-rates, 1 call)
+  :returns: pd.DataFrame (tenors: 4WK..52WK)
+  """
+  return _get_ust_rates_from_eod('bill-rates', api_key=api_key, start_date=start_date,
+                                 end_date=end_date, year=year, is_print=is_print)
+
+
+def get_ust_long_term_rates_from_eod(start_date: str = None, end_date: str = None, year=None,
+                                     api_key: str = default_eod_key, is_print: bool = False) -> pd.DataFrame:
+  """
+  get US Treasury long-term rates(direct REST /ust/long-term-rates, 1 call)
+  :returns: pd.DataFrame
+  """
+  return _get_ust_rates_from_eod('long-term-rates', api_key=api_key, start_date=start_date,
+                                 end_date=end_date, year=year, is_print=is_print)
+
+
+def get_ust_real_yield_rates_from_eod(start_date: str = None, end_date: str = None, year=None,
+                                      api_key: str = default_eod_key, is_print: bool = False) -> pd.DataFrame:
+  """
+  get US Treasury real yield rates(direct REST /ust/real-yield-rates, 1 call)
+  :returns: pd.DataFrame
+  """
+  return _get_ust_rates_from_eod('real-yield-rates', api_key=api_key, start_date=start_date,
+                                 end_date=end_date, year=year, is_print=is_print)
+
+
+def get_reference_rates_from_eod(code: str = None, currency: str = None, start_date: str = None,
+                                 end_date: str = None, page_size: int = 100, max_pages: int = 500,
+                                 api_key: str = default_eod_key, is_print: bool = False) -> pd.DataFrame:
+  """
+  get reference rates(direct REST /rates/reference-rates, 1 call/page, paginated)
+  :param code: rate code
+  :param currency: currency code
+  :param start_date: from date YYYY-MM-DD
+  :param end_date: to date YYYY-MM-DD
+  :param page_size: records per page(max 100)
+  :param max_pages: max pages guard
+  :param api_key: eod api token
+  :param is_print: whether to print
+  :returns: pd.DataFrame
+  """
+  params = {}
+  if code:
+    params['filter[code]'] = code
+  if currency:
+    params['filter[currency]'] = currency
+  if start_date:
+    params['filter[from]'] = start_date
+  if end_date:
+    params['filter[to]'] = end_date
+  rows = _get_paged_rows_from_eod('/rates/reference-rates', api_key=api_key, params=params,
+                                  page_size=min(page_size, 100), max_pages=max_pages, is_print=is_print)
+  if not rows:
+    return pd.DataFrame()
+  return _parse_date_columns(pd.DataFrame(rows))
+
+
+def get_policy_rates_from_eod(code: str = None, country: str = None, central_bank: str = None,
+                              start_date: str = None, end_date: str = None, page_size: int = 100,
+                              max_pages: int = 500, api_key: str = default_eod_key,
+                              is_print: bool = False) -> pd.DataFrame:
+  """
+  get central bank policy rates(direct REST /rates/policy-rates, 1 call/page, paginated)
+  :param code: rate code
+  :param country: country/jurisdiction
+  :param central_bank: central bank name
+  :param start_date: from date YYYY-MM-DD
+  :param end_date: to date YYYY-MM-DD
+  :param page_size: records per page(max 100)
+  :param max_pages: max pages guard
+  :param api_key: eod api token
+  :param is_print: whether to print
+  :returns: pd.DataFrame
+  """
+  params = {}
+  if code:
+    params['filter[code]'] = code
+  if country:
+    params['filter[country]'] = country
+  if central_bank:
+    params['filter[central_bank]'] = central_bank
+  if start_date:
+    params['filter[from]'] = start_date
+  if end_date:
+    params['filter[to]'] = end_date
+  rows = _get_paged_rows_from_eod('/rates/policy-rates', api_key=api_key, params=params,
+                                  page_size=min(page_size, 100), max_pages=max_pages, is_print=is_print)
+  if not rows:
+    return pd.DataFrame()
+  return _parse_date_columns(pd.DataFrame(rows))
+
+
+def get_funding_stress_from_eod(api_key: str = default_eod_key, is_print: bool = False) -> pd.DataFrame:
+  """
+  get funding stress indicators(direct REST /spreads/funding-stress, 1 call, not paginated)
+  :returns: pd.DataFrame
+  """
+  rows = _get_rows_from_eod('/spreads/funding-stress', api_key=api_key, is_print=is_print)
+  if not rows:
+    return pd.DataFrame()
+  return _parse_date_columns(pd.DataFrame(rows))
+
+
+def get_credit_sovereign_risk_premium_from_eod(country: str = None, region: str = None, as_of: str = None,
+                                               page_size: int = 100, max_pages: int = 500,
+                                               api_key: str = default_eod_key, is_print: bool = False) -> pd.DataFrame:
+  """
+  get sovereign country risk premium(Damodaran-style)(direct REST /credit-risk/sovereign/risk-premium, paginated)
+  :param country: ISO-3 code or name
+  :param region: region filter
+  :param as_of: as-of date YYYY-MM-DD
+  :param page_size: records per page(max 100)
+  :param max_pages: max pages guard
+  :returns: pd.DataFrame
+  """
+  params = {}
+  if country:
+    params['filter[country]'] = country
+  if region:
+    params['filter[region]'] = region
+  if as_of:
+    params['filter[as_of]'] = as_of
+  rows = _get_paged_rows_from_eod('/credit-risk/sovereign/risk-premium', api_key=api_key, params=params,
+                                  page_size=min(page_size, 100), max_pages=max_pages, is_print=is_print)
+  if not rows:
+    return pd.DataFrame()
+  return _parse_date_columns(pd.DataFrame(rows))
+
+
+def get_credit_sovereign_credit_ratings_from_eod(page_size: int = 100, max_pages: int = 500,
+                                                 api_key: str = default_eod_key,
+                                                 is_print: bool = False) -> pd.DataFrame:
+  """
+  get sovereign credit ratings(direct REST /credit-risk/sovereign/credit-ratings, paginated)
+  :returns: pd.DataFrame
+  """
+  rows = _get_paged_rows_from_eod('/credit-risk/sovereign/credit-ratings', api_key=api_key, params=None,
+                                  page_size=min(page_size, 100), max_pages=max_pages, is_print=is_print)
+  if not rows:
+    return pd.DataFrame()
+  return _parse_date_columns(pd.DataFrame(rows))
+
+
+def get_credit_sovereign_cds_spreads_from_eod(page_size: int = 100, max_pages: int = 500,
+                                              api_key: str = default_eod_key,
+                                              is_print: bool = False) -> pd.DataFrame:
+  """
+  get sovereign CDS spreads(direct REST /credit-risk/sovereign/cds-spreads, paginated)
+  :returns: pd.DataFrame
+  """
+  rows = _get_paged_rows_from_eod('/credit-risk/sovereign/cds-spreads', api_key=api_key, params=None,
+                                  page_size=min(page_size, 100), max_pages=max_pages, is_print=is_print)
+  if not rows:
+    return pd.DataFrame()
+  return _parse_date_columns(pd.DataFrame(rows))
+
+
+def get_credit_sovereign_default_spreads_from_eod(page_size: int = 100, max_pages: int = 500,
+                                                  api_key: str = default_eod_key,
+                                                  is_print: bool = False) -> pd.DataFrame:
+  """
+  get sovereign default spreads(direct REST /credit-risk/sovereign/default-spreads, paginated)
+  :returns: pd.DataFrame
+  """
+  rows = _get_paged_rows_from_eod('/credit-risk/sovereign/default-spreads', api_key=api_key, params=None,
+                                  page_size=min(page_size, 100), max_pages=max_pages, is_print=is_print)
+  if not rows:
+    return pd.DataFrame()
+  return _parse_date_columns(pd.DataFrame(rows))
+
+
+def get_credit_corporate_cmdi_from_eod(start_date: str = None, end_date: str = None, page_size: int = 100,
+                                       max_pages: int = 500, api_key: str = default_eod_key,
+                                       is_print: bool = False) -> pd.DataFrame:
+  """
+  get corporate market-based default indicator(CMDI)(direct REST /credit-risk/corporate/cmdi, paginated)
+  :param start_date: from date YYYY-MM-DD
+  :param end_date: to date YYYY-MM-DD
+  :returns: pd.DataFrame (market / IG / HY sub-indices)
+  """
+  params = {}
+  if start_date:
+    params['filter[from]'] = start_date
+  if end_date:
+    params['filter[to]'] = end_date
+  rows = _get_paged_rows_from_eod('/credit-risk/corporate/cmdi', api_key=api_key, params=params,
+                                  page_size=min(page_size, 100), max_pages=max_pages, is_print=is_print)
+  if not rows:
+    return pd.DataFrame()
+  return _parse_date_columns(pd.DataFrame(rows))
+
+
+def get_credit_corporate_hqm_yields_from_eod(start_date: str = None, end_date: str = None, page_size: int = 100,
+                                             max_pages: int = 500, api_key: str = default_eod_key,
+                                             is_print: bool = False) -> pd.DataFrame:
+  """
+  get corporate high-quality market(HQM) yields(direct REST /credit-risk/corporate/hqm-yields, paginated)
+  :param start_date: from date YYYY-MM-DD
+  :param end_date: to date YYYY-MM-DD
+  :returns: pd.DataFrame
+  """
+  params = {}
+  if start_date:
+    params['filter[from]'] = start_date
+  if end_date:
+    params['filter[to]'] = end_date
+  rows = _get_paged_rows_from_eod('/credit-risk/corporate/hqm-yields', api_key=api_key, params=params,
+                                  page_size=min(page_size, 100), max_pages=max_pages, is_print=is_print)
+  if not rows:
+    return pd.DataFrame()
+  return _parse_date_columns(pd.DataFrame(rows))
+
+
+def get_credit_cds_market_aggregates_from_eod(metric: str = None, dimension: str = None, start_date: str = None,
+                                              end_date: str = None, page_size: int = 100, max_pages: int = 500,
+                                              api_key: str = default_eod_key, is_print: bool = False) -> pd.DataFrame:
+  """
+  get aggregated CDS market statistics(direct REST /credit-risk/cds-market-aggregates, paginated)
+  :param metric: currently 'gross_notional'
+  :param dimension: 'grade' or 'cleared_status'
+  :param start_date: from date YYYY-MM-DD
+  :param end_date: to date YYYY-MM-DD
+  :returns: pd.DataFrame
+  """
+  params = {}
+  if metric:
+    params['filter[metric]'] = metric
+  if dimension:
+    params['filter[dimension]'] = dimension
+  if start_date:
+    params['filter[from]'] = start_date
+  if end_date:
+    params['filter[to]'] = end_date
+  rows = _get_paged_rows_from_eod('/credit-risk/cds-market/aggregates', api_key=api_key, params=params,
+                                  page_size=min(page_size, 100), max_pages=max_pages, is_print=is_print)
+  if not rows:
+    return pd.DataFrame()
+  return _parse_date_columns(pd.DataFrame(rows))
+
+
+def get_economic_events_from_eod(country: str = None, comparison: str = None, event_type: str = None,
+                                 start_date: str = None, end_date: str = None, limit: int = 50, offset: int = 0,
+                                 api_key: str = default_eod_key, is_print: bool = False) -> pd.DataFrame:
+  """
+  get macro economic calendar events(direct REST /economic-events, 1 call)
+  note: 该端点用 offset/limit(非 page[]), 返回纯 list
+  :param country: ISO-2 country code
+  :param comparison: 'mom' | 'qoq' | 'yoy'
+  :param event_type: event type filter
+  :param start_date: from date YYYY-MM-DD
+  :param end_date: to date YYYY-MM-DD
+  :param limit: page size
+  :param offset: pagination offset
+  :returns: pd.DataFrame
+  """
+  params = {'limit': limit, 'offset': offset}
+  if country:
+    params['country'] = country
+  if comparison:
+    params['comparison'] = comparison
+  if event_type:
+    params['type'] = event_type
+  if start_date:
+    params['from'] = start_date
+  if end_date:
+    params['to'] = end_date
+  rows = _get_rows_from_eod('/economic-events', api_key=api_key, params=params, is_print=is_print)
+  if not rows:
+    return pd.DataFrame()
+  return _parse_date_columns(pd.DataFrame(rows))
+
+
+# --- Index / Auxiliary / Sanctions / Real estate ---
+def get_cboe_indices_list_from_eod(api_key: str = default_eod_key, is_print: bool = False) -> pd.DataFrame:
+  """
+  get the list of supported CBOE indices(direct REST /cboe/indices, 1 call)
+  :returns: pd.DataFrame
+  """
+  rows = _get_rows_from_eod('/cboe/indices', api_key=api_key, is_print=is_print)
+  if not rows:
+    return pd.DataFrame()
+  return pd.DataFrame(rows)
+
+
+def get_cboe_index_data_from_eod(index_code: str, feed_type: str, date: str,
+                                 api_key: str = default_eod_key, is_print: bool = False) -> pd.DataFrame:
+  """
+  get CBOE index data(direct REST /cboe/index, 10 calls/req)
+  note: 三个参数均为必需, 否则返回 422
+  :param index_code: e.g. 'VIX', 'BDE30P'
+  :param feed_type: e.g. 'snapshot_official_closing'
+  :param date: YYYY-MM-DD
+  :param api_key: eod api token
+  :param is_print: whether to print
+  :returns: pd.DataFrame
+  """
+  params = {'filter[index_code]': index_code, 'filter[feed_type]': feed_type, 'filter[date]': date}
+  rows = _get_rows_from_eod('/cboe/index', api_key=api_key, params=params, is_print=is_print)
+  if not rows:
+    return pd.DataFrame()
+  return _parse_date_columns(pd.DataFrame(rows))
+
+
+def get_search_from_eod(query: str, limit: int = 50, api_key: str = default_eod_key,
+                        is_print: bool = False) -> pd.DataFrame:
+  """
+  search tickers/instruments by keyword(direct REST /search/{query}, 1 call)
+  :param query: search keyword
+  :param limit: max results
+  :param api_key: eod api token
+  :param is_print: whether to print
+  :returns: pd.DataFrame with columns [Code, Exchange, Name, Type, Country, Currency, ISIN]
+  """
+  rows = _get_rows_from_eod(f'/search/{query}', api_key=api_key, params={'limit': limit}, is_print=is_print)
+  if not rows:
+    return pd.DataFrame()
+  return pd.DataFrame(rows)
+
+
+def get_symbol_change_history_from_eod(start_date: str = None, end_date: str = None,
+                                       api_key: str = default_eod_key, is_print: bool = False) -> pd.DataFrame:
+  """
+  get symbol change history(direct REST /symbol-change-history, 5 calls per ticker, 1 call)
+  :param start_date: from date YYYY-MM-DD(filter 可能被忽略)
+  :param end_date: to date YYYY-MM-DD
+  :param api_key: eod api token
+  :param is_print: whether to print
+  :returns: pd.DataFrame
+  """
+  params = {}
+  if start_date:
+    params['from'] = start_date
+  if end_date:
+    params['to'] = end_date
+  rows = _get_rows_from_eod('/symbol-change-history', api_key=api_key, params=params, is_print=is_print)
+  if not rows:
+    return pd.DataFrame()
+  return _parse_date_columns(pd.DataFrame(rows))
+
+
+def get_sanctions_entities_from_eod(source: str = None, type: str = None, program: str = None, country: str = None,
+                                    q: str = None, active: str = None, page_size: int = 100, max_pages: int = 500,
+                                    api_key: str = default_eod_key, is_print: bool = False) -> pd.DataFrame:
+  """
+  get sanctioned entities(direct REST /sanctions/entities, paginated)
+  :param source: sanctions source
+  :param type: 'individual' | 'entity' | 'vessel' | 'aircraft'
+  :param program: sanctions program
+  :param country: country filter
+  :param q: keyword(min 2 chars)
+  :param active: active filter
+  :param page_size: records per page(max 100)
+  :param max_pages: max pages guard
+  :returns: pd.DataFrame
+  """
+  params = {}
+  if source:
+    params['source'] = source
+  if type:
+    params['type'] = type
+  if program:
+    params['program'] = program
+  if country:
+    params['country'] = country
+  if q:
+    params['q'] = q
+  if active:
+    params['active'] = active
+  rows = _get_paged_rows_from_eod('/sanctions/entities', api_key=api_key, params=params,
+                                  page_size=min(page_size, 100), max_pages=max_pages, is_print=is_print)
+  if not rows:
+    return pd.DataFrame()
+  return _parse_date_columns(pd.DataFrame(rows))
+
+
+def get_sanctions_vessels_from_eod(page_size: int = 100, max_pages: int = 500,
+                                   api_key: str = default_eod_key, is_print: bool = False) -> pd.DataFrame:
+  """
+  get sanctioned vessels(direct REST /sanctions/vessels, paginated)
+  :returns: pd.DataFrame
+  """
+  rows = _get_paged_rows_from_eod('/sanctions/vessels', api_key=api_key, params=None,
+                                  page_size=min(page_size, 100), max_pages=max_pages, is_print=is_print)
+  if not rows:
+    return pd.DataFrame()
+  return _parse_date_columns(pd.DataFrame(rows))
+
+
+def get_sanctions_programs_from_eod(api_key: str = default_eod_key, is_print: bool = False) -> pd.DataFrame:
+  """
+  get sanctions programs(direct REST /sanctions/programs, not paginated)
+  :returns: pd.DataFrame
+  """
+  rows = _get_rows_from_eod('/sanctions/programs', api_key=api_key, is_print=is_print)
+  if not rows:
+    return pd.DataFrame()
+  return pd.DataFrame(rows)
+
+
+def get_sanctions_sources_from_eod(api_key: str = default_eod_key, is_print: bool = False) -> pd.DataFrame:
+  """
+  get sanctions sources(direct REST /sanctions/sources, not paginated)
+  :returns: pd.DataFrame
+  """
+  rows = _get_rows_from_eod('/sanctions/sources', api_key=api_key, is_print=is_print)
+  if not rows:
+    return pd.DataFrame()
+  return pd.DataFrame(rows)
+
+
+def get_real_estate_countries_from_eod(page_size: int = 100, max_pages: int = 500,
+                                       api_key: str = default_eod_key, is_print: bool = False) -> pd.DataFrame:
+  """
+  get real estate covered countries(direct REST /real-estate/countries, 5 calls, paginated)
+  :returns: pd.DataFrame
+  """
+  rows = _get_paged_rows_from_eod('/real-estate/countries', api_key=api_key, params=None,
+                                  page_size=min(page_size, 500), max_pages=max_pages, is_print=is_print)
+  if not rows:
+    return pd.DataFrame()
+  return _parse_date_columns(pd.DataFrame(rows))
+
+
+def get_real_estate_from_eod(code: str = 'US', type: str = None, metric: str = None, start_period: str = None,
+                             end_period: str = None, page_size: int = 100, max_pages: int = 500,
+                             api_key: str = default_eod_key, is_print: bool = False) -> pd.DataFrame:
+  """
+  get real estate prices(direct REST /real-estate/{code}, 5 calls, paginated)
+  :param code: country code, default 'US'
+  :param type: data type filter
+  :param metric: metric filter
+  :param start_period: from period
+  :param end_period: to period
+  :returns: pd.DataFrame
+  """
+  params = {}
+  if type:
+    params['type'] = type
+  if metric:
+    params['metric'] = metric
+  if start_period:
+    params['from_period'] = start_period
+  if end_period:
+    params['to_period'] = end_period
+  rows = _get_paged_rows_from_eod(f'/real-estate/{code}', api_key=api_key, params=params,
+                                  page_size=min(page_size, 500), max_pages=max_pages, is_print=is_print)
+  if not rows:
+    return pd.DataFrame()
+  return _parse_date_columns(pd.DataFrame(rows))
+
+
+def get_real_estate_detailed_from_eod(code: str = 'US', type: str = None, metric: str = None, start_period: str = None,
+                                      end_period: str = None, page_size: int = 100, max_pages: int = 500,
+                                      api_key: str = default_eod_key, is_print: bool = False) -> pd.DataFrame:
+  """
+  get real estate detailed prices(direct REST /real-estate/{code}/detailed, 5 calls, paginated)
+  :returns: pd.DataFrame
+  """
+  params = {}
+  if type:
+    params['type'] = type
+  if metric:
+    params['metric'] = metric
+  if start_period:
+    params['from_period'] = start_period
+  if end_period:
+    params['to_period'] = end_period
+  rows = _get_paged_rows_from_eod(f'/real-estate/{code}/detailed', api_key=api_key, params=params,
+                                  page_size=min(page_size, 500), max_pages=max_pages, is_print=is_print)
+  if not rows:
+    return pd.DataFrame()
+  return _parse_date_columns(pd.DataFrame(rows))
+
+
+def get_real_estate_detailed_series_from_eod(code: str = 'US', type: str = None, metric: str = None,
+                                             start_period: str = None, end_period: str = None,
+                                             api_key: str = default_eod_key, is_print: bool = False) -> pd.DataFrame:
+  """
+  get real estate detailed series(direct REST /real-estate/{code}/detailed/series, 5 calls, not paginated)
+  :returns: pd.DataFrame
+  """
+  params = {}
+  if type:
+    params['type'] = type
+  if metric:
+    params['metric'] = metric
+  if start_period:
+    params['from_period'] = start_period
+  if end_period:
+    params['to_period'] = end_period
+  rows = _get_rows_from_eod(f'/real-estate/{code}/detailed/series', api_key=api_key, params=params, is_print=is_print)
+  if not rows:
+    return pd.DataFrame()
+  return _parse_date_columns(pd.DataFrame(rows))
+
+
+# --- Intraday / Delayed ---
+def get_intraday_data_from_eod(symbol: str, interval: str = '5m', start_date: str = None, end_date: str = None,
+                               split_dt: bool = False, api_key: str = default_eod_key,
+                               is_print: bool = False) -> pd.DataFrame:
+  """
+  get intraday OHLCV candles(direct REST /intraday/{symbol}, 5 calls)
+  note: 单标的时序, 返回后按 datetime 设为时间索引
+  :param symbol: ticker(自动补 .US)
+  :param interval: '1m' | '5m' | '1h'
+  :param start_date: from(日期串或 Unix 秒)
+  :param end_date: to(日期串或 Unix 秒)
+  :param split_dt: whether to request split date/time fields
+  :param api_key: eod api token
+  :param is_print: whether to print
+  :returns: pd.DataFrame (index=datetime, columns=Open/High/Low/Close/Volume)
+  """
+  symbol = _normalize_us_symbol(symbol)
+  params = {'interval': interval}
+  if start_date:
+    params['from'] = _to_unix_seconds(start_date)
+  if end_date:
+    params['to'] = _to_unix_seconds(end_date)
+  if split_dt:
+    params['split-dt'] = 1
+  rows = _get_rows_from_eod(f'/intraday/{symbol}', api_key=api_key, params=params, is_print=is_print)
+  if not rows:
+    return pd.DataFrame()
+  df = pd.DataFrame(rows)
+  df = df.rename(columns={'open': 'Open', 'high': 'High', 'low': 'Low', 'close': 'Close', 'volume': 'Volume'})
+  if 'datetime' in df.columns:
+    df['datetime'] = pd.to_datetime(df['datetime'], errors='coerce')
+    df = util.df_2_timeseries(df, time_col='datetime')
+    df = util.remove_duplicated_index(df, keep='last')
+  return df
+
+
+def get_us_quote_delayed_from_eod(symbols, page_size: int = 100, api_key: str = default_eod_key,
+                                  is_print: bool = False) -> pd.DataFrame:
+  """
+  get extended delayed quotes for US stocks(direct REST /us-quote-delayed, 1 call/ticker)
+  :param symbols: list or comma string of US tickers
+  :param page_size: records per page(max 100)
+  :param api_key: eod api token
+  :param is_print: whether to print
+  :returns: pd.DataFrame
+  """
+  if not symbols:
+    return pd.DataFrame()
+  query = ','.join(symbols) if isinstance(symbols, (list, tuple)) else symbols
+  rows = _get_paged_rows_from_eod('/us-quote-delayed', api_key=api_key, params={'s': query},
+                                  page_size=min(page_size, 100), is_print=is_print)
+  if not rows:
+    return pd.DataFrame()
+  return _parse_date_columns(pd.DataFrame(rows))
+
+
 #----------------------------- portfolio updating -------------------------------#
 def update_portfolio_support_resistant(config: dict, data: dict, portfolio_file_name: str = 'portfolio.json', is_return: bool = False) -> dict:
   """
@@ -2609,9 +4350,12 @@ def update_portfolio_support_resistant(config: dict, data: dict, portfolio_file_
               resistant = ta_result.loc[converted_symbol, 'resistant'].round(2)
               
             # record support, resistant and latest price
-            tmp_support[symbol] = None if (support is None or np.isnan(support)) else support
-            tmp_resistant[symbol] = None if (resistant is None or np.isnan(resistant)) else resistant
-            tmp_price[symbol] = tmp_price[symbol] if (close is None or np.isnan(close)) else close
+            # 原来直接 np.isnan(value): value 来自 portfolio.json 或 ta_result, **可能是字符串**
+            # (例如 latest_price 的占位 '--'), np.isnan('--') 会抛 TypeError 让整封邮件崩掉.
+            # 改用一个对 str/None/NaN 都安全的判空.
+            tmp_support[symbol] = None if _is_missing(support) else support
+            tmp_resistant[symbol] = None if _is_missing(resistant) else resistant
+            tmp_price[symbol] = tmp_price[symbol] if _is_missing(close) else close
 
           # update portfolio
           portfolio[platform][account]['portfolio']['latest_price'] = tmp_price
@@ -2757,7 +4501,10 @@ def send_result_by_email(config: dict, to_addr: str, from_addr: str = 'northchen
             signal_info += f'<li>[ <b>{s}</b> ]: <font color="{font_color}">{", ".join(tmp_signals)}</font></li>'
 
       else:
-        signal_info += f'<li><p>[Not Found]: {prefix}{signal_file_date}.xlsx</p></li>'
+        # 原来写的是 {prefix}{signal_file_date}.xlsx —— prefix 在本函数里未定义,
+        # 只要某个池的信号文件缺失(正是最需要发告警邮件的时候)就抛 NameError,
+        # 邮件(唯一主告警通道)整封发不出去. 这里同时修掉未定义变量与文件名口径不一致.
+        signal_info += f'<li><p>[Not Found]: {tmp_signal_file.name}</p></li>'
   
   else:
     signal_info += '<li><p>[Not Required]</p></li>'

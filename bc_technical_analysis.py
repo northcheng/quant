@@ -213,11 +213,20 @@ def preprocess(df: pd.DataFrame, symbol: str, print_error: bool = True):
   df.loc[split_idx, 'adj_factor'] = 1 / df.loc[split_idx, 'Split']
 
   # Split在昨日, 价格变化却在今日
+  # 注意: 源索引必须是 split_n1_idx(本行对应的那批行). 曾误写为 split_idx —— 两个索引集
+  # 按条件互斥, pandas 按标签对齐后目标行全是 NaN, 随后 ffill 又把它们补成相邻旧值,
+  # 于是"拆股发生在次日"这一支复权被静默丢弃, 未复权的跳空直接进入 Adj Close 与 OHLC.
   split_n1_idx = _safe_query(df, 'split_n1 != 1.0 and (adj_rate >= 1.95 or adj_rate <= 0.45)')
-  df.loc[split_n1_idx, 'adj_factor'] = 1 / df.loc[split_idx, 'split_n1']
+  df.loc[split_n1_idx, 'adj_factor'] = 1 / df.loc[split_n1_idx, 'split_n1']
 
   df['adj_factor'] = df['adj_factor'].ffill()
   df['Adj Close'] = df['Adj Close'] * df['adj_factor']
+
+  # 守卫: 上面两次赋值都必须落到"确实需要复权的那些行"上. 若索引写错(历史上发生过),
+  # 目标行会被赋 NaN 再由 ffill 补成旧值 —— 复权静默失效, 且事后无法从结果看出来.
+  for _idx, _q in ((split_idx, 'Split'), (split_n1_idx, 'split_n1')):
+    if len(_idx) > 0 and df.loc[_idx, 'adj_factor'].isna().any():
+      logger.error(f'{symbol}: adj_factor 赋值未命中 {_idx} ({_q}) —— 复权可能失效, 请检查索引')
 
   if len(split_idx) != 0 or len(split_n1_idx) != 0:
     logger.info(f'Price need to be adjusted due to Split on {split_idx}, {split_n1_idx}')
@@ -322,13 +331,22 @@ def calculate_ta_basic(df: pd.DataFrame, indicators: dict = default_indicators):
     df = add_candlestick_features(df=df)
 
     # add indicator features
+    # 原来用 eval(f'add_{indicator}_features(df=df)') 派发, indicator 直接来自
+    # ta_config.json —— 等于"配置里写什么就执行什么"(可注入任意表达式). 改为在
+    # 本模块的可调用对象里按名字查找, 名字不在白名单内就跳过并告警.
     phase = 'calculate indicators' 
     indicator_calculated = []
     for i in indicators.keys():
       tmp_indicators = indicators[i]
       for indicator in tmp_indicators:
         if indicator not in indicator_calculated:
-          df = eval(f'add_{indicator}_features(df=df)')
+          func_name = f'add_{indicator}_features'
+          func = globals().get(func_name)
+          if not callable(func):
+            logger.error(f'未找到指标实现 {func_name}(indicator={indicator}), 已跳过; '
+                         f'请检查 ta_config.json 的 indicators 配置')
+            continue
+          df = func(df=df)
           indicator_calculated.append(indicator)
         else:
           logger.info(f'{indicator} already calculated!')
@@ -1296,10 +1314,26 @@ def calculate_ta_signal(df: pd.DataFrame, interval: str = 'day'):
   # ================================ calculate signal =======================
   if 'signal'  > '':
 
-    # signal 
+    # signal: 时序三态交易信号(趋势跟随), 取值 'b'(买入)/'h'(持有或静默)/'s'(卖出)
+    #   判据 = 短中期趋势共振: 短期趋势(adx, s_trend)与中期趋势(ichimoku, m_trend)同时向上才买入;
+    #   任一向下则卖出; 其余(波动或趋势分歧)则静默持有。
+    #   仅使用 trend 段已产出的列, 无自由参数(无需样本内调参), 纯新增/填充列, 不改变其他列。
     df['signal'] = ''
-    df['signal_day'] = 0
-    df['signal_description'] = ''
+    cond_buy = (df['s_trend'] == 'up') & (df['m_trend'] == 'up')
+    cond_sell = (df['s_trend'] == 'down') | (df['m_trend'] == 'down')
+    df.loc[cond_buy, 'signal'] = 'b'
+    df.loc[cond_sell, 'signal'] = 's'
+    df.loc[~cond_buy & ~cond_sell, 'signal'] = 'h'
+
+    # signal_day: 当前信号连续持续的天数(>=1)
+    signal_grp = (df['signal'] != df['signal'].shift()).cumsum()
+    df['signal_day'] = df['signal'].groupby(signal_grp).cumcount() + 1
+
+    # signal_description: 简要判据说明
+    df['signal_description'] = '波动或趋势分歧'
+    df.loc[df['s_trend'] == 'down', 'signal_description'] = '短期趋势向下'
+    df.loc[(df['s_trend'] != 'down') & (df['m_trend'] == 'down'), 'signal_description'] = '中期趋势向下'
+    df.loc[cond_buy, 'signal_description'] = '短中期共振向上'
 
   # ================================ calculate action =======================
   if 'action'  > '':
@@ -3026,7 +3060,9 @@ def add_adx_features(df: pd.DataFrame, n: int = 12, ohlcv_col: dict = default_oh
   # volume = ohlcv_col['volume']
 
   # ========================= Wilder =========================
-  if method in ('wilder'):
+  # 注意: ('wilder') 是**字符串**不是元组, 任何子串('w'/'i'/'')都算命中, 分支判定失效.
+  # 改为真元组, 并显式枚举合法取值.
+  if method in ('wilder', 'wilder_legacy'):
 
     # true range (same definition as the legacy path)
     h_l = df[high] - df[low]
@@ -3057,13 +3093,13 @@ def add_adx_features(df: pd.DataFrame, n: int = 12, ohlcv_col: dict = default_oh
     df['adx_strength'] = adx
 
     # fill na values
+    # 原来用 locals().get(col) 反射取变量, 且要求 col 已在 df 里 —— 而 wilder 分支
+    # 从不把 pdi/mdi/dx/adx 写进 df, 于是那几列**完全没被 fillna**(空操作);
+    # 且 locals() 的可见性依赖实现细节, 不可靠. 这里改成直接对 df 中实际存在的列处理.
     if fillna:
       for col in ['atr', 'pdi', 'mdi', 'dx', 'adx', 'adx_value', 'adx_strength']:
-        s = locals().get(col)
-        if isinstance(s, pd.Series):
-          s = s.replace([np.inf, -np.inf], np.nan).fillna(0)
-          if col in df.columns:
-            df[col] = s
+        if col in df.columns:
+          df[col] = df[col].replace([np.inf, -np.inf], np.nan).fillna(0)
 
   # ========================= legacy =========================
   else:
@@ -3904,9 +3940,12 @@ def add_adi_features(df: pd.DataFrame, ohlcv_col: dict = default_ohlcv_col, fill
   volume = ohlcv_col['volume']
 
   # calculate ADI (Accumulation/Distribution Line: cumulative sum of signed money flow)
+  # H == L (一字板/停牌) 时分母为 0: 分子为 0 时得到 NaN, 分子非 0(脏数据)时得到 ±inf.
+  # fillna(0.0) 抓不到 inf, 而 inf 一旦进入 cumsum 会把**整条 ADI 序列**污染成 inf
+  # (cumsum 之后每一行都是 inf), 因此必须在产生阶段就把它压成 0.
   clv = ((df[close] - df[low]) - (df[high] - df[close])) / (df[high] - df[low])
-  clv = clv.fillna(0.0)  # float division by zero (H == L bar -> 0)
-  ad = (clv * df[volume]).cumsum()
+  clv = clv.replace([np.inf, -np.inf], np.nan).fillna(0.0)
+  ad = (clv * df[volume]).replace([np.inf, -np.inf], np.nan).fillna(0.0).cumsum()
 
   # fill na values
   if fillna:
@@ -3945,10 +3984,14 @@ def add_cmf_features(df: pd.DataFrame, n: int = 20, ohlcv_col: dict = default_oh
   volume = ohlcv_col['volume']
 
   # calculate cmf
+  # 同 ADI: H == L 时分母为 0, 分子非 0 会得到 ±inf; fillna(0.0) 抓不到 inf,
+  # inf 进入 rolling().sum() 会让整段 CMF 变成 ±inf/NaN. 先在产生阶段压成 0.
   mfv = ((df[close] - df[low]) - (df[high] - df[close])) / (df[high] - df[low])
-  mfv = mfv.fillna(0.0)  # float division by zero
+  mfv = mfv.replace([np.inf, -np.inf], np.nan).fillna(0.0)
   mfv *= df[volume]
-  cmf = (mfv.rolling(n, min_periods=0).sum() / df[volume].rolling(n, min_periods=0).sum())
+  vol_sum = df[volume].rolling(n, min_periods=0).sum()
+  # 分母为 0(全停牌)时置 NaN, 避免再产生 inf
+  cmf = (mfv.rolling(n, min_periods=0).sum() / vol_sum.where(vol_sum > 0))
 
   # fill na values
   if fillna:
@@ -4244,7 +4287,10 @@ def cal_kama(df: pd.DataFrame, n1: int = 10, n2: int = 2, n3: int = 30, ohlcv_co
 
   ER_num = pd.Series(close_values, index=df[close].index).diff(n1).abs()
   ER_den = vol.rolling(n1).sum()
-  ER = ER_num / ER_den
+  # ER_den == 0 (长期零波动/一字板/停牌) 会让 ER = 0/0 = NaN. 显式置 0.0:
+  # ER=0 是"无效率"(纯噪声)的正确语义, sc 取慢速常数, 递推退化为近乎平坦的均值,
+  # 且不会产生 NaN 去污染状态变量 kama[i-1].
+  ER = (ER_num / ER_den).where(ER_den > 0, 0.0)
   ER = ER.ffill()
 
   sc = ((ER * (2.0/(n2+1.0) - 2.0/(n3+1.0)) + 2.0/(n3+1.0)) ** 2.0).values
@@ -4255,13 +4301,22 @@ def cal_kama(df: pd.DataFrame, n1: int = 10, n2: int = 2, n3: int = 30, ohlcv_co
 
   for i in range(N):
     if np.isnan(sc[i]):
+      # 暖机期: 还没有可用的 kama 状态. 记 NaN 但不制造"半途断点".
       kama[i] = np.nan
     else:
       if first_value:
         kama[i] = close_values[i]
         first_value = False
       else:
-        kama[i] = kama[i-1] + sc[i] * (close_values[i] - kama[i-1])
+        prev = kama[i-1]
+        if np.isnan(prev):
+          # 状态变量缺失(只可能来自暖机期或脏数据) —— 用当前收盘价重启,
+          # 而不是让 NaN 顺着递推永久传染到序列尾部(kama_fast/kama_slow 全废).
+          kama[i] = close_values[i]
+        else:
+          kama[i] = prev + sc[i] * (close_values[i] - prev)
+  if first_value:
+    logger.error(f'cal_kama: 序列全程无法建立状态(长度 {N}), kama 全为 NaN; ER_den={ER_den.isna().sum()} 个缺失')
   kama = pd.Series(kama, name='kama', index=df[close].index)
 
   # fill na values
@@ -4530,10 +4585,16 @@ def add_tsi_features(df: pd.DataFrame, r: int = 25, s: int = 13, ema_period: int
   # volume = ohlcv_col['volume']
 
   # calculate tsi
+  # 注意: Series.ewm 的第一个位置参数是 **com**(质心), 不是 span. 写成 m.ewm(r) 得到的是
+  # alpha = 1/(1+r) = 1/26 = 0.038, 而本文件所有其它指数平滑都走 em()->span=r,
+  # 即 alpha = 2/(r+1) = 0.077 —— 同一份代码里两套平滑口径, TSI 因此系统性偏慢.
+  # 这里统一改用 em(), 与均线/其它指标口径一致(标准 Wilder/TSI 定义也是 span 语义).
   m = df[close] - df[close].shift(1)
-  m1 = m.ewm(r).mean().ewm(s).mean()
-  m2 = abs(m).ewm(r).mean().ewm(s).mean()
-  tsi = 100 * (m1 / m2)
+  m1 = em(series=em(series=m, periods=r).mean(), periods=s).mean()
+  m2 = em(series=em(series=abs(m), periods=r).mean(), periods=s).mean()
+  # 长期零波动(一字板)时 m2 -> 0, 直接相除会产生 ±inf 并污染下游信号;
+  # 这里在产生阶段就把它压成 NaN(与 fillna 分支同一口径).
+  tsi = (100 * (m1 / m2)).replace([np.inf, -np.inf], np.nan)
   tsi_sig = em(series=tsi, periods=ema_period).mean()
 
   # fill na values
@@ -4628,10 +4689,17 @@ def add_wr_features(df: pd.DataFrame, lbp: int = 14, ohlcv_col: dict = default_o
   # volume = ohlcv_col['volume']
 
   # calculate wr
-  hh = df[high].rolling(lbp, min_periods=0).max()
-  ll = df[low].rolling(lbp, min_periods=0).min()
+  # min_periods 改为 lbp: 原来用 min_periods=0, 暖机期会拿"部分窗口"当真值,
+  # 与本文件其它指标(sm/em 默认满窗)口径不一致. 另: 一字板时 hh == ll -> 分母为 0,
+  # 会产生 ±inf/NaN 直接进信号; 该 bar 的 WR 无定义, 取中性 -50(只在窗口已满时替换,
+  # 暖机期的 NaN 仍保持 NaN, 不制造假数据).
+  hh = df[high].rolling(lbp, min_periods=lbp).max()
+  ll = df[low].rolling(lbp, min_periods=lbp).min()
+  rng = hh - ll
 
-  wr = -100 * (hh - df[close]) / (hh - ll)
+  wr = -100 * (hh - df[close]) / rng.where(rng > 0)
+  wr = wr.where(~(rng.eq(0) & hh.notna()), -50.0)
+  wr = wr.replace([np.inf, -np.inf], np.nan)
 
   # fill na values
   if fillna:
@@ -7411,9 +7479,12 @@ def plot_historical_evolution_parallel(df: pd.DataFrame, symbol: str, pool: str,
       visualization_args = config['visualization']
       do_visualize = create_gif
 
-      with ProcessPoolExecutor(max_workers=max_workers) as pool:
+      # 注意: executor 变量名不能叫 pool —— 本函数的形参 pool 是"池名字符串",
+      # 被覆盖后下面 pool.submit(..., pool, ...) 会把 executor 对象当池名传给 worker:
+      # 序列化失败/池名传错, 逐日任务全部失败且只被日志吞掉, 函数"成功"地返回空结果.
+      with ProcessPoolExecutor(max_workers=max_workers) as executor:
         futures = {
-          pool.submit(_plot_historical_day_task, ta_static[sd:ed], symbol, pool, ed, plot_start_date, plot_save_path, visualization_args, do_visualize): (ed, sd, tmp_max_idx)
+          executor.submit(_plot_historical_day_task, ta_static[sd:ed], symbol, pool, ed, plot_start_date, plot_save_path, visualization_args, do_visualize): (ed, sd, tmp_max_idx)
           for (ed, sd, tmp_max_idx) in day_tasks
         }
         done_count = 0
@@ -7449,11 +7520,12 @@ def plot_historical_evolution_parallel(df: pd.DataFrame, symbol: str, pool: str,
       historical_ta_data = pd.concat([historical_ta_data, historical_rows[ed]])
 
     df = util.remove_duplicated_index(df=historical_ta_data, keep='last')
-
     # create gif
     phase = 'plot_gif'
     if create_gif:
-      util.image_2_gif(image_list=images, save_name=f'{plot_save_path}{symbol}({his_start_date}-{his_end_date}).gif')
+      # 同 7618 行: 用 Path 拼接, 避免缺分隔符把 gif 写到目录旁边
+      util.image_2_gif(image_list=images,
+                       save_name=str(Path(plot_save_path) / f'{symbol}({his_start_date}-{his_end_date}).gif'))
 
     # remove original images
     phase = 'remove_origin_images'
@@ -7587,13 +7659,17 @@ def plot_historical_evolution(df: pd.DataFrame, symbol: str, interval: Literal['
     # create gif
     phase = 'plot_gif'
     if create_gif:
-      util.image_2_gif(image_list=images, save_name=f'{plot_save_path}{symbol}({his_start_date}-{his_end_date}).gif')
+      # 注意: 不要用 f'{plot_save_path}{symbol}...' 直接拼字符串 —— 缺路径分隔符,
+      # gif 会落到目录旁边的错误路径. 与 7605 行同样用 Path 拼接.
+      util.image_2_gif(image_list=images,
+                       save_name=str(Path(plot_save_path) / f'{symbol}({his_start_date}-{his_end_date}).gif'))
 
     # remove original images
     phase = 'plot_gif'
     if remove_origin:
       for img in images:
-        os.remove(img)
+        if Path(img).exists():                   # images 只在 create_gif/plot_final 时初始化,
+          os.remove(img)                         # 且中途可能被删, 删前先确认存在
 
     # if plot final data
     phase = 'final_plot_visualization'
@@ -7700,3 +7776,57 @@ ta_data_columns = [
   '反转注意',
   '触发卖出'
 ]
+
+
+def verify_ta_data_columns(df: pd.DataFrame, strict: bool = False) -> dict:
+  """
+  校验实际算出的列与 `ta_data_columns` 白名单是否一致(用于发现"被静默丢弃的指标").
+
+  为什么需要这个: `ta_data_columns` 是一张**手工维护**的列清单, 而指标是按
+  `ta_config.json` 的 `indicators` 动态启用的. 一旦启用一个白名单里没有的指标
+  (例如 volatility 里加 'atr' 之外的族, 或 momentum 里加 'macd'/'rsi' 之外的
+  tsi/uo/wr/vortex/psar/kst/trix/stc/dpo/ao/eom/fi/nvi/obv/vpt/cmf),
+  下游若按 ta_data_columns 选列, 这些指标会被**静默丢掉** —— 指标算了却没用上,
+  且没有任何报错. 本函数把这种不一致变成显式告警.
+
+  用法(算完一天/一个池之后调一次, 或写进自检脚本):
+    from quant.bc_technical_analysis import verify_ta_data_columns
+    r = verify_ta_data_columns(result_df)
+    # r['missing'] = 在白名单外(会被下游丢掉)的列
+    # r['stale']   = 白名单里但本次没算出来的列
+
+  :param df: 算完 TA 之后的宽表(通常是 postprocess 的输入/输出)
+  :param strict: True = 发现 missing 时抛 ValueError(适合放进 CI/自检); False = 只告警
+  :returns: {'missing': [...], 'stale': [...], 'n_actual': int, 'n_listed': int}
+  :raises ValueError: strict=True 且存在 missing 列
+  """
+  if df is None or len(df.columns) == 0:
+    logger.warning('verify_ta_data_columns: 空表, 跳过校验')
+    return {'missing': [], 'stale': [], 'n_actual': 0, 'n_listed': len(ta_data_columns)}
+
+  actual = [c for c in df.columns]
+  # 白名单语义是"结果表里应保留的列", 与 df 的列集合比对; 顺序无关.
+  listed = set(ta_data_columns)
+  missing = [c for c in actual if c not in listed]
+  stale = [c for c in ta_data_columns if c not in set(actual)]
+
+  # 价格/量等基础列与 symbol 一定在, 不算"未算出"
+  base_expected = {'symbol', 'Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume',
+                   'Dividend', 'Split', 'rate'}
+  stale = [c for c in stale if c not in base_expected]
+
+  if missing:
+    logger.warning(f'verify_ta_data_columns: {len(missing)} 列不在 ta_data_columns 白名单中, '
+                   f'若下游按白名单选列会被静默丢弃: {missing[:20]}'
+                   f'{"..." if len(missing) > 20 else ""}')
+  if stale:
+    logger.info(f'verify_ta_data_columns: 白名单中有 {len(stale)} 列本次未产出'
+                f'(可能对应未启用的指标, 或已废弃的列名): {stale[:20]}'
+                f'{"..." if len(stale) > 20 else ""}')
+  if not missing and not stale:
+    logger.info('verify_ta_data_columns: 白名单与实际列完全一致')
+
+  if strict and missing:
+    raise ValueError(f'ta_data_columns 缺少 {len(missing)} 个实际产出的列: {missing}')
+  return {'missing': missing, 'stale': stale,
+          'n_actual': len(actual), 'n_listed': len(ta_data_columns)}
