@@ -124,13 +124,13 @@
       },
       "futu": {
         "real": 3000,
-        "simu": 100000
+        "simu": 300000
       }
     },
     "pool": {
       "tiger": {
         "real": "etf_3x",
-        "simu": "company_300"
+        "simu": "us_500"
       },
       "futu": {
         "real": "futu_pool",
