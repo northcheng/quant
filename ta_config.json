@@ -119,11 +119,11 @@
   "trade": {
     "init_cash": {
       "tiger": {
-        "real": 3000,
+        "real": 2000,
         "simu": 300000
       },
       "futu": {
-        "real": 3000,
+        "real": 2000,
         "simu": 300000
       }
     },
