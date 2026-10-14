@@ -120,11 +120,11 @@
     "init_cash": {
       "tiger": {
         "real": 2000,
-        "simu": 300000
+        "simu": 120000
       },
       "futu": {
         "real": 2000,
-        "simu": 300000
+        "simu": 100000
       }
     },
     "pool": {
