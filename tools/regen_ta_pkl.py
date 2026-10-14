@@ -65,6 +65,10 @@ def main():
         symbols = symbols[:a.limit]
     out = Path(a.out) if a.out else QUANT / f'{a.pool}_{a.interval}_ta_data_regen.pkl'
     keys = [f'{s}_{a.interval}' for s in symbols]
+    # 分片目录: 逐标的只写小分片, 最终一次性汇总成大 pkl
+    # (避免每算完一个就整体覆盖大文件 —— 在本环境下覆盖会把旧文件丢进回收站, 反复占满磁盘)
+    shard_dir = out.parent / (out.stem + '_parts')
+    shard_dir.mkdir(parents=True, exist_ok=True)
 
     # 断点续算: 已存在的结果直接复用
     data = {}
@@ -77,12 +81,21 @@ def main():
             print(f'[resume] 读取失败({e}), 从头开始')
             data = {}
 
-    print(f'池={a.pool}  标的数={len(symbols)}  输出={out}')
+    print(f'池={a.pool}  标的数={len(symbols)}  输出={out}  分片={shard_dir}')
     t_all = time.time()
     for i, (sym, key) in enumerate(zip(symbols, keys), 1):
         if key in data and data[key] is not None and len(data[key]) > 0:
             print(f'[{i:3d}/{len(symbols)}] {sym:8s} 跳过(已有)')
             continue
+        sp = shard_dir / f'{key}.pkl'
+        if sp.exists():
+            try:
+                with open(sp, 'rb') as f:
+                    data[key] = pickle.load(f)
+                print(f'[{i:3d}/{len(symbols)}] {sym:8s} 跳过(已算分片)')
+                continue
+            except Exception:
+                pass
         t0 = time.time()
         try:
             raw = read_csv_raw(sym)
@@ -102,11 +115,22 @@ def main():
         except Exception as e:
             print(f'[{i:3d}/{len(symbols)}] {sym:8s} EXC {type(e).__name__}: {e}')
             continue
-        # 每算完一个就落盘(断点可续)
-        tmp = out.with_suffix('.pkl.tmp')
-        with open(tmp, 'wb') as f:
-            pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
-        tmp.replace(out)
+        # 只落小分片(断点可续), 不覆盖大文件
+        with open(sp, 'wb') as f:
+            pickle.dump(sig, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+    # 末尾一次性汇总写最终 pkl (只覆盖一次)
+    tmp = out.with_suffix('.pkl.tmp')
+    with open(tmp, 'wb') as f:
+        pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
+    tmp.replace(out)
+    # 清理分片目录
+    try:
+        for p in shard_dir.glob('*.pkl'):
+            p.unlink()
+        shard_dir.rmdir()
+    except OSError:
+        pass
 
     print(f'\n完成: {len(data)} 个标的, 总用时 {time.time()-t_all:.1f}s -> {out}')
 

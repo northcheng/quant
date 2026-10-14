@@ -2417,6 +2417,62 @@
           "N_idiovol60": 0.04934
         }
       }
+    },
+    "nasdaq_500": {
+      "meta": {
+        "generated_at": "2026-10-14T21:36:00",
+        "source": "manual:from us_500 frozen weights (pool=nasdaq_500)",
+        "pool": "nasdaq_500",
+        "interval": "day",
+        "method": "rank",
+        "data_start": null,
+        "data_end": null,
+        "is_window": [
+          "2011-01-01",
+          "2019-12-31"
+        ],
+        "oos_window": [
+          "2020-01-01",
+          "2023-12-31"
+        ]
+      },
+      "params": {
+        "prep": "rank",
+        "min_cs": 8,
+        "min_factors": 5,
+        "top_k": 15,
+        "exit_rank": 40,
+        "capital": 30000,
+        "default_scheme": "cd_ic"
+      },
+      "kept": [
+        "mom_12_1",
+        "C_tmqmom",
+        "G_oviv20",
+        "obv_20",
+        "N_idiovol60",
+        "er_20",
+        "bias_20",
+        "H_ichimoku_alpha",
+        "G_vr20",
+        "PEAD_60",
+        "T_eps_growth",
+        "R_rev_growth"
+      ],
+      "schemes": {
+        "cd_ic": {
+          "R_rev_growth": 0.13943,
+          "mom_12_1": 0.269171,
+          "T_eps_growth": -0.087198,
+          "bias_20": 0.010457,
+          "PEAD_60": 0.073982,
+          "G_vr20": 0.006565,
+          "er_20": 0.01458,
+          "G_oviv20": 0.021649,
+          "obv_20": 0.024145,
+          "N_idiovol60": 0.04934
+        }
+      }
     }
   }
 }

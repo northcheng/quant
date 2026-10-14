@@ -528,7 +528,7 @@ class Trader(object):
     return None
 
   # auto trade according to signals
-  def signal_trade(self, signal: pd.DataFrame, money_per_sec: float, order_type: str = 'market', trading_fee: float = 5, pool: list = None, minimum_position: float = None) -> None:    
+  def signal_trade(self, signal: pd.DataFrame, money_per_sec: float, order_type: str = 'market', trading_fee: float = 5, pool: list = None, minimum_position: float = None, max_positions: int = None) -> None:    
     
     # set symbol to index
     if len(signal) > 0:
@@ -567,6 +567,7 @@ class Trader(object):
       # get sell signals
       sell_signal = signal.query('action == "s"')
       skip_sell = []
+      sold_syms = []
       if len(sell_signal) > 0:
         # go through sell signals
         for symbol in sell_signal.index:
@@ -582,12 +583,26 @@ class Trader(object):
               price = None
             trade_summary = self.trade(symbol=symbol, action='SELL', quantity=in_position_quantity, price=price, print_summary=False)
             self.logger.info(trade_summary)
+            # 只有**确认成功**的卖出才释放持仓槽位(卖出失败不释放, 保守不超买)
+            if trade_ok(trade_summary):
+              sold_syms.append(symbol)
+            else:
+              self.logger.error(f'[SELL]: {symbol} 下单未成功, 不释放持仓槽位: {trade_summary}')
           else:
             skip_sell.append(symbol)
             
         self.logger.info(f'[SELL]: {len(skip_sell)} symbols skipped (not in position)')
       else:
         self.logger.info(f'[SELL]: no signal')
+
+      # 计算可开新仓的槽位(口径与回测引擎一致: slots = max(0, top_k - (持仓 - 已卖出)))
+      # max_positions=None 时不限制, 保持其它调用方原行为
+      slots = None
+      if max_positions is not None:
+        held_syms = set(self.position.loc[self.position['quantity'] > 0, 'symbol']) if len(self.position) > 0 else set()
+        held_after = held_syms - set(sold_syms)
+        slots = max(0, int(max_positions) - len(held_after))
+        self.logger.info(f'[SLOT]: max_positions={max_positions}, held={len(held_after)}, slots={slots}')
 
       # buy
       # get available cash, set minimum position
@@ -602,9 +617,15 @@ class Trader(object):
       # get buy signals which not in positions yet
       buy_signal = signal.query('action == "b"')
       skip_buy = []
+      entries = 0
       if len(buy_signal) > 0:
         # go through buy signals
         for symbol in buy_signal.index:
+
+          # stop when the number of new positions fills available slots (respect top_k)
+          if slots is not None and entries >= slots:
+            self.logger.info(f'[BUY]: slot limit reached (max_positions={max_positions}, entries={entries}), stop buying')
+            break
 
           # stop when available cash is below one symbol's budget
           if available_cash <= minimum_position:
@@ -639,6 +660,7 @@ class Trader(object):
               # 判定统一走 trade_ok()(只看第一个分隔符前的前缀段, 避免误判).
               if trade_ok(trade_summary):
                 available_cash -= quantity * latest_price
+                entries += 1
               else:
                 self.logger.error(f'[BUY]: {symbol} 下单未成功, 不扣减预算: {trade_summary}')
             else:
@@ -1137,18 +1159,39 @@ class Tiger(Trader):
   def update_asset(self) -> None:
 
     try:
-      # update asset
-      asset = self.trade_client.get_assets(account=self.client_config.account)
-      asset = asset[0]
-      result = {
-        'account': [asset.account],
-        'net_value': [asset.summary.net_liquidation],
-        'holding_value': [asset.summary.gross_position_value],
-        'cash': [asset.summary.cash],
-        'available_cash': [asset.summary.available_funds],
-        'pnl': [asset.summary.realized_pnl],
-        'holding_pnl': [asset.summary.unrealized_pnl]
-      }
+      if self.account_type == 'simu':
+        # 模拟账户: get_assets() 对综合/模拟账户只适用环球账户, 会返回大量空/无效字段
+        # (available_funds 等默认值是 inf), 官方要求改用 get_prime_assets() 获取综合/模拟账户资产.
+        # 取证券分部('S'); cash/available_cash 均取现金余额(cash_balance), 不使用融资额度.
+        prime = self.trade_client.get_prime_assets(account=self.client_config.account)
+        if isinstance(prime, (list, tuple)):        # 兼容个别版本返回 list 的情形
+          prime = prime[0] if len(prime) > 0 else None
+        segment = prime.segments.get('S') if prime is not None else None
+        if segment is None:
+          raise ValueError('get_prime_assets 未返回证券(S)分部资产')
+        result = {
+          'account': [prime.account],
+          'net_value': [segment.net_liquidation],
+          'holding_value': [segment.gross_position_value],
+          'cash': [segment.cash_balance],
+          'available_cash': [segment.cash_balance],
+          'pnl': [segment.realized_pl],
+          'holding_pnl': [segment.unrealized_pl]
+        }
+      else:
+        # 环球/实盘账户: get_assets() 的 summary 有效.
+        # available_cash 取现金(cash)而非 available_funds(含融资), 与模拟账户保持一致: 不使用融资额度.
+        asset = self.trade_client.get_assets(account=self.client_config.account)
+        asset = asset[0]
+        result = {
+          'account': [asset.account],
+          'net_value': [asset.summary.net_liquidation],
+          'holding_value': [asset.summary.gross_position_value],
+          'cash': [asset.summary.cash],
+          'available_cash': [asset.summary.cash],
+          'pnl': [asset.summary.realized_pnl],
+          'holding_pnl': [asset.summary.unrealized_pnl]
+        }
       self.asset = pd.DataFrame(result)
     except Exception as e:
       self.asset = None
