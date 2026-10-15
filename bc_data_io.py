@@ -4391,7 +4391,7 @@ def send_result_by_email(config: dict, to_addr: str, from_addr: str = 'northchen
 
   # pools for each market
   if market == 'us':
-    pools = ['etf_3x', 'company_300'] 
+    pools = ['etf_3x', 'us_500'] 
   elif market == 'cn':
     pools = ['a_etf_all', 'hs300']
   else:

@@ -67,6 +67,7 @@
         "TNA": "3x罗素2000指数做多ETF", "TZA": "3x罗素2000指数做空ETF", "NAIL": "3x房地产建筑商做多ETF", "DUSL": "3x工业做多ETF", "UTSL": "3x基础设施做多ETF", "RETL": "3x零售做多ETF", 
         "UGL": "2x黄金做多ETF", "AGQ": "2x白银做多ETF", "UYM": "2x基础材料做多ETF", "ERX": "2x能源做多ETF", "ERY": "3x能源做空ETF", "BOIL": "2x天然气做多ETF", "UCO": "2x石油做多ETF", "TYD": "3倍做多7-10年债券ETF-Direxion", "TYO": "3倍做空7-10年期国债ETF-Direxion", "TMF": "3倍做多20年期以上国债ETF-Direxion", "TMV": "3倍做空20年期以上美国国债ETF-Direxion", 
         "CHAU": "2x沪深300做多ETF", "CHAD": "1x沪深300做空ETF", "CQQQ": "1x中国科技指数ETF", "CWEB": "1x中国互联网指数ETF", "YANG": "3xFTSE中国做空ETF", "YINN": "3xFTSE中国做多ETF", "JPNL": "3x日本做多ETF", "KORU": "3x韩国做多ETF", "MEXX": "3x墨西哥做多ETF", "EURL": "3x欧洲做多ETF", 
+        "OILU": "3x油气勘探与生产做多ETN", "OILD": "3x油气勘探与生产做空ETN", "HIBL": "3x标普500高贝塔做多ETF", "HIBS": "3x标普500高贝塔做空ETF", "MIDU": "3x中盘股做多ETF", "UMDD": "3x中盘400做多ETF", "UVIX": "2x波动率期货做多ETF", "FNGU": "3xFANG+指数做多ETN", "BULZ": "3xFANG创新指数做多ETN", "SPXL": "3x标普500指数做多ETF-Direxion", "DPST": "3x区域银行做多ETF", "DFEN": "3x航空航天与国防做多ETF", "CURE": "3x医疗保健做多ETF", 
 
         "SHV": "美国短期国债ETF-iShares", "SHY": "美国国债1-3年ETF-iShares", "IEI": "美国国债3-7年ETF-iShares", "IEF": "美国国债7-10年ETF-iShares", "TLH": "iShares安硕10-20年国债ETF", "TLT": "20+年以上美国国债ETF-iShares", 
         "XHLF": "BONDBLOXX BLOOMBERG SIX MONTH TARGET DURATION US TREASURY ETF", 
