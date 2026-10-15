@@ -1,1 +1,396 @@
-{"futu": {"REAL": {"portfolio": {"quantity": {"LTBR": 1.0}, "average_cost": {"LTBR": 8.67}, "latest_price": {"LTBR": 5.35}, "rate": {"LTBR": -0.38}, "rate_inday": {"LTBR": 0.0}, "market_value": {"LTBR": 5.35}, "latest_time": {"LTBR": null}, "support": {"LTBR": null}, "resistant": {"LTBR": null}}, "market_value": 5.34, "net_value": 28220.3636, "updated": "2026-10-14 22:53:29", "cash": 0.06}, "SIMULATE": {"portfolio": {"quantity": {"ARGX": 170.0}, "average_cost": {"ARGX": 591.8}, "latest_price": {"ARGX": 990.54}, "rate": {"ARGX": 0.67}, "rate_inday": {"ARGX": 0.0}, "market_value": {"ARGX": 168391.8}, "latest_time": {"ARGX": null}, "support": {"ARGX": null}, "resistant": {"ARGX": null}}, "market_value": 168391.8, "net_value": 2868148.37, "updated": "2026-09-15 08:05:06", "cash": 2699756.57}}, "pingan": {"snowball": {"portfolio": {"quantity": {"159100": 4400, "159502": 3200, "159561": 3800, "159577": 3000, "159937": 600}, "average_cost": {"159100": 1.1521, "159502": 1.5996, "159561": 1.3273, "159577": 1.6967, "159937": 8.8873}, "latest_price": {}, "rate": {}, "latest_time": {}, "market_value": {"159611": 6623.999999999999}, "support": {"159611": null}, "resistant": {"159611": 1.04}}, "market_value": 6623.999999999999, "net_value": 26686.01, "updated": "2026-09-23 06:03:48", "cash": 871.21}}, "tiger": {"simulation_account": {"portfolio": {"quantity": {"ANPA": 2047, "BILI": 6779, "LI": 8695, "QS": 21832, "RGC": 1612, "XPEV": 10437}, "average_cost": {"ANPA": 1.97, "BILI": 14.7, "LI": 11.77, "QS": 4.67, "RGC": 7.1, "XPEV": 9.61}, "latest_price": {"ANPA": 1.8, "BILI": 14.64, "LI": 11.44, "QS": 4.02, "RGC": 8.3, "XPEV": 9.72}, "rate": {"ANPA": -0.09, "BILI": -0.0, "LI": -0.03, "QS": -0.14, "RGC": 0.17, "XPEV": 0.01}, "rate_inday": {"ANPA": 0.0, "BILI": 0.0, "LI": 0.0, "QS": 0.0, "RGC": 0.0, "XPEV": 0.0}, "market_value": {"ANPA": 3684.6, "BILI": 99244.56, "LI": 99470.8, "QS": 87766.82, "RGC": 13379.6, "XPEV": 101448.68}, "latest_time": {"ANPA": null, "BILI": null, "LI": null, "QS": null, "RGC": null, "XPEV": null}, "support": {"ANPA": null, "BILI": null, "LI": null, "QS": null, "RGC": null, "XPEV": null}, "resistant": {"ANPA": null, "BILI": null, "LI": null, "QS": null, "RGC": null, "XPEV": null}}, "market_value": 404995.06, "net_value": 1821692.09, "updated": "2026-10-14 21:31:16", "cash": 1416573.75}, "global_account": {"portfolio": {"quantity": {"TNA": 32, "TECL": 8, "UPRO": 12, "TQQQ": 25, "SOXL": 20, "EURL": 44, "UUP": 68, "UCO": 37}, "average_cost": {"TNA": 62.89, "TECL": 232.13, "UPRO": 153.76, "TQQQ": 77.3, "SOXL": 148.96, "EURL": 46.45, "UUP": 29.24, "UCO": 52.2}, "latest_price": {"TNA": 54.42, "TECL": 220.89, "UPRO": 151.75, "TQQQ": 76.04, "SOXL": 117.77, "EURL": 41.07, "UUP": 29.23, "UCO": 61.12}, "rate": {"TNA": -0.13, "TECL": -0.05, "UPRO": -0.01, "TQQQ": -0.02, "SOXL": -0.21, "EURL": -0.12, "UUP": -0.0, "UCO": 0.17}, "rate_inday": {"TNA": 0.0, "TECL": 0.0, "UPRO": 0.0, "TQQQ": 0.0, "SOXL": 0.0, "EURL": 0.0, "UUP": 0.0, "UCO": 0.0}, "market_value": {"TNA": 1741.28, "TECL": 1767.12, "UPRO": 1821.0, "TQQQ": 1901.0, "SOXL": 2355.4, "EURL": 1807.06, "UUP": 1987.42, "UCO": 2261.44}, "latest_time": {"TNA": null, "TECL": null, "UPRO": null, "TQQQ": null, "SOXL": null, "EURL": null, "UUP": null, "UCO": null}, "support": {"TNA": 62.75, "TECL": null, "UPRO": null, "TQQQ": null, "SOXL": null, "EURL": 45.84, "UUP": null, "UCO": null}, "resistant": {"TNA": 65.2, "TECL": null, "UPRO": null, "TQQQ": null, "SOXL": null, "EURL": null, "UUP": null, "UCO": 52.11}}, "market_value": 15632.31, "net_value": 25013.88, "updated": "2026-10-14 22:53:27", "cash": 9377.14}, "standard_account": {"portfolio": {"quantity": {}, "average_cost": {}, "latest_price": {}, "rate": {}, "market_value": {}, "latest_time": {}, "support": {}, "resistant": {}}, "market_value": 0, "net_value": 94.69, "updated": "2020-11-26 08:37:11", "cash": 94.69}}}
+{
+    "futu": {
+        "REAL": {
+            "portfolio": {
+                "quantity": {
+                    "LTBR": 1.0
+                },
+                "average_cost": {
+                    "LTBR": 8.67
+                },
+                "latest_price": {
+                    "LTBR": 5.01
+                },
+                "rate": {
+                    "LTBR": -0.42
+                },
+                "rate_inday": {
+                    "LTBR": 0.0
+                },
+                "market_value": {
+                    "LTBR": 5.01
+                },
+                "latest_time": {
+                    "LTBR": null
+                },
+                "support": {
+                    "LTBR": null
+                },
+                "resistant": {
+                    "LTBR": null
+                }
+            },
+            "market_value": 5.01,
+            "net_value": 28220.0336,
+            "updated": "2026-10-15 10:26:26",
+            "cash": 0.06
+        },
+        "SIMULATE": {
+            "portfolio": {
+                "quantity": {
+                    "ARGX": 170.0
+                },
+                "average_cost": {
+                    "ARGX": 591.8
+                },
+                "latest_price": {
+                    "ARGX": 990.54
+                },
+                "rate": {
+                    "ARGX": 0.67
+                },
+                "rate_inday": {
+                    "ARGX": 0.0
+                },
+                "market_value": {
+                    "ARGX": 168391.8
+                },
+                "latest_time": {
+                    "ARGX": null
+                },
+                "support": {
+                    "ARGX": null
+                },
+                "resistant": {
+                    "ARGX": null
+                }
+            },
+            "market_value": 168391.8,
+            "net_value": 2868148.37,
+            "updated": "2026-09-15 08:05:06",
+            "cash": 2699756.57
+        }
+    },
+    "pingan": {
+        "snowball": {
+            "portfolio": {
+                "quantity": {
+                    "159100": 4400,
+                    "159502": 3300,
+                    "159866": 2900,
+                    "159941": 3300,
+                    "159937": 600
+                },
+                "average_cost": {
+                    "159100": 1.1521,
+                    "159502": 1.5355,
+                    "159866": 1.6637,
+                    "159941": 1.7915,
+                    "159937": 8.8873
+                },
+                "latest_price": {},
+                "rate": {},
+                "latest_time": {},
+                "market_value": {
+                    "159611": 6623.999999999999
+                },
+                "support": {
+                    "159611": null
+                },
+                "resistant": {
+                    "159611": 1.04
+                }
+            },
+            "market_value": 6623.999999999999,
+            "net_value": 26686.01,
+            "updated": "2026-09-23 06:03:48",
+            "cash": 871.21
+        }
+    },
+    "tiger": {
+        "simulation_account": {
+            "portfolio": {
+                "quantity": {
+                    "AMD": 201,
+                    "ANPA": 1249,
+                    "BE": 457,
+                    "CIEN": 391,
+                    "DELL": 208,
+                    "FTNT": 621,
+                    "HPE": 1706,
+                    "HUM": 276,
+                    "KEYS": 317,
+                    "LITE": 120,
+                    "LLY": 101,
+                    "MPC": 261,
+                    "PSX": 426,
+                    "TER": 312,
+                    "TWLO": 424,
+                    "VLO": 275
+                },
+                "average_cost": {
+                    "AMD": 586.17,
+                    "ANPA": 1.97,
+                    "BE": 253.29,
+                    "CIEN": 382.87,
+                    "DELL": 527.13,
+                    "FTNT": 186.5,
+                    "HPE": 65.67,
+                    "HUM": 424.18,
+                    "KEYS": 368.99,
+                    "LITE": 950.03,
+                    "LLY": 1204.65,
+                    "MPC": 477.1,
+                    "PSX": 292.44,
+                    "TER": 366.49,
+                    "TWLO": 282.21,
+                    "VLO": 454.51
+                },
+                "latest_price": {
+                    "AMD": 580.0,
+                    "ANPA": 1.69,
+                    "BE": 245.2,
+                    "CIEN": 375.12,
+                    "DELL": 518.39,
+                    "FTNT": 185.6,
+                    "HPE": 65.04,
+                    "HUM": 426.23,
+                    "KEYS": 363.54,
+                    "LITE": 922.64,
+                    "LLY": 1214.04,
+                    "MPC": 477.61,
+                    "PSX": 293.5,
+                    "TER": 361.32,
+                    "TWLO": 278.08,
+                    "VLO": 456.11
+                },
+                "rate": {
+                    "AMD": -0.01,
+                    "ANPA": -0.14,
+                    "BE": -0.03,
+                    "CIEN": -0.02,
+                    "DELL": -0.02,
+                    "FTNT": -0.0,
+                    "HPE": -0.01,
+                    "HUM": 0.0,
+                    "KEYS": -0.01,
+                    "LITE": -0.03,
+                    "LLY": 0.01,
+                    "MPC": 0.0,
+                    "PSX": 0.0,
+                    "TER": -0.01,
+                    "TWLO": -0.01,
+                    "VLO": 0.0
+                },
+                "rate_inday": {
+                    "AMD": 0.0,
+                    "ANPA": 0.0,
+                    "BE": 0.0,
+                    "CIEN": 0.0,
+                    "DELL": 0.0,
+                    "FTNT": 0.0,
+                    "HPE": 0.0,
+                    "HUM": 0.0,
+                    "KEYS": 0.0,
+                    "LITE": 0.0,
+                    "LLY": 0.0,
+                    "MPC": 0.0,
+                    "PSX": 0.0,
+                    "TER": 0.0,
+                    "TWLO": 0.0,
+                    "VLO": 0.0
+                },
+                "market_value": {
+                    "AMD": 116580.0,
+                    "ANPA": 2110.81,
+                    "BE": 112056.4,
+                    "CIEN": 146671.92,
+                    "DELL": 107825.49,
+                    "FTNT": 115257.6,
+                    "HPE": 110958.24,
+                    "HUM": 117639.48,
+                    "KEYS": 115240.6,
+                    "LITE": 110716.2,
+                    "LLY": 122618.04,
+                    "MPC": 124656.21,
+                    "PSX": 125028.87,
+                    "TER": 112731.84,
+                    "TWLO": 117903.8,
+                    "VLO": 125430.25
+                },
+                "latest_time": {
+                    "AMD": null,
+                    "ANPA": null,
+                    "BE": null,
+                    "CIEN": null,
+                    "DELL": null,
+                    "FTNT": null,
+                    "HPE": null,
+                    "HUM": null,
+                    "KEYS": null,
+                    "LITE": null,
+                    "LLY": null,
+                    "MPC": null,
+                    "PSX": null,
+                    "TER": null,
+                    "TWLO": null,
+                    "VLO": null
+                },
+                "support": {
+                    "AMD": null,
+                    "ANPA": null,
+                    "BE": null,
+                    "CIEN": null,
+                    "DELL": null,
+                    "FTNT": null,
+                    "HPE": null,
+                    "HUM": null,
+                    "KEYS": null,
+                    "LITE": null,
+                    "LLY": null,
+                    "MPC": null,
+                    "PSX": null,
+                    "TER": null,
+                    "TWLO": null,
+                    "VLO": null
+                },
+                "resistant": {
+                    "AMD": null,
+                    "ANPA": null,
+                    "BE": null,
+                    "CIEN": null,
+                    "DELL": null,
+                    "FTNT": null,
+                    "HPE": null,
+                    "HUM": null,
+                    "KEYS": null,
+                    "LITE": null,
+                    "LLY": null,
+                    "MPC": null,
+                    "PSX": null,
+                    "TER": null,
+                    "TWLO": null,
+                    "VLO": null
+                }
+            },
+            "market_value": 1783425.75,
+            "net_value": 1797991.04,
+            "updated": "2026-10-14 23:30:07",
+            "cash": 14406.0
+        },
+        "global_account": {
+            "portfolio": {
+                "quantity": {
+                    "TNA": 32,
+                    "TECL": 8,
+                    "UPRO": 12,
+                    "TQQQ": 25,
+                    "SOXL": 20,
+                    "EURL": 44,
+                    "UUP": 68,
+                    "UCO": 37
+                },
+                "average_cost": {
+                    "TNA": 62.89,
+                    "TECL": 232.13,
+                    "UPRO": 153.76,
+                    "TQQQ": 77.3,
+                    "SOXL": 148.96,
+                    "EURL": 46.45,
+                    "UUP": 29.24,
+                    "UCO": 52.2
+                },
+                "latest_price": {
+                    "TNA": 53.14,
+                    "TECL": 206.67,
+                    "UPRO": 148.84,
+                    "TQQQ": 72.08,
+                    "SOXL": 103.61,
+                    "EURL": 40.59,
+                    "UUP": 29.01,
+                    "UCO": 60.32
+                },
+                "rate": {
+                    "TNA": -0.16,
+                    "TECL": -0.11,
+                    "UPRO": -0.03,
+                    "TQQQ": -0.07,
+                    "SOXL": -0.3,
+                    "EURL": -0.13,
+                    "UUP": -0.01,
+                    "UCO": 0.16
+                },
+                "rate_inday": {
+                    "TNA": 0.0,
+                    "TECL": 0.0,
+                    "UPRO": 0.0,
+                    "TQQQ": 0.0,
+                    "SOXL": 0.0,
+                    "EURL": 0.0,
+                    "UUP": 0.0,
+                    "UCO": 0.0
+                },
+                "market_value": {
+                    "TNA": 1700.48,
+                    "TECL": 1653.36,
+                    "UPRO": 1786.07,
+                    "TQQQ": 1802.1,
+                    "SOXL": 2072.2,
+                    "EURL": 1786.0,
+                    "UUP": 1972.68,
+                    "UCO": 2231.84
+                },
+                "latest_time": {
+                    "TNA": null,
+                    "TECL": null,
+                    "UPRO": null,
+                    "TQQQ": null,
+                    "SOXL": null,
+                    "EURL": null,
+                    "UUP": null,
+                    "UCO": null
+                },
+                "support": {
+                    "TNA": 62.75,
+                    "TECL": null,
+                    "UPRO": null,
+                    "TQQQ": null,
+                    "SOXL": null,
+                    "EURL": 45.84,
+                    "UUP": null,
+                    "UCO": null
+                },
+                "resistant": {
+                    "TNA": 65.2,
+                    "TECL": null,
+                    "UPRO": null,
+                    "TQQQ": null,
+                    "SOXL": null,
+                    "EURL": null,
+                    "UUP": null,
+                    "UCO": 52.11
+                }
+            },
+            "market_value": 14997.24,
+            "net_value": 24378.81,
+            "updated": "2026-10-15 10:26:25",
+            "cash": 9377.14
+        },
+        "standard_account": {
+            "portfolio": {
+                "quantity": {},
+                "average_cost": {},
+                "latest_price": {},
+                "rate": {},
+                "market_value": {},
+                "latest_time": {},
+                "support": {},
+                "resistant": {}
+            },
+            "market_value": 0,
+            "net_value": 94.69,
+            "updated": "2020-11-26 08:37:11",
+            "cash": 94.69
+        }
+    }
+}
